@@ -1,0 +1,20 @@
+{
+  "name": "RepForge",
+  "short_name": "RepForge",
+  "description": "Local-only progressive overload tracker for machine-only bodybuilding training.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0b0b0c",
+  "theme_color": "#0b0b0c",
+  "categories": ["health", "fitness", "productivity"],
+  "icons": [
+    {
+      "src": "icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
