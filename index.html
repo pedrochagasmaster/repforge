@@ -1,0 +1,81 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#0b0b0c">
+  <meta name="description" content="RepForge is a local-only progressive overload tracker.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="RepForge">
+  <title>RepForge</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon.svg">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><h1>RepForge</h1><p>Local-only progressive overload log</p></div>
+    <button id="installBtn" class="ghost hidden">Install</button>
+  </header>
+
+  <main>
+    <section id="log" class="view active">
+      <div class="row"><div><h2>Log workout</h2><p>Working sets only.</p></div><input id="date" type="date"></div>
+      <div id="dayTabs" class="tabs"></div>
+      <form id="logForm"><div id="workout"></div><textarea id="notes" placeholder="Session notes"></textarea><button class="primary">Save workout</button></form>
+    </section>
+
+    <section id="stats" class="view">
+      <h2>Stats</h2>
+      <div id="metrics" class="metrics"></div>
+      <label>Exercise<select id="statExercise"></select></label>
+      <canvas id="chart" height="220"></canvas>
+      <h3>Recent performance</h3><div id="recent" class="table"></div>
+      <h3>Top loads</h3><div id="tops" class="table"></div>
+    </section>
+
+    <section id="history" class="view">
+      <h2>History</h2>
+      <div id="historyTable" class="table"></div>
+      <h3>Sessions</h3><div id="sessions"></div>
+    </section>
+
+    <section id="program" class="view">
+      <h2>Program</h2>
+      <p>Edit as JSON. Muscles are comma-separated. Secondary muscles count as 0.5 set.</p>
+      <textarea id="programJson" rows="18"></textarea>
+      <button id="saveProgram" class="primary">Save program</button>
+      <h3>Volume audit</h3><div id="volume" class="table"></div>
+    </section>
+
+    <section id="settings" class="view">
+      <h2>Settings</h2>
+      <div class="card">
+        <label>Load jump %<input id="jumpPct" type="number" step="0.5"></label>
+        <label>Minimum jump kg<input id="minJump" type="number" step="0.25"></label>
+        <label>Target RIR high<input id="rirHigh" type="number" step="0.5"></label>
+        <button id="saveSettings" class="primary">Save settings</button>
+      </div>
+      <div class="card">
+        <button id="exportJson">Export backup JSON</button>
+        <button id="exportCsv">Export log CSV</button>
+        <label class="file">Import backup JSON<input id="importJson" type="file" accept=".json,application/json"></label>
+        <button id="reset" class="danger">Delete log</button>
+      </div>
+      <p id="storageNote"></p>
+    </section>
+  </main>
+
+  <nav>
+    <button data-view="log" class="active">Log</button>
+    <button data-view="stats">Stats</button>
+    <button data-view="history">History</button>
+    <button data-view="program">Program</button>
+    <button data-view="settings">Settings</button>
+  </nav>
+
+  <div id="toast" class="toast hidden"></div>
+  <script src="app.js"></script>
+</body>
+</html>
