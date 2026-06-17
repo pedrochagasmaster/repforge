@@ -3,9 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0b0b0c">
-  <meta name="description" content="RepForge is a local-only progressive overload tracker.">
+  <meta name="theme-color" content="#0e1116">
+  <meta name="description" content="RepForge is a local-only progressive overload tracker. Heat means you are ready to add load.">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="RepForge">
   <title>RepForge</title>
   <link rel="manifest" href="manifest.webmanifest">
@@ -15,64 +16,99 @@
 </head>
 <body>
   <header class="topbar">
-    <div><h1>RepForge</h1><p>Local-only progressive overload log</p></div>
-    <button id="installBtn" class="ghost hidden">Install</button>
+    <a class="brand" href="#" aria-label="RepForge home">
+      <span class="brand__mark" aria-hidden="true"></span>
+      <span class="brand__word">REP<em>FORGE</em></span>
+    </a>
+    <div class="topbar__end">
+      <span id="heatGauge" class="gauge" title="Session heat — how many lifts are ready to add load">
+        <span class="gauge__fill"></span>
+        <span class="gauge__label">forge</span>
+      </span>
+      <button id="installBtn" class="btn btn--ghost hidden">Install</button>
+    </div>
   </header>
 
   <main>
-    <section id="log" class="view active">
-      <div class="row"><div><h2>Log workout</h2><p>Working sets only.</p></div><input id="date" type="date"></div>
-      <div id="dayTabs" class="tabs"></div>
-      <form id="logForm"><div id="workout"></div><textarea id="notes" placeholder="Session notes"></textarea><button class="primary">Save workout</button></form>
+    <section id="log" class="view active" aria-label="Log workout">
+      <div class="sectionhead">
+        <p class="eyebrow">Today's session</p>
+        <div class="sectionhead__row">
+          <h2>Log workout</h2>
+          <label class="datepick">Date<input id="date" type="date"></label>
+        </div>
+      </div>
+      <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
+      <form id="logForm">
+        <div id="workout"></div>
+        <label class="field">Session notes
+          <textarea id="notes" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
+        </label>
+        <button class="btn btn--forge btn--save" type="submit">
+          <span>Save workout</span>
+          <span id="saveMeta" class="btn__meta"></span>
+        </button>
+      </form>
     </section>
 
-    <section id="stats" class="view">
-      <h2>Stats</h2>
+    <section id="stats" class="view" aria-label="Stats">
+      <div class="sectionhead"><p class="eyebrow">The numbers</p><h2>Stats</h2></div>
       <div id="metrics" class="metrics"></div>
-      <label>Exercise<select id="statExercise"></select></label>
-      <canvas id="chart" height="220"></canvas>
-      <h3>Recent performance</h3><div id="recent" class="table"></div>
-      <h3>Top loads</h3><div id="tops" class="table"></div>
+      <div class="card chartcard">
+        <label class="field">Exercise<select id="statExercise"></select></label>
+        <div id="trend" class="trend"></div>
+        <canvas id="chart" height="240" aria-label="Top load over time"></canvas>
+      </div>
+      <h3 class="subhead">Recent performance</h3><div id="recent" class="table"></div>
+      <h3 class="subhead">Top loads</h3><div id="tops" class="table"></div>
     </section>
 
-    <section id="history" class="view">
-      <h2>History</h2>
-      <div id="historyTable" class="table"></div>
-      <h3>Sessions</h3><div id="sessions"></div>
+    <section id="history" class="view" aria-label="History">
+      <div class="sectionhead"><p class="eyebrow">The ledger</p><h2>History</h2></div>
+      <h3 class="subhead">Sessions</h3><div id="sessions" class="sessions"></div>
+      <h3 class="subhead">Every set</h3><div id="historyTable" class="table"></div>
     </section>
 
-    <section id="program" class="view">
-      <h2>Program</h2>
-      <p>Edit as JSON. Muscles are comma-separated. Secondary muscles count as 0.5 set.</p>
-      <textarea id="programJson" rows="18"></textarea>
-      <button id="saveProgram" class="primary">Save program</button>
-      <h3>Volume audit</h3><div id="volume" class="table"></div>
+    <section id="program" class="view" aria-label="Program">
+      <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
+      <p class="lede">Edit as JSON. Muscles are comma-separated. Secondary muscles count as a half set.</p>
+      <label class="field">Program JSON<textarea id="programJson" rows="16" spellcheck="false"></textarea></label>
+      <button id="saveProgram" class="btn btn--forge">Save program</button>
+      <h3 class="subhead">Weekly volume audit</h3><div id="volume" class="volume"></div>
     </section>
 
-    <section id="settings" class="view">
-      <h2>Settings</h2>
+    <section id="settings" class="view" aria-label="Settings">
+      <div class="sectionhead"><p class="eyebrow">The dials</p><h2>Settings</h2></div>
       <div class="card">
-        <label>Load jump %<input id="jumpPct" type="number" step="0.5"></label>
-        <label>Minimum jump kg<input id="minJump" type="number" step="0.25"></label>
-        <label>Target RIR high<input id="rirHigh" type="number" step="0.5"></label>
-        <button id="saveSettings" class="primary">Save settings</button>
+        <p class="cardtitle">Progression</p>
+        <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>
+        <label class="field">Minimum jump (kg)<input id="minJump" type="number" step="0.25" inputmode="decimal"></label>
+        <label class="field">Target RIR ceiling<input id="rirHigh" type="number" step="0.5" inputmode="decimal"></label>
+        <button id="saveSettings" class="btn btn--forge">Save settings</button>
       </div>
       <div class="card">
-        <button id="exportJson">Export backup JSON</button>
-        <button id="exportCsv">Export log CSV</button>
-        <label class="file">Import backup JSON<input id="importJson" type="file" accept=".json,application/json"></label>
-        <button id="reset" class="danger">Delete log</button>
+        <p class="cardtitle">Your data</p>
+        <p class="lede" id="storageNote"></p>
+        <div class="btnrow">
+          <button id="exportJson" class="btn btn--steel">Export backup JSON</button>
+          <button id="exportCsv" class="btn btn--steel">Export log CSV</button>
+        </div>
+        <label class="btn btn--steel file">Import backup JSON<input id="importJson" type="file" accept=".json,application/json"></label>
       </div>
-      <p id="storageNote"></p>
+      <div class="card card--danger">
+        <p class="cardtitle">Danger zone</p>
+        <p class="lede">This clears every logged set on this device. Export a backup first.</p>
+        <button id="reset" class="btn btn--danger">Delete log</button>
+      </div>
     </section>
   </main>
 
-  <nav>
-    <button data-view="log" class="active">Log</button>
-    <button data-view="stats">Stats</button>
-    <button data-view="history">History</button>
-    <button data-view="program">Program</button>
-    <button data-view="settings">Settings</button>
+  <nav aria-label="Sections">
+    <button data-view="log" class="active"><span class="nav__icon" data-i="log"></span>Log</button>
+    <button data-view="stats"><span class="nav__icon" data-i="stats"></span>Stats</button>
+    <button data-view="history"><span class="nav__icon" data-i="history"></span>History</button>
+    <button data-view="program"><span class="nav__icon" data-i="program"></span>Program</button>
+    <button data-view="settings"><span class="nav__icon" data-i="settings"></span>Settings</button>
   </nav>
 
   <div id="toast" class="toast hidden"></div>

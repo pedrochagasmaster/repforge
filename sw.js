@@ -1,5 +1,11 @@
-const CACHE = "repforge-v1";
-const ASSETS = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icons/icon.svg"];
+const CACHE = "repforge-v2";
+const ASSETS = [
+  "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
+  "./icons/icon.svg",
+  "./fonts/saira-600.woff2", "./fonts/saira-700.woff2", "./fonts/saira-800.woff2",
+  "./fonts/plexsans.woff2",
+  "./fonts/plexmono-400.woff2", "./fonts/plexmono-500.woff2", "./fonts/plexmono-600.woff2"
+];
 
 self.addEventListener("install", event => {
   event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
