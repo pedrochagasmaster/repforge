@@ -11,7 +11,7 @@ RepForge is a local-only mobile PWA for tracking load progression and progressiv
 - Previous-session display
 - Stats dashboard with top-load chart
 - Training history and session deletion
-- Program editor via JSON
+- Visual program editor (add/reorder/remove days and exercises), with raw-JSON advanced mode
 - Volume audit with direct and partial set counting
 - JSON backup/import
 - CSV export

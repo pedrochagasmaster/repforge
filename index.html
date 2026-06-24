@@ -71,9 +71,15 @@
 
     <section id="program" class="view" aria-label="Program">
       <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
-      <p class="lede">Edit as JSON. Muscles are comma-separated. Secondary muscles count as a half set.</p>
-      <label class="field">Program JSON<textarea id="programJson" rows="16" spellcheck="false"></textarea></label>
-      <button id="saveProgram" class="btn btn--forge">Save program</button>
+      <p class="lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
+      <div id="programEditor" class="peditor"></div>
+      <button id="addDay" class="btn btn--steel peditor__addday" type="button">+ Add day</button>
+      <details class="advanced">
+        <summary>Advanced · edit raw JSON</summary>
+        <p class="lede">Editing here replaces the whole program. Use the visual editor above for everyday changes.</p>
+        <label class="field">Program JSON<textarea id="programJson" rows="14" spellcheck="false"></textarea></label>
+        <button id="saveProgram" class="btn btn--forge" type="button">Save JSON</button>
+      </details>
       <h3 class="subhead">Weekly volume audit</h3><div id="volume" class="volume"></div>
     </section>
 
