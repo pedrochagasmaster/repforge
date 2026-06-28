@@ -1,73 +1,73 @@
 ID | Status | Test Result | Issues / Notes
-LOG-1 | Tested — pass | Behaves as specced in browser. | 
-LOG-2 | Tested — pass | Behaves as specced in browser. | 
-LOG-3 | Tested — pass | Behaves as specced in browser. | 
-LOG-4 | Tested — pass | Behaves as specced in browser. | 
-LOG-5 | Fixed — pending re-test | Re-test: new-lift kg field should be blank; tap+type should not leave a leading zero. | FIX: blank kg default when no history/recommendation; select-on-focus on set inputs.
-LOG-6 | Tested — pass | Behaves as specced in browser. | 
-LOG-7 | Tested — pass | Behaves as specced in browser. | 
-LOG-8 | Tested — pass | Behaves as specced in browser. | 
-LOG-9 | Tested — pass | Behaves as specced in browser. | 
-LOG-10 | Tested — pass | Behaves as specced in browser. | 
-LOG-11 | Tested — pass | Behaves as specced in browser. | 
-LOG-12 | Tested — pass | Behaves as specced in browser. | 
-LOG-13 | Tested — pass | Behaves as specced in browser. | 
-LOG-14 | Tested — pass | Behaves as specced in browser. | 
-LOG-15 | Tested — pass | Behaves as specced in browser. | 
-LOG-16 | Tested — pass | Behaves as specced in browser. | 
-LOG-17 | Tested — pass | Behaves as specced in browser. | 
-LOG-18 | Tested — pass | Behaves as specced in browser. | 
-STATS-1 | Tested — pass | Behaves as specced in browser. | 
-STATS-2 | Tested — pass | Behaves as specced in browser. | 
-STATS-3 | Tested — pass | Behaves as specced in browser. | 
-STATS-4 | Tested — pass | Behaves as specced in browser. | 
-STATS-5 | Tested — pass | Behaves as specced in browser. | 
-STATS-6 | Tested — pass | Behaves as specced in browser. | 
-STATS-7 | Tested — pass | Behaves as specced in browser. | 
-STATS-8 | Tested — pass | Behaves as specced in browser. | 
-STATS-9 | Tested — pass | Behaves as specced in browser. | 
-STATS-10 | Tested — pass | Behaves as specced in browser. | 
-STATS-11 | Tested — pass | Behaves as specced in browser. | 
-HIST-1 | Tested — pass | Behaves as specced in browser. | 
-HIST-2 | Tested — pass | Behaves as specced in browser. | 
-HIST-3 | Tested — pass | Behaves as specced in browser. | 
-HIST-4 | Tested — pass | Behaves as specced in browser. | 
-HIST-5 | Tested — pass | Behaves as specced in browser. | 
-HIST-6 | Tested — pass | Behaves as specced in browser. | 
-HIST-7 | Tested — pass | Behaves as specced in browser. | 
-HIST-8 | Tested — pass | Behaves as specced in browser. | 
-HIST-9 | Tested — pass | Behaves as specced in browser. | 
-PROG-1 | Tested — pass | Behaves as specced in browser. | 
-PROG-2 | Tested — pass | Behaves as specced in browser. | 
-PROG-3 | Tested — pass | Behaves as specced in browser. | 
-PROG-4 | Tested — pass | Behaves as specced in browser. | 
-PROG-5 | Tested — pass | Behaves as specced in browser. | 
-PROG-6 | Tested — pass | Behaves as specced in browser. | 
-PROG-7 | Tested — pass | Behaves as specced in browser. | 
-PROG-8 | Tested — pass | Behaves as specced in browser. | 
-PROG-9 | Tested — pass | Behaves as specced in browser. | 
-PROG-10 | Fixed — pending re-test | Re-test: invalid Sets input reverts to stored value; Min>Max self-corrects. | FIX: Program.update enforces max>=min; number onchange re-syncs all sibling fields from model; select-on-focus.
-PROG-11 | Tested — pass | Behaves as specced in browser. | 
-PROG-12 | Tested — pass | Behaves as specced in browser. | 
-PROG-13 | Tested — pass | Behaves as specced in browser. | 
-PROG-14 | Tested — pass | Behaves as specced in browser. | 
-PROG-15 | Tested — pass | Behaves as specced in browser. | 
-PROG-16 | Tested — pass | Behaves as specced in browser. | 
-SET-1 | Tested — pass | Behaves as specced in browser. | 
-SET-2 | Tested — pass | Behaves as specced in browser. | 
-SET-3 | Fixed — pending re-test | Re-test: set RIR ceiling to 0 then Save; should persist. | FIX: validate settings with Number.isFinite + range; allow 0 for jump%% and RIR ceiling, keep min-jump > 0.
-SET-4 | Tested — pass | Behaves as specced in browser. | 
-SET-5 | Tested — pass | Behaves as specced in browser. | 
-SET-6 | Tested — pass | Behaves as specced in browser. | 
-SET-7 | Tested — pass | Behaves as specced in browser. | 
-SET-8 | Tested — pass | Behaves as specced in browser. | 
-SHELL-1 | Tested — pass | Behaves as specced in browser. | 
-SHELL-2 | Tested — pass | Behaves as specced in browser. | 
-SHELL-3 | Tested — pass | Behaves as specced in browser. | 
-SHELL-4 | Tested — pass | Behaves as specced in browser. | 
-SHELL-5 | Tested — pass | Behaves as specced in browser. | 
-SHELL-6 | Tested — pass | Behaves as specced in browser. | 
-SHELL-7 | Tested — pass | Behaves as specced in browser. | 
-SHELL-8 | Tested — pass | Behaves as specced in browser. | 
-SHELL-9 | Tested — pass | Behaves as specced in browser. | 
-SHELL-10 | Fixed — pending re-test | Re-test: no apple-mobile deprecation warning in console. | FIX: added <meta name=mobile-web-app-capable content=yes>; bumped SW cache to repforge-v4.
+LOG-1 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-2 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-3 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-4 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-5 | Verified — fixed | Re-tested: new-lift kg shows blank placeholder; typing 80 reads "80"; reps select-on-focus replaces cleanly. | FIXED: blank kg default + select-on-focus on set inputs.
+LOG-6 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-7 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-8 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-9 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-10 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-11 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-12 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-13 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-14 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-15 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-16 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-17 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+LOG-18 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-1 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-2 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-3 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-4 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-5 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-6 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-7 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-8 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-9 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-10 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+STATS-11 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-1 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-2 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-3 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-4 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-5 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-6 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-7 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-8 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+HIST-9 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-1 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-2 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-3 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-4 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-5 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-6 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-7 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-8 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-9 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-10 | Verified — fixed | Re-tested: Min 12 -> Max becomes 12; Max 5 -> Min becomes 5; abc/-3/blank Sets revert to stored value. | FIXED: Program.update enforces max>=min; onchange re-syncs sibling number fields; select-on-focus.
+PROG-11 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-12 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-13 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-14 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-15 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+PROG-16 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SET-1 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SET-2 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SET-3 | Verified — fixed | Re-tested: RIR ceiling 0 and jump%% 0 persist after reload; min-jump 0 correctly floored to 2.5. | FIXED: settings validated with Number.isFinite + range; min-jump kept > 0.
+SET-4 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SET-5 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SET-6 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SET-7 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SET-8 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-1 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-2 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-3 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-4 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-5 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-6 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-7 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-8 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-9 | Verified — pass | Re-confirmed in browser post-fix; no regression. |
+SHELL-10 | Verified — fixed | Re-tested: no apple-mobile deprecation warning in console after cache refresh. | FIXED: added mobile-web-app-capable meta; SW cache bumped to repforge-v4.
