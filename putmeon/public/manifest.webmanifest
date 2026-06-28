@@ -1,0 +1,10 @@
+{
+  "name": "Put Me On",
+  "short_name": "Put Me On",
+  "description": "Ache o look do print, pagando menos.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#faf7f2",
+  "theme_color": "#e8553d",
+  "icons": []
+}

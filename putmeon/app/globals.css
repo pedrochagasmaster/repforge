@@ -1,0 +1,84 @@
+@import "tailwindcss";
+
+:root {
+  --bg: #faf7f2;
+  --ink: #1a1614;
+  --muted: #7a716a;
+  --line: #ece5db;
+  --card: #ffffff;
+  --accent: #e8553d;
+  --accent-2: #f0a23b;
+  --good: #2f8f5b;
+}
+
+@theme inline {
+  --color-bg: var(--bg);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-card: var(--card);
+  --color-accent: var(--accent);
+  --color-good: var(--good);
+  --font-sans: var(--font-geist-sans);
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #efe9e0;
+  color: var(--ink);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Mobile-first "phone" shell, centered on larger screens. */
+.shell {
+  width: 100%;
+  max-width: 460px;
+  margin: 0 auto;
+  min-height: 100dvh;
+  background: var(--bg);
+  position: relative;
+  box-shadow: 0 0 60px rgba(0, 0, 0, 0.08);
+}
+
+.brand-gradient {
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+}
+
+.brand-text {
+  background: linear-gradient(100deg, var(--accent), var(--accent-2));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@keyframes shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+.shimmer::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.55),
+    transparent
+  );
+  animation: shimmer 1.3s infinite;
+}
