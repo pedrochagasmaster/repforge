@@ -3,7 +3,7 @@ LOG-1 | Tested — pass | Behaves as specced in browser. |
 LOG-2 | Tested — pass | Behaves as specced in browser. | 
 LOG-3 | Tested — pass | Behaves as specced in browser. | 
 LOG-4 | Tested — pass | Behaves as specced in browser. | 
-LOG-5 | Tested — UX BUG | New-lift kg field shows "0"; tapping and typing produces leading zeros e.g. "050". | Default kg of 0 is not a useful value and is awkward to overtype; prefilled fields are not select-on-focus.
+LOG-5 | Fixed — pending re-test | Re-test: new-lift kg field should be blank; tap+type should not leave a leading zero. | FIX: blank kg default when no history/recommendation; select-on-focus on set inputs.
 LOG-6 | Tested — pass | Behaves as specced in browser. | 
 LOG-7 | Tested — pass | Behaves as specced in browser. | 
 LOG-8 | Tested — pass | Behaves as specced in browser. | 
@@ -46,7 +46,7 @@ PROG-6 | Tested — pass | Behaves as specced in browser. |
 PROG-7 | Tested — pass | Behaves as specced in browser. | 
 PROG-8 | Tested — pass | Behaves as specced in browser. | 
 PROG-9 | Tested — pass | Behaves as specced in browser. | 
-PROG-10 | Tested — BUG | Typing abc/-3 in Sets can leave field blank; setting Min=12 Max=5 (min>max) is accepted with no correction. | onchange does not re-sync siblings from model; Program.update does not enforce max>=min unlike the constructor.
+PROG-10 | Fixed — pending re-test | Re-test: invalid Sets input reverts to stored value; Min>Max self-corrects. | FIX: Program.update enforces max>=min; number onchange re-syncs all sibling fields from model; select-on-focus.
 PROG-11 | Tested — pass | Behaves as specced in browser. | 
 PROG-12 | Tested — pass | Behaves as specced in browser. | 
 PROG-13 | Tested — pass | Behaves as specced in browser. | 
@@ -55,7 +55,7 @@ PROG-15 | Tested — pass | Behaves as specced in browser. |
 PROG-16 | Tested — pass | Behaves as specced in browser. | 
 SET-1 | Tested — pass | Behaves as specced in browser. | 
 SET-2 | Tested — pass | Behaves as specced in browser. | 
-SET-3 | Tested — BUG | Set Load jump %, Min jump, or RIR ceiling to 0 and Save; value silently reverts to default (2.5/2.5/2). | Falsy-zero coercion: +value||default rejects legitimate 0 (esp. RIR ceiling 0 = train to failure).
+SET-3 | Fixed — pending re-test | Re-test: set RIR ceiling to 0 then Save; should persist. | FIX: validate settings with Number.isFinite + range; allow 0 for jump%% and RIR ceiling, keep min-jump > 0.
 SET-4 | Tested — pass | Behaves as specced in browser. | 
 SET-5 | Tested — pass | Behaves as specced in browser. | 
 SET-6 | Tested — pass | Behaves as specced in browser. | 
@@ -70,4 +70,4 @@ SHELL-6 | Tested — pass | Behaves as specced in browser. |
 SHELL-7 | Tested — pass | Behaves as specced in browser. | 
 SHELL-8 | Tested — pass | Behaves as specced in browser. | 
 SHELL-9 | Tested — pass | Behaves as specced in browser. | 
-SHELL-10 | Tested — minor | PWA metadata fine, but console logs a deprecation warning on load. | <meta name=apple-mobile-web-app-capable> is deprecated; add <meta name=mobile-web-app-capable content=yes>.
+SHELL-10 | Fixed — pending re-test | Re-test: no apple-mobile deprecation warning in console. | FIX: added <meta name=mobile-web-app-capable content=yes>; bumped SW cache to repforge-v4.
