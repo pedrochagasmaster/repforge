@@ -1,73 +1,73 @@
 ID | Status | Test Result | Issues / Notes
-LOG-1 | Spec'd |  | 
-LOG-2 | Spec'd |  | 
-LOG-3 | Spec'd |  | 
-LOG-4 | Spec'd |  | 
-LOG-5 | Spec'd |  | 
-LOG-6 | Spec'd |  | 
-LOG-7 | Spec'd |  | 
-LOG-8 | Spec'd |  | 
-LOG-9 | Spec'd |  | 
-LOG-10 | Spec'd |  | 
-LOG-11 | Spec'd |  | 
-LOG-12 | Spec'd |  | 
-LOG-13 | Spec'd |  | 
-LOG-14 | Spec'd |  | 
-LOG-15 | Spec'd |  | 
-LOG-16 | Spec'd |  | 
-LOG-17 | Spec'd |  | 
-LOG-18 | Spec'd |  | 
-STATS-1 | Spec'd |  | 
-STATS-2 | Spec'd |  | 
-STATS-3 | Spec'd |  | 
-STATS-4 | Spec'd |  | 
-STATS-5 | Spec'd |  | 
-STATS-6 | Spec'd |  | 
-STATS-7 | Spec'd |  | 
-STATS-8 | Spec'd |  | 
-STATS-9 | Spec'd |  | 
-STATS-10 | Spec'd |  | 
-STATS-11 | Spec'd |  | 
-HIST-1 | Spec'd |  | 
-HIST-2 | Spec'd |  | 
-HIST-3 | Spec'd |  | 
-HIST-4 | Spec'd |  | 
-HIST-5 | Spec'd |  | 
-HIST-6 | Spec'd |  | 
-HIST-7 | Spec'd |  | 
-HIST-8 | Spec'd |  | 
-HIST-9 | Spec'd |  | 
-PROG-1 | Spec'd |  | 
-PROG-2 | Spec'd |  | 
-PROG-3 | Spec'd |  | 
-PROG-4 | Spec'd |  | 
-PROG-5 | Spec'd |  | 
-PROG-6 | Spec'd |  | 
-PROG-7 | Spec'd |  | 
-PROG-8 | Spec'd |  | 
-PROG-9 | Spec'd |  | 
-PROG-10 | Spec'd |  | 
-PROG-11 | Spec'd |  | 
-PROG-12 | Spec'd |  | 
-PROG-13 | Spec'd |  | 
-PROG-14 | Spec'd |  | 
-PROG-15 | Spec'd |  | 
-PROG-16 | Spec'd |  | 
-SET-1 | Spec'd |  | 
-SET-2 | Spec'd |  | 
-SET-3 | Spec'd |  | 
-SET-4 | Spec'd |  | 
-SET-5 | Spec'd |  | 
-SET-6 | Spec'd |  | 
-SET-7 | Spec'd |  | 
-SET-8 | Spec'd |  | 
-SHELL-1 | Spec'd |  | 
-SHELL-2 | Spec'd |  | 
-SHELL-3 | Spec'd |  | 
-SHELL-4 | Spec'd |  | 
-SHELL-5 | Spec'd |  | 
-SHELL-6 | Spec'd |  | 
-SHELL-7 | Spec'd |  | 
-SHELL-8 | Spec'd |  | 
-SHELL-9 | Spec'd |  | 
-SHELL-10 | Spec'd |  | 
+LOG-1 | Tested — pass | Behaves as specced in browser. | 
+LOG-2 | Tested — pass | Behaves as specced in browser. | 
+LOG-3 | Tested — pass | Behaves as specced in browser. | 
+LOG-4 | Tested — pass | Behaves as specced in browser. | 
+LOG-5 | Tested — UX BUG | New-lift kg field shows "0"; tapping and typing produces leading zeros e.g. "050". | Default kg of 0 is not a useful value and is awkward to overtype; prefilled fields are not select-on-focus.
+LOG-6 | Tested — pass | Behaves as specced in browser. | 
+LOG-7 | Tested — pass | Behaves as specced in browser. | 
+LOG-8 | Tested — pass | Behaves as specced in browser. | 
+LOG-9 | Tested — pass | Behaves as specced in browser. | 
+LOG-10 | Tested — pass | Behaves as specced in browser. | 
+LOG-11 | Tested — pass | Behaves as specced in browser. | 
+LOG-12 | Tested — pass | Behaves as specced in browser. | 
+LOG-13 | Tested — pass | Behaves as specced in browser. | 
+LOG-14 | Tested — pass | Behaves as specced in browser. | 
+LOG-15 | Tested — pass | Behaves as specced in browser. | 
+LOG-16 | Tested — pass | Behaves as specced in browser. | 
+LOG-17 | Tested — pass | Behaves as specced in browser. | 
+LOG-18 | Tested — pass | Behaves as specced in browser. | 
+STATS-1 | Tested — pass | Behaves as specced in browser. | 
+STATS-2 | Tested — pass | Behaves as specced in browser. | 
+STATS-3 | Tested — pass | Behaves as specced in browser. | 
+STATS-4 | Tested — pass | Behaves as specced in browser. | 
+STATS-5 | Tested — pass | Behaves as specced in browser. | 
+STATS-6 | Tested — pass | Behaves as specced in browser. | 
+STATS-7 | Tested — pass | Behaves as specced in browser. | 
+STATS-8 | Tested — pass | Behaves as specced in browser. | 
+STATS-9 | Tested — pass | Behaves as specced in browser. | 
+STATS-10 | Tested — pass | Behaves as specced in browser. | 
+STATS-11 | Tested — pass | Behaves as specced in browser. | 
+HIST-1 | Tested — pass | Behaves as specced in browser. | 
+HIST-2 | Tested — pass | Behaves as specced in browser. | 
+HIST-3 | Tested — pass | Behaves as specced in browser. | 
+HIST-4 | Tested — pass | Behaves as specced in browser. | 
+HIST-5 | Tested — pass | Behaves as specced in browser. | 
+HIST-6 | Tested — pass | Behaves as specced in browser. | 
+HIST-7 | Tested — pass | Behaves as specced in browser. | 
+HIST-8 | Tested — pass | Behaves as specced in browser. | 
+HIST-9 | Tested — pass | Behaves as specced in browser. | 
+PROG-1 | Tested — pass | Behaves as specced in browser. | 
+PROG-2 | Tested — pass | Behaves as specced in browser. | 
+PROG-3 | Tested — pass | Behaves as specced in browser. | 
+PROG-4 | Tested — pass | Behaves as specced in browser. | 
+PROG-5 | Tested — pass | Behaves as specced in browser. | 
+PROG-6 | Tested — pass | Behaves as specced in browser. | 
+PROG-7 | Tested — pass | Behaves as specced in browser. | 
+PROG-8 | Tested — pass | Behaves as specced in browser. | 
+PROG-9 | Tested — pass | Behaves as specced in browser. | 
+PROG-10 | Tested — BUG | Typing abc/-3 in Sets can leave field blank; setting Min=12 Max=5 (min>max) is accepted with no correction. | onchange does not re-sync siblings from model; Program.update does not enforce max>=min unlike the constructor.
+PROG-11 | Tested — pass | Behaves as specced in browser. | 
+PROG-12 | Tested — pass | Behaves as specced in browser. | 
+PROG-13 | Tested — pass | Behaves as specced in browser. | 
+PROG-14 | Tested — pass | Behaves as specced in browser. | 
+PROG-15 | Tested — pass | Behaves as specced in browser. | 
+PROG-16 | Tested — pass | Behaves as specced in browser. | 
+SET-1 | Tested — pass | Behaves as specced in browser. | 
+SET-2 | Tested — pass | Behaves as specced in browser. | 
+SET-3 | Tested — BUG | Set Load jump %, Min jump, or RIR ceiling to 0 and Save; value silently reverts to default (2.5/2.5/2). | Falsy-zero coercion: +value||default rejects legitimate 0 (esp. RIR ceiling 0 = train to failure).
+SET-4 | Tested — pass | Behaves as specced in browser. | 
+SET-5 | Tested — pass | Behaves as specced in browser. | 
+SET-6 | Tested — pass | Behaves as specced in browser. | 
+SET-7 | Tested — pass | Behaves as specced in browser. | 
+SET-8 | Tested — pass | Behaves as specced in browser. | 
+SHELL-1 | Tested — pass | Behaves as specced in browser. | 
+SHELL-2 | Tested — pass | Behaves as specced in browser. | 
+SHELL-3 | Tested — pass | Behaves as specced in browser. | 
+SHELL-4 | Tested — pass | Behaves as specced in browser. | 
+SHELL-5 | Tested — pass | Behaves as specced in browser. | 
+SHELL-6 | Tested — pass | Behaves as specced in browser. | 
+SHELL-7 | Tested — pass | Behaves as specced in browser. | 
+SHELL-8 | Tested — pass | Behaves as specced in browser. | 
+SHELL-9 | Tested — pass | Behaves as specced in browser. | 
+SHELL-10 | Tested — minor | PWA metadata fine, but console logs a deprecation warning on load. | <meta name=apple-mobile-web-app-capable> is deprecated; add <meta name=mobile-web-app-capable content=yes>.
