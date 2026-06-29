@@ -50,7 +50,9 @@ class Program{
   renumber(){for(const d of this.days())this.forDay(d).forEach((e,i)=>e.order=i+1)}
   toJSON(){return this.exercises.map(e=>e.toJSON())}
   update(id,field,value){const e=this.find(id);if(!e)return;
-    if(field==="sets"||field==="min"||field==="max")e[field]=Exercise.posInt(value,e[field]);
+    if(field==="sets")e.sets=Exercise.posInt(value,e.sets);
+    else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
+    else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
     else if(field==="name"||field==="primary"||field==="secondary")e[field]=value;}
   addExercise(day){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
     const e=new Exercise({day,order,name:"New exercise",sets:3,min:6,max:10});this.exercises.push(e);return e}
@@ -99,9 +101,11 @@ function renderWorkout(){
   $("#workout").innerHTML=exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex.name);
     const prevHtml=prev.length?`<p class="prev"><span>Last:</span>${prev.map(x=>`${fmt(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}</p>`:"";
-    const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n),base=r.load??old?.load??0;
+    const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
+      const draftKg=draft[`${ex.id}_${n}_load`];
+      const kgVal=draftKg!=null?draftKg:(r.load!=null?fmt(r.load):(old&&old.load!=null?fmt(old.load):""));
       return `<div class="setrow"><span class="setrow__n">${n}</span>`+
-        `<input data-k="${ex.id}_${n}_load" type="number" step="0.5" inputmode="decimal" aria-label="Set ${n} kg" value="${esc(draft[`${ex.id}_${n}_load`]??fmt(base))}">`+
+        `<input data-k="${ex.id}_${n}_load" type="number" step="0.5" inputmode="decimal" aria-label="Set ${n} kg" placeholder="kg" value="${esc(kgVal)}">`+
         `<input data-k="${ex.id}_${n}_reps" type="number" step="1" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(draft[`${ex.id}_${n}_reps`]??ex.min)}">`+
         `<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(draft[`${ex.id}_${n}_rir`]??1)}"></div>`;
     }).join("");
@@ -115,7 +119,10 @@ function renderWorkout(){
       prevHtml+
       `<div class="sets__head"><span>Set</span><span>kg</span><span>reps</span><span>RIR</span></div>${rows}</article>`;
   }).join("");
-  $$("#workout input").forEach(i=>i.oninput=()=>{const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);localStorage.setItem(DRAFT,JSON.stringify(d))});
+  $$("#workout input").forEach(i=>{
+    i.oninput=()=>{const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);localStorage.setItem(DRAFT,JSON.stringify(d))};
+    i.onfocus=()=>i.select();
+  });
   updateGauge();updateSaveMeta();
 }
 
@@ -267,7 +274,11 @@ function exCard(e,i,n){
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
     inp.oninput=()=>{prog.update(inp.dataset.id,inp.dataset.field,inp.value);persistProgram();renderVolume();updateGauge();updateSaveMeta()};
-    if(inp.type==="number")inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(e)inp.value=e[inp.dataset.field]};
+    if(inp.type==="number"){
+      inp.onfocus=()=>inp.select();
+      inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
+        (card?card.querySelectorAll('input[type="number"][data-field]'):[inp]).forEach(x=>x.value=e[x.dataset.field])};
+    }
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
     inp.onchange=()=>{const old=inp.dataset.day;if(prog.renameDay(old,inp.value)){if(day===old)day=inp.value.trim();persistProgram();render();toast("Day renamed.")}else inp.value=old};
@@ -317,7 +328,13 @@ function init(){
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast("Day added.")};
-  $("#saveSettings").onclick=()=>{state.settings={jumpPct:+$("#jumpPct").value||2.5,minJump:+$("#minJump").value||2.5,rirHigh:+$("#rirHigh").value||2};save();render();toast("Settings saved.")};
+  $("#saveSettings").onclick=()=>{
+    const numField=(sel,def,min)=>{const n=+$(sel).value;return Number.isFinite(n)&&n>=min?n:def};
+    state.settings={
+      jumpPct:numField("#jumpPct",2.5,0),
+      minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),
+      rirHigh:numField("#rirHigh",2,0),
+    };save();render();toast("Settings saved.")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];save();render();toast("Log deleted.")}};
   $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>x.classList.toggle("active",x===b));$$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
