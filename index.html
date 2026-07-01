@@ -40,6 +40,7 @@
         </div>
       </div>
       <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
+      <div id="fatigue" class="fatigue hidden"></div>
       <form id="logForm">
         <div id="workout"></div>
         <label class="field">Session notes
@@ -54,12 +55,20 @@
 
     <section id="stats" class="view" aria-label="Stats">
       <div class="sectionhead"><p class="eyebrow">The numbers</p><h2>Stats</h2></div>
+      <div id="attention" class="attention"></div>
       <div id="metrics" class="metrics"></div>
       <div class="card chartcard">
         <label class="field">Exercise<select id="statExercise"></select></label>
         <div id="trend" class="trend"></div>
         <canvas id="chart" height="240" aria-label="Top load over time"></canvas>
       </div>
+      <h3 class="subhead">Completed hard sets</h3>
+      <p class="lede">Logged sets per muscle within your RIR ceiling — the volume you actually did, not the plan.</p>
+      <div id="volWindow" class="seg seg--window" role="tablist" aria-label="Volume window">
+        <button type="button" data-win="7" class="active">7 days</button>
+        <button type="button" data-win="28">28 days</button>
+      </div>
+      <div id="completedVolume" class="volume"></div>
       <h3 class="subhead">Recent performance</h3><div id="recent" class="table"></div>
       <h3 class="subhead">Top loads by exercise</h3><div id="tops" class="table"></div>
     </section>
@@ -81,7 +90,9 @@
         <label class="field">Program JSON<textarea id="programJson" rows="14" spellcheck="false"></textarea></label>
         <button id="saveProgram" class="btn btn--forge" type="button">Save JSON</button>
       </details>
-      <h3 class="subhead">Weekly volume audit</h3><div id="volume" class="volume"></div>
+      <h3 class="subhead">Planned weekly volume</h3>
+      <p class="lede">Sets per muscle from this program template, assuming each day is trained once per week. See <b>Stats → Completed hard sets</b> for what you actually logged.</p>
+      <div id="volume" class="volume"></div>
     </section>
 
     <section id="settings" class="view" aria-label="Settings">
@@ -91,6 +102,8 @@
         <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>
         <label class="field">Minimum jump (kg)<input id="minJump" type="number" step="0.25" inputmode="decimal"></label>
         <label class="field">Target RIR ceiling<input id="rirHigh" type="number" step="0.5" inputmode="decimal"></label>
+        <label class="field">Hard-set RIR ceiling<input id="hardRir" type="number" step="0.5" inputmode="decimal"></label>
+        <p class="lede">Sets at or below this RIR count toward completed hard-set volume. Changes save automatically.</p>
         <button id="saveSettings" class="btn btn--forge">Save settings</button>
       </div>
       <div class="card">

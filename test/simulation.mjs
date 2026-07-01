@@ -118,6 +118,20 @@ async function getExerciseMeta(page, day) {
   );
 }
 
+async function cardInfo(page, idx) {
+  return page.evaluate((i) => {
+    const a = document.querySelectorAll("#workout .exercise")[i];
+    if (!a) return null;
+    return {
+      status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
+      chip: a.querySelector(".chip")?.textContent || "",
+      rec: a.querySelector(".rec")?.textContent || "",
+      setup: a.querySelector(".setup")?.textContent || "",
+      collapsed: a.classList.contains("is-collapsed"),
+    };
+  }, idx);
+}
+
 function isoDateFromWeeksAgo(weeksAgo) {
   const d = new Date();
   d.setDate(d.getDate() - weeksAgo * 7);
@@ -815,6 +829,165 @@ async function main() {
     "Invalid import shows error toast",
     `Toast: "${badToast}"`,
     "Settings → Import non-RepForge JSON file"
+  );
+
+  // ── Phase 12: All-tier upgrades ──────────────────────────────────
+  console.log("\nPhase 12: Progression + UX + hypertrophy upgrades");
+
+  await clearState(page);
+  await page.reload({ waitUntil: "networkidle" });
+  await waitForApp(page);
+
+  // Settings auto-save on change (no Save click)
+  await nav(page, "settings");
+  await page.fill("#hardRir", "3");
+  await page.locator("#hardRir").blur();
+  await page.waitForTimeout(120);
+  assert(
+    (await getState(page)).settings.hardRir === 3,
+    "Settings auto-save on change",
+    `hardRir=${(await getState(page)).settings.hardRir}`,
+    "Settings → change Hard-set RIR ceiling → blur (no Save click)"
+  );
+
+  // Setup notes persist and show on the Log card
+  await nav(page, "program");
+  const note = "Seat 4, feet high";
+  const noteInput = page.locator('.pex [data-field="notes"]').first();
+  await noteInput.fill(note);
+  await noteInput.blur();
+  await page.waitForTimeout(120);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const info0 = await cardInfo(page, 0);
+  assert(
+    info0.setup.includes(note),
+    "Setup notes show on Log card",
+    `Setup text: "${info0.setup}"`,
+    "Program → add setup notes → Log card shows them"
+  );
+
+  const day1 = await getExerciseMeta(page, "Day 1");
+  const exX = day1[0].id, exY = day1[1].id;
+
+  // Session 1 for X
+  await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
+  await saveWorkout(page);
+
+  // Prefill: reps/RIR default to last session
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  assert(
+    (await page.inputValue(`[data-k="${exX}_1_reps"]`)) === "6" &&
+      (await page.inputValue(`[data-k="${exX}_1_rir"]`)) === "1",
+    "Log prefills reps/RIR from last session",
+    `reps=${await page.inputValue(`[data-k="${exX}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${exX}_1_rir"]`)}`,
+    "Log → save a lift → reopen → reps/RIR match last session"
+  );
+
+  // kg stepper adds the minimum jump (2.5)
+  await page.click(`.stepbtn[data-step="${exX}_1_load"][data-dir="1"]`);
+  assert(
+    (await page.inputValue(`[data-k="${exX}_1_load"]`)) === "102.5",
+    "kg stepper increments by minimum jump",
+    `value=${await page.inputValue(`[data-k="${exX}_1_load"]`)}`,
+    "Log → click + on kg → increases by 2.5"
+  );
+
+  // Copy last refills from previous session
+  await page.click(`.copylast[data-copy="${exX}"]`);
+  assert(
+    (await page.inputValue(`[data-k="${exX}_1_load"]`)) === "100",
+    "Copy last refills from previous session",
+    `load=${await page.inputValue(`[data-k="${exX}_1_load"]`)}`,
+    "Log → Copy → inputs match last session"
+  );
+
+  // Collapse toggle
+  await page.click(`.ex__caret[data-collapse="${exX}"]`);
+  await page.waitForTimeout(80);
+  assert(
+    (await cardInfo(page, 0)).collapsed,
+    "Exercise collapses on caret click",
+    "Card not collapsed after caret click",
+    "Log → tap caret → card collapses"
+  );
+  await page.click(`.ex__caret[data-collapse="${exX}"]`);
+
+  // Sessions 2 and 3 for X (same load, same reps → stall)
+  await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
+  await saveWorkout(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
+  await saveWorkout(page);
+
+  // Y: reps below min → back off with a lower target
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await fillExerciseSets(page, exY, day1[1].sets, 80, 2, 1);
+  await saveWorkout(page);
+
+  // Inspect recommendations
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const xInfo = await cardInfo(page, 0);
+  assert(
+    xInfo.status === "is-reduce" && /stall/i.test(xInfo.chip),
+    "Stall detection flags deload after 3 flat sessions",
+    `status=${xInfo.status} chip="${xInfo.chip}"`,
+    "Log → 3 sessions same load, no rep gain → Stalled · deload"
+  );
+  const yInfo = await cardInfo(page, 1);
+  const yTarget = +(yInfo.rec.match(/Target\s+([\d.]+)\s*kg/)?.[1] || 0);
+  assert(
+    yInfo.status === "is-reduce" && yTarget > 0 && yTarget < 80,
+    "Back off returns a real lighter target",
+    `status=${yInfo.status} target=${yTarget}`,
+    "Log → sets below min reps → Back off with target < logged load"
+  );
+
+  // Fatigue banner (2 lifts backing off on this day)
+  const fatigue = await page.evaluate(() => {
+    const el = document.querySelector("#fatigue");
+    return { hidden: el.classList.contains("hidden"), text: el.textContent };
+  });
+  assert(
+    !fatigue.hidden && /fatigue/i.test(fatigue.text),
+    "Fatigue-watch banner appears when lifts back off",
+    `hidden=${fatigue.hidden} text="${fatigue.text}"`,
+    "Log → multiple lifts reduce/stall → fatigue banner"
+  );
+
+  // Stats: completed hard sets + attention board
+  await nav(page, "stats");
+  await page.waitForTimeout(150);
+  assert(
+    (await page.locator("#completedVolume .vrow").count()) > 0,
+    "Completed hard sets render per muscle",
+    "No completed-volume rows",
+    "Stats → Completed hard sets shows logged volume"
+  );
+  assert(
+    (await page.locator("#attention .attn--reduce .attn__chip").count()) > 0,
+    "Attention board lists lifts to back off",
+    "No reduce chips in attention board",
+    "Stats → action board shows Back off / stalled group"
+  );
+
+  // Edit a logged session in History
+  await nav(page, "history");
+  await page.locator(".session__edit").first().click();
+  await page.waitForTimeout(100);
+  const editInput = page.locator('.session--edit [data-ek^="load|"]').first();
+  await editInput.fill("123");
+  await page.locator("[data-edsave]").first().click();
+  await page.waitForTimeout(150);
+  assert(
+    (await getState(page)).log.some((r) => +r.load === 123),
+    "Edit session writes changes back to the log",
+    "No log row with edited load 123",
+    "History → Edit → change a load → Save changes"
   );
 
   // Console errors
