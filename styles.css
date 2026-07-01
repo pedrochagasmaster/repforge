@@ -108,6 +108,7 @@ main{width:min(100%,var(--maxw));margin:0 auto;padding:16px 14px 36px}
   position:relative;display:inline-flex;align-items:center;gap:7px;
   font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);
   border:1px solid var(--rule);border-radius:999px;padding:5px 11px 5px 9px;overflow:hidden;
+  background:none;cursor:default;
 }
 .gauge__fill{
   position:absolute;left:0;top:0;bottom:0;width:0%;
@@ -116,6 +117,18 @@ main{width:min(100%,var(--maxw));margin:0 auto;padding:16px 14px 36px}
 }
 .gauge__label{position:relative}
 .gauge.is-hot{color:var(--whitehot);border-color:rgba(255,150,70,.5)}
+
+/* ---- Rest timer (topbar) ---- */
+.restbar{
+  flex:none;display:inline-flex;align-items:center;gap:6px;
+  border:1px solid var(--rule);background:var(--slag);color:var(--mist);
+  border-radius:999px;padding:5px 10px 5px 8px;cursor:pointer;
+  font-family:var(--mono);font-size:12px;line-height:1;min-height:28px;
+}
+.restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--ember);box-shadow:0 0 8px var(--ember)}
+.restbar.is-done{border-color:rgba(255,90,31,.55);color:var(--ember)}
+.restbar.is-done .restbar__dot{background:var(--gold);box-shadow:0 0 8px var(--gold)}
+.restbar__time{min-width:2.5em;text-align:center}
 
 /* ---- Buttons ---- */
 .btn{
@@ -228,7 +241,7 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .prev span{color:var(--steel)}
 
 /* set grid */
-.sets__head,.setrow{display:grid;grid-template-columns:2rem 1.6fr 1fr 1fr;gap:8px;align-items:center}
+.sets__head,.setrow{display:grid;grid-template-columns:2rem 1.6fr 1fr 1fr auto;gap:8px;align-items:center}
 .sets__head{margin-bottom:4px}
 .sets__head span{font-size:10px;color:var(--steel-dim);letter-spacing:.1em;text-align:center}
 .sets__head span:first-child{text-align:left}
@@ -236,6 +249,13 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .setrow__n{font-family:var(--display);font-weight:700;color:var(--steel);font-size:15px;text-align:center}
 .setrow input{margin-top:0;text-align:center;font-family:var(--mono);font-weight:500;font-size:16px;padding:11px 6px;
   background:var(--iron);border-color:var(--rule-soft)}
+.setrow.is-suggested input{color:var(--steel);opacity:.55}
+.setrow.is-done{border-left:3px solid var(--ember);padding-left:5px;margin-left:-8px;border-radius:0 8px 8px 0;background:rgba(255,90,31,.04)}
+.setrow.is-done .saveset{color:var(--gold);border-color:rgba(255,180,76,.45);background:rgba(255,180,76,.08)}
+.saveset{flex:none;border:1px solid var(--rule);background:var(--anvil);color:var(--steel);
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:10px;font-weight:700;
+  border-radius:8px;padding:8px 6px;cursor:pointer;min-width:2.6rem;line-height:1}
+.saveset:hover{color:var(--mist);border-color:var(--steel-dim)}
 
 /* ---- Metrics tiles ---- */
 .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:6px}
@@ -371,6 +391,23 @@ nav button.active .nav__icon{background:var(--ember)}
 .ex__caret{flex:none;width:28px;height:28px;border:1px solid var(--rule);background:var(--iron);color:var(--steel);
   border-radius:8px;cursor:pointer;font-size:11px;line-height:1;transition:transform .2s ease,color .15s ease,border-color .15s ease}
 .ex__caret:hover{color:var(--mist);border-color:var(--steel-dim)}
+.ex__rest,.ex__skip{flex:none;border:1px solid var(--rule);background:var(--iron);color:var(--steel);
+  border-radius:8px;cursor:pointer;font-size:11px;line-height:1;transition:color .15s ease,border-color .15s ease}
+.ex__rest{width:28px;height:28px;padding:0}
+.ex__rest:hover{color:var(--mist);border-color:var(--steel-dim)}
+.ex__skip{padding:5px 8px;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:10px}
+.ex__skip:hover{color:var(--quench);border-color:rgba(79,182,217,.45)}
+.exercise.is-skipped{opacity:.58;border-style:dashed}
+.exercise.is-skipped .heat,.exercise.is-skipped .rec,.exercise.is-skipped .rec__plain,.exercise.is-skipped .setup,
+.exercise.is-skipped .prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow{display:none}
+.exercise.is-skipped .ex__name::after{content:" · Skipped";color:var(--steel);font-weight:400;font-size:.82em}
+.skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  background:var(--slag);border:1px solid var(--rule-soft);border-radius:10px;
+  padding:8px 12px;margin-bottom:12px;font-size:12.5px;color:var(--steel)}
+.skipbar__show{border:1px solid var(--rule);background:var(--iron);color:var(--mist);
+  border-radius:8px;padding:4px 10px;cursor:pointer;font-family:var(--display);font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;font-size:10px}
+.skipbar__show:hover{border-color:var(--steel-dim)}
 .exercise.is-collapsed .ex__caret{transform:rotate(-90deg)}
 .exercise.is-collapsed .rec,.exercise.is-collapsed .setup,.exercise.is-collapsed .prev,
 .exercise.is-collapsed .sets__head,.exercise.is-collapsed .setrow,.exercise.is-collapsed .heat{display:none}
@@ -398,6 +435,27 @@ nav button.active .nav__icon{background:var(--ember)}
 .fatigue{background:rgba(79,182,217,.1);border:1px solid rgba(79,182,217,.35);border-left:4px solid var(--quench);
   border-radius:12px;padding:12px 15px;margin-bottom:14px;font-size:13px;color:var(--mist);line-height:1.45}
 .fatigue b{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;color:var(--quench);margin-right:2px}
+.fatigue__trim{margin-left:6px;border:1px solid rgba(79,182,217,.45);background:var(--iron);color:var(--quench);
+  border-radius:8px;padding:5px 10px;cursor:pointer;font-family:var(--display);font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;font-size:10px}
+.fatigue__trim:hover{background:rgba(79,182,217,.12)}
+
+/* ---- Glossary + plain-language rec ---- */
+.term{display:inline;border:0;background:transparent;color:inherit;padding:2px 0;margin:0;
+  text-decoration:underline dotted;text-decoration-color:var(--steel-dim);cursor:pointer;
+  font:inherit;line-height:1.4;min-height:24px;vertical-align:baseline}
+.term:hover{text-decoration-color:var(--ember);color:var(--whitehot)}
+.glossary{
+  position:absolute;z-index:60;max-width:280px;
+  background:var(--anvil);border:1px solid var(--rule);border-radius:12px;
+  padding:14px 16px 12px;box-shadow:var(--shadow);
+}
+.glossary__close{position:absolute;top:8px;right:8px;border:0;background:transparent;color:var(--steel);
+  cursor:pointer;font-size:14px;line-height:1;padding:4px}
+.glossary__close:hover{color:var(--mist)}
+.glossary__term{font-family:var(--display);font-weight:700;font-size:13px;margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
+.glossary__body{margin:0;font-size:13px;line-height:1.45;color:var(--steel)}
+.rec__plain{margin:0 0 10px;font-size:12px;line-height:1.4;color:var(--steel-dim);font-style:italic}
 
 /* ---- Attention / action board ---- */
 .attention{display:flex;flex-direction:column;gap:9px;margin-bottom:14px}
@@ -412,6 +470,22 @@ nav button.active .nav__icon{background:var(--ember)}
 .attn--reduce .attn__lead{color:var(--quench)}
 .attn--reduce .attn__chip{border-color:rgba(79,182,217,.4)}
 .attn--new .attn__lead{color:var(--steel)}
+
+/* ---- Focus mode / log layout toggle ---- */
+.modeswitch{display:flex;gap:6px;background:var(--slag);border:1px solid var(--rule);border-radius:14px;padding:5px;margin-bottom:12px}
+.modeswitch button{flex:1;border:0;background:transparent;color:var(--steel);cursor:pointer;border-radius:10px;
+  padding:9px 8px;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:13px}
+.modeswitch button.active{background:var(--anvil);color:var(--mist);box-shadow:inset 0 0 0 1px var(--rule),0 6px 14px -10px #000}
+#workout.is-focus .exercise:not(.is-current){display:none}
+#workout.is-focus .exercise.is-current.is-collapsed .sets__head,
+#workout.is-focus .exercise.is-current.is-collapsed .setrow,
+#workout.is-focus .exercise.is-current.is-collapsed .prev{display:block}
+#workout.is-focus .exercise.is-current.is-collapsed .ex__caret{transform:rotate(0)}
+.focusbar{position:sticky;bottom:calc(var(--navh) + 8px);display:flex;align-items:center;gap:10px;
+  margin-top:16px;padding:12px;background:var(--slag);border:1px solid var(--rule);border-radius:14px;z-index:2}
+.focusbar .btn{flex:1;padding:14px 12px;font-size:14px}
+.focusbar__prog{flex:none;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  font-size:12px;color:var(--steel);min-width:4.5rem;text-align:center}
 
 /* ---- Window toggle (reuses .seg) ---- */
 .seg--window{margin:8px 0 12px}
@@ -465,7 +539,7 @@ nav button.active .nav__icon{background:var(--ember)}
     border-radius:18px 18px 0 0;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 }
 @media (max-width:360px){
-  .sets__head,.setrow{grid-template-columns:1.6rem 1.6fr 1fr 1fr;gap:6px}
+  .sets__head,.setrow{grid-template-columns:1.6rem 1.5fr 0.9fr 0.9fr auto;gap:5px}
   .vrow{grid-template-columns:7rem 1fr auto}
   .setrow input{font-size:15px;padding:10px 4px}
   .kg{gap:3px}

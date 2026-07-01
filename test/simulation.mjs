@@ -62,9 +62,15 @@ async function getProgramExercises(page, day) {
 }
 
 async function clearState(page) {
-  await page.evaluate(({ k, d }) => {
+  await page.evaluate(async ({ k, d }) => {
     localStorage.removeItem(k);
     localStorage.removeItem(d);
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = () => res();
+      req.onerror = () => res();
+      req.onblocked = () => res();
+    });
   }, { k: KEY, d: DRAFT });
 }
 
@@ -483,6 +489,7 @@ async function main() {
   console.log("\nPhase 6: Settings");
 
   await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
   await page.fill("#jumpPct", "5");
   await page.fill("#minJump", "5");
   await page.fill("#rirHigh", "3");
@@ -522,6 +529,11 @@ async function main() {
 
   await nav(page, "stats");
   await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const d = document.querySelector("#statsDeep");
+    if (d) d.open = true;
+  });
+  await page.waitForTimeout(150);
 
   const metricsText = await page.locator("#metrics").textContent();
   assert(
@@ -558,6 +570,26 @@ async function main() {
     `Trend: "${trendText}"`,
     "Stats tab → select logged exercise"
   );
+
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.waitForTimeout(300);
+  const okWide = await page.evaluate(() => {
+    const c = document.querySelector("#chart");
+    return c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
+  });
+  await page.setViewportSize({ width: 380, height: 900 });
+  await page.waitForTimeout(300);
+  const okNarrow = await page.evaluate(() => {
+    const c = document.querySelector("#chart");
+    return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
+  });
+  assert(
+    okWide && okNarrow,
+    "Chart canvas tracks viewport width on resize",
+    `wide=${okWide} narrow=${okNarrow}`,
+    "Stats → resize viewport → canvas backing width follows clientWidth"
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
 
   // ── Phase 8: Export JSON, modify, re-import ──────────────────────
   console.log("\nPhase 8: JSON export/import");
@@ -647,7 +679,11 @@ async function main() {
     header.includes("session") &&
       header.includes("date") &&
       header.includes("load") &&
-      header.includes("reps"),
+      header.includes("reps") &&
+      header.includes("exercise_id") &&
+      header.includes("e1rm") &&
+      header.includes("is_hard_set") &&
+      header.includes("bodyweight"),
     "CSV header has expected columns",
     `Header: ${header}`,
     "Settings → Export log CSV → check first line"
@@ -663,7 +699,7 @@ async function main() {
   console.log("\nPhase 10: Program JSON editor");
 
   await nav(page, "program");
-  await page.locator("details.advanced summary").click();
+  await page.locator("#program details.advanced summary").click();
   const jsonArea = page.locator("#programJson");
   let progJson = JSON.parse(await jsonArea.inputValue());
   const testExName = "JSON Editor Test Lift";
@@ -699,6 +735,28 @@ async function main() {
     "Invalid program JSON shows error toast",
     `Toast: "${toastText}"`,
     "Program → Advanced → enter invalid JSON → Save JSON"
+  );
+
+  // JSON round-trip preserves exercise ids
+  await nav(page, "program");
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
+  const before = await page.evaluate(() => JSON.parse(document.querySelector("#programJson").value));
+  const firstId = before[0].id;
+  assert(
+    !!firstId,
+    "Program JSON exposes exercise ids",
+    "No id field in program JSON",
+    "Program → Advanced → JSON shows id"
+  );
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
+  await page.click("#saveProgram");
+  await page.waitForTimeout(120);
+  const after = await page.evaluate(() => JSON.parse(document.querySelector("#programJson").value));
+  assert(
+    after[0].id === firstId,
+    "JSON round-trip preserves exercise ids",
+    `id changed ${firstId} → ${after[0].id}`,
+    "Program → Save JSON with no edits → ids unchanged"
   );
 
   // ── Phase 11: Edge cases & invariants ────────────────────────────
@@ -840,6 +898,7 @@ async function main() {
 
   // Settings auto-save on change (no Save click)
   await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
   await page.fill("#hardRir", "3");
   await page.locator("#hardRir").blur();
   await page.waitForTimeout(120);
@@ -868,9 +927,75 @@ async function main() {
   );
 
   const day1 = await getExerciseMeta(page, "Day 1");
+  const ex0 = day1[0].id;
+
+  assert(
+    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-suggested"),
+    "Untouched suggestion row is greyed",
+    "Set row not marked is-suggested before edit",
+    "Log → open exercise → set rows show as suggestions until touched"
+  );
+
+  await page.fill(`[data-k="${ex0}_1_load"]`, "100");
+  await page.click(`.saveset[data-save="${ex0}_1"]`);
+  await page.waitForTimeout(80);
+  assert(
+    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-done"),
+    "Save set marks the set done",
+    "Row not is-done after Save set",
+    "Log → enter weight → Save set → row shows done"
+  );
+
+  assert(
+    (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-selected")) === "true",
+    "Active day tab exposes aria-selected",
+    "Active day tab missing aria-selected=true",
+    "Log → select a day → its tab is aria-selected"
+  );
+
+  await saveWorkout(page);
+  const stAfterFinish = await getState(page);
+  const loggedEx0 = stAfterFinish.log.filter((r) => r.exerciseId === ex0);
+  assert(
+    loggedEx0.length === 1 && +loggedEx0[0].set === 1,
+    "Finish logs only committed/edited sets, not pristine suggestions",
+    `logged sets for ex0: ${loggedEx0.map((r) => r.set).join(",")}`,
+    "Log → Save one set, leave others suggested → Finish logs only the saved set"
+  );
+
+  // Stepper-edited suggested load is touched and persists on Finish
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const stepKey = `${ex0}_2`;
+  assert(
+    (await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
+    "Second set starts as suggested before stepper",
+    "Set row not is-suggested before stepper edit",
+    "Log → untouched set row → is-suggested"
+  );
+  await page.click(`.stepbtn[data-step="${ex0}_2_load"][data-dir="1"]`);
+  await page.waitForTimeout(60);
+  assert(
+    !(await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
+    "Stepper click un-greys the set row",
+    "Row still is-suggested after stepper",
+    "Log → tap kg + stepper → row leaves suggested state"
+  );
+  await saveWorkout(page);
+  const stAfterStepper = await getState(page);
+  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 2);
+  assert(
+    stepperLogged.length === 1 && +stepperLogged[0].load > 0,
+    "Stepper-edited set is saved on Finish",
+    `set 2 rows: ${stepperLogged.map((r) => r.load).join(",")}`,
+    "Log → stepper-edit one suggested set → Finish → set is logged"
+  );
+
   const exX = day1[0].id, exY = day1[1].id;
 
   // Session 1 for X
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
   await saveWorkout(page);
 
@@ -961,6 +1086,10 @@ async function main() {
 
   // Stats: completed hard sets + attention board
   await nav(page, "stats");
+  await page.evaluate(() => {
+    const d = document.querySelector("#statsDeep");
+    if (d) d.open = true;
+  });
   await page.waitForTimeout(150);
   assert(
     (await page.locator("#completedVolume .vrow").count()) > 0,
@@ -988,6 +1117,227 @@ async function main() {
     "Edit session writes changes back to the log",
     "No log row with edited load 123",
     "History → Edit → change a load → Save changes"
+  );
+
+  // Rest timer starts and is visible
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.click("#workout .ex__rest");
+  await page.waitForTimeout(120);
+  assert(
+    !(await page.locator("#restBar").getAttribute("class")).includes("hidden"),
+    "Rest timer shows on demand",
+    "restBar still hidden after tapping ⏱",
+    "Log → tap ⏱ on an exercise → rest timer appears"
+  );
+  await page.click("#restBar");
+
+  // Glossary explains RIR on tap
+  await page.click("#workout .term[data-term='RIR']");
+  await page.waitForTimeout(80);
+  assert(
+    !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
+      /reserve/i.test(await page.locator("#glossary .glossary__body").textContent()),
+    "Glossary explains RIR on tap",
+    "Glossary popover did not open with RIR definition",
+    "Log → tap 'RIR' → definition popover opens"
+  );
+  await page.click("#glossary .glossary__close");
+
+  // Skipped exercise is not saved
+  const metaSkip = await getExerciseMeta(page, "Day 1");
+  const skipId = metaSkip[0].id;
+  await page.fill(`[data-k="${skipId}_1_load"]`, "50");
+  await page.click(`.ex__skip[data-skip="${skipId}"]`);
+  await page.waitForTimeout(80);
+  const skipSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const stSkip = await getState(page);
+  const newSessions = [...new Set(stSkip.log.map((r) => r.session))].filter((s) => !skipSessionsBefore.has(s));
+  const skipSavedInNewSession = newSessions.some((sid) =>
+    stSkip.log.some((r) => r.session === sid && r.exerciseId === skipId)
+  );
+  assert(
+    !skipSavedInNewSession,
+    "Skipped exercise is not saved",
+    "A skipped exercise's set was persisted in a new session",
+    "Log → fill a set → Skip it → Save → that exercise has no new rows"
+  );
+
+  // Unit toggle: draft loads convert on unit change; persisted log stays kg
+  await clearState(page);
+  await page.reload({ waitUntil: "networkidle" });
+  await waitForApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const unitMeta = await getExerciseMeta(page, "Day 1");
+  const unitEx = unitMeta[0].id;
+  await page.fill(`[data-k="${unitEx}_1_load"]`, "100");
+  await page.fill(`[data-k="${unitEx}_1_reps"]`, "6");
+  await page.fill(`[data-k="${unitEx}_1_rir"]`, "1");
+  await page.waitForTimeout(80);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(120);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const lbDraft = +(await page.inputValue(`[data-k="${unitEx}_1_load"]`));
+  assert(
+    Math.abs(lbDraft - 220.46226218) < 0.15,
+    "Draft load converts kg to lb on unit switch",
+    `draft load=${lbDraft}`,
+    "Log → enter 100 kg → Settings unit=lb → draft shows ~220.46 lb"
+  );
+  await saveWorkout(page);
+  const kgFromLbDraft = (await getState(page)).log.find((r) => r.exerciseId === unitEx && +r.set === 1);
+  assert(
+    kgFromLbDraft && Math.abs(kgFromLbDraft.load - 100) < 0.1,
+    "Draft saved after kg→lb switch stores canonical kg",
+    `stored load=${kgFromLbDraft?.load}`,
+    "Log → 100 kg draft → switch lb → save → log row is ~100 kg"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill(`[data-k="${unitEx}_1_load"]`, "100");
+  await page.waitForTimeout(60);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(80);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  assert(
+    (await page.inputValue(`[data-k="${unitEx}_1_load"]`)) === "100",
+    "Draft load round-trips kg→lb→kg",
+    `draft load=${await page.inputValue(`[data-k="${unitEx}_1_load"]`)}`,
+    "Log → 100 kg draft → switch lb → switch kg → draft shows 100 again"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(80);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill(`[data-k="${unitEx}_1_load"]`, "225");
+  await page.fill(`[data-k="${unitEx}_1_reps"]`, "5");
+  await page.fill(`[data-k="${unitEx}_1_rir"]`, "2");
+  await saveWorkout(page);
+  const lbEntry = (await getState(page)).log.filter((r) => r.exerciseId === unitEx).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+  assert(
+    lbEntry && Math.abs(lbEntry.load - 102.058283) < 0.1,
+    "Direct lb entry stores canonical kg",
+    `stored load=${lbEntry?.load}`,
+    "Log → unit=lb → enter 225 lb → save → log row is ~102.06 kg"
+  );
+
+  assert(
+    (await getState(page)).log.every((r) => r.load < 1000),
+    "Stored loads remain kg after unit switch",
+    "A stored load looks converted to lb",
+    "Settings → unit=lb → repforge_v1 loads still kg"
+  );
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
+
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
+
+  // Bodyweight persists on save and prefills on reopen
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill("#bodyweight", "80");
+  const bwMeta = await getExerciseMeta(page, "Day 1");
+  await fillExerciseSets(page, bwMeta[0].id, bwMeta[0].sets, 100, 6, 1);
+  await saveWorkout(page);
+  const stBw = await getState(page);
+  assert(
+    stBw.log.some((r) => +r.bodyweight === 80),
+    "Bodyweight persists on saved rows",
+    "No saved row carries bodyweight 80",
+    "Log → set bodyweight → Save → rows carry bodyweight"
+  );
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  assert(
+    (await page.inputValue("#bodyweight")) === "80",
+    "Bodyweight prefills from last session",
+    `bodyweight input = ${await page.inputValue("#bodyweight")}`,
+    "Log → reopen → bodyweight prefilled"
+  );
+
+  // Focus mode shows one exercise; Finish saves like list mode
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.click("#modeFocus");
+  await page.waitForTimeout(80);
+  const visible = await page.locator("#workout .exercise:not(.is-current)").evaluateAll((els) =>
+    els.every((e) => getComputedStyle(e).display === "none")
+  );
+  assert(
+    visible,
+    "Focus mode shows one exercise at a time",
+    "Non-current exercises visible in focus mode",
+    "Log → Focus → only current card shown"
+  );
+  const focusMeta = await getExerciseMeta(page, "Day 1");
+  await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
+  await page.click("[data-fnext]");
+  await page.waitForTimeout(80);
+  for (let i = 0; i < focusMeta.length + 1; i++) {
+    if (await page.locator("[data-ffinish]").count()) {
+      await page.click("[data-ffinish]");
+      break;
+    }
+    if (await page.locator("[data-fnext]").count()) {
+      await page.click("[data-fnext]");
+      await page.waitForTimeout(60);
+    }
+  }
+  await page.waitForTimeout(120);
+  assert(
+    (await getState(page)).log.some((r) => r.exerciseId === focusMeta[0].id && +r.load === 90),
+    "Finish workout saves focus-mode sets",
+    "No saved row from focus mode",
+    "Log → Focus → fill → Finish → rows saved"
+  );
+  await page.click("#modeFull");
+
+  // IndexedDB holds primary state (localStorage mirror kept for harness)
+  const idbHasState = await page.evaluate(async (k) => {
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open("repforge", 1);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    const val = await new Promise((res, rej) => {
+      const tx = db.transaction("kv", "readonly");
+      const req = tx.objectStore("kv").get(k);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+    db.close();
+    return val != null && Array.isArray(val.log);
+  }, KEY);
+  assert(
+    idbHasState,
+    "IndexedDB stores training state",
+    "repforge/kv missing state blob",
+    "Log a session → DevTools IndexedDB → repforge → kv"
+  );
+  const mirrorState = await getState(page);
+  assert(
+    mirrorState && Array.isArray(mirrorState.log) && mirrorState.log.length > 0,
+    "localStorage mirror populated after save",
+    `mirror log length=${mirrorState?.log?.length ?? "null"}`,
+    "Save workout → localStorage repforge_v1 mirrors persisted state"
   );
 
   // Console errors

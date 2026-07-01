@@ -1,4 +1,4 @@
-const CACHE = "repforge-v6";
+const CACHE = "repforge-v7";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon.svg",
@@ -17,8 +17,22 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
+const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/manifest.webmanifest"]);
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
+  const url = new URL(event.request.url);
+  const isShell = event.request.mode === "navigate" ||
+    SHELL.has(url.pathname) || SHELL.has(url.pathname.replace(/\/$/, "/index.html"));
+  if (isShell) {
+    event.respondWith(
+      fetch(event.request).then(response => {
+        const copy = response.clone();
+        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+        return response;
+      }).catch(() => caches.match(event.request).then(c => c || caches.match("./index.html")))
+    );
+    return;
+  }
   event.respondWith(
     caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
       const copy = response.clone();
