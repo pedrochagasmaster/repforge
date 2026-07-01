@@ -71,6 +71,27 @@ raised it. Do foundational plans before dependents (see graph).
 | 014 | [IndexedDB durability migration](./014-indexeddb-durability.md) | tech-debt | L | HIGH | Privacy maximalist (report §2.3) |
 | 015 | [Collapse Stats to an actionable default](./015-stats-collapse-actionable.md) | direction | M | LOW | Minimalist, spreadsheet |
 
+### Second tranche — `/improve next` pass at `ff67850` (2026-07-01)
+
+Direction-only audit run after plans 001–016 all landed. Grounding: report §5
+roadmap items whose prerequisites are now DONE, plus this index's own backlog
+table. Ordered by leverage. Verification baseline at this commit:
+`node --check app.js` clean and `cd test && node simulation.mjs` → `FAILED: 0`
+(85 checks).
+
+| # | Plan | Category | Effort | Risk | Source |
+|---|------|----------|--------|------|--------|
+| 017 | [Program-only export/import](./017-program-only-export-import.md) | direction | S | LOW | Coach persona; report §5 "Next 2 months" ("Coach-adjacent without platform") |
+| 018 | [PR ledger per exercise + PR callout on save](./018-pr-ledger-per-exercise.md) | direction | S | LOW | Spreadsheet maximalist, minimalist; unblocked by 007 |
+| 019 | [Warmup vs working-set flag](./019-warmup-set-flag.md) | direction / correctness | M | MED | Power user; backlog ("touches every volume calc; scope carefully") |
+| 020 | [Import merge by session id](./020-import-merge-by-session.md) | direction / correctness | M | MED | Privacy maximalist; unblocked by 004 + 014 |
+| 021 | [Mesocycle blocks — design spike](./021-mesocycle-blocks-design-spike.md) | direction (design) | M | LOW | Spreadsheet maximalist; unblocked by 006 + 015; spike only, build is plan 022 (DRAFT, written by 021) |
+
+Second-tranche dependencies: 017–020 are mutually independent. 019 and 018
+interact (whichever lands second excludes warmups from PR detection — both
+plans carry the hook). 021 produces plan 022; do not execute 022 before a
+human reviews `docs/design/mesocycle-blocks.md`.
+
 ## Dependency graph
 
 ```
@@ -101,16 +122,16 @@ Recorded here so a `reconcile` pass doesn't re-flag them as new findings.
 
 | Item | Source | Why deferred |
 |------|--------|--------------|
-| Substitution flow (approved alternates per slot, stats roll up) | Parent, coach, power user | Depends on 006 (stable IDs) and a slot model that doesn't exist yet. |
-| Short / "essentials only" workout builder (time or readiness → 2–3 lifts) | Parent | Builds on 005 (trim) once trim ships and proves the hide-from-log mechanic. |
-| Mesocycle blocks (tag sessions with block/week/phase; filter stats) | Spreadsheet maximalist | Large data-model change; sequence after 006 + 015 land. |
-| PR ledger per exercise (load/rep/e1RM PRs with dates) | Spreadsheet maximalist, minimalist | Sits on top of 007's computed columns; scope separately. |
+| Substitution flow (approved alternates per slot, stats roll up) | Parent, coach, power user | Needs a slot model that doesn't exist yet (006 landed, but slots are still the blocker). |
+| Short / "essentials only" workout builder (time or readiness → 2–3 lifts) | Parent | 005's trim shipped the hide-from-log mechanic; still needs its own plan for the time/readiness input. |
 | Flexible schedule (missed-day queue instead of rigid day tabs) | Parent | Reworks the day-tab model in `renderTabs`; high blast radius. |
-| Import merge by session id (vs. nuclear replace) | Privacy maximalist | Land after 004 + 014 so merge is written once against IndexedDB. |
-| Optional client-side encrypted export (Web Crypto passphrase) | Privacy maximalist | Independent; needs its own crypto plan and STOP conditions. |
-| Warmup vs. working-set flag (exclude warmups from volume) | Power user | Small, but touches the save schema and every volume calc; scope carefully. |
-| Opt-in coach snapshot (share last N days read-only) | Coach | Conditional per guardrails — only after solo loop is excellent. |
-| Beginner program variant (plain machine names, gym-floor hints) | Beginner, coach | Content + a program-picker; pairs well with 002. |
+| Optional client-side encrypted export (Web Crypto passphrase) | Privacy maximalist | Independent; needs its own crypto plan and STOP conditions. Considered in the 2026-07-01 `next` pass; deferred again — demand signal is one persona and a wrong crypto plan is worse than none. |
+| Opt-in coach snapshot (share last N days read-only) | Coach | Conditional per guardrails — only after solo loop is excellent. 017 (program-only export) is the deliberate first, smaller step in this direction. |
+| Beginner program variant (plain machine names, gym-floor hints) | Beginner, coach | Content + a program-picker; pairs well with 002. Its file format is 017's program JSON — sequence after 017. |
+
+Promoted out of the backlog by the 2026-07-01 `next` pass: PR ledger → plan
+018, warmup flag → plan 019, import merge → plan 020, mesocycle blocks →
+plan 021 (design spike).
 
 ## Explicitly rejected (do not re-file)
 
@@ -145,3 +166,8 @@ Consensus across ≥5 personas that these betray the product:
 | 014 | DONE |
 | 015 | DONE |
 | 016 | DONE |
+| 017 | TODO |
+| 018 | TODO |
+| 019 | TODO |
+| 020 | TODO |
+| 021 | TODO (spike — writes plan 022 as DRAFT) |
