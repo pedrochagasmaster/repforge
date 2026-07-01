@@ -108,6 +108,7 @@ main{width:min(100%,var(--maxw));margin:0 auto;padding:16px 14px 36px}
   position:relative;display:inline-flex;align-items:center;gap:7px;
   font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;color:var(--steel);
   border:1px solid var(--rule);border-radius:999px;padding:5px 11px 5px 9px;overflow:hidden;
+  background:none;cursor:default;
 }
 .gauge__fill{
   position:absolute;left:0;top:0;bottom:0;width:0%;
@@ -228,7 +229,7 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .prev span{color:var(--steel)}
 
 /* set grid */
-.sets__head,.setrow{display:grid;grid-template-columns:2rem 1.6fr 1fr 1fr;gap:8px;align-items:center}
+.sets__head,.setrow{display:grid;grid-template-columns:2rem 1.6fr 1fr 1fr auto;gap:8px;align-items:center}
 .sets__head{margin-bottom:4px}
 .sets__head span{font-size:10px;color:var(--steel-dim);letter-spacing:.1em;text-align:center}
 .sets__head span:first-child{text-align:left}
@@ -236,6 +237,13 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .setrow__n{font-family:var(--display);font-weight:700;color:var(--steel);font-size:15px;text-align:center}
 .setrow input{margin-top:0;text-align:center;font-family:var(--mono);font-weight:500;font-size:16px;padding:11px 6px;
   background:var(--iron);border-color:var(--rule-soft)}
+.setrow.is-suggested input{color:var(--steel);opacity:.55}
+.setrow.is-done{border-left:3px solid var(--ember);padding-left:5px;margin-left:-8px;border-radius:0 8px 8px 0;background:rgba(255,90,31,.04)}
+.setrow.is-done .saveset{color:var(--gold);border-color:rgba(255,180,76,.45);background:rgba(255,180,76,.08)}
+.saveset{flex:none;border:1px solid var(--rule);background:var(--anvil);color:var(--steel);
+  font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:10px;font-weight:700;
+  border-radius:8px;padding:8px 6px;cursor:pointer;min-width:2.6rem;line-height:1}
+.saveset:hover{color:var(--mist);border-color:var(--steel-dim)}
 
 /* ---- Metrics tiles ---- */
 .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:11px;margin-bottom:6px}
@@ -465,7 +473,7 @@ nav button.active .nav__icon{background:var(--ember)}
     border-radius:18px 18px 0 0;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 }
 @media (max-width:360px){
-  .sets__head,.setrow{grid-template-columns:1.6rem 1.6fr 1fr 1fr;gap:6px}
+  .sets__head,.setrow{grid-template-columns:1.6rem 1.5fr 0.9fr 0.9fr auto;gap:5px}
   .vrow{grid-template-columns:7rem 1fr auto}
   .setrow input{font-size:15px;padding:10px 4px}
   .kg{gap:3px}

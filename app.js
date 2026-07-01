@@ -87,6 +87,8 @@ class Program{
 
 let state=load(),prog=new Program(state.program),day=days()[0]||"Day 1",installPrompt=null,saving=false,editSession=null,volWindow=7;
 const collapsed=new Set();
+const committed=new Set();
+const touched=new Set();
 state.program=prog.toJSON();
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -142,11 +144,13 @@ function recommendation(ex){
 function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
-  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
+  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
 
 function renderWorkout(){
   const draft=loadDraft();
+  committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
+  touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
   $("#workout").innerHTML=exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmt(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
@@ -155,12 +159,15 @@ function renderWorkout(){
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmt(r.load):(old&&old.load!=null?fmt(old.load):""));
       const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
       const rirVal=draft[`${ex.id}_${n}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
-      return `<div class="setrow"><span class="setrow__n">${n}</span>`+
+      const key=`${ex.id}_${n}`;
+      const cls=committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested");
+      return `<div class="setrow ${cls}" data-set="${esc(key)}"><span class="setrow__n">${n}</span>`+
         `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="Set ${n} decrease kg">−</button>`+
         `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} kg" placeholder="kg" value="${esc(kgVal)}">`+
         `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="Set ${n} increase kg">+</button></div>`+
         `<input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(repsVal)}">`+
-        `<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}"></div>`;
+        `<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`+
+        `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Save"}</button></div>`;
     }).join("");
     return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}" data-ex="${esc(ex.id)}">`+
       `<div class="ex__top"><div><h3 class="ex__name">${esc(ex.name)}</h3>`+
@@ -172,22 +179,40 @@ function renderWorkout(){
       `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmt(r.load)} kg</b>.`:""}</p>`+
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       prevHtml+
-      `<div class="sets__head"><span>Set</span><span>kg</span><span>reps</span><span>RIR</span></div>${rows}</article>`;
+      `<div class="sets__head"><span>Set</span><span>kg</span><span>reps</span><span>RIR</span><span></span></div>${rows}</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
 }
 
-function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);localStorage.setItem(DRAFT,JSON.stringify(d))}
+function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
+  d.__done=[...committed];d.__touched=[...touched];localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
-  $$("#workout input").forEach(i=>{i.oninput=()=>{saveDraft();updateSaveMeta()};i.onfocus=()=>i.select()});
+  $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
+    if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
+    saveDraft();updateSaveMeta()};
+  i.onfocus=()=>i.select()});
+  $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
+    const load=+($(`[data-k="${key}_load"]`)?.value)||0;
+    if(load<=0){toast("Enter a weight before saving the set.");return}
+    const row=b.closest(".setrow");
+    if(committed.has(key)){committed.delete(key)}
+    else{committed.add(key);touched.add(key)}
+    if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
+      b.textContent=committed.has(key)?"✓":"Save"}
+    saveDraft();updateSaveMeta();
+    if(committed.has(key)&&typeof startRest==="function")startRest()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const inc=+state.settings.minJump||2.5,cur=+inp.value||0,next=Math.max(0,Math.round((cur+inc*(+b.dataset.dir))/inc)*inc);
-    inp.value=fmt(next);saveDraft();updateSaveMeta()});
+    inp.value=fmt(next);
+    const row=inp.closest(".setrow");
+    if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
+    saveDraft();updateSaveMeta()});
   $$("#workout .copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
-    for(const s of prevSets)for(const f of ["load","reps","rir"]){const inp=$(`[data-k="${b.dataset.copy}_${s.set}_${f}"]`);if(inp)inp.value=fmt(s[f])}
-    saveDraft();updateSaveMeta();toast("Filled from last session.")});
+    for(const s of prevSets){touched.add(`${b.dataset.copy}_${s.set}`);
+      for(const f of ["load","reps","rir"]){const inp=$(`[data-k="${b.dataset.copy}_${s.set}_${f}"]`);if(inp)inp.value=fmt(s[f])}}
+    saveDraft();renderWorkout();toast("Filled from last session.")});
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
 }
@@ -206,17 +231,20 @@ function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercise
   else el.className="fatigue hidden",el.innerHTML="";}
 
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
-  const filled=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&+i.value>0).length;
-  $("#saveMeta").textContent=filled?`${day} · ${filled}/${planned} sets`:`${day} · ${planned} sets`;}
+  const done=[...committed].length;
+  const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&+i.value>0).length;
+  $("#saveMeta").textContent=done?`${day} · ${done}/${planned} sets done`:(entered?`${day} · ${entered}/${planned} entered`:`${day} · ${planned} sets`);}
 
 function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
   for(const ex of exercises())for(let n=1;n<=ex.sets;n++){
+    const key=`${ex.id}_${n}`;
     const load=posNum($(`[data-k="${ex.id}_${n}_load"]`).value),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value),rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value);
     if(load<=0)continue;
+    if(!(committed.has(key)||touched.has(key)))continue;
     rows.push({session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary})}
   if(!rows.length){toast("Enter weight on at least one set before saving.");return}
-  state.log.push(...rows);save();clearDraft();$("#notes").value="";
+  state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
   toast(`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
 
@@ -287,7 +315,7 @@ function renderCompleted(){const el=$("#completedVolume");if(!el)return;const cu
   el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
     `<span class="vrow__num"><b>${fmt(x.eff)}</b> sets</span></div>`).join(""):`<div class="table"><div class="empty">No hard sets in the last ${volWindow} days yet.</div></div>`;
-  $$("#volWindow button").forEach(b=>b.classList.toggle("active",+b.dataset.win===volWindow));}
+  $$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});}
 
 function draw(rows){
   const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
@@ -322,6 +350,9 @@ function draw(rows){
   ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
+
+function redrawChart(){if(!$("#stats").classList.contains("active"))return;
+  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.name===sel);draw(rows)}
 
 function renderHistory(){
   const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
@@ -376,7 +407,7 @@ function renderProgramEditor(){
   $("#programEditor").innerHTML=ds.length
     ?ds.map(dayCard).join("")
     :`<div class="table"><div class="empty">No training days yet. Add one to start building your split.</div></div>`;
-  if(document.activeElement!==$("#programJson"))$("#programJson").value=JSON.stringify(prog.toJSON().map(({id,...x})=>x),null,2);
+  if(document.activeElement!==$("#programJson"))$("#programJson").value=JSON.stringify(prog.toJSON(),null,2);
   bindEditor();
 }
 
@@ -452,6 +483,10 @@ function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).
 function persistProgram(){state.program=prog.toJSON();save()}
 
 function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
+  const byId=new Map(prog.exercises.map(e=>[e.id,e]));
+  for(const row of parsed){if(row.id&&byId.has(row.id))continue;
+    const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
+    if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
   prog=new Program(parsed);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast("Program saved.")}
   catch{toast("That JSON didn't parse. Check the brackets and commas.")}}
 
@@ -472,6 +507,8 @@ async function importJson(e){const f=e.target.files?.[0];if(!f)return;try{const 
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
+  window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("#installBtn").classList.remove("hidden")});
   $("#installBtn").onclick=async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$("#installBtn").classList.add("hidden")}};
   $("#date").value=today();
@@ -484,7 +521,9 @@ function init(){
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
-  $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>x.classList.toggle("active",x===b));$$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
+  $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
+  $("nav button.active")?.setAttribute("aria-current","page");
   render();
 }
 init();

@@ -483,6 +483,7 @@ async function main() {
   console.log("\nPhase 6: Settings");
 
   await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
   await page.fill("#jumpPct", "5");
   await page.fill("#minJump", "5");
   await page.fill("#rirHigh", "3");
@@ -558,6 +559,26 @@ async function main() {
     `Trend: "${trendText}"`,
     "Stats tab → select logged exercise"
   );
+
+  await page.setViewportSize({ width: 800, height: 900 });
+  await page.waitForTimeout(300);
+  const okWide = await page.evaluate(() => {
+    const c = document.querySelector("#chart");
+    return c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
+  });
+  await page.setViewportSize({ width: 380, height: 900 });
+  await page.waitForTimeout(300);
+  const okNarrow = await page.evaluate(() => {
+    const c = document.querySelector("#chart");
+    return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
+  });
+  assert(
+    okWide && okNarrow,
+    "Chart canvas tracks viewport width on resize",
+    `wide=${okWide} narrow=${okNarrow}`,
+    "Stats → resize viewport → canvas backing width follows clientWidth"
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
 
   // ── Phase 8: Export JSON, modify, re-import ──────────────────────
   console.log("\nPhase 8: JSON export/import");
@@ -663,7 +684,7 @@ async function main() {
   console.log("\nPhase 10: Program JSON editor");
 
   await nav(page, "program");
-  await page.locator("details.advanced summary").click();
+  await page.locator("#program details.advanced summary").click();
   const jsonArea = page.locator("#programJson");
   let progJson = JSON.parse(await jsonArea.inputValue());
   const testExName = "JSON Editor Test Lift";
@@ -699,6 +720,28 @@ async function main() {
     "Invalid program JSON shows error toast",
     `Toast: "${toastText}"`,
     "Program → Advanced → enter invalid JSON → Save JSON"
+  );
+
+  // JSON round-trip preserves exercise ids
+  await nav(page, "program");
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
+  const before = await page.evaluate(() => JSON.parse(document.querySelector("#programJson").value));
+  const firstId = before[0].id;
+  assert(
+    !!firstId,
+    "Program JSON exposes exercise ids",
+    "No id field in program JSON",
+    "Program → Advanced → JSON shows id"
+  );
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
+  await page.click("#saveProgram");
+  await page.waitForTimeout(120);
+  const after = await page.evaluate(() => JSON.parse(document.querySelector("#programJson").value));
+  assert(
+    after[0].id === firstId,
+    "JSON round-trip preserves exercise ids",
+    `id changed ${firstId} → ${after[0].id}`,
+    "Program → Save JSON with no edits → ids unchanged"
   );
 
   // ── Phase 11: Edge cases & invariants ────────────────────────────
@@ -840,6 +883,7 @@ async function main() {
 
   // Settings auto-save on change (no Save click)
   await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
   await page.fill("#hardRir", "3");
   await page.locator("#hardRir").blur();
   await page.waitForTimeout(120);
@@ -868,9 +912,75 @@ async function main() {
   );
 
   const day1 = await getExerciseMeta(page, "Day 1");
+  const ex0 = day1[0].id;
+
+  assert(
+    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-suggested"),
+    "Untouched suggestion row is greyed",
+    "Set row not marked is-suggested before edit",
+    "Log → open exercise → set rows show as suggestions until touched"
+  );
+
+  await page.fill(`[data-k="${ex0}_1_load"]`, "100");
+  await page.click(`.saveset[data-save="${ex0}_1"]`);
+  await page.waitForTimeout(80);
+  assert(
+    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-done"),
+    "Save set marks the set done",
+    "Row not is-done after Save set",
+    "Log → enter weight → Save set → row shows done"
+  );
+
+  assert(
+    (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-selected")) === "true",
+    "Active day tab exposes aria-selected",
+    "Active day tab missing aria-selected=true",
+    "Log → select a day → its tab is aria-selected"
+  );
+
+  await saveWorkout(page);
+  const stAfterFinish = await getState(page);
+  const loggedEx0 = stAfterFinish.log.filter((r) => r.exerciseId === ex0);
+  assert(
+    loggedEx0.length === 1 && +loggedEx0[0].set === 1,
+    "Finish logs only committed/edited sets, not pristine suggestions",
+    `logged sets for ex0: ${loggedEx0.map((r) => r.set).join(",")}`,
+    "Log → Save one set, leave others suggested → Finish logs only the saved set"
+  );
+
+  // Stepper-edited suggested load is touched and persists on Finish
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const stepKey = `${ex0}_2`;
+  assert(
+    (await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
+    "Second set starts as suggested before stepper",
+    "Set row not is-suggested before stepper edit",
+    "Log → untouched set row → is-suggested"
+  );
+  await page.click(`.stepbtn[data-step="${ex0}_2_load"][data-dir="1"]`);
+  await page.waitForTimeout(60);
+  assert(
+    !(await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
+    "Stepper click un-greys the set row",
+    "Row still is-suggested after stepper",
+    "Log → tap kg + stepper → row leaves suggested state"
+  );
+  await saveWorkout(page);
+  const stAfterStepper = await getState(page);
+  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 2);
+  assert(
+    stepperLogged.length === 1 && +stepperLogged[0].load > 0,
+    "Stepper-edited set is saved on Finish",
+    `set 2 rows: ${stepperLogged.map((r) => r.load).join(",")}`,
+    "Log → stepper-edit one suggested set → Finish → set is logged"
+  );
+
   const exX = day1[0].id, exY = day1[1].id;
 
   // Session 1 for X
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
   await saveWorkout(page);
 

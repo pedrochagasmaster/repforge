@@ -131,17 +131,17 @@ Consensus across ≥5 personas that these betray the product:
 |------|--------|
 | 001 | NOT STARTED |
 | 002 | NOT STARTED |
-| 003 | NOT STARTED |
+| 003 | DONE |
 | 004 | NOT STARTED |
 | 005 | NOT STARTED |
-| 006 | NOT STARTED |
+| 006 | DONE |
 | 007 | NOT STARTED |
 | 008 | NOT STARTED |
 | 009 | NOT STARTED |
-| 010 | NOT STARTED |
-| 011 | NOT STARTED |
-| 012 | NOT STARTED |
+| 010 | DONE |
+| 011 | DONE |
+| 012 | DONE |
 | 013 | NOT STARTED |
 | 014 | NOT STARTED |
 | 015 | NOT STARTED |
-| 016 | NOT STARTED |
+| 016 | DONE |

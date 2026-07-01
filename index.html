@@ -22,10 +22,10 @@
       <span class="brand__word">REP<em>FORGE</em></span>
     </a>
     <div class="topbar__end">
-      <span id="heatGauge" class="gauge" title="Session heat — how many lifts are ready to add load">
+      <button id="heatGauge" type="button" class="gauge" title="Session heat — how many lifts are ready to add load">
         <span class="gauge__fill"></span>
         <span class="gauge__label">forge</span>
-      </span>
+      </button>
       <button id="installBtn" class="btn btn--ghost hidden">Install</button>
     </div>
   </header>
@@ -47,7 +47,7 @@
           <textarea id="notes" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
         </label>
         <button class="btn btn--forge btn--save" type="submit">
-          <span>Save workout</span>
+          <span>Finish workout</span>
           <span id="saveMeta" class="btn__meta"></span>
         </button>
       </form>
@@ -65,8 +65,8 @@
       <h3 class="subhead">Completed hard sets</h3>
       <p class="lede">Logged sets per muscle within your RIR ceiling — the volume you actually did, not the plan.</p>
       <div id="volWindow" class="seg seg--window" role="tablist" aria-label="Volume window">
-        <button type="button" data-win="7" class="active">7 days</button>
-        <button type="button" data-win="28">28 days</button>
+        <button type="button" data-win="7" class="active" role="tab" aria-selected="true">7 days</button>
+        <button type="button" data-win="28" role="tab" aria-selected="false">28 days</button>
       </div>
       <div id="completedVolume" class="volume"></div>
       <h3 class="subhead">Recent performance</h3><div id="recent" class="table"></div>
@@ -99,12 +99,16 @@
       <div class="sectionhead"><p class="eyebrow">The dials</p><h2>Settings</h2></div>
       <div class="card">
         <p class="cardtitle">Progression</p>
-        <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>
-        <label class="field">Minimum jump (kg)<input id="minJump" type="number" step="0.25" inputmode="decimal"></label>
-        <label class="field">Target RIR ceiling<input id="rirHigh" type="number" step="0.5" inputmode="decimal"></label>
-        <label class="field">Hard-set RIR ceiling<input id="hardRir" type="number" step="0.5" inputmode="decimal"></label>
-        <p class="lede">Sets at or below this RIR count toward completed hard-set volume. Changes save automatically.</p>
-        <button id="saveSettings" class="btn btn--forge">Save settings</button>
+        <p class="lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
+        <details class="advanced">
+          <summary>Advanced · progression dials</summary>
+          <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>
+          <label class="field">Minimum jump (kg)<input id="minJump" type="number" step="0.25" inputmode="decimal"></label>
+          <label class="field">Target RIR ceiling<input id="rirHigh" type="number" step="0.5" inputmode="decimal"></label>
+          <label class="field">Hard-set RIR ceiling<input id="hardRir" type="number" step="0.5" inputmode="decimal"></label>
+          <p class="lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
+          <button id="saveSettings" class="btn btn--forge">Save settings</button>
+        </details>
       </div>
       <div class="card">
         <p class="cardtitle">Your data</p>
