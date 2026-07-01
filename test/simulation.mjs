@@ -523,6 +523,11 @@ async function main() {
 
   await nav(page, "stats");
   await page.waitForTimeout(200);
+  await page.evaluate(() => {
+    const d = document.querySelector("#statsDeep");
+    if (d) d.open = true;
+  });
+  await page.waitForTimeout(150);
 
   const metricsText = await page.locator("#metrics").textContent();
   assert(
@@ -668,7 +673,10 @@ async function main() {
     header.includes("session") &&
       header.includes("date") &&
       header.includes("load") &&
-      header.includes("reps"),
+      header.includes("reps") &&
+      header.includes("exercise_id") &&
+      header.includes("e1rm") &&
+      header.includes("is_hard_set"),
     "CSV header has expected columns",
     `Header: ${header}`,
     "Settings → Export log CSV → check first line"
@@ -1071,6 +1079,10 @@ async function main() {
 
   // Stats: completed hard sets + attention board
   await nav(page, "stats");
+  await page.evaluate(() => {
+    const d = document.querySelector("#statsDeep");
+    if (d) d.open = true;
+  });
   await page.waitForTimeout(150);
   assert(
     (await page.locator("#completedVolume .vrow").count()) > 0,
@@ -1099,6 +1111,133 @@ async function main() {
     "No log row with edited load 123",
     "History → Edit → change a load → Save changes"
   );
+
+  // Rest timer starts and is visible
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.click("#workout .ex__rest");
+  await page.waitForTimeout(120);
+  assert(
+    !(await page.locator("#restBar").getAttribute("class")).includes("hidden"),
+    "Rest timer shows on demand",
+    "restBar still hidden after tapping ⏱",
+    "Log → tap ⏱ on an exercise → rest timer appears"
+  );
+  await page.click("#restBar");
+
+  // Glossary explains RIR on tap
+  await page.click("#workout .term[data-term='RIR']");
+  await page.waitForTimeout(80);
+  assert(
+    !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
+      /reserve/i.test(await page.locator("#glossary .glossary__body").textContent()),
+    "Glossary explains RIR on tap",
+    "Glossary popover did not open with RIR definition",
+    "Log → tap 'RIR' → definition popover opens"
+  );
+  await page.click("#glossary .glossary__close");
+
+  // Skipped exercise is not saved
+  const metaSkip = await getExerciseMeta(page, "Day 1");
+  const skipId = metaSkip[0].id;
+  await page.fill(`[data-k="${skipId}_1_load"]`, "50");
+  await page.click(`.ex__skip[data-skip="${skipId}"]`);
+  await page.waitForTimeout(80);
+  const skipSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const stSkip = await getState(page);
+  const newSessions = [...new Set(stSkip.log.map((r) => r.session))].filter((s) => !skipSessionsBefore.has(s));
+  const skipSavedInNewSession = newSessions.some((sid) =>
+    stSkip.log.some((r) => r.session === sid && r.exerciseId === skipId)
+  );
+  assert(
+    !skipSavedInNewSession,
+    "Skipped exercise is not saved",
+    "A skipped exercise's set was persisted in a new session",
+    "Log → fill a set → Skip it → Save → that exercise has no new rows"
+  );
+
+  // Unit toggle: draft loads convert on unit change; persisted log stays kg
+  await clearState(page);
+  await page.reload({ waitUntil: "networkidle" });
+  await waitForApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const unitMeta = await getExerciseMeta(page, "Day 1");
+  const unitEx = unitMeta[0].id;
+  await page.fill(`[data-k="${unitEx}_1_load"]`, "100");
+  await page.fill(`[data-k="${unitEx}_1_reps"]`, "6");
+  await page.fill(`[data-k="${unitEx}_1_rir"]`, "1");
+  await page.waitForTimeout(80);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(120);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const lbDraft = +(await page.inputValue(`[data-k="${unitEx}_1_load"]`));
+  assert(
+    Math.abs(lbDraft - 220.46226218) < 0.15,
+    "Draft load converts kg to lb on unit switch",
+    `draft load=${lbDraft}`,
+    "Log → enter 100 kg → Settings unit=lb → draft shows ~220.46 lb"
+  );
+  await saveWorkout(page);
+  const kgFromLbDraft = (await getState(page)).log.find((r) => r.exerciseId === unitEx && +r.set === 1);
+  assert(
+    kgFromLbDraft && Math.abs(kgFromLbDraft.load - 100) < 0.1,
+    "Draft saved after kg→lb switch stores canonical kg",
+    `stored load=${kgFromLbDraft?.load}`,
+    "Log → 100 kg draft → switch lb → save → log row is ~100 kg"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill(`[data-k="${unitEx}_1_load"]`, "100");
+  await page.waitForTimeout(60);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(80);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  assert(
+    (await page.inputValue(`[data-k="${unitEx}_1_load"]`)) === "100",
+    "Draft load round-trips kg→lb→kg",
+    `draft load=${await page.inputValue(`[data-k="${unitEx}_1_load"]`)}`,
+    "Log → 100 kg draft → switch lb → switch kg → draft shows 100 again"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(80);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill(`[data-k="${unitEx}_1_load"]`, "225");
+  await page.fill(`[data-k="${unitEx}_1_reps"]`, "5");
+  await page.fill(`[data-k="${unitEx}_1_rir"]`, "2");
+  await saveWorkout(page);
+  const lbEntry = (await getState(page)).log.filter((r) => r.exerciseId === unitEx).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+  assert(
+    lbEntry && Math.abs(lbEntry.load - 102.058283) < 0.1,
+    "Direct lb entry stores canonical kg",
+    `stored load=${lbEntry?.load}`,
+    "Log → unit=lb → enter 225 lb → save → log row is ~102.06 kg"
+  );
+
+  assert(
+    (await getState(page)).log.every((r) => r.load < 1000),
+    "Stored loads remain kg after unit switch",
+    "A stored load looks converted to lb",
+    "Settings → unit=lb → repforge_v1 loads still kg"
+  );
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
 
   // Console errors
   assert(

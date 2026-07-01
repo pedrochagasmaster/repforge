@@ -129,19 +129,19 @@ Consensus across ≥5 personas that these betray the product:
 
 | Plan | Status |
 |------|--------|
-| 001 | NOT STARTED |
-| 002 | NOT STARTED |
+| 001 | DONE |
+| 002 | DONE |
 | 003 | DONE |
-| 004 | NOT STARTED |
-| 005 | NOT STARTED |
+| 004 | DONE |
+| 005 | DONE |
 | 006 | DONE |
-| 007 | NOT STARTED |
-| 008 | NOT STARTED |
+| 007 | DONE |
+| 008 | DONE |
 | 009 | NOT STARTED |
 | 010 | DONE |
 | 011 | DONE |
 | 012 | DONE |
 | 013 | NOT STARTED |
 | 014 | NOT STARTED |
-| 015 | NOT STARTED |
+| 015 | DONE |
 | 016 | DONE |
