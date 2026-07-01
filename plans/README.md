@@ -54,6 +54,7 @@ raised it. Do foundational plans before dependents (see graph).
 
 | # | Plan | Category | Effort | Risk | Source |
 |---|------|----------|--------|------|--------|
+| 016 | [Per-set "Save set" commit + suggested-vs-completed clarity](./016-per-set-commit-and-suggestion-clarity.md) | direction / dx | M | MED | **Operator feedback on 001** + session-loop thesis (power user, parent, minimalist) |
 | 001 | [Rest timer](./001-rest-timer.md) | direction | M | LOW | Power user, parent, minimalist (report §5 "Next 2 weeks") |
 | 002 | [Recommendation legibility + glossary-on-tap](./002-recommendation-legibility-glossary.md) | dx / direction | M | LOW | Beginner, coach (report §2.4) |
 | 003 | [Hide progression dials behind Advanced](./003-hide-advanced-progression-settings.md) | dx | S | LOW | Beginner, minimalist |
@@ -76,6 +77,9 @@ raised it. Do foundational plans before dependents (see graph).
 006 (stable exercise IDs) ──┬─▶ 007 (CSV carries exercise_id)
                             └─▶ 013 (session mode keys off IDs)
 
+016 (per-set commit) ──┬─▶ 001 (auto-start rest on set commit)
+                       └─▶ 013 (focus mode reuses commit state)
+
 008 (unit toggle) ──▶ 009 (bodyweight uses the same unit plumbing)
 
 003 (Advanced settings) ──▶ 002 (glossary can live beside the dials)
@@ -83,11 +87,11 @@ raised it. Do foundational plans before dependents (see graph).
 014 (IndexedDB) is independent but touches load()/save()/import — land it
     AFTER 004 (backup hygiene) so import preview logic isn't rewritten twice.
 
-001, 005, 010, 011, 012, 015 are independent — any order.
+005, 010, 011, 012, 015 are independent — any order.
 ```
 
-Recommended first tranche (highest leverage, static-scope, low risk):
-**006 → 001 → 003 → 002 → 010 → 011 → 012 → 004 → 007**. Then the bigger bets:
+Recommended first tranche (highest leverage, static-scope): **006 → 016 → 001 →
+003 → 002 → 010 → 011 → 012 → 004 → 007**. Then the bigger bets:
 **005 → 015 → 008 → 009 → 013 → 014**.
 
 ## Backlog (not yet planned in detail)
@@ -140,3 +144,4 @@ Consensus across ≥5 personas that these betray the product:
 | 013 | NOT STARTED |
 | 014 | NOT STARTED |
 | 015 | NOT STARTED |
+| 016 | NOT STARTED |

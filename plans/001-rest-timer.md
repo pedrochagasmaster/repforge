@@ -15,7 +15,9 @@
 - **Priority**: P1
 - **Effort**: M
 - **Risk**: LOW
-- **Depends on**: none
+- **Depends on**: none. **Composes with** Plan 016 — if 016 (per-set "Save set"
+  commit) has landed, use its commit as the auto-start trigger (Step 4 note) and
+  skip the RIR-keystroke heuristic.
 - **Category**: direction (feature)
 - **Planned at**: commit `1d68b68`, 2026-07-01
 - **Source**: Power user ("No rest timer. I cannot say this loudly enough"),
@@ -156,9 +158,15 @@ In `bindWorkout` (`app.js:183`), wire it:
 $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
 ```
 
-Optional auto-start on the last set's fields: in `bindWorkout`, when an input
-whose `data-k` ends with `_rir` receives input and the setting is on, start the
-timer. Extend the existing input handler (`app.js:184`) so it reads:
+Optional auto-start on set completion:
+
+- **Preferred (if Plan 016 landed):** the per-set **Save set** commit is the
+  real "set complete" signal. Plan 016 already calls `startRest()` on commit —
+  so if 016 is present, do NOT add the RIR heuristic below; the ⏱ button plus
+  016's commit hook are enough.
+- **Standalone fallback (016 not landed):** in `bindWorkout`, when an input
+  whose `data-k` ends with `_rir` receives input and the setting is on, start
+  the timer. Extend the existing input handler (`app.js:184`) so it reads:
 
 ```js
 $$("#workout input").forEach(i=>{i.oninput=()=>{saveDraft();updateSaveMeta();
@@ -232,7 +240,9 @@ await page.click("#restBar"); // stop it so it doesn't affect later checks
   (it must not — timer state is in-memory only, plus the one `restSec` setting).
 - Auto-start proves flaky in the simulation because RIR prefill fires `oninput`
   on load — if so, gate auto-start behind an explicit `change` from the user or
-  a per-row "done" tap, and note the change; do not weaken the existing 61 checks.
+  a per-row "done" tap, and note the change; do not weaken the existing 61
+  checks. (Landing Plan 016 first removes this risk entirely: auto-start on the
+  explicit Save-set commit instead of a keystroke.)
 
 ## Maintenance notes
 

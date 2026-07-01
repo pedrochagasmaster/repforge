@@ -222,6 +222,8 @@ await page.click("#modeFull"); // restore default for later checks
 
 ## Maintenance notes
 
-- Composes with Plan 001 (auto-start rest on set fill) and Plan 005 (skip) —
-  a skipped exercise should be stepped over in focus navigation.
+- Composes with Plan 001 (auto-start rest on set fill), Plan 005 (skip), and
+  Plan 016 (per-set commit) — a skipped exercise should be stepped over in focus
+  navigation, and "Save set" + "Next" is the natural focus-mode loop (reuse
+  016's `committed`/`touched` state; don't fork it).
 - "Essentials mode" (backlog) can default focus mode to only the essential lifts.
