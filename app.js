@@ -1,4 +1,17 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1";
+const DB="repforge",STORE="kv";
+function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);
+  r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
+async function idbGet(key){const db=await idbOpen();
+  try{return await new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,"readonly").objectStore(STORE).get(key);
+    tx.onsuccess=()=>res(tx.result);tx.onerror=()=>rej(tx.error)})}
+  finally{db.close()}}
+async function idbSet(key,val){const db=await idbOpen();
+  try{return await new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(val,key);
+    tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+  finally{db.close()}}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
@@ -120,23 +133,26 @@ class Program{
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
-let state=load(),prog=new Program(state.program),day=days()[0]||"Day 1",installPrompt=null,saving=false,editSession=null,volWindow=7;
+let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null;
 const collapsed=new Set();
 const skipped=new Set();
 const committed=new Set();
 const touched=new Set();
-state.program=prog.toJSON();
+let logMode="full",focusIndex=0;
 
 function migrateLog(){let changed=false;for(const row of state.log){
   if(!row.exerciseId){const ex=state.program.find(e=>e.name===row.name&&e.day===row.day)||state.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
   const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s?.program&&Array.isArray(s.log))
+function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
   return{settings:normalizeSettings(s.settings),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},program,log:[]}}
 function applyState(s){state={settings:normalizeSettings(s.settings),program:s.program,log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
-function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function save(){persist()}
+function persist(){
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}
+  idbSet(KEY,state).catch(e=>console.warn("idb persist failed",e))}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
@@ -157,7 +173,15 @@ function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
 function round(v){const raw=+state.settings.minJump;const inc=Number.isFinite(raw)&&raw>0?raw:2.5;return Math.round(v/inc)*inc}
 function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
-if(migrateLog())save();
+function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
+  if(!rows.length)return "";const latest=rows.sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
+  return fmt(toDisplay(latest.bodyweight))}
+function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
+  el.placeholder=unitLabel();const lbl=$("#bodyweightLabel");
+  if(lbl){for(const n of [...lbl.childNodes])if(n.nodeType===3)n.remove();
+    lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
+function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
+function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
 
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 function recommendation(ex){
@@ -205,7 +229,11 @@ function renderWorkout(){
   const restOn=+state.settings.restSec>0;
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
   const banner=hiddenCount?`<div class="skipbar">${hiddenCount} hidden today <button type="button" class="skipbar__show">Show all</button></div>`:"";
-  $("#workout").innerHTML=banner+exercises().map(ex=>{
+  const fl=focusList();
+  if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
+  const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
+  const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
+  wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
@@ -223,7 +251,7 @@ function renderWorkout(){
         `<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`+
         `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Save"}</button></div>`;
     }).join("");
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
+    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
       `<div class="ex__top"><div><h3 class="ex__name">${esc(ex.name)}</h3>`+
       `<p class="ex__meta">${ex.sets}×${ex.min}-${ex.max} reps · ${term("RIR")} 0-${fmt(state.settings.rirHigh)}</p></div>`+
       `<div class="ex__topend"><span class="ex__tag">${esc(ex.primary)}</span>`+
@@ -240,6 +268,7 @@ function renderWorkout(){
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
+  updateBodyweightField();
 }
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
@@ -274,10 +303,21 @@ function bindWorkout(){
     saveDraft();renderWorkout();toast("Filled from last session.")});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
-    skipped.has(id)?skipped.delete(id):skipped.add(id);renderWorkout()});
+    skipped.has(id)?skipped.delete(id):skipped.add(id);
+    if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
+    renderWorkout()});
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
+  if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
+    const bar=document.createElement("div");bar.className="focusbar";
+    bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
+      `<span class="focusbar__prog">${fl.length?at+1:0} of ${fl.length}</span>`+
+      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Finish workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
+    $("#workout").append(bar);
+    const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
+    const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
+    const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit()}
 }
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
@@ -304,12 +344,15 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
 
 function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
+  const bwRaw=$("#bodyweight").value,bw=bwRaw===""||bwRaw==null?0:posNum(fromDisplay(bwRaw));
   for(const ex of exercises()){if(skipped.has(ex.id))continue;for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
     const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value),rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value);
     if(load<=0)continue;
     if(!(committed.has(key)||touched.has(key)))continue;
-    rows.push({session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary})}}
+    const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
+    if(bw>0)row.bodyweight=bw;
+    rows.push(row)}}
   if(!rows.length){toast("Enter weight on at least one set before saving.");return}
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
@@ -564,7 +607,8 @@ function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump
 
 function commitSettings(silent){const num=(sel,def,min)=>{const n=+$(sel).value;return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg";
-  if(oldUnit!==newUnit)convertDraftUnits(oldUnit,newUnit);
+  if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
+    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=+bw.value;if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit});
   save();render();if(!silent)toast("Settings saved.");}
 
@@ -581,6 +625,7 @@ function exportCsv(){
     ["tonnage",r=>+((+r.load||0)*(+r.reps||0)).toFixed(2)],
     ["primary",r=>rowMuscles(r).primary],["secondary",r=>rowMuscles(r).secondary],
     ["is_hard_set",r=>(+r.load>0&&+r.reps>0&&+r.rir<=hr)?1:0],
+    ["bodyweight",r=>r.bodyweight??""],
     ["notes",r=>r.notes],["created",r=>r.created],
   ];
   const q=v=>`"${String(v??"").replaceAll('"','""')}"`;
@@ -614,6 +659,10 @@ function init(){
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
   $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
   $("#date").value=today();
+  $("#bodyweight").value=lastBodyweight();
+  updateBodyweightField();
+  $("#modeFull").onclick=()=>setLogMode("full");
+  $("#modeFocus").onclick=()=>setLogMode("focus");
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
@@ -628,4 +677,16 @@ function init(){
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
 }
-init();
+async function boot(){
+  let raw=null;
+  try{raw=await idbGet(KEY)}catch(e){console.warn("idb read failed",e)}
+  if(raw==null){try{const ls=localStorage.getItem(KEY);
+    if(ls){raw=JSON.parse(ls);try{await idbSet(KEY,raw)}catch(e){console.warn("idb migration failed",e)}}}
+  catch(e){console.warn("localStorage read failed",e)}}
+  state=normalizeLoaded(raw);
+  prog=new Program(state.program);state.program=prog.toJSON();
+  day=days()[0]||"Day 1";
+  if(migrateLog())persist();
+  init();
+}
+boot();

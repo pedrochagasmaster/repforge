@@ -42,12 +42,19 @@
           <label class="datepick">Date<input id="date" type="date"></label>
         </div>
       </div>
+      <div class="modeswitch" role="group" aria-label="Log layout">
+        <button type="button" id="modeFull" class="active">List</button>
+        <button type="button" id="modeFocus">Focus</button>
+      </div>
       <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
       <div id="fatigue" class="fatigue hidden"></div>
       <form id="logForm">
         <div id="workout"></div>
         <label class="field">Session notes
           <textarea id="notes" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
+        </label>
+        <label class="field" id="bodyweightLabel">Bodyweight (optional)
+          <input id="bodyweight" type="number" step="any" min="0" inputmode="decimal" placeholder="kg">
         </label>
         <button class="btn btn--forge btn--save" type="submit">
           <span>Finish workout</span>

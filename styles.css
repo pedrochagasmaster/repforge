@@ -471,6 +471,22 @@ nav button.active .nav__icon{background:var(--ember)}
 .attn--reduce .attn__chip{border-color:rgba(79,182,217,.4)}
 .attn--new .attn__lead{color:var(--steel)}
 
+/* ---- Focus mode / log layout toggle ---- */
+.modeswitch{display:flex;gap:6px;background:var(--slag);border:1px solid var(--rule);border-radius:14px;padding:5px;margin-bottom:12px}
+.modeswitch button{flex:1;border:0;background:transparent;color:var(--steel);cursor:pointer;border-radius:10px;
+  padding:9px 8px;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:13px}
+.modeswitch button.active{background:var(--anvil);color:var(--mist);box-shadow:inset 0 0 0 1px var(--rule),0 6px 14px -10px #000}
+#workout.is-focus .exercise:not(.is-current){display:none}
+#workout.is-focus .exercise.is-current.is-collapsed .sets__head,
+#workout.is-focus .exercise.is-current.is-collapsed .setrow,
+#workout.is-focus .exercise.is-current.is-collapsed .prev{display:block}
+#workout.is-focus .exercise.is-current.is-collapsed .ex__caret{transform:rotate(0)}
+.focusbar{position:sticky;bottom:calc(var(--navh) + 8px);display:flex;align-items:center;gap:10px;
+  margin-top:16px;padding:12px;background:var(--slag);border:1px solid var(--rule);border-radius:14px;z-index:2}
+.focusbar .btn{flex:1;padding:14px 12px;font-size:14px}
+.focusbar__prog{flex:none;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
+  font-size:12px;color:var(--steel);min-width:4.5rem;text-align:center}
+
 /* ---- Window toggle (reuses .seg) ---- */
 .seg--window{margin:8px 0 12px}
 .seg--window button{border:0;background:transparent;color:var(--steel);cursor:pointer;border-radius:10px;

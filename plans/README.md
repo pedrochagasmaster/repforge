@@ -137,11 +137,11 @@ Consensus across ≥5 personas that these betray the product:
 | 006 | DONE |
 | 007 | DONE |
 | 008 | DONE |
-| 009 | NOT STARTED |
+| 009 | DONE |
 | 010 | DONE |
 | 011 | DONE |
 | 012 | DONE |
-| 013 | NOT STARTED |
-| 014 | NOT STARTED |
+| 013 | DONE |
+| 014 | DONE |
 | 015 | DONE |
 | 016 | DONE |

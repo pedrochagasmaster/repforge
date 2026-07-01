@@ -62,9 +62,15 @@ async function getProgramExercises(page, day) {
 }
 
 async function clearState(page) {
-  await page.evaluate(({ k, d }) => {
+  await page.evaluate(async ({ k, d }) => {
     localStorage.removeItem(k);
     localStorage.removeItem(d);
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = () => res();
+      req.onerror = () => res();
+      req.onblocked = () => res();
+    });
   }, { k: KEY, d: DRAFT });
 }
 
@@ -676,7 +682,8 @@ async function main() {
       header.includes("reps") &&
       header.includes("exercise_id") &&
       header.includes("e1rm") &&
-      header.includes("is_hard_set"),
+      header.includes("is_hard_set") &&
+      header.includes("bodyweight"),
     "CSV header has expected columns",
     `Header: ${header}`,
     "Settings → Export log CSV → check first line"
@@ -1238,6 +1245,100 @@ async function main() {
   await nav(page, "settings");
   await page.selectOption("#unit", "kg");
   await page.waitForTimeout(80);
+
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+  await page.waitForTimeout(80);
+
+  // Bodyweight persists on save and prefills on reopen
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill("#bodyweight", "80");
+  const bwMeta = await getExerciseMeta(page, "Day 1");
+  await fillExerciseSets(page, bwMeta[0].id, bwMeta[0].sets, 100, 6, 1);
+  await saveWorkout(page);
+  const stBw = await getState(page);
+  assert(
+    stBw.log.some((r) => +r.bodyweight === 80),
+    "Bodyweight persists on saved rows",
+    "No saved row carries bodyweight 80",
+    "Log → set bodyweight → Save → rows carry bodyweight"
+  );
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  assert(
+    (await page.inputValue("#bodyweight")) === "80",
+    "Bodyweight prefills from last session",
+    `bodyweight input = ${await page.inputValue("#bodyweight")}`,
+    "Log → reopen → bodyweight prefilled"
+  );
+
+  // Focus mode shows one exercise; Finish saves like list mode
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.click("#modeFocus");
+  await page.waitForTimeout(80);
+  const visible = await page.locator("#workout .exercise:not(.is-current)").evaluateAll((els) =>
+    els.every((e) => getComputedStyle(e).display === "none")
+  );
+  assert(
+    visible,
+    "Focus mode shows one exercise at a time",
+    "Non-current exercises visible in focus mode",
+    "Log → Focus → only current card shown"
+  );
+  const focusMeta = await getExerciseMeta(page, "Day 1");
+  await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
+  await page.click("[data-fnext]");
+  await page.waitForTimeout(80);
+  for (let i = 0; i < focusMeta.length + 1; i++) {
+    if (await page.locator("[data-ffinish]").count()) {
+      await page.click("[data-ffinish]");
+      break;
+    }
+    if (await page.locator("[data-fnext]").count()) {
+      await page.click("[data-fnext]");
+      await page.waitForTimeout(60);
+    }
+  }
+  await page.waitForTimeout(120);
+  assert(
+    (await getState(page)).log.some((r) => r.exerciseId === focusMeta[0].id && +r.load === 90),
+    "Finish workout saves focus-mode sets",
+    "No saved row from focus mode",
+    "Log → Focus → fill → Finish → rows saved"
+  );
+  await page.click("#modeFull");
+
+  // IndexedDB holds primary state (localStorage mirror kept for harness)
+  const idbHasState = await page.evaluate(async (k) => {
+    const db = await new Promise((res, rej) => {
+      const r = indexedDB.open("repforge", 1);
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    });
+    const val = await new Promise((res, rej) => {
+      const tx = db.transaction("kv", "readonly");
+      const req = tx.objectStore("kv").get(k);
+      req.onsuccess = () => res(req.result);
+      req.onerror = () => rej(req.error);
+    });
+    db.close();
+    return val != null && Array.isArray(val.log);
+  }, KEY);
+  assert(
+    idbHasState,
+    "IndexedDB stores training state",
+    "repforge/kv missing state blob",
+    "Log a session → DevTools IndexedDB → repforge → kv"
+  );
+  const mirrorState = await getState(page);
+  assert(
+    mirrorState && Array.isArray(mirrorState.log) && mirrorState.log.length > 0,
+    "localStorage mirror populated after save",
+    `mirror log length=${mirrorState?.log?.length ?? "null"}`,
+    "Save workout → localStorage repforge_v1 mirrors persisted state"
+  );
 
   // Console errors
   assert(
