@@ -150,20 +150,28 @@ function summaries(){const m=new Map();
 
 function renderStats(){
   const names=[...new Set(state.log.map(x=>x.name))].sort();
+  const sums=summaries();
+  const byLift=new Map();
+  for(const r of sums){if(!byLift.has(r.name))byLift.set(r.name,[]);byLift.get(r.name).push(r)}
+  // Progression only means something within a single lift, so summarise each one's own trajectory.
+  const lifts=[...byLift.entries()].map(([name,list])=>{
+    const first=list[0],latest=list.at(-1);
+    return{name,latestTop:latest.top,delta:latest.top-first.top,bestE:Math.max(...list.map(r=>r.e1rm)),sessions:list.length};
+  });
   const totalVol=sum(state.log.map(x=>(+x.load||0)*(+x.reps||0)));
-  const bestE=state.log.reduce((m,x)=>Math.max(m,e1rm(+x.load,+x.reps)),0);
+  const progressing=lifts.filter(l=>l.delta>0).length;
   const tiles=[
     {label:"Sessions",val:new Set(state.log.map(x=>x.session)).size},
     {label:"Sets logged",val:state.log.length},
     {label:"Volume",val:kfmt(totalVol),unit:"kg"},
-    {label:"Best e1RM",val:fmt(Math.round(bestE)),unit:"kg",hot:true},
+    {label:"Progressing",val:progressing,unit:lifts.length?`/${lifts.length}`:"",hot:progressing>0},
   ];
   $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("");
 
   const old=$("#statExercise").value;
   $("#statExercise").innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join("")||"<option>No data</option>";
   if(names.includes(old))$("#statExercise").value=old;
-  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.name===sel);
+  const sel=$("#statExercise").value,rows=sums.filter(x=>x.name===sel);
   draw(rows);
 
   if(rows.length){const first=rows[0].top,latest=rows.at(-1).top,delta=latest-first,be=Math.max(...rows.map(r=>r.e1rm));
@@ -174,8 +182,8 @@ function renderStats(){
   }else $("#trend").innerHTML="";
 
   $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({Date:x.date,Top:fmt(x.top),Reps:x.reps,RIR:fmt(x.rir),e1RM:fmt(Math.round(x.e1rm)),Vol:kfmt(x.volume)})));
-  const top=names.map(n=>state.log.filter(x=>x.name===n).sort((a,b)=>b.load-a.load)[0]).filter(Boolean).sort((a,b)=>b.load-a.load).map(x=>({Exercise:x.name,kg:fmt(x.load),Reps:x.reps,RIR:fmt(x.rir),Date:x.date}));
-  $("#tops").innerHTML=table(top);
+  const progRows=lifts.slice().sort((a,b)=>b.delta-a.delta).map(l=>({Exercise:l.name,"Top kg":fmt(l.latestTop),"Δ kg":(l.delta>0?"+":"")+fmt(l.delta),"Best e1RM":fmt(Math.round(l.bestE)),Sessions:l.sessions}));
+  $("#tops").innerHTML=table(progRows);
 }
 
 function draw(rows){
