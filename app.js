@@ -12,6 +12,14 @@ const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
 const shortDate=d=>{const p=String(d||"").split("-");return p.length===3?`${+p[1]}/${+p[2]}`:String(d||"")};
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2};
+const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
+const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0)});
+const clearDraft=()=>localStorage.removeItem(DRAFT);
+const loadDraft=()=>{try{return JSON.parse(localStorage.getItem(DRAFT)||"{}")}catch{clearDraft();return{}}};
+const posNum=(v,f=0)=>Math.max(0,Number.isFinite(+v)?+v:f);
+const liftKey=x=>x.exerciseId||x.name;
+const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
 
 const program=[
 ["Day 1",1,"Hack squat or pendulum squat",2,4,8,"Quads","Glutes,Adductors"],["Day 1",2,"Seated leg curl",2,4,8,"Hamstrings",""] ,["Day 1",3,"Incline converging chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 1",4,"Chest-supported machine row",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],["Day 1",5,"Machine lateral raise",2,6,8,"Side delts",""] ,["Day 1",6,"Hip adduction machine",2,6,8,"Adductors",""] ,
@@ -43,7 +51,7 @@ class Exercise{
 }
 
 class Program{
-  constructor(list=[]){this.exercises=(Array.isArray(list)?list:[]).map(e=>new Exercise(e));this.renumber()}
+  constructor(list=[]){const ids=new Set();this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);return ex});this.renumber()}
   days(){return [...new Set(this.exercises.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
   forDay(d){return this.exercises.filter(e=>e.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
   find(id){return this.exercises.find(e=>e.id===id)}
@@ -53,7 +61,7 @@ class Program{
     if(field==="sets")e.sets=Exercise.posInt(value,e.sets);
     else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
     else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
-    else if(field==="name"||field==="primary"||field==="secondary")e[field]=value;}
+    else if(field==="name"||field==="primary"||field==="secondary")e[field]=String(value??"").trim();}
   addExercise(day){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
     const e=new Exercise({day,order,name:"New exercise",sets:3,min:6,max:10});this.exercises.push(e);return e}
   removeExercise(id){this.exercises=this.exercises.filter(e=>e.id!==id);this.renumber()}
@@ -62,6 +70,7 @@ class Program{
   addDay(){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
     this.exercises.push(new Exercise({day:name,order:1,name:"New exercise",sets:3,min:6,max:10}));return name}
   renameDay(oldName,newName){const nv=String(newName).trim();if(!nv||nv===oldName)return false;
+    if(this.days().includes(nv))return false;
     for(const e of this.exercises)if(e.day===oldName)e.day=nv;this.renumber();return true}
   removeDay(d){this.exercises=this.exercises.filter(e=>e.day!==d)}
   volume(){const m=new Map();for(const e of this.exercises){
@@ -69,19 +78,31 @@ class Program{
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
-let state=load(),prog=new Program(state.program),day=days()[0]||"Day 1",installPrompt=null;
+let state=load(),prog=new Program(state.program),day=days()[0]||"Day 1",installPrompt=null,saving=false;
 state.program=prog.toJSON();
 
-function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s?.program&&Array.isArray(s.log))return s}catch{}return{settings:{jumpPct:2.5,minJump:2.5,rirHigh:2},program,log:[]}}
+function migrateLog(){let changed=false;for(const row of state.log){
+  if(!row.exerciseId){const ex=state.program.find(e=>e.name===row.name&&e.day===row.day)||state.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
+  const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
+  if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
+  return changed}
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY));if(s?.program&&Array.isArray(s.log))
+  return{settings:normalizeSettings(s.settings),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},program,log:[]}}
+function applyState(s){state={settings:normalizeSettings(s.settings),program:s.program,log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
 function save(){localStorage.setItem(KEY,JSON.stringify(state))}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
-function last(name){const r=state.log.filter(x=>x.name===name).sort((a,b)=>String(a.date).localeCompare(b.date)||String(a.created).localeCompare(b.created));if(!r.length)return[];const id=r.at(-1).session;return r.filter(x=>x.session===id).sort((a,b)=>a.set-b.set)}
-function round(v){const inc=+state.settings.minJump||2.5;return Math.round(v/inc)*inc}
+function last(ex){const id=ex?.id,name=ex?.name;
+  const match=x=>id&&x.exerciseId?x.exerciseId===id:x.name===name;
+  const hits=state.log.filter(match);if(!hits.length)return[];
+  const sid=[...hits].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0].session;
+  return hits.filter(x=>x.session===sid).sort((a,b)=>a.set-b.set)}
+function round(v){const raw=+state.settings.minJump;const inc=Number.isFinite(raw)&&raw>0?raw:2.5;return Math.round(v/inc)*inc}
+if(migrateLog())save();
 
 // Recommendation -> double progression, mapped to a temperature/status.
 function recommendation(ex){
-  const l=last(ex.name);
+  const l=last(ex).filter(x=>+x.load>0);
   if(!l.length)return{status:"new",heat:.12,label:"New lift",text:`No history yet. Pick a load you can hold for ${ex.min}-${ex.max} reps at 0-${state.settings.rirHigh} RIR.`,load:null};
   const reps=l.map(x=>+x.reps),rirs=l.map(x=>+x.rir),loads=l.map(x=>+x.load).sort((a,b)=>a-b),load=loads[Math.floor(loads.length/2)],minReps=Math.min(...reps),rir=avg(rirs);
   if(minReps>=ex.max&&rir>=state.settings.rirHigh+1)return{status:"add2",heat:1,label:"Add load ++",text:"You topped the range with reps in reserve. Jump up boldly.",load:round(load+Math.max(load*state.settings.jumpPct*2/100,state.settings.minJump))};
@@ -97,17 +118,17 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
 
 function renderWorkout(){
-  const draft=JSON.parse(localStorage.getItem(DRAFT)||"{}");
+  const draft=loadDraft();
   $("#workout").innerHTML=exercises().map(ex=>{
-    const r=recommendation(ex),prev=last(ex.name);
+    const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<p class="prev"><span>Last:</span>${prev.map(x=>`${fmt(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}</p>`:"";
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmt(r.load):(old&&old.load!=null?fmt(old.load):""));
       return `<div class="setrow"><span class="setrow__n">${n}</span>`+
-        `<input data-k="${ex.id}_${n}_load" type="number" step="0.5" inputmode="decimal" aria-label="Set ${n} kg" placeholder="kg" value="${esc(kgVal)}">`+
-        `<input data-k="${ex.id}_${n}_reps" type="number" step="1" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(draft[`${ex.id}_${n}_reps`]??ex.min)}">`+
-        `<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(draft[`${ex.id}_${n}_rir`]??1)}"></div>`;
+        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} kg" placeholder="kg" value="${esc(kgVal)}">`+
+        `<input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(draft[`${ex.id}_${n}_reps`]??ex.min)}">`+
+        `<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(draft[`${ex.id}_${n}_rir`]??1)}"></div>`;
     }).join("");
     return `<article class="exercise is-${r.status}">`+
       `<div class="ex__top"><div><h3 class="ex__name">${esc(ex.name)}</h3>`+
@@ -134,14 +155,19 @@ function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=re
 
 function updateSaveMeta(){const exs=exercises();const sets=sum(exs.map(e=>e.sets));$("#saveMeta").textContent=`${day} · ${sets} sets`;}
 
-function saveWorkout(e){e.preventDefault();const date=$("#date").value||today(),session=`${date}_${day}_${Date.now()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
-  for(const ex of exercises())for(let n=1;n<=ex.sets;n++)rows.push({session,date,day,name:ex.name,set:n,load:+$(`[data-k="${ex.id}_${n}_load"]`).value||0,reps:+$(`[data-k="${ex.id}_${n}_reps"]`).value||0,rir:+$(`[data-k="${ex.id}_${n}_rir"]`).value||0,notes,created});
-  state.log.push(...rows);save();localStorage.removeItem(DRAFT);$("#notes").value="";
+function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
+  try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
+  for(const ex of exercises())for(let n=1;n<=ex.sets;n++){
+    const load=posNum($(`[data-k="${ex.id}_${n}_load"]`).value),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value),rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value);
+    if(load<=0)continue;
+    rows.push({session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created})}
+  if(!rows.length){toast("Enter weight on at least one set before saving.");return}
+  state.log.push(...rows);save();clearDraft();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
-  toast(`Workout forged — ${rows.length} sets logged.`);render()}
+  toast(`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
 
 function summaries(){const m=new Map();
-  for(const x of state.log){const k=`${x.session}|${x.name}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,name:x.name,loads:[],reps:[],rirs:[],sets:0});
+  for(const x of state.log){const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,name:exerciseLabel(x),loads:[],reps:[],rirs:[],sets:0});
     const o=m.get(k);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
   return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
     o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
@@ -149,22 +175,15 @@ function summaries(){const m=new Map();
     .sort((a,b)=>a.date.localeCompare(b.date)||a.session.localeCompare(b.session))}
 
 function renderStats(){
-  const names=[...new Set(state.log.map(x=>x.name))].sort();
+  const names=[...new Set(state.log.map(x=>exerciseLabel(x)))].sort();
   const sums=summaries();
-  const byLift=new Map();
-  for(const r of sums){if(!byLift.has(r.name))byLift.set(r.name,[]);byLift.get(r.name).push(r)}
-  // Progression only means something within a single lift, so summarise each one's own trajectory.
-  const lifts=[...byLift.entries()].map(([name,list])=>{
-    const first=list[0],latest=list.at(-1);
-    return{name,latestTop:latest.top,delta:latest.top-first.top,bestE:Math.max(...list.map(r=>r.e1rm)),sessions:list.length};
-  });
   const totalVol=sum(state.log.map(x=>(+x.load||0)*(+x.reps||0)));
-  const progressing=lifts.filter(l=>l.delta>0).length;
+  const bestE=state.log.length?Math.max(...state.log.map(x=>e1rm(+x.load,+x.reps))):0;
   const tiles=[
     {label:"Sessions",val:new Set(state.log.map(x=>x.session)).size},
     {label:"Sets logged",val:state.log.length},
     {label:"Volume",val:kfmt(totalVol),unit:"kg"},
-    {label:"Progressing",val:progressing,unit:lifts.length?`/${lifts.length}`:"",hot:progressing>0},
+    {label:"Best e1RM",val:fmt(Math.round(bestE)),unit:"kg",hot:bestE>0},
   ];
   $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("");
 
@@ -182,7 +201,10 @@ function renderStats(){
   }else $("#trend").innerHTML="";
 
   $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({Date:x.date,Top:fmt(x.top),Reps:x.reps,RIR:fmt(x.rir),e1RM:fmt(Math.round(x.e1rm)),Vol:kfmt(x.volume)})));
-  const progRows=lifts.slice().sort((a,b)=>b.delta-a.delta).map(l=>({Exercise:l.name,"Top kg":fmt(l.latestTop),"Δ kg":(l.delta>0?"+":"")+fmt(l.delta),"Best e1RM":fmt(Math.round(l.bestE)),Sessions:l.sessions}));
+  const topByLift=new Map();
+  for(const x of state.log){const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
+    if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:exerciseLabel(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
+  const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,kg:fmt(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
 }
 
@@ -221,17 +243,18 @@ function draw(rows){
 }
 
 function renderHistory(){
-  const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>String(b.created).localeCompare(String(a.created)));
+  const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
+    const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
     const sets=state.log.filter(r=>r.session===s.session);
-    const top=sets.reduce((m,x)=>+x.load>m.load?{load:+x.load,reps:+x.reps}:m,{load:0,reps:0});
+    const top=sets.reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
     const vol=sum(sets.map(x=>(+x.load||0)*(+x.reps||0)));
     return `<div class="session"><div><div class="session__day">${esc(s.day)}</div>`+
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmt(top.load)}×${top.reps}</span> top · ${kfmt(vol)} kg</div></div>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div>`;
   }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
   $$("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Delete this session? This cannot be undone.")){state.log=state.log.filter(x=>x.session!==b.dataset.del);save();render();toast("Session deleted.")}});
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||a.name.localeCompare(b.name)||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:x.name,Set:x.set,kg:fmt(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
+  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||a.name.localeCompare(b.name)||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:exerciseLabel(x),Set:x.set,kg:fmt(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 
@@ -289,17 +312,20 @@ function bindEditor(){
     }
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
-    inp.onchange=()=>{const old=inp.dataset.day;if(prog.renameDay(old,inp.value)){if(day===old)day=inp.value.trim();persistProgram();render();toast("Day renamed.")}else inp.value=old};
+    inp.onchange=()=>{const old=inp.dataset.day,next=inp.value.trim();
+      if(prog.renameDay(old,next)){for(const row of state.log)if(row.day===old)row.day=next;
+        if(day===old)day=next;persistProgram();save();render();toast("Day renamed.")}
+      else{inp.value=old;toast(prog.days().includes(next)?"That day name already exists.":"Couldn't rename day.")}};
   });
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }
 
 function editorAction(act,ds){
   if(act==="addEx"){prog.addExercise(ds.day);persistProgram();render();toast("Exercise added.")}
-  else if(act==="delEx"){prog.removeExercise(ds.id);persistProgram();render();toast("Exercise removed.")}
+  else if(act==="delEx"){if(confirm("Remove this exercise from your program? Logged history will stay on this device.")){prog.removeExercise(ds.id);persistProgram();render();toast("Exercise removed.")}}
   else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
   else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
-  else if(act==="delDay"){if(confirm(`Delete ${ds.day} and all of its exercises?`)){prog.removeDay(ds.day);persistProgram();render();toast("Day deleted.")}}
+  else if(act==="delDay"){if(confirm(`Delete ${ds.day} and all of its exercises? Logged history for these exercises will remain.`)){prog.removeDay(ds.day);persistProgram();render();toast("Day deleted.")}}
 }
 
 function renderVolume(){
@@ -314,7 +340,7 @@ function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).
 function persistProgram(){state.program=prog.toJSON();save()}
 
 function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
-  prog=new Program(parsed);persistProgram();day=prog.days()[0]||"Day 1";render();toast("Program saved.")}
+  prog=new Program(parsed);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast("Program saved.")}
   catch{toast("That JSON didn't parse. Check the brackets and commas.")}}
 
 function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump").value=state.settings.minJump;$("#rirHigh").value=state.settings.rirHigh;
@@ -325,7 +351,8 @@ function table(rows){if(!rows.length)return'<div class="empty">No data yet.</div
 
 function exportCsv(){const h=["session","date","day","name","set","load","reps","rir","notes","created"],csv=[h.join(","),...state.log.map(r=>h.map(k=>`"${String(r[k]??"").replaceAll('"','""')}"`).join(","))].join("\n");download(csv,`repforge_log_${today()}.csv`,"text/csv")}
 function exportJson(){download(JSON.stringify(state,null,2),`repforge_backup_${today()}.json`,"application/json")}
-async function importJson(e){const f=e.target.files?.[0];if(!f)return;try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();state=s;prog=new Program(state.program);state.program=prog.toJSON();day=days()[0]||"Day 1";save();render();toast("Backup imported.")}catch{toast("That file isn't a valid RepForge backup.")}e.target.value=""}
+async function importJson(e){const f=e.target.files?.[0];if(!f)return;try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();
+  applyState(s);clearDraft();day=days()[0]||"Day 1";render();toast("Backup imported.")}catch{toast("That file isn't a valid RepForge backup.")}e.target.value=""}
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -344,7 +371,7 @@ function init(){
       rirHigh:numField("#rirHigh",2,0),
     };save();render();toast("Settings saved.")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
-  $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];save();render();toast("Log deleted.")}};
+  $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
   $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>x.classList.toggle("active",x===b));$$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
   render();
 }

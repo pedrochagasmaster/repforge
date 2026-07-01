@@ -1,0 +1,11 @@
+{
+  "name": "repforge-simulation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "simulate": "node simulation.mjs"
+  },
+  "devDependencies": {
+    "playwright": "^1.61.1"
+  }
+}
