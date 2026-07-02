@@ -126,6 +126,67 @@ This set consolidates two competing direction passes from PRs [#15](https://gith
 
 Recommended wave 2 order: **017 → 018 → 019 → 020 → 021 → 022 → 023**.
 
+## Wave 3 — review of PR #19 (program abstraction)
+
+Branch audit of [PR #19](https://github.com/pedrochagasmaster/repforge/pull/19)
+(`cursor/program-abstraction-df5f`, single commit `f9da669` on top of
+`d814e40`), run with `/improve branch`. The PR adds `state.programMeta`, the
+Program-tab summary card (name, start date, week/adherence/status/health/
+volume chips), export v2 `{ version: 2, meta, exercises }`, and the domain
+docs (`CONTEXT.md`, ADR 0001, `docs/design/program-abstraction.md`). Baseline
+verified at `f9da669`: `node --check app.js` clean, simulation
+`PASSED: 111, FAILED: 0`.
+
+These plans are written **against the PR branch** — execute them on top of
+`f9da669` (or wherever PR #19's head is after rebase; each plan has a drift
+check).
+
+| # | Plan | Category | Effort | Risk | Source |
+|---|------|----------|--------|------|--------|
+| 025 | [Program summary chips refresh after meta edits](./025-program-meta-chip-refresh.md) | bug | S | LOW | **Audit of PR #19** (introduced); runtime-verified |
+| 026 | [Import adopts template name, not sender lifecycle](./026-program-import-meta-semantics.md) | bug / domain | S | LOW | **Audit of PR #19** (introduced); coach persona, PROG-19 intent |
+| 027 | [One hard-set aggregation + single-pass signals](./027-program-signals-single-pass.md) | tech-debt | S | LOW | **Audit of PR #19** (introduced duplication of pre-existing `renderCompleted`) |
+| 028 | [Program identity on Log tab + named export files](./028-program-identity-surfacing.md) | direction | S | LOW | PR #19's own design note ("what program am I running?"); coach persona |
+
+### Wave 3 dependency graph
+
+```
+025 (chip refresh) ──┬─▶ 027 (restructures the same signal call sites)
+                     └─▶ 028 (touches the same render function)
+026 (import semantics) ──▶ 028 (import naming settled before surfacing names)
+```
+
+Recommended wave 3 order: **025 → 026 → 027 → 028**. Written non-interactively
+(cloud review run); the top findings by leverage were planned by default per
+the improve skill's non-interactive rule.
+
+### Wave 3 findings considered and rejected (do not re-file)
+
+- **Unconditional `persist()` on every boot** (PR #19 changed
+  `if(migrateLog())persist()` to `migrateLog();persist()` in `boot()`):
+  accepted — the meta migration must persist on first load, and one extra
+  write per boot is negligible next to the per-keystroke saves elsewhere.
+- **Redundant double `normalizeProgramMeta` in `applyState`** (`app.js:199-200`
+  normalizes in the object literal and again two statements later): cosmetic
+  dead work, second call is idempotent; not worth a plan — fold into any
+  future touch of `applyState`.
+- **`save()` on every program-name keystroke** serializes the full state
+  (log included) to localStorage + IndexedDB: pre-existing convention — the
+  program editor's `oninput` → `persistProgram()` does the same; fixing it
+  for one input would be inconsistent. A debounced-save pass would be a
+  separate, whole-app finding.
+- **"days this week" chip wording on a rolling 7-day window**: matches the
+  design note's documented display spec; a calendar-week rework is a product
+  decision, not a bug.
+- **Warmup-only rows counting toward adherence**: defensible ("you showed
+  up"); all saved rows have load > 0 anyway, so the edge is nearly
+  unreachable.
+- **Future start date shows "Week 1"** (`programWeek` clamps negative day
+  deltas): harmless, arguably correct UX.
+- **Export v2 keeping full `meta` (including sender's `started`) in the
+  file**: kept as provenance — the fix (plan 026) is what the importer
+  *applies*, not what the exporter writes.
+
 ## Backlog (not yet planned in detail)
 
 Grounded in the report but deferred — each needs its own plan before execution.
@@ -198,3 +259,7 @@ Consensus across ≥5 personas that these betray the product:
 | 022 | DONE |
 | 023 | DONE (spike — see `docs/design/mesocycle-blocks.md`) |
 | 024 | DRAFT — do not execute before human review of the 023 design doc |
+| 025 | TODO |
+| 026 | TODO |
+| 027 | TODO |
+| 028 | TODO |
