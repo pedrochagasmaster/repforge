@@ -616,7 +616,7 @@ function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metr
   if(Math.abs(loadDelta)<.01&&repsDelta!==0){const s=repsDelta>0?"+":"";return`${s}${repsDelta} reps at same load`}
   if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return`${s}${Math.round(e1rmDelta)}kg e1RM`}
   const parts=[];if(repsDelta!==0)parts.push(`${repsDelta>0?"+":""}${repsDelta} reps`);if(Math.abs(e1rmDelta)>=.01)parts.push(`e1RM ${e1rmDelta>0?"+":""}${Math.round(e1rmDelta)}kg`);
-  return parts.length?`vs last: ${parts.join(" · ")}`:""}
+  return parts.length?parts.join(" · "):""}
 function sessionDeltaCounts(rows){const byLift=new Map();
   for(const r of rows){if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
     const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
@@ -630,6 +630,15 @@ function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
   if(c.regressed)parts.push(`${c.regressed} regressed`);if(c.new)parts.push(`${c.new} new`);
   return parts.join(sep)}
 function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
+function draftRowsForExercise(ex,draft){const warm=new Set(draft.__warm||[]),rows=[];
+  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(warm.has(key))continue;
+    const ld=fromDisplay(+draft[`${key}_load`]||0),rp=+draft[`${key}_reps`]||0;if(ld<=0||rp<=0)continue;
+    let rir=+draft[`${key}_rir`];if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+    else if(!Number.isFinite(rir))rir=1;
+    rows.push({exerciseId:ex.id,name:ex.name,day:ex.day,load:ld,reps:rp,rir,warmup:false})}
+  return rows}
+function deltaPreviewFor(ex,draft){const rows=draftRowsForExercise(ex,draft);if(!workingRows(rows).length)return"";
+  const cmp=compareExerciseSession(ex,rows);const fd=cmp.metrics?formatDelta(cmp):"";return fd?`vs last: ${fd}`:""}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
@@ -706,6 +715,7 @@ function renderWorkout(){
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
+    const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
@@ -746,13 +756,20 @@ function renderWorkout(){
       `<p class="rec__plain">${esc(PLAIN[r.status]||"")}</p>`+
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       subPick+
-      prevHtml+
+      prevHtml+deltaHtml+
       `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?"Effort":"RIR"}</span><span></span></div>${rows}</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
 }
+
+function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
+  const ex=prog.find(exId);if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
+  if(!text){el?.remove();return}
+  if(el)el.textContent=text;else{const n=document.createElement("div");n.className="delta-prev";n.textContent=text;
+    const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
+    if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sets__head")?"beforebegin":"afterend",n)}}
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
@@ -761,7 +778,8 @@ function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
-    saveDraft();updateSaveMeta()};
+    saveDraft();updateSaveMeta();
+    const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1])};
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
@@ -909,6 +927,20 @@ function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySn
     `<div>${w.improvedLifts} lift${w.improvedLifts===1?"":"s"} improved</div>`+
     `<div>${w.readyToAdd} ready to add</div></div>`+
     `<div class="thisweek__status">Status: <b>${esc(w.status)}</b></div>`}
+function recentDeltaRows(){const sessMap=new Map();
+  for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
+  const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
+  const out=[];
+  for(const sess of recent){const byLift=new Map();
+    for(const r of state.log.filter(x=>x.session===sess.session)){const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
+    for(const rows of byLift.values()){if(!workingRows(rows).length)continue;
+      const ex=prog.find(rows[0].exerciseId)||{id:rows[0].exerciseId,name:rows[0].name,day:rows[0].day};
+      const cmp=compareExerciseSession(ex,rows);if(cmp.status==="not_comparable")continue;
+      const m=cmp.metrics?.current||exerciseSessionMetrics(rows);
+      out.push({Date:shortDate(sess.date),Exercise:displayName(rows[0]),Status:cmp.label,Load:fmtLoad(m.topLoad),Reps:m.totalReps,
+        e1RM:fmt(Math.round(toDisplay(m.bestE1rm))),Delta:cmp.status==="new"?"—":formatDelta(cmp)||"—"})}}
+  return out}
+
 function renderStats(){
   renderThisWeek();
   // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
@@ -942,6 +974,7 @@ function renderStats(){
   }else $("#trend").innerHTML="";
 
   $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({Date:x.date,Top:fmtLoad(x.top),Reps:x.reps,RIR:fmt(x.rir),e1RM:fmt(Math.round(toDisplay(x.e1rm))),Vol:kfmt(toDisplay(x.volume))})));
+  const rd=$("#recentDeltas");if(rd)rd.innerHTML=table(recentDeltaRows());
   const topByLift=new Map();
   for(const x of state.log){if(!isWork(x))continue;const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
     if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:displayName(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
