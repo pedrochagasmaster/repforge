@@ -559,6 +559,19 @@ function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metr
   if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return`${s}${Math.round(e1rmDelta)}kg e1RM`}
   const parts=[];if(repsDelta!==0)parts.push(`${repsDelta>0?"+":""}${repsDelta} reps`);if(Math.abs(e1rmDelta)>=.01)parts.push(`e1RM ${e1rmDelta>0?"+":""}${Math.round(e1rmDelta)}kg`);
   return parts.length?`vs last: ${parts.join(" · ")}`:""}
+function sessionDeltaCounts(rows){const byLift=new Map();
+  for(const r of rows){if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
+    const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
+  const counts={improved:0,flat:0,regressed:0,new:0};
+  for(const [,liftRows]of byLift){const row=liftRows[0];
+    const ex=prog.find(row.exerciseId)||prog.exercises.find(e=>e.name===row.name)||{id:row.exerciseId,name:row.name};
+    const d=compareExerciseSession(ex,liftRows);if(d.status in counts)counts[d.status]++}
+  return counts}
+function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
+  if(c.improved)parts.push(`${c.improved} improved`);if(c.flat)parts.push(`${c.flat} flat`);
+  if(c.regressed)parts.push(`${c.regressed} regressed`);if(c.new)parts.push(`${c.new} new`);
+  return parts.join(sep)}
+function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
@@ -795,7 +808,11 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
-  toast(prLifts.length?`Workout forged — ${rows.length} sets logged. PR: ${prLifts.join(", ")}!`:`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
+  const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
+  let msg=`Workout forged — ${rows.length} sets logged.`;
+  if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
+  if(deltaTxt)msg+=` ${deltaTxt}.`;
+  toast(msg);render()}finally{saving=false}}
 
 function summaries(){const m=new Map();
   for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
@@ -956,8 +973,9 @@ function renderHistory(){
     if(s.session===editSession)return sessionEditor(s,sets);
     const top=sets.filter(isWork).reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
     const vol=sum(sets.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+    const delta=sessionDeltaCounts(sets),deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
     return `<div class="session"><div class="session__info"><div class="session__day">${esc(s.day)}</div>`+
-      `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div></div>`+
+      `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
   }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
