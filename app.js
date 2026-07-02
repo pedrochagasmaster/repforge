@@ -245,8 +245,82 @@ function mesocycleWeek(){const wk=programWeek(),total=state.programMeta?.mesocyc
   const isFinalWeek=current!=null&&current>=total;
   const isComplete=state.programMeta?.mesocycleStatus==="completed"||(current!=null&&current>total);
   return{current,total,isFinalWeek,isComplete}}
+function rowMusclesPure(row,program){if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
+  const ex=(program||[]).find(e=>e.id===row.exerciseId)||(program||[]).find(e=>e.name===row.name);
+  return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
+function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
+function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
+  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
+    const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
+  return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
+    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
+    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex),m=new Map();
+  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});m.get(x.session).rows.push(x)}
+  const ordered=[...m.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+  const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
+  if(curIdx<0){const curCreated=(log||[]).find(r=>r.session===beforeSessionId)?.created;if(!curCreated)return ordered.length?ordered.at(-1).rows:[];
+    const older=ordered.filter(s=>String(s.created).localeCompare(String(curCreated))<0);return older.length?older.at(-1).rows:[]}
+  return curIdx>0?ordered[curIdx-1].rows:[]}
+function hardSetsInRange(log,program,started,ended,hardRir){const m=new Map();
+  for(const x of log||[]){if(started&&String(x.date)<started)continue;if(ended&&String(x.date)>ended)continue;
+    if(!(+x.load>0&&+x.reps>0&&+x.rir<=hardRir)||!isWork(x))continue;
+    const mus=rowMusclesPure(x,program);
+    for(const p of muscles(mus.primary))addVol(m,p,1,0);
+    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
+function buildBlockReview(programMeta,program,log){const p=new Program(program||[]),days=p.days(),total=programMeta?.mesocycleLengthWeeks||6;
+  const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
+  const plannedSessions=total&&days.length?total*days.length:0;
+  const blockRows=(log||[]).filter(r=>!started||r.date&&(String(r.date)>=started&&String(r.date)<=ended));
+  const completedSessions=new Set(blockRows.map(r=>r.session)).size;
+  const adherenceRatio=plannedSessions?Math.min(completedSessions/plannedSessions,1):0;
+  let improvedLifts=0,flatLifts=0,regressedLifts=0,stalledLifts=0;
+  for(const ex of p.exercises){const sess=sessionsForLog(ex,log),blockSess=started?sess.filter(s=>String(s.date)>=started&&String(s.date)<=ended):sess;
+    if(!blockSess.length)continue;
+    const latest=blockSess.at(-1),latestRows=(log||[]).filter(r=>r.session===latest.session&&matchLift(ex)(r));
+    const delta=buildSessionDelta(previousSessionRowsLog(ex,latest.session,log),workingRows(latestRows));
+    if(delta.status==="improved")improvedLifts++;
+    else if(delta.status==="flat")flatLifts++;
+    else if(delta.status==="regressed")regressedLifts++;
+    if(isStalled(sess))stalledLifts++}
+  const prs=detectPRs(log||[]).filter(e=>!started||e.date&&(String(e.date)>=started&&String(e.date)<=ended)).length;
+  const plannedMap=p.volume(),plannedHardSetsByMuscle=volMapToObj(plannedMap);
+  let totalPlanned=0;for(const[,v]of plannedMap)totalPlanned+=(v.d+v.p)*total;
+  const completedMap=hardSetsInRange(log,program,started,ended,hardRir),completedHardSetsByMuscle=volMapToObj(completedMap);
+  let totalCompleted=0;for(const[,v]of completedMap)totalCompleted+=v.d+v.p;
+  const volumeCompliance=totalPlanned?Math.min(totalCompleted/totalPlanned,1):0;
+  const improvedHigh=improvedLifts>=3||(improvedLifts>0&&improvedLifts>=flatLifts+regressedLifts);
+  const fatigueHigh=(regressedLifts+flatLifts)>=4||regressedLifts>=2;
+  let recommendation;
+  if(adherenceRatio<.5)recommendation="repeat_with_simpler_schedule";
+  else if(stalledLifts>=3&&fatigueHigh)recommendation="reduce_volume_or_deload";
+  else if(improvedHigh&&adherenceRatio>=.8)recommendation="repeat_or_progress";
+  else if(volumeCompliance<.6)recommendation="keep_program_improve_completion";
+  else recommendation="repeat_with_small_swaps";
+  return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
+    improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
+    volumeCompliance,recommendation,created:new Date().toISOString()}}
+const BLOCK_REC_COPY={
+  repeat_with_simpler_schedule:{line:"Recommendation: repeat with a simpler schedule.",why:"Fewer than half the planned sessions were completed this block."},
+  reduce_volume_or_deload:{line:"Recommendation: reduce volume or take a deload.",why:"Several lifts stalled and fatigue looks high."},
+  repeat_or_progress:{line:"Recommendation: repeat this block or progress.",why:"Adherence was strong and most lifts improved."},
+  keep_program_improve_completion:{line:"Recommendation: keep the program and improve completion.",why:"Logged hard-set volume was well below what the program plans."},
+  repeat_with_small_swaps:{line:"Recommendation: repeat this block with small swaps.",why:"Adherence was solid and progress was mixed but acceptable."}};
+function blockRecommendationCopy(key){return BLOCK_REC_COPY[key]||BLOCK_REC_COPY.repeat_with_small_swaps}
+function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
+  $("#blockReviewBody").innerHTML=
+    `<p><b>Sessions</b> ${review.completedSessions} / ${review.plannedSessions} completed</p>`+
+    `<p><b>Lifts</b> ${review.improvedLifts} improved · ${review.flatLifts} flat · ${review.stalledLifts} stalled</p>`+
+    `<p><b>Volume</b> ${pct}% of planned hard sets</p>`+
+    `<p class="blockreview__rec">${esc(copy.line)}</p>`+
+    `<p class="blockreview__why"><b>Why:</b> ${esc(copy.why)}</p>`}
+function openBlockReview(review){renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  d.classList.remove("hidden");$("#blockReviewClose").onclick=()=>d.classList.add("hidden")}
 function promptEndBlock(){if(!confirm("End this training block? You'll review progress before starting the next one."))return;
-  toast("Block review coming soon.")}
+  openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))}
 function renderBlockPrompt(){const mc=mesocycleWeek(),show=mc.isComplete||mc.isFinalWeek;
   const html=show?`<p><b>Block ending</b> Week ${mc.current} of ${mc.total}. <button type="button" class="blockprompt__act">Review block</button></p>`:"";
   for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
@@ -626,6 +700,7 @@ window.detectPRs=detectPRs;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
 window.__repforgeMesocycleWeek=mesocycleWeek;
+window.__repforgeBuildBlockReview=buildBlockReview;
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);

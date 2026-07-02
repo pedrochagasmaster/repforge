@@ -498,6 +498,17 @@ nav button.active .nav__icon{background:var(--ember)}
 .glossary__close:hover{color:var(--mist)}
 .glossary__term{font-family:var(--display);font-weight:700;font-size:13px;margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
 .glossary__body{margin:0;font-size:13px;line-height:1.45;color:var(--steel)}
+.blockreview{
+  position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
+  background:var(--anvil);border:1px solid rgba(212,160,78,.35);border-radius:12px;
+  padding:16px 18px 14px;box-shadow:var(--shadow);
+}
+.blockreview__title{font-family:var(--display);font-weight:700;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--gold)}
+.blockreview__body{margin:0 0 14px;font-size:13px;line-height:1.5;color:var(--steel)}
+.blockreview__body p{margin:0 0 8px}
+.blockreview__body b{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:11px;color:var(--mist)}
+.blockreview__rec{margin-top:10px!important;font-weight:600;color:var(--mist)}
+.blockreview__why{margin:0!important;font-size:12px;color:var(--steel-dim)}
 .importchoice{
   position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
   background:var(--anvil);border:1px solid var(--rule);border-radius:12px;
