@@ -2480,6 +2480,87 @@ async function main() {
     "working set 100×10 vs prev 100×8"
   );
 
+  beginPhase("Phase: delta write surfaces");
+  await clearState(page);
+  await reloadApp(page);
+  let deltaState = await getState(page);
+  const deltaDay = "Day 1";
+  const deltaEx = deltaState.program
+    .filter((e) => e.day === deltaDay)
+    .sort((a, b) => a.order - b.order)[0];
+  const deltaDate = "2026-06-15";
+  const sess1 = `${deltaDate}_${deltaDay}_delta_seed`;
+  const created1 = `${deltaDate}T10:00:00.000Z`;
+  const seedRows = Array.from({ length: deltaEx.sets }, (_, i) => ({
+    session: sess1,
+    date: deltaDate,
+    day: deltaDay,
+    name: deltaEx.name,
+    exerciseId: deltaEx.id,
+    set: i + 1,
+    load: 100,
+    reps: 8,
+    rir: 1,
+    notes: "",
+    created: created1,
+    primary: deltaEx.primary,
+    secondary: deltaEx.secondary,
+  }));
+  await persistState(page, { ...deltaState, log: seedRows });
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, deltaDay);
+  await page.fill("#date", deltaDate);
+  await fillExerciseSets(page, deltaEx.id, deltaEx.sets, 100, 10, 1);
+  const sessionsBeforeDelta = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  deltaState = await getState(page);
+  const deltaSession = [...new Set(deltaState.log.map((r) => r.session))].find(
+    (s) => !sessionsBeforeDelta.has(s)
+  );
+  const deltaToast = await page.textContent("#toast");
+  assert(
+    /improved/i.test(deltaToast),
+    "Save toast includes session delta improved summary",
+    `Toast: ${deltaToast}`,
+    "Seed 100×8 → save 100×10 → toast mentions improved"
+  );
+  assert(
+    /\d+ improved/.test(deltaToast),
+    "Save toast delta uses count format",
+    `Toast: ${deltaToast}`,
+    "Toast should read like '1 improved'"
+  );
+  const compareImproved = await page.evaluate(
+    ({ exId, sid }) => {
+      const s = JSON.parse(localStorage.getItem("repforge_v1"));
+      const ex = s.program.find((e) => e.id === exId);
+      const rows = s.log.filter((r) => r.session === sid);
+      return window.__repforgeCompareExercise(ex, rows);
+    },
+    { exId: deltaEx.id, sid: deltaSession }
+  );
+  assert(
+    compareImproved.status === "improved",
+    "Second session compares improved vs seeded session",
+    `status=${compareImproved.status}`,
+    "persistState seed + UI save with more reps"
+  );
+  await nav(page, "history");
+  const deltaCard = await page.locator(".session").first().textContent();
+  assert(
+    /improved/i.test(deltaCard),
+    "History session card shows delta improved summary",
+    `Card: ${deltaCard?.slice(0, 160)}`,
+    "History → newest card after improved session"
+  );
+  assert(
+    (await page.locator(".session__delta").count()) > 0,
+    "History session card renders session__delta element",
+    "No .session__delta on history cards",
+    "History → session card includes delta line"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
