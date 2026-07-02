@@ -2471,6 +2471,49 @@ async function main() {
     "After logging → __repforgeWeek.sessionsInRange(this week)"
   );
 
+  beginPhase("Phase: strength dashboard (P12)");
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="strength"]');
+  await page.waitForTimeout(80);
+  assert(
+    (await page.locator("#strengthDash table").count()) > 0,
+    "Strength dashboard renders a table",
+    "No table inside #strengthDash",
+    "Stats → Strength segment → #strengthDash table"
+  );
+  const dashRows = await page.locator("#strengthDash table tbody tr").count();
+  assert(
+    dashRows > 0,
+    "Strength dashboard table has data rows",
+    `row count=${dashRows}`,
+    "Stats → Strength → table rows for logged lifts"
+  );
+  const dashData = await page.evaluate(() => window.__repforgeStrengthDashboard());
+  assert(
+    Array.isArray(dashData) && dashData.length > 0,
+    "__repforgeStrengthDashboard returns non-empty array",
+    `type=${typeof dashData} len=${dashData?.length}`,
+    "page.evaluate window.__repforgeStrengthDashboard()"
+  );
+  const dashFields = ["exercise", "latest", "best", "blockDelta", "prs", "lastTrained", "signal"];
+  const dashSample = dashData[0];
+  assert(
+    dashFields.every((f) => f in dashSample),
+    "Strength dashboard row includes expected fields",
+    `keys=${Object.keys(dashSample).join(",")}`,
+    "__repforgeStrengthDashboard()[0] field shape"
+  );
+  assert(
+    typeof dashSample.exercise === "string" &&
+      typeof dashSample.latest === "string" &&
+      Number.isFinite(dashSample.best) &&
+      Number.isFinite(dashSample.blockDelta) &&
+      Number.isFinite(dashSample.prs),
+    "Strength dashboard field types are sensible",
+    JSON.stringify(dashSample),
+    "__repforgeStrengthDashboard()[0] value types"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
