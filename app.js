@@ -245,6 +245,41 @@ function sessionsFor(ex){const match=matchLift(ex),m=new Map();
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
     med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
     .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
+function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
+function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)return null;let topLoad=0,topLoadReps=0,totalReps=0,totalVolume=0,bestE1rm=0;const rirs=[];
+  for(const r of w){const ld=+r.load,rp=+r.reps;totalReps+=rp;totalVolume+=ld*rp;rirs.push(+r.rir);const em=e1rm(ld,rp);if(em>bestE1rm)bestE1rm=em;if(ld>topLoad||(ld===topLoad&&rp>topLoadReps)){topLoad=ld;topLoadReps=rp}}
+  return{topLoad,topLoadReps,totalReps,totalVolume,bestE1rm,avgRir:avg(rirs),workingSets:w.length}}
+function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex),m=new Map();
+  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});m.get(x.session).rows.push(x)}
+  const ordered=[...m.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+  const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
+  if(curIdx<0){const curCreated=state.log.find(r=>r.session===beforeSessionId)?.created;if(!curCreated)return ordered.length?ordered.at(-1).rows:[];
+    const older=ordered.filter(s=>String(s.created).localeCompare(String(curCreated))<0);return older.length?older.at(-1).rows:[]}
+  return curIdx>0?ordered[curIdx-1].rows:[]}
+function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionMetrics(prevRows),current=exerciseSessionMetrics(currentRows),T=DELTA_THRESHOLDS;
+  if(!previous||!current)return{status:"not_comparable",label:"Not comparable",text:"No working sets logged.",metrics:null};
+  const loadDelta=current.topLoad-previous.topLoad,repsDelta=current.totalReps-previous.totalReps,volumeDelta=current.totalVolume-previous.totalVolume,
+    e1rmDelta=current.bestE1rm-previous.bestE1rm,avgRirDelta=current.avgRir-previous.avgRir,deltas={loadDelta,repsDelta,volumeDelta,e1rmDelta,avgRirDelta};
+  let status,label,text;
+  if(e1rmDelta>previous.bestE1rm*T.e1rmPct){status="improved";label="Improved";text="Beat last session."}
+  else if(Math.abs(loadDelta)<.01&&repsDelta>0){status="improved";label="Improved";text="Beat last session."}
+  else if(volumeDelta>previous.totalVolume*T.volumePct&&avgRirDelta<=T.rir){status="improved";label="Improved";text="Beat last session."}
+  else if(Math.abs(e1rmDelta)<=previous.bestE1rm*T.e1rmPct&&repsDelta===0&&Math.abs(volumeDelta)<=previous.totalVolume*T.volumePct){status="flat";label="Flat";text="Matched last session."}
+  else if(e1rmDelta<0&&repsDelta<0){status="regressed";label="Regressed";text="Down from last session."}
+  else{status="changed_load";label="Changed load";text="Different load — not directly comparable."}
+  return{status,label,text,metrics:{current,previous,deltas}}}
+function compareExerciseSession(ex,currentRows){const cur=workingRows(currentRows);
+  if(!cur.length)return{status:"not_comparable",label:"Not comparable",text:"No working sets logged.",metrics:null};
+  const prev=previousSessionForExercise(ex,cur[0]?.session);
+  if(!prev.length)return{status:"new",label:"New",text:"No previous session for this lift.",metrics:null};
+  return buildSessionDelta(prev,cur)}
+function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metrics,{loadDelta,repsDelta,e1rmDelta}=deltas;
+  if(Math.abs(loadDelta)<.01&&repsDelta!==0){const s=repsDelta>0?"+":"";return`${s}${repsDelta} reps at same load`}
+  if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return`${s}${Math.round(e1rmDelta)}kg e1RM`}
+  const parts=[];if(repsDelta!==0)parts.push(`${repsDelta>0?"+":""}${repsDelta} reps`);if(Math.abs(e1rmDelta)>=.01)parts.push(`e1RM ${e1rmDelta>0?"+":""}${Math.round(e1rmDelta)}kg`);
+  return parts.length?`vs last: ${parts.join(" · ")}`:""}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
@@ -546,6 +581,8 @@ function detectPRs(log,opts={}){
     best.set(k,cur)}
   return events}
 window.detectPRs=detectPRs;
+window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
+window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);

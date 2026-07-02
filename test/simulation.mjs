@@ -2393,6 +2393,93 @@ async function main() {
     "Save workout → localStorage repforge_v1 mirrors persisted state"
   );
 
+  beginPhase("\nPhase: session deltas");
+  await page.waitForFunction(() => typeof window.__repforgeTestDeltas === "function");
+  const deltaFix = (session, set, load, reps, rir = 2, warmup = false) => ({
+    session,
+    date: "2026-01-01",
+    created: session,
+    exerciseId: "delta-test-ex",
+    set,
+    load,
+    reps,
+    rir,
+    warmup,
+  });
+  const runDelta = (prevRows, curRows) =>
+    page.evaluate(
+      ([prev, cur]) => window.__repforgeTestDeltas(prev, cur),
+      [prevRows, curRows]
+    );
+
+  const sameLoadMoreReps = await runDelta(
+    [deltaFix("s1", 1, 100, 8, 2)],
+    [deltaFix("s2", 1, 100, 10, 2)]
+  );
+  assert(
+    sameLoadMoreReps.status === "improved",
+    "Session delta: same load + more reps → improved",
+    `status=${sameLoadMoreReps.status}`,
+    "__repforgeTestDeltas: 100×8 → 100×10"
+  );
+  assert(
+    sameLoadMoreReps.metrics?.deltas?.repsDelta === 2,
+    "Session delta: repsDelta reflects extra reps",
+    `repsDelta=${sameLoadMoreReps.metrics?.deltas?.repsDelta}`,
+    "100×8 → 100×10"
+  );
+
+  const higherLoadFewerReps = await runDelta(
+    [deltaFix("s1", 1, 100, 10, 2)],
+    [deltaFix("s2", 1, 110, 8, 2)]
+  );
+  assert(
+    ["improved", "changed_load"].includes(higherLoadFewerReps.status),
+    "Session delta: higher load + fewer reps → improved or changed_load",
+    `status=${higherLoadFewerReps.status}`,
+    "100×10 → 110×8"
+  );
+  assert(
+    higherLoadFewerReps.metrics?.deltas?.e1rmDelta > 0,
+    "Session delta: higher-load scenario e1rmDelta positive",
+    `e1rmDelta=${higherLoadFewerReps.metrics?.deltas?.e1rmDelta}`,
+    "100×10 → 110×8"
+  );
+
+  const lowerLoadMoreReps = await runDelta(
+    [deltaFix("s1", 1, 100, 8, 1)],
+    [deltaFix("s2", 1, 95, 9, 2)]
+  );
+  assert(
+    lowerLoadMoreReps.status === "changed_load",
+    "Session delta: lower load + more reps (similar e1RM) → changed_load",
+    `status=${lowerLoadMoreReps.status}`,
+    "100×8@RIR1 → 95×9@RIR2"
+  );
+  assert(
+    lowerLoadMoreReps.status !== "regressed",
+    "Session delta: load-changed comparable session not regressed",
+    `status=${lowerLoadMoreReps.status}`,
+    "100×8@RIR1 → 95×9@RIR2"
+  );
+
+  const warmupIgnored = await runDelta(
+    [deltaFix("s1", 1, 100, 8, 2)],
+    [deltaFix("s2", 1, 1000, 1, 5, true), deltaFix("s2", 2, 100, 10, 2)]
+  );
+  assert(
+    warmupIgnored.metrics?.current?.topLoad === 100,
+    "Session delta: warmup rows ignored for topLoad",
+    `topLoad=${warmupIgnored.metrics?.current?.topLoad}`,
+    "warmup 1000kg must not affect metrics"
+  );
+  assert(
+    warmupIgnored.status === "improved",
+    "Session delta: warmup present does not block improved detection",
+    `status=${warmupIgnored.status}`,
+    "working set 100×10 vs prev 100×8"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
