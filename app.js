@@ -37,16 +37,20 @@ const GLOSSARY={
   "double progression":"Add reps until you top the range, then add weight and drop back to the bottom of the range. That's the whole recommendation engine.",
   deload:"A deliberately lighter session to recover when progress stalls. Not a failure — it's how you keep progressing.",
   e1RM:"Estimated one-rep max from your set (Epley: load × (1 + reps/30)). A single number to compare hard sets across days.",
-  "hard set":"A set taken close enough to failure to drive growth (at or under your hard-set RIR ceiling). These are what the volume audit counts."
+  "hard set":"A set taken close enough to failure to drive growth (at or under your hard-set RIR ceiling). These are what the volume audit counts.",
+  "Easy effort":"You could have done several more reps — about 3 reps in reserve (RIR 3). Use this when the set felt comfortable.",
+  "Hard effort":"You were working but not grinding — about 1 rep in reserve (RIR 1). This is the sweet spot for most working sets.",
+  "Max effort":"You were at or very near failure — 0 reps in reserve (RIR 0). Save this for your last set or when you're pushing hard."
 };
+const EFFORT_RIR={easy:3,hard:1,max:0};
 function glossaryPopover(term,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__term").textContent=term;
   g.querySelector(".glossary__body").textContent=GLOSSARY[term]||"";
   g.classList.remove("hidden");
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg"};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric"};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
-const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg"});
+const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric"});
 const LB=2.2046226218;
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>unit==="lb"?(+v||0)/LB:(+v||0);
@@ -68,18 +72,50 @@ function convertDraftUnits(oldUnit,newUnit){
     d[k]=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
   if(changed)localStorage.setItem(DRAFT,JSON.stringify(d))}
 const posNum=(v,f=0)=>Math.max(0,Number.isFinite(+v)?+v:f);
+const isWork=r=>!r.warmup;
 const liftKey=x=>x.exerciseId||x.name;
 const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
+const displayName=row=>row.performedName||exerciseLabel(row);
 // Muscles for a log row: prefer the saved snapshot, else resolve from the live program.
 const rowMuscles=row=>{if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=state.program.find(e=>e.id===row.exerciseId)||state.program.find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
 
+const defaultAlternates={
+  "Hack squat or pendulum squat":["Leg press","Pendulum squat"],
+  "45 degree leg press, quad-biased":["Hack squat","Belt squat"],
+  "Incline converging chest press":["Flat chest press machine","Dumbbell incline press"],
+  "Neutral-grip pulldown":["Lat pulldown","Assisted pull-up"]
+};
 const program=[
 ["Day 1",1,"Hack squat or pendulum squat",2,4,8,"Quads","Glutes,Adductors"],["Day 1",2,"Seated leg curl",2,4,8,"Hamstrings",""] ,["Day 1",3,"Incline converging chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 1",4,"Chest-supported machine row",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],["Day 1",5,"Machine lateral raise",2,6,8,"Side delts",""] ,["Day 1",6,"Hip adduction machine",2,6,8,"Adductors",""] ,
 ["Day 2",1,"45 degree leg press, quad-biased",2,4,8,"Quads","Glutes,Adductors"],["Day 2",2,"Smith machine RDL or machine hip hinge",2,4,8,"Hamstrings,Glutes","Spinal erectors"],["Day 2",3,"Machine shoulder press",2,4,8,"Front delts","Side delts,Triceps"],["Day 2",4,"Neutral-grip pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],["Day 2",5,"Pec deck",2,6,8,"Chest",""] ,["Day 2",6,"Machine preacher curl",2,6,8,"Biceps",""] ,
 ["Day 3",1,"Leg extension",2,6,8,"Quads",""] ,["Day 3",2,"Lying or seated leg curl",2,6,8,"Hamstrings",""] ,["Day 3",3,"Machine chest dip or plate-loaded chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 3",4,"Plate-loaded high row",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],["Day 3",5,"Reverse pec deck",2,6,8,"Rear delts","Mid/upper back"],["Day 3",6,"Cable pressdown",2,6,8,"Triceps",""]
-].map(x=>({id:uid(),day:x[0],order:x[1],name:x[2],sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]}));
+].map(x=>{const ex={id:uid(),day:x[0],order:x[1],name:x[2],sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]};if(defaultAlternates[x[2]])ex.alternates=defaultAlternates[x[2]];return ex});
+
+const programBeginner=[
+["Day 1",1,"Leg press (quad focus)",2,4,8,"Quads","Glutes,Adductors","Feet low on the platform, back flat against the pad."],
+["Day 1",2,"Seated leg curl",2,4,8,"Hamstrings","","Pad just above your ankles; squeeze at the bottom."],
+["Day 1",3,"Chest press machine",2,4,8,"Chest","Front delts,Triceps","Look for a seat with chest pad and handles at armpit height."],
+["Day 1",4,"Seated row machine",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps","Chest against the pad; pull to your lower ribs."],
+["Day 1",5,"Lateral raise machine",2,6,8,"Side delts","","Elbows on the pads; raise to shoulder height."],
+["Day 1",6,"Hip adduction machine",2,6,8,"Adductors","","Pads on the inside of your knees; squeeze together."],
+["Day 2",1,"Leg press (glute focus)",2,4,8,"Quads","Glutes,Adductors","Feet higher on the platform for more glute stretch."],
+["Day 2",2,"Romanian deadlift machine",2,4,8,"Hamstrings,Glutes","Spinal erectors","Hinge at the hips; feel a stretch in your hamstrings."],
+["Day 2",3,"Shoulder press machine",2,4,8,"Front delts","Side delts,Triceps","Handles at ear level; press straight up."],
+["Day 2",4,"Lat pulldown",2,4,8,"Lats","Mid/upper back,Biceps","Wide grip; pull the bar to your upper chest."],
+["Day 2",5,"Chest fly machine",2,6,8,"Chest","","Arms slightly bent; squeeze your chest at the top."],
+["Day 2",6,"Preacher curl machine",2,6,8,"Biceps","","Upper arms flat on the pad; curl without lifting elbows."],
+["Day 3",1,"Leg extension",2,6,8,"Quads","","Pad on your shins; extend without locking knees hard."],
+["Day 3",2,"Leg curl machine",2,6,8,"Hamstrings","","Lying or seated — pad above ankles, curl smoothly."],
+["Day 3",3,"Chest press (flat)",2,4,8,"Chest","Front delts,Triceps","Handles at mid-chest; press without arching off the seat."],
+["Day 3",4,"High row machine",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps","Pull toward your upper chest; squeeze shoulder blades."],
+["Day 3",5,"Reverse fly machine",2,6,8,"Rear delts","Mid/upper back","Face the pad; open arms wide behind you."],
+["Day 3",6,"Triceps pushdown",2,6,8,"Triceps","","Elbows pinned to your sides; push the bar down."]
+].map(x=>{const ex={id:uid(),day:x[0],order:x[1],name:x[2],sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7],notes:x[8]||""};
+  if(x[2]==="Leg press (quad focus)")ex.alternates=["Hack squat machine","Pendulum squat"];
+  if(x[2]==="Lat pulldown")ex.alternates=["Assisted pull-up","Neutral-grip pulldown"];
+  return ex});
 
 /* ============================================================
    Program model
@@ -100,9 +136,11 @@ class Exercise{
     this.primary=String(d.primary??"");
     this.secondary=String(d.secondary??"");
     this.notes=String(d.notes??"").trim();
+    this.alternates=Array.isArray(d.alternates)?d.alternates.map(s=>String(s).trim()).filter(Boolean):
+      typeof d.alternates==="string"?d.alternates.split(",").map(s=>s.trim()).filter(Boolean):[];
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
-  toJSON(){return {id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes}}
+  toJSON(){return {id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates}}
 }
 
 class Program{
@@ -116,6 +154,7 @@ class Program{
     if(field==="sets")e.sets=Exercise.posInt(value,e.sets);
     else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
     else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
+    else if(field==="alternates")e.alternates=String(value??"").split(",").map(s=>s.trim()).filter(Boolean);
     else if(field==="name"||field==="primary"||field==="secondary"||field==="notes")e[field]=String(value??"").trim();}
   addExercise(day){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
     const e=new Exercise({day,order,name:"New exercise",sets:3,min:6,max:10});this.exercises.push(e);return e}
@@ -137,8 +176,10 @@ let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null;
 const collapsed=new Set();
 const skipped=new Set();
+const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
+const warmups=new Set();
 let logMode="full",focusIndex=0;
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -157,12 +198,12 @@ function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.l
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
 function last(ex){const match=matchLift(ex);
-  const hits=state.log.filter(match);if(!hits.length)return[];
+  const hits=state.log.filter(x=>match(x)&&isWork(x));if(!hits.length)return[];
   const sid=[...hits].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0].session;
   return hits.filter(x=>x.session===sid).sort((a,b)=>a.set-b.set)}
 // One entry per past session for this lift, oldest→newest, working sets only (load>0).
 function sessionsFor(ex){const match=matchLift(ex),m=new Map();
-  for(const x of state.log){if(!match(x)||!(+x.load>0))continue;
+  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
     const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
@@ -226,6 +267,8 @@ function renderWorkout(){
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
+  warmups.clear();(draft.__warm||[]).forEach(k=>warmups.add(k));
+  const effortMode=state.settings.rirMode==="effort";
   const restOn=+state.settings.restSec>0;
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
   const banner=hiddenCount?`<div class="skipbar">${hiddenCount} hidden today <button type="button" class="skipbar__show">Show all</button></div>`:"";
@@ -240,19 +283,31 @@ function renderWorkout(){
       const draftKg=draft[`${ex.id}_${n}_load`];
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
       const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
-      const rirVal=draft[`${ex.id}_${n}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
       const key=`${ex.id}_${n}`;
-      const cls=committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested");
-      return `<div class="setrow ${cls}" data-set="${esc(key)}"><span class="setrow__n">${n}</span>`+
+      const isW=warmups.has(key);
+      const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}`;
+      const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
+      const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
+      const rirCell=effortMode
+        ?`<div class="effort" role="group" aria-label="Set ${n} effort">`+
+          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
+        :`<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`;
+      return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="Tap to mark as warmup">${isW?"W":n}</button>`+
         `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="Set ${n} decrease ${unitLabel()}">−</button>`+
         `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
         `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="Set ${n} increase ${unitLabel()}">+</button></div>`+
         `<input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(repsVal)}">`+
-        `<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`+
+        rirCell+
         `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Save"}</button></div>`;
     }).join("");
+    const perf=substituted.get(ex.id);
+    const nameHtml=perf?`${esc(perf)} <span class="ex__subfor">(for ${esc(ex.name)})</span>`:esc(ex.name);
+    const subPick=ex.alternates?.length?`<div class="subst"><span class="subst__lab">Use:</span><select class="subst__pick" data-sub="${esc(ex.id)}" aria-label="Substitute for ${esc(ex.name)}">`+
+      `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
+      ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
+      `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
     return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
-      `<div class="ex__top"><div><h3 class="ex__name">${esc(ex.name)}</h3>`+
+      `<div class="ex__top"><div><h3 class="ex__name">${nameHtml}</h3>`+
       `<p class="ex__meta">${ex.sets}×${ex.min}-${ex.max} reps · ${term("RIR")} 0-${fmt(state.settings.rirHigh)}</p></div>`+
       `<div class="ex__topend"><span class="ex__tag">${esc(ex.primary)}</span>`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
@@ -263,8 +318,9 @@ function renderWorkout(){
       `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`+
       `<p class="rec__plain">${esc(PLAIN[r.status]||"")}</p>`+
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
+      subPick+
       prevHtml+
-      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>RIR</span><span></span></div>${rows}</article>`;
+      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?"Effort":"RIR"}</span><span></span></div>${rows}</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
@@ -272,7 +328,8 @@ function renderWorkout(){
 }
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
-  d.__done=[...committed];d.__touched=[...touched];localStorage.setItem(DRAFT,JSON.stringify(d))}
+  $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
+  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
@@ -290,6 +347,8 @@ function bindWorkout(){
       b.textContent=committed.has(key)?"✓":"Save"}
     saveDraft();updateSaveMeta();
     if(committed.has(key))startRest()});
+  $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
+    warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const incKg=+state.settings.minJump||2.5,curKg=fromDisplay(+inp.value||0),
       nextKg=Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg);
@@ -298,14 +357,29 @@ function bindWorkout(){
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta()});
   $$("#workout .copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
-    for(const s of prevSets){touched.add(`${b.dataset.copy}_${s.set}`);
-      for(const f of ["load","reps","rir"]){const inp=$(`[data-k="${b.dataset.copy}_${s.set}_${f}"]`);if(inp)inp.value=f==="load"?fmt(toDisplay(s.load)):fmt(s[f])}}
-    saveDraft();renderWorkout();toast("Filled from last session.")});
+    const d=loadDraft();
+    for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
+      if(state.settings.rirMode==="effort")d[`${key}_effort`]=+s.rir>=2.5?"easy":+s.rir<=0.5?"max":"hard";
+      for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmt(toDisplay(s.load)):fmt(s[f])}
+      if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmt(s.rir)}}
+    localStorage.setItem(DRAFT,JSON.stringify(d));saveDraft();renderWorkout();toast("Filled from last session.")});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
     skipped.has(id)?skipped.delete(id):skipped.add(id);
     if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
     renderWorkout()});
+  $$("#workout .subst__pick").forEach(sel=>{sel.onchange=()=>{const id=sel.dataset.sub;
+    if(sel.value==="__other__"){const v=prompt("Alternate exercise name (max 80 chars):",substituted.get(id)||"");
+      if(v==null){renderWorkout();return}
+      const t=String(v).trim().slice(0,80);
+      if(!t||t===prog.find(id)?.name){substituted.delete(id)}else{substituted.set(id,t)}
+    }else if(!sel.value){substituted.delete(id)}else{substituted.set(id,sel.value)}
+    renderWorkout()}});
+  $$("#workout .effort__btn").forEach(b=>b.onclick=()=>{const key=b.dataset.eff;
+    b.closest(".effort")?.querySelectorAll(".effort__btn").forEach(x=>x.classList.remove("active"));
+    b.classList.add("active");touched.add(key);
+    const row=b.closest(".setrow");if(row)row.classList.remove("is-suggested");
+    saveDraft();updateSaveMeta()});
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
@@ -347,30 +421,47 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   const bwRaw=$("#bodyweight").value,bw=bwRaw===""||bwRaw==null?0:posNum(fromDisplay(bwRaw));
   for(const ex of exercises()){if(skipped.has(ex.id))continue;for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
-    const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value),rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value);
+    const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
+    let rir;
+    if(state.settings.rirMode==="effort"){
+      const draft=loadDraft(),eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"hard";
+      rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
     if(load<=0)continue;
-    if(!(committed.has(key)||touched.has(key)))continue;
+    if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
+    if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
+    if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
     rows.push(row)}}
   if(!rows.length){toast("Enter weight on at least one set before saving.");return}
-  state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();$("#notes").value="";
+  const prLifts=[];
+  for(const ex of exercises()){if(skipped.has(ex.id))continue;
+    const mine=rows.filter(r=>r.exerciseId===ex.id&&!r.warmup);if(!mine.length)continue;
+    const newTop=Math.max(...mine.map(r=>+r.load));
+    const match=matchLift(ex);
+    const prevTop=Math.max(0,...state.log.filter(x=>match(x)&&isWork(x)).map(r=>+r.load));
+    if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
+  state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
-  toast(`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
+  toast(prLifts.length?`Workout forged — ${rows.length} sets logged. PR: ${prLifts.join(", ")}!`:`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
 
 function summaries(){const m=new Map();
-  for(const x of state.log){const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,name:exerciseLabel(x),loads:[],reps:[],rirs:[],sets:0});
+  for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
     const o=m.get(k);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
   return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
     o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
-    return{session:o.session,date:o.date,day:o.day,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best};})
+    return{session:o.session,date:o.date,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best};})
     .sort((a,b)=>a.date.localeCompare(b.date)||a.session.localeCompare(b.session))}
 
 function renderStats(){
-  const names=[...new Set(state.log.map(x=>exerciseLabel(x)))].sort();
+  // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
+  const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
+  const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
+    const latest=[...rows].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
+    return latest?displayName(latest):k};
   const sums=summaries();
-  const totalVol=sum(state.log.map(x=>(+x.load||0)*(+x.reps||0)));
-  const bestE=state.log.length?Math.max(...state.log.map(x=>e1rm(+x.load,+x.reps))):0;
+  const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+  const bestE=state.log.length?Math.max(...state.log.filter(isWork).map(x=>e1rm(+x.load,+x.reps))):0;
   const tiles=[
     {label:"Sessions",val:new Set(state.log.map(x=>x.session)).size},
     {label:"Sets logged",val:state.log.length},
@@ -380,9 +471,10 @@ function renderStats(){
   $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("");
 
   const old=$("#statExercise").value;
-  $("#statExercise").innerHTML=names.map(n=>`<option>${esc(n)}</option>`).join("")||"<option>No data</option>";
-  if(names.includes(old))$("#statExercise").value=old;
-  const sel=$("#statExercise").value,rows=sums.filter(x=>x.name===sel);
+  $("#statExercise").innerHTML=keys.map(k=>`<option value="${esc(k)}">${esc(keyLabel(k))}</option>`).join("")||"<option>No data</option>";
+  if(keys.includes(old))$("#statExercise").value=old;
+  else if(keys.length)$("#statExercise").value=keys[0];
+  const sel=$("#statExercise").value,rows=sums.filter(x=>x.liftKey===sel);
   draw(rows);
 
   if(rows.length){const first=rows[0].top,latest=rows.at(-1).top,delta=latest-first,be=Math.max(...rows.map(r=>r.e1rm));
@@ -394,12 +486,42 @@ function renderStats(){
 
   $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({Date:x.date,Top:fmtLoad(x.top),Reps:x.reps,RIR:fmt(x.rir),e1RM:fmt(Math.round(toDisplay(x.e1rm))),Vol:kfmt(toDisplay(x.volume))})));
   const topByLift=new Map();
-  for(const x of state.log){const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
-    if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:exerciseLabel(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
+  for(const x of state.log){if(!isWork(x))continue;const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
+    if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:displayName(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,[unitLabel()]:fmtLoad(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
-  renderAttention();renderCompleted();
+  renderPRs();renderAttention();renderCompleted();
 }
+
+function detectPRs(log,opts={}){
+  const rows=(Array.isArray(log)?log:[]).filter(isWork).filter(r=>+r.load>0)
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created)));
+  const best=new Map(),events=[];
+  for(const row of rows){const k=liftKey(row),ld=+row.load,rp=+row.reps,em=e1rm(ld,rp);
+    const cur=best.get(k)||{load:0,repsAtMax:0,e1rm:0};
+    if(ld>cur.load){events.push({kind:"load",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
+      cur.load=ld;cur.repsAtMax=rp}
+    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
+      cur.repsAtMax=rp}
+    if(em>cur.e1rm){events.push({kind:"e1rm",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
+      cur.e1rm=em}
+    best.set(k,cur)}
+  return events}
+window.detectPRs=detectPRs;
+
+function renderPRs(){const el=$("#prLedger");if(!el)return;
+  const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
+  if(!events.length){el.innerHTML=`<div class="empty">Log working sets to track PRs.</div>`;return}
+  el.innerHTML=`<table><thead><tr><th>Date</th><th>Kind</th><th>Load</th><th>Reps</th><th>RIR</th><th>e1RM</th><th>Δ vs prev</th></tr></thead><tbody>${
+    events.map(ev=>{const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
+      const kindLabel=ev.kind==="e1rm"?"e1RM":ev.kind.charAt(0).toUpperCase()+ev.kind.slice(1);
+      const delta=ev.kind==="e1rm"?(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}`:"—")
+        :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"—")
+        :(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}`:"—");
+      return `<tr class="pr-row"><td>${esc(ev.date)}</td><td><span class="pr-kind ${kindCls}">${esc(kindLabel)}</span></td>`+
+        `<td>${esc(fmtLoad(ev.load))}</td><td>${esc(ev.reps)}</td><td>${esc(fmt(ev.rir))}</td>`+
+        `<td>${esc(fmt(Math.round(toDisplay(e1rm(ev.load,ev.reps)))))}</td><td>${esc(delta)}</td></tr>`}).join("")
+  }</tbody></table>`}
 
 // Action board — which lifts need a decision, grouped by signal.
 function renderAttention(){const el=$("#attention");if(!el)return;
@@ -412,12 +534,13 @@ function renderAttention(){const el=$("#attention");if(!el)return;
     list.map(ex=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}">${esc(ex.name)}</button>`).join("")+`</div>`:"";
   const html=grp(g.add,"add","Ready to add")+grp(g.reduce,"reduce","Back off / stalled")+grp(g.fresh,"new","Untested");
   el.innerHTML=html||`<div class="attn__grp"><span class="attn__lead">Every lift is holding — chase reps.</span></div>`;
-  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const nm=b.dataset.attn,has=[...$("#statExercise").options].some(o=>o.value===nm);
-    if(has){$("#statsDeep").open=true;$("#statExercise").value=nm;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast("Log this lift to chart it.")});}
+  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
+    const has=[...$("#statExercise").options].some(o=>o.value===k);
+    if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast("Log this lift to chart it.")});}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function renderCompleted(){const el=$("#completedVolume");if(!el)return;const cutoff=daysAgo(volWindow-1),hr=+state.settings.hardRir,m=new Map();
-  for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr))continue;
+  for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
     const mus=rowMuscles(x);
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
@@ -468,10 +591,10 @@ function renderHistory(){
   const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
     const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
-    const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(exerciseLabel(a)).localeCompare(exerciseLabel(b))||a.set-b.set);
+    const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
     if(s.session===editSession)return sessionEditor(s,sets);
-    const top=sets.reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
-    const vol=sum(sets.map(x=>(+x.load||0)*(+x.reps||0)));
+    const top=sets.filter(isWork).reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
+    const vol=sum(sets.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
     return `<div class="session"><div class="session__info"><div class="session__day">${esc(s.day)}</div>`+
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div></div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
@@ -481,16 +604,16 @@ function renderHistory(){
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||a.name.localeCompare(b.name)||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:exerciseLabel(x),Set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
+  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 
 function sessionEditor(s,sets){
   const rows=sets.map(r=>{const key=`${liftKey(r)}|${r.set}`;
-    return `<div class="edrow"><span class="edrow__name">${esc(exerciseLabel(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${esc(key)}" type="number" step="any" min="0" inputmode="decimal" value="${esc(fmtLoad(r.load))}" aria-label="${esc(exerciseLabel(r))} set ${r.set} ${unitLabel()}">`+
-      `<input class="edrow__in" data-ek="reps|${esc(key)}" type="number" step="1" min="0" inputmode="numeric" value="${esc(r.reps)}" aria-label="${esc(exerciseLabel(r))} set ${r.set} reps">`+
-      `<input class="edrow__in" data-ek="rir|${esc(key)}" type="number" step="0.5" min="0" inputmode="decimal" value="${esc(fmt(r.rir))}" aria-label="${esc(exerciseLabel(r))} set ${r.set} RIR"></div>`}).join("");
+    return `<div class="edrow"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
+      `<input class="edrow__in" data-ek="load|${esc(key)}" type="number" step="any" min="0" inputmode="decimal" value="${esc(fmtLoad(r.load))}" aria-label="${esc(displayName(r))} set ${r.set} ${unitLabel()}">`+
+      `<input class="edrow__in" data-ek="reps|${esc(key)}" type="number" step="1" min="0" inputmode="numeric" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} set ${r.set} reps">`+
+      `<input class="edrow__in" data-ek="rir|${esc(key)}" type="number" step="0.5" min="0" inputmode="decimal" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} set ${r.set} RIR"></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
     `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
     `<label class="edate">Date<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
@@ -552,6 +675,7 @@ function exCard(e,i,n){
     `<label class="pex__mus">Primary<input data-id="${esc(e.id)}" data-field="primary" value="${esc(e.primary)}" placeholder="e.g. Chest"></label>`+
     `<label class="pex__mus">Secondary<input data-id="${esc(e.id)}" data-field="secondary" value="${esc(e.secondary)}" placeholder="e.g. Front delts, Triceps"></label>`+
     `<label class="pex__mus">Setup notes<input data-id="${esc(e.id)}" data-field="notes" value="${esc(e.notes)}" placeholder="e.g. Seat 4, feet high, 2s stretch"></label>`+
+    `<label class="pex__mus">Approved alternates (comma-separated)<input data-id="${esc(e.id)}" data-field="alternates" value="${esc((e.alternates||[]).join(", "))}" placeholder="e.g. Leg press, Pendulum squat"></label>`+
   `</div>`;
 }
 
@@ -602,14 +726,18 @@ function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!
 
 function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump").value=state.settings.minJump;$("#rirHigh").value=state.settings.rirHigh;$("#hardRir").value=state.settings.hardRir;
   $("#restSec").value=state.settings.restSec;$("#unit").value=state.settings.unit;
+  $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const le=state.settings.lastExport;const ago=le?`Last backup: ${le.slice(0,10)}.`:"Last backup: never.";
   $("#storageNote").textContent=`${ago} Everything lives in this browser under "${KEY}". There is no cloud copy — export before clearing site data or switching phones.`}
 
 function commitSettings(silent){const num=(sel,def,min)=>{const n=+$(sel).value;return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg";
+  const oldRirMode=state.settings.rirMode;
+  const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=+bw.value;if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit});
+  if(oldRirMode!==newRirMode)clearDraft();
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode});
   save();render();if(!silent)toast("Settings saved.");}
 
 function table(rows){if(!rows.length)return'<div class="empty">No data yet.</div>';const h=Object.keys(rows[0]);
@@ -619,12 +747,13 @@ function exportCsv(){
   const hr=+state.settings.hardRir;
   const cols=[
     ["session",r=>r.session],["date",r=>r.date],["day",r=>r.day],
-    ["name",r=>exerciseLabel(r)],["exercise_id",r=>r.exerciseId||""],
+    ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],
     ["set",r=>r.set],["load",r=>r.load],["reps",r=>r.reps],["rir",r=>r.rir],
     ["e1rm",r=>+e1rm(+r.load,+r.reps).toFixed(2)],
     ["tonnage",r=>+((+r.load||0)*(+r.reps||0)).toFixed(2)],
     ["primary",r=>rowMuscles(r).primary],["secondary",r=>rowMuscles(r).secondary],
-    ["is_hard_set",r=>(+r.load>0&&+r.reps>0&&+r.rir<=hr)?1:0],
+    ["is_hard_set",r=>(+r.load>0&&+r.reps>0&&+r.rir<=hr&&!r.warmup)?1:0],
+    ["is_warmup",r=>r.warmup?1:0],
     ["bodyweight",r=>r.bodyweight??""],
     ["notes",r=>r.notes],["created",r=>r.created],
   ];
@@ -636,15 +765,44 @@ function exportCsv(){
 function exportJson(){state.settings.lastExport=new Date().toISOString();save();
   const text=JSON.stringify(state,null,2),name=`repforge_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");renderSettings()}
+function exportProgram(){download(JSON.stringify(prog.toJSON(),null,2),`repforge_program_${today()}.json`,"application/json")}
+async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
+  try{const parsed=JSON.parse(await f.text());
+    const list=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.program)?parsed.program:null);
+    if(!list||!list.length)throw Error();
+    if(!confirm(`Replace your current program with ${list.length} exercises from this file?\n\nYour training log and settings are not touched.`)){e.target.value="";toast("Program import cancelled.");return}
+    $("#programJson").value=JSON.stringify(list,null,2);saveProgram()}
+  catch{toast("That file isn't a RepForge program export.")}
+  e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();
     const inSessions=new Set(s.log.map(r=>r.session)).size,inSets=s.log.length;
     const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
-    const ok=confirm(`Import will REPLACE all current data.\n\nCurrent: ${curSessions} sessions, ${curSets} sets.\nImporting: ${inSessions} sessions, ${inSets} sets.\n\nThis cannot be undone. Continue?`);
-    if(!ok){e.target.value="";toast("Import cancelled.");return}
-    applyState(s);clearDraft();day=days()[0]||"Day 1";render();toast(`Imported ${inSessions} sessions.`)}
+    const have=new Set(state.log.map(r=>r.session));
+    const newSessions=new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size;
+    openImportChoice({s,inSessions,inSets,curSessions,curSets,newSessions})}
   catch{toast("That file isn't a valid RepForge backup.")}
   e.target.value=""}
+function openImportChoice(ctx){const d=$("#importChoice");
+  $("#importChoiceBody").textContent=
+    `This device: ${ctx.curSessions} sessions, ${ctx.curSets} sets.\n`+
+    `File: ${ctx.inSessions} sessions, ${ctx.inSets} sets (${ctx.newSessions} new to this device).\n\n`+
+    `Merge adds the ${ctx.newSessions} new sessions and keeps everything else. `+
+    `Replace all overwrites program, settings, and log — this cannot be undone.`;
+  d.classList.remove("hidden");
+  const close=()=>{d.classList.add("hidden")};
+  $("#importCancel").onclick=()=>{close();toast("Import cancelled.")};
+  $("#importReplace").onclick=()=>{close();applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";render();toast(`Imported ${ctx.inSessions} sessions.`)};
+  $("#importMerge").onclick=()=>{close();mergeLog(ctx.s)};}
+function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
+  const rows=s.log.filter(r=>r&&r.session&&!have.has(r.session));
+  const added=new Set(rows.map(r=>r.session)).size;
+  if(!added){toast("Nothing to merge — this device already has every session in the file.");return}
+  state.log.push(...rows);
+  migrateLog();save();
+  render();toast(`Merged ${added} new session${added===1?"":"s"}.`)}
+
+function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast("Beginner-friendly program loaded. Your log is unchanged.")}
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -666,9 +824,13 @@ function init(){
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
+  $("#exportProgram").onclick=exportProgram;
+  $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast("Day added.")};
   $("#saveSettings").onclick=()=>commitSettings(false);
+  $("#beginnerProgram").onclick=()=>{if(confirm("Replace your current program template? Your logged history stays."))switchToBeginnerProgram()};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
+  $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};

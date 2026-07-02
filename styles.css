@@ -223,6 +223,20 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .ex__tag{flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--steel);
   border:1px solid var(--rule);border-radius:999px;padding:4px 9px;white-space:nowrap;text-transform:uppercase;margin-top:2px}
 .ex__meta{font-family:var(--mono);font-size:11.5px;color:var(--steel-dim);margin-top:3px;letter-spacing:.02em}
+.ex__subfor{font-weight:400;font-size:.72em;color:var(--steel-dim);font-family:var(--mono)}
+
+.subst{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-family:var(--mono);font-size:11.5px}
+.subst__lab{color:var(--steel-dim);text-transform:uppercase;letter-spacing:.08em;font-size:10px;flex:none}
+.subst__pick{flex:1;margin:0;padding:7px 9px;font-size:12px;background:var(--iron);border:1px solid var(--rule-soft);border-radius:8px;color:var(--mist)}
+
+.effort{display:flex;gap:3px}
+.effort__btn{flex:1;margin:0;padding:9px 2px;font-family:var(--display);font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.04em;border:1px solid var(--rule);background:var(--iron);color:var(--steel);border-radius:8px;cursor:pointer;line-height:1}
+.effort__btn.active{color:var(--mist);border-color:var(--gold);background:rgba(255,180,76,.1)}
+.rirmode{border:0;padding:0;margin:0 0 14px}
+.rirmode legend{font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;font-size:11px;color:var(--steel);margin-bottom:6px}
+.rirmode__opt{display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;color:var(--steel);cursor:pointer}
+.rirmode__opt input{margin:0}
 
 /* heat strip = the signature element */
 .heat{display:flex;align-items:center;gap:10px;margin:12px 0 10px}
@@ -246,7 +260,10 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .sets__head span{font-size:10px;color:var(--steel-dim);letter-spacing:.1em;text-align:center}
 .sets__head span:first-child{text-align:left}
 .setrow{margin-top:8px}
-.setrow__n{font-family:var(--display);font-weight:700;color:var(--steel);font-size:15px;text-align:center}
+.setrow__n{font-family:var(--display);font-weight:700;color:var(--steel);font-size:15px;text-align:center;
+  background:none;border:0;font:inherit;padding:0;cursor:pointer;line-height:1}
+.setrow.is-warmup{opacity:.62}
+.setrow.is-warmup .setrow__n{color:var(--steel-dim)}
 .setrow input{margin-top:0;text-align:center;font-family:var(--mono);font-weight:500;font-size:16px;padding:11px 6px;
   background:var(--iron);border-color:var(--rule-soft)}
 .setrow.is-suggested input{color:var(--steel);opacity:.55}
@@ -271,6 +288,13 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .trend{font-family:var(--mono);font-size:12px;color:var(--steel);margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:6px 16px}
 .trend b{color:var(--mist);font-weight:600}
 .trend .up{color:var(--gold)}.trend .down{color:var(--quench)}
+.prledger{margin:8px 0 12px}
+.prledger table{font-size:12px}
+.pr-row td{vertical-align:middle}
+.pr-kind{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
+.pr-kind--load{color:var(--gold);background:rgba(255,180,76,.12)}
+.pr-kind--reps{color:var(--quench);background:rgba(79,182,217,.12)}
+.pr-kind--e1rm{color:var(--ember);background:rgba(255,90,31,.12)}
 canvas{width:100%;display:block;margin-top:6px}
 
 /* ---- Tables (ledger) ---- */
@@ -399,7 +423,7 @@ nav button.active .nav__icon{background:var(--ember)}
 .ex__skip:hover{color:var(--quench);border-color:rgba(79,182,217,.45)}
 .exercise.is-skipped{opacity:.58;border-style:dashed}
 .exercise.is-skipped .heat,.exercise.is-skipped .rec,.exercise.is-skipped .rec__plain,.exercise.is-skipped .setup,
-.exercise.is-skipped .prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow{display:none}
+.exercise.is-skipped .subst,.exercise.is-skipped .prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow{display:none}
 .exercise.is-skipped .ex__name::after{content:" · Skipped";color:var(--steel);font-weight:400;font-size:.82em}
 .skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--slag);border:1px solid var(--rule-soft);border-radius:10px;
@@ -455,6 +479,13 @@ nav button.active .nav__icon{background:var(--ember)}
 .glossary__close:hover{color:var(--mist)}
 .glossary__term{font-family:var(--display);font-weight:700;font-size:13px;margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
 .glossary__body{margin:0;font-size:13px;line-height:1.45;color:var(--steel)}
+.importchoice{
+  position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
+  background:var(--anvil);border:1px solid var(--rule);border-radius:12px;
+  padding:16px 18px 14px;box-shadow:var(--shadow);
+}
+.importchoice__title{font-family:var(--display);font-weight:700;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
+.importchoice__body{margin:0 0 14px;font-size:13px;line-height:1.45;color:var(--steel);white-space:pre-line}
 .rec__plain{margin:0 0 10px;font-size:12px;line-height:1.4;color:var(--steel-dim);font-style:italic}
 
 /* ---- Attention / action board ---- */

@@ -84,6 +84,10 @@ async function selectDay(page, dayName) {
   await page.waitForTimeout(60);
 }
 
+async function firstDayName(page) {
+  return page.locator("#dayTabs button").first().getAttribute("data-day");
+}
+
 async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   for (let n = 1; n <= sets; n++) {
     const loadSel = `[data-k="${exId}_${n}_load"]`;
@@ -626,6 +630,8 @@ async function main() {
     writeFileSync(jsonPath, JSON.stringify(exported, null, 2));
 
     await page.setInputFiles("#importJson", jsonPath);
+    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.click("#importReplace");
     await page.waitForTimeout(200);
 
     state = await getState(page);
@@ -642,6 +648,30 @@ async function main() {
       "Modify exported JSON log entry → Import"
     );
 
+    // Merge: file with one session this device doesn't have
+    const mergeSrc = JSON.parse(readFileSync(jsonPath, "utf8"));
+    const donor = mergeSrc.log
+      .filter((r) => r.session === mergeSrc.log[0].session)
+      .map((r) => ({ ...r, session: "merge_test_session_1" }));
+    writeFileSync(
+      join(tmpDir, "merge.json"),
+      JSON.stringify({ ...mergeSrc, log: [...mergeSrc.log, ...donor] })
+    );
+    const beforeMerge = (await getState(page)).log.length;
+    await page.setInputFiles("#importJson", join(tmpDir, "merge.json"));
+    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.click("#importMerge");
+    await page.waitForTimeout(200);
+    const afterMerge = await getState(page);
+    assert(
+      afterMerge.log.length === beforeMerge + donor.length &&
+        afterMerge.log.some((r) => r.session === "merge_test_session_1"),
+      "Merge adds only the new session's rows",
+      `rows ${beforeMerge} → ${afterMerge.log.length}, expected +${donor.length}`,
+      "Import file with 1 new session → Merge"
+    );
+    state = afterMerge;
+
     // Import without settings merges defaults
     const noSettingsPath = join(tmpDir, "no-settings.json");
     writeFileSync(
@@ -649,6 +679,8 @@ async function main() {
       JSON.stringify({ program: exported.program, log: exported.log.slice(0, 6) })
     );
     await page.setInputFiles("#importJson", noSettingsPath);
+    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.click("#importReplace");
     await page.waitForTimeout(200);
     state = await getState(page);
     assert(
@@ -683,7 +715,9 @@ async function main() {
       header.includes("exercise_id") &&
       header.includes("e1rm") &&
       header.includes("is_hard_set") &&
-      header.includes("bodyweight"),
+      header.includes("is_warmup") &&
+      header.includes("bodyweight") &&
+      header.includes("performed_name"),
     "CSV header has expected columns",
     `Header: ${header}`,
     "Settings → Export log CSV → check first line"
@@ -694,6 +728,140 @@ async function main() {
     `CSV data rows ${csvLines.length - 1}, log entries ${state.log.length}`,
     "Export CSV → compare row count to log"
   );
+
+  console.log("\nPhase: warmup flag");
+  await nav(page, "log");
+  const warmupDay = await firstDayName(page);
+  const wMeta = await getExerciseMeta(page, warmupDay);
+  const wEx = wMeta[0];
+  await fillExerciseSets(page, wEx.id, wEx.sets, 100, 6, 2);
+  await page.click(`[data-warm="${wEx.id}_1"]`);
+  await page.fill(`[data-k="${wEx.id}_1_load"]`, "20");
+  await saveWorkout(page);
+  const wState = await getState(page);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const wRows = wState.log.filter((r) => r.exerciseId === wEx.id && r.date === todayStr);
+  assert(
+    wRows.some((r) => r.warmup === true && +r.load === 20),
+    "Warmup flag persists on the saved row",
+    JSON.stringify(wRows),
+    "Mark set 1 W → save"
+  );
+  assert(
+    wRows.some((r) => !r.warmup && +r.load === 100),
+    "Working sets save without warmup key",
+    JSON.stringify(wRows),
+    "Save workout with mixed warmup/working sets"
+  );
+  await nav(page, "history");
+  const sessText = await page.textContent("#sessions");
+  assert(
+    !/\b20×/.test(sessText.split("·")[2] || sessText),
+    "History session top ignores the warmup set",
+    sessText.slice(0, 120),
+    "History → newest session summary"
+  );
+  await nav(page, "log");
+  await selectDay(page, warmupDay);
+  const recAfterWarmup = await cardInfo(page, 0);
+  assert(
+    recAfterWarmup.status === "is-add" || recAfterWarmup.status === "is-add2" || recAfterWarmup.status === "is-hold",
+    "Recommendation ignores warmup loads in history",
+    `status=${recAfterWarmup.status} chip="${recAfterWarmup.chip}"`,
+    "Log warmup + working sets → recommendation uses working history"
+  );
+
+  console.log("\nPhase: PR ledger");
+  await nav(page, "log");
+  const prDay = await firstDayName(page);
+  const prMeta = await getExerciseMeta(page, prDay);
+  // Another exercise at a higher load first — global max must exceed the PR exercise's new top
+  await fillExerciseSets(page, prMeta[1].id, prMeta[1].sets, 250, 6, 2);
+  await saveWorkout(page);
+  await nav(page, "log");
+  await selectDay(page, prDay);
+  // PR for exercise 0: beats its own prior top (~125) but stays below the 250 global max elsewhere
+  await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 150, 6, 2);
+  await saveWorkout(page);
+  const prToast = await page.textContent("#toast");
+  assert(
+    /PR:/.test(prToast),
+    "Save toast announces a per-exercise top-load PR (not global max)",
+    `Toast: ${prToast}`,
+    "Log another exercise at 250 kg, then PR the first exercise at 150 kg → Save"
+  );
+  await nav(page, "stats");
+  await page.evaluate(() => {
+    document.querySelector("#statsDeep").open = true;
+  });
+  await page.waitForTimeout(100);
+  const ledger = await page.textContent("#prLedger");
+  assert(
+    /load/i.test(ledger) && /e1RM/i.test(ledger),
+    "PR ledger renders load and e1RM PRs",
+    `Ledger: ${ledger}`,
+    "Stats → Dig deeper → PR ledger under the trend"
+  );
+  await nav(page, "log");
+  await selectDay(page, "Day 3");
+  const prMeta3 = await getExerciseMeta(page, "Day 3");
+  const prEx = prMeta3[prMeta3.length - 1];
+  await fillExerciseSets(page, prEx.id, prEx.sets, 80, 8, 2);
+  await saveWorkout(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 3");
+  await fillExerciseSets(page, prEx.id, prEx.sets, 85, 8, 2);
+  await saveWorkout(page);
+  const detectLoadPr = await page.evaluate((id) => {
+    const log = JSON.parse(localStorage.getItem("repforge_v1")).log;
+    return window.detectPRs(log).filter((e) => e.exerciseId === id && e.kind === "load" && e.deltaLoad > 0);
+  }, prEx.id);
+  assert(
+    detectLoadPr.length > 0,
+    "detectPRs finds load PR with positive delta",
+    JSON.stringify(detectLoadPr),
+    "Staged 80×8 then 85×8 → load PR event"
+  );
+
+  console.log("\nPhase: program-only export/import");
+  await nav(page, "program");
+  await page.locator("#program details.advanced summary").click();
+  const progPath = join(tmpDir, "program.json");
+  const [progDl] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#exportProgram"),
+  ]);
+  await progDl.saveAs(progPath);
+  const progFile = JSON.parse(readFileSync(progPath, "utf8"));
+  assert(
+    Array.isArray(progFile) && progFile.length > 0 && progFile[0].id && progFile[0].day,
+    "Program export is an exercise array",
+    `Got: ${JSON.stringify(progFile).slice(0, 80)}`,
+    "Program → Advanced → Export program JSON"
+  );
+  const logBefore = (await getState(page)).log.length;
+  progFile[0].name = "IMPORTED_RENAME";
+  writeFileSync(progPath, JSON.stringify(progFile));
+  await page.setInputFiles("#importProgram", progPath);
+  await page.waitForTimeout(250);
+  const stAfter = await getState(page);
+  assert(
+    stAfter.program.some((x) => x.name === "IMPORTED_RENAME"),
+    "Program import applies the file",
+    "Renamed exercise not found",
+    "Export program → rename in file → Import program JSON"
+  );
+  assert(
+    stAfter.log.length === logBefore,
+    "Program import leaves the log untouched",
+    `log ${logBefore} → ${stAfter.log.length}`,
+    "Import program JSON → History unchanged"
+  );
+  await page.evaluate(() => {
+    document.querySelector("#programJson")?.blur();
+    const d = document.querySelector("#program details.advanced");
+    if (d) d.removeAttribute("open");
+  });
 
   // ── Phase 10: Program JSON editor ────────────────────────────────
   console.log("\nPhase 10: Program JSON editor");
@@ -1164,6 +1332,82 @@ async function main() {
     "Log → fill a set → Skip it → Save → that exercise has no new rows"
   );
 
+  console.log("\nPhase: exercise substitution");
+  await nav(page, "program");
+  let subState = await getState(page);
+  const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
+  await page.fill(`[data-id="${d1First.id}"][data-field="alternates"]`, "Leg press, Pendulum squat");
+  await page.waitForTimeout(100);
+  await nav(page, "log");
+  const subDay = d1First.day;
+  await selectDay(page, subDay);
+  await page.evaluate((id) => {
+    const art = document.querySelector(`.exercise[data-ex="${id}"]`);
+    if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
+    if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
+  }, d1First.id);
+  await page.waitForTimeout(80);
+  await page.evaluate(({ id, val }) => {
+    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
+    if (!sel) return;
+    sel.value = val;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  }, { id: d1First.id, val: "Leg press" });
+  await page.waitForTimeout(80);
+  await page.evaluate(({ id, load, reps, rir }) => {
+    const set = (k, v) => {
+      const el = document.querySelector(`[data-k="${id}_1_${k}"]`);
+      if (el) {
+        el.value = String(v);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    };
+    set("load", load);
+    set("reps", reps);
+    set("rir", rir);
+  }, { id: d1First.id, load: 120, reps: 6, rir: 1 });
+  const subSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  subState = await getState(page);
+  const subSession = [...new Set(subState.log.map((r) => r.session))].find((s) => !subSessionsBefore.has(s));
+  const subRow = subState.log.find((r) => r.session === subSession && r.exerciseId === d1First.id);
+  assert(
+    subRow && subRow.performedName === "Leg press",
+    "Substituted session saves performedName",
+    JSON.stringify(subRow),
+    "Program alternates → Log pick Leg press → save"
+  );
+  assert(
+    subRow && subRow.name === d1First.name,
+    "Substituted row keeps program slot name",
+    `name=${subRow?.name} slot=${d1First.name}`,
+    "Save with substitute → row.name is still the program exercise"
+  );
+  await nav(page, "history");
+  const histText = await page.textContent("#historyTable");
+  assert(
+    histText.includes("Leg press"),
+    "History table shows performed substitute name",
+    histText.slice(0, 200),
+    "History → Every set table after substitute save"
+  );
+  await nav(page, "stats");
+  await page.evaluate(() => document.querySelector("#statsDeep")?.setAttribute("open", ""));
+  await page.selectOption("#statExercise", d1First.id);
+  await page.waitForTimeout(80);
+  const chartRows = await page.evaluate(() => {
+    const sel = document.querySelector("#statExercise").value;
+    const log = JSON.parse(localStorage.getItem("repforge_v1")).log.filter((r) => !r.warmup);
+    const keys = new Set(log.map((r) => r.exerciseId || r.name));
+    return keys.has(sel);
+  });
+  assert(
+    chartRows,
+    "Stats chart aggregates substituted sessions under exerciseId",
+    `exerciseId=${d1First.id}`,
+    "Stats → select substituted lift → chart has data"
+  );
+
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
   await clearState(page);
   await page.reload({ waitUntil: "networkidle" });
@@ -1249,6 +1493,65 @@ async function main() {
   await nav(page, "settings");
   await page.selectOption("#unit", "kg");
   await page.waitForTimeout(80);
+
+  console.log("\nPhase: effort RIR mode");
+  await nav(page, "settings");
+  await page.check('input[name="rirMode"][value="effort"]');
+  await page.waitForTimeout(120);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const effMeta = await getExerciseMeta(page, "Day 1");
+  const effEx = effMeta[0];
+  await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
+  await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
+  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="hard"]`);
+  const effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const effortState = await getState(page);
+  const effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
+  const effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  assert(
+    effortRow && effortRow.rir === 1,
+    "Effort mode Hard saves as RIR 1",
+    `rir=${effortRow?.rir}`,
+    "Settings effort mode → Log Hard → save"
+  );
+  assert(
+    effortState.settings.rirMode === "effort",
+    "Settings persist rirMode effort",
+    JSON.stringify(effortState.settings),
+    "Toggle effort mode in Settings"
+  );
+  await nav(page, "settings");
+  await page.check('input[name="rirMode"][value="numeric"]');
+  await page.waitForTimeout(80);
+
+  console.log("\nPhase: beginner program");
+  const logBeforeBeginner = (await getState(page)).log.length;
+  await page.click("#beginnerProgram");
+  await page.waitForTimeout(200);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const begName = await page.locator("#workout .exercise .ex__name").first().textContent();
+  assert(
+    /Leg press/i.test(begName) && !/Hack squat/i.test(begName),
+    "Beginner program shows plain exercise names",
+    `name="${begName}"`,
+    "Settings → Use beginner-friendly program → Log Day 1"
+  );
+  const begSetup = await cardInfo(page, 0);
+  assert(
+    begSetup.setup.length > 10,
+    "Beginner program setup hint visible on Log",
+    `setup="${begSetup.setup}"`,
+    "Log Day 1 after beginner switch"
+  );
+  assert(
+    (await getState(page)).log.length === logBeforeBeginner,
+    "Beginner program switch preserves log",
+    `log length changed ${logBeforeBeginner} → ${(await getState(page)).log.length}`,
+    "Switch beginner program with existing history"
+  );
 
   // Bodyweight persists on save and prefills on reopen
   await nav(page, "log");
