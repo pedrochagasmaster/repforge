@@ -1088,16 +1088,35 @@ function renderPRs(){const el=$("#prLedger");if(!el)return;
         `<td>${esc(fmt(Math.round(toDisplay(e1rm(ev.load,ev.reps)))))}</td><td>${esc(delta)}</td></tr>`}).join("")
   }</tbody></table>`}
 
-// Action board — which lifts need a decision, grouped by signal.
+// Action board — which lifts need a decision, grouped by signal (one group per lift).
+function attentionSignal(ex,fatigueCluster){
+  const r=recommendation(ex),sess=sessionsFor(ex);
+  if(r.status==="add"||r.status==="add2")return{key:"add",why:"every set hit the top of the range last session."};
+  if(r.status==="reduce"||r.stalled)return{key:"reduce",why:"reps fell below range or progress stalled."};
+  if(r.status==="new")return{key:"new",why:"no working sets logged yet."};
+  if(sess.length){
+    const lastDate=String(sess.at(-1).date).slice(0,10),cutoff=daysAgo(10);
+    if(lastDate<cutoff){const n=Math.floor((new Date(`${today()}T12:00:00`)-new Date(`${lastDate}T12:00:00`))/86400000);
+      return{key:"stale",why:`last trained ${n} days ago.`}}
+  }
+  const planned=prog.volume(),done=completedHardSets(7);
+  for(const m of muscles(ex.primary)){const p=planned.get(m),d=done.get(m),target=p?p.d+p.p:0,actual=d?d.d+d.p:0;
+    if(target>0&&actual<target)return{key:"vol",why:"primary muscle under weekly volume target."}}
+  const last=sess.at(-1);
+  if(last&&(last.avgRir<=0.5||(fatigueCluster&&r.status==="hold"&&last.avgRir<=1)))return{key:"fatigue",why:"sets grinding near failure."};
+  return null}
+function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const r=recommendation(ex);return r.status==="reduce"||r.stalled}).length>=2;
+  const defs=[{key:"add",cls:"add",lead:"Ready to add"},{key:"reduce",cls:"reduce",lead:"Back off / stalled"},{key:"new",cls:"new",lead:"Untested"},
+    {key:"stale",cls:"stale",lead:"Not trained recently"},{key:"vol",cls:"vol",lead:"Volume low"},{key:"fatigue",cls:"fatigue",lead:"Possible fatigue"}];
+  const g=Object.fromEntries(defs.map(d=>[d.key,[]]));
+  for(const ex of prog.exercises){const sig=attentionSignal(ex,fatigueCluster);if(sig)g[sig.key].push({ex,why:sig.why})}
+  return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
+window.__repforgeAttention=attentionGroups;
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const g={add:[],reduce:[],fresh:[]};
-  for(const ex of prog.exercises){const r=recommendation(ex);
-    if(r.status==="add"||r.status==="add2")g.add.push(ex);
-    else if(r.status==="reduce")g.reduce.push(ex);
-    else if(r.status==="new")g.fresh.push(ex)}
-  const grp=(list,cls,lead)=>list.length?`<div class="attn__grp attn--${cls}"><span class="attn__lead">${lead}</span>`+
-    list.map(ex=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}">${esc(ex.name)}</button>`).join("")+`</div>`:"";
-  const html=grp(g.add,"add","Ready to add")+grp(g.reduce,"reduce","Back off / stalled")+grp(g.fresh,"new","Untested");
+  const groups=attentionGroups();
+  const html=groups.map(({cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
+    `<p class="attn__why">${esc(items[0]?.why||"")}</p>`+
+    items.map(({ex})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}">${esc(ex.name)}</button>`).join("")+`</div>`).join("");
   el.innerHTML=html||`<div class="attn__grp"><span class="attn__lead">Every lift is holding — chase reps.</span></div>`;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
     const has=[...$("#statExercise").options].some(o=>o.value===k);
