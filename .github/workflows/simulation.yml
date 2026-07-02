@@ -1,0 +1,56 @@
+name: Simulation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: simulation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+
+      - name: Install simulation dependencies
+        working-directory: test
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Syntax check app.js
+        run: node --check app.js
+
+      - name: Start static server
+        run: python3 -m http.server 8000 &
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/ >/dev/null; then
+              echo "Server ready"
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Server did not start in time"
+          exit 1
+
+      - name: Run Playwright simulation
+        working-directory: test
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: npm run simulate
