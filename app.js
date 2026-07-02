@@ -438,7 +438,8 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   for(const ex of exercises()){if(skipped.has(ex.id))continue;
     const mine=rows.filter(r=>r.exerciseId===ex.id&&!r.warmup);if(!mine.length)continue;
     const newTop=Math.max(...mine.map(r=>+r.load));
-    const prevTop=Math.max(0,...state.log.filter(x=>matchLift(ex)&&isWork(x)).map(r=>+r.load));
+    const match=matchLift(ex);
+    const prevTop=Math.max(0,...state.log.filter(x=>match(x)&&isWork(x)).map(r=>+r.load));
     if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");

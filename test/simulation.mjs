@@ -775,14 +775,20 @@ async function main() {
   await nav(page, "log");
   const prDay = await firstDayName(page);
   const prMeta = await getExerciseMeta(page, prDay);
-  await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 200, 6, 2);
+  // Another exercise at a higher load first — global max must exceed the PR exercise's new top
+  await fillExerciseSets(page, prMeta[1].id, prMeta[1].sets, 250, 6, 2);
+  await saveWorkout(page);
+  await nav(page, "log");
+  await selectDay(page, prDay);
+  // PR for exercise 0: beats its own prior top (~125) but stays below the 250 global max elsewhere
+  await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 150, 6, 2);
   await saveWorkout(page);
   const prToast = await page.textContent("#toast");
   assert(
     /PR:/.test(prToast),
-    "Save toast announces a top-load PR",
+    "Save toast announces a per-exercise top-load PR (not global max)",
     `Toast: ${prToast}`,
-    "Log a heavier top set than any prior session → Save"
+    "Log another exercise at 250 kg, then PR the first exercise at 150 kg → Save"
   );
   await nav(page, "stats");
   await page.evaluate(() => {
