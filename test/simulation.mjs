@@ -617,7 +617,7 @@ async function main() {
   }
   if (exported) {
     assert(
-      exported.program && Array.isArray(exported.log) && exported.settings,
+      exported.program && Array.isArray(exported.log) && exported.settings && exported.programId,
       "JSON export has program/log/settings",
       `Keys: ${Object.keys(exported).join(", ")}`,
       "Settings → Export backup JSON → inspect file"
@@ -713,6 +713,8 @@ async function main() {
       header.includes("load") &&
       header.includes("reps") &&
       header.includes("exercise_id") &&
+      header.includes("program_id") &&
+      header.includes("program_name") &&
       header.includes("e1rm") &&
       header.includes("is_hard_set") &&
       header.includes("is_warmup") &&

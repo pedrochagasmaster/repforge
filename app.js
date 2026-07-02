@@ -49,6 +49,7 @@ function glossaryPopover(term,anchor){const g=$("#glossary");if(!g)return;
   g.classList.remove("hidden");
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric"};
+const PROGRAM_DEFAULTS={name:"Current program",status:"active",version:1};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric"});
 const LB=2.2046226218;
@@ -80,6 +81,13 @@ const displayName=row=>row.performedName||exerciseLabel(row);
 const rowMuscles=row=>{if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=state.program.find(e=>e.id===row.exerciseId)||state.program.find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
+const normalizeProgramMeta=s=>({
+  programId:typeof s?.programId==="string"&&s.programId?s.programId:uid(),
+  programName:typeof s?.programName==="string"&&s.programName.trim()?s.programName.trim():PROGRAM_DEFAULTS.name,
+  programStatus:typeof s?.programStatus==="string"&&s.programStatus.trim()?s.programStatus.trim():PROGRAM_DEFAULTS.status,
+  programVersion:Number.isFinite(+s?.programVersion)&&+s.programVersion>0?Math.round(+s.programVersion):PROGRAM_DEFAULTS.version
+});
+const rowProgramName=r=>r.programName||r.programSnapshotName||"Unassigned / legacy program";
 
 const defaultAlternates={
   "Hack squat or pendulum squat":["Leg press","Pendulum squat"],
@@ -188,8 +196,8 @@ function migrateLog(){let changed=false;for(const row of state.log){
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},program,log:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),program:s.program,log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
+  return{settings:normalizeSettings(s.settings),...normalizeProgramMeta(s),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},...normalizeProgramMeta({}),program,log:[]}}
+function applyState(s){state={settings:normalizeSettings(s.settings),...normalizeProgramMeta(s),program:s.program,log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
 function save(){persist()}
 function persist(){
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}
@@ -428,7 +436,8 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
       rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
     if(load<=0)continue;
     if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
-    const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
+    const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary,
+      programId:state.programId,programName:state.programName,programStatus:state.programStatus,programVersion:state.programVersion,programSnapshotName:state.programName};
     if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
     if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
@@ -714,7 +723,7 @@ function renderVolume(){
 }
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
-function persistProgram(){state.program=prog.toJSON();save()}
+function persistProgram(){state.program=prog.toJSON();state.programVersion=Math.max(1,Math.round(+state.programVersion||1))+1;save()}
 
 function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
   const byId=new Map(prog.exercises.map(e=>[e.id,e]));
@@ -748,6 +757,7 @@ function exportCsv(){
   const cols=[
     ["session",r=>r.session],["date",r=>r.date],["day",r=>r.day],
     ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],
+    ["program_id",r=>r.programId||""],["program_name",r=>rowProgramName(r)],
     ["set",r=>r.set],["load",r=>r.load],["reps",r=>r.reps],["rir",r=>r.rir],
     ["e1rm",r=>+e1rm(+r.load,+r.reps).toFixed(2)],
     ["tonnage",r=>+((+r.load||0)*(+r.reps||0)).toFixed(2)],
