@@ -2479,6 +2479,45 @@ async function main() {
     "After logging → __repforgeWeek.sessionsInRange(this week)"
   );
 
+  beginPhase("Phase: this week (P11)");
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForTimeout(80);
+  const thisWeekVisible = await page.locator("#thisWeek").count();
+  assert(
+    thisWeekVisible === 1,
+    "This Week card exists in Overview",
+    `count=${thisWeekVisible}`,
+    "Stats → Overview → #thisWeek"
+  );
+  const thisWeekText = await page.locator("#thisWeek").innerText();
+  assert(
+    thisWeekText.includes("Status:"),
+    "This Week card shows status line",
+    `text=${thisWeekText.slice(0, 80)}`,
+    "Stats → Overview → #thisWeek contains Status:"
+  );
+  const snap = await page.evaluate(() => window.__repforgeWeeklySnapshot());
+  const validStatuses = ["On track", "Productive week", "Under target", "High fatigue", "Needs more data", "Rebuilding"];
+  assert(
+    snap && typeof snap === "object" && validStatuses.includes(snap.status),
+    "weeklySnapshot returns object with valid status label",
+    `status=${snap?.status}`,
+    "page.evaluate window.__repforgeWeeklySnapshot()"
+  );
+  assert(
+    Number.isFinite(snap.completedDays) && Number.isFinite(snap.completedSessions) && Number.isFinite(snap.totalHardSets),
+    "weeklySnapshot includes numeric completedDays, completedSessions, totalHardSets",
+    `days=${snap?.completedDays} sessions=${snap?.completedSessions} hard=${snap?.totalHardSets}`,
+    "__repforgeWeeklySnapshot() numeric fields"
+  );
+  assert(
+    Number.isFinite(snap.improvedLifts) && Number.isFinite(snap.readyToAdd) && Array.isArray(snap.prs),
+    "weeklySnapshot includes improvedLifts, readyToAdd, prs array",
+    `improved=${snap?.improvedLifts} ready=${snap?.readyToAdd} prs=${snap?.prs?.length}`,
+    "__repforgeWeeklySnapshot() lift tallies"
+  );
+
   beginPhase("\nPhase: session deltas");
   await page.waitForFunction(() => typeof window.__repforgeTestDeltas === "function");
   const deltaFix = (session, set, load, reps, rir = 2, warmup = false) => ({

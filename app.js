@@ -382,6 +382,29 @@ function programAdherence(){const totalDays=prog.days().length;if(!totalDays)ret
   const cutoff=daysAgo(6),programDaySet=new Set(prog.days()),loggedDays=new Set();
   for(const x of state.log){if(String(x.date)<cutoff)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
   const logged=loggedDays.size;return{logged,total:totalDays,ratio:totalDays?logged/totalDays:0}}
+function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart=start,weekEnd=end;
+  const completedSessions=sessionsInRange(start,end).length,plannedDays=prog.days().length,programDaySet=new Set(prog.days()),loggedDays=new Set();
+  for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
+  const completedDays=loggedDays.size,adherence=plannedDays?completedDays/plannedDays:0,hr=+state.settings.hardRir;
+  let totalWorkingSets=0,totalHardSets=0;for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;
+    if(!isWork(x)||!(+x.load>0&&+x.reps>0))continue;totalWorkingSets++;if(+x.rir<=hr)totalHardSets++}
+  const prs=detectPRs(state.log).filter(ev=>String(ev.date)>=start&&String(ev.date)<=end);
+  const trained=new Map();for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(!isWork(x)||!(+x.load>0))continue;
+    const k=liftKey(x),cur=trained.get(k);if(!cur||String(x.created)>String(cur.created))trained.set(k,{session:x.session,created:x.created})}
+  let improvedLifts=0,flatLifts=0,regressedLifts=0,fatigueFlags=0;
+  for(const[k,sess]of trained){const ex=prog.exercises.find(e=>e.id===k)||prog.exercises.find(e=>e.name===k);if(!ex)continue;
+    const rows=state.log.filter(r=>r.session===sess.session&&liftKey(r)===k),cmp=compareExerciseSession(ex,rows);
+    if(cmp.status==="improved")improvedLifts++;else if(cmp.status==="flat")flatLifts++;else if(cmp.status==="regressed")regressedLifts++;
+    const r=recommendation(ex);if(r.status==="reduce"||r.stalled)fatigueFlags++}
+  let readyToAdd=0;for(const ex of prog.exercises){const st=recommendation(ex).status;if(st==="add"||st==="add2")readyToAdd++}
+  let status;if(completedSessions===0)status="Needs more data";
+  else if(adherence>=.85&&improvedLifts>=flatLifts)status="On track";
+  else if(adherence>=.65&&prs.length>0)status="Productive week";
+  else if(fatigueFlags>=2)status="High fatigue";
+  else if(adherence<.5)status="Under target";
+  else status="Rebuilding";
+  return{weekStart,weekEnd,plannedDays,completedDays,completedSessions,totalWorkingSets,totalHardSets,prs,improvedLifts,flatLifts,regressedLifts,readyToAdd,status}}
+window.__repforgeWeeklySnapshot=weeklySnapshot;
 function programWeek(){const s=state.programMeta?.started;if(!s)return null;
   const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
   const days=Math.floor((now-start)/86400000);return days<0?1:Math.floor(days/7)+1}
@@ -879,7 +902,15 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
   el.innerHTML=table(rows.map(r=>({Exercise:r.exercise,Latest:r.latest,[`Best e1RM (${u})`]:fmt(Math.round(toDisplay(r.best))),
     "Δ block":fmtDelta(r.blockDelta),PRs:r.prs,Signal:r.signal})))}
 
+function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
+  el.innerHTML=`<div class="thisweek__title">This week</div><div class="thisweek__rows">`+
+    `<div>${w.completedDays} / ${w.plannedDays} days logged</div>`+
+    `<div>${w.totalHardSets} hard sets</div>`+
+    `<div>${w.improvedLifts} lift${w.improvedLifts===1?"":"s"} improved</div>`+
+    `<div>${w.readyToAdd} ready to add</div></div>`+
+    `<div class="thisweek__status">Status: <b>${esc(w.status)}</b></div>`}
 function renderStats(){
+  renderThisWeek();
   // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
   const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
   const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
