@@ -512,6 +512,11 @@ nav button.active .nav__icon{background:var(--ember)}
 .blockreview__why{margin:0!important;font-size:12px;color:var(--steel-dim)}
 .blockreview__actions{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
 .blockreview__actions .btn{width:100%;justify-content:center;font-size:13px;padding:10px 12px}
+.blockprogress{margin:0 0 16px;padding:12px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--coal)}
+.blockprogress__title{font-family:var(--display);font-weight:700;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--gold)}
+.blockprogress p{margin:0 0 6px;font-size:13px;line-height:1.45;color:var(--steel)}
+.blockprogress b{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:11px;color:var(--mist)}
+.review__summary{margin:0;font-size:14px;line-height:1.55;color:var(--mist)}
 .importchoice{
   position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
   background:var(--anvil);border:1px solid var(--rule);border-radius:12px;
@@ -593,6 +598,11 @@ nav button.active .nav__icon{background:var(--ember)}
 .onb__nav{display:flex;gap:10px}
 .onb__nav .btn{flex:1}
 .onb__nav .btn--steel{flex:.8}
+/* ---- Stats analytics segments ---- */
+.stats-seg{display:none}
+.stats-seg.active{display:block}
+.seg--stats{margin-bottom:14px}
+.seg--stats button{font-size:11px;padding:10px 4px;letter-spacing:.04em}
 
 /* ---- Window toggle (reuses .seg) ---- */
 .seg--window{margin:8px 0 12px}

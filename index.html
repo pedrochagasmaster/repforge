@@ -71,26 +71,39 @@
 
     <section id="stats" class="view" aria-label="Stats">
       <div class="sectionhead"><p class="eyebrow">The numbers</p><h2>Stats</h2></div>
-      <div id="attention" class="attention"></div>
-      <div id="metrics" class="metrics"></div>
-      <details class="advanced" id="statsDeep">
-        <summary>Dig deeper — charts &amp; tables</summary>
-        <div class="card chartcard">
-          <label class="field">Exercise<select id="statExercise"></select></label>
-          <div id="trend" class="trend"></div>
-          <div id="prLedger" class="prledger"></div>
-          <canvas id="chart" height="240" aria-label="Top load over time"></canvas>
-        </div>
-        <h3 class="subhead">Completed hard sets</h3>
-        <p class="lede">Logged sets per muscle within your RIR ceiling — <button type="button" class="term" data-term="hard set">hard set</button> volume you actually did, not the plan.</p>
-        <div id="volWindow" class="seg seg--window" role="tablist" aria-label="Volume window">
-          <button type="button" data-win="7" class="active" role="tab" aria-selected="true">7 days</button>
-          <button type="button" data-win="28" role="tab" aria-selected="false">28 days</button>
-        </div>
-        <div id="completedVolume" class="volume"></div>
-        <h3 class="subhead">Recent performance</h3><div id="recent" class="table"></div>
-        <h3 class="subhead">Top loads by exercise</h3><div id="tops" class="table"></div>
-      </details>
+      <div id="statsSeg" class="seg seg--stats" role="tablist" aria-label="Stats sections">
+        <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true">Overview</button>
+        <button type="button" role="tab" data-seg="strength" aria-selected="false">Strength</button>
+        <button type="button" role="tab" data-seg="volume" aria-selected="false">Volume</button>
+        <button type="button" role="tab" data-seg="prs" aria-selected="false">PRs</button>
+        <button type="button" role="tab" data-seg="review" aria-selected="false">Review</button>
+      </div>
+      <div id="segOverview" class="stats-seg active">
+        <div id="attention" class="attention"></div>
+        <div id="metrics" class="metrics"></div>
+        <details class="advanced" id="statsDeep">
+          <summary>Dig deeper — charts &amp; tables</summary>
+          <div class="card chartcard">
+            <label class="field">Exercise<select id="statExercise"></select></label>
+            <div id="trend" class="trend"></div>
+            <div id="prLedger" class="prledger"></div>
+            <canvas id="chart" height="240" aria-label="Top load over time"></canvas>
+          </div>
+          <h3 class="subhead">Completed hard sets</h3>
+          <p class="lede">Logged sets per muscle within your RIR ceiling — <button type="button" class="term" data-term="hard set">hard set</button> volume you actually did, not the plan.</p>
+          <div id="volWindow" class="seg seg--window" role="tablist" aria-label="Volume window">
+            <button type="button" data-win="7" class="active" role="tab" aria-selected="true">7 days</button>
+            <button type="button" data-win="28" role="tab" aria-selected="false">28 days</button>
+          </div>
+          <div id="completedVolume" class="volume"></div>
+          <h3 class="subhead">Recent performance</h3><div id="recent" class="table"></div>
+          <h3 class="subhead">Top loads by exercise</h3><div id="tops" class="table"></div>
+        </details>
+      </div>
+      <div id="segStrength" class="stats-seg"><p class="lede">Coming soon</p></div>
+      <div id="segVolume" class="stats-seg"><p class="lede">Coming soon</p></div>
+      <div id="segPRs" class="stats-seg"><p class="lede">Coming soon</p></div>
+      <div id="segReview" class="stats-seg"><h3 class="subhead">Review</h3><div id="reviewPanel"></div></div>
     </section>
 
     <section id="history" class="view" aria-label="History">

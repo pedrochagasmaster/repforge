@@ -22,6 +22,12 @@ const avg=a=>a.length?a.reduce((s,x)=>s+Number(x||0),0)/a.length:0;
 const median=a=>{if(!a.length)return 0;const s=[...a].map(Number).sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
 const sum=a=>a.reduce((s,x)=>s+Number(x||0),0);
 const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+function weekStart(date){const d=new Date(`${String(date).slice(0,10)}T12:00:00`),dow=d.getDay(),diff=dow===0?6:dow-1;
+  d.setDate(d.getDate()-diff);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function weekRange(date){const start=weekStart(date),endD=new Date(`${start}T12:00:00`);endD.setDate(endD.getDate()+6);
+  return{start,end:`${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,"0")}-${String(endD.getDate()).padStart(2,"0")}`}}
+function sessionsInRange(start,end){const ids=new Set();for(const x of state.log){if(String(x.date)>=start&&String(x.date)<=end)ids.add(x.session)}return[...ids]}
+window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
 const shortDate=d=>{const p=String(d||"").split("-");return p.length===3?`${+p[1]}/${+p[2]}`:String(d||"")};
@@ -324,7 +330,8 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="full",focusIndex=0;
+let logMode="full",focusIndex=0,statsSeg="overview";
+const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
   if(!row.exerciseId){const ex=state.program.find(e=>e.name===row.name&&e.day===row.day)||state.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
@@ -448,6 +455,32 @@ const BLOCK_REC_COPY={
   keep_program_improve_completion:{line:"Recommendation: keep the program and improve completion.",why:"Logged hard-set volume was well below what the program plans."},
   repeat_with_small_swaps:{line:"Recommendation: repeat this block with small swaps.",why:"Adherence was solid and progress was mixed but acceptable."}};
 function blockRecommendationCopy(key){return BLOCK_REC_COPY[key]||BLOCK_REC_COPY.repeat_with_small_swaps}
+function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),total=programMeta?.mesocycleLengthWeeks||6;
+  let weekCurrent=null;const s=programMeta?.started;
+  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
+    const days=Math.floor((now-start)/86400000);weekCurrent=days<0?1:Math.floor(days/7)+1}
+  return{...review,weekCurrent,weekTotal:total}}
+function buildPlainSummary(snapshot){if(!snapshot)return"";
+  const parts=[];
+  if(snapshot.weekCurrent!=null&&snapshot.weekTotal)parts.push(`You're in week ${snapshot.weekCurrent} of ${snapshot.weekTotal} in this block.`);
+  const ad=snapshot.adherenceRatio??0,adLabel=ad>=.8?"solid":ad>=.5?"mixed":"low";
+  if(snapshot.plannedSessions)parts.push(`Session adherence looks ${adLabel} (${snapshot.completedSessions} of ${snapshot.plannedSessions} planned sessions).`);
+  const imp=snapshot.improvedLifts??0,flat=snapshot.flatLifts??0;
+  if(imp||flat)parts.push(`${imp} lift${imp===1?"":"s"} improved${flat?` and ${flat} held flat`:""} so far.`);
+  const vol=snapshot.volumeCompliance??0;
+  if(vol<.6&&snapshot.plannedSessions)parts.push(`Hard-set volume is at ${Math.round(vol*100)}% of plan.`);
+  const copy=blockRecommendationCopy(snapshot.recommendation);
+  parts.push(copy.line.replace(/^Recommendation:\s*/i,"").trim());
+  return parts.join(" ")}
+function renderReview(){const el=$("#reviewPanel");if(!el)return;
+  if(!state.programMeta?.started){el.innerHTML=`<p class="lede">Set a block start date on the Program tab to track progress through this mesocycle.</p>`;return}
+  const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
+  el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">Block progress</h4>`+
+    `<p><b>Week</b> ${snap.weekCurrent??"—"} of ${snap.weekTotal}</p>`+
+    `<p><b>Sessions</b> ${snap.completedSessions} / ${snap.plannedSessions} completed</p>`+
+    `<p><b>Lifts</b> ${snap.improvedLifts} improved · ${snap.flatLifts} flat · ${snap.stalledLifts} stalled</p>`+
+    `<p><b>Volume</b> ${pct}% of planned hard sets</p></div>`+
+    `<p class="review__summary">${esc(summary)}</p>`}
 function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
   $("#blockReviewBody").innerHTML=
     `<p><b>Sessions</b> ${review.completedSessions} / ${review.plannedSessions} completed</p>`+
@@ -588,6 +621,11 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
 function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
+function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
+  $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
+  if(seg==="overview")redrawChart();
+  if(seg==="review")renderReview()}
 
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 function recommendation(ex){
@@ -861,7 +899,7 @@ function renderStats(){
     if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:displayName(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,[unitLabel()]:fmtLoad(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
-  renderPRs();renderAttention();renderCompleted();
+  renderPRs();renderAttention();renderCompleted();renderReview();
 }
 
 function detectPRs(log,opts={}){
@@ -955,6 +993,8 @@ function startVoiceInput(){
   rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
   rec.onerror=()=>toast("Voice input failed. Type the set instead.");
   try{rec.start()}catch{toast("Voice input failed. Type the set instead.")}}
+window.__repforgeBlockSnapshot=blockSnapshot;
+window.__repforgeBuildPlainSummary=buildPlainSummary;
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -1033,8 +1073,8 @@ function draw(rows){
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
 
-function redrawChart(){if(!$("#stats").classList.contains("active"))return;
-  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.name===sel);draw(rows)}
+function redrawChart(){if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
+  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 function renderHistory(){
   const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
@@ -1409,6 +1449,7 @@ function init(){
   $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
   const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
+  $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
   $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
