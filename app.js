@@ -624,7 +624,7 @@ function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("a
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="review")renderReview()}
+  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="review")renderReview()}
 
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 function recommendation(ex){
@@ -918,6 +918,7 @@ function renderStats(){
   $("#tops").innerHTML=table(progRows);
   renderPRs();renderAttention();renderCompleted();renderReview();
   if(statsSeg==="strength")renderStrengthDash();
+  if(statsSeg==="volume")renderVolumeDash();
 }
 
 function detectPRs(log,opts={}){
@@ -1050,6 +1051,18 @@ function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+st
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
   return m}
+function volEff(m,name){const v=m.get(name);return v?v.d+v.p:0}
+function volumeStatus(planned,completed7){if(!planned)return completed7>0?"High":"On target";
+  const ratio=completed7/planned;return ratio<0.6?"Low":ratio<=1.3?"On target":"High"}
+function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHardSets(7),c28=completedHardSets(28);
+  const names=new Set([...planned.keys(),...c7.keys(),...c28.keys()]);
+  return[...names].sort((a,b)=>a.localeCompare(b)).map(muscle=>{
+    const p=volEff(planned,muscle),c7v=volEff(c7,muscle),c28v=volEff(c28,muscle);
+    return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
+window.__repforgeVolumeDashboard=volumeDashboard;
+function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
+  const rows=volumeDashboard(7).map(r=>({Muscle:r.muscle,Planned:fmt(r.planned),"Completed 7d":fmt(r.completed7),"Completed 28d":fmt(r.completed28),Status:r.status}));
+  el.innerHTML=table(rows)}
 function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
   const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
   el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
