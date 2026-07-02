@@ -331,6 +331,12 @@ tbody tr:nth-child(even) td{background:rgba(255,255,255,.012)}
 .vrow__num b{color:var(--mist);font-weight:600}
 
 /* ---- Program editor ---- */
+.programlife{display:flex;gap:12px;align-items:flex-start;justify-content:space-between;padding:14px;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.035)}
+.programlife b{display:block;color:var(--mist)}
+.programlife span{display:block;margin-top:4px;color:var(--steel);font-size:12px;font-family:"Plex Mono",monospace}
+.programlife__actions{display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.programlife__actions .btn{font-size:12px;padding:9px 10px}
+@media (max-width:680px){.programlife{display:block}.programlife__actions{justify-content:stretch;margin-top:12px}.programlife__actions .btn{flex:1 1 100%}}
 .peditor{display:flex;flex-direction:column;gap:14px}
 .pday{background:var(--slag);border:1px solid var(--rule);border-radius:var(--r);padding:14px;box-shadow:var(--shadow)}
 .pday__head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
