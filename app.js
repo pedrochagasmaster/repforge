@@ -187,9 +187,45 @@ function migrateLog(){let changed=false;for(const row of state.log){
   const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
+function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
+function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now}}
+function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
+  if(!m||typeof m!=="object")return base;
+  const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
+  return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
+    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now}}
 function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},program,log:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),program:s.program,log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
+  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[]}}
+function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[]};
+  prog=new Program(state.program);state.program=prog.toJSON();state.programMeta=normalizeProgramMeta(state.programMeta,state.log);migrateLog();save()}
+function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
+  if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();
+  if(partial.started!==undefined){const v=partial.started;state.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
+  state.programMeta.updated=new Date().toISOString();save()}
+function programAdherence(){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
+  const cutoff=daysAgo(6),programDaySet=new Set(prog.days()),loggedDays=new Set();
+  for(const x of state.log){if(String(x.date)<cutoff)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
+  const logged=loggedDays.size;return{logged,total:totalDays,ratio:totalDays?logged/totalDays:0}}
+function programWeek(){const s=state.programMeta?.started;if(!s)return null;
+  const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
+  const days=Math.floor((now-start)/86400000);return days<0?1:Math.floor(days/7)+1}
+function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
+  if(!withHistory.length)return null;
+  const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
+  return{hot,total:withHistory.length,ratio:hot/withHistory.length}}
+function programVolumeCompliance(){const planned=prog.volume();let plannedTotal=0;
+  for(const [,v] of planned)plannedTotal+=v.d+v.p;if(!plannedTotal)return null;
+  const m=completedHardSets(7);let completed=0;for(const [,v] of m)completed+=v.d+v.p;
+  return{planned:plannedTotal,completed,ratio:Math.min(completed/plannedTotal,1)}}
+function programStatusLabel(adherence,health){
+  const hasLog=state.log.some(isWork);if(!hasLog)return"Getting started";
+  const adRatio=adherence.ratio,hRatio=health?.ratio??0;
+  if(adRatio>=1&&hRatio>=0.4)return"On track";if(adRatio>=0.5)return"Partial week";return"Rebuilding"}
+function parseProgramImport(parsed){
+  if(Array.isArray(parsed))return{exercises:parsed,meta:null};
+  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null};
+  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null};
+  return null}
 function save(){persist()}
 function persist(){
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}
@@ -264,6 +300,8 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
 
 function renderWorkout(){
+  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,wk=programWeek();
+    lc.textContent=nm||wk?`${nm||"Untitled program"}${wk?` · Week ${wk}`:""}`:"Today's session"}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
@@ -539,11 +577,13 @@ function renderAttention(){const el=$("#attention");if(!el)return;
     if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast("Log this lift to chart it.")});}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
-function renderCompleted(){const el=$("#completedVolume");if(!el)return;const cutoff=daysAgo(volWindow-1),hr=+state.settings.hardRir,m=new Map();
+function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
   for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
     const mus=rowMuscles(x);
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
+function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
   const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
   el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
@@ -633,7 +673,37 @@ function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"
   state.log=state.log.filter(r=>r.session!==sid||+r.load>0);
   editSession=null;save();render();toast("Session updated.");}
 
-function renderProgram(){renderProgramEditor();renderVolume()}
+function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolume()}
+
+function renderProgramChips(){
+  const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
+  const ad=programAdherence(),week=programWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const status=programStatusLabel(ad,health);
+  const weekChip=week?`<span class="pmeta__chip">Week ${week}</span>`:"";
+  const healthChip=health?`<span class="pmeta__chip">${health.hot}/${health.total} ready to add</span>`:"";
+  const volChip=vol?`<span class="pmeta__chip">${Math.round(vol.ratio*100)}% volume (7d)</span>`:"";
+  top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
+  bottom.innerHTML=`<span class="pmeta__chip">${ad.logged} / ${ad.total} days this week</span>${healthChip}${volChip}`;
+}
+
+function renderProgramHeader(){
+  const el=$("#programMeta");if(!el)return;
+  if(document.activeElement?.closest("#programMeta"))return;
+  const meta=state.programMeta||defaultProgramMeta(state.log);
+  el.innerHTML=
+    `<div class="pmeta__row">`+
+      `<label class="pmeta__name">Program name<input id="programName" type="text" value="${esc(meta.name)}" placeholder="Untitled program" aria-label="Program name"></label>`+
+      `<div id="pmetaChipsTop" class="pmeta__chips"></div>`+
+    `</div>`+
+    `<div class="pmeta__row">`+
+      `<label class="pmeta__started">Started<input id="programStarted" type="date" value="${esc(meta.started||"")}" aria-label="Program start date"></label>`+
+      `<div id="pmetaChipsBottom" class="pmeta__chips"></div>`+
+    `</div>`;
+  renderProgramChips();
+  const nameInp=$("#programName"),startInp=$("#programStarted");
+  nameInp.oninput=()=>persistProgramMeta({name:nameInp.value});
+  startInp.onchange=()=>{persistProgramMeta({started:startInp.value||null});renderProgramChips()};
+}
 
 function renderProgramEditor(){
   const ds=prog.days();
@@ -765,12 +835,16 @@ function exportCsv(){
 function exportJson(){state.settings.lastExport=new Date().toISOString();save();
   const text=JSON.stringify(state,null,2),name=`repforge_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");renderSettings()}
-function exportProgram(){download(JSON.stringify(prog.toJSON(),null,2),`repforge_program_${today()}.json`,"application/json")}
+const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
+function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
+  const slug=fileSlug(state.programMeta?.name);
+  download(JSON.stringify(payload,null,2),`repforge_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
 async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
-  try{const parsed=JSON.parse(await f.text());
-    const list=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.program)?parsed.program:null);
-    if(!list||!list.length)throw Error();
-    if(!confirm(`Replace your current program with ${list.length} exercises from this file?\n\nYour training log and settings are not touched.`)){e.target.value="";toast("Program import cancelled.");return}
+  try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
+    if(!imp?.exercises?.length)throw Error();
+    const list=imp.exercises;
+    if(!confirm(`Replace your current program with ${list.length} exercises from this file?\n\nYour training log and settings are not touched. The program name comes from the file; your start date stays.`)){e.target.value="";toast("Program import cancelled.");return}
+    if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())persistProgramMeta({name:imp.meta.name});
     $("#programJson").value=JSON.stringify(list,null,2);saveProgram()}
   catch{toast("That file isn't a RepForge program export.")}
   e.target.value=""}
@@ -847,8 +921,10 @@ async function boot(){
   catch(e){console.warn("localStorage read failed",e)}}
   state=normalizeLoaded(raw);
   prog=new Program(state.program);state.program=prog.toJSON();
+  state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
   day=days()[0]||"Day 1";
-  if(migrateLog())persist();
+  migrateLog();
+  persist();
   init();
 }
 boot();

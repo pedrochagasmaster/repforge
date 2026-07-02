@@ -36,7 +36,7 @@
   <main>
     <section id="log" class="view active" aria-label="Log workout">
       <div class="sectionhead">
-        <p class="eyebrow">Today's session</p>
+        <p class="eyebrow" id="logContext">Today's session</p>
         <div class="sectionhead__row">
           <h2>Log workout</h2>
           <label class="datepick">Date<input id="date" type="date"></label>
@@ -95,6 +95,7 @@
 
     <section id="program" class="view" aria-label="Program">
       <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
+      <div id="programMeta" class="pmeta" aria-label="Program summary"></div>
       <p class="lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
       <div id="programEditor" class="peditor"></div>
       <button id="addDay" class="btn btn--steel peditor__addday" type="button">+ Add day</button>
