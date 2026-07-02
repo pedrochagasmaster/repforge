@@ -2471,6 +2471,59 @@ async function main() {
     "After logging → __repforgeWeek.sessionsInRange(this week)"
   );
 
+  beginPhase("Phase: volume dashboard (P13)");
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="volume"]');
+  await page.waitForTimeout(80);
+  const volSegActive = await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active"));
+  assert(
+    volSegActive,
+    "Volume segment activates on click",
+    `volSegActive=${volSegActive}`,
+    "Stats → click Volume → #segVolume active"
+  );
+  assert(
+    (await page.locator("#volumeDash table").count()) > 0,
+    "#volumeDash table exists",
+    "No table in #volumeDash",
+    "Stats → Volume segment → volume dashboard table"
+  );
+  const volRowCount = await page.locator("#volumeDash table tbody tr").count();
+  assert(
+    volRowCount > 0,
+    "Volume dashboard has muscle rows",
+    `rowCount=${volRowCount}`,
+    "Stats → Volume → table has tbody rows"
+  );
+  const volStatuses = await page.evaluate(() => {
+    const th = [...document.querySelectorAll("#volumeDash th")].map((t) => t.textContent);
+    const idx = th.indexOf("Status");
+    if (idx < 0) return [];
+    return [...document.querySelectorAll("#volumeDash tbody tr")].map((tr) => tr.cells[idx]?.textContent);
+  });
+  const validStatus = new Set(["Low", "On target", "High"]);
+  assert(
+    volStatuses.length > 0 && volStatuses.every((s) => validStatus.has(s)),
+    "Status column values are Low, On target, or High",
+    `statuses=${volStatuses.slice(0, 5).join(",")}`,
+    "Stats → Volume → Status column in {Low, On target, High}"
+  );
+  const volDashApi = await page.evaluate(() => {
+    const fn = window.__repforgeVolumeDashboard;
+    if (!fn) return { ok: false, reason: "hook missing" };
+    const rows = fn(7);
+    if (!Array.isArray(rows) || !rows.length) return { ok: false, reason: "empty" };
+    const fields = ["muscle", "planned", "completed7", "completed28", "status"];
+    const ok = rows.every((r) => fields.every((f) => f in r));
+    return { ok, sample: rows[0] };
+  });
+  assert(
+    volDashApi.ok,
+    "window.__repforgeVolumeDashboard(7) returns rows with required fields",
+    JSON.stringify(volDashApi),
+    "page.evaluate __repforgeVolumeDashboard(7) after logging"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
