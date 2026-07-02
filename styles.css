@@ -526,6 +526,12 @@ nav button.active .nav__icon{background:var(--ember)}
 .focusbar__prog{flex:none;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.06em;
   font-size:12px;color:var(--steel);min-width:4.5rem;text-align:center}
 
+/* ---- Stats analytics segments ---- */
+.stats-seg{display:none}
+.stats-seg.active{display:block}
+.seg--stats{margin-bottom:14px}
+.seg--stats button{font-size:11px;padding:10px 4px;letter-spacing:.04em}
+
 /* ---- Window toggle (reuses .seg) ---- */
 .seg--window{margin:8px 0 12px}
 .seg--window button{border:0;background:transparent;color:var(--steel);cursor:pointer;border-radius:10px;

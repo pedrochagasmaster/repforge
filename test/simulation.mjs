@@ -2393,6 +2393,84 @@ async function main() {
     "Save workout → localStorage repforge_v1 mirrors persisted state"
   );
 
+  beginPhase("Phase: analytics shell (P10)");
+  await nav(page, "stats");
+  const segBtnCount = await page.locator("#statsSeg button").count();
+  assert(
+    segBtnCount === 5,
+    "Stats segmented control has 5 segments",
+    `button count=${segBtnCount}`,
+    "Stats tab → inspect #statsSeg buttons"
+  );
+  const segLabels = await page.locator("#statsSeg button").allTextContents();
+  assert(
+    segLabels.includes("Overview") && segLabels.includes("Strength") && segLabels.includes("Volume") && segLabels.includes("PRs") && segLabels.includes("Review"),
+    "Stats segments include Overview, Strength, Volume, PRs, Review",
+    `labels=${segLabels.join(",")}`,
+    "Stats tab → segment button labels"
+  );
+  await page.click('#statsSeg button[data-seg="strength"]');
+  await page.waitForTimeout(80);
+  const strengthVisible = await page.evaluate(() => {
+    const s = document.querySelector("#segStrength");
+    const o = document.querySelector("#segOverview");
+    return s?.classList.contains("active") && !o?.classList.contains("active");
+  });
+  assert(
+    strengthVisible,
+    "Strength segment shows and Overview hides on click",
+    `strengthVisible=${strengthVisible}`,
+    "Stats → click Strength → #segStrength active, #segOverview not"
+  );
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForTimeout(80);
+  const overviewRestored = await page.evaluate(() => {
+    const s = document.querySelector("#segOverview");
+    const str = document.querySelector("#segStrength");
+    return s?.classList.contains("active") && !str?.classList.contains("active");
+  });
+  assert(
+    overviewRestored,
+    "Overview segment restores as default after switching back",
+    `overviewRestored=${overviewRestored}`,
+    "Stats → Strength → Overview → #segOverview active again"
+  );
+  const weekHelpers = await page.evaluate(() => {
+    const w = window.__repforgeWeek;
+    if (!w?.weekStart || !w?.weekRange || !w?.sessionsInRange) return { ok: false, reason: "hook missing" };
+    const wed = "2025-07-02";
+    const mon = w.weekStart(wed);
+    const range = w.weekRange(wed);
+    const monDow = new Date(`${mon}T12:00:00`).getDay();
+    return {
+      ok: monDow === 1 && range.start <= range.end && range.start === mon,
+      mon,
+      monDow,
+      range,
+    };
+  });
+  assert(
+    weekHelpers.ok,
+    "weekStart returns Monday and weekRange start<=end",
+    JSON.stringify(weekHelpers),
+    "page.evaluate window.__repforgeWeek.weekStart/weekRange on a Wednesday"
+  );
+  const sessionsInRange = await page.evaluate(() => {
+    const w = window.__repforgeWeek;
+    const r = w.weekRange(today());
+    return w.sessionsInRange(r.start, r.end).length;
+    function today() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+  });
+  assert(
+    sessionsInRange > 0,
+    "sessionsInRange returns sessions for the current week",
+    `count=${sessionsInRange}`,
+    "After logging → __repforgeWeek.sessionsInRange(this week)"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
