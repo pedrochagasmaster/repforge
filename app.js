@@ -509,6 +509,33 @@ function detectPRs(log,opts={}){
   return events}
 window.detectPRs=detectPRs;
 
+
+function activeProgramRows(programDoc,logRows){
+  const list=Array.isArray(programDoc)?programDoc:[];
+  const rows=Array.isArray(logRows)?logRows:[];
+  const ids=new Set(list.map(e=>e.id).filter(Boolean));
+  const names=new Set(list.map(e=>e.name).filter(Boolean));
+  return rows.filter(r=>(r.exerciseId&&ids.has(r.exerciseId))||names.has(r.name));
+}
+function completedHardVolume(logRows){const hr=+state.settings.hardRir,m=new Map();
+  for(const x of logRows){if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
+    const mus=rowMuscles(x);
+    for(const p of muscles(mus.primary))addVol(m,p,1,0);
+    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
+function programScore(programDoc,logRows){
+  const activeRows=activeProgramRows(programDoc,logRows),planned=new Program(programDoc).volume();
+  const completedSessions=new Set(activeRows.filter(isWork).map(r=>r.session).filter(Boolean)).size;
+  const prs=detectPRs(activeRows);
+  const completed=completedHardVolume(activeRows);
+  const musclesPlanned=[...planned.entries()].filter(([,v])=>v.d+v.p>0);
+  const coverageItems=musclesPlanned.map(([name,v])=>{const plan=v.d+v.p,done=(completed.get(name)?.d||0)+(completed.get(name)?.p||0);return{name,planned:plan,completed:done,ratio:plan?done/plan:0}});
+  const coverage=coverageItems.length?avg(coverageItems.map(x=>Math.min(1,x.ratio))):0;
+  const label=completedSessions<2?"Needs data":(coverage>=.75&&prs.length>0?"Productive":"Building");
+  return{label,completedSessions,prEvents:prs.length,coverage,coverageItems};
+}
+window.programScore=programScore;
+
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
   if(!events.length){el.innerHTML=`<div class="empty">Log working sets to track PRs.</div>`;return}
@@ -633,7 +660,15 @@ function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"
   state.log=state.log.filter(r=>r.session!==sid||+r.load>0);
   editSession=null;save();render();toast("Session updated.");}
 
-function renderProgram(){renderProgramEditor();renderVolume()}
+function renderProgram(){renderProgramEditor();renderProgramSummary();renderVolume()}
+
+function renderProgramSummary(){const el=$("#programScore");if(!el)return;
+  const sc=programScore(prog.toJSON(),state.log),pct=Math.round(sc.coverage*100);
+  const top=sc.coverageItems.slice().sort((a,b)=>a.ratio-b.ratio).slice(0,3);
+  el.innerHTML=`<div class="scorecard__head"><div><p class="cardtitle">Program score</p><div class="scorecard__label">${esc(sc.label)}</div></div><div class="scorecard__pct">${pct}<small>%</small></div></div>`+
+    `<div class="scoregrid"><span><b>${sc.completedSessions}</b> completed sessions</span><span><b>${sc.prEvents}</b> PR events</span><span><b>${pct}%</b> hard-set coverage</span></div>`+
+    `<details class="scorecalc"><summary>How this is calculated</summary><p>Consistency is distinct completed sessions in the active program. Progress is PR events from the same PR detector used in Stats. Coverage compares completed hard sets (RIR ≤ ${fmt(state.settings.hardRir)}) against planned weekly volume from this program.</p>`+
+    (top.length?`<p class="scorecalc__note">Lowest coverage: ${top.map(x=>`${esc(x.name)} ${Math.round(Math.min(1,x.ratio)*100)}%`).join(", ")}.</p>`:``)+`</details>`;}
 
 function renderProgramEditor(){
   const ds=prog.days();
