@@ -150,8 +150,7 @@ main{width:min(100%,var(--maxw));margin:0 auto;padding:16px 14px 36px}
 .btn--forge:hover{filter:brightness(1.06)}
 .btn--danger{background:rgba(255,93,108,.12);color:#ffc2c8;border-color:rgba(255,93,108,.4)}
 .btn--save{
-  width:100%;position:sticky;bottom:calc(var(--nav) + 12px + env(safe-area-inset-bottom));
-  z-index:15;margin-top:6px;flex-direction:column;gap:2px;padding:15px;font-size:18px;
+  width:100%;margin-top:6px;flex-direction:column;gap:2px;padding:15px;font-size:18px;
 }
 .btn--save.is-stamped{animation:stamp .5s ease}
 .btn__meta{font-family:var(--mono);font-size:11px;font-weight:500;letter-spacing:.08em;text-transform:none;opacity:.85}
