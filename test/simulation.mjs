@@ -68,8 +68,16 @@ async function getState(page) {
   }, KEY);
 }
 
-async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000 });
+async function dismissOnboardingIfPresent(page) {
+  await page.evaluate(() => {
+    const el = document.querySelector("#onboarding");
+    if (el?.classList.contains("active") && typeof window.closeOnboarding === "function") window.closeOnboarding();
+  });
+}
+
+async function waitForApp(page, { dismissOnboarding = true } = {}) {
+  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  if (dismissOnboarding) await dismissOnboardingIfPresent(page);
   await page.waitForFunction(() => typeof window.detectPRs === "function", { timeout: 10000 });
 }
 
@@ -77,9 +85,9 @@ async function loadApp(page, url = BASE) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
 }
 
-async function reloadApp(page) {
+async function reloadApp(page, opts = {}) {
   await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForApp(page);
+  await waitForApp(page, opts);
 }
 
 async function persistState(page, state) {
@@ -579,6 +587,48 @@ async function main() {
     JSON.stringify(prEvents.map((e) => e.kind)),
     "Progressive overload seed → e1RM PR events exist"
   );
+
+  beginPhase("Phase 1d: Attention board (P15)");
+  await nav(page, "stats");
+  assert(
+    (await page.locator("#attention .attn__grp").count()) > 0,
+    "Attention board renders at least one group after seed",
+    "No .attn__grp in #attention",
+    "Bulk seed → Stats Overview → attention board"
+  );
+  assert(
+    (await page.locator("#attention .attn__lead").count()) > 0,
+    "Attention group exposes a lead label",
+    "No .attn__lead found",
+    "Stats Overview → inspect attention board headings"
+  );
+  assert(
+    (await page.locator("#attention .attn__why").count()) > 0,
+    "Attention group shows a why line",
+    "No .attn__why found",
+    "Stats Overview → each signal group has a why line"
+  );
+  const attnGroups = await page.evaluate(() =>
+    typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : null
+  );
+  assert(
+    Array.isArray(attnGroups) && attnGroups.length > 0 && attnGroups.every((g) => g.lead && g.items?.length),
+    "__repforgeAttention returns grouped structure",
+    JSON.stringify(attnGroups?.map((g) => g.key)),
+    "page.evaluate window.__repforgeAttention after seed"
+  );
+  const seedAttnChip = page.locator("#attention [data-attn]").first();
+  if ((await seedAttnChip.count()) > 0) {
+    await seedAttnChip.click();
+    assert(
+      (await page.locator("#statsDeep").evaluate((el) => el.open)),
+      "Attention chip click opens stats deep section without error",
+      "statsDeep not open after chip click",
+      "Stats → click attention chip"
+    );
+  } else {
+    pass("Attention chip click skipped (no chips in seeded board)");
+  }
 
   // PWA shell loads (manifest + service worker registration)
   const pwaOk = await page.evaluate(async () => {
@@ -1962,6 +2012,12 @@ async function main() {
     "No reduce chips in attention board",
     "Stats → action board shows Back off / stalled group"
   );
+  assert(
+    (await page.locator("#attention .attn__why").count()) > 0,
+    "Attention board groups include why lines",
+    "No .attn__why in attention board",
+    "Stats → action board → each group has a why line"
+  );
   const attnChip = page.locator("#attention [data-attn]").first();
   const attnLift = await attnChip.getAttribute("data-attn");
   await attnChip.click();
@@ -2391,6 +2447,1077 @@ async function main() {
     "localStorage mirror populated after save",
     `mirror log length=${mirrorState?.log?.length ?? "null"}`,
     "Save workout → localStorage repforge_v1 mirrors persisted state"
+  );
+
+  beginPhase("Phase: analytics shell (P10)");
+  await nav(page, "stats");
+  const segBtnCount = await page.locator("#statsSeg button").count();
+  assert(
+    segBtnCount === 5,
+    "Stats segmented control has 5 segments",
+    `button count=${segBtnCount}`,
+    "Stats tab → inspect #statsSeg buttons"
+  );
+  const segLabels = await page.locator("#statsSeg button").allTextContents();
+  assert(
+    segLabels.includes("Overview") && segLabels.includes("Strength") && segLabels.includes("Volume") && segLabels.includes("PRs") && segLabels.includes("Review"),
+    "Stats segments include Overview, Strength, Volume, PRs, Review",
+    `labels=${segLabels.join(",")}`,
+    "Stats tab → segment button labels"
+  );
+  await page.click('#statsSeg button[data-seg="strength"]');
+  await page.waitForTimeout(80);
+  const strengthVisible = await page.evaluate(() => {
+    const s = document.querySelector("#segStrength");
+    const o = document.querySelector("#segOverview");
+    return s?.classList.contains("active") && !o?.classList.contains("active");
+  });
+  assert(
+    strengthVisible,
+    "Strength segment shows and Overview hides on click",
+    `strengthVisible=${strengthVisible}`,
+    "Stats → click Strength → #segStrength active, #segOverview not"
+  );
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForTimeout(80);
+  const overviewRestored = await page.evaluate(() => {
+    const s = document.querySelector("#segOverview");
+    const str = document.querySelector("#segStrength");
+    return s?.classList.contains("active") && !str?.classList.contains("active");
+  });
+  assert(
+    overviewRestored,
+    "Overview segment restores as default after switching back",
+    `overviewRestored=${overviewRestored}`,
+    "Stats → Strength → Overview → #segOverview active again"
+  );
+  const weekHelpers = await page.evaluate(() => {
+    const w = window.__repforgeWeek;
+    if (!w?.weekStart || !w?.weekRange || !w?.sessionsInRange) return { ok: false, reason: "hook missing" };
+    const wed = "2025-07-02";
+    const mon = w.weekStart(wed);
+    const range = w.weekRange(wed);
+    const monDow = new Date(`${mon}T12:00:00`).getDay();
+    return {
+      ok: monDow === 1 && range.start <= range.end && range.start === mon,
+      mon,
+      monDow,
+      range,
+    };
+  });
+  assert(
+    weekHelpers.ok,
+    "weekStart returns Monday and weekRange start<=end",
+    JSON.stringify(weekHelpers),
+    "page.evaluate window.__repforgeWeek.weekStart/weekRange on a Wednesday"
+  );
+  const sessionsInRange = await page.evaluate(() => {
+    const w = window.__repforgeWeek;
+    const r = w.weekRange(today());
+    return w.sessionsInRange(r.start, r.end).length;
+    function today() {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }
+  });
+  assert(
+    sessionsInRange > 0,
+    "sessionsInRange returns sessions for the current week",
+    `count=${sessionsInRange}`,
+    "After logging → __repforgeWeek.sessionsInRange(this week)"
+  );
+
+  beginPhase("Phase: this week (P11)");
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForTimeout(80);
+  const thisWeekVisible = await page.locator("#thisWeek").count();
+  assert(
+    thisWeekVisible === 1,
+    "This Week card exists in Overview",
+    `count=${thisWeekVisible}`,
+    "Stats → Overview → #thisWeek"
+  );
+  const thisWeekText = await page.locator("#thisWeek").innerText();
+  assert(
+    thisWeekText.includes("Status:"),
+    "This Week card shows status line",
+    `text=${thisWeekText.slice(0, 80)}`,
+    "Stats → Overview → #thisWeek contains Status:"
+  );
+  const snap = await page.evaluate(() => window.__repforgeWeeklySnapshot());
+  const validStatuses = ["On track", "Productive week", "Under target", "High fatigue", "Needs more data", "Rebuilding"];
+  assert(
+    snap && typeof snap === "object" && validStatuses.includes(snap.status),
+    "weeklySnapshot returns object with valid status label",
+    `status=${snap?.status}`,
+    "page.evaluate window.__repforgeWeeklySnapshot()"
+  );
+  assert(
+    Number.isFinite(snap.completedDays) && Number.isFinite(snap.completedSessions) && Number.isFinite(snap.totalHardSets),
+    "weeklySnapshot includes numeric completedDays, completedSessions, totalHardSets",
+    `days=${snap?.completedDays} sessions=${snap?.completedSessions} hard=${snap?.totalHardSets}`,
+    "__repforgeWeeklySnapshot() numeric fields"
+  );
+  assert(
+    Number.isFinite(snap.improvedLifts) && Number.isFinite(snap.readyToAdd) && Array.isArray(snap.prs),
+    "weeklySnapshot includes improvedLifts, readyToAdd, prs array",
+    `improved=${snap?.improvedLifts} ready=${snap?.readyToAdd} prs=${snap?.prs?.length}`,
+    "__repforgeWeeklySnapshot() lift tallies"
+  );
+
+  beginPhase("\nPhase: session deltas");
+  await page.waitForFunction(() => typeof window.__repforgeTestDeltas === "function");
+  const deltaFix = (session, set, load, reps, rir = 2, warmup = false) => ({
+    session,
+    date: "2026-01-01",
+    created: session,
+    exerciseId: "delta-test-ex",
+    set,
+    load,
+    reps,
+    rir,
+    warmup,
+  });
+  const runDelta = (prevRows, curRows) =>
+    page.evaluate(
+      ([prev, cur]) => window.__repforgeTestDeltas(prev, cur),
+      [prevRows, curRows]
+    );
+
+  const sameLoadMoreReps = await runDelta(
+    [deltaFix("s1", 1, 100, 8, 2)],
+    [deltaFix("s2", 1, 100, 10, 2)]
+  );
+  assert(
+    sameLoadMoreReps.status === "improved",
+    "Session delta: same load + more reps → improved",
+    `status=${sameLoadMoreReps.status}`,
+    "__repforgeTestDeltas: 100×8 → 100×10"
+  );
+  assert(
+    sameLoadMoreReps.metrics?.deltas?.repsDelta === 2,
+    "Session delta: repsDelta reflects extra reps",
+    `repsDelta=${sameLoadMoreReps.metrics?.deltas?.repsDelta}`,
+    "100×8 → 100×10"
+  );
+
+  const higherLoadFewerReps = await runDelta(
+    [deltaFix("s1", 1, 100, 10, 2)],
+    [deltaFix("s2", 1, 110, 8, 2)]
+  );
+  assert(
+    ["improved", "changed_load"].includes(higherLoadFewerReps.status),
+    "Session delta: higher load + fewer reps → improved or changed_load",
+    `status=${higherLoadFewerReps.status}`,
+    "100×10 → 110×8"
+  );
+  assert(
+    higherLoadFewerReps.metrics?.deltas?.e1rmDelta > 0,
+    "Session delta: higher-load scenario e1rmDelta positive",
+    `e1rmDelta=${higherLoadFewerReps.metrics?.deltas?.e1rmDelta}`,
+    "100×10 → 110×8"
+  );
+
+  const lowerLoadMoreReps = await runDelta(
+    [deltaFix("s1", 1, 100, 8, 1)],
+    [deltaFix("s2", 1, 95, 9, 2)]
+  );
+  assert(
+    lowerLoadMoreReps.status === "changed_load",
+    "Session delta: lower load + more reps (similar e1RM) → changed_load",
+    `status=${lowerLoadMoreReps.status}`,
+    "100×8@RIR1 → 95×9@RIR2"
+  );
+  assert(
+    lowerLoadMoreReps.status !== "regressed",
+    "Session delta: load-changed comparable session not regressed",
+    `status=${lowerLoadMoreReps.status}`,
+    "100×8@RIR1 → 95×9@RIR2"
+  );
+
+  const warmupIgnored = await runDelta(
+    [deltaFix("s1", 1, 100, 8, 2)],
+    [deltaFix("s2", 1, 1000, 1, 5, true), deltaFix("s2", 2, 100, 10, 2)]
+  );
+  assert(
+    warmupIgnored.metrics?.current?.topLoad === 100,
+    "Session delta: warmup rows ignored for topLoad",
+    `topLoad=${warmupIgnored.metrics?.current?.topLoad}`,
+    "warmup 1000kg must not affect metrics"
+  );
+  assert(
+    warmupIgnored.status === "improved",
+    "Session delta: warmup present does not block improved detection",
+    `status=${warmupIgnored.status}`,
+    "working set 100×10 vs prev 100×8"
+  );
+
+  beginPhase("Phase: P4 schema + migration");
+  state = await getState(page);
+  assert(
+    Array.isArray(state.programHistory),
+    "P4: state has programHistory array",
+    `programHistory=${typeof state.programHistory}`,
+    "Load app → inspect state.programHistory"
+  );
+  assert(
+    state.programMeta.mesocycleLengthWeeks === 6 &&
+      state.programMeta.mesocycleStatus === "active" &&
+      state.programMeta.onboarded === false,
+    "P4: programMeta phase-2 defaults",
+    JSON.stringify({
+      mesocycleLengthWeeks: state.programMeta.mesocycleLengthWeeks,
+      mesocycleStatus: state.programMeta.mesocycleStatus,
+      onboarded: state.programMeta.onboarded,
+    }),
+    "Load app → inspect programMeta defaults"
+  );
+  const historyEntry = { id: "hist-sim-1", name: "Prior block", endedAt: "2026-01-01" };
+  await persistState(page, { ...state, programHistory: [historyEntry] });
+  await reloadApp(page);
+  state = await getState(page);
+  assert(
+    state.programHistory.length === 1 && state.programHistory[0].id === historyEntry.id,
+    "P4: programHistory round-trips on persist/reload",
+    `programHistory=${JSON.stringify(state.programHistory)}`,
+    "persistState with programHistory → reload"
+  );
+  const legacyMeta = {
+    id: state.programMeta.id,
+    name: state.programMeta.name,
+    started: state.programMeta.started,
+    created: state.programMeta.created,
+    updated: state.programMeta.updated,
+  };
+  await persistState(page, { ...state, programMeta: legacyMeta });
+  await reloadApp(page);
+  const legacyNorm = await getState(page);
+  assert(
+    legacyNorm.programMeta.mesocycleLengthWeeks === 6 &&
+      legacyNorm.programMeta.mesocycleStatus === "active" &&
+      legacyNorm.programMeta.onboarded === false &&
+      legacyNorm.programMeta.goal === null,
+    "P4: legacy programMeta normalizes without error",
+    JSON.stringify(legacyNorm.programMeta),
+    "Strip new programMeta fields → reload"
+  );
+  state = legacyNorm;
+
+  beginPhase("Phase: P7 mesocycle lifecycle");
+  const twoWeeksStarted = isoDateFromWeeksAgo(2);
+  await persistState(page, {
+    ...state,
+    programMeta: {
+      ...state.programMeta,
+      started: twoWeeksStarted,
+      mesocycleLengthWeeks: 6,
+      mesocycleStatus: "active",
+    },
+  });
+  await reloadApp(page);
+  const mc = await page.evaluate(() => window.__repforgeMesocycleWeek());
+  assert(
+    mc.current >= 2 && mc.current <= 3,
+    "P7: mesocycleWeek current ~2 after ~2 weeks",
+    JSON.stringify(mc),
+    "Set started ~2 weeks ago → __repforgeMesocycleWeek"
+  );
+  assert(
+    mc.total === 6,
+    "P7: mesocycleWeek total is 6",
+    `total=${mc.total}`,
+    "mesocycleLengthWeeks=6 → total 6"
+  );
+  await nav(page, "log");
+  const logCtxMeso = await page.locator("#logContext").textContent();
+  assert(
+    /of 6/.test(logCtxMeso),
+    "P7: Log context shows Week X of 6",
+    `logContext=${logCtxMeso}`,
+    "Log tab → #logContext includes of 6"
+  );
+  await nav(page, "program");
+  const weekChipText = await page.locator("#pmetaChipsTop").textContent();
+  assert(
+    /of 6/.test(weekChipText),
+    "P7: Program week chip shows of 6",
+    `chips=${weekChipText}`,
+    "Program tab → week chip includes of 6"
+  );
+  assert(
+    (await page.locator("#endBlock").count()) === 1,
+    "P7: #endBlock button exists",
+    "endBlock missing from Program tab",
+    "Program tab → End block button near program meta"
+  );
+
+  beginPhase("Phase: P8 block review");
+  const blockStarted = isoDateFromWeeksAgo(5);
+  await persistState(page, {
+    ...state,
+    programMeta: { ...state.programMeta, started: blockStarted, mesocycleLengthWeeks: 6 },
+  });
+  await reloadApp(page);
+  const blockReview = await page.evaluate(() =>
+    window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
+  );
+  const recLabels = [
+    "repeat_with_simpler_schedule",
+    "reduce_volume_or_deload",
+    "repeat_or_progress",
+    "keep_program_improve_completion",
+    "repeat_with_small_swaps",
+  ];
+  assert(
+    blockReview && recLabels.includes(blockReview.recommendation),
+    "P8: buildBlockReview recommendation is a known label",
+    `recommendation=${blockReview?.recommendation}`,
+    "Seed history → __repforgeBuildBlockReview → recommendation field"
+  );
+  assert(
+    ["plannedSessions", "completedSessions", "improvedLifts", "flatLifts", "stalledLifts", "prs"].every(
+      (k) => typeof blockReview[k] === "number"
+    ),
+    "P8: buildBlockReview count fields are numbers",
+    JSON.stringify({
+      plannedSessions: blockReview?.plannedSessions,
+      completedSessions: blockReview?.completedSessions,
+      improvedLifts: blockReview?.improvedLifts,
+      flatLifts: blockReview?.flatLifts,
+      stalledLifts: blockReview?.stalledLifts,
+      prs: blockReview?.prs,
+    }),
+    "__repforgeBuildBlockReview → numeric count fields"
+  );
+  assert(
+    blockReview.completedSessions > 0 && blockReview.plannedSessions > 0,
+    "P8: block review has planned and completed sessions",
+    `completed=${blockReview.completedSessions} planned=${blockReview.plannedSessions}`,
+    "Seeded log within block window → completedSessions > 0"
+  );
+  assert(
+    typeof blockReview.adherenceRatio === "number" && blockReview.adherenceRatio >= 0 && blockReview.adherenceRatio <= 1,
+    "P8: adherenceRatio is a guarded ratio",
+    `adherenceRatio=${blockReview?.adherenceRatio}`,
+    "__repforgeBuildBlockReview → adherenceRatio between 0 and 1"
+  );
+  assert(
+    typeof blockReview.volumeCompliance === "number" && blockReview.volumeCompliance >= 0 && blockReview.volumeCompliance <= 1,
+    "P8: volumeCompliance is a guarded ratio",
+    `volumeCompliance=${blockReview?.volumeCompliance}`,
+    "__repforgeBuildBlockReview → volumeCompliance capped at 1"
+  );
+  await nav(page, "program");
+  await page.click("#endBlock");
+  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  const reviewText = await page.locator("#blockReview").textContent();
+  assert(
+    /Recommendation:/i.test(reviewText) && /Why:/i.test(reviewText),
+    "P8: block review panel shows recommendation and Why",
+    reviewText?.slice(0, 160),
+    "Program tab → End block → review panel opens"
+  );
+  const recSnippets = {
+    repeat_with_simpler_schedule: "simpler schedule",
+    reduce_volume_or_deload: "reduce volume",
+    repeat_or_progress: "repeat this block or progress",
+    keep_program_improve_completion: "improve completion",
+    repeat_with_small_swaps: "small swaps",
+  };
+  assert(
+    reviewText.toLowerCase().includes(recSnippets[blockReview.recommendation]),
+    "P8: review panel shows friendly recommendation copy",
+    `panel=${reviewText?.slice(0, 200)} recommendation=${blockReview.recommendation}`,
+    "End block → panel body includes mapped recommendation line"
+  );
+  await page.click("#blockReviewClose");
+  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+
+  beginPhase("Phase: P9 next-block flow");
+  await page.waitForFunction(() => typeof window.__repforgeCompleteProgram === "function");
+  const p9Before = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    return {
+      historyLen: s.programHistory.length,
+      metaId: s.programMeta.id,
+      sets: s.program.map((e) => e.sets),
+    };
+  });
+  const p9Review = await page.evaluate(() =>
+    window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
+  );
+  await page.evaluate((review) => window.__repforgeCompleteProgram(review), p9Review);
+  const p9AfterComplete = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    return { historyLen: s.programHistory.length, status: s.programMeta.mesocycleStatus };
+  });
+  assert(
+    p9AfterComplete.historyLen === p9Before.historyLen + 1,
+    "P9: completeCurrentProgram appends programHistory entry",
+    `history ${p9Before.historyLen} → ${p9AfterComplete.historyLen}`,
+    "__repforgeCompleteProgram(review) → programHistory.length +1"
+  );
+  assert(
+    p9AfterComplete.status === "completed",
+    "P9: completeCurrentProgram sets mesocycleStatus completed",
+    `status=${p9AfterComplete.status}`,
+    "__repforgeCompleteProgram → programMeta.mesocycleStatus === completed"
+  );
+  await page.evaluate(() => window.__repforgeStartNextMeso("increase_volume"));
+  const p9Today = new Date().toISOString().slice(0, 10);
+  const p9AfterStart = await page.evaluate((todayStr) => {
+    const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    return {
+      historyLen: s.programHistory.length,
+      metaId: s.programMeta.id,
+      status: s.programMeta.mesocycleStatus,
+      started: s.programMeta.started,
+      sets: s.program.map((e) => e.sets),
+    };
+  }, p9Today);
+  assert(
+    p9AfterStart.metaId !== p9Before.metaId,
+    "P9: startNextMesocycle mints new programMeta.id",
+    `id ${p9Before.metaId} → ${p9AfterStart.metaId}`,
+    "__repforgeStartNextMeso → new programMeta.id"
+  );
+  assert(
+    p9AfterStart.status === "active",
+    "P9: startNextMesocycle sets mesocycleStatus active",
+    `status=${p9AfterStart.status}`,
+    "__repforgeStartNextMeso → mesocycleStatus === active"
+  );
+  assert(
+    p9AfterStart.started === p9Today,
+    "P9: startNextMesocycle sets started to today",
+    `started=${p9AfterStart.started} today=${p9Today}`,
+    "__repforgeStartNextMeso → started === today()"
+  );
+  assert(
+    p9AfterStart.historyLen === p9AfterComplete.historyLen,
+    "P9: programHistory preserved across startNextMesocycle",
+    `historyLen=${p9AfterStart.historyLen}`,
+    "startNextMesocycle does not clear programHistory"
+  );
+  assert(
+    p9AfterStart.sets.length === p9Before.sets.length &&
+      p9AfterStart.sets.every((n, i) => n === p9Before.sets[i] + 1),
+    "P9: increase_volume adds one set per exercise",
+    `before=${p9Before.sets.join(",")} after=${p9AfterStart.sets.join(",")}`,
+    "__repforgeStartNextMeso(increase_volume) → each exercise sets +1"
+  );
+
+  beginPhase("Phase: P5 program generation");
+  await page.waitForFunction(() => typeof window.__repforgeGenerateProgram === "function");
+  const genCases = [
+    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "full_body", equipment: ["machine"], priorityMuscles: ["Chest"], sessionLength: "normal" },
+    { goal: "strength", experience: "intermediate", daysPerWeek: 4, splitType: "upper_lower", equipment: ["barbell", "dumbbell", "machine"], priorityMuscles: [], sessionLength: "short" },
+    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 5, splitType: "ppl", equipment: ["machine"], priorityMuscles: ["Quads"], sessionLength: "long" },
+  ];
+  const genResults = await page.evaluate((cases) => {
+    const catalogById = new Map();
+    const bounds = { short: [4, 5], normal: [5, 7], long: [7, 9] };
+    return cases.map((answers) => {
+      const raw = window.__repforgeGenerateProgram(answers);
+      const prog = new Program(raw);
+      const json = prog.toJSON();
+      const days = [...new Set(json.map((e) => e.day))];
+      const perDay = days.map((d) => json.filter((e) => e.day === d).length);
+      const [lo, hi] = bounds[answers.sessionLength] || bounds.normal;
+      const withinBounds = perDay.every((n) => n >= lo && n <= hi);
+      const fieldsOk = json.every((e) => e.name && e.sets > 0 && e.min > 0 && e.max >= e.min && e.primary);
+      const machineOnly = answers.equipment.length === 1 && answers.equipment[0] === "machine";
+      let equipOk = true;
+      if (machineOnly) {
+        for (const ex of json) {
+          const libId = ex.libraryId;
+          if (!libId) { equipOk = false; break; }
+          catalogById.set(libId, libId);
+        }
+      }
+      return {
+        answers,
+        dayCount: days.length,
+        perDay,
+        withinBounds,
+        fieldsOk,
+        programOk: json.length > 0,
+        days,
+      };
+    });
+  }, genCases);
+
+  const case0 = genResults[0];
+  assert(
+    case0.dayCount === 3,
+    "P5: generated program has daysPerWeek distinct days",
+    `expected 3 days, got ${case0.dayCount} (${case0.days.join(", ")})`,
+    "__repforgeGenerateProgram full_body 3-day"
+  );
+  assert(
+    case0.withinBounds && case0.fieldsOk,
+    "P5: exercises within session bounds with valid fields",
+    `perDay=${case0.perDay.join(",")} fieldsOk=${case0.fieldsOk}`,
+    "sessionLength normal → 5–7 exercises per day, name/sets/min/max/primary"
+  );
+  assert(
+    case0.programOk,
+    "P5: Program constructor accepts generated output",
+    `length=${case0.programOk}`,
+    "new Program(__repforgeGenerateProgram(answers)).toJSON().length > 0"
+  );
+
+  const machineEquip = await page.evaluate(() => {
+    const answers = { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "machine_only", equipment: ["machine"], priorityMuscles: [], sessionLength: "normal" };
+    const raw = window.__repforgeGenerateProgram(answers);
+    const barbellOnly = ["Barbell back squat", "Barbell bench press", "Barbell row", "Barbell Romanian deadlift", "Barbell incline press", "Barbell overhead press"];
+    const hasBarbell = raw.some((e) => barbellOnly.some((n) => e.name === n) || /barbell/i.test(e.name));
+    return { count: raw.length, hasBarbell, names: raw.map((e) => e.name) };
+  });
+  assert(
+    !machineEquip.hasBarbell && machineEquip.count > 0,
+    "P5: machine-only equipment filter excludes barbell picks",
+    `hasBarbell=${machineEquip.hasBarbell} names=${machineEquip.names.slice(0, 4).join(", ")}`,
+    "equipment=[machine] → no barbell-only exercises"
+  );
+
+  const case2 = genResults[2];
+  assert(
+    case2.dayCount === 5 && case2.withinBounds,
+    "P5: PPL 5-day split respects long session length bounds",
+    `days=${case2.dayCount} perDay=${case2.perDay.join(",")}`,
+    "daysPerWeek=5 splitType=ppl sessionLength=long → 7–9 per day"
+  );
+
+  const pplDays = await page.evaluate(() => {
+    const raw = window.__repforgeGenerateProgram({ goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3, splitType: "ppl", equipment: ["machine", "cable"], priorityMuscles: [], sessionLength: "normal" });
+    const days = [...new Set(raw.map((e) => e.day))];
+    return { dayCount: days.length, exerciseCount: raw.length };
+  });
+  assert(
+    pplDays.dayCount === 3 && pplDays.exerciseCount > 0,
+    "P5: PPL generates one day per training slot",
+    JSON.stringify(pplDays),
+    "splitType=ppl daysPerWeek=3 → Day 1–3"
+  );
+
+  const upperLower = genResults[1];
+  assert(
+    upperLower.dayCount === 4 && upperLower.withinBounds,
+    "P5: upper/lower 4-day short session fits 4–5 exercises",
+    `perDay=${upperLower.perDay.join(",")}`,
+    "upper_lower 4-day sessionLength=short"
+  );
+
+  beginPhase("Phase: P6 onboarding UI");
+  await clearState(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+  assert(
+    await page.locator("#onboarding.active").isVisible(),
+    "P6: first-run onboarding is visible on fresh load",
+    "onboarding section not active",
+    "Clear storage → reload → onboarding overlay shows"
+  );
+  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
+  await page.click("#onbNext");
+  await page.waitForSelector("#onbSave", { timeout: 5000 });
+  await page.click("#onbSave");
+  await page.waitForFunction(
+    () => !document.querySelector("#onboarding")?.classList.contains("active"),
+    { timeout: 8000 }
+  );
+  state = await getState(page);
+  const onbDays = [...new Set(state.program.map((e) => e.day))];
+  assert(
+    state.programMeta?.onboarded === true,
+    "P6: Save program sets onboarded=true",
+    `onboarded=${state.programMeta?.onboarded}`,
+    "Complete onboarding → Save program"
+  );
+  assert(
+    onbDays.length === state.programMeta?.daysPerWeek,
+    "P6: generated program days match daysPerWeek",
+    `days=${onbDays.length} expected=${state.programMeta?.daysPerWeek}`,
+    "Onboarding review → Save → program day count"
+  );
+  assert(
+    !(await page.locator("#onboarding.active").count()),
+    "P6: onboarding hidden after save",
+    "onboarding still active",
+    "Save program → overlay closes"
+  );
+  await nav(page, "settings");
+  assert(
+    (await page.locator("#createProgram").count()) === 1,
+    "P6: Settings has Create new program control",
+    "createProgram button missing",
+    "Settings → Progression card"
+  );
+
+  beginPhase("Phase: delta write surfaces");
+  await clearState(page);
+  await reloadApp(page);
+  let deltaState = await getState(page);
+  const deltaDay = "Day 1";
+  const deltaEx = deltaState.program
+    .filter((e) => e.day === deltaDay)
+    .sort((a, b) => a.order - b.order)[0];
+  const deltaDate = "2026-06-15";
+  const sess1 = `${deltaDate}_${deltaDay}_delta_seed`;
+  const created1 = `${deltaDate}T10:00:00.000Z`;
+  const seedRows = Array.from({ length: deltaEx.sets }, (_, i) => ({
+    session: sess1,
+    date: deltaDate,
+    day: deltaDay,
+    name: deltaEx.name,
+    exerciseId: deltaEx.id,
+    set: i + 1,
+    load: 100,
+    reps: 8,
+    rir: 1,
+    notes: "",
+    created: created1,
+    primary: deltaEx.primary,
+    secondary: deltaEx.secondary,
+  }));
+  await persistState(page, { ...deltaState, log: seedRows });
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, deltaDay);
+  await page.fill("#date", deltaDate);
+  await fillExerciseSets(page, deltaEx.id, deltaEx.sets, 100, 10, 1);
+  const sessionsBeforeDelta = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  deltaState = await getState(page);
+  const deltaSession = [...new Set(deltaState.log.map((r) => r.session))].find(
+    (s) => !sessionsBeforeDelta.has(s)
+  );
+  const deltaToast = await page.textContent("#toast");
+  assert(
+    /improved/i.test(deltaToast),
+    "Save toast includes session delta improved summary",
+    `Toast: ${deltaToast}`,
+    "Seed 100×8 → save 100×10 → toast mentions improved"
+  );
+  assert(
+    /\d+ improved/.test(deltaToast),
+    "Save toast delta uses count format",
+    `Toast: ${deltaToast}`,
+    "Toast should read like '1 improved'"
+  );
+  const compareImproved = await page.evaluate(
+    ({ exId, sid }) => {
+      const s = JSON.parse(localStorage.getItem("repforge_v1"));
+      const ex = s.program.find((e) => e.id === exId);
+      const rows = s.log.filter((r) => r.session === sid);
+      return window.__repforgeCompareExercise(ex, rows);
+    },
+    { exId: deltaEx.id, sid: deltaSession }
+  );
+  assert(
+    compareImproved.status === "improved",
+    "Second session compares improved vs seeded session",
+    `status=${compareImproved.status}`,
+    "persistState seed + UI save with more reps"
+  );
+  await nav(page, "history");
+  const deltaCard = await page.locator(".session").first().textContent();
+  assert(
+    /improved/i.test(deltaCard),
+    "History session card shows delta improved summary",
+    `Card: ${deltaCard?.slice(0, 160)}`,
+    "History → newest card after improved session"
+  );
+  assert(
+    (await page.locator(".session__delta").count()) > 0,
+    "History session card renders session__delta element",
+    "No .session__delta on history cards",
+    "History → session card includes delta line"
+  );
+
+  beginPhase("Phase: command parser");
+  const parseCmd = (t) => page.evaluate((x) => window.__repforgeParseCommand(x), t);
+  const p80x8 = await parseCmd("80 x 8");
+  assert(p80x8.ok && p80x8.load === 80 && p80x8.reps === 8 && p80x8.confidence === "high", "parse: 80 x 8", JSON.stringify(p80x8));
+  const p80for8 = await parseCmd("80 for 8");
+  assert(p80for8.ok && p80for8.load === 80 && p80for8.reps === 8 && p80for8.confidence === "high", "parse: 80 for 8", JSON.stringify(p80for8));
+  const p808 = await parseCmd("80 8");
+  assert(p808.ok && p808.load === 80 && p808.reps === 8 && p808.confidence === "low", "parse: 80 8 fallback", JSON.stringify(p808));
+  const pRir = await parseCmd("80 x 8 rir 1");
+  assert(pRir.ok && pRir.load === 80 && pRir.reps === 8 && pRir.rir === 1, "parse: 80 x 8 rir 1", JSON.stringify(pRir));
+  const pAt = await parseCmd("80 x 8 @1");
+  assert(pAt.ok && pAt.load === 80 && pAt.reps === 8 && pAt.rir === 1, "parse: 80 x 8 @1", JSON.stringify(pAt));
+  const pSet2 = await parseCmd("set 2 80 x 8");
+  assert(pSet2.ok && pSet2.set === 2 && pSet2.load === 80 && pSet2.reps === 8, "parse: set 2 80 x 8", JSON.stringify(pSet2));
+  const pS2 = await parseCmd("s2 80x8");
+  assert(pS2.ok && pS2.set === 2 && pS2.load === 80 && pS2.reps === 8, "parse: s2 80x8", JSON.stringify(pS2));
+  const pEasy = await parseCmd("80 for 8 easy");
+  assert(pEasy.ok && pEasy.load === 80 && pEasy.reps === 8 && pEasy.effort === "easy", "parse: 80 for 8 easy", JSON.stringify(pEasy));
+  const pHard = await parseCmd("80 for 8 hard");
+  assert(pHard.ok && pHard.load === 80 && pHard.reps === 8 && pHard.effort === "hard", "parse: 80 for 8 hard", JSON.stringify(pHard));
+  const pMax = await parseCmd("80 for 8 max");
+  assert(pMax.ok && pMax.load === 80 && pMax.reps === 8 && pMax.effort === "max", "parse: 80 for 8 max", JSON.stringify(pMax));
+  const pDec = await parseCmd("80.5 x 8");
+  assert(pDec.ok && pDec.load === 80.5 && pDec.reps === 8, "parse: 80.5 x 8 decimal", JSON.stringify(pDec));
+  const pLb = await parseCmd("180 lb x 8");
+  assert(pLb.ok && pLb.load === 180 && pLb.reps === 8 && pLb.unit === "lb", "parse: 180 lb x 8", JSON.stringify(pLb));
+  const pBad = await parseCmd("not a set");
+  assert(!pBad.ok && pBad.error === "Could not read a set from that.", "parse: invalid text", JSON.stringify(pBad));
+  const pNoReps = await parseCmd("80");
+  assert(!pNoReps.ok && pNoReps.error === "Could not find reps.", "parse: load only", JSON.stringify(pNoReps));
+
+  beginPhase("Phase: command bar apply");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const cmdEx0 = await page.evaluate(() => document.querySelector("#workout .exercise")?.dataset.ex);
+  assert(cmdEx0, "command bar: first exercise present", "no .exercise on Log tab", "Open Log with program loaded");
+  await page.fill("#commandInput", "80 x 8 @1");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "80" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "8" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)) === "1",
+    "command apply: 80 x 8 @1 fills set 1",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)}`,
+    "Log → type 80 x 8 @1 → Apply → set 1 inputs updated"
+  );
+  await page.fill("#commandInput", "set 2 60 x 10");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)) === "60" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)) === "10",
+    "command apply: set 2 60 x 10 targets set 2",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)}`,
+    "Log → type set 2 60 x 10 → Apply → set 2 inputs updated"
+  );
+  await page.fill("#commandInput", "not a set");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  const cmdBadToast = await page.locator("#toast").textContent();
+  assert(
+    cmdBadToast.includes("Could not read"),
+    "command apply: invalid command shows error toast",
+    `toast=${cmdBadToast}`,
+    "Log → type nonsense → Apply → error toast, no crash"
+  );
+  assert(
+    (await page.locator("#commandInput").inputValue()) === "not a set",
+    "command apply: invalid command keeps input",
+    `input=${await page.locator("#commandInput").inputValue()}`,
+    "Invalid apply should not clear the command field"
+  );
+  await page.fill("#commandInput", "90 x 6 @2");
+  await page.locator("#commandInput").press("Enter");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "90" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "6",
+    "command apply: Enter key submits command",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)}`,
+    "Log → type command → Enter → inputs updated"
+  );
+
+  beginPhase("Phase: voice input settings");
+  let voiceState = await getState(page);
+  assert(
+    voiceState.settings.voiceInputEnabled === false && voiceState.settings.commandParserHints === true,
+    "voice settings default on fresh load",
+    JSON.stringify({ voiceInputEnabled: voiceState.settings.voiceInputEnabled, commandParserHints: voiceState.settings.commandParserHints }),
+    "Clear state → reload → voiceInputEnabled false, commandParserHints true"
+  );
+  await persistState(page, { ...voiceState, settings: { ...voiceState.settings, voiceInputEnabled: true } });
+  await page.addInitScript(() => {
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+  });
+  await reloadApp(page);
+  assert(
+    await page.evaluate(() => {
+      const b = document.querySelector("#voiceBtn");
+      return !b || b.classList.contains("hidden");
+    }),
+    "voice button hidden without SpeechRecognition",
+    "voiceBtn visible in headless Chromium",
+    "Enable voice setting → headless browser → mic stays hidden"
+  );
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill("#commandInput", "75 x 7 @1");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "75" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "7",
+    "typed command still applies with voice setting enabled",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)}`,
+    "Log → enable voice (unsupported) → type 75 x 7 @1 → Apply"
+  );
+
+  beginPhase("Phase: P16 review tab");
+  const reviewStarted = isoDateFromWeeksAgo(3);
+  await persistState(page, {
+    ...state,
+    programMeta: { ...state.programMeta, started: reviewStarted, mesocycleLengthWeeks: 6 },
+  });
+  await reloadApp(page);
+  state = await getState(page);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="review"]');
+  await page.waitForTimeout(80);
+  const reviewSegActive = await page.evaluate(() => {
+    const seg = document.querySelector("#segReview");
+    const btn = document.querySelector('#statsSeg button[data-seg="review"]');
+    return seg?.classList.contains("active") && btn?.classList.contains("active");
+  });
+  assert(
+    reviewSegActive,
+    "P16: Review segment activates on click",
+    `reviewSegActive=${reviewSegActive}`,
+    "Stats → click Review → #segReview active"
+  );
+  const reviewPanelText = await page.locator("#reviewPanel").textContent();
+  assert(
+    /Week/.test(reviewPanelText),
+    "P16: review panel shows Week progress",
+    reviewPanelText?.slice(0, 160),
+    "Stats → Review → #reviewPanel includes Week"
+  );
+  assert(
+    /Sessions/.test(reviewPanelText) && /completed/.test(reviewPanelText),
+    "P16: review panel shows sessions completed",
+    reviewPanelText?.slice(0, 200),
+    "Stats → Review → sessions line in #reviewPanel"
+  );
+  const plainReview = await page.evaluate(() => {
+    const snap = window.__repforgeBlockSnapshot(state.programMeta, state.log);
+    const summary = window.__repforgeBuildPlainSummary(snap);
+    return { weekCurrent: snap.weekCurrent, summary };
+  });
+  assert(
+    plainReview.weekCurrent != null && plainReview.weekCurrent >= 3,
+    "P16: blockSnapshot includes week current from start date",
+    JSON.stringify(plainReview),
+    "__repforgeBlockSnapshot → weekCurrent from programMeta.started"
+  );
+  assert(
+    typeof plainReview.summary === "string" && plainReview.summary.length > 20,
+    "P16: buildPlainSummary returns non-empty paragraph",
+    plainReview.summary?.slice(0, 120),
+    "__repforgeBuildPlainSummary(__repforgeBlockSnapshot(...)) → string"
+  );
+  const summaryInPanel = await page.locator(".review__summary").textContent();
+  assert(
+    summaryInPanel && summaryInPanel.length > 20,
+    "P16: review panel renders plain summary paragraph",
+    summaryInPanel?.slice(0, 120),
+    "Stats → Review → .review__summary visible"
+  );
+
+  beginPhase("Phase: strength dashboard (P12)");
+  await clearState(page);
+  await reloadApp(page);
+  await seedHistoricalLog(page);
+  await reloadApp(page);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="strength"]');
+  await page.waitForTimeout(80);
+  assert(
+    (await page.locator("#strengthDash table").count()) > 0,
+    "Strength dashboard renders a table",
+    "No table inside #strengthDash",
+    "Stats → Strength segment → #strengthDash table"
+  );
+  const dashRows = await page.locator("#strengthDash table tbody tr").count();
+  assert(
+    dashRows > 0,
+    "Strength dashboard table has data rows",
+    `row count=${dashRows}`,
+    "Stats → Strength → table rows for logged lifts"
+  );
+  const dashData = await page.evaluate(() => window.__repforgeStrengthDashboard());
+  assert(
+    Array.isArray(dashData) && dashData.length > 0,
+    "__repforgeStrengthDashboard returns non-empty array",
+    `type=${typeof dashData} len=${dashData?.length}`,
+    "page.evaluate window.__repforgeStrengthDashboard()"
+  );
+  const dashFields = ["exercise", "latest", "best", "blockDelta", "prs", "lastTrained", "signal"];
+  const dashSample = dashData[0];
+  assert(
+    dashFields.every((f) => f in dashSample),
+    "Strength dashboard row includes expected fields",
+    `keys=${Object.keys(dashSample).join(",")}`,
+    "__repforgeStrengthDashboard()[0] field shape"
+  );
+  assert(
+    typeof dashSample.exercise === "string" &&
+      typeof dashSample.latest === "string" &&
+      Number.isFinite(dashSample.best) &&
+      Number.isFinite(dashSample.blockDelta) &&
+      Number.isFinite(dashSample.prs),
+    "Strength dashboard field types are sensible",
+    JSON.stringify(dashSample),
+    "__repforgeStrengthDashboard()[0] value types"
+  );
+
+  beginPhase("Phase: volume dashboard (P13)");
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="volume"]');
+  await page.waitForTimeout(80);
+  const volSegActive = await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active"));
+  assert(
+    volSegActive,
+    "Volume segment activates on click",
+    `volSegActive=${volSegActive}`,
+    "Stats → click Volume → #segVolume active"
+  );
+  assert(
+    (await page.locator("#volumeDash table").count()) > 0,
+    "#volumeDash table exists",
+    "No table in #volumeDash",
+    "Stats → Volume segment → volume dashboard table"
+  );
+  const volRowCount = await page.locator("#volumeDash table tbody tr").count();
+  assert(
+    volRowCount > 0,
+    "Volume dashboard has muscle rows",
+    `rowCount=${volRowCount}`,
+    "Stats → Volume → table has tbody rows"
+  );
+  const volStatuses = await page.evaluate(() => {
+    const th = [...document.querySelectorAll("#volumeDash th")].map((t) => t.textContent);
+    const idx = th.indexOf("Status");
+    if (idx < 0) return [];
+    return [...document.querySelectorAll("#volumeDash tbody tr")].map((tr) => tr.cells[idx]?.textContent);
+  });
+  const validStatus = new Set(["Low", "On target", "High"]);
+  assert(
+    volStatuses.length > 0 && volStatuses.every((s) => validStatus.has(s)),
+    "Status column values are Low, On target, or High",
+    `statuses=${volStatuses.slice(0, 5).join(",")}`,
+    "Stats → Volume → Status column in {Low, On target, High}"
+  );
+  const volDashApi = await page.evaluate(() => {
+    const fn = window.__repforgeVolumeDashboard;
+    if (!fn) return { ok: false, reason: "hook missing" };
+    const rows = fn(7);
+    if (!Array.isArray(rows) || !rows.length) return { ok: false, reason: "empty" };
+    const fields = ["muscle", "planned", "completed7", "completed28", "status"];
+    const ok = rows.every((r) => fields.every((f) => f in r));
+    return { ok, sample: rows[0] };
+  });
+  assert(
+    volDashApi.ok,
+    "window.__repforgeVolumeDashboard(7) returns rows with required fields",
+    JSON.stringify(volDashApi),
+    "page.evaluate __repforgeVolumeDashboard(7) after logging"
+  );
+
+  beginPhase("Phase: PR timeline (P14)");
+  await page.click('#statsSeg button[data-seg="prs"]');
+  await page.waitForTimeout(80);
+  const prSegActive = await page.evaluate(() => document.querySelector("#segPRs")?.classList.contains("active"));
+  assert(
+    prSegActive,
+    "PRs segment activates on click",
+    `segPRs active=${prSegActive}`,
+    "Stats → click PRs → #segPRs.active"
+  );
+  const timelineCount = await page.locator("#prTimeline .prtl__row").count();
+  assert(
+    timelineCount > 0,
+    "PR timeline renders entries after logging",
+    `row count=${timelineCount}`,
+    "Stats → PRs → #prTimeline has .prtl__row entries"
+  );
+  await page.click('#prFilterSeg button[data-prf="load"]');
+  await page.waitForTimeout(80);
+  const loadFilterUi = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("#prTimeline .prtl__row")];
+    const active = document.querySelector('#prFilterSeg button[data-prf="load"]')?.classList.contains("active");
+    return { count: rows.length, allLoad: rows.length === 0 || rows.every((r) => /Load PR/i.test(r.textContent)), active };
+  });
+  assert(
+    loadFilterUi.active && loadFilterUi.count > 0 && loadFilterUi.allLoad,
+    "Load filter shows only load PRs in timeline",
+    JSON.stringify(loadFilterUi),
+    "Stats → PRs → Load filter → timeline rows are Load PR only"
+  );
+  const loadPrApi = await page.evaluate(() => window.__repforgePrTimeline("load"));
+  assert(
+    loadPrApi.length > 0 && loadPrApi.every((e) => e.kind === "load"),
+    "__repforgePrTimeline(load) returns only load PR events",
+    `count=${loadPrApi.length} kinds=${[...new Set(loadPrApi.map((e) => e.kind))].join(",")}`,
+    "page.evaluate window.__repforgePrTimeline('load')"
+  );
+  const allPrApi = await page.evaluate(() => window.__repforgePrTimeline("all"));
+  assert(
+    allPrApi.length >= loadPrApi.length,
+    "__repforgePrTimeline(all) includes at least as many events as load filter",
+    `all=${allPrApi.length} load=${loadPrApi.length}`,
+    "page.evaluate __repforgePrTimeline('all') vs ('load')"
+  );
+
+  beginPhase("\nPhase: delta browse surfaces");
+  await nav(page, "log");
+  const browseDay = "Day 1";
+  await selectDay(page, browseDay);
+  const browseExs = await getExerciseMeta(page, browseDay);
+  const browseEx = browseExs[0];
+  await page.fill("#date", "2026-01-15");
+  await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 8, 2);
+  await saveWorkout(page);
+  await page.fill("#date", "2026-01-16");
+  await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 10, 2);
+  await saveWorkout(page);
+  await nav(page, "stats");
+  await page.evaluate(() => {
+    document.querySelector("#statsDeep").open = true;
+  });
+  await page.waitForTimeout(150);
+  const recentDeltasEl = await page.$("#recentDeltas table");
+  assert(
+    recentDeltasEl,
+    "Recent session deltas table renders in statsDeep",
+    "Missing #recentDeltas table",
+    "Stats → Dig deeper → Recent session deltas"
+  );
+  const recentDeltasText = await page.textContent("#recentDeltas");
+  assert(
+    /Improved|Flat|New|Regressed|Changed load/.test(recentDeltasText || ""),
+    "Recent deltas table includes a status label",
+    `Content: ${(recentDeltasText || "").slice(0, 240)}`,
+    "Seed 2+ comparable sessions with working sets"
+  );
+  await nav(page, "log");
+  await selectDay(page, browseDay);
+  await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 12, 2);
+  await page.waitForTimeout(100);
+  const deltaPreview = await page
+    .locator(`[data-ex="${browseEx.id}"] .delta-prev`)
+    .textContent()
+    .catch(() => "");
+  assert(
+    /vs last:/.test(deltaPreview || ""),
+    "Log tab live delta preview vs last session",
+    `Preview: ${deltaPreview || "(empty)"}`,
+    "Enter draft kg/reps for an exercise with prior sessions"
   );
 
   // Console errors

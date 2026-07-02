@@ -22,6 +22,12 @@ const avg=a=>a.length?a.reduce((s,x)=>s+Number(x||0),0)/a.length:0;
 const median=a=>{if(!a.length)return 0;const s=[...a].map(Number).sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
 const sum=a=>a.reduce((s,x)=>s+Number(x||0),0);
 const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+function weekStart(date){const d=new Date(`${String(date).slice(0,10)}T12:00:00`),dow=d.getDay(),diff=dow===0?6:dow-1;
+  d.setDate(d.getDate()-diff);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+function weekRange(date){const start=weekStart(date),endD=new Date(`${start}T12:00:00`);endD.setDate(endD.getDate()+6);
+  return{start,end:`${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,"0")}-${String(endD.getDate()).padStart(2,"0")}`}}
+function sessionsInRange(start,end){const ids=new Set();for(const x of state.log){if(String(x.date)>=start&&String(x.date)<=end)ids.add(x.session)}return[...ids]}
+window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
 const shortDate=d=>{const p=String(d||"").split("-");return p.length===3?`${+p[1]}/${+p[2]}`:String(d||"")};
@@ -48,9 +54,11 @@ function glossaryPopover(term,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__body").textContent=GLOSSARY[term]||"";
   g.classList.remove("hidden");
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric"};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric",voiceInputEnabled:false,commandParserHints:true};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
-const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric"});
+const normBool=(v,def)=>typeof v==="boolean"?v:def;
+const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),commandParserHints:normBool(s?.commandParserHints,DEFAULTS.commandParserHints)});
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>unit==="lb"?(+v||0)/LB:(+v||0);
@@ -138,9 +146,24 @@ class Exercise{
     this.notes=String(d.notes??"").trim();
     this.alternates=Array.isArray(d.alternates)?d.alternates.map(s=>String(s).trim()).filter(Boolean):
       typeof d.alternates==="string"?d.alternates.split(",").map(s=>s.trim()).filter(Boolean):[];
+    if(d.libraryId!=null)this.libraryId=String(d.libraryId).trim();
+    if(d.progressionType!=null)this.progressionType=String(d.progressionType).trim();
+    if(d.targetRirStart!=null&&Number.isFinite(+d.targetRirStart))this.targetRirStart=+d.targetRirStart;
+    if(d.targetRirEnd!=null&&Number.isFinite(+d.targetRirEnd))this.targetRirEnd=+d.targetRirEnd;
+    if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
+    if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
+    if(d.priority!=null)this.priority=String(d.priority).trim();
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
-  toJSON(){return {id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates}}
+  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+    if(this.libraryId!==undefined)o.libraryId=this.libraryId;
+    if(this.progressionType!==undefined)o.progressionType=this.progressionType;
+    if(this.targetRirStart!==undefined)o.targetRirStart=this.targetRirStart;
+    if(this.targetRirEnd!==undefined)o.targetRirEnd=this.targetRirEnd;
+    if(this.minSets!==undefined)o.minSets=this.minSets;
+    if(this.maxSets!==undefined)o.maxSets=this.maxSets;
+    if(this.priority!==undefined)o.priority=this.priority;
+    return o}
 }
 
 class Program{
@@ -172,6 +195,133 @@ class Program{
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
+const DAY_TYPES={full_body:["squat","hinge","press","pull","delts","arms"],upper:["press","row","pulldown","delts","chest_iso","arms"],
+  lower:["squat","hinge","leg_curl","leg_extension","calves"],push:["press","incline_press","shoulder_press","lateral_raise","triceps"],
+  pull:["row","pulldown","rear_delt","curl"],legs:["squat","hinge","leg_curl","leg_extension","adduction","calves"]};
+const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
+const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
+const EXERCISE_CATALOG=[
+  {id:"sq_bb",name:"Barbell back squat",pattern:"squat",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:false},
+  {id:"sq_sm",name:"Smith machine squat",pattern:"squat",equipment:["smith","machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
+  {id:"sq_lp",name:"Leg press",pattern:"squat",equipment:["machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true,notes:"Feet low on the platform, back flat against the pad."},
+  {id:"sq_db",name:"Goblet squat",pattern:"squat",equipment:["dumbbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
+  {id:"hg_bb",name:"Barbell Romanian deadlift",pattern:"hinge",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:false},
+  {id:"hg_sm",name:"Smith machine RDL",pattern:"hinge",equipment:["smith","machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
+  {id:"hg_mc",name:"Romanian deadlift machine",pattern:"hinge",equipment:["machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
+  {id:"pr_bb",name:"Barbell bench press",pattern:"press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
+  {id:"pr_db",name:"Dumbbell bench press",pattern:"press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"pr_mc",name:"Chest press machine",pattern:"press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"ip_db",name:"Dumbbell incline press",pattern:"incline_press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"ip_mc",name:"Incline chest press machine",pattern:"incline_press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"ip_bb",name:"Barbell incline press",pattern:"incline_press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
+  {id:"sp_bb",name:"Barbell overhead press",pattern:"shoulder_press",equipment:["barbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:false},
+  {id:"sp_mc",name:"Shoulder press machine",pattern:"shoulder_press",equipment:["machine"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
+  {id:"sp_db",name:"Dumbbell shoulder press",pattern:"shoulder_press",equipment:["dumbbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
+  {id:"rw_bb",name:"Barbell row",pattern:"row",equipment:["barbell"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:false},
+  {id:"rw_mc",name:"Seated row machine",pattern:"row",equipment:["machine"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
+  {id:"rw_cb",name:"Cable seated row",pattern:"row",equipment:["cable"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
+  {id:"pd_mc",name:"Lat pulldown",pattern:"pulldown",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
+  {id:"pd_bw",name:"Assisted pull-up",pattern:"pulldown",equipment:["machine"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
+  {id:"pl_cb",name:"Cable pullover",pattern:"pull",equipment:["cable","machine"],primary:"Lats",secondary:"Mid/upper back",beginnerFriendly:true},
+  {id:"pl_mc",name:"Neutral-grip pulldown",pattern:"pull",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
+  {id:"dl_mc",name:"Lateral raise machine",pattern:"delts",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"dl_db",name:"Dumbbell lateral raise",pattern:"delts",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"dl_cb",name:"Cable lateral raise",pattern:"delts",equipment:["cable"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"lr_db",name:"Dumbbell lateral raise",pattern:"lateral_raise",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"lr_mc",name:"Lateral raise machine",pattern:"lateral_raise",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"rd_mc",name:"Reverse pec deck",pattern:"rear_delt",equipment:["machine"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
+  {id:"rd_db",name:"Rear delt fly",pattern:"rear_delt",equipment:["dumbbell"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
+  {id:"ci_mc",name:"Pec deck",pattern:"chest_iso",equipment:["machine"],primary:"Chest",secondary:"",beginnerFriendly:true},
+  {id:"ci_cb",name:"Cable fly",pattern:"chest_iso",equipment:["cable"],primary:"Chest",secondary:"",beginnerFriendly:true},
+  {id:"ar_mc",name:"Preacher curl machine",pattern:"arms",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"ar_db",name:"Dumbbell curl",pattern:"arms",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"cu_mc",name:"Preacher curl machine",pattern:"curl",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"cu_db",name:"Dumbbell curl",pattern:"curl",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"cu_cb",name:"Cable curl",pattern:"curl",equipment:["cable"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"tr_cb",name:"Cable pressdown",pattern:"triceps",equipment:["cable"],primary:"Triceps",secondary:"",beginnerFriendly:true},
+  {id:"tr_mc",name:"Machine triceps extension",pattern:"triceps",equipment:["machine"],primary:"Triceps",secondary:"",beginnerFriendly:true},
+  {id:"lc_mc",name:"Seated leg curl",pattern:"leg_curl",equipment:["machine"],primary:"Hamstrings",secondary:"",beginnerFriendly:true},
+  {id:"le_mc",name:"Leg extension",pattern:"leg_extension",equipment:["machine"],primary:"Quads",secondary:"",beginnerFriendly:true},
+  {id:"cv_mc",name:"Standing calf raise machine",pattern:"calves",equipment:["machine"],primary:"Calves",secondary:"",beginnerFriendly:true},
+  {id:"ad_mc",name:"Hip adduction machine",pattern:"adduction",equipment:["machine"],primary:"Adductors",secondary:"",beginnerFriendly:true}
+];
+function resolveSplit(daysPerWeek,splitType){
+  const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
+  if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
+  if(st==="upper_lower")return Array.from({length:n},(_,i)=>i%2?"lower":"upper");
+  if(st==="ppl"){const c=["push","pull","legs"];return Array.from({length:n},(_,i)=>c[i%3]);}
+  if(st==="bro"){const c=n<=3?["push","pull","legs"]:n===4?["push","pull","legs","upper"]:["push","pull","legs","push","pull","legs"];
+    return Array.from({length:n},(_,i)=>c[i%c.length]);}
+  return Array.from({length:n},()=>"full_body")}
+function exerciseSlotsForDay(dayType,answers){return[...(DAY_TYPES[dayType]||DAY_TYPES.full_body)]}
+function catalogForSlot(slot,equipment,experience){
+  const eq=new Set((equipment||[]).map(s=>String(s).toLowerCase()));
+  let pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
+  if(eq.size)pool=pool.filter(e=>e.equipment.some(x=>eq.has(String(x).toLowerCase())));
+  if(!pool.length)pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
+  if(experience==="beginner"){const bf=pool.filter(e=>e.beginnerFriendly);if(bf.length)pool=bf}
+  return pool.sort((a,b)=>a.id.localeCompare(b.id))}
+function chooseExercise(slot,equipment,experience,usedIds){
+  const pool=catalogForSlot(slot,equipment,experience).filter(e=>!usedIds.has(e.id));
+  if(pool.length)return pool[0];
+  return catalogForSlot(slot,equipment,experience)[0]||null}
+function repScheme(experience,goal,slot){
+  let sets=experience==="beginner"?2:3,min=experience==="beginner"?8:6,max=experience==="beginner"?12:10;
+  if(goal==="strength"){min=4;max=6;sets=experience==="beginner"?3:4}
+  const iso=["lateral_raise","rear_delt","chest_iso","curl","triceps","calves","leg_curl","leg_extension","adduction","delts","arms"];
+  if(goal!=="strength"&&iso.includes(slot)){min=Math.max(min,8);max=Math.max(max,12)}
+  return{sets,min,max}}
+function muscleHit(ex,muscle){const m=muscle.toLowerCase();
+  return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
+function applyPriorityMuscles(program,priorityMuscles){
+  if(!priorityMuscles?.length)return;
+  for(const ex of program){
+    if(priorityMuscles.some(m=>muscleHit(ex,m)))ex.sets=Math.min(ex.sets+1,5)}
+  for(const muscle of priorityMuscles){
+    if(program.some(ex=>muscleHit(ex,muscle)))continue;
+    const day=program[0]?.day||"Day 1";
+    const slot=muscle.includes("Quad")?"leg_extension":muscle.includes("Chest")?"chest_iso":muscle.includes("Bicep")?"curl":
+      muscle.includes("Tricep")?"triceps":muscle.includes("Ham")?"leg_curl":muscle.includes("Glute")?"hinge":
+      muscle.includes("Lat")||muscle.includes("Back")?"row":muscle.includes("delt")?"lateral_raise":"curl";
+    const entry=chooseExercise(slot,[],null,new Set(program.map(e=>e.libraryId)));
+    if(!entry)continue;
+    const rs=repScheme("intermediate","hypertrophy",slot);
+    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
+function pickFillerForDay(dayExs,usedIds,equipment,experience){
+  const have=new Set(dayExs.map(e=>e.libraryId));
+  for(const slot of FILLER_SLOTS){
+    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]));
+    if(!entry||have.has(entry.id))continue;
+    const rs=repScheme(experience,"hypertrophy",slot);
+    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
+  return null}
+function applySessionLength(program,sessionLength,equipment,experience){
+  const [lo,hi]=SESSION_BOUNDS[sessionLength]||SESSION_BOUNDS.normal,out=[];
+  const days=[...new Set(program.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  for(const day of days){
+    let list=program.filter(e=>e.day===day).sort((a,b)=>a.order-b.order);
+    if(list.length>hi)list=list.slice(0,hi);
+    const used=new Set(list.map(e=>e.libraryId));
+    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
+    list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
+  program.length=0;program.push(...out)}
+function generateProgramFromOnboarding(answers){
+  const a=answers||{},equipment=a.equipment||[],experience=a.experience||"intermediate",goal=a.goal||"hypertrophy";
+  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[];
+  dayTypes.forEach((dayType,di)=>{
+    const dayName=`Day ${di+1}`,slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
+    for(const slot of slots){
+      const entry=chooseExercise(slot,equipment,experience,usedIds);if(!entry)continue;
+      usedIds.add(entry.id);order++;
+      const rs=repScheme(experience,goal,slot);
+      program.push({id:uid(),day:dayName,order,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+        primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
+  applyPriorityMuscles(program,a.priorityMuscles||[]);
+  applySessionLength(program,a.sessionLength||"normal",equipment,experience);
+  return program}
+
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null;
 const collapsed=new Set();
@@ -180,7 +330,8 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="full",focusIndex=0;
+let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
   if(!row.exerciseId){const ex=state.program.find(e=>e.name===row.name&&e.day===row.day)||state.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
@@ -188,27 +339,213 @@ function migrateLog(){let changed=false;for(const row of state.log){
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
-function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now}}
+function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
+  goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
+  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
 function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
+  const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
+  const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
+  const daysPerWeek=Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:m.daysPerWeek===null?null:base.daysPerWeek;
+  const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
+  const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
+  const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
+  const sessionLength=typeof m.sessionLength==="string"?m.sessionLength.trim()||null:m.sessionLength===null?null:base.sessionLength;
+  const mesocycleLengthWeeks=Number.isFinite(+m.mesocycleLengthWeeks)&&+m.mesocycleLengthWeeks>0?Math.round(+m.mesocycleLengthWeeks):base.mesocycleLengthWeeks;
+  const mesocycleStatus=m.mesocycleStatus==="active"||m.mesocycleStatus==="completed"?m.mesocycleStatus:base.mesocycleStatus;
+  const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
+  const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
-    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now}}
+    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
+    goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded}}
 function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[]};
+  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
+    programHistory:Array.isArray(s.programHistory)?s.programHistory:[]}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[]}}
+function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[],
+  programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
   prog=new Program(state.program);state.program=prog.toJSON();state.programMeta=normalizeProgramMeta(state.programMeta,state.log);migrateLog();save()}
 function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();
   if(partial.started!==undefined){const v=partial.started;state.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
+  if(partial.goal!==undefined)state.programMeta.goal=partial.goal;
+  if(partial.experience!==undefined)state.programMeta.experience=partial.experience;
+  if(partial.daysPerWeek!==undefined)state.programMeta.daysPerWeek=partial.daysPerWeek;
+  if(partial.splitType!==undefined)state.programMeta.splitType=partial.splitType;
+  if(partial.equipment!==undefined)state.programMeta.equipment=partial.equipment;
+  if(partial.priorityMuscles!==undefined)state.programMeta.priorityMuscles=partial.priorityMuscles;
+  if(partial.sessionLength!==undefined)state.programMeta.sessionLength=partial.sessionLength;
+  if(partial.mesocycleStatus!==undefined)state.programMeta.mesocycleStatus=partial.mesocycleStatus;
+  if(partial.onboarded!==undefined)state.programMeta.onboarded=partial.onboarded;
   state.programMeta.updated=new Date().toISOString();save()}
 function programAdherence(){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   const cutoff=daysAgo(6),programDaySet=new Set(prog.days()),loggedDays=new Set();
   for(const x of state.log){if(String(x.date)<cutoff)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
   const logged=loggedDays.size;return{logged,total:totalDays,ratio:totalDays?logged/totalDays:0}}
+function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart=start,weekEnd=end;
+  const completedSessions=sessionsInRange(start,end).length,plannedDays=prog.days().length,programDaySet=new Set(prog.days()),loggedDays=new Set();
+  for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
+  const completedDays=loggedDays.size,adherence=plannedDays?completedDays/plannedDays:0,hr=+state.settings.hardRir;
+  let totalWorkingSets=0,totalHardSets=0;for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;
+    if(!isWork(x)||!(+x.load>0&&+x.reps>0))continue;totalWorkingSets++;if(+x.rir<=hr)totalHardSets++}
+  const prs=detectPRs(state.log).filter(ev=>String(ev.date)>=start&&String(ev.date)<=end);
+  const trained=new Map();for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(!isWork(x)||!(+x.load>0))continue;
+    const k=liftKey(x),cur=trained.get(k);if(!cur||String(x.created)>String(cur.created))trained.set(k,{session:x.session,created:x.created})}
+  let improvedLifts=0,flatLifts=0,regressedLifts=0,fatigueFlags=0;
+  for(const[k,sess]of trained){const ex=prog.exercises.find(e=>e.id===k)||prog.exercises.find(e=>e.name===k);if(!ex)continue;
+    const rows=state.log.filter(r=>r.session===sess.session&&liftKey(r)===k),cmp=compareExerciseSession(ex,rows);
+    if(cmp.status==="improved")improvedLifts++;else if(cmp.status==="flat")flatLifts++;else if(cmp.status==="regressed")regressedLifts++;
+    const r=recommendation(ex);if(r.status==="reduce"||r.stalled)fatigueFlags++}
+  let readyToAdd=0;for(const ex of prog.exercises){const st=recommendation(ex).status;if(st==="add"||st==="add2")readyToAdd++}
+  let status;if(completedSessions===0)status="Needs more data";
+  else if(adherence>=.85&&improvedLifts>=flatLifts)status="On track";
+  else if(adherence>=.65&&prs.length>0)status="Productive week";
+  else if(fatigueFlags>=2)status="High fatigue";
+  else if(adherence<.5)status="Under target";
+  else status="Rebuilding";
+  return{weekStart,weekEnd,plannedDays,completedDays,completedSessions,totalWorkingSets,totalHardSets,prs,improvedLifts,flatLifts,regressedLifts,readyToAdd,status}}
+window.__repforgeWeeklySnapshot=weeklySnapshot;
 function programWeek(){const s=state.programMeta?.started;if(!s)return null;
   const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
   const days=Math.floor((now-start)/86400000);return days<0?1:Math.floor(days/7)+1}
+function mesocycleWeek(){const wk=programWeek(),total=state.programMeta?.mesocycleLengthWeeks||6;
+  const current=wk!=null?Math.max(1,wk):null;
+  const isFinalWeek=current!=null&&current>=total;
+  const isComplete=state.programMeta?.mesocycleStatus==="completed"||(current!=null&&current>total);
+  return{current,total,isFinalWeek,isComplete}}
+function rowMusclesPure(row,program){if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
+  const ex=(program||[]).find(e=>e.id===row.exerciseId)||(program||[]).find(e=>e.name===row.name);
+  return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
+function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
+function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
+  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
+    const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
+  return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
+    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
+    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex),m=new Map();
+  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});m.get(x.session).rows.push(x)}
+  const ordered=[...m.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+  const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
+  if(curIdx<0){const curCreated=(log||[]).find(r=>r.session===beforeSessionId)?.created;if(!curCreated)return ordered.length?ordered.at(-1).rows:[];
+    const older=ordered.filter(s=>String(s.created).localeCompare(String(curCreated))<0);return older.length?older.at(-1).rows:[]}
+  return curIdx>0?ordered[curIdx-1].rows:[]}
+function hardSetsInRange(log,program,started,ended,hardRir){const m=new Map();
+  for(const x of log||[]){if(started&&String(x.date)<started)continue;if(ended&&String(x.date)>ended)continue;
+    if(!(+x.load>0&&+x.reps>0&&+x.rir<=hardRir)||!isWork(x))continue;
+    const mus=rowMusclesPure(x,program);
+    for(const p of muscles(mus.primary))addVol(m,p,1,0);
+    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
+function buildBlockReview(programMeta,program,log){const p=new Program(program||[]),days=p.days(),total=programMeta?.mesocycleLengthWeeks||6;
+  const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
+  const plannedSessions=total&&days.length?total*days.length:0;
+  const blockRows=(log||[]).filter(r=>!started||r.date&&(String(r.date)>=started&&String(r.date)<=ended));
+  const completedSessions=new Set(blockRows.map(r=>r.session)).size;
+  const adherenceRatio=plannedSessions?Math.min(completedSessions/plannedSessions,1):0;
+  let improvedLifts=0,flatLifts=0,regressedLifts=0,stalledLifts=0;
+  for(const ex of p.exercises){const sess=sessionsForLog(ex,log),blockSess=started?sess.filter(s=>String(s.date)>=started&&String(s.date)<=ended):sess;
+    if(!blockSess.length)continue;
+    const latest=blockSess.at(-1),latestRows=(log||[]).filter(r=>r.session===latest.session&&matchLift(ex)(r));
+    const delta=buildSessionDelta(previousSessionRowsLog(ex,latest.session,log),workingRows(latestRows));
+    if(delta.status==="improved")improvedLifts++;
+    else if(delta.status==="flat")flatLifts++;
+    else if(delta.status==="regressed")regressedLifts++;
+    if(isStalled(sess))stalledLifts++}
+  const prs=detectPRs(log||[]).filter(e=>!started||e.date&&(String(e.date)>=started&&String(e.date)<=ended)).length;
+  const plannedMap=p.volume(),plannedHardSetsByMuscle=volMapToObj(plannedMap);
+  let totalPlanned=0;for(const[,v]of plannedMap)totalPlanned+=(v.d+v.p)*total;
+  const completedMap=hardSetsInRange(log,program,started,ended,hardRir),completedHardSetsByMuscle=volMapToObj(completedMap);
+  let totalCompleted=0;for(const[,v]of completedMap)totalCompleted+=v.d+v.p;
+  const volumeCompliance=totalPlanned?Math.min(totalCompleted/totalPlanned,1):0;
+  const improvedHigh=improvedLifts>=3||(improvedLifts>0&&improvedLifts>=flatLifts+regressedLifts);
+  const fatigueHigh=(regressedLifts+flatLifts)>=4||regressedLifts>=2;
+  let recommendation;
+  if(adherenceRatio<.5)recommendation="repeat_with_simpler_schedule";
+  else if(stalledLifts>=3&&fatigueHigh)recommendation="reduce_volume_or_deload";
+  else if(improvedHigh&&adherenceRatio>=.8)recommendation="repeat_or_progress";
+  else if(volumeCompliance<.6)recommendation="keep_program_improve_completion";
+  else recommendation="repeat_with_small_swaps";
+  return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
+    improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
+    volumeCompliance,recommendation,created:new Date().toISOString()}}
+const BLOCK_REC_COPY={
+  repeat_with_simpler_schedule:{line:"Recommendation: repeat with a simpler schedule.",why:"Fewer than half the planned sessions were completed this block."},
+  reduce_volume_or_deload:{line:"Recommendation: reduce volume or take a deload.",why:"Several lifts stalled and fatigue looks high."},
+  repeat_or_progress:{line:"Recommendation: repeat this block or progress.",why:"Adherence was strong and most lifts improved."},
+  keep_program_improve_completion:{line:"Recommendation: keep the program and improve completion.",why:"Logged hard-set volume was well below what the program plans."},
+  repeat_with_small_swaps:{line:"Recommendation: repeat this block with small swaps.",why:"Adherence was solid and progress was mixed but acceptable."}};
+function blockRecommendationCopy(key){return BLOCK_REC_COPY[key]||BLOCK_REC_COPY.repeat_with_small_swaps}
+function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),total=programMeta?.mesocycleLengthWeeks||6;
+  let weekCurrent=null;const s=programMeta?.started;
+  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
+    const days=Math.floor((now-start)/86400000);weekCurrent=days<0?1:Math.floor(days/7)+1}
+  return{...review,weekCurrent,weekTotal:total}}
+function buildPlainSummary(snapshot){if(!snapshot)return"";
+  const parts=[];
+  if(snapshot.weekCurrent!=null&&snapshot.weekTotal)parts.push(`You're in week ${snapshot.weekCurrent} of ${snapshot.weekTotal} in this block.`);
+  const ad=snapshot.adherenceRatio??0,adLabel=ad>=.8?"solid":ad>=.5?"mixed":"low";
+  if(snapshot.plannedSessions)parts.push(`Session adherence looks ${adLabel} (${snapshot.completedSessions} of ${snapshot.plannedSessions} planned sessions).`);
+  const imp=snapshot.improvedLifts??0,flat=snapshot.flatLifts??0;
+  if(imp||flat)parts.push(`${imp} lift${imp===1?"":"s"} improved${flat?` and ${flat} held flat`:""} so far.`);
+  const vol=snapshot.volumeCompliance??0;
+  if(vol<.6&&snapshot.plannedSessions)parts.push(`Hard-set volume is at ${Math.round(vol*100)}% of plan.`);
+  const copy=blockRecommendationCopy(snapshot.recommendation);
+  parts.push(copy.line.replace(/^Recommendation:\s*/i,"").trim());
+  return parts.join(" ")}
+function renderReview(){const el=$("#reviewPanel");if(!el)return;
+  if(!state.programMeta?.started){el.innerHTML=`<p class="lede">Set a block start date on the Program tab to track progress through this mesocycle.</p>`;return}
+  const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
+  el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">Block progress</h4>`+
+    `<p><b>Week</b> ${snap.weekCurrent??"—"} of ${snap.weekTotal}</p>`+
+    `<p><b>Sessions</b> ${snap.completedSessions} / ${snap.plannedSessions} completed</p>`+
+    `<p><b>Lifts</b> ${snap.improvedLifts} improved · ${snap.flatLifts} flat · ${snap.stalledLifts} stalled</p>`+
+    `<p><b>Volume</b> ${pct}% of planned hard sets</p></div>`+
+    `<p class="review__summary">${esc(summary)}</p>`}
+function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
+  $("#blockReviewBody").innerHTML=
+    `<p><b>Sessions</b> ${review.completedSessions} / ${review.plannedSessions} completed</p>`+
+    `<p><b>Lifts</b> ${review.improvedLifts} improved · ${review.flatLifts} flat · ${review.stalledLifts} stalled</p>`+
+    `<p><b>Volume</b> ${pct}% of planned hard sets</p>`+
+    `<p class="blockreview__rec">${esc(copy.line)}</p>`+
+    `<p class="blockreview__why"><b>Why:</b> ${esc(copy.why)}</p>`}
+let blockReviewCurrent=null;
+function closeBlockReview(){const d=$("#blockReview");if(d)d.classList.add("hidden")}
+function completeCurrentProgram(review){
+  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
+  if(!Array.isArray(state.programHistory))state.programHistory=[];
+  state.programHistory.push({id:state.programMeta.id,meta:{...state.programMeta},program:prog.toJSON(),
+    completedAt:new Date().toISOString(),review});
+  state.programMeta.mesocycleStatus="completed";
+  state.programMeta.completedAt=new Date().toISOString();
+  state.programMeta.updated=new Date().toISOString();
+  save()}
+function startNextMesocycle(strategy){
+  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
+  if(strategy==="onboarding"&&typeof window.startOnboarding==="function"){window.startOnboarding();return}
+  let list=prog.toJSON();
+  if(strategy==="repeat_swaps")list=list.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
+  else if(strategy==="increase_volume")list=list.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
+  else if(strategy==="reduce_volume")list=list.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
+  state.programMeta={...state.programMeta,id:uid(),started:today(),mesocycleStatus:"active",completedAt:null,onboarded:true,
+    updated:new Date().toISOString()};
+  prog=new Program(list);persistProgram();render();
+  const msg={repeat:"New block — same program.",repeat_swaps:"New block — exercises swapped.",
+    increase_volume:"New block — volume increased.",reduce_volume:"New block — volume reduced.",onboarding:"New block started."};
+  toast(msg[strategy]||"New block started.")}
+function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
+  completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
+function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview;
+  $$(".blockreview__act").forEach(b=>b.onclick=()=>finishBlockAndStart(b.dataset.strategy))}
+function promptEndBlock(){if(!confirm("End this training block? You'll review progress before starting the next one."))return;
+  openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))}
+function renderBlockPrompt(){const mc=mesocycleWeek(),show=mc.isComplete||mc.isFinalWeek;
+  const html=show?`<p><b>Block ending</b> Week ${mc.current} of ${mc.total}. <button type="button" class="blockprompt__act">Review block</button></p>`:"";
+  for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
+    el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock}}}
 function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
   if(!withHistory.length)return null;
   const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
@@ -245,6 +582,63 @@ function sessionsFor(ex){const match=matchLift(ex),m=new Map();
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
     med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
     .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
+function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
+function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)return null;let topLoad=0,topLoadReps=0,totalReps=0,totalVolume=0,bestE1rm=0;const rirs=[];
+  for(const r of w){const ld=+r.load,rp=+r.reps;totalReps+=rp;totalVolume+=ld*rp;rirs.push(+r.rir);const em=e1rm(ld,rp);if(em>bestE1rm)bestE1rm=em;if(ld>topLoad||(ld===topLoad&&rp>topLoadReps)){topLoad=ld;topLoadReps=rp}}
+  return{topLoad,topLoadReps,totalReps,totalVolume,bestE1rm,avgRir:avg(rirs),workingSets:w.length}}
+function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex),m=new Map();
+  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});m.get(x.session).rows.push(x)}
+  const ordered=[...m.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+  const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
+  if(curIdx<0){const curCreated=state.log.find(r=>r.session===beforeSessionId)?.created;if(!curCreated)return ordered.length?ordered.at(-1).rows:[];
+    const older=ordered.filter(s=>String(s.created).localeCompare(String(curCreated))<0);return older.length?older.at(-1).rows:[]}
+  return curIdx>0?ordered[curIdx-1].rows:[]}
+function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionMetrics(prevRows),current=exerciseSessionMetrics(currentRows),T=DELTA_THRESHOLDS;
+  if(!previous||!current)return{status:"not_comparable",label:"Not comparable",text:"No working sets logged.",metrics:null};
+  const loadDelta=current.topLoad-previous.topLoad,repsDelta=current.totalReps-previous.totalReps,volumeDelta=current.totalVolume-previous.totalVolume,
+    e1rmDelta=current.bestE1rm-previous.bestE1rm,avgRirDelta=current.avgRir-previous.avgRir,deltas={loadDelta,repsDelta,volumeDelta,e1rmDelta,avgRirDelta};
+  let status,label,text;
+  if(e1rmDelta>previous.bestE1rm*T.e1rmPct){status="improved";label="Improved";text="Beat last session."}
+  else if(Math.abs(loadDelta)<.01&&repsDelta>0){status="improved";label="Improved";text="Beat last session."}
+  else if(volumeDelta>previous.totalVolume*T.volumePct&&avgRirDelta<=T.rir){status="improved";label="Improved";text="Beat last session."}
+  else if(Math.abs(e1rmDelta)<=previous.bestE1rm*T.e1rmPct&&repsDelta===0&&Math.abs(volumeDelta)<=previous.totalVolume*T.volumePct){status="flat";label="Flat";text="Matched last session."}
+  else if(e1rmDelta<0&&repsDelta<0){status="regressed";label="Regressed";text="Down from last session."}
+  else{status="changed_load";label="Changed load";text="Different load — not directly comparable."}
+  return{status,label,text,metrics:{current,previous,deltas}}}
+function compareExerciseSession(ex,currentRows){const cur=workingRows(currentRows);
+  if(!cur.length)return{status:"not_comparable",label:"Not comparable",text:"No working sets logged.",metrics:null};
+  const prev=previousSessionForExercise(ex,cur[0]?.session);
+  if(!prev.length)return{status:"new",label:"New",text:"No previous session for this lift.",metrics:null};
+  return buildSessionDelta(prev,cur)}
+function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metrics,{loadDelta,repsDelta,e1rmDelta}=deltas;
+  if(Math.abs(loadDelta)<.01&&repsDelta!==0){const s=repsDelta>0?"+":"";return`${s}${repsDelta} reps at same load`}
+  if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return`${s}${Math.round(e1rmDelta)}kg e1RM`}
+  const parts=[];if(repsDelta!==0)parts.push(`${repsDelta>0?"+":""}${repsDelta} reps`);if(Math.abs(e1rmDelta)>=.01)parts.push(`e1RM ${e1rmDelta>0?"+":""}${Math.round(e1rmDelta)}kg`);
+  return parts.length?parts.join(" · "):""}
+function sessionDeltaCounts(rows){const byLift=new Map();
+  for(const r of rows){if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
+    const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
+  const counts={improved:0,flat:0,regressed:0,new:0};
+  for(const [,liftRows]of byLift){const row=liftRows[0];
+    const ex=prog.find(row.exerciseId)||prog.exercises.find(e=>e.name===row.name)||{id:row.exerciseId,name:row.name};
+    const d=compareExerciseSession(ex,liftRows);if(d.status in counts)counts[d.status]++}
+  return counts}
+function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
+  if(c.improved)parts.push(`${c.improved} improved`);if(c.flat)parts.push(`${c.flat} flat`);
+  if(c.regressed)parts.push(`${c.regressed} regressed`);if(c.new)parts.push(`${c.new} new`);
+  return parts.join(sep)}
+function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
+function draftRowsForExercise(ex,draft){const warm=new Set(draft.__warm||[]),rows=[];
+  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(warm.has(key))continue;
+    const ld=fromDisplay(+draft[`${key}_load`]||0),rp=+draft[`${key}_reps`]||0;if(ld<=0||rp<=0)continue;
+    let rir=+draft[`${key}_rir`];if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+    else if(!Number.isFinite(rir))rir=1;
+    rows.push({exerciseId:ex.id,name:ex.name,day:ex.day,load:ld,reps:rp,rir,warmup:false})}
+  return rows}
+function deltaPreviewFor(ex,draft){const rows=draftRowsForExercise(ex,draft);if(!workingRows(rows).length)return"";
+  const cmp=compareExerciseSession(ex,rows);const fd=cmp.metrics?formatDelta(cmp):"";return fd?`vs last: ${fd}`:""}
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
@@ -259,6 +653,10 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
 function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
+function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
+  $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
+  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
 
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 function recommendation(ex){
@@ -293,15 +691,15 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
 
-function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings()}
+function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
 
 function renderWorkout(){
-  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,wk=programWeek();
-    lc.textContent=nm||wk?`${nm||"Untitled program"}${wk?` · Week ${wk}`:""}`:"Today's session"}
+  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
+    lc.textContent=nm||mc.current!=null?`${nm||"Untitled program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's session"}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
@@ -317,6 +715,7 @@ function renderWorkout(){
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
+    const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
@@ -357,13 +756,20 @@ function renderWorkout(){
       `<p class="rec__plain">${esc(PLAIN[r.status]||"")}</p>`+
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       subPick+
-      prevHtml+
+      prevHtml+deltaHtml+
       `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?"Effort":"RIR"}</span><span></span></div>${rows}</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
 }
+
+function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
+  const ex=prog.find(exId);if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
+  if(!text){el?.remove();return}
+  if(el)el.textContent=text;else{const n=document.createElement("div");n.className="delta-prev";n.textContent=text;
+    const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
+    if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sets__head")?"beforebegin":"afterend",n)}}
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
@@ -372,7 +778,8 @@ function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
-    saveDraft();updateSaveMeta()};
+    saveDraft();updateSaveMeta();
+    const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1])};
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
@@ -481,7 +888,11 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
-  toast(prLifts.length?`Workout forged — ${rows.length} sets logged. PR: ${prLifts.join(", ")}!`:`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
+  const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
+  let msg=`Workout forged — ${rows.length} sets logged.`;
+  if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
+  if(deltaTxt)msg+=` ${deltaTxt}.`;
+  toast(msg);render()}finally{saving=false}}
 
 function summaries(){const m=new Map();
   for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
@@ -491,7 +902,47 @@ function summaries(){const m=new Map();
     return{session:o.session,date:o.date,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best};})
     .sort((a,b)=>a.date.localeCompare(b.date)||a.session.localeCompare(b.session))}
 
+function strengthDashboard(){
+  const byLift=new Map();for(const s of summaries()){(byLift.get(s.liftKey)||byLift.set(s.liftKey,[]).get(s.liftKey)).push(s)}
+  const prN=new Map();for(const ev of detectPRs(state.log)){const k=ev.exerciseId||ev.exerciseName;prN.set(k,(prN.get(k)||0)+1)}
+  const rows=[];
+  for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
+    const ex=state.program.find(e=>e.id===k)||state.program.find(e=>e.name===k);
+    const rec=ex?recommendation(ex):{label:"—"};
+    rows.push({exercise:latest.name,latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+      prs:prN.get(k)||prN.get(latest.name)||0,lastTrained:latest.date,signal:rec.label})}
+  return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
+window.__repforgeStrengthDashboard=strengthDashboard;
+
+function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const rows=strengthDashboard();
+  if(!rows.length){el.innerHTML=`<div class="empty">No lifts logged yet.</div>`;return}
+  const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
+  el.innerHTML=table(rows.map(r=>({Exercise:r.exercise,Latest:r.latest,[`Best e1RM (${u})`]:fmt(Math.round(toDisplay(r.best))),
+    "Δ block":fmtDelta(r.blockDelta),PRs:r.prs,Signal:r.signal})))}
+
+function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
+  el.innerHTML=`<div class="thisweek__title">This week</div><div class="thisweek__rows">`+
+    `<div>${w.completedDays} / ${w.plannedDays} days logged</div>`+
+    `<div>${w.totalHardSets} hard sets</div>`+
+    `<div>${w.improvedLifts} lift${w.improvedLifts===1?"":"s"} improved</div>`+
+    `<div>${w.readyToAdd} ready to add</div></div>`+
+    `<div class="thisweek__status">Status: <b>${esc(w.status)}</b></div>`}
+function recentDeltaRows(){const sessMap=new Map();
+  for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
+  const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
+  const out=[];
+  for(const sess of recent){const byLift=new Map();
+    for(const r of state.log.filter(x=>x.session===sess.session)){const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
+    for(const rows of byLift.values()){if(!workingRows(rows).length)continue;
+      const ex=prog.find(rows[0].exerciseId)||{id:rows[0].exerciseId,name:rows[0].name,day:rows[0].day};
+      const cmp=compareExerciseSession(ex,rows);if(cmp.status==="not_comparable")continue;
+      const m=cmp.metrics?.current||exerciseSessionMetrics(rows);
+      out.push({Date:shortDate(sess.date),Exercise:displayName(rows[0]),Status:cmp.label,Load:fmtLoad(m.topLoad),Reps:m.totalReps,
+        e1RM:fmt(Math.round(toDisplay(m.bestE1rm))),Delta:cmp.status==="new"?"—":formatDelta(cmp)||"—"})}}
+  return out}
+
 function renderStats(){
+  renderThisWeek();
   // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
   const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
   const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
@@ -523,12 +974,16 @@ function renderStats(){
   }else $("#trend").innerHTML="";
 
   $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({Date:x.date,Top:fmtLoad(x.top),Reps:x.reps,RIR:fmt(x.rir),e1RM:fmt(Math.round(toDisplay(x.e1rm))),Vol:kfmt(toDisplay(x.volume))})));
+  const rd=$("#recentDeltas");if(rd)rd.innerHTML=table(recentDeltaRows());
   const topByLift=new Map();
   for(const x of state.log){if(!isWork(x))continue;const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
     if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:displayName(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,[unitLabel()]:fmtLoad(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
-  renderPRs();renderAttention();renderCompleted();
+  renderPRs();renderAttention();renderCompleted();renderReview();
+  if(statsSeg==="strength")renderStrengthDash();
+  if(statsSeg==="volume")renderVolumeDash();
+  if(statsSeg==="prs")renderPRTimeline();
 }
 
 function detectPRs(log,opts={}){
@@ -545,7 +1000,112 @@ function detectPRs(log,opts={}){
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
+function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
+  .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
+function parseSetCommand(text){
+  const n=normalizeCommandText(text),warnings=[];
+  let set=null,load,reps,rir=null,effort=null,unit=null,confidence="low",gotReps=false;
+  const setM=n.match(/(?:set|s)\s*(\d+)/);if(setM)set=+setM[1];
+  const primary=n.match(/(\d+(?:\.\d+)?)\s*(kg|lb)?\s*(?:x|for)\s*(\d+)/);
+  if(primary){load=+primary[1];unit=primary[2]||null;reps=+primary[3];confidence="high";gotReps=true}
+  else{const nums=(n.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+    if(set!=null){const i=nums.indexOf(set);if(i>=0)nums.splice(i,1)}
+    if(!nums.length)return {ok:false,error:"Could not read a set from that.",warnings};
+    if(nums.length<2)return {ok:false,error:"Could not find reps.",warnings};
+    load=nums[0];reps=nums[1];gotReps=true;if(nums.length>=3)rir=nums[2]}
+  if(!gotReps)return {ok:false,error:"Could not find reps.",warnings};
+  const rirM=n.match(/(?:rir|@)\s*(\d+(?:\.\d+)?)/);if(rirM)rir=+rirM[1];
+  else{const tr=n.match(/\b(\d+(?:\.\d+)?)\s*rir\b/);if(tr)rir=+tr[1]}
+  const ef=n.match(/\b(easy|hard|max)\b/);if(ef)effort=ef[1];
+  if(!unit){const u=n.match(/\b(\d+(?:\.\d+)?)\s*(kg|lb)\b/);if(u)unit=u[2]}
+  let exerciseName=null;const exSrc=setM?n.slice(setM.index+setM[0].length).trim():n;
+  const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
+  return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
+window.__repforgeGenerateProgram=generateProgramFromOnboarding;
+window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
+window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
+window.__repforgeMesocycleWeek=mesocycleWeek;
+window.__repforgeBuildBlockReview=buildBlockReview;
+window.__repforgeCompleteProgram=completeCurrentProgram;
+window.__repforgeStartNextMeso=startNextMesocycle;
+window.__repforgeParseCommand=parseSetCommand;
+window.__repforgeNormalizeCommand=normalizeCommandText;
+
+function resolveExerciseFromCommand(parsed,currentExercises){
+  if(parsed.exerciseName){
+    const q=parsed.exerciseName.toLowerCase();
+    const hit=currentExercises.filter(e=>{const n=e.name.toLowerCase();return n.startsWith(q)||n.includes(q)});
+    return hit.length===1?hit[0]:null}
+  if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
+  return currentExercises[0]||null}
+function applyParsedCommand(parsed,context){
+  const d=context?.day??day,exs=exercises(d).filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
+  if(!ex)return;
+  const pick=n=>{if(n<1||n>ex.sets)return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
+  let setN=null;
+  if(parsed.set!=null){for(let n=parsed.set;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  else{for(let n=1;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  if(!setN){toast("All sets already saved for this exercise.");return}
+  const key=`${ex.id}_${setN}`;
+  let loadDisp=parsed.load;
+  if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
+  const loadInp=$(`[data-k="${key}_load"]`);if(loadInp)loadInp.value=fmt(loadDisp);
+  const repsInp=$(`[data-k="${key}_reps"]`);if(repsInp)repsInp.value=fmt(parsed.reps);
+  if(state.settings.rirMode==="effort"){
+    let eff=parsed.effort;
+    if(!eff&&parsed.rir!=null)eff=parsed.rir>=2.5?"easy":parsed.rir<=0.5?"max":"hard";
+    if(!eff)eff="hard";
+    $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>b.classList.toggle("active",b.dataset.e===eff))}
+  else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
+  touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
+  saveDraft();updateSaveMeta();return{ex,set:setN}}
+function handleCommandSubmit(){
+  const v=$("#commandInput")?.value?.trim();if(!v)return;
+  const parsed=parseSetCommand(v);
+  if(!parsed.ok){toast(parsed.error);return}
+  const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
+  if(!ex){toast("Couldn't match that exercise.");return}
+  const r=applyParsedCommand(parsed,{day,logMode});
+  if(!r)return;
+  $("#commandInput").value="";
+  const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
+  toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`)}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
+function startVoiceInput(){
+  if(!SR)return;const rec=new SR();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
+  rec.onerror=()=>toast("Voice input failed. Type the set instead.");
+  try{rec.start()}catch{toast("Voice input failed. Type the set instead.")}}
+window.__repforgeBlockSnapshot=blockSnapshot;
+window.__repforgeBuildPlainSummary=buildPlainSummary;
+
+function prTimeline(filter){
+  const all=detectPRs(state.log);let events=all;
+  if(filter==="load"||filter==="reps"||filter==="e1rm")events=all.filter(e=>e.kind===filter);
+  else if(filter==="program"){const ids=new Set(prog.exercises.map(e=>e.id));
+    events=all.filter(e=>e.exerciseId&&ids.has(e.exerciseId))}
+  return events.sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
+window.__repforgePrTimeline=prTimeline;
+
+function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
+  $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
+  const events=prTimeline(prFilter);
+  if(!events.length){el.innerHTML=`<div class="empty">No PRs match this filter yet.</div>`;return}
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const prDate=d=>{const p=String(d||"").split("-");return p.length===3?`${months[+p[1]-1]} ${+p[2]}`:String(d||"")};
+  const kindLbl=k=>k==="load"?"Load PR":k==="reps"?"Reps PR":"e1RM PR";
+  const delta=ev=>ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}${unitLabel()}`:"")
+    :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
+    :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}${unitLabel()}`:"");
+  el.innerHTML=events.map(ev=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
+    const d=delta(ev);
+    return `<div class="prtl__row"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
+      `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
+      `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
+      `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
+      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("")}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -561,16 +1121,35 @@ function renderPRs(){const el=$("#prLedger");if(!el)return;
         `<td>${esc(fmt(Math.round(toDisplay(e1rm(ev.load,ev.reps)))))}</td><td>${esc(delta)}</td></tr>`}).join("")
   }</tbody></table>`}
 
-// Action board — which lifts need a decision, grouped by signal.
+// Action board — which lifts need a decision, grouped by signal (one group per lift).
+function attentionSignal(ex,fatigueCluster){
+  const r=recommendation(ex),sess=sessionsFor(ex);
+  if(r.status==="add"||r.status==="add2")return{key:"add",why:"every set hit the top of the range last session."};
+  if(r.status==="reduce"||r.stalled)return{key:"reduce",why:"reps fell below range or progress stalled."};
+  if(r.status==="new")return{key:"new",why:"no working sets logged yet."};
+  if(sess.length){
+    const lastDate=String(sess.at(-1).date).slice(0,10),cutoff=daysAgo(10);
+    if(lastDate<cutoff){const n=Math.floor((new Date(`${today()}T12:00:00`)-new Date(`${lastDate}T12:00:00`))/86400000);
+      return{key:"stale",why:`last trained ${n} days ago.`}}
+  }
+  const planned=prog.volume(),done=completedHardSets(7);
+  for(const m of muscles(ex.primary)){const p=planned.get(m),d=done.get(m),target=p?p.d+p.p:0,actual=d?d.d+d.p:0;
+    if(target>0&&actual<target)return{key:"vol",why:"primary muscle under weekly volume target."}}
+  const last=sess.at(-1);
+  if(last&&(last.avgRir<=0.5||(fatigueCluster&&r.status==="hold"&&last.avgRir<=1)))return{key:"fatigue",why:"sets grinding near failure."};
+  return null}
+function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const r=recommendation(ex);return r.status==="reduce"||r.stalled}).length>=2;
+  const defs=[{key:"add",cls:"add",lead:"Ready to add"},{key:"reduce",cls:"reduce",lead:"Back off / stalled"},{key:"new",cls:"new",lead:"Untested"},
+    {key:"stale",cls:"stale",lead:"Not trained recently"},{key:"vol",cls:"vol",lead:"Volume low"},{key:"fatigue",cls:"fatigue",lead:"Possible fatigue"}];
+  const g=Object.fromEntries(defs.map(d=>[d.key,[]]));
+  for(const ex of prog.exercises){const sig=attentionSignal(ex,fatigueCluster);if(sig)g[sig.key].push({ex,why:sig.why})}
+  return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
+window.__repforgeAttention=attentionGroups;
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const g={add:[],reduce:[],fresh:[]};
-  for(const ex of prog.exercises){const r=recommendation(ex);
-    if(r.status==="add"||r.status==="add2")g.add.push(ex);
-    else if(r.status==="reduce")g.reduce.push(ex);
-    else if(r.status==="new")g.fresh.push(ex)}
-  const grp=(list,cls,lead)=>list.length?`<div class="attn__grp attn--${cls}"><span class="attn__lead">${lead}</span>`+
-    list.map(ex=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}">${esc(ex.name)}</button>`).join("")+`</div>`:"";
-  const html=grp(g.add,"add","Ready to add")+grp(g.reduce,"reduce","Back off / stalled")+grp(g.fresh,"new","Untested");
+  const groups=attentionGroups();
+  const html=groups.map(({cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
+    `<p class="attn__why">${esc(items[0]?.why||"")}</p>`+
+    items.map(({ex})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}">${esc(ex.name)}</button>`).join("")+`</div>`).join("");
   el.innerHTML=html||`<div class="attn__grp"><span class="attn__lead">Every lift is holding — chase reps.</span></div>`;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
     const has=[...$("#statExercise").options].some(o=>o.value===k);
@@ -583,6 +1162,18 @@ function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+st
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
   return m}
+function volEff(m,name){const v=m.get(name);return v?v.d+v.p:0}
+function volumeStatus(planned,completed7){if(!planned)return completed7>0?"High":"On target";
+  const ratio=completed7/planned;return ratio<0.6?"Low":ratio<=1.3?"On target":"High"}
+function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHardSets(7),c28=completedHardSets(28);
+  const names=new Set([...planned.keys(),...c7.keys(),...c28.keys()]);
+  return[...names].sort((a,b)=>a.localeCompare(b)).map(muscle=>{
+    const p=volEff(planned,muscle),c7v=volEff(c7,muscle),c28v=volEff(c28,muscle);
+    return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
+window.__repforgeVolumeDashboard=volumeDashboard;
+function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
+  const rows=volumeDashboard(7).map(r=>({Muscle:r.muscle,Planned:fmt(r.planned),"Completed 7d":fmt(r.completed7),"Completed 28d":fmt(r.completed28),Status:r.status}));
+  el.innerHTML=table(rows)}
 function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
   const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
   el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
@@ -624,8 +1215,8 @@ function draw(rows){
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
 
-function redrawChart(){if(!$("#stats").classList.contains("active"))return;
-  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.name===sel);draw(rows)}
+function redrawChart(){if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
+  const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 function renderHistory(){
   const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
@@ -635,8 +1226,9 @@ function renderHistory(){
     if(s.session===editSession)return sessionEditor(s,sets);
     const top=sets.filter(isWork).reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
     const vol=sum(sets.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+    const delta=sessionDeltaCounts(sets),deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
     return `<div class="session"><div class="session__info"><div class="session__day">${esc(s.day)}</div>`+
-      `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div></div>`+
+      `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
   }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
@@ -677,9 +1269,9 @@ function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolum
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
-  const ad=programAdherence(),week=programWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
-  const weekChip=week?`<span class="pmeta__chip">Week ${week}</span>`:"";
+  const weekChip=mc.current!=null?`<span class="pmeta__chip">Week ${mc.current} of ${mc.total}</span>`:"";
   const healthChip=health?`<span class="pmeta__chip">${health.hot}/${health.total} ready to add</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${Math.round(vol.ratio*100)}% volume (7d)</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
@@ -797,6 +1389,8 @@ function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!
 function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump").value=state.settings.minJump;$("#rirHigh").value=state.settings.rirHigh;$("#hardRir").value=state.settings.hardRir;
   $("#restSec").value=state.settings.restSec;$("#unit").value=state.settings.unit;
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
+  const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
+  updateVoiceBtn();
   const le=state.settings.lastExport;const ago=le?`Last backup: ${le.slice(0,10)}.`:"Last backup: never.";
   $("#storageNote").textContent=`${ago} Everything lives in this browser under "${KEY}". There is no cloud copy — export before clearing site data or switching phones.`}
 
@@ -807,7 +1401,7 @@ function commitSettings(silent){const num=(sel,def,min)=>{const n=+$(sel).value;
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=+bw.value;if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldRirMode!==newRirMode)clearDraft();
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode});
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,commandParserHints:state.settings.commandParserHints});
   save();render();if(!silent)toast("Settings saved.");}
 
 function table(rows){if(!rows.length)return'<div class="empty">No data yet.</div>';const h=Object.keys(rows[0]);
@@ -878,6 +1472,87 @@ function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
 
 function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast("Beginner-friendly program loaded. Your log is unchanged.")}
 
+const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
+  5:["ppl","bro","upper_lower"],6:["ppl"]};
+const ONB_SPLIT_LABEL={full_body:"Full body",upper_lower:"Upper / lower",machine_only:"Machine only",ppl:"Push / pull / legs",bro:"Bro split"};
+const ONB_EQ_UI=["machines","cables","dumbbells","barbells","bodyweight"];
+const ONB_EQ_LABEL={machines:"Machines",cables:"Cables",dumbbells:"Dumbbells",barbells:"Barbells",bodyweight:"Bodyweight"};
+const ONB_EQ_GEN={machines:"machine",cables:"cable",dumbbells:"dumbbell",barbells:"barbell",bodyweight:"bodyweight"};
+const ONB_MUSCLES=["Chest","Back","Quads","Hamstrings","Glutes","Side delts","Arms","Calves"];
+const ONB_TITLES=["What's your goal?","Training experience","Days per week","Choose a split","Equipment access",
+  "Priority muscles (optional)","Session length","Review your program"];
+let onbStep=0,onbAnswers={};
+function defaultOnbAnswers(){return{goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:["machines","cables"],
+  priorityMuscles:[],sessionLength:null}}
+function onbGenAnswers(a){const eq=(a.equipment||[]).map(x=>ONB_EQ_GEN[x]||x);
+  const goal=a.goal==="strength_hypertrophy"?"strength":a.goal==="beginner_consistency"?"hypertrophy":a.goal||"hypertrophy";
+  return{...a,goal,equipment:eq}}
+function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");
+  $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
+function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");
+  const log=$("#log");if(log&&!log.classList.contains("active")){
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    log.classList.add("active")}
+  render()}
+function startOnboarding(){onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
+function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding()}
+function onbCanNext(){const a=onbAnswers;
+  if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
+  if(onbStep===3)return!!a.splitType;if(onbStep===4)return a.equipment?.length>0;if(onbStep===6)return!!a.sessionLength;return true}
+function onbPick(key,val,multi){if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
+  if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
+  if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
+  renderOnboarding()}
+function onbOpt(cls,key,val,label,sub,multi){const sel=multi?(onbAnswers[key]||[]).includes(val):onbAnswers[key]===val;
+  return `<button type="button" class="onb__opt${sel?" is-selected":""}" data-onb-pick="${esc(key)}" data-onb-val="${esc(val)}" data-onb-multi="${multi?"1":"0"}">${esc(label)}${sub?`<small>${esc(sub)}</small>`:""}</button>`}
+function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
+  if(!body)return;title.textContent=ONB_TITLES[onbStep]||"Create program";step.textContent=`Step ${onbStep+1} of 8`;
+  back.classList.toggle("hidden",onbStep===0);next.classList.toggle("hidden",onbStep===7);
+  let html="";
+  if(onbStep===0)html=`<p class="onb__lede">We'll build a split around your goal and schedule.</p><div class="onb__opts">`+
+    onbOpt("","goal","hypertrophy","Build muscle","Hypertrophy focus",false)+
+    onbOpt("","goal","strength_hypertrophy","Build muscle with strength focus","Heavier compounds, lower reps",false)+
+    onbOpt("","goal","beginner_consistency","Build consistency as a beginner","Simple, repeatable sessions",false)+`</div>`;
+  else if(onbStep===1)html=`<div class="onb__grid">`+
+    onbOpt("","experience","beginner","Beginner","",false)+onbOpt("","experience","intermediate","Intermediate","",false)+
+    onbOpt("","experience","advanced","Advanced","",false)+`</div>`;
+  else if(onbStep===2)html=`<div class="onb__grid">`+[2,3,4,5,6].map(n=>onbOpt("","daysPerWeek",n,String(n),"days",false)).join("")+`</div>`;
+  else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
+    html=`<p class="onb__lede">Splits that fit ${onbAnswers.daysPerWeek} days per week.</p><div class="onb__opts">`+
+      opts.map(s=>onbOpt("","splitType",s,ONB_SPLIT_LABEL[s]||s,"",false)).join("")+`</div>`}
+  else if(onbStep===4)html=`<p class="onb__lede">Pick everything you can use. We'll only program what you have.</p><div class="onb__grid">`+
+    ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,ONB_EQ_LABEL[e],"",true)).join("")+`</div>`;
+  else if(onbStep===5)html=`<p class="onb__lede">Optional — we'll add a little extra volume where you want it.</p><div class="onb__grid">`+
+    ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,m,"",true)).join("")+`</div>`;
+  else if(onbStep===6)html=`<div class="onb__opts">`+
+    onbOpt("","sessionLength","short","Short","4–5 exercises",false)+
+    onbOpt("","sessionLength","normal","Normal","5–7 exercises",false)+
+    onbOpt("","sessionLength","long","Long","7–9 exercises",false)+`</div>`;
+  else{const gen=generateProgramFromOnboarding(onbGenAnswers(onbAnswers)),days=[...new Set(gen.map(e=>e.day))];
+    const byDay=days.map(d=>{const exs=gen.filter(e=>e.day===d);
+      return `<div class="onb__day"><div class="onb__dayname">${esc(d)}</div>`+
+        exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(e.primary)}</div>`).join("")+`</div>`});
+    html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
+      `<button type="button" id="onbSave" class="btn btn--forge">Save program</button>`+
+      `<button type="button" id="onbEdit" class="btn btn--steel">Edit before saving</button>`+
+      `<button type="button" id="onbRestart" class="btn btn--steel">Start over</button></div></div>`}
+  body.innerHTML=html;
+  $$("[data-onb-pick]").forEach(b=>b.onclick=()=>{const k=b.dataset.onbPick,v=b.dataset.onbVal;
+    const multi=b.dataset.onbMulti==="1",num=k==="daysPerWeek"?+v:v;onbPick(k,num,multi)});
+  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=saveOnboardingProgram;
+  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=editOnboardingProgram;
+  const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
+  if(next)next.disabled=!onbCanNext()}
+function saveOnboardingProgram(){const a=onbAnswers;prog=new Program(generateProgramFromOnboarding(onbGenAnswers(a)));
+  persistProgramMeta({goal:a.goal,experience:a.experience,daysPerWeek:a.daysPerWeek,splitType:a.splitType,equipment:a.equipment,
+    priorityMuscles:a.priorityMuscles,sessionLength:a.sessionLength,started:today(),mesocycleStatus:"active",onboarded:true});
+  persistProgram();day=prog.days()[0]||"Day 1";closeOnboarding();toast("Program saved.")}
+function editOnboardingProgram(){prog=new Program(generateProgramFromOnboarding(onbGenAnswers(onbAnswers)));persistProgram();
+  day=prog.days()[0]||"Day 1";closeOnboarding();
+  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));render();toast("Tweak your program, then save when ready.")}
+window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
+
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
@@ -895,23 +1570,35 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
+  const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
+  if(cmdApply)cmdApply.onclick=handleCommandSubmit;
+  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
+  const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=startVoiceInput;
+  updateVoiceBtn();
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast("Day added.")};
+  $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{if(confirm("Replace your current program template? Your logged history stays."))switchToBeginnerProgram()};
+  $("#createProgram").onclick=()=>startOnboarding();
+  $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
+  $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
   $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
+  const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
+  $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
   $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
+  maybeShowOnboarding();
 }
 async function boot(){
   let raw=null;

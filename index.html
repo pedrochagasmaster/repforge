@@ -47,7 +47,13 @@
         <button type="button" id="modeFocus">Focus</button>
       </div>
       <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
+      <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="fatigue" class="fatigue hidden"></div>
+      <div class="commandbar">
+        <input id="commandInput" type="text" autocomplete="off" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry">
+        <button type="button" id="voiceBtn" class="btn btn--steel hidden" aria-label="Voice input">🎤</button>
+        <button type="button" id="commandApply" class="btn btn--steel">Apply</button>
+      </div>
       <form id="logForm">
         <div id="workout"></div>
         <label class="field">Session notes
@@ -65,26 +71,54 @@
 
     <section id="stats" class="view" aria-label="Stats">
       <div class="sectionhead"><p class="eyebrow">The numbers</p><h2>Stats</h2></div>
-      <div id="attention" class="attention"></div>
-      <div id="metrics" class="metrics"></div>
-      <details class="advanced" id="statsDeep">
-        <summary>Dig deeper — charts &amp; tables</summary>
-        <div class="card chartcard">
-          <label class="field">Exercise<select id="statExercise"></select></label>
-          <div id="trend" class="trend"></div>
-          <div id="prLedger" class="prledger"></div>
-          <canvas id="chart" height="240" aria-label="Top load over time"></canvas>
+      <div id="statsSeg" class="seg seg--stats" role="tablist" aria-label="Stats sections">
+        <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true">Overview</button>
+        <button type="button" role="tab" data-seg="strength" aria-selected="false">Strength</button>
+        <button type="button" role="tab" data-seg="volume" aria-selected="false">Volume</button>
+        <button type="button" role="tab" data-seg="prs" aria-selected="false">PRs</button>
+        <button type="button" role="tab" data-seg="review" aria-selected="false">Review</button>
+      </div>
+      <div id="segOverview" class="stats-seg active">
+        <div id="thisWeek" class="thisweek card"></div>
+        <div id="attention" class="attention"></div>
+        <div id="metrics" class="metrics"></div>
+        <details class="advanced" id="statsDeep">
+          <summary>Dig deeper — charts &amp; tables</summary>
+          <div class="card chartcard">
+            <label class="field">Exercise<select id="statExercise"></select></label>
+            <div id="trend" class="trend"></div>
+            <div id="prLedger" class="prledger"></div>
+            <canvas id="chart" height="240" aria-label="Top load over time"></canvas>
+          </div>
+          <h3 class="subhead">Completed hard sets</h3>
+          <p class="lede">Logged sets per muscle within your RIR ceiling — <button type="button" class="term" data-term="hard set">hard set</button> volume you actually did, not the plan.</p>
+          <div id="volWindow" class="seg seg--window" role="tablist" aria-label="Volume window">
+            <button type="button" data-win="7" class="active" role="tab" aria-selected="true">7 days</button>
+            <button type="button" data-win="28" role="tab" aria-selected="false">28 days</button>
+          </div>
+          <div id="completedVolume" class="volume"></div>
+          <h3 class="subhead">Recent performance</h3><div id="recent" class="table"></div>
+          <h3 class="subhead">Recent session deltas</h3><div id="recentDeltas" class="table"></div>
+          <h3 class="subhead">Top loads by exercise</h3><div id="tops" class="table"></div>
+        </details>
+      </div>
+      <div id="segStrength" class="stats-seg"><h3 class="subhead">Strength</h3><div id="strengthDash" class="table"></div></div>
+      <div id="segVolume" class="stats-seg">
+        <h3 class="subhead">Volume</h3>
+        <div id="volumeDash" class="table"></div>
+      </div>
+      <div id="segPRs" class="stats-seg">
+        <p class="lede">Every personal record across your log — load, reps, and estimated one-rep max.</p>
+        <div id="prFilterSeg" class="seg seg--window" role="tablist" aria-label="PR kind filter">
+          <button type="button" data-prf="all" class="active" role="tab" aria-selected="true">All</button>
+          <button type="button" data-prf="load" role="tab" aria-selected="false">Load</button>
+          <button type="button" data-prf="reps" role="tab" aria-selected="false">Reps</button>
+          <button type="button" data-prf="e1rm" role="tab" aria-selected="false">e1RM</button>
+          <button type="button" data-prf="program" role="tab" aria-selected="false">Program</button>
         </div>
-        <h3 class="subhead">Completed hard sets</h3>
-        <p class="lede">Logged sets per muscle within your RIR ceiling — <button type="button" class="term" data-term="hard set">hard set</button> volume you actually did, not the plan.</p>
-        <div id="volWindow" class="seg seg--window" role="tablist" aria-label="Volume window">
-          <button type="button" data-win="7" class="active" role="tab" aria-selected="true">7 days</button>
-          <button type="button" data-win="28" role="tab" aria-selected="false">28 days</button>
-        </div>
-        <div id="completedVolume" class="volume"></div>
-        <h3 class="subhead">Recent performance</h3><div id="recent" class="table"></div>
-        <h3 class="subhead">Top loads by exercise</h3><div id="tops" class="table"></div>
-      </details>
+        <div id="prTimeline" class="prtimeline"></div>
+      </div>
+      <div id="segReview" class="stats-seg"><h3 class="subhead">Review</h3><div id="reviewPanel"></div></div>
     </section>
 
     <section id="history" class="view" aria-label="History">
@@ -96,6 +130,8 @@
     <section id="program" class="view" aria-label="Program">
       <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
       <div id="programMeta" class="pmeta" aria-label="Program summary"></div>
+      <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
+      <button id="endBlock" class="btn btn--steel program__endblock" type="button">End block</button>
       <p class="lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
       <div id="programEditor" class="peditor"></div>
       <button id="addDay" class="btn btn--steel peditor__addday" type="button">+ Add day</button>
@@ -126,6 +162,9 @@
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> Numbers</label>
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> Easy / Hard / Max</label>
         </fieldset>
+        <button id="createProgram" type="button" class="btn btn--steel">Create new program</button>
+        <label class="field field--check"><input type="checkbox" id="voiceInputEnabled"> Enable voice input</label>
+        <p class="lede">Voice input is optional and depends on browser support. Typed commands work offline. Voice recognition may be processed by your browser provider.</p>
         <button id="beginnerProgram" type="button" class="btn btn--steel">Use beginner-friendly program</button>
         <details class="advanced">
           <summary>Advanced · progression dials</summary>
@@ -153,6 +192,21 @@
         <button id="reset" class="btn btn--danger">Delete log</button>
       </div>
     </section>
+
+    <section id="onboarding" class="view onboarding hidden" aria-label="Create program">
+      <div class="onb">
+        <div class="onb__head">
+          <p class="eyebrow" id="onbEyebrow">New program</p>
+          <h2 id="onbTitle">Create your program</h2>
+          <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
+        </div>
+        <div id="onbBody" class="onb__body"></div>
+        <div class="onb__nav">
+          <button type="button" id="onbBack" class="btn btn--steel">Back</button>
+          <button type="button" id="onbNext" class="btn btn--forge">Next</button>
+        </div>
+      </div>
+    </section>
   </main>
 
   <nav aria-label="Sections">
@@ -167,6 +221,20 @@
     <button type="button" class="glossary__close" aria-label="Close">✕</button>
     <p class="glossary__term"></p>
     <p class="glossary__body"></p>
+  </div>
+  <div id="blockReview" class="blockreview hidden" role="dialog" aria-modal="true" aria-label="Block review">
+    <p class="blockreview__title">Block review</p>
+    <div id="blockReviewBody" class="blockreview__body"></div>
+    <div class="blockreview__actions">
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="repeat">Repeat same program</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="repeat_swaps">Repeat with swaps</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="increase_volume">Increase volume</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="reduce_volume">Reduce volume</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="onboarding">Start from onboarding again</button>
+    </div>
+    <div class="btnrow">
+      <button type="button" id="blockReviewClose" class="btn btn--forge">Close</button>
+    </div>
   </div>
   <div id="importChoice" class="importchoice hidden" role="dialog" aria-modal="true" aria-label="Import backup">
     <p class="importchoice__title">Import backup</p>
