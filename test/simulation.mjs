@@ -2424,6 +2424,61 @@ async function main() {
   const pNoReps = await parseCmd("80");
   assert(!pNoReps.ok && pNoReps.error === "Could not find reps.", "parse: load only", JSON.stringify(pNoReps));
 
+  beginPhase("Phase: command bar apply");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const cmdEx0 = await page.evaluate(() => document.querySelector("#workout .exercise")?.dataset.ex);
+  assert(cmdEx0, "command bar: first exercise present", "no .exercise on Log tab", "Open Log with program loaded");
+  await page.fill("#commandInput", "80 x 8 @1");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "80" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "8" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)) === "1",
+    "command apply: 80 x 8 @1 fills set 1",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)}`,
+    "Log → type 80 x 8 @1 → Apply → set 1 inputs updated"
+  );
+  await page.fill("#commandInput", "set 2 60 x 10");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)) === "60" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)) === "10",
+    "command apply: set 2 60 x 10 targets set 2",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)}`,
+    "Log → type set 2 60 x 10 → Apply → set 2 inputs updated"
+  );
+  await page.fill("#commandInput", "not a set");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  const cmdBadToast = await page.locator("#toast").textContent();
+  assert(
+    cmdBadToast.includes("Could not read"),
+    "command apply: invalid command shows error toast",
+    `toast=${cmdBadToast}`,
+    "Log → type nonsense → Apply → error toast, no crash"
+  );
+  assert(
+    (await page.locator("#commandInput").inputValue()) === "not a set",
+    "command apply: invalid command keeps input",
+    `input=${await page.locator("#commandInput").inputValue()}`,
+    "Invalid apply should not clear the command field"
+  );
+  await page.fill("#commandInput", "90 x 6 @2");
+  await page.locator("#commandInput").press("Enter");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "90" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "6",
+    "command apply: Enter key submits command",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)}`,
+    "Log → type command → Enter → inputs updated"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

@@ -563,11 +563,52 @@ function parseSetCommand(text){
   else{const tr=n.match(/\b(\d+(?:\.\d+)?)\s*rir\b/);if(tr)rir=+tr[1]}
   const ef=n.match(/\b(easy|hard|max)\b/);if(ef)effort=ef[1];
   if(!unit){const u=n.match(/\b(\d+(?:\.\d+)?)\s*(kg|lb)\b/);if(u)unit=u[2]}
-  let exerciseName=null;const lead=n.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
+  let exerciseName=null;const exSrc=setM?n.slice(setM.index+setM[0].length).trim():n;
+  const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
   return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
+
+function resolveExerciseFromCommand(parsed,currentExercises){
+  if(parsed.exerciseName){
+    const q=parsed.exerciseName.toLowerCase();
+    const hit=currentExercises.filter(e=>{const n=e.name.toLowerCase();return n.startsWith(q)||n.includes(q)});
+    return hit.length===1?hit[0]:null}
+  if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
+  return currentExercises[0]||null}
+function applyParsedCommand(parsed,context){
+  const d=context?.day??day,exs=exercises(d).filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
+  if(!ex)return;
+  const pick=n=>{if(n<1||n>ex.sets)return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
+  let setN=null;
+  if(parsed.set!=null){for(let n=parsed.set;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  else{for(let n=1;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  if(!setN){toast("All sets already saved for this exercise.");return}
+  const key=`${ex.id}_${setN}`;
+  let loadDisp=parsed.load;
+  if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
+  const loadInp=$(`[data-k="${key}_load"]`);if(loadInp)loadInp.value=fmt(loadDisp);
+  const repsInp=$(`[data-k="${key}_reps"]`);if(repsInp)repsInp.value=fmt(parsed.reps);
+  if(state.settings.rirMode==="effort"){
+    let eff=parsed.effort;
+    if(!eff&&parsed.rir!=null)eff=parsed.rir>=2.5?"easy":parsed.rir<=0.5?"max":"hard";
+    if(!eff)eff="hard";
+    $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>b.classList.toggle("active",b.dataset.e===eff))}
+  else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
+  touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
+  saveDraft();updateSaveMeta();return{ex,set:setN}}
+function handleCommandSubmit(){
+  const v=$("#commandInput")?.value?.trim();if(!v)return;
+  const parsed=parseSetCommand(v);
+  if(!parsed.ok){toast(parsed.error);return}
+  const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
+  if(!ex){toast("Couldn't match that exercise.");return}
+  const r=applyParsedCommand(parsed,{day,logMode});
+  if(!r)return;
+  $("#commandInput").value="";
+  const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
+  toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`)}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -917,6 +958,9 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
+  const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
+  if(cmdApply)cmdApply.onclick=handleCommandSubmit;
+  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
