@@ -68,6 +68,7 @@ function convertDraftUnits(oldUnit,newUnit){
     d[k]=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
   if(changed)localStorage.setItem(DRAFT,JSON.stringify(d))}
 const posNum=(v,f=0)=>Math.max(0,Number.isFinite(+v)?+v:f);
+const isWork=r=>!r.warmup;
 const liftKey=x=>x.exerciseId||x.name;
 const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
 // Muscles for a log row: prefer the saved snapshot, else resolve from the live program.
@@ -139,6 +140,7 @@ const collapsed=new Set();
 const skipped=new Set();
 const committed=new Set();
 const touched=new Set();
+const warmups=new Set();
 let logMode="full",focusIndex=0;
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -157,12 +159,12 @@ function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.l
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
 function last(ex){const match=matchLift(ex);
-  const hits=state.log.filter(match);if(!hits.length)return[];
+  const hits=state.log.filter(x=>match(x)&&isWork(x));if(!hits.length)return[];
   const sid=[...hits].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0].session;
   return hits.filter(x=>x.session===sid).sort((a,b)=>a.set-b.set)}
 // One entry per past session for this lift, oldest→newest, working sets only (load>0).
 function sessionsFor(ex){const match=matchLift(ex),m=new Map();
-  for(const x of state.log){if(!match(x)||!(+x.load>0))continue;
+  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
     const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
@@ -226,6 +228,7 @@ function renderWorkout(){
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
+  warmups.clear();(draft.__warm||[]).forEach(k=>warmups.add(k));
   const restOn=+state.settings.restSec>0;
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
   const banner=hiddenCount?`<div class="skipbar">${hiddenCount} hidden today <button type="button" class="skipbar__show">Show all</button></div>`:"";
@@ -242,8 +245,9 @@ function renderWorkout(){
       const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
       const rirVal=draft[`${ex.id}_${n}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
       const key=`${ex.id}_${n}`;
-      const cls=committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested");
-      return `<div class="setrow ${cls}" data-set="${esc(key)}"><span class="setrow__n">${n}</span>`+
+      const isW=warmups.has(key);
+      const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}`;
+      return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="Tap to mark as warmup">${isW?"W":n}</button>`+
         `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="Set ${n} decrease ${unitLabel()}">−</button>`+
         `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
         `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="Set ${n} increase ${unitLabel()}">+</button></div>`+
@@ -272,7 +276,7 @@ function renderWorkout(){
 }
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
-  d.__done=[...committed];d.__touched=[...touched];localStorage.setItem(DRAFT,JSON.stringify(d))}
+  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
@@ -290,6 +294,8 @@ function bindWorkout(){
       b.textContent=committed.has(key)?"✓":"Save"}
     saveDraft();updateSaveMeta();
     if(committed.has(key))startRest()});
+  $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
+    warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const incKg=+state.settings.minJump||2.5,curKg=fromDisplay(+inp.value||0),
       nextKg=Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg);
@@ -349,17 +355,24 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     const key=`${ex.id}_${n}`;
     const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value),rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value);
     if(load<=0)continue;
-    if(!(committed.has(key)||touched.has(key)))continue;
+    if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
+    if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
     rows.push(row)}}
   if(!rows.length){toast("Enter weight on at least one set before saving.");return}
-  state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();$("#notes").value="";
+  const prLifts=[];
+  for(const ex of exercises()){if(skipped.has(ex.id))continue;
+    const mine=rows.filter(r=>r.exerciseId===ex.id&&!r.warmup);if(!mine.length)continue;
+    const newTop=Math.max(...mine.map(r=>+r.load));
+    const prevTop=Math.max(0,...state.log.filter(x=>matchLift(ex)&&isWork(x)).map(r=>+r.load));
+    if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
+  state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
-  toast(`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
+  toast(prLifts.length?`Workout forged — ${rows.length} sets logged. PR: ${prLifts.join(", ")}!`:`Workout forged — ${rows.length} sets logged.`);render()}finally{saving=false}}
 
 function summaries(){const m=new Map();
-  for(const x of state.log){const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,name:exerciseLabel(x),loads:[],reps:[],rirs:[],sets:0});
+  for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,name:exerciseLabel(x),loads:[],reps:[],rirs:[],sets:0});
     const o=m.get(k);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
   return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
     o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
@@ -369,8 +382,8 @@ function summaries(){const m=new Map();
 function renderStats(){
   const names=[...new Set(state.log.map(x=>exerciseLabel(x)))].sort();
   const sums=summaries();
-  const totalVol=sum(state.log.map(x=>(+x.load||0)*(+x.reps||0)));
-  const bestE=state.log.length?Math.max(...state.log.map(x=>e1rm(+x.load,+x.reps))):0;
+  const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+  const bestE=state.log.length?Math.max(...state.log.filter(isWork).map(x=>e1rm(+x.load,+x.reps))):0;
   const tiles=[
     {label:"Sessions",val:new Set(state.log.map(x=>x.session)).size},
     {label:"Sets logged",val:state.log.length},
@@ -394,12 +407,42 @@ function renderStats(){
 
   $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({Date:x.date,Top:fmtLoad(x.top),Reps:x.reps,RIR:fmt(x.rir),e1RM:fmt(Math.round(toDisplay(x.e1rm))),Vol:kfmt(toDisplay(x.volume))})));
   const topByLift=new Map();
-  for(const x of state.log){const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
+  for(const x of state.log){if(!isWork(x))continue;const k=liftKey(x),ld=+x.load,cur=topByLift.get(k);
     if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:exerciseLabel(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,[unitLabel()]:fmtLoad(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
-  renderAttention();renderCompleted();
+  renderPRs();renderAttention();renderCompleted();
 }
+
+function detectPRs(log,opts={}){
+  const rows=(Array.isArray(log)?log:[]).filter(isWork).filter(r=>+r.load>0)
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created)));
+  const best=new Map(),events=[];
+  for(const row of rows){const k=liftKey(row),ld=+row.load,rp=+row.reps,em=e1rm(ld,rp);
+    const cur=best.get(k)||{load:0,repsAtMax:0,e1rm:0};
+    if(ld>cur.load){events.push({kind:"load",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:exerciseLabel(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
+      cur.load=ld;cur.repsAtMax=rp}
+    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:exerciseLabel(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
+      cur.repsAtMax=rp}
+    if(em>cur.e1rm){events.push({kind:"e1rm",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:exerciseLabel(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
+      cur.e1rm=em}
+    best.set(k,cur)}
+  return events}
+window.detectPRs=detectPRs;
+
+function renderPRs(){const el=$("#prLedger");if(!el)return;
+  const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>ev.exerciseName===sel);
+  if(!events.length){el.innerHTML=`<div class="empty">Log working sets to track PRs.</div>`;return}
+  el.innerHTML=`<table><thead><tr><th>Date</th><th>Kind</th><th>Load</th><th>Reps</th><th>RIR</th><th>e1RM</th><th>Δ vs prev</th></tr></thead><tbody>${
+    events.map(ev=>{const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
+      const kindLabel=ev.kind==="e1rm"?"e1RM":ev.kind.charAt(0).toUpperCase()+ev.kind.slice(1);
+      const delta=ev.kind==="e1rm"?(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}`:"—")
+        :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"—")
+        :(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}`:"—");
+      return `<tr class="pr-row"><td>${esc(ev.date)}</td><td><span class="pr-kind ${kindCls}">${esc(kindLabel)}</span></td>`+
+        `<td>${esc(fmtLoad(ev.load))}</td><td>${esc(ev.reps)}</td><td>${esc(fmt(ev.rir))}</td>`+
+        `<td>${esc(fmt(Math.round(toDisplay(e1rm(ev.load,ev.reps)))))}</td><td>${esc(delta)}</td></tr>`}).join("")
+  }</tbody></table>`}
 
 // Action board — which lifts need a decision, grouped by signal.
 function renderAttention(){const el=$("#attention");if(!el)return;
@@ -417,7 +460,7 @@ function renderAttention(){const el=$("#attention");if(!el)return;
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function renderCompleted(){const el=$("#completedVolume");if(!el)return;const cutoff=daysAgo(volWindow-1),hr=+state.settings.hardRir,m=new Map();
-  for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr))continue;
+  for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
     const mus=rowMuscles(x);
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
@@ -470,8 +513,8 @@ function renderHistory(){
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
     const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(exerciseLabel(a)).localeCompare(exerciseLabel(b))||a.set-b.set);
     if(s.session===editSession)return sessionEditor(s,sets);
-    const top=sets.reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
-    const vol=sum(sets.map(x=>(+x.load||0)*(+x.reps||0)));
+    const top=sets.filter(isWork).reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
+    const vol=sum(sets.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
     return `<div class="session"><div class="session__info"><div class="session__day">${esc(s.day)}</div>`+
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div></div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
@@ -481,7 +524,7 @@ function renderHistory(){
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||a.name.localeCompare(b.name)||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:exerciseLabel(x),Set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
+  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||a.name.localeCompare(b.name)||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:exerciseLabel(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 
@@ -624,7 +667,8 @@ function exportCsv(){
     ["e1rm",r=>+e1rm(+r.load,+r.reps).toFixed(2)],
     ["tonnage",r=>+((+r.load||0)*(+r.reps||0)).toFixed(2)],
     ["primary",r=>rowMuscles(r).primary],["secondary",r=>rowMuscles(r).secondary],
-    ["is_hard_set",r=>(+r.load>0&&+r.reps>0&&+r.rir<=hr)?1:0],
+    ["is_hard_set",r=>(+r.load>0&&+r.reps>0&&+r.rir<=hr&&!r.warmup)?1:0],
+    ["is_warmup",r=>r.warmup?1:0],
     ["bodyweight",r=>r.bodyweight??""],
     ["notes",r=>r.notes],["created",r=>r.created],
   ];

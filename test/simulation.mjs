@@ -84,6 +84,10 @@ async function selectDay(page, dayName) {
   await page.waitForTimeout(60);
 }
 
+async function firstDayName(page) {
+  return page.locator("#dayTabs button").first().getAttribute("data-day");
+}
+
 async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   for (let n = 1; n <= sets; n++) {
     const loadSel = `[data-k="${exId}_${n}_load"]`;
@@ -711,6 +715,7 @@ async function main() {
       header.includes("exercise_id") &&
       header.includes("e1rm") &&
       header.includes("is_hard_set") &&
+      header.includes("is_warmup") &&
       header.includes("bodyweight"),
     "CSV header has expected columns",
     `Header: ${header}`,
@@ -721,6 +726,94 @@ async function main() {
     "CSV row count matches log length",
     `CSV data rows ${csvLines.length - 1}, log entries ${state.log.length}`,
     "Export CSV → compare row count to log"
+  );
+
+  console.log("\nPhase: warmup flag");
+  await nav(page, "log");
+  const warmupDay = await firstDayName(page);
+  const wMeta = await getExerciseMeta(page, warmupDay);
+  const wEx = wMeta[0];
+  await fillExerciseSets(page, wEx.id, wEx.sets, 100, 6, 2);
+  await page.click(`[data-warm="${wEx.id}_1"]`);
+  await page.fill(`[data-k="${wEx.id}_1_load"]`, "20");
+  await saveWorkout(page);
+  const wState = await getState(page);
+  const todayStr = new Date().toISOString().slice(0, 10);
+  const wRows = wState.log.filter((r) => r.exerciseId === wEx.id && r.date === todayStr);
+  assert(
+    wRows.some((r) => r.warmup === true && +r.load === 20),
+    "Warmup flag persists on the saved row",
+    JSON.stringify(wRows),
+    "Mark set 1 W → save"
+  );
+  assert(
+    wRows.some((r) => !r.warmup && +r.load === 100),
+    "Working sets save without warmup key",
+    JSON.stringify(wRows),
+    "Save workout with mixed warmup/working sets"
+  );
+  await nav(page, "history");
+  const sessText = await page.textContent("#sessions");
+  assert(
+    !/\b20×/.test(sessText.split("·")[2] || sessText),
+    "History session top ignores the warmup set",
+    sessText.slice(0, 120),
+    "History → newest session summary"
+  );
+  await nav(page, "log");
+  await selectDay(page, warmupDay);
+  const recAfterWarmup = await cardInfo(page, 0);
+  assert(
+    recAfterWarmup.status === "is-add" || recAfterWarmup.status === "is-add2" || recAfterWarmup.status === "is-hold",
+    "Recommendation ignores warmup loads in history",
+    `status=${recAfterWarmup.status} chip="${recAfterWarmup.chip}"`,
+    "Log warmup + working sets → recommendation uses working history"
+  );
+
+  console.log("\nPhase: PR ledger");
+  await nav(page, "log");
+  const prDay = await firstDayName(page);
+  const prMeta = await getExerciseMeta(page, prDay);
+  await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 200, 6, 2);
+  await saveWorkout(page);
+  const prToast = await page.textContent("#toast");
+  assert(
+    /PR:/.test(prToast),
+    "Save toast announces a top-load PR",
+    `Toast: ${prToast}`,
+    "Log a heavier top set than any prior session → Save"
+  );
+  await nav(page, "stats");
+  await page.evaluate(() => {
+    document.querySelector("#statsDeep").open = true;
+  });
+  await page.waitForTimeout(100);
+  const ledger = await page.textContent("#prLedger");
+  assert(
+    /load/i.test(ledger) && /e1RM/i.test(ledger),
+    "PR ledger renders load and e1RM PRs",
+    `Ledger: ${ledger}`,
+    "Stats → Dig deeper → PR ledger under the trend"
+  );
+  await nav(page, "log");
+  await selectDay(page, "Day 3");
+  const prMeta3 = await getExerciseMeta(page, "Day 3");
+  const prEx = prMeta3[prMeta3.length - 1];
+  await fillExerciseSets(page, prEx.id, prEx.sets, 80, 8, 2);
+  await saveWorkout(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 3");
+  await fillExerciseSets(page, prEx.id, prEx.sets, 85, 8, 2);
+  await saveWorkout(page);
+  const detectLoadPr = await page.evaluate((id) => {
+    const log = JSON.parse(localStorage.getItem("repforge_v1")).log;
+    return window.detectPRs(log).filter((e) => e.exerciseId === id && e.kind === "load" && e.deltaLoad > 0);
+  }, prEx.id);
+  assert(
+    detectLoadPr.length > 0,
+    "detectPRs finds load PR with positive delta",
+    JSON.stringify(detectLoadPr),
+    "Staged 80×8 then 85×8 → load PR event"
   );
 
   console.log("\nPhase: program-only export/import");
