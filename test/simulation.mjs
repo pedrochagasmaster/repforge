@@ -2479,6 +2479,42 @@ async function main() {
     "Log → type command → Enter → inputs updated"
   );
 
+  beginPhase("Phase: voice input settings");
+  let voiceState = await getState(page);
+  assert(
+    voiceState.settings.voiceInputEnabled === false && voiceState.settings.commandParserHints === true,
+    "voice settings default on fresh load",
+    JSON.stringify({ voiceInputEnabled: voiceState.settings.voiceInputEnabled, commandParserHints: voiceState.settings.commandParserHints }),
+    "Clear state → reload → voiceInputEnabled false, commandParserHints true"
+  );
+  await persistState(page, { ...voiceState, settings: { ...voiceState.settings, voiceInputEnabled: true } });
+  await page.addInitScript(() => {
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+  });
+  await reloadApp(page);
+  assert(
+    await page.evaluate(() => {
+      const b = document.querySelector("#voiceBtn");
+      return !b || b.classList.contains("hidden");
+    }),
+    "voice button hidden without SpeechRecognition",
+    "voiceBtn visible in headless Chromium",
+    "Enable voice setting → headless browser → mic stays hidden"
+  );
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill("#commandInput", "75 x 7 @1");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "75" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "7",
+    "typed command still applies with voice setting enabled",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)}`,
+    "Log → enable voice (unsupported) → type 75 x 7 @1 → Apply"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

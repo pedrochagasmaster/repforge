@@ -515,6 +515,9 @@ nav button.active .nav__icon{background:var(--ember)}
 .commandbar input{flex:1;min-width:0;padding:12px 14px;border:1px solid var(--rule);border-radius:12px;
   background:var(--slag);color:var(--mist);font-size:15px}
 .commandbar .btn{flex:none;padding:12px 16px}
+.commandbar #voiceBtn{padding:12px 14px;font-size:1.1rem;line-height:1}
+.field--check{display:flex;align-items:center;gap:10px;font-weight:600}
+.field--check input{width:auto;margin:0}
 
 /* ---- Focus mode / log layout toggle ---- */
 .modeswitch{display:flex;gap:6px;background:var(--slag);border:1px solid var(--rule);border-radius:14px;padding:5px;margin-bottom:12px}

@@ -50,6 +50,7 @@
       <div id="fatigue" class="fatigue hidden"></div>
       <div class="commandbar">
         <input id="commandInput" type="text" autocomplete="off" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry">
+        <button type="button" id="voiceBtn" class="btn btn--steel hidden" aria-label="Voice input">🎤</button>
         <button type="button" id="commandApply" class="btn btn--steel">Apply</button>
       </div>
       <form id="logForm">
@@ -130,6 +131,8 @@
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> Numbers</label>
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> Easy / Hard / Max</label>
         </fieldset>
+        <label class="field field--check"><input type="checkbox" id="voiceInputEnabled"> Enable voice input</label>
+        <p class="lede">Voice input is optional and depends on browser support. Typed commands work offline. Voice recognition may be processed by your browser provider.</p>
         <button id="beginnerProgram" type="button" class="btn btn--steel">Use beginner-friendly program</button>
         <details class="advanced">
           <summary>Advanced · progression dials</summary>

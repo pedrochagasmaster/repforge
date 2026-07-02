@@ -48,9 +48,11 @@ function glossaryPopover(term,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__body").textContent=GLOSSARY[term]||"";
   g.classList.remove("hidden");
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric"};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric",voiceInputEnabled:false,commandParserHints:true};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
-const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric"});
+const normBool=(v,def)=>typeof v==="boolean"?v:def;
+const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),commandParserHints:normBool(s?.commandParserHints,DEFAULTS.commandParserHints)});
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>unit==="lb"?(+v||0)/LB:(+v||0);
@@ -609,6 +611,12 @@ function handleCommandSubmit(){
   $("#commandInput").value="";
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
   toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`)}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
+function startVoiceInput(){
+  if(!SR)return;const rec=new SR();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
+  rec.onerror=()=>toast("Voice input failed. Type the set instead.");
+  try{rec.start()}catch{toast("Voice input failed. Type the set instead.")}}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -860,6 +868,8 @@ function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!
 function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump").value=state.settings.minJump;$("#rirHigh").value=state.settings.rirHigh;$("#hardRir").value=state.settings.hardRir;
   $("#restSec").value=state.settings.restSec;$("#unit").value=state.settings.unit;
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
+  const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
+  updateVoiceBtn();
   const le=state.settings.lastExport;const ago=le?`Last backup: ${le.slice(0,10)}.`:"Last backup: never.";
   $("#storageNote").textContent=`${ago} Everything lives in this browser under "${KEY}". There is no cloud copy — export before clearing site data or switching phones.`}
 
@@ -870,7 +880,7 @@ function commitSettings(silent){const num=(sel,def,min)=>{const n=+$(sel).value;
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=+bw.value;if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldRirMode!==newRirMode)clearDraft();
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode});
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,commandParserHints:state.settings.commandParserHints});
   save();render();if(!silent)toast("Settings saved.");}
 
 function table(rows){if(!rows.length)return'<div class="empty">No data yet.</div>';const h=Object.keys(rows[0]);
@@ -961,6 +971,8 @@ function init(){
   const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
   if(cmdApply)cmdApply.onclick=handleCommandSubmit;
   if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
+  const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=startVoiceInput;
+  updateVoiceBtn();
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
@@ -971,6 +983,7 @@ function init(){
   $("#beginnerProgram").onclick=()=>{if(confirm("Replace your current program template? Your logged history stays."))switchToBeginnerProgram()};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
   $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
+  const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
