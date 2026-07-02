@@ -633,7 +633,60 @@ function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"
   state.log=state.log.filter(r=>r.session!==sid||+r.load>0);
   editSession=null;save();render();toast("Session updated.");}
 
-function renderProgram(){renderProgramEditor();renderVolume()}
+
+function currentProgramRows(log=state.log){
+  const ids=new Set(prog.exercises.map(e=>e.id));
+  const names=new Set(prog.exercises.map(e=>e.name));
+  return (Array.isArray(log)?log:[]).filter(r=>
+    (r.exerciseId&&ids.has(r.exerciseId))||(!r.exerciseId&&names.has(r.name)));
+}
+
+function expectedProgramSessions(){
+  const meta=state.programMeta||state.settings?.program||{};
+  const direct=+meta.targetSessions||+meta.expectedSessions;
+  if(Number.isFinite(direct)&&direct>0)return Math.round(direct);
+  const weeks=+meta.durationWeeks||+meta.targetWeeks;
+  const freq=+meta.weeklyFrequency||+meta.daysPerWeek;
+  if(Number.isFinite(weeks)&&weeks>0&&Number.isFinite(freq)&&freq>0)return Math.round(weeks*freq);
+  return null;
+}
+
+function programProgressSummary(log=state.log){
+  const rows=currentProgramRows(log);
+  const sessions=[...new Map(rows.map(r=>[r.session,r])).values()].filter(r=>r.session)
+    .sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created)));
+  const dates=rows.map(r=>String(r.date||"")).filter(Boolean).sort();
+  const hr=+state.settings.hardRir;
+  const hardSets=rows.filter(r=>isWork(r)&&+r.load>0&&+r.reps>0&&+r.rir<=hr).length;
+  const expected=expectedProgramSessions();
+  return {
+    rows,
+    sessionsCompleted:sessions.length,
+    startDate:dates[0]||"",
+    latestDate:dates.at(-1)||"",
+    hardSetsCompleted:hardSets,
+    prCount:detectPRs(rows).length,
+    expectedSessions:expected,
+    completionText:expected?`${sessions.length}/${expected} sessions`:`${sessions.length} session${sessions.length===1?"":"s"} logged · no target set`
+  };
+}
+window.programProgressSummary=programProgressSummary;
+
+function renderProgramSummary(){const el=$("#programSummary");if(!el)return;
+  const s=programProgressSummary();
+  if(!s.rows.length){el.innerHTML=`<div class="empty">Log a workout from the current program to start tracking program progress.</div>`;return}
+  const range=s.startDate&&s.latestDate?`${shortDate(s.startDate)} → ${shortDate(s.latestDate)}`:"—";
+  const pct=s.expectedSessions?Math.min(100,Math.round(s.sessionsCompleted/s.expectedSessions*100)):0;
+  el.innerHTML=`<div class="program-summary__grid">`+
+    `<div><span>Sessions</span><b>${s.sessionsCompleted}</b></div>`+
+    `<div><span>Date range</span><b>${esc(range)}</b></div>`+
+    `<div><span>Hard sets</span><b>${s.hardSetsCompleted}</b></div>`+
+    `<div><span>PRs</span><b>${s.prCount}</b></div>`+
+    `</div><div class="program-summary__completion"><span>${esc(s.completionText)}</span>`+
+    `<span class="program-summary__bar"><span style="width:${pct||4}%"></span></span></div>`;
+}
+
+function renderProgram(){renderProgramSummary();renderProgramEditor();renderVolume()}
 
 function renderProgramEditor(){
   const ds=prog.days();

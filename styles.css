@@ -330,6 +330,15 @@ tbody tr:nth-child(even) td{background:rgba(255,255,255,.012)}
 .vrow__num{font-family:var(--mono);font-size:12.5px;color:var(--steel);min-width:2.4rem;text-align:right}
 .vrow__num b{color:var(--mist);font-weight:600}
 
+.program-summary{margin-top:4px}
+.program-summary__grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:10px}
+.program-summary__grid div{background:var(--anvil);border:1px solid var(--rule-soft);border-radius:12px;padding:11px 12px}
+.program-summary__grid span,.program-summary__completion span:first-child{display:block;font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:600;color:var(--steel)}
+.program-summary__grid b{display:block;margin-top:5px;font-family:var(--mono);font-size:18px;color:var(--mist);font-weight:600}
+.program-summary__completion{margin-top:12px}
+.program-summary__bar{display:block;height:8px;border-radius:999px;background:var(--anvil);overflow:hidden;margin-top:7px}
+.program-summary__bar span{display:block;height:100%;border-radius:999px;background:linear-gradient(90deg,var(--quench),var(--gold));min-width:4px}
+
 /* ---- Program editor ---- */
 .peditor{display:flex;flex-direction:column;gap:14px}
 .pday{background:var(--slag);border:1px solid var(--rule);border-radius:var(--r);padding:14px;box-shadow:var(--shadow)}
