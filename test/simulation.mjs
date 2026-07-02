@@ -2480,6 +2480,52 @@ async function main() {
     "working set 100×10 vs prev 100×8"
   );
 
+  beginPhase("\nPhase: delta browse surfaces");
+  await nav(page, "log");
+  const browseDay = "Day 1";
+  await selectDay(page, browseDay);
+  const browseExs = await getExerciseMeta(page, browseDay);
+  const browseEx = browseExs[0];
+  await page.fill("#date", "2026-01-15");
+  await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 8, 2);
+  await saveWorkout(page);
+  await page.fill("#date", "2026-01-16");
+  await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 10, 2);
+  await saveWorkout(page);
+  await nav(page, "stats");
+  await page.evaluate(() => {
+    document.querySelector("#statsDeep").open = true;
+  });
+  await page.waitForTimeout(150);
+  const recentDeltasEl = await page.$("#recentDeltas table");
+  assert(
+    recentDeltasEl,
+    "Recent session deltas table renders in statsDeep",
+    "Missing #recentDeltas table",
+    "Stats → Dig deeper → Recent session deltas"
+  );
+  const recentDeltasText = await page.textContent("#recentDeltas");
+  assert(
+    /Improved|Flat|New|Regressed|Changed load/.test(recentDeltasText || ""),
+    "Recent deltas table includes a status label",
+    `Content: ${(recentDeltasText || "").slice(0, 240)}`,
+    "Seed 2+ comparable sessions with working sets"
+  );
+  await nav(page, "log");
+  await selectDay(page, browseDay);
+  await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 12, 2);
+  await page.waitForTimeout(100);
+  const deltaPreview = await page
+    .locator(`[data-ex="${browseEx.id}"] .delta-prev`)
+    .textContent()
+    .catch(() => "");
+  assert(
+    /vs last:/.test(deltaPreview || ""),
+    "Log tab live delta preview vs last session",
+    `Preview: ${deltaPreview || "(empty)"}`,
+    "Enter draft kg/reps for an exercise with prior sessions"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
