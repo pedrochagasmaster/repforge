@@ -545,7 +545,29 @@ function detectPRs(log,opts={}){
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
+function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
+  .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
+function parseSetCommand(text){
+  const n=normalizeCommandText(text),warnings=[];
+  let set=null,load,reps,rir=null,effort=null,unit=null,confidence="low",gotReps=false;
+  const setM=n.match(/(?:set|s)\s*(\d+)/);if(setM)set=+setM[1];
+  const primary=n.match(/(\d+(?:\.\d+)?)\s*(kg|lb)?\s*(?:x|for)\s*(\d+)/);
+  if(primary){load=+primary[1];unit=primary[2]||null;reps=+primary[3];confidence="high";gotReps=true}
+  else{const nums=(n.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+    if(set!=null){const i=nums.indexOf(set);if(i>=0)nums.splice(i,1)}
+    if(!nums.length)return {ok:false,error:"Could not read a set from that.",warnings};
+    if(nums.length<2)return {ok:false,error:"Could not find reps.",warnings};
+    load=nums[0];reps=nums[1];gotReps=true;if(nums.length>=3)rir=nums[2]}
+  if(!gotReps)return {ok:false,error:"Could not find reps.",warnings};
+  const rirM=n.match(/(?:rir|@)\s*(\d+(?:\.\d+)?)/);if(rirM)rir=+rirM[1];
+  else{const tr=n.match(/\b(\d+(?:\.\d+)?)\s*rir\b/);if(tr)rir=+tr[1]}
+  const ef=n.match(/\b(easy|hard|max)\b/);if(ef)effort=ef[1];
+  if(!unit){const u=n.match(/\b(\d+(?:\.\d+)?)\s*(kg|lb)\b/);if(u)unit=u[2]}
+  let exerciseName=null;const lead=n.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
+  return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
+window.__repforgeParseCommand=parseSetCommand;
+window.__repforgeNormalizeCommand=normalizeCommandText;
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);

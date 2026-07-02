@@ -2393,6 +2393,37 @@ async function main() {
     "Save workout → localStorage repforge_v1 mirrors persisted state"
   );
 
+  beginPhase("Phase: command parser");
+  const parseCmd = (t) => page.evaluate((x) => window.__repforgeParseCommand(x), t);
+  const p80x8 = await parseCmd("80 x 8");
+  assert(p80x8.ok && p80x8.load === 80 && p80x8.reps === 8 && p80x8.confidence === "high", "parse: 80 x 8", JSON.stringify(p80x8));
+  const p80for8 = await parseCmd("80 for 8");
+  assert(p80for8.ok && p80for8.load === 80 && p80for8.reps === 8 && p80for8.confidence === "high", "parse: 80 for 8", JSON.stringify(p80for8));
+  const p808 = await parseCmd("80 8");
+  assert(p808.ok && p808.load === 80 && p808.reps === 8 && p808.confidence === "low", "parse: 80 8 fallback", JSON.stringify(p808));
+  const pRir = await parseCmd("80 x 8 rir 1");
+  assert(pRir.ok && pRir.load === 80 && pRir.reps === 8 && pRir.rir === 1, "parse: 80 x 8 rir 1", JSON.stringify(pRir));
+  const pAt = await parseCmd("80 x 8 @1");
+  assert(pAt.ok && pAt.load === 80 && pAt.reps === 8 && pAt.rir === 1, "parse: 80 x 8 @1", JSON.stringify(pAt));
+  const pSet2 = await parseCmd("set 2 80 x 8");
+  assert(pSet2.ok && pSet2.set === 2 && pSet2.load === 80 && pSet2.reps === 8, "parse: set 2 80 x 8", JSON.stringify(pSet2));
+  const pS2 = await parseCmd("s2 80x8");
+  assert(pS2.ok && pS2.set === 2 && pS2.load === 80 && pS2.reps === 8, "parse: s2 80x8", JSON.stringify(pS2));
+  const pEasy = await parseCmd("80 for 8 easy");
+  assert(pEasy.ok && pEasy.load === 80 && pEasy.reps === 8 && pEasy.effort === "easy", "parse: 80 for 8 easy", JSON.stringify(pEasy));
+  const pHard = await parseCmd("80 for 8 hard");
+  assert(pHard.ok && pHard.load === 80 && pHard.reps === 8 && pHard.effort === "hard", "parse: 80 for 8 hard", JSON.stringify(pHard));
+  const pMax = await parseCmd("80 for 8 max");
+  assert(pMax.ok && pMax.load === 80 && pMax.reps === 8 && pMax.effort === "max", "parse: 80 for 8 max", JSON.stringify(pMax));
+  const pDec = await parseCmd("80.5 x 8");
+  assert(pDec.ok && pDec.load === 80.5 && pDec.reps === 8, "parse: 80.5 x 8 decimal", JSON.stringify(pDec));
+  const pLb = await parseCmd("180 lb x 8");
+  assert(pLb.ok && pLb.load === 180 && pLb.reps === 8 && pLb.unit === "lb", "parse: 180 lb x 8", JSON.stringify(pLb));
+  const pBad = await parseCmd("not a set");
+  assert(!pBad.ok && pBad.error === "Could not read a set from that.", "parse: invalid text", JSON.stringify(pBad));
+  const pNoReps = await parseCmd("80");
+  assert(!pNoReps.ok && pNoReps.error === "Could not find reps.", "parse: load only", JSON.stringify(pNoReps));
+
   // Console errors
   assert(
     consoleErrors.length === 0,
