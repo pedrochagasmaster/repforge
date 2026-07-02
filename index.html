@@ -96,6 +96,17 @@
     <section id="program" class="view" aria-label="Program">
       <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
       <p class="lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
+      <div class="programmeta card" aria-label="Program details">
+        <div class="programmeta__head"><p class="cardtitle">Program details</p><span id="programStatusBadge" class="programmeta__badge" data-status="active">active</span></div>
+        <label class="field">Program name<input id="programName" data-field="name" type="text" autocomplete="off" placeholder="My Program"></label>
+        <label class="field">Start date<input id="programStartDate" data-field="startDate" type="date"></label>
+        <label class="field">Goal / notes<textarea id="programNotes" data-field="notes" rows="3" placeholder="Optional goal, phase notes, or constraints"></textarea></label>
+        <label class="field">Status<select id="programStatus" data-field="status">
+          <option value="active">Active</option>
+          <option value="archived">Archived</option>
+          <option value="template-only">Template-only</option>
+        </select></label>
+      </div>
       <div id="programEditor" class="peditor"></div>
       <button id="addDay" class="btn btn--steel peditor__addday" type="button">+ Add day</button>
       <details class="advanced">
