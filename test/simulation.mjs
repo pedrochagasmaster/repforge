@@ -496,6 +496,15 @@ async function main() {
     `name=${state.programMeta?.name}`,
     "Program tab → edit program name"
   );
+  await nav(page, "log");
+  const logEyebrow = await page.locator("#logContext").textContent();
+  assert(
+    logEyebrow.includes("Simulation Split"),
+    "Log tab eyebrow shows the program name",
+    `eyebrow=${logEyebrow}`,
+    "Program tab → name program → Log tab eyebrow"
+  );
+  await nav(page, "program");
   const startedIso = (() => {
     const d = new Date(Date.now() - 15 * 86400000);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -913,6 +922,12 @@ async function main() {
     "Program export is v2 with meta and exercises",
     `Got: ${JSON.stringify(progFile).slice(0, 120)}`,
     "Program → Advanced → Export program JSON"
+  );
+  assert(
+    /^repforge_program_.+\.json$/.test(progDl.suggestedFilename()),
+    "Program export filename carries a slug segment",
+    `filename=${progDl.suggestedFilename()}`,
+    "Program → Advanced → Export program JSON with a named program"
   );
   const logBefore = (await getState(page)).log.length;
   progExercises[0].name = "IMPORTED_RENAME";

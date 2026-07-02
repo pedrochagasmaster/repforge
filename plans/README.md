@@ -261,5 +261,5 @@ Consensus across ≥5 personas that these betray the product:
 | 024 | DRAFT — do not execute before human review of the 023 design doc |
 | 025 | DONE |
 | 026 | DONE |
-| 027 | TODO |
-| 028 | TODO |
+| 027 | DONE |
+| 028 | DONE |

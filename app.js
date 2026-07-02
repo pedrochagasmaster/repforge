@@ -215,12 +215,9 @@ function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>
   return{hot,total:withHistory.length,ratio:hot/withHistory.length}}
 function programVolumeCompliance(){const planned=prog.volume();let plannedTotal=0;
   for(const [,v] of planned)plannedTotal+=v.d+v.p;if(!plannedTotal)return null;
-  const cutoff=daysAgo(6),hr=+state.settings.hardRir,m=new Map();
-  for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
-    const mus=rowMuscles(x);for(const p of muscles(mus.primary))addVol(m,p,1,0);for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
-  let completed=0;for(const [,v] of m)completed+=v.d+v.p;
+  const m=completedHardSets(7);let completed=0;for(const [,v] of m)completed+=v.d+v.p;
   return{planned:plannedTotal,completed,ratio:Math.min(completed/plannedTotal,1)}}
-function programStatusLabel(){const adherence=programAdherence(),health=programProgressionHealth();
+function programStatusLabel(adherence,health){
   const hasLog=state.log.some(isWork);if(!hasLog)return"Getting started";
   const adRatio=adherence.ratio,hRatio=health?.ratio??0;
   if(adRatio>=1&&hRatio>=0.4)return"On track";if(adRatio>=0.5)return"Partial week";return"Rebuilding"}
@@ -303,6 +300,8 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
 
 function renderWorkout(){
+  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,wk=programWeek();
+    lc.textContent=nm||wk?`${nm||"Untitled program"}${wk?` · Week ${wk}`:""}`:"Today's session"}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
@@ -578,11 +577,13 @@ function renderAttention(){const el=$("#attention");if(!el)return;
     if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast("Log this lift to chart it.")});}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
-function renderCompleted(){const el=$("#completedVolume");if(!el)return;const cutoff=daysAgo(volWindow-1),hr=+state.settings.hardRir,m=new Map();
+function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
   for(const x of state.log){if(String(x.date)<cutoff)continue;if(!(+x.load>0&&+x.reps>0&&+x.rir<=hr)||!isWork(x))continue;
     const mus=rowMuscles(x);
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
+function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
   const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
   el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
@@ -676,8 +677,8 @@ function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolum
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
-  const ad=programAdherence(),week=programWeek(),status=programStatusLabel();
-  const health=programProgressionHealth(),vol=programVolumeCompliance();
+  const ad=programAdherence(),week=programWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const status=programStatusLabel(ad,health);
   const weekChip=week?`<span class="pmeta__chip">Week ${week}</span>`:"";
   const healthChip=health?`<span class="pmeta__chip">${health.hot}/${health.total} ready to add</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${Math.round(vol.ratio*100)}% volume (7d)</span>`:"";
@@ -834,8 +835,10 @@ function exportCsv(){
 function exportJson(){state.settings.lastExport=new Date().toISOString();save();
   const text=JSON.stringify(state,null,2),name=`repforge_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");renderSettings()}
+const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
-  download(JSON.stringify(payload,null,2),`repforge_program_${today()}.json`,"application/json")}
+  const slug=fileSlug(state.programMeta?.name);
+  download(JSON.stringify(payload,null,2),`repforge_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
 async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
