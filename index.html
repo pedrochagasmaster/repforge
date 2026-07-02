@@ -96,7 +96,17 @@
       </div>
       <div id="segStrength" class="stats-seg"><p class="lede">Coming soon</p></div>
       <div id="segVolume" class="stats-seg"><p class="lede">Coming soon</p></div>
-      <div id="segPRs" class="stats-seg"><p class="lede">Coming soon</p></div>
+      <div id="segPRs" class="stats-seg">
+        <p class="lede">Every personal record across your log — load, reps, and estimated one-rep max.</p>
+        <div id="prFilterSeg" class="seg seg--window" role="tablist" aria-label="PR kind filter">
+          <button type="button" data-prf="all" class="active" role="tab" aria-selected="true">All</button>
+          <button type="button" data-prf="load" role="tab" aria-selected="false">Load</button>
+          <button type="button" data-prf="reps" role="tab" aria-selected="false">Reps</button>
+          <button type="button" data-prf="e1rm" role="tab" aria-selected="false">e1RM</button>
+          <button type="button" data-prf="program" role="tab" aria-selected="false">Program</button>
+        </div>
+        <div id="prTimeline" class="prtimeline"></div>
+      </div>
       <div id="segReview" class="stats-seg"><p class="lede">Coming soon</p></div>
     </section>
 

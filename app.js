@@ -186,7 +186,7 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="full",focusIndex=0,statsSeg="overview";
+let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -269,7 +269,8 @@ function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("a
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  if(seg==="overview")redrawChart()}
+  if(seg==="overview")redrawChart();
+  if(seg==="prs")renderPRTimeline()}
 
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 function recommendation(ex){
@@ -540,6 +541,7 @@ function renderStats(){
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,[unitLabel()]:fmtLoad(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
   renderPRs();renderAttention();renderCompleted();
+  if(statsSeg==="prs")renderPRTimeline();
 }
 
 function detectPRs(log,opts={}){
@@ -557,6 +559,33 @@ function detectPRs(log,opts={}){
     best.set(k,cur)}
   return events}
 window.detectPRs=detectPRs;
+
+function prTimeline(filter){
+  const all=detectPRs(state.log);let events=all;
+  if(filter==="load"||filter==="reps"||filter==="e1rm")events=all.filter(e=>e.kind===filter);
+  else if(filter==="program"){const ids=new Set(prog.exercises.map(e=>e.id));
+    events=all.filter(e=>e.exerciseId&&ids.has(e.exerciseId))}
+  return events.sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
+window.__repforgePrTimeline=prTimeline;
+
+function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
+  $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
+  const events=prTimeline(prFilter);
+  if(!events.length){el.innerHTML=`<div class="empty">No PRs match this filter yet.</div>`;return}
+  const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+  const prDate=d=>{const p=String(d||"").split("-");return p.length===3?`${months[+p[1]-1]} ${+p[2]}`:String(d||"")};
+  const kindLbl=k=>k==="load"?"Load PR":k==="reps"?"Reps PR":"e1RM PR";
+  const delta=ev=>ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}${unitLabel()}`:"")
+    :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
+    :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}${unitLabel()}`:"");
+  el.innerHTML=events.map(ev=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
+    const d=delta(ev);
+    return `<div class="prtl__row"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
+      `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
+      `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
+      `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
+      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("")}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
