@@ -49,6 +49,13 @@ function glossaryPopover(term,anchor){const g=$("#glossary");if(!g)return;
   g.classList.remove("hidden");
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric"};
+const newProgramDoc=()=>({id:uid(),startedAt:new Date().toISOString(),active:true});
+const normalizeProgramDoc=d=>({
+  id:typeof d?.id==="string"&&d.id?d.id:uid(),
+  startedAt:typeof d?.startedAt==="string"&&d.startedAt?d.startedAt:new Date().toISOString(),
+  active:d?.active===false?false:true,
+  completedAt:typeof d?.completedAt==="string"?d.completedAt:""
+});
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric"});
 const LB=2.2046226218;
@@ -188,8 +195,8 @@ function migrateLog(){let changed=false;for(const row of state.log){
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},program,log:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),program:s.program,log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
+  return{settings:normalizeSettings(s.settings),program:s.program,programDoc:normalizeProgramDoc(s.programDoc),log:s.log}}catch{}return{settings:{...DEFAULTS},program,programDoc:newProgramDoc(),log:[]}}
+function applyState(s){state={settings:normalizeSettings(s.settings),program:s.program,programDoc:normalizeProgramDoc(s.programDoc),log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
 function save(){persist()}
 function persist(){
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}
@@ -428,7 +435,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
       rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
     if(load<=0)continue;
     if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
-    const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
+    const row={session,date,day,name:ex.name,exerciseId:ex.id,programId:state.programDoc?.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
     if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
     if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
@@ -636,10 +643,15 @@ function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"
 function renderProgram(){renderProgramEditor();renderVolume()}
 
 function renderProgramEditor(){
-  const ds=prog.days();
-  $("#programEditor").innerHTML=ds.length
+  const ds=prog.days(),doc=state.programDoc||normalizeProgramDoc();
+  const status=doc.active?`Active since ${esc(shortDate(doc.startedAt.slice(0,10)))}`:`Archived ${esc(shortDate((doc.completedAt||"").slice(0,10)))}`;
+  const lifecycle=`<div class="programlife"><div><b>${doc.active?"Current program":"Archived program"}</b><span>${status} · ID ${esc(doc.id.slice(0,8))}</span></div>`+
+    `<div class="programlife__actions"><button class="btn btn--steel" type="button" data-act="editProgram">Edit current program</button>`+
+    `<button class="btn btn--forge" type="button" data-act="startProgram">Start new program from this template</button>`+
+    `<button class="btn btn--danger" type="button" data-act="archiveProgram"${doc.active?"":" disabled"}>Archive current program</button></div></div>`;
+  $("#programEditor").innerHTML=lifecycle+(ds.length
     ?ds.map(dayCard).join("")
-    :`<div class="table"><div class="empty">No training days yet. Add one to start building your split.</div></div>`;
+    :`<div class="table"><div class="empty">No training days yet. Add one to start building your split.</div></div>`);
   if(document.activeElement!==$("#programJson"))$("#programJson").value=JSON.stringify(prog.toJSON(),null,2);
   bindEditor();
 }
@@ -698,7 +710,10 @@ function bindEditor(){
 }
 
 function editorAction(act,ds){
-  if(act==="addEx"){prog.addExercise(ds.day);persistProgram();render();toast("Exercise added.")}
+  if(act==="editProgram"){toast("Editing the current program.")}
+  else if(act==="startProgram"){startNewProgramFromTemplate()}
+  else if(act==="archiveProgram"){archiveCurrentProgram()}
+  else if(act==="addEx"){prog.addExercise(ds.day);persistProgram();render();toast("Exercise added.")}
   else if(act==="delEx"){if(confirm("Remove this exercise from your program? Logged history will stay on this device.")){prog.removeExercise(ds.id);persistProgram();render();toast("Exercise removed.")}}
   else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
   else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
@@ -715,6 +730,10 @@ function renderVolume(){
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
 function persistProgram(){state.program=prog.toJSON();save()}
+function startNewProgramFromTemplate(){if(!confirm("Start a new program from this template? Future workout logs will use a new program ID; existing history stays."))return;
+  prog=new Program(prog.toJSON().map(({id,...ex})=>ex));state.programDoc=newProgramDoc();persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast("New program started from this template.")}
+function archiveCurrentProgram(){if(!state.programDoc?.active)return;if(!confirm("Archive the current program? Your logged history stays, and you can still start a new program from this template."))return;
+  state.programDoc={...normalizeProgramDoc(state.programDoc),active:false,completedAt:new Date().toISOString()};save();render();toast("Program archived. Your log is unchanged.")}
 
 function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
   const byId=new Map(prog.exercises.map(e=>[e.id,e]));
@@ -747,7 +766,7 @@ function exportCsv(){
   const hr=+state.settings.hardRir;
   const cols=[
     ["session",r=>r.session],["date",r=>r.date],["day",r=>r.day],
-    ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],
+    ["name",r=>exerciseLabel(r)],["performed_name",r=>r.performedName||""],["exercise_id",r=>r.exerciseId||""],["program_id",r=>r.programId||""],
     ["set",r=>r.set],["load",r=>r.load],["reps",r=>r.reps],["rir",r=>r.rir],
     ["e1rm",r=>+e1rm(+r.load,+r.reps).toFixed(2)],
     ["tonnage",r=>+((+r.load||0)*(+r.reps||0)).toFixed(2)],
@@ -802,7 +821,7 @@ function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
   migrateLog();save();
   render();toast(`Merged ${added} new session${added===1?"":"s"}.`)}
 
-function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast("Beginner-friendly program loaded. Your log is unchanged.")}
+function switchToBeginnerProgram(){prog=new Program(programBeginner);state.programDoc={...normalizeProgramDoc(state.programDoc),active:true};persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast("Beginner-friendly program loaded. Your log is unchanged.")}
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -846,7 +865,7 @@ async function boot(){
     if(ls){raw=JSON.parse(ls);try{await idbSet(KEY,raw)}catch(e){console.warn("idb migration failed",e)}}}
   catch(e){console.warn("localStorage read failed",e)}}
   state=normalizeLoaded(raw);
-  prog=new Program(state.program);state.program=prog.toJSON();
+  prog=new Program(state.program);state.program=prog.toJSON();state.programDoc=normalizeProgramDoc(state.programDoc);
   day=days()[0]||"Day 1";
   if(migrateLog())persist();
   init();
