@@ -1,4 +1,4 @@
-const KEY="repforge_v1",DRAFT="repforge_draft_v1";
+const KEY="repforge_v1",DRAFT="repforge_draft_v1",PROGRAM_ID="program_v1";
 const DB="repforge",STORE="kv";
 function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);
   r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
@@ -74,11 +74,12 @@ function convertDraftUnits(oldUnit,newUnit){
 const posNum=(v,f=0)=>Math.max(0,Number.isFinite(+v)?+v:f);
 const isWork=r=>!r.warmup;
 const liftKey=x=>x.exerciseId||x.name;
-const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
+const exerciseLabel=row=>{if(row.exerciseId){const ex=programExercises().find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
 const displayName=row=>row.performedName||exerciseLabel(row);
 // Muscles for a log row: prefer the saved snapshot, else resolve from the live program.
 const rowMuscles=row=>{if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
-  const ex=state.program.find(e=>e.id===row.exerciseId)||state.program.find(e=>e.name===row.name);
+  const list=programExercises();
+  const ex=list.find(e=>e.id===row.exerciseId)||list.find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
 
 const defaultAlternates={
@@ -144,12 +145,13 @@ class Exercise{
 }
 
 class Program{
-  constructor(list=[]){const ids=new Set();this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);return ex});this.renumber()}
+  constructor(input=[]){const list=Array.isArray(input)?input:Array.isArray(input?.exercises)?input.exercises:[];this.id=typeof input?.id==="string"&&input.id?input.id:PROGRAM_ID;const ids=new Set();this.exercises=list.map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);return ex});this.renumber()}
   days(){return [...new Set(this.exercises.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
   forDay(d){return this.exercises.filter(e=>e.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
   find(id){return this.exercises.find(e=>e.id===id)}
   renumber(){for(const d of this.days())this.forDay(d).forEach((e,i)=>e.order=i+1)}
   toJSON(){return this.exercises.map(e=>e.toJSON())}
+  toObject(){return {id:this.id,exercises:this.toJSON()}}
   update(id,field,value){const e=this.find(id);if(!e)return;
     if(field==="sets")e.sets=Exercise.posInt(value,e.sets);
     else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
@@ -182,20 +184,36 @@ const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0;
 
+const programExercises=()=>Array.isArray(state.program)?state.program:Array.isArray(state.program?.exercises)?state.program.exercises:[];
 function migrateLog(){let changed=false;for(const row of state.log){
-  if(!row.exerciseId){const ex=state.program.find(e=>e.name===row.name&&e.day===row.day)||state.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
+  const list=programExercises();
+  if(!row.exerciseId){const ex=list.find(e=>e.name===row.name&&e.day===row.day)||list.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
   const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
-function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},program,log:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),program:s.program,log:Array.isArray(s.log)?s.log:[]};prog=new Program(state.program);state.program=prog.toJSON();migrateLog();save()}
+function normalizeProgramShape(input,activeProgramId){
+  if(Array.isArray(input))return{id:typeof activeProgramId==="string"&&activeProgramId?activeProgramId:PROGRAM_ID,exercises:input};
+  if(input&&Array.isArray(input.exercises))return{id:typeof input.id==="string"&&input.id?input.id:(typeof activeProgramId==="string"&&activeProgramId?activeProgramId:PROGRAM_ID),exercises:input.exercises};
+  return{id:PROGRAM_ID,exercises:program};
+}
+function normalizeLoaded(s){try{if((s?.program||Array.isArray(s?.programs))&&Array.isArray(s.log)){
+  // Compatibility contract for persisted backups:
+  // - v1 legacy backups may store `program` as an exercise array.
+  // - Current single-program backups store `program` as `{ id, exercises }` and
+  //   `activeProgramId` mirrors that id without hard-coding a default-name field.
+  // - Future multi-program backups may store `{ programs, activeProgramId }`; while
+  //   this UI still edits one active program, import selects the active id when
+  //   available and falls back to the first valid program.
+  const fromPrograms=Array.isArray(s.programs)?s.programs.find(p=>p?.id===s.activeProgramId)||s.programs.find(p=>Array.isArray(p?.exercises)):null;
+  const p=normalizeProgramShape(fromPrograms||s.program,s.activeProgramId);
+  return{settings:normalizeSettings(s.settings),program:p,activeProgramId:p.id,log:s.log}}}catch{}const p=normalizeProgramShape(program);return{settings:{...DEFAULTS},program:p,activeProgramId:p.id,log:[]}}
+function applyState(s){const n=normalizeLoaded(s);state={settings:n.settings,program:n.program,activeProgramId:n.activeProgramId,log:Array.isArray(n.log)?n.log:[]};prog=new Program(state.program);state.program=prog.toObject();state.activeProgramId=prog.id;migrateLog();save()}
 function save(){persist()}
 function persist(){
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}
   idbSet(KEY,state).catch(e=>console.warn("idb persist failed",e))}
-function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
-function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
+function days(){return [...new Set(programExercises().map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
+function exercises(d=day){return programExercises().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
 function last(ex){const match=matchLift(ex);
   const hits=state.log.filter(x=>match(x)&&isWork(x));if(!hits.length)return[];
@@ -714,14 +732,14 @@ function renderVolume(){
 }
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
-function persistProgram(){state.program=prog.toJSON();save()}
+function persistProgram(){state.program=prog.toObject();state.activeProgramId=prog.id;save()}
 
-function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
+function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);const parsedProgram=normalizeProgramShape(parsed,state.activeProgramId);const parsedList=parsedProgram.exercises;if(!Array.isArray(parsedList))throw Error();
   const byId=new Map(prog.exercises.map(e=>[e.id,e]));
-  for(const row of parsed){if(row.id&&byId.has(row.id))continue;
+  for(const row of parsedList){if(row.id&&byId.has(row.id))continue;
     const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
-    if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
-  prog=new Program(parsed);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast("Program saved.")}
+    if(match&&!parsedList.some(r=>r.id===match.id))row.id=match.id}
+  prog=new Program({id:parsedProgram.id,exercises:parsedList});persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast("Program saved.")}
   catch{toast("That JSON didn't parse. Check the brackets and commas.")}}
 
 function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump").value=state.settings.minJump;$("#rirHigh").value=state.settings.rirHigh;$("#hardRir").value=state.settings.hardRir;
@@ -768,14 +786,15 @@ function exportJson(){state.settings.lastExport=new Date().toISOString();save();
 function exportProgram(){download(JSON.stringify(prog.toJSON(),null,2),`repforge_program_${today()}.json`,"application/json")}
 async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text());
-    const list=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.program)?parsed.program:null);
+    const shaped=normalizeProgramShape(Array.isArray(parsed?.programs)?(parsed.programs.find(p=>p?.id===parsed.activeProgramId)||parsed.programs[0]):(parsed.program||parsed),parsed.activeProgramId);
+    const list=shaped.exercises;
     if(!list||!list.length)throw Error();
     if(!confirm(`Replace your current program with ${list.length} exercises from this file?\n\nYour training log and settings are not touched.`)){e.target.value="";toast("Program import cancelled.");return}
-    $("#programJson").value=JSON.stringify(list,null,2);saveProgram()}
+    $("#programJson").value=JSON.stringify({id:shaped.id,exercises:list},null,2);saveProgram()}
   catch{toast("That file isn't a RepForge program export.")}
   e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();
+  try{const raw=JSON.parse(await f.text());if(!(raw?.program||Array.isArray(raw?.programs))||!Array.isArray(raw.log))throw Error();const s=normalizeLoaded(raw);if(!s.program||!Array.isArray(s.log))throw Error();
     const inSessions=new Set(s.log.map(r=>r.session)).size,inSets=s.log.length;
     const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
     const have=new Set(state.log.map(r=>r.session));
@@ -846,7 +865,7 @@ async function boot(){
     if(ls){raw=JSON.parse(ls);try{await idbSet(KEY,raw)}catch(e){console.warn("idb migration failed",e)}}}
   catch(e){console.warn("localStorage read failed",e)}}
   state=normalizeLoaded(raw);
-  prog=new Program(state.program);state.program=prog.toJSON();
+  prog=new Program(state.program);state.program=prog.toObject();state.activeProgramId=prog.id;
   day=days()[0]||"Day 1";
   if(migrateLog())persist();
   init();
