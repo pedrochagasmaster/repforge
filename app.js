@@ -48,9 +48,11 @@ function glossaryPopover(term,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__body").textContent=GLOSSARY[term]||"";
   g.classList.remove("hidden");
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric"};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric",voiceInputEnabled:false,commandParserHints:true};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
-const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric"});
+const normBool=(v,def)=>typeof v==="boolean"?v:def;
+const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),commandParserHints:normBool(s?.commandParserHints,DEFAULTS.commandParserHints)});
+const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>unit==="lb"?(+v||0)/LB:(+v||0);
@@ -876,6 +878,27 @@ function detectPRs(log,opts={}){
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
+function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
+  .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
+function parseSetCommand(text){
+  const n=normalizeCommandText(text),warnings=[];
+  let set=null,load,reps,rir=null,effort=null,unit=null,confidence="low",gotReps=false;
+  const setM=n.match(/(?:set|s)\s*(\d+)/);if(setM)set=+setM[1];
+  const primary=n.match(/(\d+(?:\.\d+)?)\s*(kg|lb)?\s*(?:x|for)\s*(\d+)/);
+  if(primary){load=+primary[1];unit=primary[2]||null;reps=+primary[3];confidence="high";gotReps=true}
+  else{const nums=(n.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
+    if(set!=null){const i=nums.indexOf(set);if(i>=0)nums.splice(i,1)}
+    if(!nums.length)return {ok:false,error:"Could not read a set from that.",warnings};
+    if(nums.length<2)return {ok:false,error:"Could not find reps.",warnings};
+    load=nums[0];reps=nums[1];gotReps=true;if(nums.length>=3)rir=nums[2]}
+  if(!gotReps)return {ok:false,error:"Could not find reps.",warnings};
+  const rirM=n.match(/(?:rir|@)\s*(\d+(?:\.\d+)?)/);if(rirM)rir=+rirM[1];
+  else{const tr=n.match(/\b(\d+(?:\.\d+)?)\s*rir\b/);if(tr)rir=+tr[1]}
+  const ef=n.match(/\b(easy|hard|max)\b/);if(ef)effort=ef[1];
+  if(!unit){const u=n.match(/\b(\d+(?:\.\d+)?)\s*(kg|lb)\b/);if(u)unit=u[2]}
+  let exerciseName=null;const exSrc=setM?n.slice(setM.index+setM[0].length).trim():n;
+  const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
+  return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
 window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
@@ -884,6 +907,54 @@ window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCompleteProgram=completeCurrentProgram;
 window.__repforgeStartNextMeso=startNextMesocycle;
+window.__repforgeParseCommand=parseSetCommand;
+window.__repforgeNormalizeCommand=normalizeCommandText;
+
+function resolveExerciseFromCommand(parsed,currentExercises){
+  if(parsed.exerciseName){
+    const q=parsed.exerciseName.toLowerCase();
+    const hit=currentExercises.filter(e=>{const n=e.name.toLowerCase();return n.startsWith(q)||n.includes(q)});
+    return hit.length===1?hit[0]:null}
+  if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
+  return currentExercises[0]||null}
+function applyParsedCommand(parsed,context){
+  const d=context?.day??day,exs=exercises(d).filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
+  if(!ex)return;
+  const pick=n=>{if(n<1||n>ex.sets)return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
+  let setN=null;
+  if(parsed.set!=null){for(let n=parsed.set;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  else{for(let n=1;n<=ex.sets;n++){setN=pick(n);if(setN)break}}
+  if(!setN){toast("All sets already saved for this exercise.");return}
+  const key=`${ex.id}_${setN}`;
+  let loadDisp=parsed.load;
+  if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
+  const loadInp=$(`[data-k="${key}_load"]`);if(loadInp)loadInp.value=fmt(loadDisp);
+  const repsInp=$(`[data-k="${key}_reps"]`);if(repsInp)repsInp.value=fmt(parsed.reps);
+  if(state.settings.rirMode==="effort"){
+    let eff=parsed.effort;
+    if(!eff&&parsed.rir!=null)eff=parsed.rir>=2.5?"easy":parsed.rir<=0.5?"max":"hard";
+    if(!eff)eff="hard";
+    $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>b.classList.toggle("active",b.dataset.e===eff))}
+  else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
+  touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
+  saveDraft();updateSaveMeta();return{ex,set:setN}}
+function handleCommandSubmit(){
+  const v=$("#commandInput")?.value?.trim();if(!v)return;
+  const parsed=parseSetCommand(v);
+  if(!parsed.ok){toast(parsed.error);return}
+  const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
+  if(!ex){toast("Couldn't match that exercise.");return}
+  const r=applyParsedCommand(parsed,{day,logMode});
+  if(!r)return;
+  $("#commandInput").value="";
+  const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
+  toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`)}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
+function startVoiceInput(){
+  if(!SR)return;const rec=new SR();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
+  rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
+  rec.onerror=()=>toast("Voice input failed. Type the set instead.");
+  try{rec.start()}catch{toast("Voice input failed. Type the set instead.")}}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -1136,6 +1207,8 @@ function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!
 function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump").value=state.settings.minJump;$("#rirHigh").value=state.settings.rirHigh;$("#hardRir").value=state.settings.hardRir;
   $("#restSec").value=state.settings.restSec;$("#unit").value=state.settings.unit;
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
+  const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
+  updateVoiceBtn();
   const le=state.settings.lastExport;const ago=le?`Last backup: ${le.slice(0,10)}.`:"Last backup: never.";
   $("#storageNote").textContent=`${ago} Everything lives in this browser under "${KEY}". There is no cloud copy — export before clearing site data or switching phones.`}
 
@@ -1146,7 +1219,7 @@ function commitSettings(silent){const num=(sel,def,min)=>{const n=+$(sel).value;
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=+bw.value;if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldRirMode!==newRirMode)clearDraft();
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode});
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,commandParserHints:state.settings.commandParserHints});
   save();render();if(!silent)toast("Settings saved.");}
 
 function table(rows){if(!rows.length)return'<div class="empty">No data yet.</div>';const h=Object.keys(rows[0]);
@@ -1315,6 +1388,11 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
+  const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
+  if(cmdApply)cmdApply.onclick=handleCommandSubmit;
+  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
+  const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=startVoiceInput;
+  updateVoiceBtn();
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
@@ -1329,6 +1407,7 @@ function init(){
   $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
   $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
+  const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};

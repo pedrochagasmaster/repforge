@@ -2982,6 +2982,128 @@ async function main() {
     "History → session card includes delta line"
   );
 
+  beginPhase("Phase: command parser");
+  const parseCmd = (t) => page.evaluate((x) => window.__repforgeParseCommand(x), t);
+  const p80x8 = await parseCmd("80 x 8");
+  assert(p80x8.ok && p80x8.load === 80 && p80x8.reps === 8 && p80x8.confidence === "high", "parse: 80 x 8", JSON.stringify(p80x8));
+  const p80for8 = await parseCmd("80 for 8");
+  assert(p80for8.ok && p80for8.load === 80 && p80for8.reps === 8 && p80for8.confidence === "high", "parse: 80 for 8", JSON.stringify(p80for8));
+  const p808 = await parseCmd("80 8");
+  assert(p808.ok && p808.load === 80 && p808.reps === 8 && p808.confidence === "low", "parse: 80 8 fallback", JSON.stringify(p808));
+  const pRir = await parseCmd("80 x 8 rir 1");
+  assert(pRir.ok && pRir.load === 80 && pRir.reps === 8 && pRir.rir === 1, "parse: 80 x 8 rir 1", JSON.stringify(pRir));
+  const pAt = await parseCmd("80 x 8 @1");
+  assert(pAt.ok && pAt.load === 80 && pAt.reps === 8 && pAt.rir === 1, "parse: 80 x 8 @1", JSON.stringify(pAt));
+  const pSet2 = await parseCmd("set 2 80 x 8");
+  assert(pSet2.ok && pSet2.set === 2 && pSet2.load === 80 && pSet2.reps === 8, "parse: set 2 80 x 8", JSON.stringify(pSet2));
+  const pS2 = await parseCmd("s2 80x8");
+  assert(pS2.ok && pS2.set === 2 && pS2.load === 80 && pS2.reps === 8, "parse: s2 80x8", JSON.stringify(pS2));
+  const pEasy = await parseCmd("80 for 8 easy");
+  assert(pEasy.ok && pEasy.load === 80 && pEasy.reps === 8 && pEasy.effort === "easy", "parse: 80 for 8 easy", JSON.stringify(pEasy));
+  const pHard = await parseCmd("80 for 8 hard");
+  assert(pHard.ok && pHard.load === 80 && pHard.reps === 8 && pHard.effort === "hard", "parse: 80 for 8 hard", JSON.stringify(pHard));
+  const pMax = await parseCmd("80 for 8 max");
+  assert(pMax.ok && pMax.load === 80 && pMax.reps === 8 && pMax.effort === "max", "parse: 80 for 8 max", JSON.stringify(pMax));
+  const pDec = await parseCmd("80.5 x 8");
+  assert(pDec.ok && pDec.load === 80.5 && pDec.reps === 8, "parse: 80.5 x 8 decimal", JSON.stringify(pDec));
+  const pLb = await parseCmd("180 lb x 8");
+  assert(pLb.ok && pLb.load === 180 && pLb.reps === 8 && pLb.unit === "lb", "parse: 180 lb x 8", JSON.stringify(pLb));
+  const pBad = await parseCmd("not a set");
+  assert(!pBad.ok && pBad.error === "Could not read a set from that.", "parse: invalid text", JSON.stringify(pBad));
+  const pNoReps = await parseCmd("80");
+  assert(!pNoReps.ok && pNoReps.error === "Could not find reps.", "parse: load only", JSON.stringify(pNoReps));
+
+  beginPhase("Phase: command bar apply");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const cmdEx0 = await page.evaluate(() => document.querySelector("#workout .exercise")?.dataset.ex);
+  assert(cmdEx0, "command bar: first exercise present", "no .exercise on Log tab", "Open Log with program loaded");
+  await page.fill("#commandInput", "80 x 8 @1");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "80" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "8" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)) === "1",
+    "command apply: 80 x 8 @1 fills set 1",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)}`,
+    "Log → type 80 x 8 @1 → Apply → set 1 inputs updated"
+  );
+  await page.fill("#commandInput", "set 2 60 x 10");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)) === "60" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)) === "10",
+    "command apply: set 2 60 x 10 targets set 2",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)}`,
+    "Log → type set 2 60 x 10 → Apply → set 2 inputs updated"
+  );
+  await page.fill("#commandInput", "not a set");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  const cmdBadToast = await page.locator("#toast").textContent();
+  assert(
+    cmdBadToast.includes("Could not read"),
+    "command apply: invalid command shows error toast",
+    `toast=${cmdBadToast}`,
+    "Log → type nonsense → Apply → error toast, no crash"
+  );
+  assert(
+    (await page.locator("#commandInput").inputValue()) === "not a set",
+    "command apply: invalid command keeps input",
+    `input=${await page.locator("#commandInput").inputValue()}`,
+    "Invalid apply should not clear the command field"
+  );
+  await page.fill("#commandInput", "90 x 6 @2");
+  await page.locator("#commandInput").press("Enter");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "90" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "6",
+    "command apply: Enter key submits command",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)}`,
+    "Log → type command → Enter → inputs updated"
+  );
+
+  beginPhase("Phase: voice input settings");
+  let voiceState = await getState(page);
+  assert(
+    voiceState.settings.voiceInputEnabled === false && voiceState.settings.commandParserHints === true,
+    "voice settings default on fresh load",
+    JSON.stringify({ voiceInputEnabled: voiceState.settings.voiceInputEnabled, commandParserHints: voiceState.settings.commandParserHints }),
+    "Clear state → reload → voiceInputEnabled false, commandParserHints true"
+  );
+  await persistState(page, { ...voiceState, settings: { ...voiceState.settings, voiceInputEnabled: true } });
+  await page.addInitScript(() => {
+    delete window.SpeechRecognition;
+    delete window.webkitSpeechRecognition;
+  });
+  await reloadApp(page);
+  assert(
+    await page.evaluate(() => {
+      const b = document.querySelector("#voiceBtn");
+      return !b || b.classList.contains("hidden");
+    }),
+    "voice button hidden without SpeechRecognition",
+    "voiceBtn visible in headless Chromium",
+    "Enable voice setting → headless browser → mic stays hidden"
+  );
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill("#commandInput", "75 x 7 @1");
+  await page.click("#commandApply");
+  await page.waitForTimeout(120);
+  assert(
+    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "75" &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "7",
+    "typed command still applies with voice setting enabled",
+    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)}`,
+    "Log → enable voice (unsupported) → type 75 x 7 @1 → Apply"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
