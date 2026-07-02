@@ -2739,6 +2739,66 @@ async function main() {
   await page.click("#blockReviewClose");
   await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
 
+  beginPhase("Phase: P16 review tab");
+  const reviewStarted = isoDateFromWeeksAgo(3);
+  await persistState(page, {
+    ...state,
+    programMeta: { ...state.programMeta, started: reviewStarted, mesocycleLengthWeeks: 6 },
+  });
+  await reloadApp(page);
+  state = await getState(page);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="review"]');
+  await page.waitForTimeout(80);
+  const reviewSegActive = await page.evaluate(() => {
+    const seg = document.querySelector("#segReview");
+    const btn = document.querySelector('#statsSeg button[data-seg="review"]');
+    return seg?.classList.contains("active") && btn?.classList.contains("active");
+  });
+  assert(
+    reviewSegActive,
+    "P16: Review segment activates on click",
+    `reviewSegActive=${reviewSegActive}`,
+    "Stats → click Review → #segReview active"
+  );
+  const reviewPanelText = await page.locator("#reviewPanel").textContent();
+  assert(
+    /Week/.test(reviewPanelText),
+    "P16: review panel shows Week progress",
+    reviewPanelText?.slice(0, 160),
+    "Stats → Review → #reviewPanel includes Week"
+  );
+  assert(
+    /Sessions/.test(reviewPanelText) && /completed/.test(reviewPanelText),
+    "P16: review panel shows sessions completed",
+    reviewPanelText?.slice(0, 200),
+    "Stats → Review → sessions line in #reviewPanel"
+  );
+  const plainReview = await page.evaluate(() => {
+    const snap = window.__repforgeBlockSnapshot(state.programMeta, state.log);
+    const summary = window.__repforgeBuildPlainSummary(snap);
+    return { weekCurrent: snap.weekCurrent, summary };
+  });
+  assert(
+    plainReview.weekCurrent != null && plainReview.weekCurrent >= 3,
+    "P16: blockSnapshot includes week current from start date",
+    JSON.stringify(plainReview),
+    "__repforgeBlockSnapshot → weekCurrent from programMeta.started"
+  );
+  assert(
+    typeof plainReview.summary === "string" && plainReview.summary.length > 20,
+    "P16: buildPlainSummary returns non-empty paragraph",
+    plainReview.summary?.slice(0, 120),
+    "__repforgeBuildPlainSummary(__repforgeBlockSnapshot(...)) → string"
+  );
+  const summaryInPanel = await page.locator(".review__summary").textContent();
+  assert(
+    summaryInPanel && summaryInPanel.length > 20,
+    "P16: review panel renders plain summary paragraph",
+    summaryInPanel?.slice(0, 120),
+    "Stats → Review → .review__summary visible"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

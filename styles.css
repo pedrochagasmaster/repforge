@@ -509,6 +509,11 @@ nav button.active .nav__icon{background:var(--ember)}
 .blockreview__body b{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:11px;color:var(--mist)}
 .blockreview__rec{margin-top:10px!important;font-weight:600;color:var(--mist)}
 .blockreview__why{margin:0!important;font-size:12px;color:var(--steel-dim)}
+.blockprogress{margin:0 0 16px;padding:12px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--coal)}
+.blockprogress__title{font-family:var(--display);font-weight:700;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--gold)}
+.blockprogress p{margin:0 0 6px;font-size:13px;line-height:1.45;color:var(--steel)}
+.blockprogress b{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:11px;color:var(--mist)}
+.review__summary{margin:0;font-size:14px;line-height:1.55;color:var(--mist)}
 .importchoice{
   position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
   background:var(--anvil);border:1px solid var(--rule);border-radius:12px;
