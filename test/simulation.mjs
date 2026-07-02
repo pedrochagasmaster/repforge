@@ -580,6 +580,48 @@ async function main() {
     "Progressive overload seed → e1RM PR events exist"
   );
 
+  beginPhase("Phase 1d: Attention board (P15)");
+  await nav(page, "stats");
+  assert(
+    (await page.locator("#attention .attn__grp").count()) > 0,
+    "Attention board renders at least one group after seed",
+    "No .attn__grp in #attention",
+    "Bulk seed → Stats Overview → attention board"
+  );
+  assert(
+    (await page.locator("#attention .attn__lead").count()) > 0,
+    "Attention group exposes a lead label",
+    "No .attn__lead found",
+    "Stats Overview → inspect attention board headings"
+  );
+  assert(
+    (await page.locator("#attention .attn__why").count()) > 0,
+    "Attention group shows a why line",
+    "No .attn__why found",
+    "Stats Overview → each signal group has a why line"
+  );
+  const attnGroups = await page.evaluate(() =>
+    typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : null
+  );
+  assert(
+    Array.isArray(attnGroups) && attnGroups.length > 0 && attnGroups.every((g) => g.lead && g.items?.length),
+    "__repforgeAttention returns grouped structure",
+    JSON.stringify(attnGroups?.map((g) => g.key)),
+    "page.evaluate window.__repforgeAttention after seed"
+  );
+  const seedAttnChip = page.locator("#attention [data-attn]").first();
+  if ((await seedAttnChip.count()) > 0) {
+    await seedAttnChip.click();
+    assert(
+      (await page.locator("#statsDeep").evaluate((el) => el.open)),
+      "Attention chip click opens stats deep section without error",
+      "statsDeep not open after chip click",
+      "Stats → click attention chip"
+    );
+  } else {
+    pass("Attention chip click skipped (no chips in seeded board)");
+  }
+
   // PWA shell loads (manifest + service worker registration)
   const pwaOk = await page.evaluate(async () => {
     const manifestOk = (await fetch("./manifest.webmanifest")).ok;
@@ -1961,6 +2003,12 @@ async function main() {
     "Attention board lists lifts to back off",
     "No reduce chips in attention board",
     "Stats → action board shows Back off / stalled group"
+  );
+  assert(
+    (await page.locator("#attention .attn__why").count()) > 0,
+    "Attention board groups include why lines",
+    "No .attn__why in attention board",
+    "Stats → action board → each group has a why line"
   );
   const attnChip = page.locator("#attention [data-attn]").first();
   const attnLift = await attnChip.getAttribute("data-attn");
