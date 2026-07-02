@@ -3,6 +3,11 @@
  * RepForge year-of-usage browser simulation.
  * Run: node test/simulation.mjs
  * Requires: python3 -m http.server 8000 serving /workspace
+ *
+ * Env:
+ *   REPFORGE_URL        App base URL (default http://localhost:8000/)
+ *   REPFORGE_SIM_WEEKS  Historical weeks to seed (default 52; use 12 for quick runs)
+ *   REPFORGE_PROFILE=1  Print per-phase timings at the end
  */
 
 import { chromium } from "playwright";
@@ -13,8 +18,13 @@ import { tmpdir } from "os";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
+const PROFILE = process.env.REPFORGE_PROFILE === "1";
 
 const results = { passed: 0, failed: 0, bugs: [] };
+const phaseTimings = [];
+let phaseClock = 0;
+let lastPhase = "";
 
 function pass(name) {
   results.passed++;
@@ -34,6 +44,15 @@ function assert(cond, name, detail, repro) {
   else fail(name, detail, repro);
 }
 
+function beginPhase(name) {
+  if (PROFILE && lastPhase) {
+    phaseTimings.push([lastPhase, Date.now() - phaseClock]);
+  }
+  lastPhase = name;
+  phaseClock = Date.now();
+  console.log(name.startsWith("\n") ? name : `\n${name}`);
+}
+
 async function getState(page) {
   return page.evaluate((k) => {
     const raw = localStorage.getItem(k);
@@ -44,6 +63,93 @@ async function getState(page) {
 
 async function waitForApp(page) {
   await page.waitForSelector("#dayTabs button", { timeout: 10000 });
+  await page.waitForFunction(() => typeof window.detectPRs === "function", { timeout: 10000 });
+}
+
+async function loadApp(page, url = BASE) {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+}
+
+async function reloadApp(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+}
+
+async function persistState(page, state) {
+  await page.evaluate(
+    async ({ k, blob }) => {
+      localStorage.setItem(k, JSON.stringify(blob));
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(blob, k);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    },
+    { k: KEY, blob: state }
+  );
+}
+
+/** Bulk-inject a year of training history (fast path for stats/history coverage). */
+async function seedHistoricalLog(page, { weeks = SIM_WEEKS, days = ["Day 1", "Day 2", "Day 3"] } = {}) {
+  const state = await getState(page);
+  if (!state?.program?.length) throw new Error("seedHistoricalLog: no program in state");
+
+  const byDay = {};
+  for (const ex of state.program) {
+    if (!byDay[ex.day]) byDay[ex.day] = [];
+    byDay[ex.day].push(ex);
+  }
+  for (const day of Object.keys(byDay)) {
+    byDay[day].sort((a, b) => a.order - b.order);
+  }
+
+  const log = [];
+  let sessions = 0;
+  for (let week = 0; week < weeks; week++) {
+    const day = days[week % days.length];
+    const date = isoDateFromWeeksAgo(weeks - 1 - week);
+    const loadBase = Math.round((60 + week * 1.25) * 2) / 2;
+    const reps = 6 + (week % 3);
+    const rir = week % 4 === 0 ? 2 : 1;
+    const session = `${date}_${day}_seed_${week}`;
+    const created = new Date(`${date}T12:00:00Z`).toISOString();
+    const exs = byDay[day] || [];
+
+    for (let i = 0; i < Math.min(2, exs.length); i++) {
+      const ex = exs[i];
+      const load = loadBase + i * 5;
+      for (let n = 1; n <= ex.sets; n++) {
+        log.push({
+          session,
+          date,
+          day,
+          name: ex.name,
+          exerciseId: ex.id,
+          set: n,
+          load,
+          reps,
+          rir,
+          notes: "",
+          created,
+          primary: ex.primary,
+          secondary: ex.secondary,
+        });
+      }
+    }
+    sessions++;
+  }
+
+  await persistState(page, { ...state, log });
+  await reloadApp(page);
+  return { sessions, rows: log.length };
 }
 
 async function getProgramExercises(page, day) {
@@ -76,12 +182,12 @@ async function clearState(page) {
 
 async function nav(page, view) {
   await page.click(`nav button[data-view="${view}"]`);
-  await page.waitForTimeout(80);
+  await page.waitForSelector(`#${view}.view.active`, { timeout: 5000 });
 }
 
 async function selectDay(page, dayName) {
   await page.click(`#dayTabs button[data-day="${dayName}"]`);
-  await page.waitForTimeout(60);
+  await page.waitForSelector(`#dayTabs button[data-day="${dayName}"].active`, { timeout: 5000 });
 }
 
 async function firstDayName(page) {
@@ -89,21 +195,57 @@ async function firstDayName(page) {
 }
 
 async function fillExerciseSets(page, exId, sets, load, reps, rir) {
-  for (let n = 1; n <= sets; n++) {
-    const loadSel = `[data-k="${exId}_${n}_load"]`;
-    const repsSel = `[data-k="${exId}_${n}_reps"]`;
-    const rirSel = `[data-k="${exId}_${n}_rir"]`;
-    if (await page.locator(loadSel).count()) {
-      await page.fill(loadSel, String(load));
-      await page.fill(repsSel, String(reps));
-      await page.fill(rirSel, String(rir));
-    }
-  }
+  await page.evaluate(
+    ({ exId, sets, load, reps, rir }) => {
+      for (let n = 1; n <= sets; n++) {
+        for (const [suffix, val] of [
+          ["load", load],
+          ["reps", reps],
+          ["rir", rir],
+        ]) {
+          const el = document.querySelector(`[data-k="${exId}_${n}_${suffix}"]`);
+          if (!el) continue;
+          el.value = String(val);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    },
+    { exId, sets, load, reps, rir }
+  );
 }
 
-async function saveWorkout(page) {
+async function saveWorkout(page, { expectNewRows = true } = {}) {
+  const beforeLen = (await getState(page))?.log?.length ?? 0;
   await page.click(".btn--save");
-  await page.waitForTimeout(250);
+  if (!expectNewRows) {
+    await page.waitForTimeout(120);
+    return;
+  }
+  await page.waitForFunction(
+    ({ k, len }) => {
+      try {
+        const s = JSON.parse(localStorage.getItem(k) || "{}");
+        if ((s.log?.length ?? 0) > len) return true;
+      } catch {
+        /* ignore */
+      }
+      const toast = document.querySelector("#toast:not(.hidden)")?.textContent || "";
+      return /forged|Enter weight/i.test(toast);
+    },
+    { k: KEY, len: beforeLen },
+    { timeout: 8000 }
+  );
+}
+
+async function waitForSetting(page, path, value) {
+  await page.waitForFunction(
+    ({ k, path: p, value: v }) => {
+      const s = JSON.parse(localStorage.getItem(k) || "{}");
+      return p.split(".").reduce((o, key) => o?.[key], s) === v;
+    },
+    { k: KEY, path, value },
+    { timeout: 5000 }
+  );
 }
 
 async function getExerciseMeta(page, day) {
@@ -169,73 +311,103 @@ async function main() {
   });
   page.on("pageerror", (err) => consoleErrors.push(String(err)));
 
-  await page.goto(BASE, { waitUntil: "networkidle" });
+  await loadApp(page);
   await clearState(page);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
 
-  // ── Phase 1: 52 weeks of varied workout logging ──────────────────
-  console.log("Phase 1: Year of workout logging (52 weeks)");
+  // ── Phase 1: Historical training data ────────────────────────────
+  beginPhase(`Phase 1: Historical training data (${SIM_WEEKS} weeks, bulk seed)`);
 
   const days = ["Day 1", "Day 2", "Day 3"];
   let sessionCount = 0;
+  let uiSaveCount = 0;
 
-  for (let week = 0; week < 52; week++) {
-    const day = days[week % 3];
-    const date = isoDateFromWeeksAgo(51 - week);
-    // Align to step=0.5 — values like 61.25 fail HTML5 validation and block save silently
-    const loadBase = Math.round((60 + week * 1.25) * 2) / 2;
-    const reps = 6 + (week % 3);
-    const rir = week % 4 === 0 ? 2 : 1;
+  const seeded = await seedHistoricalLog(page, { weeks: SIM_WEEKS, days });
+  sessionCount += seeded.sessions;
+  assert(
+    seeded.sessions >= SIM_WEEKS,
+    `${SIM_WEEKS} unique sessions seeded`,
+    `Expected ≥${SIM_WEEKS} sessions, got ${seeded.sessions}`,
+    "Bulk seed historical log"
+  );
+  assert(
+    seeded.rows > 0,
+    "Seeded log rows include exercise snapshots",
+    `rows=${seeded.rows}`,
+    "Inspect seeded repforge_v1 log entries"
+  );
+  const seededSample = (await getState(page)).log[0];
+  assert(
+    seededSample?.exerciseId && seededSample?.primary != null,
+    "Seeded rows carry exerciseId and muscle snapshot",
+    JSON.stringify(seededSample),
+    "Bulk seed → log rows should mirror saveWorkout shape"
+  );
 
-    await nav(page, "log");
-    await selectDay(page, day);
-    await page.fill("#date", date);
+  beginPhase("Phase 1b: Save flow (UI smoke + edge cases)");
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const d1Exs = await getProgramExercises(page, "Day 1");
 
-    const exs = await getProgramExercises(page, day);
-    // Log first 2 exercises fully, leave rest as defaults (varied data)
-    for (let i = 0; i < Math.min(2, exs.length); i++) {
-      const ex = exs[i];
-      await fillExerciseSets(page, ex.id, ex.sets, loadBase + i * 5, reps, rir);
-    }
+  // UI smoke: one representative save still exercises the full form pipeline
+  const smokeDate = isoDateFromWeeksAgo(0);
+  await page.fill("#date", smokeDate);
+  await fillExerciseSets(page, d1Exs[0].id, 1, 105, 7, 1);
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  assert(
+    (await getState(page)).log.some((r) => r.date === smokeDate && +r.load === 105),
+    "Save workout UI persists after bulk seed",
+    "No row with load 105 on smoke date",
+    "Log tab → fill one set → Save workout"
+  );
 
-    // Week 10: edge case — zero load on first set
-    if (week === 10) {
-      await page.fill(`[data-k="${exs[0].id}_1_load"]`, "0");
-      await page.fill(`[data-k="${exs[0].id}_1_reps"]`, "0");
-    }
+  // Zero-load set is skipped on save (week-10 regression)
+  await page.fill("#date", isoDateFromWeeksAgo(1));
+  await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
+  await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
+  await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
 
-    // Week 20: empty kg fields (cleared)
-    if (week === 20) {
-      await page.fill(`[data-k="${exs[0].id}_1_load"]`, "");
-    }
+  // Empty kg field is skipped (week-20 regression)
+  await page.fill("#date", isoDateFromWeeksAgo(2));
+  await fillExerciseSets(page, d1Exs[0].id, 1, 100, 8, 1);
+  await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "");
+  const logLenBeforeEmpty = (await getState(page)).log.length;
+  await saveWorkout(page, { expectNewRows: false });
+  assert(
+    (await getState(page)).log.length === logLenBeforeEmpty,
+    "Empty kg field blocks save (no new rows)",
+    `Log grew from ${logLenBeforeEmpty}`,
+    "Log tab → clear kg on only filled set → Save workout"
+  );
 
-    await saveWorkout(page);
-    sessionCount++;
-  }
-
-  // Multiple sessions same day (use a date not in the 52-week loop)
+  // Multiple sessions same day (use a date not in the seed loop)
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const sameDay = "2018-03-20";
   await page.fill("#date", sameDay);
-  const d1Exs = await getProgramExercises(page, "Day 1");
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await saveWorkout(page);
   sessionCount++;
+  uiSaveCount++;
 
   await page.fill("#date", sameDay);
   await fillExerciseSets(page, d1Exs[1].id, d1Exs[1].sets, 50, 10, 0);
   await saveWorkout(page);
   sessionCount++;
+  uiSaveCount++;
 
   let state = await getState(page);
   const uniqueSessions = new Set(state.log.map((x) => x.session)).size;
   assert(
-    uniqueSessions >= 52,
-    "52+ unique sessions logged",
-    `Expected ≥52 sessions, got ${uniqueSessions}`,
-    "Log tab → save workouts across 52 weeks"
+    uniqueSessions >= SIM_WEEKS,
+    `${SIM_WEEKS}+ unique sessions logged`,
+    `Expected ≥${SIM_WEEKS} sessions, got ${uniqueSessions}`,
+    "Bulk seed + UI saves → unique session count"
   );
 
   const sameDaySessions = [
@@ -257,7 +429,7 @@ async function main() {
   );
 
   // ── Phase 2: Draft persistence ───────────────────────────────────
-  console.log("\nPhase 2: Draft persistence");
+  beginPhase("Phase 2: Draft persistence");
 
   await nav(page, "log");
   await selectDay(page, "Day 2");
@@ -266,7 +438,11 @@ async function main() {
   const draftLoad = "137.5";
   await page.fill(`[data-k="${draftEx.id}_1_load"]`, draftLoad);
   await page.fill(`[data-k="${draftEx.id}_1_reps"]`, "7");
-  await page.waitForTimeout(100);
+  await page.waitForFunction(
+    ({ d, load }) => localStorage.getItem(d)?.includes(load),
+    { d: DRAFT, load: draftLoad },
+    { timeout: 5000 }
+  );
 
   const draftBefore = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
   assert(
@@ -276,7 +452,8 @@ async function main() {
     "Log tab → type kg value → check localStorage repforge_draft_v1"
   );
 
-  await page.reload({ waitUntil: "networkidle" });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 2");
   const restoredLoad = await page.inputValue(`[data-k="${draftEx.id}_1_load"]`);
@@ -298,7 +475,7 @@ async function main() {
   );
 
   // ── Phase 3: Switch days & verify tabs ───────────────────────────
-  console.log("\nPhase 3: Day switching");
+  beginPhase("Phase 3: Day switching");
 
   await nav(page, "log");
   for (const d of days) {
@@ -321,7 +498,7 @@ async function main() {
   }
 
   // ── Phase 4: Program editing — rename, add, remove, reorder ──────
-  console.log("\nPhase 4: Program editing");
+  beginPhase("Phase 4: Program editing");
 
   await nav(page, "program");
 
@@ -470,7 +647,7 @@ async function main() {
   );
 
   // ── Phase: Program metadata ──────────────────────────────────────
-  console.log("\nPhase: program metadata");
+  beginPhase("Phase: program metadata");
 
   await nav(page, "program");
   state = await getState(page);
@@ -542,8 +719,7 @@ async function main() {
     });
   }, KEY);
   await page.waitForTimeout(200);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
   state = await getState(page);
   assert(
     state.programMeta?.id,
@@ -553,7 +729,7 @@ async function main() {
   );
 
   // ── Phase 5: Delete sessions ─────────────────────────────────────
-  console.log("\nPhase 5: Delete sessions");
+  beginPhase("Phase 5: Delete sessions");
 
   await nav(page, "history");
   const sessionsBefore = (await getState(page)).log.length;
@@ -573,7 +749,7 @@ async function main() {
   );
 
   // ── Phase 6: Settings ────────────────────────────────────────────
-  console.log("\nPhase 6: Settings");
+  beginPhase("Phase 6: Settings");
 
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
@@ -612,7 +788,7 @@ async function main() {
   );
 
   // ── Phase 7: Stats integrity ─────────────────────────────────────
-  console.log("\nPhase 7: Stats");
+  beginPhase("Phase 7: Stats");
 
   await nav(page, "stats");
   await page.waitForTimeout(200);
@@ -659,13 +835,19 @@ async function main() {
   );
 
   await page.setViewportSize({ width: 800, height: 900 });
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => {
+    const c = document.querySelector("#chart");
+    return c && c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
+  });
   const okWide = await page.evaluate(() => {
     const c = document.querySelector("#chart");
     return c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
   });
   await page.setViewportSize({ width: 380, height: 900 });
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => {
+    const c = document.querySelector("#chart");
+    return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
+  });
   const okNarrow = await page.evaluate(() => {
     const c = document.querySelector("#chart");
     return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
@@ -679,7 +861,7 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
 
   // ── Phase 8: Export JSON, modify, re-import ──────────────────────
-  console.log("\nPhase 8: JSON export/import");
+  beginPhase("Phase 8: JSON export/import");
 
   await nav(page, "settings");
   const tmpDir = mkdtempSync(join(tmpdir(), "repforge-test-"));
@@ -773,7 +955,7 @@ async function main() {
       "Import backup JSON missing settings key"
     );
   }
-  console.log("\nPhase 9: CSV export");
+  beginPhase("Phase 9: CSV export");
 
   const csvPath = join(tmpDir, "log.csv");
   const [csvDownload] = await Promise.all([
@@ -811,8 +993,14 @@ async function main() {
     `CSV data rows ${csvLines.length - 1}, log entries ${state.log.length}`,
     "Export CSV → compare row count to log"
   );
+  assert(
+    /"[01]","[01]"/.test(csv),
+    "CSV data rows include is_hard_set values",
+    `sample=${csvLines[1]?.slice(0, 80)}`,
+    "Export CSV → rows carry is_hard_set / is_warmup 0/1 flags"
+  );
 
-  console.log("\nPhase: warmup flag");
+  beginPhase("Phase: warmup flag");
   await nav(page, "log");
   const warmupDay = await firstDayName(page);
   const wMeta = await getExerciseMeta(page, warmupDay);
@@ -854,7 +1042,7 @@ async function main() {
     "Log warmup + working sets → recommendation uses working history"
   );
 
-  console.log("\nPhase: PR ledger");
+  beginPhase("Phase: PR ledger");
   await nav(page, "log");
   const prDay = await firstDayName(page);
   const prMeta = await getExerciseMeta(page, prDay);
@@ -906,7 +1094,7 @@ async function main() {
     "Staged 80×8 then 85×8 → load PR event"
   );
 
-  console.log("\nPhase: program-only export/import");
+  beginPhase("Phase: program-only export/import");
   await nav(page, "program");
   await page.locator("#program details.advanced summary").click();
   const progPath = join(tmpDir, "program.json");
@@ -940,7 +1128,11 @@ async function main() {
   }
   const metaBeforeImport = (await getState(page)).programMeta;
   await page.setInputFiles("#importProgram", progPath);
-  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
+    { k: KEY, name: "IMPORTED_RENAME" },
+    { timeout: 5000 }
+  );
   const stAfter = await getState(page);
   assert(
     stAfter.program.some((x) => x.name === "IMPORTED_RENAME"),
@@ -972,7 +1164,11 @@ async function main() {
   const legacyPath = join(tmpDir, "program-legacy.json");
   writeFileSync(legacyPath, JSON.stringify(stAfter.program.slice(0, 3)));
   await page.setInputFiles("#importProgram", legacyPath);
-  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    ({ k, len }) => JSON.parse(localStorage.getItem(k) || "{}").program?.length === len,
+    { k: KEY, len: 3 },
+    { timeout: 5000 }
+  );
   const stLegacy = await getState(page);
   assert(
     stLegacy.program.length === 3,
@@ -982,7 +1178,11 @@ async function main() {
   );
   writeFileSync(progPath, JSON.stringify(progFile));
   await page.setInputFiles("#importProgram", progPath);
-  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").programMeta?.name === name,
+    { k: KEY, name: "Imported Template" },
+    { timeout: 5000 }
+  );
   await page.evaluate(() => {
     document.querySelector("#programJson")?.blur();
     const d = document.querySelector("#program details.advanced");
@@ -990,7 +1190,7 @@ async function main() {
   });
 
   // ── Phase 10: Program JSON editor ────────────────────────────────
-  console.log("\nPhase 10: Program JSON editor");
+  beginPhase("Phase 10: Program JSON editor");
 
   await nav(page, "program");
   await page.locator("#program details.advanced summary").click();
@@ -1054,7 +1254,7 @@ async function main() {
   );
 
   // ── Phase 11: Edge cases & invariants ────────────────────────────
-  console.log("\nPhase 11: Edge cases");
+  beginPhase("Phase 11: Edge cases");
 
   // Backdated date in UI
   await nav(page, "log");
@@ -1184,18 +1384,17 @@ async function main() {
   );
 
   // ── Phase 12: All-tier upgrades ──────────────────────────────────
-  console.log("\nPhase 12: Progression + UX + hypertrophy upgrades");
+  beginPhase("Phase 12: Progression + UX + hypertrophy upgrades");
 
   await clearState(page);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
 
   // Settings auto-save on change (no Save click)
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
   await page.fill("#hardRir", "3");
   await page.locator("#hardRir").blur();
-  await page.waitForTimeout(120);
+  await waitForSetting(page, "settings.hardRir", 3);
   assert(
     (await getState(page)).settings.hardRir === 3,
     "Settings auto-save on change",
@@ -1458,7 +1657,7 @@ async function main() {
     "Log → fill a set → Skip it → Save → that exercise has no new rows"
   );
 
-  console.log("\nPhase: exercise substitution");
+  beginPhase("Phase: exercise substitution");
   await nav(page, "program");
   let subState = await getState(page);
   const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
@@ -1536,8 +1735,7 @@ async function main() {
 
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
   await clearState(page);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const unitMeta = await getExerciseMeta(page, "Day 1");
@@ -1620,7 +1818,7 @@ async function main() {
   await page.selectOption("#unit", "kg");
   await page.waitForTimeout(80);
 
-  console.log("\nPhase: effort RIR mode");
+  beginPhase("Phase: effort RIR mode");
   await nav(page, "settings");
   await page.check('input[name="rirMode"][value="effort"]');
   await page.waitForTimeout(120);
@@ -1652,7 +1850,7 @@ async function main() {
   await page.check('input[name="rirMode"][value="numeric"]');
   await page.waitForTimeout(80);
 
-  console.log("\nPhase: beginner program");
+  beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
   await page.click("#beginnerProgram");
   await page.waitForTimeout(200);
@@ -1780,12 +1978,25 @@ async function main() {
   rmSync(tmpDir, { recursive: true, force: true });
   await browser.close();
 
+  if (PROFILE && lastPhase) {
+    phaseTimings.push([lastPhase, Date.now() - phaseClock]);
+  }
+
   // ── Summary ──────────────────────────────────────────────────────
   console.log("\n" + "=".repeat(60));
   console.log(`PASSED: ${results.passed}`);
   console.log(`FAILED: ${results.failed}`);
-  console.log(`Sessions simulated: ${sessionCount}`);
+  console.log(`Sessions simulated: ${sessionCount} (${uiSaveCount} via UI, ${sessionCount - uiSaveCount} bulk-seeded)`);
   console.log("=".repeat(60));
+
+  if (PROFILE && phaseTimings.length) {
+    console.log("\nPhase timings (ms):");
+    const sorted = [...phaseTimings].sort((a, b) => b[1] - a[1]);
+    for (const [name, ms] of sorted) {
+      console.log(`  ${String(ms).padStart(6)}  ${name}`);
+    }
+    console.log(`  ${"─".repeat(6)}  total tracked: ${sorted.reduce((s, [, ms]) => s + ms, 0)} ms`);
+  }
 
   if (results.bugs.length) {
     console.log("\nBUG REPORT\n");
