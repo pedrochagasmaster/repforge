@@ -469,6 +469,60 @@ async function main() {
     "Program tab → rename Day 2 to existing Push Day → should revert"
   );
 
+  // ── Phase: Program metadata ──────────────────────────────────────
+  console.log("\nPhase: program metadata");
+
+  await nav(page, "program");
+  state = await getState(page);
+  assert(
+    state.programMeta?.id && typeof state.programMeta.id === "string",
+    "programMeta exists with stable id",
+    `programMeta=${JSON.stringify(state.programMeta)}`,
+    "Open Program tab → inspect state.programMeta"
+  );
+  const metaBefore = await page.locator("#programMeta").textContent();
+  assert(
+    metaBefore.includes("days this week"),
+    "Program tab shows adherence chip",
+    `Meta card: ${metaBefore?.slice(0, 120)}`,
+    "Program tab → check summary card"
+  );
+  await page.fill("#programName", "Simulation Split");
+  await page.waitForTimeout(150);
+  state = await getState(page);
+  assert(
+    state.programMeta.name === "Simulation Split",
+    "Program name persists on edit",
+    `name=${state.programMeta?.name}`,
+    "Program tab → edit program name"
+  );
+  await page.evaluate(async (k) => {
+    const s = JSON.parse(localStorage.getItem(k));
+    delete s.programMeta;
+    localStorage.setItem(k, JSON.stringify(s));
+    await new Promise((res, rej) => {
+      const req = indexedDB.open("repforge", 1);
+      req.onsuccess = () => {
+        const db = req.result;
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(s, k);
+        tx.oncomplete = () => { db.close(); res(); };
+        tx.onerror = () => { db.close(); rej(tx.error); };
+      };
+      req.onerror = () => rej(req.error);
+    });
+  }, KEY);
+  await page.waitForTimeout(200);
+  await page.reload({ waitUntil: "networkidle" });
+  await waitForApp(page);
+  state = await getState(page);
+  assert(
+    state.programMeta?.id,
+    "Legacy backup migrates programMeta on load",
+    `programMeta missing after reload: ${JSON.stringify(state.programMeta)}`,
+    "Remove programMeta from storage → reload app"
+  );
+
   // ── Phase 5: Delete sessions ─────────────────────────────────────
   console.log("\nPhase 5: Delete sessions");
 
@@ -833,15 +887,22 @@ async function main() {
   ]);
   await progDl.saveAs(progPath);
   const progFile = JSON.parse(readFileSync(progPath, "utf8"));
+  const progExercises = Array.isArray(progFile) ? progFile : progFile.exercises;
   assert(
-    Array.isArray(progFile) && progFile.length > 0 && progFile[0].id && progFile[0].day,
-    "Program export is an exercise array",
-    `Got: ${JSON.stringify(progFile).slice(0, 80)}`,
+    progFile.version === 2 && Array.isArray(progExercises) && progExercises.length > 0 && progFile.meta?.id,
+    "Program export is v2 with meta and exercises",
+    `Got: ${JSON.stringify(progFile).slice(0, 120)}`,
     "Program → Advanced → Export program JSON"
   );
   const logBefore = (await getState(page)).log.length;
-  progFile[0].name = "IMPORTED_RENAME";
-  writeFileSync(progPath, JSON.stringify(progFile));
+  progExercises[0].name = "IMPORTED_RENAME";
+  if (progFile.version === 2) {
+    progFile.exercises = progExercises;
+    progFile.meta = { ...progFile.meta, name: "Imported Template" };
+    writeFileSync(progPath, JSON.stringify(progFile));
+  } else {
+    writeFileSync(progPath, JSON.stringify(progExercises));
+  }
   await page.setInputFiles("#importProgram", progPath);
   await page.waitForTimeout(250);
   const stAfter = await getState(page);
@@ -852,11 +913,33 @@ async function main() {
     "Export program → rename in file → Import program JSON"
   );
   assert(
+    stAfter.programMeta?.name === "Imported Template",
+    "Program import applies meta from v2 export",
+    `programMeta.name=${stAfter.programMeta?.name}`,
+    "Export v2 program → edit meta.name → Import program JSON"
+  );
+  assert(
     stAfter.log.length === logBefore,
     "Program import leaves the log untouched",
     `log ${logBefore} → ${stAfter.log.length}`,
     "Import program JSON → History unchanged"
   );
+
+  // Legacy array-only import still works
+  const legacyPath = join(tmpDir, "program-legacy.json");
+  writeFileSync(legacyPath, JSON.stringify(stAfter.program.slice(0, 3)));
+  await page.setInputFiles("#importProgram", legacyPath);
+  await page.waitForTimeout(250);
+  const stLegacy = await getState(page);
+  assert(
+    stLegacy.program.length === 3,
+    "Legacy array-only program import works",
+    `program length=${stLegacy.program.length}`,
+    "Import bare exercise array JSON"
+  );
+  writeFileSync(progPath, JSON.stringify(progFile));
+  await page.setInputFiles("#importProgram", progPath);
+  await page.waitForTimeout(250);
   await page.evaluate(() => {
     document.querySelector("#programJson")?.blur();
     const d = document.querySelector("#program details.advanced");
