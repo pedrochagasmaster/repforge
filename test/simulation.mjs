@@ -3330,6 +3330,10 @@ async function main() {
   );
 
   beginPhase("Phase: strength dashboard (P12)");
+  await clearState(page);
+  await reloadApp(page);
+  await seedHistoricalLog(page);
+  await reloadApp(page);
   await nav(page, "stats");
   await page.click('#statsSeg button[data-seg="strength"]');
   await page.waitForTimeout(80);
