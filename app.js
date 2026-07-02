@@ -624,8 +624,7 @@ function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("a
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  if(seg==="overview")redrawChart();
-  if(seg==="review")renderReview()}
+  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="review")renderReview()}
 
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 function recommendation(ex){
@@ -862,6 +861,24 @@ function summaries(){const m=new Map();
     return{session:o.session,date:o.date,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best};})
     .sort((a,b)=>a.date.localeCompare(b.date)||a.session.localeCompare(b.session))}
 
+function strengthDashboard(){
+  const byLift=new Map();for(const s of summaries()){(byLift.get(s.liftKey)||byLift.set(s.liftKey,[]).get(s.liftKey)).push(s)}
+  const prN=new Map();for(const ev of detectPRs(state.log)){const k=ev.exerciseId||ev.exerciseName;prN.set(k,(prN.get(k)||0)+1)}
+  const rows=[];
+  for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
+    const ex=state.program.find(e=>e.id===k)||state.program.find(e=>e.name===k);
+    const rec=ex?recommendation(ex):{label:"—"};
+    rows.push({exercise:latest.name,latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+      prs:prN.get(k)||prN.get(latest.name)||0,lastTrained:latest.date,signal:rec.label})}
+  return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
+window.__repforgeStrengthDashboard=strengthDashboard;
+
+function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const rows=strengthDashboard();
+  if(!rows.length){el.innerHTML=`<div class="empty">No lifts logged yet.</div>`;return}
+  const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
+  el.innerHTML=table(rows.map(r=>({Exercise:r.exercise,Latest:r.latest,[`Best e1RM (${u})`]:fmt(Math.round(toDisplay(r.best))),
+    "Δ block":fmtDelta(r.blockDelta),PRs:r.prs,Signal:r.signal})))}
+
 function renderStats(){
   // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
   const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
@@ -900,6 +917,7 @@ function renderStats(){
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,[unitLabel()]:fmtLoad(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
   renderPRs();renderAttention();renderCompleted();renderReview();
+  if(statsSeg==="strength")renderStrengthDash();
 }
 
 function detectPRs(log,opts={}){
