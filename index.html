@@ -129,6 +129,7 @@
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> Numbers</label>
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> Easy / Hard / Max</label>
         </fieldset>
+        <button id="createProgram" type="button" class="btn btn--steel">Create new program</button>
         <button id="beginnerProgram" type="button" class="btn btn--steel">Use beginner-friendly program</button>
         <details class="advanced">
           <summary>Advanced · progression dials</summary>
@@ -154,6 +155,21 @@
         <p class="cardtitle">Danger zone</p>
         <p class="lede">This clears every logged set on this device. Export a backup first.</p>
         <button id="reset" class="btn btn--danger">Delete log</button>
+      </div>
+    </section>
+
+    <section id="onboarding" class="view onboarding hidden" aria-label="Create program">
+      <div class="onb">
+        <div class="onb__head">
+          <p class="eyebrow" id="onbEyebrow">New program</p>
+          <h2 id="onbTitle">Create your program</h2>
+          <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
+        </div>
+        <div id="onbBody" class="onb__body"></div>
+        <div class="onb__nav">
+          <button type="button" id="onbBack" class="btn btn--steel">Back</button>
+          <button type="button" id="onbNext" class="btn btn--forge">Next</button>
+        </div>
       </div>
     </section>
   </main>

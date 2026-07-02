@@ -68,8 +68,16 @@ async function getState(page) {
   }, KEY);
 }
 
-async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000 });
+async function dismissOnboardingIfPresent(page) {
+  await page.evaluate(() => {
+    const el = document.querySelector("#onboarding");
+    if (el?.classList.contains("active") && typeof window.closeOnboarding === "function") window.closeOnboarding();
+  });
+}
+
+async function waitForApp(page, { dismissOnboarding = true } = {}) {
+  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  if (dismissOnboarding) await dismissOnboardingIfPresent(page);
   await page.waitForFunction(() => typeof window.detectPRs === "function", { timeout: 10000 });
 }
 
@@ -77,9 +85,9 @@ async function loadApp(page, url = BASE) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
 }
 
-async function reloadApp(page) {
+async function reloadApp(page, opts = {}) {
   await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForApp(page);
+  await waitForApp(page, opts);
 }
 
 async function persistState(page, state) {
@@ -2733,6 +2741,164 @@ async function main() {
     "P9: increase_volume adds one set per exercise",
     `before=${p9Before.sets.join(",")} after=${p9AfterStart.sets.join(",")}`,
     "__repforgeStartNextMeso(increase_volume) → each exercise sets +1"
+  );
+
+  beginPhase("Phase: P5 program generation");
+  await page.waitForFunction(() => typeof window.__repforgeGenerateProgram === "function");
+  const genCases = [
+    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "full_body", equipment: ["machine"], priorityMuscles: ["Chest"], sessionLength: "normal" },
+    { goal: "strength", experience: "intermediate", daysPerWeek: 4, splitType: "upper_lower", equipment: ["barbell", "dumbbell", "machine"], priorityMuscles: [], sessionLength: "short" },
+    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 5, splitType: "ppl", equipment: ["machine"], priorityMuscles: ["Quads"], sessionLength: "long" },
+  ];
+  const genResults = await page.evaluate((cases) => {
+    const catalogById = new Map();
+    const bounds = { short: [4, 5], normal: [5, 7], long: [7, 9] };
+    return cases.map((answers) => {
+      const raw = window.__repforgeGenerateProgram(answers);
+      const prog = new Program(raw);
+      const json = prog.toJSON();
+      const days = [...new Set(json.map((e) => e.day))];
+      const perDay = days.map((d) => json.filter((e) => e.day === d).length);
+      const [lo, hi] = bounds[answers.sessionLength] || bounds.normal;
+      const withinBounds = perDay.every((n) => n >= lo && n <= hi);
+      const fieldsOk = json.every((e) => e.name && e.sets > 0 && e.min > 0 && e.max >= e.min && e.primary);
+      const machineOnly = answers.equipment.length === 1 && answers.equipment[0] === "machine";
+      let equipOk = true;
+      if (machineOnly) {
+        for (const ex of json) {
+          const libId = ex.libraryId;
+          if (!libId) { equipOk = false; break; }
+          catalogById.set(libId, libId);
+        }
+      }
+      return {
+        answers,
+        dayCount: days.length,
+        perDay,
+        withinBounds,
+        fieldsOk,
+        programOk: json.length > 0,
+        days,
+      };
+    });
+  }, genCases);
+
+  const case0 = genResults[0];
+  assert(
+    case0.dayCount === 3,
+    "P5: generated program has daysPerWeek distinct days",
+    `expected 3 days, got ${case0.dayCount} (${case0.days.join(", ")})`,
+    "__repforgeGenerateProgram full_body 3-day"
+  );
+  assert(
+    case0.withinBounds && case0.fieldsOk,
+    "P5: exercises within session bounds with valid fields",
+    `perDay=${case0.perDay.join(",")} fieldsOk=${case0.fieldsOk}`,
+    "sessionLength normal → 5–7 exercises per day, name/sets/min/max/primary"
+  );
+  assert(
+    case0.programOk,
+    "P5: Program constructor accepts generated output",
+    `length=${case0.programOk}`,
+    "new Program(__repforgeGenerateProgram(answers)).toJSON().length > 0"
+  );
+
+  const machineEquip = await page.evaluate(() => {
+    const answers = { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "machine_only", equipment: ["machine"], priorityMuscles: [], sessionLength: "normal" };
+    const raw = window.__repforgeGenerateProgram(answers);
+    const barbellOnly = ["Barbell back squat", "Barbell bench press", "Barbell row", "Barbell Romanian deadlift", "Barbell incline press", "Barbell overhead press"];
+    const hasBarbell = raw.some((e) => barbellOnly.some((n) => e.name === n) || /barbell/i.test(e.name));
+    return { count: raw.length, hasBarbell, names: raw.map((e) => e.name) };
+  });
+  assert(
+    !machineEquip.hasBarbell && machineEquip.count > 0,
+    "P5: machine-only equipment filter excludes barbell picks",
+    `hasBarbell=${machineEquip.hasBarbell} names=${machineEquip.names.slice(0, 4).join(", ")}`,
+    "equipment=[machine] → no barbell-only exercises"
+  );
+
+  const case2 = genResults[2];
+  assert(
+    case2.dayCount === 5 && case2.withinBounds,
+    "P5: PPL 5-day split respects long session length bounds",
+    `days=${case2.dayCount} perDay=${case2.perDay.join(",")}`,
+    "daysPerWeek=5 splitType=ppl sessionLength=long → 7–9 per day"
+  );
+
+  const pplDays = await page.evaluate(() => {
+    const raw = window.__repforgeGenerateProgram({ goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3, splitType: "ppl", equipment: ["machine", "cable"], priorityMuscles: [], sessionLength: "normal" });
+    const days = [...new Set(raw.map((e) => e.day))];
+    return { dayCount: days.length, exerciseCount: raw.length };
+  });
+  assert(
+    pplDays.dayCount === 3 && pplDays.exerciseCount > 0,
+    "P5: PPL generates one day per training slot",
+    JSON.stringify(pplDays),
+    "splitType=ppl daysPerWeek=3 → Day 1–3"
+  );
+
+  const upperLower = genResults[1];
+  assert(
+    upperLower.dayCount === 4 && upperLower.withinBounds,
+    "P5: upper/lower 4-day short session fits 4–5 exercises",
+    `perDay=${upperLower.perDay.join(",")}`,
+    "upper_lower 4-day sessionLength=short"
+  );
+
+  beginPhase("Phase: P6 onboarding UI");
+  await clearState(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+  assert(
+    await page.locator("#onboarding.active").isVisible(),
+    "P6: first-run onboarding is visible on fresh load",
+    "onboarding section not active",
+    "Clear storage → reload → onboarding overlay shows"
+  );
+  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
+  await page.click("#onbNext");
+  await page.waitForSelector("#onbSave", { timeout: 5000 });
+  await page.click("#onbSave");
+  await page.waitForFunction(
+    () => !document.querySelector("#onboarding")?.classList.contains("active"),
+    { timeout: 8000 }
+  );
+  state = await getState(page);
+  const onbDays = [...new Set(state.program.map((e) => e.day))];
+  assert(
+    state.programMeta?.onboarded === true,
+    "P6: Save program sets onboarded=true",
+    `onboarded=${state.programMeta?.onboarded}`,
+    "Complete onboarding → Save program"
+  );
+  assert(
+    onbDays.length === state.programMeta?.daysPerWeek,
+    "P6: generated program days match daysPerWeek",
+    `days=${onbDays.length} expected=${state.programMeta?.daysPerWeek}`,
+    "Onboarding review → Save → program day count"
+  );
+  assert(
+    !(await page.locator("#onboarding.active").count()),
+    "P6: onboarding hidden after save",
+    "onboarding still active",
+    "Save program → overlay closes"
+  );
+  await nav(page, "settings");
+  assert(
+    (await page.locator("#createProgram").count()) === 1,
+    "P6: Settings has Create new program control",
+    "createProgram button missing",
+    "Settings → Progression card"
   );
 
   // Console errors
