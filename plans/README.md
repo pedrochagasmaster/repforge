@@ -196,4 +196,5 @@ Consensus across ≥5 personas that these betray the product:
 | 020 | DONE |
 | 021 | DONE |
 | 022 | DONE |
-| 023 | TODO (spike — writes plan 024 as DRAFT) |
+| 023 | DONE (spike — see `docs/design/mesocycle-blocks.md`) |
+| 024 | DRAFT — do not execute before human review of the 023 design doc |
