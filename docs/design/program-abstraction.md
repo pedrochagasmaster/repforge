@@ -17,7 +17,7 @@ The Program tab edits exercise templates but the split has no identity: no name,
 | Primary progress metric | **Adherence** — unique program days logged in last 7 days |
 | Secondary progress metric | **Week** — floor days since `started` ÷ 7 + 1 |
 | Status label | Plain language from adherence + progression health |
-| Export | v2 `{ version: 2, meta, exercises }`; array-only import forever |
+| Export | v2 `{ version: 2, meta, exercises }`; array-only import forever. Import applies `meta.name` only — the recipient keeps their own `id`/`started`/`created` (a shared file is a template, not the sender's running instance). |
 | Default name | Blank → UI shows "Untitled program" |
 | Default `started` on migration | Earliest log date, or `null` if no log |
 
