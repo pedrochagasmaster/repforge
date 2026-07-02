@@ -359,6 +359,15 @@ function applyState(s){state={settings:normalizeSettings(s.settings),programMeta
 function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();
   if(partial.started!==undefined){const v=partial.started;state.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
+  if(partial.goal!==undefined)state.programMeta.goal=partial.goal;
+  if(partial.experience!==undefined)state.programMeta.experience=partial.experience;
+  if(partial.daysPerWeek!==undefined)state.programMeta.daysPerWeek=partial.daysPerWeek;
+  if(partial.splitType!==undefined)state.programMeta.splitType=partial.splitType;
+  if(partial.equipment!==undefined)state.programMeta.equipment=partial.equipment;
+  if(partial.priorityMuscles!==undefined)state.programMeta.priorityMuscles=partial.priorityMuscles;
+  if(partial.sessionLength!==undefined)state.programMeta.sessionLength=partial.sessionLength;
+  if(partial.mesocycleStatus!==undefined)state.programMeta.mesocycleStatus=partial.mesocycleStatus;
+  if(partial.onboarded!==undefined)state.programMeta.onboarded=partial.onboarded;
   state.programMeta.updated=new Date().toISOString();save()}
 function programAdherence(){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   const cutoff=daysAgo(6),programDaySet=new Set(prog.days()),loggedDays=new Set();
@@ -1074,6 +1083,87 @@ function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
 
 function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast("Beginner-friendly program loaded. Your log is unchanged.")}
 
+const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
+  5:["ppl","bro","upper_lower"],6:["ppl"]};
+const ONB_SPLIT_LABEL={full_body:"Full body",upper_lower:"Upper / lower",machine_only:"Machine only",ppl:"Push / pull / legs",bro:"Bro split"};
+const ONB_EQ_UI=["machines","cables","dumbbells","barbells","bodyweight"];
+const ONB_EQ_LABEL={machines:"Machines",cables:"Cables",dumbbells:"Dumbbells",barbells:"Barbells",bodyweight:"Bodyweight"};
+const ONB_EQ_GEN={machines:"machine",cables:"cable",dumbbells:"dumbbell",barbells:"barbell",bodyweight:"bodyweight"};
+const ONB_MUSCLES=["Chest","Back","Quads","Hamstrings","Glutes","Side delts","Arms","Calves"];
+const ONB_TITLES=["What's your goal?","Training experience","Days per week","Choose a split","Equipment access",
+  "Priority muscles (optional)","Session length","Review your program"];
+let onbStep=0,onbAnswers={};
+function defaultOnbAnswers(){return{goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:["machines","cables"],
+  priorityMuscles:[],sessionLength:null}}
+function onbGenAnswers(a){const eq=(a.equipment||[]).map(x=>ONB_EQ_GEN[x]||x);
+  const goal=a.goal==="strength_hypertrophy"?"strength":a.goal==="beginner_consistency"?"hypertrophy":a.goal||"hypertrophy";
+  return{...a,goal,equipment:eq}}
+function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");
+  $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
+function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");
+  const log=$("#log");if(log&&!log.classList.contains("active")){
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    log.classList.add("active")}
+  render()}
+function startOnboarding(){onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
+function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding()}
+function onbCanNext(){const a=onbAnswers;
+  if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
+  if(onbStep===3)return!!a.splitType;if(onbStep===4)return a.equipment?.length>0;if(onbStep===6)return!!a.sessionLength;return true}
+function onbPick(key,val,multi){if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
+  if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
+  if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
+  renderOnboarding()}
+function onbOpt(cls,key,val,label,sub,multi){const sel=multi?(onbAnswers[key]||[]).includes(val):onbAnswers[key]===val;
+  return `<button type="button" class="onb__opt${sel?" is-selected":""}" data-onb-pick="${esc(key)}" data-onb-val="${esc(val)}" data-onb-multi="${multi?"1":"0"}">${esc(label)}${sub?`<small>${esc(sub)}</small>`:""}</button>`}
+function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
+  if(!body)return;title.textContent=ONB_TITLES[onbStep]||"Create program";step.textContent=`Step ${onbStep+1} of 8`;
+  back.classList.toggle("hidden",onbStep===0);next.classList.toggle("hidden",onbStep===7);
+  let html="";
+  if(onbStep===0)html=`<p class="onb__lede">We'll build a split around your goal and schedule.</p><div class="onb__opts">`+
+    onbOpt("","goal","hypertrophy","Build muscle","Hypertrophy focus",false)+
+    onbOpt("","goal","strength_hypertrophy","Build muscle with strength focus","Heavier compounds, lower reps",false)+
+    onbOpt("","goal","beginner_consistency","Build consistency as a beginner","Simple, repeatable sessions",false)+`</div>`;
+  else if(onbStep===1)html=`<div class="onb__grid">`+
+    onbOpt("","experience","beginner","Beginner","",false)+onbOpt("","experience","intermediate","Intermediate","",false)+
+    onbOpt("","experience","advanced","Advanced","",false)+`</div>`;
+  else if(onbStep===2)html=`<div class="onb__grid">`+[2,3,4,5,6].map(n=>onbOpt("","daysPerWeek",n,String(n),"days",false)).join("")+`</div>`;
+  else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
+    html=`<p class="onb__lede">Splits that fit ${onbAnswers.daysPerWeek} days per week.</p><div class="onb__opts">`+
+      opts.map(s=>onbOpt("","splitType",s,ONB_SPLIT_LABEL[s]||s,"",false)).join("")+`</div>`}
+  else if(onbStep===4)html=`<p class="onb__lede">Pick everything you can use. We'll only program what you have.</p><div class="onb__grid">`+
+    ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,ONB_EQ_LABEL[e],"",true)).join("")+`</div>`;
+  else if(onbStep===5)html=`<p class="onb__lede">Optional — we'll add a little extra volume where you want it.</p><div class="onb__grid">`+
+    ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,m,"",true)).join("")+`</div>`;
+  else if(onbStep===6)html=`<div class="onb__opts">`+
+    onbOpt("","sessionLength","short","Short","4–5 exercises",false)+
+    onbOpt("","sessionLength","normal","Normal","5–7 exercises",false)+
+    onbOpt("","sessionLength","long","Long","7–9 exercises",false)+`</div>`;
+  else{const gen=generateProgramFromOnboarding(onbGenAnswers(onbAnswers)),days=[...new Set(gen.map(e=>e.day))];
+    const byDay=days.map(d=>{const exs=gen.filter(e=>e.day===d);
+      return `<div class="onb__day"><div class="onb__dayname">${esc(d)}</div>`+
+        exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(e.primary)}</div>`).join("")+`</div>`});
+    html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
+      `<button type="button" id="onbSave" class="btn btn--forge">Save program</button>`+
+      `<button type="button" id="onbEdit" class="btn btn--steel">Edit before saving</button>`+
+      `<button type="button" id="onbRestart" class="btn btn--steel">Start over</button></div></div>`}
+  body.innerHTML=html;
+  $$("[data-onb-pick]").forEach(b=>b.onclick=()=>{const k=b.dataset.onbPick,v=b.dataset.onbVal;
+    const multi=b.dataset.onbMulti==="1",num=k==="daysPerWeek"?+v:v;onbPick(k,num,multi)});
+  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=saveOnboardingProgram;
+  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=editOnboardingProgram;
+  const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
+  if(next)next.disabled=!onbCanNext()}
+function saveOnboardingProgram(){const a=onbAnswers;prog=new Program(generateProgramFromOnboarding(onbGenAnswers(a)));
+  persistProgramMeta({goal:a.goal,experience:a.experience,daysPerWeek:a.daysPerWeek,splitType:a.splitType,equipment:a.equipment,
+    priorityMuscles:a.priorityMuscles,sessionLength:a.sessionLength,started:today(),mesocycleStatus:"active",onboarded:true});
+  persistProgram();day=prog.days()[0]||"Day 1";closeOnboarding();toast("Program saved.")}
+function editOnboardingProgram(){prog=new Program(generateProgramFromOnboarding(onbGenAnswers(onbAnswers)));persistProgram();
+  day=prog.days()[0]||"Day 1";closeOnboarding();
+  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));render();toast("Tweak your program, then save when ready.")}
+window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
+
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
@@ -1099,6 +1189,9 @@ function init(){
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast("Day added.")};
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{if(confirm("Replace your current program template? Your logged history stays."))switchToBeginnerProgram()};
+  $("#createProgram").onclick=()=>startOnboarding();
+  $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
+  $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
   $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
@@ -1108,6 +1201,7 @@ function init(){
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
+  maybeShowOnboarding();
 }
 async function boot(){
   let raw=null;

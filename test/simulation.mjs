@@ -68,8 +68,16 @@ async function getState(page) {
   }, KEY);
 }
 
-async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000 });
+async function dismissOnboardingIfPresent(page) {
+  await page.evaluate(() => {
+    const el = document.querySelector("#onboarding");
+    if (el?.classList.contains("active") && typeof window.closeOnboarding === "function") window.closeOnboarding();
+  });
+}
+
+async function waitForApp(page, { dismissOnboarding = true } = {}) {
+  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  if (dismissOnboarding) await dismissOnboardingIfPresent(page);
   await page.waitForFunction(() => typeof window.detectPRs === "function", { timeout: 10000 });
 }
 
@@ -77,9 +85,9 @@ async function loadApp(page, url = BASE) {
   await page.goto(url, { waitUntil: "domcontentloaded" });
 }
 
-async function reloadApp(page) {
+async function reloadApp(page, opts = {}) {
   await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForApp(page);
+  await waitForApp(page, opts);
 }
 
 async function persistState(page, state) {
@@ -2631,6 +2639,62 @@ async function main() {
     "P5: upper/lower 4-day short session fits 4–5 exercises",
     `perDay=${upperLower.perDay.join(",")}`,
     "upper_lower 4-day sessionLength=short"
+  );
+
+  beginPhase("Phase: P6 onboarding UI");
+  await clearState(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+  assert(
+    await page.locator("#onboarding.active").isVisible(),
+    "P6: first-run onboarding is visible on fresh load",
+    "onboarding section not active",
+    "Clear storage → reload → onboarding overlay shows"
+  );
+  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
+  await page.click("#onbNext");
+  await page.waitForSelector("#onbSave", { timeout: 5000 });
+  await page.click("#onbSave");
+  await page.waitForFunction(
+    () => !document.querySelector("#onboarding")?.classList.contains("active"),
+    { timeout: 8000 }
+  );
+  state = await getState(page);
+  const onbDays = [...new Set(state.program.map((e) => e.day))];
+  assert(
+    state.programMeta?.onboarded === true,
+    "P6: Save program sets onboarded=true",
+    `onboarded=${state.programMeta?.onboarded}`,
+    "Complete onboarding → Save program"
+  );
+  assert(
+    onbDays.length === state.programMeta?.daysPerWeek,
+    "P6: generated program days match daysPerWeek",
+    `days=${onbDays.length} expected=${state.programMeta?.daysPerWeek}`,
+    "Onboarding review → Save → program day count"
+  );
+  assert(
+    !(await page.locator("#onboarding.active").count()),
+    "P6: onboarding hidden after save",
+    "onboarding still active",
+    "Save program → overlay closes"
+  );
+  await nav(page, "settings");
+  assert(
+    (await page.locator("#createProgram").count()) === 1,
+    "P6: Settings has Create new program control",
+    "createProgram button missing",
+    "Settings → Progression card"
   );
 
   // Console errors
