@@ -35,3 +35,15 @@ _Avoid_: Set entry, record
 **Training day**:
 A labeled group within the program (e.g. Day 1) whose exercises appear together on the Log tab.
 _Avoid_: Session (a session is an instance; a training day is the template grouping)
+
+**Mesocycle**:
+A finite run of a program — typically four to eight weeks — with a start date, target length, and a review at the end.
+_Avoid_: Block (unless the lifter uses that word), training phase, macro cycle
+
+**Block review**:
+A summary generated at the end of a mesocycle from adherence, progression, hard-set volume, PRs, and fatigue signals.
+_Avoid_: Report card, grade, score
+
+**Generated program**:
+A program created from onboarding answers; the user can edit it before saving.
+_Avoid_: Auto-plan, AI workout, recommended routine

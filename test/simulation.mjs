@@ -2558,6 +2558,187 @@ async function main() {
     "working set 100×10 vs prev 100×8"
   );
 
+  beginPhase("Phase: P4 schema + migration");
+  state = await getState(page);
+  assert(
+    Array.isArray(state.programHistory),
+    "P4: state has programHistory array",
+    `programHistory=${typeof state.programHistory}`,
+    "Load app → inspect state.programHistory"
+  );
+  assert(
+    state.programMeta.mesocycleLengthWeeks === 6 &&
+      state.programMeta.mesocycleStatus === "active" &&
+      state.programMeta.onboarded === false,
+    "P4: programMeta phase-2 defaults",
+    JSON.stringify({
+      mesocycleLengthWeeks: state.programMeta.mesocycleLengthWeeks,
+      mesocycleStatus: state.programMeta.mesocycleStatus,
+      onboarded: state.programMeta.onboarded,
+    }),
+    "Load app → inspect programMeta defaults"
+  );
+  const historyEntry = { id: "hist-sim-1", name: "Prior block", endedAt: "2026-01-01" };
+  await persistState(page, { ...state, programHistory: [historyEntry] });
+  await reloadApp(page);
+  state = await getState(page);
+  assert(
+    state.programHistory.length === 1 && state.programHistory[0].id === historyEntry.id,
+    "P4: programHistory round-trips on persist/reload",
+    `programHistory=${JSON.stringify(state.programHistory)}`,
+    "persistState with programHistory → reload"
+  );
+  const legacyMeta = {
+    id: state.programMeta.id,
+    name: state.programMeta.name,
+    started: state.programMeta.started,
+    created: state.programMeta.created,
+    updated: state.programMeta.updated,
+  };
+  await persistState(page, { ...state, programMeta: legacyMeta });
+  await reloadApp(page);
+  const legacyNorm = await getState(page);
+  assert(
+    legacyNorm.programMeta.mesocycleLengthWeeks === 6 &&
+      legacyNorm.programMeta.mesocycleStatus === "active" &&
+      legacyNorm.programMeta.onboarded === false &&
+      legacyNorm.programMeta.goal === null,
+    "P4: legacy programMeta normalizes without error",
+    JSON.stringify(legacyNorm.programMeta),
+    "Strip new programMeta fields → reload"
+  );
+  state = legacyNorm;
+
+  beginPhase("Phase: P7 mesocycle lifecycle");
+  const twoWeeksStarted = isoDateFromWeeksAgo(2);
+  await persistState(page, {
+    ...state,
+    programMeta: {
+      ...state.programMeta,
+      started: twoWeeksStarted,
+      mesocycleLengthWeeks: 6,
+      mesocycleStatus: "active",
+    },
+  });
+  await reloadApp(page);
+  const mc = await page.evaluate(() => window.__repforgeMesocycleWeek());
+  assert(
+    mc.current >= 2 && mc.current <= 3,
+    "P7: mesocycleWeek current ~2 after ~2 weeks",
+    JSON.stringify(mc),
+    "Set started ~2 weeks ago → __repforgeMesocycleWeek"
+  );
+  assert(
+    mc.total === 6,
+    "P7: mesocycleWeek total is 6",
+    `total=${mc.total}`,
+    "mesocycleLengthWeeks=6 → total 6"
+  );
+  await nav(page, "log");
+  const logCtxMeso = await page.locator("#logContext").textContent();
+  assert(
+    /of 6/.test(logCtxMeso),
+    "P7: Log context shows Week X of 6",
+    `logContext=${logCtxMeso}`,
+    "Log tab → #logContext includes of 6"
+  );
+  await nav(page, "program");
+  const weekChipText = await page.locator("#pmetaChipsTop").textContent();
+  assert(
+    /of 6/.test(weekChipText),
+    "P7: Program week chip shows of 6",
+    `chips=${weekChipText}`,
+    "Program tab → week chip includes of 6"
+  );
+  assert(
+    (await page.locator("#endBlock").count()) === 1,
+    "P7: #endBlock button exists",
+    "endBlock missing from Program tab",
+    "Program tab → End block button near program meta"
+  );
+
+  beginPhase("Phase: P8 block review");
+  const blockStarted = isoDateFromWeeksAgo(5);
+  await persistState(page, {
+    ...state,
+    programMeta: { ...state.programMeta, started: blockStarted, mesocycleLengthWeeks: 6 },
+  });
+  await reloadApp(page);
+  const blockReview = await page.evaluate(() =>
+    window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
+  );
+  const recLabels = [
+    "repeat_with_simpler_schedule",
+    "reduce_volume_or_deload",
+    "repeat_or_progress",
+    "keep_program_improve_completion",
+    "repeat_with_small_swaps",
+  ];
+  assert(
+    blockReview && recLabels.includes(blockReview.recommendation),
+    "P8: buildBlockReview recommendation is a known label",
+    `recommendation=${blockReview?.recommendation}`,
+    "Seed history → __repforgeBuildBlockReview → recommendation field"
+  );
+  assert(
+    ["plannedSessions", "completedSessions", "improvedLifts", "flatLifts", "stalledLifts", "prs"].every(
+      (k) => typeof blockReview[k] === "number"
+    ),
+    "P8: buildBlockReview count fields are numbers",
+    JSON.stringify({
+      plannedSessions: blockReview?.plannedSessions,
+      completedSessions: blockReview?.completedSessions,
+      improvedLifts: blockReview?.improvedLifts,
+      flatLifts: blockReview?.flatLifts,
+      stalledLifts: blockReview?.stalledLifts,
+      prs: blockReview?.prs,
+    }),
+    "__repforgeBuildBlockReview → numeric count fields"
+  );
+  assert(
+    blockReview.completedSessions > 0 && blockReview.plannedSessions > 0,
+    "P8: block review has planned and completed sessions",
+    `completed=${blockReview.completedSessions} planned=${blockReview.plannedSessions}`,
+    "Seeded log within block window → completedSessions > 0"
+  );
+  assert(
+    typeof blockReview.adherenceRatio === "number" && blockReview.adherenceRatio >= 0 && blockReview.adherenceRatio <= 1,
+    "P8: adherenceRatio is a guarded ratio",
+    `adherenceRatio=${blockReview?.adherenceRatio}`,
+    "__repforgeBuildBlockReview → adherenceRatio between 0 and 1"
+  );
+  assert(
+    typeof blockReview.volumeCompliance === "number" && blockReview.volumeCompliance >= 0 && blockReview.volumeCompliance <= 1,
+    "P8: volumeCompliance is a guarded ratio",
+    `volumeCompliance=${blockReview?.volumeCompliance}`,
+    "__repforgeBuildBlockReview → volumeCompliance capped at 1"
+  );
+  await nav(page, "program");
+  await page.click("#endBlock");
+  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  const reviewText = await page.locator("#blockReview").textContent();
+  assert(
+    /Recommendation:/i.test(reviewText) && /Why:/i.test(reviewText),
+    "P8: block review panel shows recommendation and Why",
+    reviewText?.slice(0, 160),
+    "Program tab → End block → review panel opens"
+  );
+  const recSnippets = {
+    repeat_with_simpler_schedule: "simpler schedule",
+    reduce_volume_or_deload: "reduce volume",
+    repeat_or_progress: "repeat this block or progress",
+    keep_program_improve_completion: "improve completion",
+    repeat_with_small_swaps: "small swaps",
+  };
+  assert(
+    reviewText.toLowerCase().includes(recSnippets[blockReview.recommendation]),
+    "P8: review panel shows friendly recommendation copy",
+    `panel=${reviewText?.slice(0, 200)} recommendation=${blockReview.recommendation}`,
+    "End block → panel body includes mapped recommendation line"
+  );
+  await page.click("#blockReviewClose");
+  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+
   // Console errors
   assert(
     consoleErrors.length === 0,

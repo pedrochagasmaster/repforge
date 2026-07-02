@@ -144,9 +144,24 @@ class Exercise{
     this.notes=String(d.notes??"").trim();
     this.alternates=Array.isArray(d.alternates)?d.alternates.map(s=>String(s).trim()).filter(Boolean):
       typeof d.alternates==="string"?d.alternates.split(",").map(s=>s.trim()).filter(Boolean):[];
+    if(d.libraryId!=null)this.libraryId=String(d.libraryId).trim();
+    if(d.progressionType!=null)this.progressionType=String(d.progressionType).trim();
+    if(d.targetRirStart!=null&&Number.isFinite(+d.targetRirStart))this.targetRirStart=+d.targetRirStart;
+    if(d.targetRirEnd!=null&&Number.isFinite(+d.targetRirEnd))this.targetRirEnd=+d.targetRirEnd;
+    if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
+    if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
+    if(d.priority!=null)this.priority=String(d.priority).trim();
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
-  toJSON(){return {id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates}}
+  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+    if(this.libraryId!==undefined)o.libraryId=this.libraryId;
+    if(this.progressionType!==undefined)o.progressionType=this.progressionType;
+    if(this.targetRirStart!==undefined)o.targetRirStart=this.targetRirStart;
+    if(this.targetRirEnd!==undefined)o.targetRirEnd=this.targetRirEnd;
+    if(this.minSets!==undefined)o.minSets=this.minSets;
+    if(this.maxSets!==undefined)o.maxSets=this.maxSets;
+    if(this.priority!==undefined)o.priority=this.priority;
+    return o}
 }
 
 class Program{
@@ -195,15 +210,31 @@ function migrateLog(){let changed=false;for(const row of state.log){
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
-function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now}}
+function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
+  goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
+  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
 function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
+  const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
+  const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
+  const daysPerWeek=Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:m.daysPerWeek===null?null:base.daysPerWeek;
+  const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
+  const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
+  const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
+  const sessionLength=typeof m.sessionLength==="string"?m.sessionLength.trim()||null:m.sessionLength===null?null:base.sessionLength;
+  const mesocycleLengthWeeks=Number.isFinite(+m.mesocycleLengthWeeks)&&+m.mesocycleLengthWeeks>0?Math.round(+m.mesocycleLengthWeeks):base.mesocycleLengthWeeks;
+  const mesocycleStatus=m.mesocycleStatus==="active"||m.mesocycleStatus==="completed"?m.mesocycleStatus:base.mesocycleStatus;
+  const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
+  const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
-    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now}}
+    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
+    goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded}}
 function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[]};
+  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
+    programHistory:Array.isArray(s.programHistory)?s.programHistory:[]}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[]}}
+function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[],
+  programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
   prog=new Program(state.program);state.program=prog.toJSON();state.programMeta=normalizeProgramMeta(state.programMeta,state.log);migrateLog();save()}
 function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();
@@ -216,6 +247,91 @@ function programAdherence(){const totalDays=prog.days().length;if(!totalDays)ret
 function programWeek(){const s=state.programMeta?.started;if(!s)return null;
   const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
   const days=Math.floor((now-start)/86400000);return days<0?1:Math.floor(days/7)+1}
+function mesocycleWeek(){const wk=programWeek(),total=state.programMeta?.mesocycleLengthWeeks||6;
+  const current=wk!=null?Math.max(1,wk):null;
+  const isFinalWeek=current!=null&&current>=total;
+  const isComplete=state.programMeta?.mesocycleStatus==="completed"||(current!=null&&current>total);
+  return{current,total,isFinalWeek,isComplete}}
+function rowMusclesPure(row,program){if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
+  const ex=(program||[]).find(e=>e.id===row.exerciseId)||(program||[]).find(e=>e.name===row.name);
+  return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
+function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
+function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
+  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
+    const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
+  return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
+    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
+    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex),m=new Map();
+  for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});m.get(x.session).rows.push(x)}
+  const ordered=[...m.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+  const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
+  if(curIdx<0){const curCreated=(log||[]).find(r=>r.session===beforeSessionId)?.created;if(!curCreated)return ordered.length?ordered.at(-1).rows:[];
+    const older=ordered.filter(s=>String(s.created).localeCompare(String(curCreated))<0);return older.length?older.at(-1).rows:[]}
+  return curIdx>0?ordered[curIdx-1].rows:[]}
+function hardSetsInRange(log,program,started,ended,hardRir){const m=new Map();
+  for(const x of log||[]){if(started&&String(x.date)<started)continue;if(ended&&String(x.date)>ended)continue;
+    if(!(+x.load>0&&+x.reps>0&&+x.rir<=hardRir)||!isWork(x))continue;
+    const mus=rowMusclesPure(x,program);
+    for(const p of muscles(mus.primary))addVol(m,p,1,0);
+    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
+function buildBlockReview(programMeta,program,log){const p=new Program(program||[]),days=p.days(),total=programMeta?.mesocycleLengthWeeks||6;
+  const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
+  const plannedSessions=total&&days.length?total*days.length:0;
+  const blockRows=(log||[]).filter(r=>!started||r.date&&(String(r.date)>=started&&String(r.date)<=ended));
+  const completedSessions=new Set(blockRows.map(r=>r.session)).size;
+  const adherenceRatio=plannedSessions?Math.min(completedSessions/plannedSessions,1):0;
+  let improvedLifts=0,flatLifts=0,regressedLifts=0,stalledLifts=0;
+  for(const ex of p.exercises){const sess=sessionsForLog(ex,log),blockSess=started?sess.filter(s=>String(s.date)>=started&&String(s.date)<=ended):sess;
+    if(!blockSess.length)continue;
+    const latest=blockSess.at(-1),latestRows=(log||[]).filter(r=>r.session===latest.session&&matchLift(ex)(r));
+    const delta=buildSessionDelta(previousSessionRowsLog(ex,latest.session,log),workingRows(latestRows));
+    if(delta.status==="improved")improvedLifts++;
+    else if(delta.status==="flat")flatLifts++;
+    else if(delta.status==="regressed")regressedLifts++;
+    if(isStalled(sess))stalledLifts++}
+  const prs=detectPRs(log||[]).filter(e=>!started||e.date&&(String(e.date)>=started&&String(e.date)<=ended)).length;
+  const plannedMap=p.volume(),plannedHardSetsByMuscle=volMapToObj(plannedMap);
+  let totalPlanned=0;for(const[,v]of plannedMap)totalPlanned+=(v.d+v.p)*total;
+  const completedMap=hardSetsInRange(log,program,started,ended,hardRir),completedHardSetsByMuscle=volMapToObj(completedMap);
+  let totalCompleted=0;for(const[,v]of completedMap)totalCompleted+=v.d+v.p;
+  const volumeCompliance=totalPlanned?Math.min(totalCompleted/totalPlanned,1):0;
+  const improvedHigh=improvedLifts>=3||(improvedLifts>0&&improvedLifts>=flatLifts+regressedLifts);
+  const fatigueHigh=(regressedLifts+flatLifts)>=4||regressedLifts>=2;
+  let recommendation;
+  if(adherenceRatio<.5)recommendation="repeat_with_simpler_schedule";
+  else if(stalledLifts>=3&&fatigueHigh)recommendation="reduce_volume_or_deload";
+  else if(improvedHigh&&adherenceRatio>=.8)recommendation="repeat_or_progress";
+  else if(volumeCompliance<.6)recommendation="keep_program_improve_completion";
+  else recommendation="repeat_with_small_swaps";
+  return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
+    improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
+    volumeCompliance,recommendation,created:new Date().toISOString()}}
+const BLOCK_REC_COPY={
+  repeat_with_simpler_schedule:{line:"Recommendation: repeat with a simpler schedule.",why:"Fewer than half the planned sessions were completed this block."},
+  reduce_volume_or_deload:{line:"Recommendation: reduce volume or take a deload.",why:"Several lifts stalled and fatigue looks high."},
+  repeat_or_progress:{line:"Recommendation: repeat this block or progress.",why:"Adherence was strong and most lifts improved."},
+  keep_program_improve_completion:{line:"Recommendation: keep the program and improve completion.",why:"Logged hard-set volume was well below what the program plans."},
+  repeat_with_small_swaps:{line:"Recommendation: repeat this block with small swaps.",why:"Adherence was solid and progress was mixed but acceptable."}};
+function blockRecommendationCopy(key){return BLOCK_REC_COPY[key]||BLOCK_REC_COPY.repeat_with_small_swaps}
+function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
+  $("#blockReviewBody").innerHTML=
+    `<p><b>Sessions</b> ${review.completedSessions} / ${review.plannedSessions} completed</p>`+
+    `<p><b>Lifts</b> ${review.improvedLifts} improved · ${review.flatLifts} flat · ${review.stalledLifts} stalled</p>`+
+    `<p><b>Volume</b> ${pct}% of planned hard sets</p>`+
+    `<p class="blockreview__rec">${esc(copy.line)}</p>`+
+    `<p class="blockreview__why"><b>Why:</b> ${esc(copy.why)}</p>`}
+function openBlockReview(review){renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  d.classList.remove("hidden");$("#blockReviewClose").onclick=()=>d.classList.add("hidden")}
+function promptEndBlock(){if(!confirm("End this training block? You'll review progress before starting the next one."))return;
+  openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))}
+function renderBlockPrompt(){const mc=mesocycleWeek(),show=mc.isComplete||mc.isFinalWeek;
+  const html=show?`<p><b>Block ending</b> Week ${mc.current} of ${mc.total}. <button type="button" class="blockprompt__act">Review block</button></p>`:"";
+  for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
+    el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock}}}
 function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
   if(!withHistory.length)return null;
   const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
@@ -339,15 +455,15 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
 
-function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings()}
+function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
 
 function renderWorkout(){
-  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,wk=programWeek();
-    lc.textContent=nm||wk?`${nm||"Untitled program"}${wk?` · Week ${wk}`:""}`:"Today's session"}
+  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
+    lc.textContent=nm||mc.current!=null?`${nm||"Untitled program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's session"}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
@@ -594,6 +710,8 @@ function detectPRs(log,opts={}){
 window.detectPRs=detectPRs;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
+window.__repforgeMesocycleWeek=mesocycleWeek;
+window.__repforgeBuildBlockReview=buildBlockReview;
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -725,9 +843,9 @@ function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolum
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
-  const ad=programAdherence(),week=programWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
-  const weekChip=week?`<span class="pmeta__chip">Week ${week}</span>`:"";
+  const weekChip=mc.current!=null?`<span class="pmeta__chip">Week ${mc.current} of ${mc.total}</span>`:"";
   const healthChip=health?`<span class="pmeta__chip">${health.hot}/${health.total} ready to add</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${Math.round(vol.ratio*100)}% volume (7d)</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
@@ -949,6 +1067,7 @@ function init(){
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast("Day added.")};
+  $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{if(confirm("Replace your current program template? Your logged history stays."))switchToBeginnerProgram()};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));

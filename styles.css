@@ -463,6 +463,17 @@ nav button.active .nav__icon{background:var(--ember)}
   border-radius:8px;padding:4px 9px;cursor:pointer}
 .copylast:hover{color:var(--gold);border-color:var(--steel-dim)}
 
+/* ---- Mesocycle block prompt ---- */
+.blockprompt{background:rgba(212,160,78,.08);border:1px solid rgba(212,160,78,.35);border-left:4px solid var(--gold);
+  border-radius:12px;padding:12px 15px;margin-bottom:14px;font-size:13px;color:var(--mist);line-height:1.45}
+.blockprompt p{margin:0}
+.blockprompt b{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;color:var(--gold);margin-right:2px}
+.blockprompt__act{margin-left:6px;border:1px solid rgba(212,160,78,.45);background:var(--iron);color:var(--gold);
+  border-radius:8px;padding:5px 10px;cursor:pointer;font-family:var(--display);font-weight:700;
+  text-transform:uppercase;letter-spacing:.05em;font-size:10px}
+.blockprompt__act:hover{background:rgba(212,160,78,.12)}
+.program__endblock{margin-bottom:14px}
+
 /* ---- Fatigue watch banner ---- */
 .fatigue{background:rgba(79,182,217,.1);border:1px solid rgba(79,182,217,.35);border-left:4px solid var(--quench);
   border-radius:12px;padding:12px 15px;margin-bottom:14px;font-size:13px;color:var(--mist);line-height:1.45}
@@ -487,6 +498,17 @@ nav button.active .nav__icon{background:var(--ember)}
 .glossary__close:hover{color:var(--mist)}
 .glossary__term{font-family:var(--display);font-weight:700;font-size:13px;margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
 .glossary__body{margin:0;font-size:13px;line-height:1.45;color:var(--steel)}
+.blockreview{
+  position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
+  background:var(--anvil);border:1px solid rgba(212,160,78,.35);border-radius:12px;
+  padding:16px 18px 14px;box-shadow:var(--shadow);
+}
+.blockreview__title{font-family:var(--display);font-weight:700;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--gold)}
+.blockreview__body{margin:0 0 14px;font-size:13px;line-height:1.5;color:var(--steel)}
+.blockreview__body p{margin:0 0 8px}
+.blockreview__body b{font-family:var(--display);text-transform:uppercase;letter-spacing:.05em;font-size:11px;color:var(--mist)}
+.blockreview__rec{margin-top:10px!important;font-weight:600;color:var(--mist)}
+.blockreview__why{margin:0!important;font-size:12px;color:var(--steel-dim)}
 .importchoice{
   position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
   background:var(--anvil);border:1px solid var(--rule);border-radius:12px;
