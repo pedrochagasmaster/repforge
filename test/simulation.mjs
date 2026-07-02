@@ -2531,6 +2531,108 @@ async function main() {
   );
   state = legacyNorm;
 
+  beginPhase("Phase: P5 program generation");
+  await page.waitForFunction(() => typeof window.__repforgeGenerateProgram === "function");
+  const genCases = [
+    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "full_body", equipment: ["machine"], priorityMuscles: ["Chest"], sessionLength: "normal" },
+    { goal: "strength", experience: "intermediate", daysPerWeek: 4, splitType: "upper_lower", equipment: ["barbell", "dumbbell", "machine"], priorityMuscles: [], sessionLength: "short" },
+    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 5, splitType: "ppl", equipment: ["machine"], priorityMuscles: ["Quads"], sessionLength: "long" },
+  ];
+  const genResults = await page.evaluate((cases) => {
+    const catalogById = new Map();
+    const bounds = { short: [4, 5], normal: [5, 7], long: [7, 9] };
+    return cases.map((answers) => {
+      const raw = window.__repforgeGenerateProgram(answers);
+      const prog = new Program(raw);
+      const json = prog.toJSON();
+      const days = [...new Set(json.map((e) => e.day))];
+      const perDay = days.map((d) => json.filter((e) => e.day === d).length);
+      const [lo, hi] = bounds[answers.sessionLength] || bounds.normal;
+      const withinBounds = perDay.every((n) => n >= lo && n <= hi);
+      const fieldsOk = json.every((e) => e.name && e.sets > 0 && e.min > 0 && e.max >= e.min && e.primary);
+      const machineOnly = answers.equipment.length === 1 && answers.equipment[0] === "machine";
+      let equipOk = true;
+      if (machineOnly) {
+        for (const ex of json) {
+          const libId = ex.libraryId;
+          if (!libId) { equipOk = false; break; }
+          catalogById.set(libId, libId);
+        }
+      }
+      return {
+        answers,
+        dayCount: days.length,
+        perDay,
+        withinBounds,
+        fieldsOk,
+        programOk: json.length > 0,
+        days,
+      };
+    });
+  }, genCases);
+
+  const case0 = genResults[0];
+  assert(
+    case0.dayCount === 3,
+    "P5: generated program has daysPerWeek distinct days",
+    `expected 3 days, got ${case0.dayCount} (${case0.days.join(", ")})`,
+    "__repforgeGenerateProgram full_body 3-day"
+  );
+  assert(
+    case0.withinBounds && case0.fieldsOk,
+    "P5: exercises within session bounds with valid fields",
+    `perDay=${case0.perDay.join(",")} fieldsOk=${case0.fieldsOk}`,
+    "sessionLength normal → 5–7 exercises per day, name/sets/min/max/primary"
+  );
+  assert(
+    case0.programOk,
+    "P5: Program constructor accepts generated output",
+    `length=${case0.programOk}`,
+    "new Program(__repforgeGenerateProgram(answers)).toJSON().length > 0"
+  );
+
+  const machineEquip = await page.evaluate(() => {
+    const answers = { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "machine_only", equipment: ["machine"], priorityMuscles: [], sessionLength: "normal" };
+    const raw = window.__repforgeGenerateProgram(answers);
+    const barbellOnly = ["Barbell back squat", "Barbell bench press", "Barbell row", "Barbell Romanian deadlift", "Barbell incline press", "Barbell overhead press"];
+    const hasBarbell = raw.some((e) => barbellOnly.some((n) => e.name === n) || /barbell/i.test(e.name));
+    return { count: raw.length, hasBarbell, names: raw.map((e) => e.name) };
+  });
+  assert(
+    !machineEquip.hasBarbell && machineEquip.count > 0,
+    "P5: machine-only equipment filter excludes barbell picks",
+    `hasBarbell=${machineEquip.hasBarbell} names=${machineEquip.names.slice(0, 4).join(", ")}`,
+    "equipment=[machine] → no barbell-only exercises"
+  );
+
+  const case2 = genResults[2];
+  assert(
+    case2.dayCount === 5 && case2.withinBounds,
+    "P5: PPL 5-day split respects long session length bounds",
+    `days=${case2.dayCount} perDay=${case2.perDay.join(",")}`,
+    "daysPerWeek=5 splitType=ppl sessionLength=long → 7–9 per day"
+  );
+
+  const pplDays = await page.evaluate(() => {
+    const raw = window.__repforgeGenerateProgram({ goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3, splitType: "ppl", equipment: ["machine", "cable"], priorityMuscles: [], sessionLength: "normal" });
+    const days = [...new Set(raw.map((e) => e.day))];
+    return { dayCount: days.length, exerciseCount: raw.length };
+  });
+  assert(
+    pplDays.dayCount === 3 && pplDays.exerciseCount > 0,
+    "P5: PPL generates one day per training slot",
+    JSON.stringify(pplDays),
+    "splitType=ppl daysPerWeek=3 → Day 1–3"
+  );
+
+  const upperLower = genResults[1];
+  assert(
+    upperLower.dayCount === 4 && upperLower.withinBounds,
+    "P5: upper/lower 4-day short session fits 4–5 exercises",
+    `perDay=${upperLower.perDay.join(",")}`,
+    "upper_lower 4-day sessionLength=short"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

@@ -187,6 +187,133 @@ class Program{
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
+const DAY_TYPES={full_body:["squat","hinge","press","pull","delts","arms"],upper:["press","row","pulldown","delts","chest_iso","arms"],
+  lower:["squat","hinge","leg_curl","leg_extension","calves"],push:["press","incline_press","shoulder_press","lateral_raise","triceps"],
+  pull:["row","pulldown","rear_delt","curl"],legs:["squat","hinge","leg_curl","leg_extension","adduction","calves"]};
+const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
+const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
+const EXERCISE_CATALOG=[
+  {id:"sq_bb",name:"Barbell back squat",pattern:"squat",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:false},
+  {id:"sq_sm",name:"Smith machine squat",pattern:"squat",equipment:["smith","machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
+  {id:"sq_lp",name:"Leg press",pattern:"squat",equipment:["machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true,notes:"Feet low on the platform, back flat against the pad."},
+  {id:"sq_db",name:"Goblet squat",pattern:"squat",equipment:["dumbbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
+  {id:"hg_bb",name:"Barbell Romanian deadlift",pattern:"hinge",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:false},
+  {id:"hg_sm",name:"Smith machine RDL",pattern:"hinge",equipment:["smith","machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
+  {id:"hg_mc",name:"Romanian deadlift machine",pattern:"hinge",equipment:["machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
+  {id:"pr_bb",name:"Barbell bench press",pattern:"press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
+  {id:"pr_db",name:"Dumbbell bench press",pattern:"press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"pr_mc",name:"Chest press machine",pattern:"press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"ip_db",name:"Dumbbell incline press",pattern:"incline_press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"ip_mc",name:"Incline chest press machine",pattern:"incline_press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
+  {id:"ip_bb",name:"Barbell incline press",pattern:"incline_press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
+  {id:"sp_bb",name:"Barbell overhead press",pattern:"shoulder_press",equipment:["barbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:false},
+  {id:"sp_mc",name:"Shoulder press machine",pattern:"shoulder_press",equipment:["machine"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
+  {id:"sp_db",name:"Dumbbell shoulder press",pattern:"shoulder_press",equipment:["dumbbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
+  {id:"rw_bb",name:"Barbell row",pattern:"row",equipment:["barbell"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:false},
+  {id:"rw_mc",name:"Seated row machine",pattern:"row",equipment:["machine"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
+  {id:"rw_cb",name:"Cable seated row",pattern:"row",equipment:["cable"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
+  {id:"pd_mc",name:"Lat pulldown",pattern:"pulldown",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
+  {id:"pd_bw",name:"Assisted pull-up",pattern:"pulldown",equipment:["machine"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
+  {id:"pl_cb",name:"Cable pullover",pattern:"pull",equipment:["cable","machine"],primary:"Lats",secondary:"Mid/upper back",beginnerFriendly:true},
+  {id:"pl_mc",name:"Neutral-grip pulldown",pattern:"pull",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
+  {id:"dl_mc",name:"Lateral raise machine",pattern:"delts",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"dl_db",name:"Dumbbell lateral raise",pattern:"delts",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"dl_cb",name:"Cable lateral raise",pattern:"delts",equipment:["cable"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"lr_db",name:"Dumbbell lateral raise",pattern:"lateral_raise",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"lr_mc",name:"Lateral raise machine",pattern:"lateral_raise",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
+  {id:"rd_mc",name:"Reverse pec deck",pattern:"rear_delt",equipment:["machine"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
+  {id:"rd_db",name:"Rear delt fly",pattern:"rear_delt",equipment:["dumbbell"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
+  {id:"ci_mc",name:"Pec deck",pattern:"chest_iso",equipment:["machine"],primary:"Chest",secondary:"",beginnerFriendly:true},
+  {id:"ci_cb",name:"Cable fly",pattern:"chest_iso",equipment:["cable"],primary:"Chest",secondary:"",beginnerFriendly:true},
+  {id:"ar_mc",name:"Preacher curl machine",pattern:"arms",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"ar_db",name:"Dumbbell curl",pattern:"arms",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"cu_mc",name:"Preacher curl machine",pattern:"curl",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"cu_db",name:"Dumbbell curl",pattern:"curl",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"cu_cb",name:"Cable curl",pattern:"curl",equipment:["cable"],primary:"Biceps",secondary:"",beginnerFriendly:true},
+  {id:"tr_cb",name:"Cable pressdown",pattern:"triceps",equipment:["cable"],primary:"Triceps",secondary:"",beginnerFriendly:true},
+  {id:"tr_mc",name:"Machine triceps extension",pattern:"triceps",equipment:["machine"],primary:"Triceps",secondary:"",beginnerFriendly:true},
+  {id:"lc_mc",name:"Seated leg curl",pattern:"leg_curl",equipment:["machine"],primary:"Hamstrings",secondary:"",beginnerFriendly:true},
+  {id:"le_mc",name:"Leg extension",pattern:"leg_extension",equipment:["machine"],primary:"Quads",secondary:"",beginnerFriendly:true},
+  {id:"cv_mc",name:"Standing calf raise machine",pattern:"calves",equipment:["machine"],primary:"Calves",secondary:"",beginnerFriendly:true},
+  {id:"ad_mc",name:"Hip adduction machine",pattern:"adduction",equipment:["machine"],primary:"Adductors",secondary:"",beginnerFriendly:true}
+];
+function resolveSplit(daysPerWeek,splitType){
+  const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
+  if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
+  if(st==="upper_lower")return Array.from({length:n},(_,i)=>i%2?"lower":"upper");
+  if(st==="ppl"){const c=["push","pull","legs"];return Array.from({length:n},(_,i)=>c[i%3]);}
+  if(st==="bro"){const c=n<=3?["push","pull","legs"]:n===4?["push","pull","legs","upper"]:["push","pull","legs","push","pull","legs"];
+    return Array.from({length:n},(_,i)=>c[i%c.length]);}
+  return Array.from({length:n},()=>"full_body")}
+function exerciseSlotsForDay(dayType,answers){return[...(DAY_TYPES[dayType]||DAY_TYPES.full_body)]}
+function catalogForSlot(slot,equipment,experience){
+  const eq=new Set((equipment||[]).map(s=>String(s).toLowerCase()));
+  let pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
+  if(eq.size)pool=pool.filter(e=>e.equipment.some(x=>eq.has(String(x).toLowerCase())));
+  if(!pool.length)pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
+  if(experience==="beginner"){const bf=pool.filter(e=>e.beginnerFriendly);if(bf.length)pool=bf}
+  return pool.sort((a,b)=>a.id.localeCompare(b.id))}
+function chooseExercise(slot,equipment,experience,usedIds){
+  const pool=catalogForSlot(slot,equipment,experience).filter(e=>!usedIds.has(e.id));
+  if(pool.length)return pool[0];
+  return catalogForSlot(slot,equipment,experience)[0]||null}
+function repScheme(experience,goal,slot){
+  let sets=experience==="beginner"?2:3,min=experience==="beginner"?8:6,max=experience==="beginner"?12:10;
+  if(goal==="strength"){min=4;max=6;sets=experience==="beginner"?3:4}
+  const iso=["lateral_raise","rear_delt","chest_iso","curl","triceps","calves","leg_curl","leg_extension","adduction","delts","arms"];
+  if(goal!=="strength"&&iso.includes(slot)){min=Math.max(min,8);max=Math.max(max,12)}
+  return{sets,min,max}}
+function muscleHit(ex,muscle){const m=muscle.toLowerCase();
+  return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
+function applyPriorityMuscles(program,priorityMuscles){
+  if(!priorityMuscles?.length)return;
+  for(const ex of program){
+    if(priorityMuscles.some(m=>muscleHit(ex,m)))ex.sets=Math.min(ex.sets+1,5)}
+  for(const muscle of priorityMuscles){
+    if(program.some(ex=>muscleHit(ex,muscle)))continue;
+    const day=program[0]?.day||"Day 1";
+    const slot=muscle.includes("Quad")?"leg_extension":muscle.includes("Chest")?"chest_iso":muscle.includes("Bicep")?"curl":
+      muscle.includes("Tricep")?"triceps":muscle.includes("Ham")?"leg_curl":muscle.includes("Glute")?"hinge":
+      muscle.includes("Lat")||muscle.includes("Back")?"row":muscle.includes("delt")?"lateral_raise":"curl";
+    const entry=chooseExercise(slot,[],null,new Set(program.map(e=>e.libraryId)));
+    if(!entry)continue;
+    const rs=repScheme("intermediate","hypertrophy",slot);
+    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
+function pickFillerForDay(dayExs,usedIds,equipment,experience){
+  const have=new Set(dayExs.map(e=>e.libraryId));
+  for(const slot of FILLER_SLOTS){
+    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]));
+    if(!entry||have.has(entry.id))continue;
+    const rs=repScheme(experience,"hypertrophy",slot);
+    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+      primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
+  return null}
+function applySessionLength(program,sessionLength,equipment,experience){
+  const [lo,hi]=SESSION_BOUNDS[sessionLength]||SESSION_BOUNDS.normal,out=[];
+  const days=[...new Set(program.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  for(const day of days){
+    let list=program.filter(e=>e.day===day).sort((a,b)=>a.order-b.order);
+    if(list.length>hi)list=list.slice(0,hi);
+    const used=new Set(list.map(e=>e.libraryId));
+    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
+    list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
+  program.length=0;program.push(...out)}
+function generateProgramFromOnboarding(answers){
+  const a=answers||{},equipment=a.equipment||[],experience=a.experience||"intermediate",goal=a.goal||"hypertrophy";
+  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[];
+  dayTypes.forEach((dayType,di)=>{
+    const dayName=`Day ${di+1}`,slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
+    for(const slot of slots){
+      const entry=chooseExercise(slot,equipment,experience,usedIds);if(!entry)continue;
+      usedIds.add(entry.id);order++;
+      const rs=repScheme(experience,goal,slot);
+      program.push({id:uid(),day:dayName,order,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+        primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
+  applyPriorityMuscles(program,a.priorityMuscles||[]);
+  applySessionLength(program,a.sessionLength||"normal",equipment,experience);
+  return program}
+
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null;
 const collapsed=new Set();
@@ -612,6 +739,7 @@ function detectPRs(log,opts={}){
     best.set(k,cur)}
   return events}
 window.detectPRs=detectPRs;
+window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
 
