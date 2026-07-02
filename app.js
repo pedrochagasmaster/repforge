@@ -138,9 +138,24 @@ class Exercise{
     this.notes=String(d.notes??"").trim();
     this.alternates=Array.isArray(d.alternates)?d.alternates.map(s=>String(s).trim()).filter(Boolean):
       typeof d.alternates==="string"?d.alternates.split(",").map(s=>s.trim()).filter(Boolean):[];
+    if(d.libraryId!=null)this.libraryId=String(d.libraryId).trim();
+    if(d.progressionType!=null)this.progressionType=String(d.progressionType).trim();
+    if(d.targetRirStart!=null&&Number.isFinite(+d.targetRirStart))this.targetRirStart=+d.targetRirStart;
+    if(d.targetRirEnd!=null&&Number.isFinite(+d.targetRirEnd))this.targetRirEnd=+d.targetRirEnd;
+    if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
+    if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
+    if(d.priority!=null)this.priority=String(d.priority).trim();
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
-  toJSON(){return {id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates}}
+  toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+    if(this.libraryId!==undefined)o.libraryId=this.libraryId;
+    if(this.progressionType!==undefined)o.progressionType=this.progressionType;
+    if(this.targetRirStart!==undefined)o.targetRirStart=this.targetRirStart;
+    if(this.targetRirEnd!==undefined)o.targetRirEnd=this.targetRirEnd;
+    if(this.minSets!==undefined)o.minSets=this.minSets;
+    if(this.maxSets!==undefined)o.maxSets=this.maxSets;
+    if(this.priority!==undefined)o.priority=this.priority;
+    return o}
 }
 
 class Program{
@@ -188,15 +203,31 @@ function migrateLog(){let changed=false;for(const row of state.log){
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
-function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now}}
+function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
+  goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
+  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
 function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
+  const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
+  const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
+  const daysPerWeek=Number.isFinite(+m.daysPerWeek)?+m.daysPerWeek:m.daysPerWeek===null?null:base.daysPerWeek;
+  const splitType=typeof m.splitType==="string"?m.splitType.trim()||null:m.splitType===null?null:base.splitType;
+  const equipment=Array.isArray(m.equipment)?m.equipment.map(s=>String(s).trim()).filter(Boolean):base.equipment;
+  const priorityMuscles=Array.isArray(m.priorityMuscles)?m.priorityMuscles.map(s=>String(s).trim()).filter(Boolean):base.priorityMuscles;
+  const sessionLength=typeof m.sessionLength==="string"?m.sessionLength.trim()||null:m.sessionLength===null?null:base.sessionLength;
+  const mesocycleLengthWeeks=Number.isFinite(+m.mesocycleLengthWeeks)&&+m.mesocycleLengthWeeks>0?Math.round(+m.mesocycleLengthWeeks):base.mesocycleLengthWeeks;
+  const mesocycleStatus=m.mesocycleStatus==="active"||m.mesocycleStatus==="completed"?m.mesocycleStatus:base.mesocycleStatus;
+  const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
+  const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
-    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now}}
+    created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
+    goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded}}
 function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[]};
+  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
+    programHistory:Array.isArray(s.programHistory)?s.programHistory:[]}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[]}}
+function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[],
+  programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
   prog=new Program(state.program);state.program=prog.toJSON();state.programMeta=normalizeProgramMeta(state.programMeta,state.log);migrateLog();save()}
 function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();

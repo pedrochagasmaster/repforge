@@ -2480,6 +2480,57 @@ async function main() {
     "working set 100×10 vs prev 100×8"
   );
 
+  beginPhase("Phase: P4 schema + migration");
+  state = await getState(page);
+  assert(
+    Array.isArray(state.programHistory),
+    "P4: state has programHistory array",
+    `programHistory=${typeof state.programHistory}`,
+    "Load app → inspect state.programHistory"
+  );
+  assert(
+    state.programMeta.mesocycleLengthWeeks === 6 &&
+      state.programMeta.mesocycleStatus === "active" &&
+      state.programMeta.onboarded === false,
+    "P4: programMeta phase-2 defaults",
+    JSON.stringify({
+      mesocycleLengthWeeks: state.programMeta.mesocycleLengthWeeks,
+      mesocycleStatus: state.programMeta.mesocycleStatus,
+      onboarded: state.programMeta.onboarded,
+    }),
+    "Load app → inspect programMeta defaults"
+  );
+  const historyEntry = { id: "hist-sim-1", name: "Prior block", endedAt: "2026-01-01" };
+  await persistState(page, { ...state, programHistory: [historyEntry] });
+  await reloadApp(page);
+  state = await getState(page);
+  assert(
+    state.programHistory.length === 1 && state.programHistory[0].id === historyEntry.id,
+    "P4: programHistory round-trips on persist/reload",
+    `programHistory=${JSON.stringify(state.programHistory)}`,
+    "persistState with programHistory → reload"
+  );
+  const legacyMeta = {
+    id: state.programMeta.id,
+    name: state.programMeta.name,
+    started: state.programMeta.started,
+    created: state.programMeta.created,
+    updated: state.programMeta.updated,
+  };
+  await persistState(page, { ...state, programMeta: legacyMeta });
+  await reloadApp(page);
+  const legacyNorm = await getState(page);
+  assert(
+    legacyNorm.programMeta.mesocycleLengthWeeks === 6 &&
+      legacyNorm.programMeta.mesocycleStatus === "active" &&
+      legacyNorm.programMeta.onboarded === false &&
+      legacyNorm.programMeta.goal === null,
+    "P4: legacy programMeta normalizes without error",
+    JSON.stringify(legacyNorm.programMeta),
+    "Strip new programMeta fields → reload"
+  );
+  state = legacyNorm;
+
   // Console errors
   assert(
     consoleErrors.length === 0,
