@@ -102,6 +102,10 @@
         <p class="lede">Editing here replaces the whole program. Use the visual editor above for everyday changes.</p>
         <label class="field">Program JSON<textarea id="programJson" rows="14" spellcheck="false"></textarea></label>
         <button id="saveProgram" class="btn btn--forge" type="button">Save JSON</button>
+        <div class="btnrow">
+          <button id="exportProgram" class="btn btn--steel" type="button">Export program JSON</button>
+          <label class="btn btn--steel file">Import program JSON<input id="importProgram" type="file" accept=".json,application/json"></label>
+        </div>
       </details>
       <h3 class="subhead">Planned weekly volume</h3>
       <p class="lede">Sets per muscle from this program template, assuming each day is trained once per week. See <b>Stats → Completed hard sets</b> for what you actually logged.</p>
@@ -155,6 +159,15 @@
     <button type="button" class="glossary__close" aria-label="Close">✕</button>
     <p class="glossary__term"></p>
     <p class="glossary__body"></p>
+  </div>
+  <div id="importChoice" class="importchoice hidden" role="dialog" aria-modal="true" aria-label="Import backup">
+    <p class="importchoice__title">Import backup</p>
+    <p class="importchoice__body" id="importChoiceBody"></p>
+    <div class="btnrow">
+      <button type="button" id="importMerge" class="btn btn--forge">Merge</button>
+      <button type="button" id="importReplace" class="btn btn--danger">Replace all</button>
+      <button type="button" id="importCancel" class="btn btn--steel">Cancel</button>
+    </div>
   </div>
   <div id="toast" class="toast hidden"></div>
   <script src="app.js"></script>

@@ -190,8 +190,8 @@ Consensus across ≥5 personas that these betray the product:
 | 014 | DONE |
 | 015 | DONE |
 | 016 | DONE |
-| 017 | TODO |
-| 018 | TODO |
+| 017 | DONE |
+| 018 | DONE |
 | 019 | TODO |
 | 020 | TODO |
 | 021 | TODO |

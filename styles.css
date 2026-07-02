@@ -455,6 +455,13 @@ nav button.active .nav__icon{background:var(--ember)}
 .glossary__close:hover{color:var(--mist)}
 .glossary__term{font-family:var(--display);font-weight:700;font-size:13px;margin:0 24px 6px 0;text-transform:uppercase;letter-spacing:.04em}
 .glossary__body{margin:0;font-size:13px;line-height:1.45;color:var(--steel)}
+.importchoice{
+  position:fixed;inset:auto 16px 96px 16px;z-index:70;max-width:360px;margin:0 auto;
+  background:var(--anvil);border:1px solid var(--rule);border-radius:12px;
+  padding:16px 18px 14px;box-shadow:var(--shadow);
+}
+.importchoice__title{font-family:var(--display);font-weight:700;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
+.importchoice__body{margin:0 0 14px;font-size:13px;line-height:1.45;color:var(--steel);white-space:pre-line}
 .rec__plain{margin:0 0 10px;font-size:12px;line-height:1.4;color:var(--steel-dim);font-style:italic}
 
 /* ---- Attention / action board ---- */

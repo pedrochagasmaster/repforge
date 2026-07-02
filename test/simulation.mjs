@@ -626,6 +626,8 @@ async function main() {
     writeFileSync(jsonPath, JSON.stringify(exported, null, 2));
 
     await page.setInputFiles("#importJson", jsonPath);
+    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.click("#importReplace");
     await page.waitForTimeout(200);
 
     state = await getState(page);
@@ -642,6 +644,30 @@ async function main() {
       "Modify exported JSON log entry → Import"
     );
 
+    // Merge: file with one session this device doesn't have
+    const mergeSrc = JSON.parse(readFileSync(jsonPath, "utf8"));
+    const donor = mergeSrc.log
+      .filter((r) => r.session === mergeSrc.log[0].session)
+      .map((r) => ({ ...r, session: "merge_test_session_1" }));
+    writeFileSync(
+      join(tmpDir, "merge.json"),
+      JSON.stringify({ ...mergeSrc, log: [...mergeSrc.log, ...donor] })
+    );
+    const beforeMerge = (await getState(page)).log.length;
+    await page.setInputFiles("#importJson", join(tmpDir, "merge.json"));
+    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.click("#importMerge");
+    await page.waitForTimeout(200);
+    const afterMerge = await getState(page);
+    assert(
+      afterMerge.log.length === beforeMerge + donor.length &&
+        afterMerge.log.some((r) => r.session === "merge_test_session_1"),
+      "Merge adds only the new session's rows",
+      `rows ${beforeMerge} → ${afterMerge.log.length}, expected +${donor.length}`,
+      "Import file with 1 new session → Merge"
+    );
+    state = afterMerge;
+
     // Import without settings merges defaults
     const noSettingsPath = join(tmpDir, "no-settings.json");
     writeFileSync(
@@ -649,6 +675,8 @@ async function main() {
       JSON.stringify({ program: exported.program, log: exported.log.slice(0, 6) })
     );
     await page.setInputFiles("#importJson", noSettingsPath);
+    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.click("#importReplace");
     await page.waitForTimeout(200);
     state = await getState(page);
     assert(
@@ -694,6 +722,46 @@ async function main() {
     `CSV data rows ${csvLines.length - 1}, log entries ${state.log.length}`,
     "Export CSV → compare row count to log"
   );
+
+  console.log("\nPhase: program-only export/import");
+  await nav(page, "program");
+  await page.locator("#program details.advanced summary").click();
+  const progPath = join(tmpDir, "program.json");
+  const [progDl] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#exportProgram"),
+  ]);
+  await progDl.saveAs(progPath);
+  const progFile = JSON.parse(readFileSync(progPath, "utf8"));
+  assert(
+    Array.isArray(progFile) && progFile.length > 0 && progFile[0].id && progFile[0].day,
+    "Program export is an exercise array",
+    `Got: ${JSON.stringify(progFile).slice(0, 80)}`,
+    "Program → Advanced → Export program JSON"
+  );
+  const logBefore = (await getState(page)).log.length;
+  progFile[0].name = "IMPORTED_RENAME";
+  writeFileSync(progPath, JSON.stringify(progFile));
+  await page.setInputFiles("#importProgram", progPath);
+  await page.waitForTimeout(250);
+  const stAfter = await getState(page);
+  assert(
+    stAfter.program.some((x) => x.name === "IMPORTED_RENAME"),
+    "Program import applies the file",
+    "Renamed exercise not found",
+    "Export program → rename in file → Import program JSON"
+  );
+  assert(
+    stAfter.log.length === logBefore,
+    "Program import leaves the log untouched",
+    `log ${logBefore} → ${stAfter.log.length}`,
+    "Import program JSON → History unchanged"
+  );
+  await page.evaluate(() => {
+    document.querySelector("#programJson")?.blur();
+    const d = document.querySelector("#program details.advanced");
+    if (d) d.removeAttribute("open");
+  });
 
   // ── Phase 10: Program JSON editor ────────────────────────────────
   console.log("\nPhase 10: Program JSON editor");

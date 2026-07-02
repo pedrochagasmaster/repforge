@@ -636,15 +636,42 @@ function exportCsv(){
 function exportJson(){state.settings.lastExport=new Date().toISOString();save();
   const text=JSON.stringify(state,null,2),name=`repforge_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");renderSettings()}
+function exportProgram(){download(JSON.stringify(prog.toJSON(),null,2),`repforge_program_${today()}.json`,"application/json")}
+async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
+  try{const parsed=JSON.parse(await f.text());
+    const list=Array.isArray(parsed)?parsed:(Array.isArray(parsed?.program)?parsed.program:null);
+    if(!list||!list.length)throw Error();
+    if(!confirm(`Replace your current program with ${list.length} exercises from this file?\n\nYour training log and settings are not touched.`)){e.target.value="";toast("Program import cancelled.");return}
+    $("#programJson").value=JSON.stringify(list,null,2);saveProgram()}
+  catch{toast("That file isn't a RepForge program export.")}
+  e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();
     const inSessions=new Set(s.log.map(r=>r.session)).size,inSets=s.log.length;
     const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
-    const ok=confirm(`Import will REPLACE all current data.\n\nCurrent: ${curSessions} sessions, ${curSets} sets.\nImporting: ${inSessions} sessions, ${inSets} sets.\n\nThis cannot be undone. Continue?`);
-    if(!ok){e.target.value="";toast("Import cancelled.");return}
-    applyState(s);clearDraft();day=days()[0]||"Day 1";render();toast(`Imported ${inSessions} sessions.`)}
+    const have=new Set(state.log.map(r=>r.session));
+    const newSessions=new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size;
+    openImportChoice({s,inSessions,inSets,curSessions,curSets,newSessions})}
   catch{toast("That file isn't a valid RepForge backup.")}
   e.target.value=""}
+function openImportChoice(ctx){const d=$("#importChoice");
+  $("#importChoiceBody").textContent=
+    `This device: ${ctx.curSessions} sessions, ${ctx.curSets} sets.\n`+
+    `File: ${ctx.inSessions} sessions, ${ctx.inSets} sets (${ctx.newSessions} new to this device).\n\n`+
+    `Merge adds the ${ctx.newSessions} new sessions and keeps everything else. `+
+    `Replace all overwrites program, settings, and log — this cannot be undone.`;
+  d.classList.remove("hidden");
+  const close=()=>{d.classList.add("hidden")};
+  $("#importCancel").onclick=()=>{close();toast("Import cancelled.")};
+  $("#importReplace").onclick=()=>{close();applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";render();toast(`Imported ${ctx.inSessions} sessions.`)};
+  $("#importMerge").onclick=()=>{close();mergeLog(ctx.s)};}
+function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
+  const rows=s.log.filter(r=>r&&r.session&&!have.has(r.session));
+  const added=new Set(rows.map(r=>r.session)).size;
+  if(!added){toast("Nothing to merge — this device already has every session in the file.");return}
+  state.log.push(...rows);
+  migrateLog();save();
+  render();toast(`Merged ${added} new session${added===1?"":"s"}.`)}
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -666,6 +693,8 @@ function init(){
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
+  $("#exportProgram").onclick=exportProgram;
+  $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast("Day added.")};
   $("#saveSettings").onclick=()=>commitSettings(false);
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
