@@ -2661,6 +2661,80 @@ async function main() {
   await page.click("#blockReviewClose");
   await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
 
+  beginPhase("Phase: P9 next-block flow");
+  await page.waitForFunction(() => typeof window.__repforgeCompleteProgram === "function");
+  const p9Before = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    return {
+      historyLen: s.programHistory.length,
+      metaId: s.programMeta.id,
+      sets: s.program.map((e) => e.sets),
+    };
+  });
+  const p9Review = await page.evaluate(() =>
+    window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
+  );
+  await page.evaluate((review) => window.__repforgeCompleteProgram(review), p9Review);
+  const p9AfterComplete = await page.evaluate(() => {
+    const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    return { historyLen: s.programHistory.length, status: s.programMeta.mesocycleStatus };
+  });
+  assert(
+    p9AfterComplete.historyLen === p9Before.historyLen + 1,
+    "P9: completeCurrentProgram appends programHistory entry",
+    `history ${p9Before.historyLen} → ${p9AfterComplete.historyLen}`,
+    "__repforgeCompleteProgram(review) → programHistory.length +1"
+  );
+  assert(
+    p9AfterComplete.status === "completed",
+    "P9: completeCurrentProgram sets mesocycleStatus completed",
+    `status=${p9AfterComplete.status}`,
+    "__repforgeCompleteProgram → programMeta.mesocycleStatus === completed"
+  );
+  await page.evaluate(() => window.__repforgeStartNextMeso("increase_volume"));
+  const p9Today = new Date().toISOString().slice(0, 10);
+  const p9AfterStart = await page.evaluate((todayStr) => {
+    const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    return {
+      historyLen: s.programHistory.length,
+      metaId: s.programMeta.id,
+      status: s.programMeta.mesocycleStatus,
+      started: s.programMeta.started,
+      sets: s.program.map((e) => e.sets),
+    };
+  }, p9Today);
+  assert(
+    p9AfterStart.metaId !== p9Before.metaId,
+    "P9: startNextMesocycle mints new programMeta.id",
+    `id ${p9Before.metaId} → ${p9AfterStart.metaId}`,
+    "__repforgeStartNextMeso → new programMeta.id"
+  );
+  assert(
+    p9AfterStart.status === "active",
+    "P9: startNextMesocycle sets mesocycleStatus active",
+    `status=${p9AfterStart.status}`,
+    "__repforgeStartNextMeso → mesocycleStatus === active"
+  );
+  assert(
+    p9AfterStart.started === p9Today,
+    "P9: startNextMesocycle sets started to today",
+    `started=${p9AfterStart.started} today=${p9Today}`,
+    "__repforgeStartNextMeso → started === today()"
+  );
+  assert(
+    p9AfterStart.historyLen === p9AfterComplete.historyLen,
+    "P9: programHistory preserved across startNextMesocycle",
+    `historyLen=${p9AfterStart.historyLen}`,
+    "startNextMesocycle does not clear programHistory"
+  );
+  assert(
+    p9AfterStart.sets.length === p9Before.sets.length &&
+      p9AfterStart.sets.every((n, i) => n === p9Before.sets[i] + 1),
+    "P9: increase_volume adds one set per exercise",
+    `before=${p9Before.sets.join(",")} after=${p9AfterStart.sets.join(",")}`,
+    "__repforgeStartNextMeso(increase_volume) → each exercise sets +1"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

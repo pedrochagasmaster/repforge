@@ -317,8 +317,35 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
     `<p><b>Volume</b> ${pct}% of planned hard sets</p>`+
     `<p class="blockreview__rec">${esc(copy.line)}</p>`+
     `<p class="blockreview__why"><b>Why:</b> ${esc(copy.why)}</p>`}
-function openBlockReview(review){renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  d.classList.remove("hidden");$("#blockReviewClose").onclick=()=>d.classList.add("hidden")}
+let blockReviewCurrent=null;
+function closeBlockReview(){const d=$("#blockReview");if(d)d.classList.add("hidden")}
+function completeCurrentProgram(review){
+  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
+  if(!Array.isArray(state.programHistory))state.programHistory=[];
+  state.programHistory.push({id:state.programMeta.id,meta:{...state.programMeta},program:prog.toJSON(),
+    completedAt:new Date().toISOString(),review});
+  state.programMeta.mesocycleStatus="completed";
+  state.programMeta.completedAt=new Date().toISOString();
+  state.programMeta.updated=new Date().toISOString();
+  save()}
+function startNextMesocycle(strategy){
+  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
+  if(strategy==="onboarding"&&typeof window.startOnboarding==="function"){window.startOnboarding();return}
+  let list=prog.toJSON();
+  if(strategy==="repeat_swaps")list=list.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
+  else if(strategy==="increase_volume")list=list.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
+  else if(strategy==="reduce_volume")list=list.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
+  state.programMeta={...state.programMeta,id:uid(),started:today(),mesocycleStatus:"active",completedAt:null,onboarded:true,
+    updated:new Date().toISOString()};
+  prog=new Program(list);persistProgram();render();
+  const msg={repeat:"New block — same program.",repeat_swaps:"New block — exercises swapped.",
+    increase_volume:"New block — volume increased.",reduce_volume:"New block — volume reduced.",onboarding:"New block started."};
+  toast(msg[strategy]||"New block started.")}
+function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
+  completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
+function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview;
+  $$(".blockreview__act").forEach(b=>b.onclick=()=>finishBlockAndStart(b.dataset.strategy))}
 function promptEndBlock(){if(!confirm("End this training block? You'll review progress before starting the next one."))return;
   openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))}
 function renderBlockPrompt(){const mc=mesocycleWeek(),show=mc.isComplete||mc.isFinalWeek;
@@ -701,6 +728,8 @@ window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,c
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
 window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
+window.__repforgeCompleteProgram=completeCurrentProgram;
+window.__repforgeStartNextMeso=startNextMesocycle;
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);

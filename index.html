@@ -174,8 +174,14 @@
   <div id="blockReview" class="blockreview hidden" role="dialog" aria-modal="true" aria-label="Block review">
     <p class="blockreview__title">Block review</p>
     <div id="blockReviewBody" class="blockreview__body"></div>
+    <div class="blockreview__actions">
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="repeat">Repeat same program</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="repeat_swaps">Repeat with swaps</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="increase_volume">Increase volume</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="reduce_volume">Reduce volume</button>
+      <button type="button" class="btn btn--steel blockreview__act" data-strategy="onboarding">Start from onboarding again</button>
+    </div>
     <div class="btnrow">
-      <button type="button" id="blockReviewNext" class="btn btn--steel" disabled title="Coming in a future update">Start next block</button>
       <button type="button" id="blockReviewClose" class="btn btn--forge">Close</button>
     </div>
   </div>
