@@ -223,6 +223,20 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .ex__tag{flex:none;font-family:var(--mono);font-size:10.5px;letter-spacing:.04em;color:var(--steel);
   border:1px solid var(--rule);border-radius:999px;padding:4px 9px;white-space:nowrap;text-transform:uppercase;margin-top:2px}
 .ex__meta{font-family:var(--mono);font-size:11.5px;color:var(--steel-dim);margin-top:3px;letter-spacing:.02em}
+.ex__subfor{font-weight:400;font-size:.72em;color:var(--steel-dim);font-family:var(--mono)}
+
+.subst{display:flex;align-items:center;gap:8px;margin:0 0 10px;font-family:var(--mono);font-size:11.5px}
+.subst__lab{color:var(--steel-dim);text-transform:uppercase;letter-spacing:.08em;font-size:10px;flex:none}
+.subst__pick{flex:1;margin:0;padding:7px 9px;font-size:12px;background:var(--iron);border:1px solid var(--rule-soft);border-radius:8px;color:var(--mist)}
+
+.effort{display:flex;gap:3px}
+.effort__btn{flex:1;margin:0;padding:9px 2px;font-family:var(--display);font-size:10px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.04em;border:1px solid var(--rule);background:var(--iron);color:var(--steel);border-radius:8px;cursor:pointer;line-height:1}
+.effort__btn.active{color:var(--mist);border-color:var(--gold);background:rgba(255,180,76,.1)}
+.rirmode{border:0;padding:0;margin:0 0 14px}
+.rirmode legend{font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;font-size:11px;color:var(--steel);margin-bottom:6px}
+.rirmode__opt{display:inline-flex;align-items:center;gap:6px;margin-right:14px;font-size:13px;color:var(--steel);cursor:pointer}
+.rirmode__opt input{margin:0}
 
 /* heat strip = the signature element */
 .heat{display:flex;align-items:center;gap:10px;margin:12px 0 10px}
@@ -409,7 +423,7 @@ nav button.active .nav__icon{background:var(--ember)}
 .ex__skip:hover{color:var(--quench);border-color:rgba(79,182,217,.45)}
 .exercise.is-skipped{opacity:.58;border-style:dashed}
 .exercise.is-skipped .heat,.exercise.is-skipped .rec,.exercise.is-skipped .rec__plain,.exercise.is-skipped .setup,
-.exercise.is-skipped .prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow{display:none}
+.exercise.is-skipped .subst,.exercise.is-skipped .prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow{display:none}
 .exercise.is-skipped .ex__name::after{content:" · Skipped";color:var(--steel);font-weight:400;font-size:.82em}
 .skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--slag);border:1px solid var(--rule-soft);border-radius:10px;

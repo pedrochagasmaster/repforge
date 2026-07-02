@@ -120,6 +120,12 @@
         <p class="lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
         <label class="field">Rest timer (seconds, 0 = off)<input id="restSec" type="number" step="5" min="0" inputmode="numeric"></label>
         <label class="field">Units<select id="unit"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+        <fieldset class="field rirmode">
+          <legend>RIR logging</legend>
+          <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> Numbers</label>
+          <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> Easy / Hard / Max</label>
+        </fieldset>
+        <button id="beginnerProgram" type="button" class="btn btn--steel">Use beginner-friendly program</button>
         <details class="advanced">
           <summary>Advanced · progression dials</summary>
           <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>

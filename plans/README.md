@@ -194,6 +194,6 @@ Consensus across ≥5 personas that these betray the product:
 | 018 | DONE |
 | 019 | DONE |
 | 020 | DONE |
-| 021 | TODO |
-| 022 | TODO |
+| 021 | DONE |
+| 022 | DONE |
 | 023 | TODO (spike — writes plan 024 as DRAFT) |

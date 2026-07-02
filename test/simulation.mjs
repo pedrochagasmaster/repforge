@@ -716,7 +716,8 @@ async function main() {
       header.includes("e1rm") &&
       header.includes("is_hard_set") &&
       header.includes("is_warmup") &&
-      header.includes("bodyweight"),
+      header.includes("bodyweight") &&
+      header.includes("performed_name"),
     "CSV header has expected columns",
     `Header: ${header}`,
     "Settings → Export log CSV → check first line"
@@ -1325,6 +1326,82 @@ async function main() {
     "Log → fill a set → Skip it → Save → that exercise has no new rows"
   );
 
+  console.log("\nPhase: exercise substitution");
+  await nav(page, "program");
+  let subState = await getState(page);
+  const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
+  await page.fill(`[data-id="${d1First.id}"][data-field="alternates"]`, "Leg press, Pendulum squat");
+  await page.waitForTimeout(100);
+  await nav(page, "log");
+  const subDay = d1First.day;
+  await selectDay(page, subDay);
+  await page.evaluate((id) => {
+    const art = document.querySelector(`.exercise[data-ex="${id}"]`);
+    if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
+    if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
+  }, d1First.id);
+  await page.waitForTimeout(80);
+  await page.evaluate(({ id, val }) => {
+    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
+    if (!sel) return;
+    sel.value = val;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+  }, { id: d1First.id, val: "Leg press" });
+  await page.waitForTimeout(80);
+  await page.evaluate(({ id, load, reps, rir }) => {
+    const set = (k, v) => {
+      const el = document.querySelector(`[data-k="${id}_1_${k}"]`);
+      if (el) {
+        el.value = String(v);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+    };
+    set("load", load);
+    set("reps", reps);
+    set("rir", rir);
+  }, { id: d1First.id, load: 120, reps: 6, rir: 1 });
+  const subSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  subState = await getState(page);
+  const subSession = [...new Set(subState.log.map((r) => r.session))].find((s) => !subSessionsBefore.has(s));
+  const subRow = subState.log.find((r) => r.session === subSession && r.exerciseId === d1First.id);
+  assert(
+    subRow && subRow.performedName === "Leg press",
+    "Substituted session saves performedName",
+    JSON.stringify(subRow),
+    "Program alternates → Log pick Leg press → save"
+  );
+  assert(
+    subRow && subRow.name === d1First.name,
+    "Substituted row keeps program slot name",
+    `name=${subRow?.name} slot=${d1First.name}`,
+    "Save with substitute → row.name is still the program exercise"
+  );
+  await nav(page, "history");
+  const histText = await page.textContent("#historyTable");
+  assert(
+    histText.includes("Leg press"),
+    "History table shows performed substitute name",
+    histText.slice(0, 200),
+    "History → Every set table after substitute save"
+  );
+  await nav(page, "stats");
+  await page.evaluate(() => document.querySelector("#statsDeep")?.setAttribute("open", ""));
+  await page.selectOption("#statExercise", d1First.id);
+  await page.waitForTimeout(80);
+  const chartRows = await page.evaluate(() => {
+    const sel = document.querySelector("#statExercise").value;
+    const log = JSON.parse(localStorage.getItem("repforge_v1")).log.filter((r) => !r.warmup);
+    const keys = new Set(log.map((r) => r.exerciseId || r.name));
+    return keys.has(sel);
+  });
+  assert(
+    chartRows,
+    "Stats chart aggregates substituted sessions under exerciseId",
+    `exerciseId=${d1First.id}`,
+    "Stats → select substituted lift → chart has data"
+  );
+
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
   await clearState(page);
   await page.reload({ waitUntil: "networkidle" });
@@ -1410,6 +1487,65 @@ async function main() {
   await nav(page, "settings");
   await page.selectOption("#unit", "kg");
   await page.waitForTimeout(80);
+
+  console.log("\nPhase: effort RIR mode");
+  await nav(page, "settings");
+  await page.check('input[name="rirMode"][value="effort"]');
+  await page.waitForTimeout(120);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const effMeta = await getExerciseMeta(page, "Day 1");
+  const effEx = effMeta[0];
+  await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
+  await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
+  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="hard"]`);
+  const effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const effortState = await getState(page);
+  const effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
+  const effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  assert(
+    effortRow && effortRow.rir === 1,
+    "Effort mode Hard saves as RIR 1",
+    `rir=${effortRow?.rir}`,
+    "Settings effort mode → Log Hard → save"
+  );
+  assert(
+    effortState.settings.rirMode === "effort",
+    "Settings persist rirMode effort",
+    JSON.stringify(effortState.settings),
+    "Toggle effort mode in Settings"
+  );
+  await nav(page, "settings");
+  await page.check('input[name="rirMode"][value="numeric"]');
+  await page.waitForTimeout(80);
+
+  console.log("\nPhase: beginner program");
+  const logBeforeBeginner = (await getState(page)).log.length;
+  await page.click("#beginnerProgram");
+  await page.waitForTimeout(200);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const begName = await page.locator("#workout .exercise .ex__name").first().textContent();
+  assert(
+    /Leg press/i.test(begName) && !/Hack squat/i.test(begName),
+    "Beginner program shows plain exercise names",
+    `name="${begName}"`,
+    "Settings → Use beginner-friendly program → Log Day 1"
+  );
+  const begSetup = await cardInfo(page, 0);
+  assert(
+    begSetup.setup.length > 10,
+    "Beginner program setup hint visible on Log",
+    `setup="${begSetup.setup}"`,
+    "Log Day 1 after beginner switch"
+  );
+  assert(
+    (await getState(page)).log.length === logBeforeBeginner,
+    "Beginner program switch preserves log",
+    `log length changed ${logBeforeBeginner} → ${(await getState(page)).log.length}`,
+    "Switch beginner program with existing history"
+  );
 
   // Bodyweight persists on save and prefills on reopen
   await nav(page, "log");
