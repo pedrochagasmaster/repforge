@@ -3,7 +3,9 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "simulate": "node simulation.mjs"
+    "simulate": "node simulation.mjs",
+    "simulate:quick": "REPFORGE_SIM_WEEKS=12 node simulation.mjs",
+    "simulate:profile": "REPFORGE_PROFILE=1 node simulation.mjs"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

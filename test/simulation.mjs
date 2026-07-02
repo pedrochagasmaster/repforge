@@ -3,6 +3,18 @@
  * RepForge year-of-usage browser simulation.
  * Run: node test/simulation.mjs
  * Requires: python3 -m http.server 8000 serving /workspace
+ *
+ * Env:
+ *   REPFORGE_URL        App base URL (default http://localhost:8000/)
+ *   REPFORGE_SIM_WEEKS  Historical weeks to seed (default 52; use 12 for quick runs)
+ *   REPFORGE_PROFILE=1  Print per-phase timings at the end
+ *
+ * Coverage highlights:
+ *   - Bulk-seeded year of history + targeted UI save regressions
+ *   - Domain integrity audits (log shape, detectPRs, cross-tab metrics)
+ *   - State-driven progression matrix (new / add / add2 / hold)
+ *   - Import cancel, CSV e1rm/tonnage, PWA manifest, nav a11y
+ *   - Fatigue trim, heat gauge, session notes, effort RIR mapping, attention board
  */
 
 import { chromium } from "playwright";
@@ -13,8 +25,13 @@ import { tmpdir } from "os";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
+const PROFILE = process.env.REPFORGE_PROFILE === "1";
 
 const results = { passed: 0, failed: 0, bugs: [] };
+const phaseTimings = [];
+let phaseClock = 0;
+let lastPhase = "";
 
 function pass(name) {
   results.passed++;
@@ -34,6 +51,15 @@ function assert(cond, name, detail, repro) {
   else fail(name, detail, repro);
 }
 
+function beginPhase(name) {
+  if (PROFILE && lastPhase) {
+    phaseTimings.push([lastPhase, Date.now() - phaseClock]);
+  }
+  lastPhase = name;
+  phaseClock = Date.now();
+  console.log(name.startsWith("\n") ? name : `\n${name}`);
+}
+
 async function getState(page) {
   return page.evaluate((k) => {
     const raw = localStorage.getItem(k);
@@ -44,6 +70,95 @@ async function getState(page) {
 
 async function waitForApp(page) {
   await page.waitForSelector("#dayTabs button", { timeout: 10000 });
+  await page.waitForFunction(() => typeof window.detectPRs === "function", { timeout: 10000 });
+}
+
+async function loadApp(page, url = BASE) {
+  await page.goto(url, { waitUntil: "domcontentloaded" });
+}
+
+async function reloadApp(page) {
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+}
+
+async function persistState(page, state) {
+  await page.evaluate(
+    async ({ k, blob }) => {
+      localStorage.setItem(k, JSON.stringify(blob));
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(blob, k);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    },
+    { k: KEY, blob: state }
+  );
+}
+
+/** Bulk-inject a year of training history (fast path for stats/history coverage). */
+async function seedHistoricalLog(page, { weeks = SIM_WEEKS, days = ["Day 1", "Day 2", "Day 3"] } = {}) {
+  const state = await getState(page);
+  if (!state?.program?.length) throw new Error("seedHistoricalLog: no program in state");
+
+  const byDay = {};
+  for (const ex of state.program) {
+    if (!byDay[ex.day]) byDay[ex.day] = [];
+    byDay[ex.day].push(ex);
+  }
+  for (const day of Object.keys(byDay)) {
+    byDay[day].sort((a, b) => a.order - b.order);
+  }
+
+  const log = [];
+  let sessions = 0;
+  for (let week = 0; week < weeks; week++) {
+    const day = days[week % days.length];
+    const date = isoDateFromWeeksAgo(weeks - 1 - week);
+    const loadBase = Math.round((60 + week * 1.25) * 2) / 2;
+    const reps = 6 + (week % 3);
+    const rir = week % 4 === 0 ? 2 : 1;
+    const session = `${date}_${day}_seed_${week}`;
+    const created = new Date(`${date}T12:00:00Z`).toISOString();
+    const exs = byDay[day] || [];
+
+    for (let i = 0; i < Math.min(2, exs.length); i++) {
+      const ex = exs[i];
+      const load = loadBase + i * 5;
+      for (let n = 1; n <= ex.sets; n++) {
+        const row = {
+          session,
+          date,
+          day,
+          name: ex.name,
+          exerciseId: ex.id,
+          set: n,
+          load,
+          reps,
+          rir,
+          notes: week % 13 === 0 ? `seed-week-${week}` : "",
+          created,
+          primary: ex.primary,
+          secondary: ex.secondary,
+        };
+        if (week % 17 === 0 && i === 0 && n === 1) row.bodyweight = 82.5;
+        log.push(row);
+      }
+    }
+    sessions++;
+  }
+
+  await persistState(page, { ...state, log });
+  await reloadApp(page);
+  return { sessions, rows: log.length };
 }
 
 async function getProgramExercises(page, day) {
@@ -76,12 +191,12 @@ async function clearState(page) {
 
 async function nav(page, view) {
   await page.click(`nav button[data-view="${view}"]`);
-  await page.waitForTimeout(80);
+  await page.waitForSelector(`#${view}.view.active`, { timeout: 5000 });
 }
 
 async function selectDay(page, dayName) {
   await page.click(`#dayTabs button[data-day="${dayName}"]`);
-  await page.waitForTimeout(60);
+  await page.waitForSelector(`#dayTabs button[data-day="${dayName}"].active`, { timeout: 5000 });
 }
 
 async function firstDayName(page) {
@@ -89,21 +204,57 @@ async function firstDayName(page) {
 }
 
 async function fillExerciseSets(page, exId, sets, load, reps, rir) {
-  for (let n = 1; n <= sets; n++) {
-    const loadSel = `[data-k="${exId}_${n}_load"]`;
-    const repsSel = `[data-k="${exId}_${n}_reps"]`;
-    const rirSel = `[data-k="${exId}_${n}_rir"]`;
-    if (await page.locator(loadSel).count()) {
-      await page.fill(loadSel, String(load));
-      await page.fill(repsSel, String(reps));
-      await page.fill(rirSel, String(rir));
-    }
-  }
+  await page.evaluate(
+    ({ exId, sets, load, reps, rir }) => {
+      for (let n = 1; n <= sets; n++) {
+        for (const [suffix, val] of [
+          ["load", load],
+          ["reps", reps],
+          ["rir", rir],
+        ]) {
+          const el = document.querySelector(`[data-k="${exId}_${n}_${suffix}"]`);
+          if (!el) continue;
+          el.value = String(val);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+        }
+      }
+    },
+    { exId, sets, load, reps, rir }
+  );
 }
 
-async function saveWorkout(page) {
+async function saveWorkout(page, { expectNewRows = true } = {}) {
+  const beforeLen = (await getState(page))?.log?.length ?? 0;
   await page.click(".btn--save");
-  await page.waitForTimeout(250);
+  if (!expectNewRows) {
+    await page.waitForTimeout(120);
+    return;
+  }
+  await page.waitForFunction(
+    ({ k, len }) => {
+      try {
+        const s = JSON.parse(localStorage.getItem(k) || "{}");
+        if ((s.log?.length ?? 0) > len) return true;
+      } catch {
+        /* ignore */
+      }
+      const toast = document.querySelector("#toast:not(.hidden)")?.textContent || "";
+      return /forged|Enter weight/i.test(toast);
+    },
+    { k: KEY, len: beforeLen },
+    { timeout: 8000 }
+  );
+}
+
+async function waitForSetting(page, path, value) {
+  await page.waitForFunction(
+    ({ k, path: p, value: v }) => {
+      const s = JSON.parse(localStorage.getItem(k) || "{}");
+      return p.split(".").reduce((o, key) => o?.[key], s) === v;
+    },
+    { k: KEY, path, value },
+    { timeout: 5000 }
+  );
 }
 
 async function getExerciseMeta(page, day) {
@@ -148,6 +299,111 @@ function isoDateFromWeeksAgo(weeksAgo) {
   return d.toISOString().slice(0, 10);
 }
 
+/** Epley formula — must match app.js e1rm(). */
+function e1rm(load, reps) {
+  return load > 0 && reps > 0 ? load * (1 + reps / 30) : 0;
+}
+
+/** Structural checks on persisted training state. */
+function auditLogIntegrity(state) {
+  const issues = [];
+  if (!state?.program?.length) issues.push("program is empty");
+  if (!Array.isArray(state.log)) issues.push("log is not an array");
+  const programIds = new Set((state.program || []).map((e) => e.id));
+  const seen = new Set();
+  for (const row of state.log || []) {
+    if (!row.session) issues.push("row missing session id");
+    if (!row.date || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) issues.push(`bad date on ${row.session}`);
+    if (+row.set < 1) issues.push(`invalid set number on ${row.session}`);
+    if (+row.load <= 0 && !row.warmup) issues.push(`non-warmup row with load<=0 (${row.session} set ${row.set})`);
+    if (row.exerciseId && !programIds.has(row.exerciseId) && !row.name) {
+      issues.push(`orphan row without name: ${row.exerciseId}`);
+    }
+    const key = `${row.session}|${row.exerciseId || row.name}|${row.set}`;
+    if (seen.has(key)) issues.push(`duplicate set in session: ${key}`);
+    seen.add(key);
+  }
+  return issues;
+}
+
+/** Compare Stats tiles to raw state (Sessions + Sets logged must match exactly). */
+async function auditStatsMetrics(page, state) {
+  await nav(page, "stats");
+  const tiles = await page.evaluate(() =>
+    [...document.querySelectorAll("#metrics .metric")].map((t) => ({
+      label: t.querySelector(".metric__label")?.textContent?.trim(),
+      val: t.querySelector(".metric__val")?.childNodes[0]?.textContent?.trim(),
+    }))
+  );
+  const expectedSessions = String(new Set(state.log.map((r) => r.session)).size);
+  const expectedSets = String(state.log.length);
+  const sessionsTile = tiles.find((t) => t.label === "Sessions");
+  const setsTile = tiles.find((t) => t.label === "Sets logged");
+  return {
+    ok: sessionsTile?.val === expectedSessions && setsTile?.val === expectedSets,
+    detail: `Sessions UI=${sessionsTile?.val} expected=${expectedSessions}; Sets UI=${setsTile?.val} expected=${expectedSets}`,
+  };
+}
+
+async function openStatsDeep(page) {
+  await page.evaluate(() => {
+    const d = document.querySelector("#statsDeep");
+    if (d) d.open = true;
+  });
+}
+
+async function cardInfoById(page, exId) {
+  return page.evaluate((id) => {
+    const a = document.querySelector(`.exercise[data-ex="${id}"]`);
+    if (!a) return null;
+    return {
+      status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
+      chip: a.querySelector(".chip")?.textContent || "",
+      rec: a.querySelector(".rec")?.textContent || "",
+      setup: a.querySelector(".setup")?.textContent || "",
+      collapsed: a.classList.contains("is-collapsed"),
+      plain: a.querySelector(".rec__plain")?.textContent || "",
+    };
+  }, exId);
+}
+
+/** Inject log rows for one exercise, reload, return recommendation card for that exercise. */
+async function scenarioRecommendation(page, { day, exId, rows, settingsPatch } = {}) {
+  const state = await getState(page);
+  const merged = {
+    ...state,
+    settings: { ...state.settings, ...(settingsPatch || {}) },
+    log: [...(state.log || []), ...rows],
+  };
+  await persistState(page, merged);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, day);
+  return cardInfoById(page, exId);
+}
+
+function scenarioRows({ day, ex, sessions }) {
+  return sessions.flatMap(({ date, load, reps, rir, notes = "" }) => {
+    const session = `${date}_${day}_scenario_${ex.id}_${load}_${reps}`;
+    const created = new Date(`${date}T12:00:00Z`).toISOString();
+    return Array.from({ length: ex.sets }, (_, i) => ({
+      session,
+      date,
+      day,
+      name: ex.name,
+      exerciseId: ex.id,
+      set: i + 1,
+      load,
+      reps,
+      rir,
+      notes,
+      created,
+      primary: ex.primary,
+      secondary: ex.secondary,
+    }));
+  });
+}
+
 async function main() {
   console.log("RepForge year-of-usage simulation");
   console.log(`Target: ${BASE}\n`);
@@ -169,73 +425,103 @@ async function main() {
   });
   page.on("pageerror", (err) => consoleErrors.push(String(err)));
 
-  await page.goto(BASE, { waitUntil: "networkidle" });
+  await loadApp(page);
   await clearState(page);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
 
-  // ── Phase 1: 52 weeks of varied workout logging ──────────────────
-  console.log("Phase 1: Year of workout logging (52 weeks)");
+  // ── Phase 1: Historical training data ────────────────────────────
+  beginPhase(`Phase 1: Historical training data (${SIM_WEEKS} weeks, bulk seed)`);
 
   const days = ["Day 1", "Day 2", "Day 3"];
   let sessionCount = 0;
+  let uiSaveCount = 0;
 
-  for (let week = 0; week < 52; week++) {
-    const day = days[week % 3];
-    const date = isoDateFromWeeksAgo(51 - week);
-    // Align to step=0.5 — values like 61.25 fail HTML5 validation and block save silently
-    const loadBase = Math.round((60 + week * 1.25) * 2) / 2;
-    const reps = 6 + (week % 3);
-    const rir = week % 4 === 0 ? 2 : 1;
+  const seeded = await seedHistoricalLog(page, { weeks: SIM_WEEKS, days });
+  sessionCount += seeded.sessions;
+  assert(
+    seeded.sessions >= SIM_WEEKS,
+    `${SIM_WEEKS} unique sessions seeded`,
+    `Expected ≥${SIM_WEEKS} sessions, got ${seeded.sessions}`,
+    "Bulk seed historical log"
+  );
+  assert(
+    seeded.rows > 0,
+    "Seeded log rows include exercise snapshots",
+    `rows=${seeded.rows}`,
+    "Inspect seeded repforge_v1 log entries"
+  );
+  const seededSample = (await getState(page)).log[0];
+  assert(
+    seededSample?.exerciseId && seededSample?.primary != null,
+    "Seeded rows carry exerciseId and muscle snapshot",
+    JSON.stringify(seededSample),
+    "Bulk seed → log rows should mirror saveWorkout shape"
+  );
 
-    await nav(page, "log");
-    await selectDay(page, day);
-    await page.fill("#date", date);
+  beginPhase("Phase 1b: Save flow (UI smoke + edge cases)");
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const d1Exs = await getProgramExercises(page, "Day 1");
 
-    const exs = await getProgramExercises(page, day);
-    // Log first 2 exercises fully, leave rest as defaults (varied data)
-    for (let i = 0; i < Math.min(2, exs.length); i++) {
-      const ex = exs[i];
-      await fillExerciseSets(page, ex.id, ex.sets, loadBase + i * 5, reps, rir);
-    }
+  // UI smoke: one representative save still exercises the full form pipeline
+  const smokeDate = isoDateFromWeeksAgo(0);
+  await page.fill("#date", smokeDate);
+  await fillExerciseSets(page, d1Exs[0].id, 1, 105, 7, 1);
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  assert(
+    (await getState(page)).log.some((r) => r.date === smokeDate && +r.load === 105),
+    "Save workout UI persists after bulk seed",
+    "No row with load 105 on smoke date",
+    "Log tab → fill one set → Save workout"
+  );
 
-    // Week 10: edge case — zero load on first set
-    if (week === 10) {
-      await page.fill(`[data-k="${exs[0].id}_1_load"]`, "0");
-      await page.fill(`[data-k="${exs[0].id}_1_reps"]`, "0");
-    }
+  // Zero-load set is skipped on save (week-10 regression)
+  await page.fill("#date", isoDateFromWeeksAgo(1));
+  await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
+  await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
+  await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
 
-    // Week 20: empty kg fields (cleared)
-    if (week === 20) {
-      await page.fill(`[data-k="${exs[0].id}_1_load"]`, "");
-    }
+  // Empty kg field is skipped (week-20 regression)
+  await page.fill("#date", isoDateFromWeeksAgo(2));
+  await fillExerciseSets(page, d1Exs[0].id, 1, 100, 8, 1);
+  await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "");
+  const logLenBeforeEmpty = (await getState(page)).log.length;
+  await saveWorkout(page, { expectNewRows: false });
+  assert(
+    (await getState(page)).log.length === logLenBeforeEmpty,
+    "Empty kg field blocks save (no new rows)",
+    `Log grew from ${logLenBeforeEmpty}`,
+    "Log tab → clear kg on only filled set → Save workout"
+  );
 
-    await saveWorkout(page);
-    sessionCount++;
-  }
-
-  // Multiple sessions same day (use a date not in the 52-week loop)
+  // Multiple sessions same day (use a date not in the seed loop)
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const sameDay = "2018-03-20";
   await page.fill("#date", sameDay);
-  const d1Exs = await getProgramExercises(page, "Day 1");
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await saveWorkout(page);
   sessionCount++;
+  uiSaveCount++;
 
   await page.fill("#date", sameDay);
   await fillExerciseSets(page, d1Exs[1].id, d1Exs[1].sets, 50, 10, 0);
   await saveWorkout(page);
   sessionCount++;
+  uiSaveCount++;
 
   let state = await getState(page);
   const uniqueSessions = new Set(state.log.map((x) => x.session)).size;
   assert(
-    uniqueSessions >= 52,
-    "52+ unique sessions logged",
-    `Expected ≥52 sessions, got ${uniqueSessions}`,
-    "Log tab → save workouts across 52 weeks"
+    uniqueSessions >= SIM_WEEKS,
+    `${SIM_WEEKS}+ unique sessions logged`,
+    `Expected ≥${SIM_WEEKS} sessions, got ${uniqueSessions}`,
+    "Bulk seed + UI saves → unique session count"
   );
 
   const sameDaySessions = [
@@ -256,8 +542,72 @@ async function main() {
     "Log tab → enter 0 kg on a set → Save workout → row should not appear in log"
   );
 
+  beginPhase("Phase 1c: Domain invariants");
+  state = await getState(page);
+  const integrityIssues = auditLogIntegrity(state);
+  assert(
+    integrityIssues.length === 0,
+    "Seeded log passes structural integrity audit",
+    integrityIssues.slice(0, 5).join("; "),
+    "Inspect repforge_v1 for duplicate sets, bad dates, or orphan rows"
+  );
+  assert(
+    state.log.some((r) => r.notes?.includes("seed-week")),
+    "Seeded history includes session notes on some rows",
+    "No notes field populated in bulk seed",
+    "Bulk seed → periodic notes for History/CSV coverage"
+  );
+  assert(
+    state.log.some((r) => +r.bodyweight > 0),
+    "Seeded history includes bodyweight snapshots",
+    "No bodyweight on seeded rows",
+    "Bulk seed → bodyweight on select sessions"
+  );
+  const prEvents = await page.evaluate((k) => {
+    const log = JSON.parse(localStorage.getItem(k)).log;
+    return window.detectPRs(log);
+  }, KEY);
+  assert(
+    prEvents.length > 0 && prEvents.some((e) => e.kind === "load"),
+    "detectPRs finds load PRs in seeded progression",
+    `events=${prEvents.length}`,
+    "Bulk seed with rising loads → detectPRs returns load PR events"
+  );
+  assert(
+    prEvents.some((e) => e.kind === "e1rm"),
+    "detectPRs finds e1RM PRs in seeded progression",
+    JSON.stringify(prEvents.map((e) => e.kind)),
+    "Progressive overload seed → e1RM PR events exist"
+  );
+
+  // PWA shell loads (manifest + service worker registration)
+  const pwaOk = await page.evaluate(async () => {
+    const manifestOk = (await fetch("./manifest.webmanifest")).ok;
+    const swOk = "serviceWorker" in navigator;
+    return { manifestOk, swOk };
+  });
+  assert(
+    pwaOk.manifestOk && pwaOk.swOk,
+    "PWA manifest fetchable and service worker API available",
+    JSON.stringify(pwaOk),
+    "Serve app over HTTP → manifest.webmanifest returns 200"
+  );
+
+  // Nav accessibility: each tab exposes aria-current when active
+  for (const view of ["log", "stats", "history", "program", "settings"]) {
+    await nav(page, view);
+    const current = await page.locator(`nav button[data-view="${view}"]`).getAttribute("aria-current");
+    assert(
+      current === "page",
+      `Nav tab ${view} sets aria-current=page when active`,
+      `aria-current=${current}`,
+      `Click ${view} tab → inspect aria-current`
+    );
+  }
+  await nav(page, "log");
+
   // ── Phase 2: Draft persistence ───────────────────────────────────
-  console.log("\nPhase 2: Draft persistence");
+  beginPhase("Phase 2: Draft persistence");
 
   await nav(page, "log");
   await selectDay(page, "Day 2");
@@ -266,7 +616,11 @@ async function main() {
   const draftLoad = "137.5";
   await page.fill(`[data-k="${draftEx.id}_1_load"]`, draftLoad);
   await page.fill(`[data-k="${draftEx.id}_1_reps"]`, "7");
-  await page.waitForTimeout(100);
+  await page.waitForFunction(
+    ({ d, load }) => localStorage.getItem(d)?.includes(load),
+    { d: DRAFT, load: draftLoad },
+    { timeout: 5000 }
+  );
 
   const draftBefore = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
   assert(
@@ -276,7 +630,8 @@ async function main() {
     "Log tab → type kg value → check localStorage repforge_draft_v1"
   );
 
-  await page.reload({ waitUntil: "networkidle" });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 2");
   const restoredLoad = await page.inputValue(`[data-k="${draftEx.id}_1_load"]`);
@@ -298,7 +653,7 @@ async function main() {
   );
 
   // ── Phase 3: Switch days & verify tabs ───────────────────────────
-  console.log("\nPhase 3: Day switching");
+  beginPhase("Phase 3: Day switching");
 
   await nav(page, "log");
   for (const d of days) {
@@ -321,7 +676,7 @@ async function main() {
   }
 
   // ── Phase 4: Program editing — rename, add, remove, reorder ──────
-  console.log("\nPhase 4: Program editing");
+  beginPhase("Phase 4: Program editing");
 
   await nav(page, "program");
 
@@ -470,7 +825,7 @@ async function main() {
   );
 
   // ── Phase: Program metadata ──────────────────────────────────────
-  console.log("\nPhase: program metadata");
+  beginPhase("Phase: program metadata");
 
   await nav(page, "program");
   state = await getState(page);
@@ -542,8 +897,7 @@ async function main() {
     });
   }, KEY);
   await page.waitForTimeout(200);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
   state = await getState(page);
   assert(
     state.programMeta?.id,
@@ -553,7 +907,7 @@ async function main() {
   );
 
   // ── Phase 5: Delete sessions ─────────────────────────────────────
-  console.log("\nPhase 5: Delete sessions");
+  beginPhase("Phase 5: Delete sessions");
 
   await nav(page, "history");
   const sessionsBefore = (await getState(page)).log.length;
@@ -573,7 +927,7 @@ async function main() {
   );
 
   // ── Phase 6: Settings ────────────────────────────────────────────
-  console.log("\nPhase 6: Settings");
+  beginPhase("Phase 6: Settings");
 
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
@@ -612,15 +966,19 @@ async function main() {
   );
 
   // ── Phase 7: Stats integrity ─────────────────────────────────────
-  console.log("\nPhase 7: Stats");
+  beginPhase("Phase 7: Stats");
 
+  state = await getState(page);
   await nav(page, "stats");
-  await page.waitForTimeout(200);
-  await page.evaluate(() => {
-    const d = document.querySelector("#statsDeep");
-    if (d) d.open = true;
-  });
-  await page.waitForTimeout(150);
+  await openStatsDeep(page);
+
+  const metricsAudit = await auditStatsMetrics(page, state);
+  assert(
+    metricsAudit.ok,
+    "Stats session/set counts match persisted log",
+    metricsAudit.detail,
+    "Stats tab → Sessions and Sets logged tiles vs repforge_v1"
+  );
 
   const metricsText = await page.locator("#metrics").textContent();
   assert(
@@ -659,13 +1017,19 @@ async function main() {
   );
 
   await page.setViewportSize({ width: 800, height: 900 });
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => {
+    const c = document.querySelector("#chart");
+    return c && c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
+  });
   const okWide = await page.evaluate(() => {
     const c = document.querySelector("#chart");
     return c.width >= (c.clientWidth || 320) * (devicePixelRatio || 1) - 2;
   });
   await page.setViewportSize({ width: 380, height: 900 });
-  await page.waitForTimeout(300);
+  await page.waitForFunction(() => {
+    const c = document.querySelector("#chart");
+    return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
+  });
   const okNarrow = await page.evaluate(() => {
     const c = document.querySelector("#chart");
     return c.width <= (c.clientWidth || 320) * (devicePixelRatio || 1) + 2;
@@ -679,7 +1043,7 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
 
   // ── Phase 8: Export JSON, modify, re-import ──────────────────────
-  console.log("\nPhase 8: JSON export/import");
+  beginPhase("Phase 8: JSON export/import");
 
   await nav(page, "settings");
   const tmpDir = mkdtempSync(join(tmpdir(), "repforge-test-"));
@@ -704,6 +1068,30 @@ async function main() {
       "JSON export has program/log/settings",
       `Keys: ${Object.keys(exported).join(", ")}`,
       "Settings → Export backup JSON → inspect file"
+    );
+
+    // Cancel import preserves current state
+    const beforeCancel = await getState(page);
+    const cancelPayload = JSON.parse(readFileSync(jsonPath, "utf8"));
+    cancelPayload.settings.jumpPct = 99;
+    const cancelPath = join(tmpDir, "cancel-test.json");
+    writeFileSync(cancelPath, JSON.stringify(cancelPayload));
+    await page.setInputFiles("#importJson", cancelPath);
+    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.click("#importCancel");
+    const afterCancel = await getState(page);
+    assert(
+      afterCancel.settings.jumpPct === beforeCancel.settings.jumpPct &&
+        afterCancel.log.length === beforeCancel.log.length,
+      "Import cancel leaves state unchanged",
+      `jumpPct ${beforeCancel.settings.jumpPct}→${afterCancel.settings.jumpPct}, log ${beforeCancel.log.length}→${afterCancel.log.length}`,
+      "Settings → Import backup → Cancel → settings and log unchanged"
+    );
+    assert(
+      (await page.locator("#importChoice").getAttribute("class")).includes("hidden"),
+      "Import choice dialog closes on cancel",
+      "importChoice still visible",
+      "Import → Cancel → dialog hidden"
     );
 
     // Modify and re-import
@@ -773,7 +1161,7 @@ async function main() {
       "Import backup JSON missing settings key"
     );
   }
-  console.log("\nPhase 9: CSV export");
+  beginPhase("Phase 9: CSV export");
 
   const csvPath = join(tmpDir, "log.csv");
   const [csvDownload] = await Promise.all([
@@ -811,8 +1199,33 @@ async function main() {
     `CSV data rows ${csvLines.length - 1}, log entries ${state.log.length}`,
     "Export CSV → compare row count to log"
   );
+  assert(
+    /"[01]","[01]"/.test(csv),
+    "CSV data rows include is_hard_set values",
+    `sample=${csvLines[1]?.slice(0, 80)}`,
+    "Export CSV → rows carry is_hard_set / is_warmup 0/1 flags"
+  );
+  const sampleRow = state.log.find((r) => +r.load > 0 && +r.reps > 0 && !r.warmup);
+  if (sampleRow) {
+    const csvDataLine = csvLines.find((line) => line.includes(sampleRow.session) && line.includes(String(sampleRow.set)));
+    const e1rmIdx = header.split(",").indexOf("e1rm");
+    const tonIdx = header.split(",").indexOf("tonnage");
+    if (csvDataLine && e1rmIdx >= 0 && tonIdx >= 0) {
+      const cols = csvDataLine.match(/("([^"]|"")*"|[^,]+)/g) || [];
+      const csvE1rm = +cols[e1rmIdx]?.replaceAll('"', "");
+      const csvTonnage = +cols[tonIdx]?.replaceAll('"', "");
+      const expectedE1rm = +e1rm(+sampleRow.load, +sampleRow.reps).toFixed(2);
+      const expectedTonnage = +((+sampleRow.load || 0) * (+sampleRow.reps || 0)).toFixed(2);
+      assert(
+        Math.abs(csvE1rm - expectedE1rm) < 0.02 && Math.abs(csvTonnage - expectedTonnage) < 0.02,
+        "CSV e1rm and tonnage match computed values",
+        `e1rm csv=${csvE1rm} expected=${expectedE1rm}; tonnage csv=${csvTonnage} expected=${expectedTonnage}`,
+        "Export CSV → compare e1rm/tonnage to Epley formula and load×reps"
+      );
+    }
+  }
 
-  console.log("\nPhase: warmup flag");
+  beginPhase("Phase: warmup flag");
   await nav(page, "log");
   const warmupDay = await firstDayName(page);
   const wMeta = await getExerciseMeta(page, warmupDay);
@@ -854,7 +1267,7 @@ async function main() {
     "Log warmup + working sets → recommendation uses working history"
   );
 
-  console.log("\nPhase: PR ledger");
+  beginPhase("Phase: PR ledger");
   await nav(page, "log");
   const prDay = await firstDayName(page);
   const prMeta = await getExerciseMeta(page, prDay);
@@ -906,7 +1319,7 @@ async function main() {
     "Staged 80×8 then 85×8 → load PR event"
   );
 
-  console.log("\nPhase: program-only export/import");
+  beginPhase("Phase: program-only export/import");
   await nav(page, "program");
   await page.locator("#program details.advanced summary").click();
   const progPath = join(tmpDir, "program.json");
@@ -940,7 +1353,11 @@ async function main() {
   }
   const metaBeforeImport = (await getState(page)).programMeta;
   await page.setInputFiles("#importProgram", progPath);
-  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
+    { k: KEY, name: "IMPORTED_RENAME" },
+    { timeout: 5000 }
+  );
   const stAfter = await getState(page);
   assert(
     stAfter.program.some((x) => x.name === "IMPORTED_RENAME"),
@@ -972,7 +1389,11 @@ async function main() {
   const legacyPath = join(tmpDir, "program-legacy.json");
   writeFileSync(legacyPath, JSON.stringify(stAfter.program.slice(0, 3)));
   await page.setInputFiles("#importProgram", legacyPath);
-  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    ({ k, len }) => JSON.parse(localStorage.getItem(k) || "{}").program?.length === len,
+    { k: KEY, len: 3 },
+    { timeout: 5000 }
+  );
   const stLegacy = await getState(page);
   assert(
     stLegacy.program.length === 3,
@@ -982,7 +1403,11 @@ async function main() {
   );
   writeFileSync(progPath, JSON.stringify(progFile));
   await page.setInputFiles("#importProgram", progPath);
-  await page.waitForTimeout(250);
+  await page.waitForFunction(
+    ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").programMeta?.name === name,
+    { k: KEY, name: "Imported Template" },
+    { timeout: 5000 }
+  );
   await page.evaluate(() => {
     document.querySelector("#programJson")?.blur();
     const d = document.querySelector("#program details.advanced");
@@ -990,7 +1415,7 @@ async function main() {
   });
 
   // ── Phase 10: Program JSON editor ────────────────────────────────
-  console.log("\nPhase 10: Program JSON editor");
+  beginPhase("Phase 10: Program JSON editor");
 
   await nav(page, "program");
   await page.locator("#program details.advanced summary").click();
@@ -1054,7 +1479,7 @@ async function main() {
   );
 
   // ── Phase 11: Edge cases & invariants ────────────────────────────
-  console.log("\nPhase 11: Edge cases");
+  beginPhase("Phase 11: Edge cases");
 
   // Backdated date in UI
   await nav(page, "log");
@@ -1184,18 +1609,91 @@ async function main() {
   );
 
   // ── Phase 12: All-tier upgrades ──────────────────────────────────
-  console.log("\nPhase 12: Progression + UX + hypertrophy upgrades");
+  beginPhase("Phase 12: Progression + UX + hypertrophy upgrades");
 
   await clearState(page);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
+
+  beginPhase("Phase 12a: Progression matrix (state-driven scenarios)");
+  const matrixDay = "Day 1";
+  await nav(page, "log");
+  const matrixEx = await getExerciseMeta(page, matrixDay);
+  assert(matrixEx.length >= 4, "Day 1 has enough exercises for progression matrix", `count=${matrixEx.length}`, "Default program → Day 1");
+
+  const [exNew, exAdd, exAdd2, exHold] = matrixEx;
+  const newCard = await cardInfoById(page, exNew.id);
+  assert(
+    newCard?.status === "is-new" && /new/i.test(newCard.chip),
+    "Fresh exercise recommends New lift status",
+    JSON.stringify(newCard),
+    "Clear state → Log Day 1 → exercise with no history is is-new"
+  );
+  assert(
+    newCard?.plain?.toLowerCase().includes("first time"),
+    "New lift shows plain-language translation",
+    `plain="${newCard?.plain}"`,
+    "Log → new exercise card → rec__plain translation visible"
+  );
+
+  const addCard = await scenarioRecommendation(page, {
+    day: matrixDay,
+    exId: exAdd.id,
+    rows: scenarioRows({
+      day: matrixDay,
+      ex: exAdd,
+      sessions: [{ date: "2025-02-01", load: 100, reps: exAdd.max, rir: 1 }],
+    }),
+  });
+  assert(
+    addCard?.status === "is-add" && /add load/i.test(addCard.chip),
+    "Max reps at target RIR triggers Add load",
+    JSON.stringify(addCard),
+    "One session all sets at max reps → is-add recommendation"
+  );
+
+  const add2Card = await scenarioRecommendation(page, {
+    day: matrixDay,
+    exId: exAdd2.id,
+    rows: scenarioRows({
+      day: matrixDay,
+      ex: exAdd2,
+      sessions: [{ date: "2025-02-02", load: 100, reps: exAdd2.max, rir: 3 }],
+    }),
+    settingsPatch: { rirHigh: 2 },
+  });
+  assert(
+    add2Card?.status === "is-add2" && /\+\+/i.test(add2Card.chip),
+    "Max reps with spare RIR triggers Add load ++",
+    JSON.stringify(add2Card),
+    "Top range + RIR above ceiling → is-add2"
+  );
+
+  const holdReps = Math.max(exHold.min, Math.min(exHold.max, exHold.min + 1));
+  const holdCard = await scenarioRecommendation(page, {
+    day: matrixDay,
+    exId: exHold.id,
+    rows: scenarioRows({
+      day: matrixDay,
+      ex: exHold,
+      sessions: [{ date: "2025-02-03", load: 100, reps: holdReps, rir: 1 }],
+    }),
+  });
+  assert(
+    holdCard?.status === "is-hold" && /hold/i.test(holdCard.chip),
+    "In-range performance triggers Hold recommendation",
+    JSON.stringify(holdCard),
+    "Reps inside range → is-hold"
+  );
+
+  await clearState(page);
+  await reloadApp(page);
 
   // Settings auto-save on change (no Save click)
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
   await page.fill("#hardRir", "3");
   await page.locator("#hardRir").blur();
-  await page.waitForTimeout(120);
+  await waitForSetting(page, "settings.hardRir", 3);
   assert(
     (await getState(page)).settings.hardRir === 3,
     "Settings auto-save on change",
@@ -1378,6 +1876,73 @@ async function main() {
     "Log → multiple lifts reduce/stall → fatigue banner"
   );
 
+  // Fatigue trim keeps only add-load priority lifts visible
+  await page.click("#fatigue .fatigue__trim");
+  const hiddenAfterTrim = await page.locator("#workout .exercise.is-skipped").count();
+  assert(
+    hiddenAfterTrim >= 2,
+    "Fatigue trim hides backing-off lifts",
+    `hidden count=${hiddenAfterTrim}`,
+    "Log → Fatigue watch → Trim to essentials"
+  );
+  assert(
+    (await page.locator(".skipbar").count()) > 0,
+    "Skip bar reports hidden exercise count",
+    "No skipbar after trim",
+    "After trim → skip bar shows N hidden today"
+  );
+  await page.click(".skipbar__show");
+  assert(
+    (await page.locator("#workout .exercise.is-skipped").count()) === 0,
+    "Show all restores trimmed exercises",
+    "Exercises still skipped after Show all",
+    "Skip bar → Show all → exercises visible again"
+  );
+
+  // Heat gauge reflects add-load readiness on a separate lift
+  const exHot = day1[2];
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await fillExerciseSets(page, exHot.id, exHot.sets, 90, exHot.max, 1);
+  await saveWorkout(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const hotCard = await cardInfoById(page, exHot.id);
+  assert(
+    hotCard?.status === "is-add" || hotCard?.status === "is-add2",
+    "Max-rep history surfaces add-load on next visit",
+    JSON.stringify(hotCard),
+    "Log max-rep session → reopen → is-add/is-add2"
+  );
+  const gaugeLabel = await page.locator("#heatGauge .gauge__label").textContent();
+  assert(
+    /hot/i.test(gaugeLabel),
+    "Heat gauge labels session as hot when lifts are ready",
+    `label="${gaugeLabel}"`,
+    "Log → after add-load recs → gauge shows N hot"
+  );
+  await page.locator("#heatGauge").click();
+  assert(
+    await page.evaluate(
+      (id) => !document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-collapsed"),
+      exHot.id
+    ),
+    "Heat gauge click expands a hot lift card",
+    "Card still collapsed after gauge click",
+    "Tap heat gauge → first hot exercise expands"
+  );
+
+  // Session notes persist on saved rows
+  await page.fill("#notes", "Simulation session note");
+  await fillExerciseSets(page, exHot.id, 1, 92, 6, 1);
+  await saveWorkout(page);
+  assert(
+    (await getState(page)).log.some((r) => r.notes === "Simulation session note"),
+    "Session notes persist on saved rows",
+    "No row with session note",
+    "Log → fill notes → Save workout"
+  );
+
   // Stats: completed hard sets + attention board
   await nav(page, "stats");
   await page.evaluate(() => {
@@ -1396,6 +1961,23 @@ async function main() {
     "Attention board lists lifts to back off",
     "No reduce chips in attention board",
     "Stats → action board shows Back off / stalled group"
+  );
+  const attnChip = page.locator("#attention [data-attn]").first();
+  const attnLift = await attnChip.getAttribute("data-attn");
+  await attnChip.click();
+  assert(
+    (await page.inputValue("#statExercise")) &&
+      (await page.locator("#statsDeep").evaluate((el) => el.open)),
+    "Attention chip focuses exercise and opens stats deep section",
+    `statExercise=${await page.inputValue("#statExercise")}`,
+    "Stats → click attention chip → chart exercise selected"
+  );
+  await page.click('#volWindow button[data-win="28"]');
+  assert(
+    (await page.locator('#volWindow button[data-win="28"]').getAttribute("class")).includes("active"),
+    "Volume window toggle selects 28-day range",
+    "28d button not active",
+    "Stats → Completed hard sets → 28d window"
   );
 
   // Edit a logged session in History
@@ -1438,6 +2020,15 @@ async function main() {
   );
   await page.click("#glossary .glossary__close");
 
+  // Plain-language translation line is present on recommendations
+  const plainRec = await cardInfoById(page, exX);
+  assert(
+    plainRec?.plain?.toLowerCase().includes("translation"),
+    "Recommendation includes plain-language translation",
+    `plain="${plainRec?.plain}"`,
+    "Log → exercise card → rec__plain line visible"
+  );
+
   // Skipped exercise is not saved
   const metaSkip = await getExerciseMeta(page, "Day 1");
   const skipId = metaSkip[0].id;
@@ -1458,7 +2049,7 @@ async function main() {
     "Log → fill a set → Skip it → Save → that exercise has no new rows"
   );
 
-  console.log("\nPhase: exercise substitution");
+  beginPhase("Phase: exercise substitution");
   await nav(page, "program");
   let subState = await getState(page);
   const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
@@ -1536,8 +2127,7 @@ async function main() {
 
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
   await clearState(page);
-  await page.reload({ waitUntil: "networkidle" });
-  await waitForApp(page);
+  await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const unitMeta = await getExerciseMeta(page, "Day 1");
@@ -1620,7 +2210,7 @@ async function main() {
   await page.selectOption("#unit", "kg");
   await page.waitForTimeout(80);
 
-  console.log("\nPhase: effort RIR mode");
+  beginPhase("Phase: effort RIR mode");
   await nav(page, "settings");
   await page.check('input[name="rirMode"][value="effort"]');
   await page.waitForTimeout(120);
@@ -1630,17 +2220,51 @@ async function main() {
   const effEx = effMeta[0];
   await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
   await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
-  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="hard"]`);
-  const effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="easy"]`);
+  let effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
-  const effortState = await getState(page);
-  const effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
-  const effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  let effortState = await getState(page);
+  let effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
+  let effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  assert(
+    effortRow && effortRow.rir === 3,
+    "Effort mode Easy saves as RIR 3",
+    `rir=${effortRow?.rir}`,
+    "Settings effort mode → Log Easy → save"
+  );
+
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill(`[data-k="${effEx.id}_1_load"]`, "92");
+  await page.fill(`[data-k="${effEx.id}_1_reps"]`, "5");
+  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="hard"]`);
+  effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  effortState = await getState(page);
+  effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
+  effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
   assert(
     effortRow && effortRow.rir === 1,
     "Effort mode Hard saves as RIR 1",
     `rir=${effortRow?.rir}`,
     "Settings effort mode → Log Hard → save"
+  );
+
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.fill(`[data-k="${effEx.id}_1_load"]`, "95");
+  await page.fill(`[data-k="${effEx.id}_1_reps"]`, "4");
+  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="max"]`);
+  effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  effortState = await getState(page);
+  effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
+  effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  assert(
+    effortRow && effortRow.rir === 0,
+    "Effort mode Max saves as RIR 0",
+    `rir=${effortRow?.rir}`,
+    "Settings effort mode → Log Max → save"
   );
   assert(
     effortState.settings.rirMode === "effort",
@@ -1652,7 +2276,7 @@ async function main() {
   await page.check('input[name="rirMode"][value="numeric"]');
   await page.waitForTimeout(80);
 
-  console.log("\nPhase: beginner program");
+  beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
   await page.click("#beginnerProgram");
   await page.waitForTimeout(200);
@@ -1780,12 +2404,25 @@ async function main() {
   rmSync(tmpDir, { recursive: true, force: true });
   await browser.close();
 
+  if (PROFILE && lastPhase) {
+    phaseTimings.push([lastPhase, Date.now() - phaseClock]);
+  }
+
   // ── Summary ──────────────────────────────────────────────────────
   console.log("\n" + "=".repeat(60));
   console.log(`PASSED: ${results.passed}`);
   console.log(`FAILED: ${results.failed}`);
-  console.log(`Sessions simulated: ${sessionCount}`);
+  console.log(`Sessions simulated: ${sessionCount} (${uiSaveCount} via UI, ${sessionCount - uiSaveCount} bulk-seeded)`);
   console.log("=".repeat(60));
+
+  if (PROFILE && phaseTimings.length) {
+    console.log("\nPhase timings (ms):");
+    const sorted = [...phaseTimings].sort((a, b) => b[1] - a[1]);
+    for (const [name, ms] of sorted) {
+      console.log(`  ${String(ms).padStart(6)}  ${name}`);
+    }
+    console.log(`  ${"─".repeat(6)}  total tracked: ${sorted.reduce((s, [, ms]) => s + ms, 0)} ms`);
+  }
 
   if (results.bugs.length) {
     console.log("\nBUG REPORT\n");
