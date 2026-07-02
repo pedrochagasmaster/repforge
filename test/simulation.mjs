@@ -3338,6 +3338,51 @@ async function main() {
     "page.evaluate __repforgeVolumeDashboard(7) after logging"
   );
 
+  beginPhase("Phase: PR timeline (P14)");
+  await page.click('#statsSeg button[data-seg="prs"]');
+  await page.waitForTimeout(80);
+  const prSegActive = await page.evaluate(() => document.querySelector("#segPRs")?.classList.contains("active"));
+  assert(
+    prSegActive,
+    "PRs segment activates on click",
+    `segPRs active=${prSegActive}`,
+    "Stats → click PRs → #segPRs.active"
+  );
+  const timelineCount = await page.locator("#prTimeline .prtl__row").count();
+  assert(
+    timelineCount > 0,
+    "PR timeline renders entries after logging",
+    `row count=${timelineCount}`,
+    "Stats → PRs → #prTimeline has .prtl__row entries"
+  );
+  await page.click('#prFilterSeg button[data-prf="load"]');
+  await page.waitForTimeout(80);
+  const loadFilterUi = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("#prTimeline .prtl__row")];
+    const active = document.querySelector('#prFilterSeg button[data-prf="load"]')?.classList.contains("active");
+    return { count: rows.length, allLoad: rows.length === 0 || rows.every((r) => /Load PR/i.test(r.textContent)), active };
+  });
+  assert(
+    loadFilterUi.active && loadFilterUi.count > 0 && loadFilterUi.allLoad,
+    "Load filter shows only load PRs in timeline",
+    JSON.stringify(loadFilterUi),
+    "Stats → PRs → Load filter → timeline rows are Load PR only"
+  );
+  const loadPrApi = await page.evaluate(() => window.__repforgePrTimeline("load"));
+  assert(
+    loadPrApi.length > 0 && loadPrApi.every((e) => e.kind === "load"),
+    "__repforgePrTimeline(load) returns only load PR events",
+    `count=${loadPrApi.length} kinds=${[...new Set(loadPrApi.map((e) => e.kind))].join(",")}`,
+    "page.evaluate window.__repforgePrTimeline('load')"
+  );
+  const allPrApi = await page.evaluate(() => window.__repforgePrTimeline("all"));
+  assert(
+    allPrApi.length >= loadPrApi.length,
+    "__repforgePrTimeline(all) includes at least as many events as load filter",
+    `all=${allPrApi.length} load=${loadPrApi.length}`,
+    "page.evaluate __repforgePrTimeline('all') vs ('load')"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,
