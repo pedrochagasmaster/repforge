@@ -674,27 +674,34 @@ function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"
 
 function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolume()}
 
-function renderProgramHeader(){
-  const el=$("#programMeta");if(!el)return;
-  if(document.activeElement?.closest("#programMeta"))return;
-  const meta=state.programMeta||defaultProgramMeta(state.log);
+function renderProgramChips(){
+  const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
   const ad=programAdherence(),week=programWeek(),status=programStatusLabel();
   const health=programProgressionHealth(),vol=programVolumeCompliance();
   const weekChip=week?`<span class="pmeta__chip">Week ${week}</span>`:"";
   const healthChip=health?`<span class="pmeta__chip">${health.hot}/${health.total} ready to add</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${Math.round(vol.ratio*100)}% volume (7d)</span>`:"";
+  top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
+  bottom.innerHTML=`<span class="pmeta__chip">${ad.logged} / ${ad.total} days this week</span>${healthChip}${volChip}`;
+}
+
+function renderProgramHeader(){
+  const el=$("#programMeta");if(!el)return;
+  if(document.activeElement?.closest("#programMeta"))return;
+  const meta=state.programMeta||defaultProgramMeta(state.log);
   el.innerHTML=
     `<div class="pmeta__row">`+
       `<label class="pmeta__name">Program name<input id="programName" type="text" value="${esc(meta.name)}" placeholder="Untitled program" aria-label="Program name"></label>`+
-      `<div class="pmeta__chips">${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span></div>`+
+      `<div id="pmetaChipsTop" class="pmeta__chips"></div>`+
     `</div>`+
     `<div class="pmeta__row">`+
       `<label class="pmeta__started">Started<input id="programStarted" type="date" value="${esc(meta.started||"")}" aria-label="Program start date"></label>`+
-      `<div class="pmeta__chips"><span class="pmeta__chip">${ad.logged} / ${ad.total} days this week</span>${healthChip}${volChip}</div>`+
+      `<div id="pmetaChipsBottom" class="pmeta__chips"></div>`+
     `</div>`;
+  renderProgramChips();
   const nameInp=$("#programName"),startInp=$("#programStarted");
   nameInp.oninput=()=>persistProgramMeta({name:nameInp.value});
-  startInp.onchange=()=>persistProgramMeta({started:startInp.value||null});
+  startInp.onchange=()=>{persistProgramMeta({started:startInp.value||null});renderProgramChips()};
 }
 
 function renderProgramEditor(){
@@ -833,8 +840,8 @@ async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
     const list=imp.exercises;
-    if(!confirm(`Replace your current program with ${list.length} exercises from this file?\n\nYour training log and settings are not touched.`)){e.target.value="";toast("Program import cancelled.");return}
-    if(imp.meta){state.programMeta=normalizeProgramMeta(imp.meta,state.log);save()}
+    if(!confirm(`Replace your current program with ${list.length} exercises from this file?\n\nYour training log and settings are not touched. The program name comes from the file; your start date stays.`)){e.target.value="";toast("Program import cancelled.");return}
+    if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())persistProgramMeta({name:imp.meta.name});
     $("#programJson").value=JSON.stringify(list,null,2);saveProgram()}
   catch{toast("That file isn't a RepForge program export.")}
   e.target.value=""}

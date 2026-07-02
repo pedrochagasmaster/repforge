@@ -496,6 +496,26 @@ async function main() {
     `name=${state.programMeta?.name}`,
     "Program tab → edit program name"
   );
+  const startedIso = (() => {
+    const d = new Date(Date.now() - 15 * 86400000);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
+  await page.fill("#programStarted", startedIso);
+  await page.waitForTimeout(150);
+  const metaAfterDate = await page.locator("#programMeta").textContent();
+  assert(
+    /Week 3/.test(metaAfterDate),
+    "Week chip appears immediately after setting start date",
+    `Meta card after date edit: ${metaAfterDate?.slice(0, 140)}`,
+    "Program tab → set start date 15 days back → Week chip without leaving the tab"
+  );
+  state = await getState(page);
+  assert(
+    state.programMeta.started === startedIso,
+    "Start date persists on edit",
+    `started=${state.programMeta?.started}`,
+    "Program tab → edit start date"
+  );
   await page.evaluate(async (k) => {
     const s = JSON.parse(localStorage.getItem(k));
     delete s.programMeta;
@@ -898,11 +918,12 @@ async function main() {
   progExercises[0].name = "IMPORTED_RENAME";
   if (progFile.version === 2) {
     progFile.exercises = progExercises;
-    progFile.meta = { ...progFile.meta, name: "Imported Template" };
+    progFile.meta = { ...progFile.meta, name: "Imported Template", started: "2020-01-01", id: "foreign-id" };
     writeFileSync(progPath, JSON.stringify(progFile));
   } else {
     writeFileSync(progPath, JSON.stringify(progExercises));
   }
+  const metaBeforeImport = (await getState(page)).programMeta;
   await page.setInputFiles("#importProgram", progPath);
   await page.waitForTimeout(250);
   const stAfter = await getState(page);
@@ -917,6 +938,13 @@ async function main() {
     "Program import applies meta from v2 export",
     `programMeta.name=${stAfter.programMeta?.name}`,
     "Export v2 program → edit meta.name → Import program JSON"
+  );
+  assert(
+    stAfter.programMeta.started === metaBeforeImport.started &&
+      stAfter.programMeta.id === metaBeforeImport.id,
+    "Program import keeps the recipient's start date and id",
+    `started ${metaBeforeImport.started} → ${stAfter.programMeta?.started}; id ${metaBeforeImport.id} → ${stAfter.programMeta?.id}`,
+    "Export v2 → edit meta.started/id in file → Import program JSON"
   );
   assert(
     stAfter.log.length === logBefore,
