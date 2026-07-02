@@ -2531,6 +2531,54 @@ async function main() {
   );
   state = legacyNorm;
 
+  beginPhase("Phase: P7 mesocycle lifecycle");
+  const twoWeeksStarted = isoDateFromWeeksAgo(2);
+  await persistState(page, {
+    ...state,
+    programMeta: {
+      ...state.programMeta,
+      started: twoWeeksStarted,
+      mesocycleLengthWeeks: 6,
+      mesocycleStatus: "active",
+    },
+  });
+  await reloadApp(page);
+  const mc = await page.evaluate(() => window.__repforgeMesocycleWeek());
+  assert(
+    mc.current >= 2 && mc.current <= 3,
+    "P7: mesocycleWeek current ~2 after ~2 weeks",
+    JSON.stringify(mc),
+    "Set started ~2 weeks ago → __repforgeMesocycleWeek"
+  );
+  assert(
+    mc.total === 6,
+    "P7: mesocycleWeek total is 6",
+    `total=${mc.total}`,
+    "mesocycleLengthWeeks=6 → total 6"
+  );
+  await nav(page, "log");
+  const logCtxMeso = await page.locator("#logContext").textContent();
+  assert(
+    /of 6/.test(logCtxMeso),
+    "P7: Log context shows Week X of 6",
+    `logContext=${logCtxMeso}`,
+    "Log tab → #logContext includes of 6"
+  );
+  await nav(page, "program");
+  const weekChipText = await page.locator("#pmetaChipsTop").textContent();
+  assert(
+    /of 6/.test(weekChipText),
+    "P7: Program week chip shows of 6",
+    `chips=${weekChipText}`,
+    "Program tab → week chip includes of 6"
+  );
+  assert(
+    (await page.locator("#endBlock").count()) === 1,
+    "P7: #endBlock button exists",
+    "endBlock missing from Program tab",
+    "Program tab → End block button near program meta"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

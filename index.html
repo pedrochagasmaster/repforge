@@ -47,6 +47,7 @@
         <button type="button" id="modeFocus">Focus</button>
       </div>
       <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
+      <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="fatigue" class="fatigue hidden"></div>
       <form id="logForm">
         <div id="workout"></div>
@@ -96,6 +97,8 @@
     <section id="program" class="view" aria-label="Program">
       <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
       <div id="programMeta" class="pmeta" aria-label="Program summary"></div>
+      <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
+      <button id="endBlock" class="btn btn--steel program__endblock" type="button">End block</button>
       <p class="lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
       <div id="programEditor" class="peditor"></div>
       <button id="addDay" class="btn btn--steel peditor__addday" type="button">+ Add day</button>

@@ -240,6 +240,17 @@ function programAdherence(){const totalDays=prog.days().length;if(!totalDays)ret
 function programWeek(){const s=state.programMeta?.started;if(!s)return null;
   const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
   const days=Math.floor((now-start)/86400000);return days<0?1:Math.floor(days/7)+1}
+function mesocycleWeek(){const wk=programWeek(),total=state.programMeta?.mesocycleLengthWeeks||6;
+  const current=wk!=null?Math.max(1,wk):null;
+  const isFinalWeek=current!=null&&current>=total;
+  const isComplete=state.programMeta?.mesocycleStatus==="completed"||(current!=null&&current>total);
+  return{current,total,isFinalWeek,isComplete}}
+function promptEndBlock(){if(!confirm("End this training block? You'll review progress before starting the next one."))return;
+  toast("Block review coming soon.")}
+function renderBlockPrompt(){const mc=mesocycleWeek(),show=mc.isComplete||mc.isFinalWeek;
+  const html=show?`<p><b>Block ending</b> Week ${mc.current} of ${mc.total}. <button type="button" class="blockprompt__act">Review block</button></p>`:"";
+  for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
+    el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock}}}
 function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
   if(!withHistory.length)return null;
   const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
@@ -359,15 +370,15 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
 
-function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings()}
+function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
 
 function renderWorkout(){
-  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,wk=programWeek();
-    lc.textContent=nm||wk?`${nm||"Untitled program"}${wk?` · Week ${wk}`:""}`:"Today's session"}
+  const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
+    lc.textContent=nm||mc.current!=null?`${nm||"Untitled program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's session"}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
@@ -614,6 +625,7 @@ function detectPRs(log,opts={}){
 window.detectPRs=detectPRs;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
+window.__repforgeMesocycleWeek=mesocycleWeek;
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -745,9 +757,9 @@ function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolum
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
-  const ad=programAdherence(),week=programWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
-  const weekChip=week?`<span class="pmeta__chip">Week ${week}</span>`:"";
+  const weekChip=mc.current!=null?`<span class="pmeta__chip">Week ${mc.current} of ${mc.total}</span>`:"";
   const healthChip=health?`<span class="pmeta__chip">${health.hot}/${health.total} ready to add</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${Math.round(vol.ratio*100)}% volume (7d)</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
@@ -969,6 +981,7 @@ function init(){
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast("Day added.")};
+  $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{if(confirm("Replace your current program template? Your logged history stays."))switchToBeginnerProgram()};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
