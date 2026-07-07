@@ -179,7 +179,7 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);bo
 .sectionhead{margin:6px 0 16px}
 .sectionhead__row{display:flex;align-items:flex-end;justify-content:space-between;gap:14px}
 .eyebrow{color:var(--ember);font-size:12px;font-weight:700;margin-bottom:4px}
-.eyebrow--link{background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.eyebrow--link{background:none;border:0;padding:0;cursor:pointer;text-align:left}
 .eyebrow--link::after{content:" ›"}
 h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;letter-spacing:.01em}
 .subhead{font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.07em;
