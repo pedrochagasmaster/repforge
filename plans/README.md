@@ -187,6 +187,75 @@ the improve skill's non-interactive rule.
   file**: kept as provenance — the fix (plan 026) is what the importer
   *applies*, not what the exporter writes.
 
+## Wave 4 — vetted from the comprehensive UI/UX evaluation report
+
+Written against `main` @ `5c46c1b` (2026-07-07) after re-verifying every
+actionable claim in `docs/comprehensive-ui-ux-evaluation-report.md` against
+the live code and a scripted Playwright session — see
+[`docs/ui-ux-evaluation-report-review.md`](../docs/ui-ux-evaluation-report-review.md)
+for the claim-by-claim vetting (several of the report's recommendations were
+rejected as already-implemented or unsubstantiated; see below). Baseline
+verified at `5c46c1b`: `node --check app.js` clean, simulation
+`PASSED: 267, FAILED: 0`.
+
+| # | Plan | Category | Effort | Risk | Source |
+|---|------|----------|--------|------|--------|
+| 030 | [Pluralization & copy fixes (toast, This Week, deltas, volume rows)](./030-pluralization-copy-fixes.md) | bug (copy) | S | LOW | Report §7 P0-4 + **new findings** ("1 sets logged" toast, "1 sets" volume rows); runtime-verified |
+| 031 | [Chart Y-axis gridline label dedupe](./031-chart-gridline-label-dedupe.md) | bug | S | LOW | Report §7 P0-5 (mechanism corrected); runtime-verified with flat data |
+| 032 | [Command bar syntax help + remove dead `commandParserHints`](./032-command-bar-syntax-help.md) | dx / direction | S | LOW | Report §7 P0-2 (reformulated) + **new finding** (dead settings field) |
+| 033 | [Effort scale legend (Settings + Log header)](./033-effort-scale-legend.md) | dx / direction | S | LOW | Report §7 P0-3; glossary entries already exist, unwired |
+| 034 | [Coaching surfaces navigate to Log; week eyebrow → Stats Review](./034-coaching-surfaces-navigate-to-log.md) | direction | M | MED | Report §7 P2-11/13/15 (consolidated) |
+| 035 | [Branded End-block confirm + recommended-strategy highlight](./035-branded-end-block-confirm-and-strategy-highlight.md) | direction / dx | M | MED | Report §6 + §7 P2-14/P3-19 (consolidated) |
+| 036 | [Secondary text contrast to WCAG AA](./036-secondary-text-contrast-aa.md) | dx (a11y) | S | LOW | Report §7 P4-21; measured — `--steel-dim` fails at 3.14:1/2.87:1 |
+
+### Wave 4 dependency graph
+
+```
+030, 031, 032, 033, 036 — independent, any order
+
+034 (coaching nav) ── independent, but rewrites the attention-chip click
+    handler that 2 existing simulation checks cover; land it in one PR with
+    its test updates.
+
+035 (end-block confirm) ── independent; threads a confirm step through every
+    simulation flow that clicks #endBlock.
+
+030 and 035 both touch test flows around saveWorkout / block review — no code
+conflict, but land 030 first so 035's toast assertions see the fixed copy.
+```
+
+Recommended wave 4 order: **030 → 031 → 032 → 033 → 036 → 034 → 035**.
+Written non-interactively (cloud run); the top findings by leverage were
+planned per the improve skill's non-interactive rule.
+
+### Wave 4 findings considered and rejected (do not re-file)
+
+From the UI/UX evaluation report's §7 list, rejected after code/runtime
+verification (evidence in `docs/ui-ux-evaluation-report-review.md`):
+
+- **"Replace `& new` shorthand on History cards"** — no such string exists;
+  `formatDeltaCounts` emits `1 improved · 1 new` (runtime-verified). The
+  "add a noun" residue is folded into plan 030.
+- **"Add explicit delta count line on History cards"** — already implemented
+  (`.session__delta`, `app.js:1229`).
+- **"Prev/next exercise chevrons in Focus mode"** — already implemented
+  (focusbar with Prev/Next + "N of M", `app.js:831-839`).
+- **"Rest timer auto-start on set save with visible countdown"** — already
+  implemented (`app.js:794` + header `#restBar`).
+- **"Program name field doesn't look editable"** — it is a labeled input
+  with field styling (`app.js:1287`, `styles.css:350-351`); no concrete
+  deficiency.
+- **"Per-set save states more visually distinct"** — committed rows already
+  have ember border + tint + gold ✓ (`styles.css:269-271`).
+
+Deferred to backlog (real, lower leverage or needing product decisions):
+persist Focus/List mode preference; onboarding progress bar / skip path /
+editable review; Strength/Volume/PR row drill-down (should reuse plan 034's
+`goToLogExercise` seam); "Under target" status explanation; volume dashboard
+bars; mic emoji → SVG; one-time coach marks / first-run tips (needs a
+"tips seen" state design); converting the remaining native `confirm()` calls
+(follow-up noted in plan 035).
+
 ## Backlog (not yet planned in detail)
 
 Grounded in the report but deferred — each needs its own plan before execution.
@@ -263,3 +332,10 @@ Consensus across ≥5 personas that these betray the product:
 | 026 | DONE |
 | 027 | DONE |
 | 028 | DONE |
+| 030 | TODO |
+| 031 | TODO |
+| 032 | TODO |
+| 033 | TODO |
+| 034 | TODO |
+| 035 | TODO |
+| 036 | TODO |
