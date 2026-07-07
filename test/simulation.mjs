@@ -72,6 +72,8 @@ async function dismissOnboardingIfPresent(page) {
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     if (el?.classList.contains("active") && typeof window.closeOnboarding === "function") window.closeOnboarding();
+    const tour = document.querySelector("#tour");
+    if (tour && !tour.classList.contains("hidden") && typeof window.closeTour === "function") window.closeTour();
   });
 }
 

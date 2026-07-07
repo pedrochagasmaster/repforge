@@ -1658,7 +1658,8 @@ function endTour(completed){tourActive=false;$("#tour").classList.add("hidden");
   if(completed)navTo("log");
   maybeShowInstallBanner();}
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour();return true}
-window.startTour=startTour;window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
+window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
+window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -1717,7 +1718,7 @@ function init(){
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
   maybeShowOnboarding();
-  if(!$("#onboarding").classList.contains("active")){if(!maybeStartTour())maybeShowInstallBanner()}
+  if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner();
 }
 async function boot(){
   let raw=null;
