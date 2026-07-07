@@ -693,12 +693,6 @@ function recommendation(ex){
   if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:"Push reps",text:"You left reps in reserve. Push closer to failure before adding load.",load,stalled:false};
   return{status:"hold",heat:.48,label:"Hold · add reps",text:"Keep the load and chase more reps inside your RIR target.",load,stalled:false};
 }
-const PLAIN={add2:"Translation: it was easy and you hit the top reps — add weight.",
-  add:"Translation: you hit the top of every set — add a little weight next time.",
-  reduce:"Translation: this was too heavy to stay in range — drop the weight and rebuild.",
-  hold:"Translation: keep this weight and try for one more rep next time.",
-  new:"Translation: first time logging this — pick a weight you can control for the reps shown."};
-
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}}
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
@@ -769,8 +763,7 @@ function renderWorkout(){
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="Toggle ${esc(ex.name)} sets">▾</button></div></div>`+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
-      `<div class="ex__coach"><p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`+
-      `<p class="rec__plain">${esc(PLAIN[r.status]||"")}</p></div>`+
+      `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`+
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       subPick+
       prevHtml+deltaHtml+

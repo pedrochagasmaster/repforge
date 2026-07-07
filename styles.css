@@ -250,8 +250,7 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .chip{display:inline-flex;align-items:center;gap:6px;font-family:var(--display);font-weight:700;
   text-transform:uppercase;letter-spacing:.06em;font-size:12.5px;color:var(--heat);white-space:nowrap}
 .chip::before{content:"";width:8px;height:8px;border-radius:2px;background:var(--heat);box-shadow:0 0 10px -1px var(--heat)}
-.ex__coach{margin:0 0 12px}
-.rec{font-size:12.5px;line-height:1.45;color:var(--steel);margin:0}
+.rec{font-size:12.5px;line-height:1.45;color:var(--steel);margin:0 0 12px}
 .rec b{color:var(--mist);font-family:var(--mono);font-weight:600}
 .prev{font-family:var(--mono);font-size:11.5px;color:var(--steel-dim);margin:0 0 3px;letter-spacing:.01em;
   display:flex;flex-wrap:wrap;gap:4px 10px}
@@ -448,7 +447,7 @@ nav button.active .nav__icon{background:var(--ember)}
 .ex__skip{padding:5px 8px;font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:10px}
 .ex__skip:hover{color:var(--quench);border-color:rgba(79,182,217,.45)}
 .exercise.is-skipped{opacity:.58;border-style:dashed}
-.exercise.is-skipped .heat,.exercise.is-skipped .ex__coach,.exercise.is-skipped .setup,
+.exercise.is-skipped .heat,.exercise.is-skipped .rec,.exercise.is-skipped .setup,
 .exercise.is-skipped .subst,.exercise.is-skipped .prev,.exercise.is-skipped .delta-prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow{display:none}
 .exercise.is-skipped .ex__name::after{content:" · Skipped";color:var(--steel);font-weight:400;font-size:.82em}
 .skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
@@ -459,7 +458,7 @@ nav button.active .nav__icon{background:var(--ember)}
   text-transform:uppercase;letter-spacing:.05em;font-size:10px}
 .skipbar__show:hover{border-color:var(--steel-dim)}
 .exercise.is-collapsed .ex__caret{transform:rotate(-90deg)}
-.exercise.is-collapsed .ex__coach,.exercise.is-collapsed .setup,.exercise.is-collapsed .prev,.exercise.is-collapsed .delta-prev,
+.exercise.is-collapsed .rec,.exercise.is-collapsed .setup,.exercise.is-collapsed .prev,.exercise.is-collapsed .delta-prev,
 .exercise.is-collapsed .sets__head,.exercise.is-collapsed .setrow,.exercise.is-collapsed .heat{display:none}
 .exercise.is-collapsed{padding-bottom:15px}
 
@@ -501,7 +500,7 @@ nav button.active .nav__icon{background:var(--ember)}
   text-transform:uppercase;letter-spacing:.05em;font-size:10px}
 .fatigue__trim:hover{background:rgba(79,182,217,.12)}
 
-/* ---- Glossary + plain-language rec ---- */
+/* ---- Glossary ---- */
 .term{display:inline;border:0;background:transparent;color:inherit;padding:2px 0;margin:0;
   text-decoration:underline dotted;text-decoration-color:var(--steel-dim);cursor:pointer;
   font:inherit;line-height:1.4;min-height:24px;vertical-align:baseline}
@@ -543,7 +542,6 @@ nav button.active .nav__icon{background:var(--ember)}
 }
 .importchoice__title{font-family:var(--display);font-weight:700;font-size:14px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
 .importchoice__body{margin:0 0 14px;font-size:13px;line-height:1.45;color:var(--steel);white-space:pre-line}
-.rec__plain{margin:5px 0 0;font-size:11px;line-height:1.45;color:var(--steel-dim);font-style:italic;opacity:.82}
 
 /* ---- This week snapshot ---- */
 .thisweek{margin-bottom:14px;padding:14px 16px}
