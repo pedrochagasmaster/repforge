@@ -480,6 +480,7 @@ const BLOCK_REC_COPY={
   repeat_or_progress:{line:"Recommendation: repeat this block or progress.",why:"Adherence was strong and most lifts improved."},
   keep_program_improve_completion:{line:"Recommendation: keep the program and improve completion.",why:"Logged hard-set volume was well below what the program plans."},
   repeat_with_small_swaps:{line:"Recommendation: repeat this block with small swaps.",why:"Adherence was solid and progress was mixed but acceptable."}};
+const REC_STRATEGY={repeat_or_progress:"repeat",repeat_with_small_swaps:"repeat_swaps",reduce_volume_or_deload:"reduce_volume",keep_program_improve_completion:"repeat",repeat_with_simpler_schedule:"reduce_volume"};
 function blockRecommendationCopy(key){return BLOCK_REC_COPY[key]||BLOCK_REC_COPY.repeat_with_small_swaps}
 function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),total=programMeta?.mesocycleLengthWeeks||6;
   let weekCurrent=null;const s=programMeta?.started;
@@ -541,10 +542,14 @@ function startNextMesocycle(strategy){
 function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
   completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
 function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  const rec=REC_STRATEGY[review.recommendation];
+  $$(".blockreview__act").forEach(b=>{const on=b.dataset.strategy===rec;b.classList.toggle("is-recommended",on);b.setAttribute("aria-description",on?"Recommended":"")});
   d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview;
   $$(".blockreview__act").forEach(b=>b.onclick=()=>finishBlockAndStart(b.dataset.strategy))}
-function promptEndBlock(){if(!confirm("End this training block? You'll review progress before starting the next one."))return;
-  openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))}
+function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
+  d.classList.remove("hidden");
+  $("#endBlockGo").onclick=()=>{d.classList.add("hidden");openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))};
+  $("#endBlockCancel").onclick=()=>d.classList.add("hidden")}
 function renderBlockPrompt(){const mc=mesocycleWeek(),show=mc.isComplete||mc.isFinalWeek;
   const html=show?`<p><b>Block ending</b> Week ${mc.current} of ${mc.total}. <button type="button" class="blockprompt__act">Review block</button></p>`:"";
   for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;

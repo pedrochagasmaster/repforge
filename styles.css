@@ -527,6 +527,8 @@ nav button.active .nav__icon{background:var(--ember)}
 .blockreview__why{margin:0!important;font-size:12px;color:var(--steel-dim)}
 .blockreview__actions{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
 .blockreview__actions .btn{width:100%;justify-content:center;font-size:13px;padding:10px 12px}
+.blockreview__act.is-recommended{border-color:var(--gold);color:var(--mist);background:rgba(255,180,76,.1)}
+.blockreview__act.is-recommended::after{content:" · recommended";color:var(--gold);font-size:.85em}
 .blockprogress{margin:0 0 16px;padding:12px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--coal)}
 .blockprogress__title{font-family:var(--display);font-weight:700;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--gold)}
 .blockprogress p{margin:0 0 6px;font-size:13px;line-height:1.45;color:var(--steel)}

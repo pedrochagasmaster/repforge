@@ -2935,7 +2935,49 @@ async function main() {
   );
   await nav(page, "program");
   await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  assert(
+    await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
+    "P8: confirm open — block review stays hidden",
+    `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
+    "End block → #endBlockConfirm visible, #blockReview still hidden"
+  );
+  await page.click("#endBlockCancel");
+  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  assert(
+    await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
+    "P8: cancel confirm — block review stays hidden",
+    `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
+    "Cancel #endBlockConfirm → overlay hides, review not opened"
+  );
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.click("#endBlockGo");
   await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  const REC_STRATEGY = {
+    repeat_or_progress: "repeat",
+    repeat_with_small_swaps: "repeat_swaps",
+    reduce_volume_or_deload: "reduce_volume",
+    keep_program_improve_completion: "repeat",
+    repeat_with_simpler_schedule: "reduce_volume",
+  };
+  const expectedStrategy = REC_STRATEGY[blockReview.recommendation];
+  const recommendedInfo = await page.evaluate(() => {
+    const btns = [...document.querySelectorAll(".blockreview__act.is-recommended")];
+    return { count: btns.length, strategy: btns[0]?.dataset.strategy ?? null };
+  });
+  assert(
+    recommendedInfo.count === 1,
+    "P8: exactly one recommended strategy button",
+    `count=${recommendedInfo.count}`,
+    "Open block review → one .blockreview__act.is-recommended"
+  );
+  assert(
+    recommendedInfo.strategy === expectedStrategy,
+    "P8: recommended strategy matches buildBlockReview recommendation",
+    `got=${recommendedInfo.strategy} expected=${expectedStrategy} recommendation=${blockReview.recommendation}`,
+    "REC_STRATEGY map → highlighted data-strategy"
+  );
   const reviewText = await page.locator("#blockReview").textContent();
   assert(
     /Recommendation:/i.test(reviewText) && /Why:/i.test(reviewText),
