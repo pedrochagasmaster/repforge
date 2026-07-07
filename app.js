@@ -18,6 +18,7 @@ const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMon
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const fmt=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
 const kfmt=v=>{const n=Number(v)||0;return n>=10000?(n/1000).toFixed(n>=100000?0:1).replace(/\.0$/,"")+"k":String(Math.round(n))};
+const plural=(n,word)=>`${word}${+n===1?"":"s"}`;
 const avg=a=>a.length?a.reduce((s,x)=>s+Number(x||0),0)/a.length:0;
 const median=a=>{if(!a.length)return 0;const s=[...a].map(Number).sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
 const sum=a=>a.reduce((s,x)=>s+Number(x||0),0);
@@ -627,7 +628,7 @@ function sessionDeltaCounts(rows){const byLift=new Map();
   return counts}
 function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
   if(c.improved)parts.push(`${c.improved} improved`);if(c.flat)parts.push(`${c.flat} flat`);
-  if(c.regressed)parts.push(`${c.regressed} regressed`);if(c.new)parts.push(`${c.new} new`);
+  if(c.regressed)parts.push(`${c.regressed} regressed`);if(c.new)parts.push(`${c.new} new ${plural(c.new,"lift")}`);
   return parts.join(sep)}
 function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
 function draftRowsForExercise(ex,draft){const warm=new Set(draft.__warm||[]),rows=[];
@@ -889,7 +890,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=`Workout forged — ${rows.length} sets logged.`;
+  let msg=`Workout forged — ${rows.length} ${plural(rows.length,"set")} logged.`;
   if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render()}finally{saving=false}}
@@ -923,7 +924,7 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
   el.innerHTML=`<div class="thisweek__title">This week</div><div class="thisweek__rows">`+
     `<div>${w.completedDays} / ${w.plannedDays} days logged</div>`+
-    `<div>${w.totalHardSets} hard sets</div>`+
+    `<div>${w.totalHardSets} hard ${plural(w.totalHardSets,"set")}</div>`+
     `<div>${w.improvedLifts} lift${w.improvedLifts===1?"":"s"} improved</div>`+
     `<div>${w.readyToAdd} ready to add</div></div>`+
     `<div class="thisweek__status">Status: <b>${esc(w.status)}</b></div>`}
@@ -1178,7 +1179,7 @@ function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=
   const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
   el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
-    `<span class="vrow__num"><b>${fmt(x.eff)}</b> sets</span></div>`).join(""):`<div class="table"><div class="empty">No hard sets in the last ${volWindow} days yet.</div></div>`;
+    `<span class="vrow__num"><b>${fmt(x.eff)}</b> ${plural(x.eff,"set")}</span></div>`).join(""):`<div class="table"><div class="empty">No hard sets in the last ${volWindow} days yet.</div></div>`;
   $$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});}
 
 function draw(rows){

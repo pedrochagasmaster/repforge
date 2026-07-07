@@ -478,6 +478,19 @@ async function main() {
   await saveWorkout(page);
   sessionCount++;
   uiSaveCount++;
+  const smokeToast = await page.textContent("#toast");
+  assert(
+    /1 set logged\./.test(smokeToast),
+    "Finish toast uses singular set for one-set save",
+    `Toast: ${smokeToast}`,
+    "Log tab → fill one set → Save workout → toast reads '1 set logged.'"
+  );
+  assert(
+    !/1 sets/.test(smokeToast),
+    "Finish toast does not use plural sets for one-set save",
+    `Toast: ${smokeToast}`,
+    "Log tab → fill one set → Save workout → toast must not read '1 sets'"
+  );
   assert(
     (await getState(page)).log.some((r) => r.date === smokeDate && +r.load === 105),
     "Save workout UI persists after bulk seed",
@@ -1798,6 +1811,25 @@ async function main() {
   await saveWorkout(page);
   const stAfterFinish = await getState(page);
   const loggedEx0 = stAfterFinish.log.filter((r) => r.exerciseId === ex0);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForTimeout(80);
+  const thisWeekPlural = await page.locator("#thisWeek").innerText();
+  assert(
+    /1 hard set(?!s)/.test(thisWeekPlural),
+    "This Week card uses singular hard set for one hard set",
+    `text=${thisWeekPlural.slice(0, 120)}`,
+    "Clear state → save one hard set → Stats Overview → #thisWeek reads '1 hard set'"
+  );
+  await nav(page, "history");
+  const newLiftDelta = await page.locator(".session__delta").first().textContent();
+  assert(
+    /1 new lift/.test(newLiftDelta || ""),
+    "History session delta names new lifts",
+    `delta=${newLiftDelta}`,
+    "Clear state → save first lift → History → session card shows '1 new lift'"
+  );
+  await nav(page, "log");
   assert(
     loggedEx0.length === 1 && +loggedEx0[0].set === 1,
     "Finish logs only committed/edited sets, not pristine suggestions",
