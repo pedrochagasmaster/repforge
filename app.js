@@ -656,6 +656,15 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
 function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
+function goToLogExercise(exId){
+  const ex=prog.find(exId);if(!ex)return;
+  day=ex.day;
+  if(logMode==="focus"){
+    const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
+    focusIndex=idx>=0?idx:0;
+  }
+  $('nav button[data-view="log"]').click();
+  const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
@@ -1150,13 +1159,14 @@ function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const
 window.__repforgeAttention=attentionGroups;
 function renderAttention(){const el=$("#attention");if(!el)return;
   const groups=attentionGroups();
-  const html=groups.map(({cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
+  const html=groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
     `<p class="attn__why">${esc(items[0]?.why||"")}</p>`+
-    items.map(({ex})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}">${esc(ex.name)}</button>`).join("")+`</div>`).join("");
+    items.map(({ex})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}">${esc(ex.name)}</button>`).join("")+`</div>`).join("");
   el.innerHTML=html||`<div class="attn__grp"><span class="attn__lead">Every lift is holding — chase reps.</span></div>`;
-  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
-    const has=[...$("#statExercise").options].some(o=>o.value===k);
-    if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast("Log this lift to chart it.")});}
+  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
+    if(grp==="add"||grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
+    else{const has=[...$("#statExercise").options].some(o=>o.value===k);
+      if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast("Log this lift to chart it.")}});}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
@@ -1599,6 +1609,7 @@ function init(){
   const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
+  const lc=$("#logContext");if(lc)lc.onclick=()=>{$('nav button[data-view="stats"]').click();setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
   $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});

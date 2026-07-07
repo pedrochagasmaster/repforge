@@ -630,17 +630,46 @@ async function main() {
     JSON.stringify(attnGroups?.map((g) => g.key)),
     "page.evaluate window.__repforgeAttention after seed"
   );
-  const seedAttnChip = page.locator("#attention [data-attn]").first();
+  const seedAttnChip = page.locator(
+    "#attention .attn--reduce .attn__chip, #attention .attn--vol .attn__chip, #attention .attn--fatigue .attn__chip"
+  ).first();
   if ((await seedAttnChip.count()) > 0) {
     await seedAttnChip.click();
     assert(
       (await page.locator("#statsDeep").evaluate((el) => el.open)),
-      "Attention chip click opens stats deep section without error",
-      "statsDeep not open after chip click",
-      "Stats → click attention chip"
+      "Analysis attention chip opens stats deep section",
+      "statsDeep not open after analysis chip click",
+      "Stats → click reduce/vol/fatigue attention chip"
     );
   } else {
-    pass("Attention chip click skipped (no chips in seeded board)");
+    pass("Analysis attention chip click skipped (no analysis-group chips)");
+  }
+  const actionAttnChip = page.locator("#attention .attn--new .attn__chip, #attention .attn--add .attn__chip").first();
+  if ((await actionAttnChip.count()) > 0) {
+    const actionMeta = await page.evaluate(() => {
+      const groups = typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : [];
+      const grp = groups.find((g) => g.key === "new" || g.key === "add");
+      const item = grp?.items?.[0];
+      return item ? { id: item.ex.id, day: item.ex.day } : null;
+    });
+    await actionAttnChip.click();
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
+    const actionNavOk = await page.evaluate(
+      ({ id, day }) => {
+        const tab = document.querySelector("#dayTabs button.active");
+        const card = document.querySelector(`#workout [data-ex="${id}"]`);
+        return tab?.dataset.day === day && !!card;
+      },
+      actionMeta || { id: "", day: "" }
+    );
+    assert(
+      actionMeta && actionNavOk,
+      "Action attention chip navigates to lift on Log tab",
+      `meta=${JSON.stringify(actionMeta)} navOk=${actionNavOk}`,
+      "Stats → click new/add attention chip → Log day tab + exercise card"
+    );
+  } else {
+    pass("Action attention chip navigation skipped (no new/add chips)");
   }
 
   // PWA shell loads (manifest + service worker registration)
@@ -928,6 +957,19 @@ async function main() {
     "Log tab eyebrow shows the program name",
     `eyebrow=${logEyebrow}`,
     "Program tab → name program → Log tab eyebrow"
+  );
+  await page.click("#logContext");
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  const eyebrowNavOk = await page.evaluate(() => {
+    const stats = document.querySelector("#stats.view.active");
+    const seg = document.querySelector("#segReview");
+    return !!stats && seg?.classList.contains("active");
+  });
+  assert(
+    eyebrowNavOk,
+    "Log week eyebrow opens Stats Review segment",
+    `eyebrowNavOk=${eyebrowNavOk}`,
+    "Log tab → click #logContext → Stats Review active"
   );
   await nav(page, "program");
   const startedIso = (() => {
@@ -2078,15 +2120,15 @@ async function main() {
     "No .attn__why in attention board",
     "Stats → action board → each group has a why line"
   );
-  const attnChip = page.locator("#attention [data-attn]").first();
+  const attnChip = page.locator("#attention .attn--reduce .attn__chip").first();
   const attnLift = await attnChip.getAttribute("data-attn");
   await attnChip.click();
   assert(
     (await page.inputValue("#statExercise")) &&
       (await page.locator("#statsDeep").evaluate((el) => el.open)),
-    "Attention chip focuses exercise and opens stats deep section",
+    "Reduce attention chip focuses exercise and opens stats deep section",
     `statExercise=${await page.inputValue("#statExercise")}`,
-    "Stats → click attention chip → chart exercise selected"
+    "Stats → click reduce attention chip → chart exercise selected"
   );
   await page.click('#volWindow button[data-win="28"]');
   assert(
