@@ -21,8 +21,8 @@
   --anvil:#1e2530;       /* inset / card-2 */
   --rule:#2a323d;        /* hairline border */
   --rule-soft:#222a34;
-  --steel:#7c899b;       /* muted text */
-  --steel-dim:#586474;
+  --steel:#8b97a8;       /* muted text */
+  --steel-dim:#7b8899;
   --mist:#eceff4;        /* primary text */
 
   --ember:#ff5a1f;       /* heat ramp */
@@ -179,6 +179,8 @@ input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);bo
 .sectionhead{margin:6px 0 16px}
 .sectionhead__row{display:flex;align-items:flex-end;justify-content:space-between;gap:14px}
 .eyebrow{color:var(--ember);font-size:12px;font-weight:700;margin-bottom:4px}
+.eyebrow--link{background:none;border:0;padding:0;cursor:pointer;text-align:left}
+.eyebrow--link::after{content:" ›"}
 h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;letter-spacing:.01em}
 .subhead{font-family:var(--display);font-weight:700;text-transform:uppercase;letter-spacing:.07em;
   font-size:15px;color:var(--steel);margin:26px 0 12px;display:flex;align-items:center;gap:12px}
@@ -525,6 +527,8 @@ nav button.active .nav__icon{background:var(--ember)}
 .blockreview__why{margin:0!important;font-size:12px;color:var(--steel-dim)}
 .blockreview__actions{display:flex;flex-direction:column;gap:8px;margin:0 0 12px}
 .blockreview__actions .btn{width:100%;justify-content:center;font-size:13px;padding:10px 12px}
+.blockreview__act.is-recommended{border-color:var(--gold);color:var(--mist);background:rgba(255,180,76,.1)}
+.blockreview__act.is-recommended::after{content:" · recommended";color:var(--gold);font-size:.85em}
 .blockprogress{margin:0 0 16px;padding:12px 14px;border:1px solid var(--rule);border-radius:8px;background:var(--coal)}
 .blockprogress__title{font-family:var(--display);font-weight:700;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em;color:var(--gold)}
 .blockprogress p{margin:0 0 6px;font-size:13px;line-height:1.45;color:var(--steel)}
@@ -568,10 +572,12 @@ nav button.active .nav__icon{background:var(--ember)}
 .attn--fatigue .attn__chip{border-color:rgba(79,182,217,.35)}
 
 /* ---- Command bar ---- */
+.visually-hidden{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap;border:0}
 .commandbar{display:flex;gap:8px;margin-bottom:12px}
 .commandbar input{flex:1;min-width:0;padding:12px 14px;border:1px solid var(--rule);border-radius:12px;
   background:var(--slag);color:var(--mist);font-size:15px}
 .commandbar .btn{flex:none;padding:12px 16px}
+.commandbar__help{flex:none;min-width:2.4rem;padding:10px 0}
 .commandbar #voiceBtn{padding:12px 14px;font-size:1.1rem;line-height:1}
 .field--check{display:flex;align-items:center;gap:10px;font-weight:600}
 .field--check input{width:auto;margin:0}

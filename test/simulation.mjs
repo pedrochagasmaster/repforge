@@ -478,6 +478,19 @@ async function main() {
   await saveWorkout(page);
   sessionCount++;
   uiSaveCount++;
+  const smokeToast = await page.textContent("#toast");
+  assert(
+    /1 set logged\./.test(smokeToast),
+    "Finish toast uses singular set for one-set save",
+    `Toast: ${smokeToast}`,
+    "Log tab → fill one set → Save workout → toast reads '1 set logged.'"
+  );
+  assert(
+    !/1 sets/.test(smokeToast),
+    "Finish toast does not use plural sets for one-set save",
+    `Toast: ${smokeToast}`,
+    "Log tab → fill one set → Save workout → toast must not read '1 sets'"
+  );
   assert(
     (await getState(page)).log.some((r) => r.date === smokeDate && +r.load === 105),
     "Save workout UI persists after bulk seed",
@@ -617,17 +630,46 @@ async function main() {
     JSON.stringify(attnGroups?.map((g) => g.key)),
     "page.evaluate window.__repforgeAttention after seed"
   );
-  const seedAttnChip = page.locator("#attention [data-attn]").first();
+  const seedAttnChip = page.locator(
+    "#attention .attn--reduce .attn__chip, #attention .attn--vol .attn__chip, #attention .attn--fatigue .attn__chip"
+  ).first();
   if ((await seedAttnChip.count()) > 0) {
     await seedAttnChip.click();
     assert(
       (await page.locator("#statsDeep").evaluate((el) => el.open)),
-      "Attention chip click opens stats deep section without error",
-      "statsDeep not open after chip click",
-      "Stats → click attention chip"
+      "Analysis attention chip opens stats deep section",
+      "statsDeep not open after analysis chip click",
+      "Stats → click reduce/vol/fatigue attention chip"
     );
   } else {
-    pass("Attention chip click skipped (no chips in seeded board)");
+    pass("Analysis attention chip click skipped (no analysis-group chips)");
+  }
+  const actionAttnChip = page.locator("#attention .attn--new .attn__chip, #attention .attn--add .attn__chip").first();
+  if ((await actionAttnChip.count()) > 0) {
+    const actionMeta = await page.evaluate(() => {
+      const groups = typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : [];
+      const grp = groups.find((g) => g.key === "new" || g.key === "add");
+      const item = grp?.items?.[0];
+      return item ? { id: item.ex.id, day: item.ex.day } : null;
+    });
+    await actionAttnChip.click();
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
+    const actionNavOk = await page.evaluate(
+      ({ id, day }) => {
+        const tab = document.querySelector("#dayTabs button.active");
+        const card = document.querySelector(`#workout [data-ex="${id}"]`);
+        return tab?.dataset.day === day && !!card;
+      },
+      actionMeta || { id: "", day: "" }
+    );
+    assert(
+      actionMeta && actionNavOk,
+      "Action attention chip navigates to lift on Log tab",
+      `meta=${JSON.stringify(actionMeta)} navOk=${actionNavOk}`,
+      "Stats → click new/add attention chip → Log day tab + exercise card"
+    );
+  } else {
+    pass("Action attention chip navigation skipped (no new/add chips)");
   }
 
   // PWA shell loads (manifest + service worker registration)
@@ -654,6 +696,13 @@ async function main() {
       `Click ${view} tab → inspect aria-current`
     );
   }
+  const dimColor = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--steel-dim").trim());
+  assert(
+    dimColor.toLowerCase() === "#7b8899",
+    "Secondary dim text token meets the audited AA value",
+    `--steel-dim=${dimColor}`,
+    "Computed style on :root → --steel-dim"
+  );
   await nav(page, "log");
 
   // ── Phase 2: Draft persistence ───────────────────────────────────
@@ -909,6 +958,19 @@ async function main() {
     `eyebrow=${logEyebrow}`,
     "Program tab → name program → Log tab eyebrow"
   );
+  await page.click("#logContext");
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  const eyebrowNavOk = await page.evaluate(() => {
+    const stats = document.querySelector("#stats.view.active");
+    const seg = document.querySelector("#segReview");
+    return !!stats && seg?.classList.contains("active");
+  });
+  assert(
+    eyebrowNavOk,
+    "Log week eyebrow opens Stats Review segment",
+    `eyebrowNavOk=${eyebrowNavOk}`,
+    "Log tab → click #logContext → Stats Review active"
+  );
   await nav(page, "program");
   const startedIso = (() => {
     const d = new Date(Date.now() - 15 * 86400000);
@@ -993,6 +1055,12 @@ async function main() {
     "Settings saved",
     JSON.stringify(state.settings),
     "Settings tab → change values → Save settings"
+  );
+  assert(
+    state.settings.commandParserHints === undefined,
+    "commandParserHints removed from settings",
+    JSON.stringify(state.settings),
+    "Settings save → commandParserHints field dropped"
   );
 
   // Settings affect recommendations (add load when at max reps)
@@ -1089,6 +1157,21 @@ async function main() {
     "Chart canvas tracks viewport width on resize",
     `wide=${okWide} narrow=${okNarrow}`,
     "Stats → resize viewport → canvas backing width follows clientWidth"
+  );
+
+  const chartLabelDecimalsNarrow = await page.evaluate(() => window.__repforgeChartLabelDecimals(1));
+  assert(
+    chartLabelDecimalsNarrow === 1,
+    "Chart label decimals for narrow range (flat data fallback)",
+    `Expected 1, got ${chartLabelDecimalsNarrow}`,
+    "page.evaluate(() => window.__repforgeChartLabelDecimals(1))"
+  );
+  const chartLabelDecimalsWide = await page.evaluate(() => window.__repforgeChartLabelDecimals(30));
+  assert(
+    chartLabelDecimalsWide === 0,
+    "Chart label decimals for wide range",
+    `Expected 0, got ${chartLabelDecimalsWide}`,
+    "page.evaluate(() => window.__repforgeChartLabelDecimals(30))"
   );
   await page.setViewportSize({ width: 390, height: 844 });
 
@@ -1798,6 +1881,25 @@ async function main() {
   await saveWorkout(page);
   const stAfterFinish = await getState(page);
   const loggedEx0 = stAfterFinish.log.filter((r) => r.exerciseId === ex0);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForTimeout(80);
+  const thisWeekPlural = await page.locator("#thisWeek").innerText();
+  assert(
+    /1 hard set(?!s)/.test(thisWeekPlural),
+    "This Week card uses singular hard set for one hard set",
+    `text=${thisWeekPlural.slice(0, 120)}`,
+    "Clear state → save one hard set → Stats Overview → #thisWeek reads '1 hard set'"
+  );
+  await nav(page, "history");
+  const newLiftDelta = await page.locator(".session__delta").first().textContent();
+  assert(
+    /1 new lift/.test(newLiftDelta || ""),
+    "History session delta names new lifts",
+    `delta=${newLiftDelta}`,
+    "Clear state → save first lift → History → session card shows '1 new lift'"
+  );
+  await nav(page, "log");
   assert(
     loggedEx0.length === 1 && +loggedEx0[0].set === 1,
     "Finish logs only committed/edited sets, not pristine suggestions",
@@ -2018,15 +2120,15 @@ async function main() {
     "No .attn__why in attention board",
     "Stats → action board → each group has a why line"
   );
-  const attnChip = page.locator("#attention [data-attn]").first();
+  const attnChip = page.locator("#attention .attn--reduce .attn__chip").first();
   const attnLift = await attnChip.getAttribute("data-attn");
   await attnChip.click();
   assert(
     (await page.inputValue("#statExercise")) &&
       (await page.locator("#statsDeep").evaluate((el) => el.open)),
-    "Attention chip focuses exercise and opens stats deep section",
+    "Reduce attention chip focuses exercise and opens stats deep section",
     `statExercise=${await page.inputValue("#statExercise")}`,
-    "Stats → click attention chip → chart exercise selected"
+    "Stats → click reduce attention chip → chart exercise selected"
   );
   await page.click('#volWindow button[data-win="28"]');
   assert(
@@ -2274,6 +2376,23 @@ async function main() {
   await selectDay(page, "Day 1");
   const effMeta = await getExerciseMeta(page, "Day 1");
   const effEx = effMeta[0];
+  assert(
+    (await page.locator('#workout .term[data-term="Effort"]').count()) > 0,
+    "Effort mode Log header has Effort glossary term",
+    "No #workout .term[data-term=\"Effort\"]",
+    "Settings effort mode → Log → Effort column header is a term"
+  );
+  await page.click('#workout .term[data-term="Effort"]');
+  await page.waitForTimeout(80);
+  const effortGlossaryBody = await page.locator("#glossary .glossary__body").textContent();
+  assert(
+    !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
+      /RIR 0|≈ 0|reps in reserve/i.test(effortGlossaryBody || ""),
+    "Effort glossary popover shows RIR mapping",
+    `glossary body: ${effortGlossaryBody?.slice(0, 80)}`,
+    "Log → tap Effort header → glossary popover shows mapping"
+  );
+  await page.click("#glossary .glossary__close");
   await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
   await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
   await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="easy"]`);
@@ -2329,6 +2448,12 @@ async function main() {
     "Toggle effort mode in Settings"
   );
   await nav(page, "settings");
+  assert(
+    /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
+    "Settings shows effort scale legend with RIR 3",
+    "Settings text missing RIR 3 legend",
+    "Settings → RIR logging → legend line under radio group"
+  );
   await page.check('input[name="rirMode"][value="numeric"]');
   await page.waitForTimeout(80);
 
@@ -2810,7 +2935,49 @@ async function main() {
   );
   await nav(page, "program");
   await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  assert(
+    await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
+    "P8: confirm open — block review stays hidden",
+    `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
+    "End block → #endBlockConfirm visible, #blockReview still hidden"
+  );
+  await page.click("#endBlockCancel");
+  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  assert(
+    await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
+    "P8: cancel confirm — block review stays hidden",
+    `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
+    "Cancel #endBlockConfirm → overlay hides, review not opened"
+  );
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.click("#endBlockGo");
   await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  const REC_STRATEGY = {
+    repeat_or_progress: "repeat",
+    repeat_with_small_swaps: "repeat_swaps",
+    reduce_volume_or_deload: "reduce_volume",
+    keep_program_improve_completion: "repeat",
+    repeat_with_simpler_schedule: "reduce_volume",
+  };
+  const expectedStrategy = REC_STRATEGY[blockReview.recommendation];
+  const recommendedInfo = await page.evaluate(() => {
+    const btns = [...document.querySelectorAll(".blockreview__act.is-recommended")];
+    return { count: btns.length, strategy: btns[0]?.dataset.strategy ?? null };
+  });
+  assert(
+    recommendedInfo.count === 1,
+    "P8: exactly one recommended strategy button",
+    `count=${recommendedInfo.count}`,
+    "Open block review → one .blockreview__act.is-recommended"
+  );
+  assert(
+    recommendedInfo.strategy === expectedStrategy,
+    "P8: recommended strategy matches buildBlockReview recommendation",
+    `got=${recommendedInfo.strategy} expected=${expectedStrategy} recommendation=${blockReview.recommendation}`,
+    "REC_STRATEGY map → highlighted data-strategy"
+  );
   const reviewText = await page.locator("#blockReview").textContent();
   assert(
     /Recommendation:/i.test(reviewText) && /Why:/i.test(reviewText),
@@ -3233,13 +3400,38 @@ async function main() {
     "Log → type command → Enter → inputs updated"
   );
 
+  assert(
+    await page.locator("#commandHelp").isVisible(),
+    "command help button visible on Log tab",
+    "commandHelp not visible",
+    "Log tab → ? button in command bar"
+  );
+  assert(
+    (await page.locator("#commandInput").getAttribute("aria-describedby")) === "commandHelpText" &&
+      (await page.locator("#commandHelpText").count()) === 1,
+    "command input aria-describedby wired",
+    `aria-describedby=${await page.locator("#commandInput").getAttribute("aria-describedby")}`,
+    "Log tab → command input has screen-reader description"
+  );
+  await page.click("#commandHelp");
+  await page.waitForTimeout(80);
+  const glossaryBody = await page.locator("#glossary .glossary__body").textContent();
+  assert(
+    !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
+      (/x 8/i.test(glossaryBody) || /80 x 8/i.test(glossaryBody)),
+    "command help opens glossary with syntax examples",
+    `glossary body: ${glossaryBody?.slice(0, 80)}`,
+    "Log → tap ? → glossary popover shows quick entry syntax"
+  );
+  await page.click("#glossary .glossary__close");
+
   beginPhase("Phase: voice input settings");
   let voiceState = await getState(page);
   assert(
-    voiceState.settings.voiceInputEnabled === false && voiceState.settings.commandParserHints === true,
+    voiceState.settings.voiceInputEnabled === false && voiceState.settings.commandParserHints === undefined,
     "voice settings default on fresh load",
     JSON.stringify({ voiceInputEnabled: voiceState.settings.voiceInputEnabled, commandParserHints: voiceState.settings.commandParserHints }),
-    "Clear state → reload → voiceInputEnabled false, commandParserHints true"
+    "Clear state → reload → voiceInputEnabled false, commandParserHints absent"
   );
   await persistState(page, { ...voiceState, settings: { ...voiceState.settings, voiceInputEnabled: true } });
   await page.addInitScript(() => {

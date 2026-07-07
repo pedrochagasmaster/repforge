@@ -36,7 +36,7 @@
   <main>
     <section id="log" class="view active" aria-label="Log workout">
       <div class="sectionhead">
-        <p class="eyebrow" id="logContext">Today's session</p>
+        <button type="button" class="eyebrow eyebrow--link" id="logContext">Today's session</button>
         <div class="sectionhead__row">
           <h2>Log workout</h2>
           <label class="datepick">Date<input id="date" type="date"></label>
@@ -50,10 +50,12 @@
       <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="fatigue" class="fatigue hidden"></div>
       <div class="commandbar">
-        <input id="commandInput" type="text" autocomplete="off" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry">
+        <input id="commandInput" type="text" autocomplete="off" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry" aria-describedby="commandHelpText">
+        <button type="button" id="commandHelp" class="btn btn--steel commandbar__help" aria-label="Quick entry syntax help">?</button>
         <button type="button" id="voiceBtn" class="btn btn--steel hidden" aria-label="Voice input">🎤</button>
         <button type="button" id="commandApply" class="btn btn--steel">Apply</button>
       </div>
+      <p id="commandHelpText" class="visually-hidden">Quick set entry. Format: load x reps @RIR, for example 80 x 8 @1. Optionally start with the exercise name.</p>
       <form id="logForm">
         <div id="workout"></div>
         <label class="field">Session notes
@@ -162,6 +164,7 @@
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> Numbers</label>
           <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> Easy / Hard / Max</label>
         </fieldset>
+        <p class="lede">Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
         <button id="createProgram" type="button" class="btn btn--steel">Create new program</button>
         <label class="field field--check"><input type="checkbox" id="voiceInputEnabled"> Enable voice input</label>
         <p class="lede">Voice input is optional and depends on browser support. Typed commands work offline. Voice recognition may be processed by your browser provider.</p>
@@ -243,6 +246,14 @@
       <button type="button" id="importMerge" class="btn btn--forge">Merge</button>
       <button type="button" id="importReplace" class="btn btn--danger">Replace all</button>
       <button type="button" id="importCancel" class="btn btn--steel">Cancel</button>
+    </div>
+  </div>
+  <div id="endBlockConfirm" class="importchoice hidden" role="dialog" aria-modal="true" aria-label="End training block">
+    <p class="importchoice__title">End this training block?</p>
+    <p class="importchoice__body">You'll review this block's progress and pick how to start the next one. Nothing is deleted.</p>
+    <div class="btnrow">
+      <button type="button" id="endBlockGo" class="btn btn--forge">Review block</button>
+      <button type="button" id="endBlockCancel" class="btn btn--steel">Cancel</button>
     </div>
   </div>
   <div id="toast" class="toast hidden"></div>
