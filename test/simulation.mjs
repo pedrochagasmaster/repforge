@@ -1103,6 +1103,21 @@ async function main() {
     `wide=${okWide} narrow=${okNarrow}`,
     "Stats → resize viewport → canvas backing width follows clientWidth"
   );
+
+  const chartLabelDecimalsNarrow = await page.evaluate(() => window.__repforgeChartLabelDecimals(1));
+  assert(
+    chartLabelDecimalsNarrow === 1,
+    "Chart label decimals for narrow range (flat data fallback)",
+    `Expected 1, got ${chartLabelDecimalsNarrow}`,
+    "page.evaluate(() => window.__repforgeChartLabelDecimals(1))"
+  );
+  const chartLabelDecimalsWide = await page.evaluate(() => window.__repforgeChartLabelDecimals(30));
+  assert(
+    chartLabelDecimalsWide === 0,
+    "Chart label decimals for wide range",
+    `Expected 0, got ${chartLabelDecimalsWide}`,
+    "page.evaluate(() => window.__repforgeChartLabelDecimals(30))"
+  );
   await page.setViewportSize({ width: 390, height: 844 });
 
   // ── Phase 8: Export JSON, modify, re-import ──────────────────────
