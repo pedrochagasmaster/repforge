@@ -1189,7 +1189,7 @@ window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function draw(rows){
   const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#7c899b",dim:"#586474",rule:"#2a323d",mist:"#eceff4"};
+  const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#8b97a8",dim:"#7b8899",rule:"#2a323d",mist:"#eceff4"};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Mono",monospace';ctx.textBaseline="middle";
   if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}

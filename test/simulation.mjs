@@ -667,6 +667,13 @@ async function main() {
       `Click ${view} tab → inspect aria-current`
     );
   }
+  const dimColor = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--steel-dim").trim());
+  assert(
+    dimColor.toLowerCase() === "#7b8899",
+    "Secondary dim text token meets the audited AA value",
+    `--steel-dim=${dimColor}`,
+    "Computed style on :root → --steel-dim"
+  );
   await nav(page, "log");
 
   // ── Phase 2: Draft persistence ───────────────────────────────────

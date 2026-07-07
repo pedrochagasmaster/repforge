@@ -338,4 +338,4 @@ Consensus across ≥5 personas that these betray the product:
 | 033 | DONE |
 | 034 | TODO |
 | 035 | TODO |
-| 036 | TODO |
+| 036 | DONE |
