@@ -631,6 +631,51 @@ nav button.active .nav__icon{background:var(--ember)}
 .onb__nav{display:flex;gap:10px}
 .onb__nav .btn{flex:1}
 .onb__nav .btn--steel{flex:.8}
+
+/* ---- Feature tour (coach card) ---- */
+.tour{position:fixed;left:0;right:0;bottom:calc(var(--nav) + 10px + env(safe-area-inset-bottom));z-index:75;
+  padding:0 12px;display:flex;justify-content:center;pointer-events:none}
+.tour.hidden{display:none}
+.tour__card{pointer-events:auto;width:min(100%,var(--maxw));
+  background:var(--anvil);border:1px solid var(--rule);border-left:4px solid var(--ember);border-radius:16px;
+  padding:14px 18px 14px;box-shadow:var(--shadow);animation:toastin .3s cubic-bezier(.2,.7,.2,1)}
+.tour__head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
+.tour__eyebrow{color:var(--ember);font-family:var(--mono);font-size:11px;letter-spacing:.12em;text-transform:uppercase;margin:0}
+.tour__skip{border:0;background:transparent;color:var(--steel);cursor:pointer;font-size:12px;padding:4px 2px}
+.tour__skip:hover{color:var(--mist)}
+.tour__title{font-family:var(--display);font-weight:800;font-size:22px;line-height:1;margin:0 0 8px}
+.tour__body{margin:0 0 12px;font-size:14px;line-height:1.5;color:var(--steel)}
+.tour__body b{color:var(--mist);font-weight:600}
+.tour__extra:empty{display:none}
+.tour__extra{margin:0 0 12px}
+.tour__extra .btn{width:100%;justify-content:center}
+.tour__dots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px}
+.tour__dot{width:7px;height:7px;border-radius:50%;background:var(--rule);transition:background .2s ease}
+.tour__dot.is-on{background:var(--gold);box-shadow:0 0 8px rgba(255,180,76,.6)}
+.tour__nav{display:flex;gap:10px}
+.tour__nav .btn{flex:1}
+
+/* ---- Install banner ---- */
+.installbanner{position:fixed;left:50%;transform:translateX(-50%);
+  bottom:calc(var(--nav) + 16px + env(safe-area-inset-bottom));z-index:64;
+  width:min(92%,420px);display:flex;align-items:center;gap:12px;
+  background:var(--anvil);border:1px solid var(--rule);border-left:4px solid var(--gold);
+  border-radius:14px;padding:13px 34px 13px 14px;box-shadow:0 16px 40px -16px #000;
+  animation:toastin .3s cubic-bezier(.2,.7,.2,1)}
+.installbanner.hidden{display:none}
+.installbanner__close{position:absolute;top:6px;right:8px;border:0;background:transparent;color:var(--steel);
+  cursor:pointer;font-size:13px;line-height:1;padding:4px}
+.installbanner__close:hover{color:var(--mist)}
+.installbanner__icon{flex:none;width:34px;height:34px;border-radius:9px;position:relative;
+  background:conic-gradient(from 210deg,var(--ember),var(--gold),var(--whitehot),var(--gold),var(--ember))}
+.installbanner__icon::after{content:"";position:absolute;inset:4px;border-radius:5px;background:var(--iron)}
+.installbanner__text{flex:1;min-width:0}
+.installbanner__title{font-family:var(--display);font-weight:700;font-size:14px;margin:0 0 2px;text-transform:uppercase;letter-spacing:.03em}
+.installbanner__body{margin:0;font-size:12.5px;line-height:1.4;color:var(--steel)}
+.installbanner__body b{color:var(--mist);font-weight:600}
+.installbanner__action{flex:none;padding:9px 14px;font-size:13px}
+.ios-share{display:inline-block;width:15px;height:15px;vertical-align:-3px;margin:0 1px;
+  fill:none;stroke:var(--gold);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 /* ---- Stats analytics segments ---- */
 .stats-seg{display:none}
 .stats-seg.active{display:block}
