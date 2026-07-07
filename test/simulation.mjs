@@ -1007,6 +1007,12 @@ async function main() {
     JSON.stringify(state.settings),
     "Settings tab → change values → Save settings"
   );
+  assert(
+    state.settings.commandParserHints === undefined,
+    "commandParserHints removed from settings",
+    JSON.stringify(state.settings),
+    "Settings save → commandParserHints field dropped"
+  );
 
   // Settings affect recommendations (add load when at max reps)
   await nav(page, "log");
@@ -3280,13 +3286,38 @@ async function main() {
     "Log → type command → Enter → inputs updated"
   );
 
+  assert(
+    await page.locator("#commandHelp").isVisible(),
+    "command help button visible on Log tab",
+    "commandHelp not visible",
+    "Log tab → ? button in command bar"
+  );
+  assert(
+    (await page.locator("#commandInput").getAttribute("aria-describedby")) === "commandHelpText" &&
+      (await page.locator("#commandHelpText").count()) === 1,
+    "command input aria-describedby wired",
+    `aria-describedby=${await page.locator("#commandInput").getAttribute("aria-describedby")}`,
+    "Log tab → command input has screen-reader description"
+  );
+  await page.click("#commandHelp");
+  await page.waitForTimeout(80);
+  const glossaryBody = await page.locator("#glossary .glossary__body").textContent();
+  assert(
+    !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
+      (/x 8/i.test(glossaryBody) || /80 x 8/i.test(glossaryBody)),
+    "command help opens glossary with syntax examples",
+    `glossary body: ${glossaryBody?.slice(0, 80)}`,
+    "Log → tap ? → glossary popover shows quick entry syntax"
+  );
+  await page.click("#glossary .glossary__close");
+
   beginPhase("Phase: voice input settings");
   let voiceState = await getState(page);
   assert(
-    voiceState.settings.voiceInputEnabled === false && voiceState.settings.commandParserHints === true,
+    voiceState.settings.voiceInputEnabled === false && voiceState.settings.commandParserHints === undefined,
     "voice settings default on fresh load",
     JSON.stringify({ voiceInputEnabled: voiceState.settings.voiceInputEnabled, commandParserHints: voiceState.settings.commandParserHints }),
-    "Clear state → reload → voiceInputEnabled false, commandParserHints true"
+    "Clear state → reload → voiceInputEnabled false, commandParserHints absent"
   );
   await persistState(page, { ...voiceState, settings: { ...voiceState.settings, voiceInputEnabled: true } });
   await page.addInitScript(() => {
