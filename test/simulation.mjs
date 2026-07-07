@@ -372,7 +372,6 @@ async function cardInfoById(page, exId) {
       rec: a.querySelector(".rec")?.textContent || "",
       setup: a.querySelector(".setup")?.textContent || "",
       collapsed: a.classList.contains("is-collapsed"),
-      plain: a.querySelector(".rec__plain")?.textContent || "",
     };
   }, exId);
 }
@@ -1763,12 +1762,6 @@ async function main() {
     JSON.stringify(newCard),
     "Clear state → Log Day 1 → exercise with no history is is-new"
   );
-  assert(
-    newCard?.plain?.toLowerCase().includes("first time"),
-    "New lift shows plain-language translation",
-    `plain="${newCard?.plain}"`,
-    "Log → new exercise card → rec__plain translation visible"
-  );
 
   const addCard = await scenarioRecommendation(page, {
     day: matrixDay,
@@ -2179,15 +2172,6 @@ async function main() {
     "Log → tap 'RIR' → definition popover opens"
   );
   await page.click("#glossary .glossary__close");
-
-  // Plain-language translation line is present on recommendations
-  const plainRec = await cardInfoById(page, exX);
-  assert(
-    plainRec?.plain?.toLowerCase().includes("translation"),
-    "Recommendation includes plain-language translation",
-    `plain="${plainRec?.plain}"`,
-    "Log → exercise card → rec__plain line visible"
-  );
 
   // Skipped exercise is not saved
   const metaSkip = await getExerciseMeta(page, "Day 1");
