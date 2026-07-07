@@ -1412,6 +1412,7 @@ function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   updateVoiceBtn();
+  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",isStandalone());
   const le=state.settings.lastExport;const ago=le?`Last backup: ${le.slice(0,10)}.`:"Last backup: never.";
   $("#storageNote").textContent=`${ago} Everything lives in this browser under "${KEY}". There is no cloud copy — export before clearing site data or switching phones.`}
 
@@ -1567,19 +1568,114 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
 function saveOnboardingProgram(){const a=onbAnswers;prog=new Program(generateProgramFromOnboarding(onbGenAnswers(a)));
   persistProgramMeta({goal:a.goal,experience:a.experience,daysPerWeek:a.daysPerWeek,splitType:a.splitType,equipment:a.equipment,
     priorityMuscles:a.priorityMuscles,sessionLength:a.sessionLength,started:today(),mesocycleStatus:"active",onboarded:true});
-  persistProgram();day=prog.days()[0]||"Day 1";closeOnboarding();toast("Program saved.")}
+  persistProgram();day=prog.days()[0]||"Day 1";closeOnboarding();toast("Program saved.");
+  if(!maybeStartTour())maybeShowInstallBanner()}
 function editOnboardingProgram(){prog=new Program(generateProgramFromOnboarding(onbGenAnswers(onbAnswers)));persistProgram();
   day=prog.days()[0]||"Day 1";closeOnboarding();
   $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));render();toast("Tweak your program, then save when ready.")}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
+// ---- UI prefs (kept separate from training data so they never touch export/import) ----
+const UIKEY="repforge_ui_v1";
+function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
+let uiPrefs=loadUiPrefs();
+function setUiPref(k,v){uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs))}catch(e){console.warn("ui prefs save failed",e)}}
+
+// ---- Install / PWA helpers ----
+const isStandalone=()=>window.matchMedia?.("(display-mode: standalone)")?.matches===true||window.navigator.standalone===true;
+const isIOS=()=>{const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.test(ua)||(navigator.platform==="MacIntel"&&(navigator.maxTouchPoints||0)>1)};
+const IOS_SHARE_SVG='<svg class="ios-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13"/><path d="M8 7l4-4 4 4"/><path d="M6 12H4v8h16v-8h-2"/></svg>';
+const INSTALL_SNOOZE_MS=7*86400000;
+function installInstructions(){
+  if(isIOS())return `In Safari, tap the Share button ${IOS_SHARE_SVG} then choose <b>Add to Home Screen</b>.`;
+  if(installPrompt)return `Add RepForge to your home screen for a fast, full-screen, offline app.`;
+  return `Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>.`;
+}
+async function triggerInstall(){
+  if(installPrompt){installPrompt.prompt();let outcome="";try{const c=await installPrompt.userChoice;outcome=c?.outcome||""}catch{}
+    installPrompt=null;$("#installBtn").classList.add("hidden");
+    if(outcome==="accepted"){hideInstallBanner(false);toast("Installing RepForge…")}
+    renderSettings();return}
+  showInstallBanner(true);
+}
+function installBannerEligible(){
+  if(isStandalone())return false;
+  if(tourActive||$("#onboarding")?.classList.contains("active"))return false;
+  if(!installPrompt&&!isIOS())return false;
+  const dis=+uiPrefs.installDismissedAt||0;
+  if(dis&&Date.now()-dis<INSTALL_SNOOZE_MS)return false;
+  return true;
+}
+function showInstallBanner(force){
+  const b=$("#installBanner");if(!b)return;
+  if(!force&&!installBannerEligible())return;
+  if(isStandalone())return;
+  $("#installBannerBody").innerHTML=installInstructions();
+  const act=$("#installBannerAction");
+  if(installPrompt){act.classList.remove("hidden");act.textContent="Install"}else act.classList.add("hidden");
+  b.classList.remove("hidden");
+}
+function hideInstallBanner(remember){$("#installBanner")?.classList.add("hidden");if(remember)setUiPref("installDismissedAt",Date.now())}
+function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
+
+// ---- Feature tour (bottom-sheet coach that walks every feature) ----
+const TOUR=[
+  {view:"log",title:"Welcome to RepForge",body:"A local-only tracker for progressive overload — everything stays on this device, nothing is uploaded. This quick tour shows every feature. Tap <b>Next</b> to begin, or <b>Skip tour</b> anytime."},
+  {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. RepForge reads your history and tells you when you're ready to add load."},
+  {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
+  {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
+  {view:"log",title:"Heat gauge & rest timer",body:"The <b>forge</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
+  {view:"log",title:"Finish the workout",body:"When you're done, tap <b>Finish workout</b> to save. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
+  {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
+  {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
+  {view:"program",title:"Program & blocks",body:"Build your split in the visual editor — days, exercises, muscles and rep ranges. See planned weekly <b>volume</b>, and use <b>End block</b> to review a mesocycle and plan the next one."},
+  {view:"settings",title:"Settings & backups",body:"Set your <b>units</b> and <b>RIR</b> style, tune progression, and manage <b>backups</b> — export or import JSON/CSV. Since data lives only on this device, keep a backup."},
+  {view:"settings",install:true,title:"Install RepForge"}
+];
+let tourStep=0,tourActive=false;
+function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
+function navTo(view){const b=$(`nav button[data-view="${view}"]`);if(b&&!b.classList.contains("active"))b.click()}
+function startTour(){tourStep=0;tourActive=true;hideInstallBanner(false);$("#tour").classList.remove("hidden");renderTour()}
+function renderTour(){
+  const steps=tourSteps(),s=steps[tourStep];
+  if(!s){endTour(true);return}
+  if(s.view)navTo(s.view);
+  $("#tourEyebrow").textContent=`Tour · ${tourStep+1} of ${steps.length}`;
+  $("#tourTitle").textContent=s.title;
+  const extra=$("#tourExtra");
+  if(s.install){
+    $("#tourBody").innerHTML=`Add RepForge to your home screen for a fast, full-screen, offline app that works with no signal. ${installInstructions()}`;
+    extra.innerHTML=installPrompt?`<button type="button" id="tourInstallBtn" class="btn btn--forge">Install now</button>`:"";
+    const ib=$("#tourInstallBtn");if(ib)ib.onclick=triggerInstall;
+  }else{$("#tourBody").innerHTML=s.body;extra.innerHTML=""}
+  $("#tourDots").innerHTML=steps.map((_,i)=>`<span class="tour__dot${i===tourStep?" is-on":""}"></span>`).join("");
+  $("#tourBack").classList.toggle("hidden",tourStep===0);
+  $("#tourNext").textContent=tourStep===steps.length-1?"Done":"Next";
+  window.scrollTo({top:0});
+}
+function endTour(completed){tourActive=false;$("#tour").classList.add("hidden");setUiPref("tourDone",true);
+  if(completed)navTo("log");
+  maybeShowInstallBanner();}
+function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour();return true}
+window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
+window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
+
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
-  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("#installBtn").classList.remove("hidden")});
-  $("#installBtn").onclick=async()=>{if(installPrompt){installPrompt.prompt();await installPrompt.userChoice;installPrompt=null;$("#installBtn").classList.add("hidden")}};
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("#installBtn").classList.remove("hidden");
+    renderSettings();if(tourActive)renderTour();else maybeShowInstallBanner()});
+  window.addEventListener("appinstalled",()=>{installPrompt=null;$("#installBtn").classList.add("hidden");hideInstallBanner(false);renderSettings()});
+  $("#installBtn").onclick=triggerInstall;
+  $("#installBannerClose").onclick=()=>hideInstallBanner(true);
+  $("#installBannerAction").onclick=triggerInstall;
+  $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
+  $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
+  $("#tourSkip").onclick=()=>endTour(false);
+  $("#replayTour").onclick=startTour;
+  $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
@@ -1622,6 +1718,7 @@ function init(){
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
   maybeShowOnboarding();
+  if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner();
 }
 async function boot(){
   let raw=null;

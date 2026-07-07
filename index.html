@@ -181,6 +181,14 @@
         </details>
       </div>
       <div class="card">
+        <p class="cardtitle">Guide &amp; install</p>
+        <p class="lede">New here or want a refresher? Walk through every feature. Install RepForge for a full-screen, offline app.</p>
+        <div class="btnrow">
+          <button id="replayTour" type="button" class="btn btn--steel">Take the app tour</button>
+          <button id="installApp" type="button" class="btn btn--steel hidden">Add to home screen</button>
+        </div>
+      </div>
+      <div class="card">
         <p class="cardtitle">Your data</p>
         <p class="lede" id="storageNote"></p>
         <div class="btnrow">
@@ -255,6 +263,31 @@
       <button type="button" id="endBlockGo" class="btn btn--forge">Review block</button>
       <button type="button" id="endBlockCancel" class="btn btn--steel">Cancel</button>
     </div>
+  </div>
+  <div id="tour" class="tour hidden" role="dialog" aria-modal="false" aria-label="Feature tour">
+    <div class="tour__card">
+      <div class="tour__head">
+        <p class="tour__eyebrow" id="tourEyebrow">Tour</p>
+        <button type="button" id="tourSkip" class="tour__skip">Skip tour</button>
+      </div>
+      <h3 class="tour__title" id="tourTitle"></h3>
+      <p class="tour__body" id="tourBody"></p>
+      <div class="tour__extra" id="tourExtra"></div>
+      <div class="tour__dots" id="tourDots" aria-hidden="true"></div>
+      <div class="tour__nav">
+        <button type="button" id="tourBack" class="btn btn--steel">Back</button>
+        <button type="button" id="tourNext" class="btn btn--forge">Next</button>
+      </div>
+    </div>
+  </div>
+  <div id="installBanner" class="installbanner hidden" role="dialog" aria-label="Install RepForge">
+    <button type="button" class="installbanner__close" id="installBannerClose" aria-label="Dismiss">✕</button>
+    <span class="installbanner__icon" aria-hidden="true"></span>
+    <div class="installbanner__text">
+      <p class="installbanner__title">Install RepForge</p>
+      <p class="installbanner__body" id="installBannerBody"></p>
+    </div>
+    <button type="button" class="btn btn--forge installbanner__action hidden" id="installBannerAction">Install</button>
   </div>
   <div id="toast" class="toast hidden"></div>
   <script src="app.js"></script>
