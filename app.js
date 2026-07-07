@@ -48,6 +48,7 @@ const GLOSSARY={
   "Easy effort":"You could have done several more reps — about 3 reps in reserve (RIR 3). Use this when the set felt comfortable.",
   "Hard effort":"You were working but not grinding — about 1 rep in reserve (RIR 1). This is the sweet spot for most working sets.",
   "Max effort":"You were at or very near failure — 0 reps in reserve (RIR 0). Save this for your last set or when you're pushing hard.",
+  Effort:"Easy ≈ 3 reps in reserve, Hard ≈ 1, Max ≈ 0. Pick how the set felt; RepForge converts it to RIR for its coaching math.",
   "quick entry":"Type a set and hit Apply: 80 x 8 @1 (load × reps @RIR). Add the lift name to target it (bench 80 x 8), use easy/hard/max instead of @N in effort mode, or set 2 to pick the set. Goes to the current exercise in Focus mode."
 };
 const EFFORT_RIR={easy:3,hard:1,max:0};
@@ -759,7 +760,7 @@ function renderWorkout(){
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       subPick+
       prevHtml+deltaHtml+
-      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?"Effort":"RIR"}</span><span></span></div>${rows}</article>`;
+      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();

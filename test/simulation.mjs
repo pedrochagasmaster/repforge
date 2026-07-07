@@ -2327,6 +2327,23 @@ async function main() {
   await selectDay(page, "Day 1");
   const effMeta = await getExerciseMeta(page, "Day 1");
   const effEx = effMeta[0];
+  assert(
+    (await page.locator('#workout .term[data-term="Effort"]').count()) > 0,
+    "Effort mode Log header has Effort glossary term",
+    "No #workout .term[data-term=\"Effort\"]",
+    "Settings effort mode → Log → Effort column header is a term"
+  );
+  await page.click('#workout .term[data-term="Effort"]');
+  await page.waitForTimeout(80);
+  const effortGlossaryBody = await page.locator("#glossary .glossary__body").textContent();
+  assert(
+    !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
+      /RIR 0|≈ 0|reps in reserve/i.test(effortGlossaryBody || ""),
+    "Effort glossary popover shows RIR mapping",
+    `glossary body: ${effortGlossaryBody?.slice(0, 80)}`,
+    "Log → tap Effort header → glossary popover shows mapping"
+  );
+  await page.click("#glossary .glossary__close");
   await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
   await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
   await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="easy"]`);
@@ -2382,6 +2399,12 @@ async function main() {
     "Toggle effort mode in Settings"
   );
   await nav(page, "settings");
+  assert(
+    /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
+    "Settings shows effort scale legend with RIR 3",
+    "Settings text missing RIR 3 legend",
+    "Settings → RIR logging → legend line under radio group"
+  );
   await page.check('input[name="rirMode"][value="numeric"]');
   await page.waitForTimeout(80);
 
