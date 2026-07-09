@@ -675,24 +675,111 @@ function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
 
+// Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
+// sessions inside the current block. Only tempers aggressiveness / rep targets.
+function blockTrendFor(sess){
+  const started=state.programMeta?.started;
+  const block=started?sess.filter(s=>String(s.date)>=started):sess;
+  if(block.length<3)return{dir:null,sessions:block.length};
+  const e=s=>e1rm(s.med,s.medReps),first=e(block[0]),lastE=e(block.at(-1));
+  if(!(first>0)||!(lastE>0))return{dir:null,sessions:block.length};
+  const ratio=lastE/first,dir=ratio>=1.02?"rising":ratio<=0.98?"falling":"flat";
+  return{dir,sessions:block.length,ratio}}
+function blockTrendNote(trend){
+  if(!trend||!trend.dir||trend.sessions<3)return"";
+  if(trend.dir==="rising")return`Block trend: strength rising across ${trend.sessions} sessions — keep pressing.`;
+  if(trend.dir==="falling")return`Block trend: strength slipping across ${trend.sessions} sessions — bank recovery before you push.`;
+  return`Block trend: holding steady across ${trend.sessions} sessions.`}
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
+// Primary signal is the previous session; the block trend nudges it weakly.
 function recommendation(ex){
   const sess=sessionsFor(ex);
-  if(!sess.length)return{status:"new",heat:.12,label:"New lift",text:`No history yet. Pick a load you can hold for ${ex.min}-${ex.max} reps at 0-${state.settings.rirHigh} RIR.`,load:null,stalled:false};
+  if(!sess.length)return{status:"new",heat:.12,label:"New lift",text:`No history yet. Pick a load you can hold for ${ex.min}-${ex.max} reps at 0-${state.settings.rirHigh} RIR.`,load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true};
   const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length,rir=l.avgRir,rirHigh=+state.settings.rirHigh;
   const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
   // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
   const nearTop=n>=3&&atTop>=n-1&&l.minReps>=ex.max-1;
   const stalled=isStalled(sess);
-  if((allTop||nearTop)&&rir>=rirHigh+1)return{status:"add2",heat:1,label:"Add load ++",text:"You topped the range with reps to spare. Jump up boldly.",load:round(load+jump(load,2)),stalled:false};
-  if(allTop||nearTop)return{status:"add",heat:.82,label:"Add load",text:"Every set hit the top of the range. Add weight.",load:round(load+jump(load,1)),stalled:false};
-  // Reduce uses the typical (median) set, so one junk set won't force a back-off — and it gives a real lighter target.
-  if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:"Back off",text:`Most sets fell below ${ex.min} reps. Drop the load and rebuild the range.`,load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled};
-  if(stalled)return{status:"reduce",heat:.3,label:"Stalled · deload",text:"No progress in three sessions. Take a lighter session or add a set, then rebuild.",load,stalled:true};
-  if(rir<=0.5)return{status:"hold",heat:.42,label:"Hold · recover",text:"Sets are grinding near failure. Hold the load and bank some recovery.",load,stalled:false};
-  if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:"Push reps",text:"You left reps in reserve. Push closer to failure before adding load.",load,stalled:false};
-  return{status:"hold",heat:.48,label:"Hold · add reps",text:"Keep the load and chase more reps inside your RIR target.",load,stalled:false};
+  const rec=(()=>{
+    if((allTop||nearTop)&&rir>=rirHigh+1)return{status:"add2",heat:1,label:"Add load ++",text:"You topped the range with reps to spare. Jump up boldly.",load:round(load+jump(load,2)),stalled:false,pushReps:false};
+    if(allTop||nearTop)return{status:"add",heat:.82,label:"Add load",text:"Every set hit the top of the range. Add weight.",load:round(load+jump(load,1)),stalled:false,pushReps:false};
+    // Reduce uses the typical (median) set, so one junk set won't force a back-off — and it gives a real lighter target.
+    if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:"Back off",text:`Most sets fell below ${ex.min} reps. Drop the load and rebuild the range.`,load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
+    if(stalled)return{status:"reduce",heat:.3,label:"Stalled · deload",text:"No progress in three sessions. Take a lighter session or add a set, then rebuild.",load,stalled:true,pushReps:false};
+    if(rir<=0.5)return{status:"hold",heat:.42,label:"Hold · recover",text:"Sets are grinding near failure. Hold the load and bank some recovery.",load,stalled:false,pushReps:false};
+    if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:"Push reps",text:"You left reps in reserve. Push closer to failure before adding load.",load,stalled:false,pushReps:true};
+    return{status:"hold",heat:.48,label:"Hold · add reps",text:"Keep the load and chase more reps inside your RIR target.",load,stalled:false,pushReps:true};
+  })();
+  const trend=blockTrendFor(sess);
+  // Weak block tempering: a block that is losing strength should not double-jump.
+  if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label="Add load";
+    rec.text="Topped the range, but block strength is trending down — take one step, not a big jump.";rec.load=round(load+jump(load,1))}
+  rec.block=trend;rec.blockNote=blockTrendNote(trend);
+  return rec;
 }
+// Base reps target from the previous-session recommendation (no in-session data yet).
+// Load-up / back-off resets to the bottom of the range; holds chase one more rep
+// (double progression), capped at the range top. Grinding holds keep last session's reps.
+function baseSetReps(ex,rec,old){
+  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce")return ex.min;
+  const prev=old&&+old.reps>0?+old.reps:ex.min;
+  if(!rec.pushReps)return Math.max(ex.min,Math.min(ex.max,prev));
+  return Math.max(ex.min,Math.min(ex.max,prev+1))}
+// Per-set load + reps suggestion, layering three signals:
+//  1. previous session (rec.load / baseSetReps) — primary
+//  2. current-session performance (completed sets this workout) — strong autoregulation
+//  3. block trend (folded into rec) — weak
+function setSuggestion(ex,n,rec,draft,old){
+  const rirHigh=+state.settings.rirHigh,minJ=+state.settings.minJump||2.5;
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
+  // Most recent completed working set for this lift earlier in THIS session.
+  let prevInSession=null;
+  for(let k=n-1;k>=1;k--){const key=`${ex.id}_${k}`;
+    if(!done.has(key)||warm.has(key))continue;
+    const ld=fromDisplay(+draft[`${key}_load`]||0),rp=+draft[`${key}_reps`]||0;
+    if(!(ld>0&&rp>0))continue;
+    let rir;if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+    else{rir=+draft[`${key}_rir`];if(!Number.isFinite(rir))rir=1}
+    prevInSession={load:ld,reps:rp,rir};break}
+  if(prevInSession){
+    const{load:L,reps:R,rir}=prevInSession;
+    if(R>=ex.max&&rir>=rirHigh+1)return{load:round(L+jump(L,1)),reps:ex.min,src:"session-up"};
+    if(R<ex.min)return{load:Math.max(round(L-jump(L,1)),minJ),reps:ex.min,src:"session-down"};
+    if(rir<=0)return{load:L,reps:Math.max(ex.min,R-1),src:"session-hold"};
+    return{load:L,reps:Math.max(ex.min,Math.min(ex.max,R)),src:"session-hold"}}
+  return{load:rec.load,reps:rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min),src:"base"}}
+// One-line summary of how the current session is steering the next unlogged set.
+function inSessionNote(ex,draft){
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
+  let hasDone=false;for(let k=1;k<=ex.sets;k++){const key=`${ex.id}_${k}`;
+    if(done.has(key)&&!warm.has(key)&&+draft[`${key}_load`]>0)hasDone=true}
+  if(!hasDone)return"";
+  let nextN=null;for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+    if(!done.has(key)&&!warm.has(key)){nextN=n;break}}
+  if(nextN==null)return"";
+  const sg=setSuggestion(ex,nextN,recommendation(ex),draft,null),u=unitLabel();
+  if(sg.src==="session-up")return`This session: last set flew — set ${nextN} nudged up to ${fmtLoad(sg.load)} ${u}.`;
+  if(sg.src==="session-down")return`This session: last set fell short — set ${nextN} eased to ${fmtLoad(sg.load)} ${u}.`;
+  if(sg.src==="session-hold")return`This session: holding ${fmtLoad(sg.load)} ${u} for set ${nextN}, aiming ${sg.reps} reps.`;
+  return""}
+// After a set is committed, re-apply suggestions to still-untouched later sets.
+function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
+  const draft=loadDraft(),rec=recommendation(ex),prev=last(ex);
+  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+    if(committed.has(key)||touched.has(key)||warmups.has(key))continue;
+    const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,rec,draft,old);
+    if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoad(sg.load)}
+    if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}
+  saveDraft();updateInSessionNote(exId)}
+function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
+  const ex=prog.find(exId);if(!ex)return;const text=inSessionNote(ex,loadDraft());
+  let el=art.querySelector(".insession");
+  if(!text){el?.remove();return}
+  if(el){el.textContent=text;return}
+  el=document.createElement("div");el.className="insession";el.textContent=text;
+  const anchor=art.querySelector(".delta-prev")||art.querySelector(".prev");
+  if(anchor)anchor.insertAdjacentElement("afterend",el);
+  else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}}
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
@@ -727,10 +814,13 @@ function renderWorkout(){
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
+    const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
+    const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
-      const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
-      const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
+      const sg=setSuggestion(ex,n,r,draft,old);
+      const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoad(sg.load):(old&&old.load!=null?fmtLoad(old.load):""));
+      const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
       const key=`${ex.id}_${n}`;
       const isW=warmups.has(key);
       const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}`;
@@ -764,9 +854,10 @@ function renderWorkout(){
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
       `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`+
+      blockHtml+
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       subPick+
-      prevHtml+deltaHtml+
+      prevHtml+deltaHtml+sessHtml+
       `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}</article>`;
   }).join("");
   bindWorkout();
@@ -801,6 +892,7 @@ function bindWorkout(){
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
       b.textContent=committed.has(key)?"✓":"Save"}
     saveDraft();updateSaveMeta();
+    const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
     if(committed.has(key))startRest()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
