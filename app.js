@@ -718,10 +718,13 @@ function recommendation(ex){
   return rec;
 }
 // Base reps target from the previous-session recommendation (no in-session data yet).
-// Load-up / back-off resets to the bottom of the range; holds keep last session's reps.
+// Load-up / back-off resets to the bottom of the range; holds chase one more rep
+// (double progression), capped at the range top. Grinding holds keep last session's reps.
 function baseSetReps(ex,rec,old){
   if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce")return ex.min;
-  return old&&+old.reps>0?+old.reps:ex.min}
+  const prev=old&&+old.reps>0?+old.reps:ex.min;
+  if(!rec.pushReps)return Math.max(ex.min,Math.min(ex.max,prev));
+  return Math.max(ex.min,Math.min(ex.max,prev+1))}
 // Per-set load + reps suggestion, layering three signals:
 //  1. previous session (rec.load / baseSetReps) — primary
 //  2. current-session performance (completed sets this workout) — strong autoregulation

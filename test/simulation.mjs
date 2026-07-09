@@ -1870,6 +1870,13 @@ async function main() {
       `load=${dynBaseLoad1}`,
       "Previous session median 110 → set 1 pre-fills 110"
     );
+    const dynBaseReps1 = +(await page.inputValue(`[data-k="${dynEx.id}_1_reps"]`));
+    assert(
+      dynBaseReps1 === min + 1,
+      "Hold auto-increments the rep target to last reps + 1 (double progression)",
+      `reps=${dynBaseReps1} expected=${min + 1}`,
+      `Previous session ${min} reps at a held load → set 1 target ${min + 1}`
+    );
     const dynBaseLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
 
     // In-session: easy top-rep set 1 nudges set 2 UP with an explanatory note.
@@ -2058,15 +2065,15 @@ async function main() {
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
   await saveWorkout(page);
 
-  // Prefill: reps/RIR default to last session
+  // Prefill: hold auto-increments the rep target (last reps + 1); RIR follows last session
   await nav(page, "log");
   await selectDay(page, "Day 1");
   assert(
-    (await page.inputValue(`[data-k="${exX}_1_reps"]`)) === "6" &&
+    (await page.inputValue(`[data-k="${exX}_1_reps"]`)) === "7" &&
       (await page.inputValue(`[data-k="${exX}_1_rir"]`)) === "1",
-    "Log prefills reps/RIR from last session",
+    "Log auto-increments the hold rep target (last reps + 1) and prefills RIR from last session",
     `reps=${await page.inputValue(`[data-k="${exX}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${exX}_1_rir"]`)}`,
-    "Log → save a lift → reopen → reps/RIR match last session"
+    "Log → save 6 reps at a held load → reopen → reps target 7 (chase a rep), RIR matches last session"
   );
 
   // kg stepper adds the minimum jump (2.5)
