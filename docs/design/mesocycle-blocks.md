@@ -1,8 +1,17 @@
 # Mesocycle blocks — design spike
 
-> **Status**: Design spike output from Plan 023 (commit `ff67850`, 2026-07-01).
-> **Build plan**: `plans/024-mesocycle-blocks.md` (DRAFT — do not execute until
-> a human reviews this document).
+> **Status**: Design spike output from Plan 023 (commit `ff67850`, 2026-07-01),
+> **reviewed and approved by a human on 2026-07-02** via a grilling session.
+> All "Blocks build? = Yes" open questions are resolved (see the revision note
+> at the end of Open questions). The build plan is now **READY**, not DRAFT.
+> **Build plan**: `plans/024-mesocycle-blocks.md` (READY — decisions locked;
+> execute against the guidance below, which supersedes the original spike where
+> noted).
+>
+> **Human review deviation from the original spike**: open question #3 was
+> flipped from "No" to **Yes** — the top-line Stats tiles now follow the block
+> filter. This moves the scope/block control out of the collapsed `#statsDeep`
+> and above `#metrics`. UI design §2 below is rewritten accordingly.
 >
 > **Evidence base**: Read against live `app.js`, `index.html`, and
 > `test/simulation.mjs` at workspace HEAD. Line citations below match that tree;
@@ -222,47 +231,78 @@ at the start of a mesocycle happen on the Log tab the same day as the date
 picker. Settings may later host a "Manage block labels" cleanup list (out of
 scope v1).
 
-### 2. Block filter (Stats tab)
+### 2. Stats scope + block filter (Stats tab) — **revised after human review**
 
-**Where:** `index.html:77-83` — extend the completed-volume scope control and
-generalize it to a **stats scope** bar inside `#statsDeep` only.
+> **Revision (2026-07-02):** the original spike put this control inside the
+> collapsed `#statsDeep` and kept `#metrics` unfiltered. Human review flipped
+> open question #3: the **top-line tiles now follow the filter**. A filter that
+> silently governs the deep charts but not the headline tiles would let the
+> tiles read "47 sessions" while the chart below shows 6 — inconsistent. So the
+> scope + block control moves **above `#metrics`**, visible without expanding
+> "Dig deeper", and one shared filter state drives both the tiles and the deep
+> section.
 
-Replace the volume-only segment with a two-row control:
+**Where:** a new scope bar rendered **above `#metrics`** (below the attention
+board), plus the block `<select>` beside it. The old volume-only `#volWindow`
+segment inside `#statsDeep` is removed — the deep section reads the same shared
+state, it no longer owns a separate window control.
 
 ```html
-<div id="statsScope" class="seg seg--scope" role="tablist" aria-label="Stats scope">
-  <button type="button" data-scope="all" class="active">All time</button>
-  <button type="button" data-scope="7" role="tab">7 days</button>
-  <button type="button" data-scope="28" role="tab">28 days</button>
+<div class="statsbar">
+  <div id="statsScope" class="seg seg--scope" role="tablist" aria-label="Stats scope">
+    <button type="button" data-scope="all" class="active">All time</button>
+    <button type="button" data-scope="7" role="tab">7 days</button>
+    <button type="button" data-scope="28" role="tab">28 days</button>
+  </div>
+  <label class="field field--inline">Block
+    <select id="blockFilter">
+      <option value="">Any block</option>
+      <!-- "Unassigned" (__none__) + distinct blocks from log -->
+    </select>
+  </label>
+  <p id="statsScopeLabel" class="statsbar__label"></p>
 </div>
-<label class="field field--inline">Block
-  <select id="blockFilter">
-    <option value="">Any block</option>
-    <!-- distinct blocks from log + "Unassigned" -->
-  </select>
-</label>
 ```
 
 **Behavior:**
 
-- Module state: `statsScope` (`"all"|"7"|"28"`) replaces `volWindow` for the
-  deep section; `blockFilter` (`""` = any, `"__none__"` = unassigned, else
-  string match).
-- `renderStats` deep section (`app.js:369-401`, `418-428`): helper
-  `logForStats()` applies date cutoff when scope is 7/28, then block filter.
-  Top metrics (`#metrics`) and `#attention` stay **unfiltered** (Plan 015
-  actionable default).
-- `renderCompleted` (`app.js:418-428`): when `blockFilter` is set, ignore
-  rolling window and filter by block only; when block is "Any", keep today's
-  7/28-day behavior.
-- Wire `$("#blockFilter").onchange` and scope buttons in `init` (`app.js:672`
-  area).
+- Module state: `statsScope` (`"all"|"7"|"28"`) replaces `volWindow`;
+  `blockFilter` (`""` = any, `"__none__"` = unassigned, else string match).
+- Helper `logForStats(scope, blockFilter)` applies the date cutoff (for 7/28),
+  then the block filter, and returns the row subset.
+- **`#metrics` tiles now render from `logForStats(...)`**, not full history.
+  `renderStats` derives Sessions / Sets / Volume / Best e1RM, the exercise
+  picker, chart, trend, recent, and tops all from the **same filtered rows**.
+- `renderCompleted` reads the same filtered rows (block filter, then the 7/28
+  window when a rolling scope is active).
+- **`#attention` (the action board) stays full-history and unfiltered** — it is
+  forward-looking progression guidance, not a retrospective lens (see UI §5 /
+  open question #3 rationale). This is the one surface the filter does *not*
+  touch.
+- **Context label** (`#statsScopeLabel`): a muted line stating what the tiles
+  are scoped to, so filtered headline numbers never look like a bug:
+  - no filter → `All time`
+  - block only → `Block: Deload W2`
+  - scope only → `Last 7 days`
+  - both → `Deload W2 · last 7 days`
+- **Empty filter state**: when `logForStats` returns zero rows, tiles render
+  `—` (not `0`, which reads as "you never train") and the deep section shows a
+  single line `No sessions match this filter.`
+- Populate `#blockFilter` options each render: `Any block` (`""`),
+  `Unassigned` (`__none__`), then `blockLabels()` sorted.
+- Wire `$("#blockFilter").onchange` and the scope buttons in `init` to call
+  `renderStats()`.
 
-**Guardrails:** Filter UI inside collapsed `#statsDeep`. No sixth tab.
+**Guardrails honored:** still no sixth nav tab; the Log set-row flow is
+untouched; the control is a single calm scope bar, not a new interactive
+surface per chart. The one guardrail this consciously relaxes is Plan 015's
+"top metrics all-time by default" — the human reviewer chose consistency
+between tiles and charts over an always-populated headline, mitigated by the
+context label and `—` empty state.
 
-**Why extend volWindow?** A block is semantically a training window — the same
-user mental model as 7/28 days. One scope bar avoids two competing "window"
-controls.
+**Why one shared bar?** A block is semantically a training window — the same
+mental model as 7/28 days. One scope bar (scope + block) drives the whole Stats
+tab and avoids two competing "window" controls.
 
 ### 3. Retroactive block assignment (History tab)
 
@@ -313,12 +353,31 @@ before Plan 024 execution.
 |---|----------|----------------|---------------|
 | 1 | Can two blocks overlap in time (same calendar dates, different tags)? | **Yes implicitly** — v1 is session tags, not date ranges. Two sessions on the same day can have different blocks if the user assigns them. No validation. | No |
 | 2 | Is "Unassigned" / "no block" a first-class filter value? | **Yes** — `#blockFilter` includes "Unassigned" (`__none__`) alongside named blocks and "Any block". | **Yes** |
-| 3 | Should top-line Stats metrics respect the block filter? | **No for v1** — keep `#metrics` all-time; only `#statsDeep` respects filter. Avoids an empty-looking Stats tab when a narrow block is selected. | No |
+| 3 | Should top-line Stats metrics respect the block filter? | **RESOLVED → Yes** (human review, 2026-07-02). `#metrics` follows the shared scope + block filter alongside the deep section; the scope bar moves above `#metrics` and a context label + `—` empty state prevent filtered numbers from reading as a bug. `#attention` remains the only unfiltered surface. Supersedes the original "No for v1". See UI design §2. | **Yes (resolved)** |
 | 4 | Do deload weeks get a block *type* (accumulation/intensification/deload enum)? | **Defer** — freeform string only in v1. Revisit when volume-audit intelligence needs phase-aware rules. | No |
 | 5 | Block registry / rename (rename "Block A" everywhere)? | **Defer** — datalist from distinct strings is enough for v1. Bulk rename is a follow-up. | No |
 | 6 | Should `notes` / `bodyweight` migrate to `sessionMeta` when blocks ship? | **No** — out of scope; denormalized block matches existing pattern. Candidate C remains a future refactor. | No |
 | 7 | Import merge when the same `session` id exists on both devices? | **Keep Plan 018 rule** — skip duplicate session ids; block conflicts on duplicate ids are impossible today. Document that changing session id format would be a separate decision. | No |
 | 8 | Filter warmups when computing block-scoped volume? | **Same rules as today** — `renderCompleted` already applies hard-set RIR ceiling; Plan 019 adds warmup exclusion via `isWork`. Block filter does not change warmup semantics. | No |
+
+### Revision note — human review (2026-07-02)
+
+A grilling session with the maintainer resolved every open question and locked
+the following decisions (deltas from the original spike called out):
+
+1. **Candidate A** (denormalized `block` on rows) accepted for v1 — unchanged.
+2. **"Unassigned" (`__none__`)** is a first-class filter value — unchanged (#2).
+3. **Top-line tiles follow the block filter** — *changed* from #3's original
+   "No"; scope bar moves above `#metrics`, `#attention` stays unfiltered.
+4. **Sticky Log field** — the block field is not cleared after save (matches
+   bodyweight); a mesocycle spans weeks, so the value carries forward.
+5. **Freeform text + `<datalist>`** of previously-used names — no enum, no
+   managed Settings list in v1 (#4, #5 deferred confirmed).
+6. **Retroactive assignment is per-session only** — no bulk date-range tagging
+   (that would drift toward the rejected Candidate B).
+7. **Merge round-trip test is required**, not optional — Plans 018 (merge) and
+   019 (warmup) are DONE on `main`, so `plans/024` must verify imported rows
+   keep their `block`.
 
 ### Kill criteria (do not build if…)
 
