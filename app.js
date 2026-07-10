@@ -724,39 +724,42 @@ function renderWorkout(){
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
   const dayExercises=exercises(),maxSets=Math.max(1,...dayExercises.map(ex=>ex.sets));
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
-  const gridHead=`<div class="sessiongrid__head" role="row">`+
-    `<div class="sg__exercise" role="columnheader">Exercise</div>`+
-    `<div class="sg__previous" role="columnheader">Previous</div>`+
-    `<div class="sg__target" role="columnheader">Recommendation</div>`+
-    Array.from({length:maxSets},(_,i)=>`<div class="sg__sethead" role="columnheader">Set ${i+1}</div>`).join("")+
-    `</div>`;
+  const gridHead=`<thead><tr class="sessiongrid__head">`+
+    `<th class="sg__exercise" scope="col">Exercise</th>`+
+    `<th class="sg__previous" scope="col">Previous</th>`+
+    `<th class="sg__target" scope="col">Recommendation</th>`+
+    Array.from({length:maxSets},(_,i)=>`<th class="sg__sethead" scope="col">Set ${i+1}</th>`).join("")+
+    `</tr></thead>`;
   const gridRows=dayExercises.map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
     const rows=Array.from({length:maxSets},(_,i)=>{const n=i+1;
-      if(n>ex.sets)return `<div class="setrow setcell setcell--empty" role="gridcell" aria-hidden="true"></div>`;
+      if(n>ex.sets)return `<td class="setrow setcell setcell--empty" aria-hidden="true"></td>`;
       const old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
       const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
       const key=`${ex.id}_${n}`;
+      const exLabel=displayName(ex);
       const isW=warmups.has(key);
       const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}`;
       const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
       const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
       const rirCell=effortMode
-        ?`<div class="effort" role="group" aria-label="Set ${n} effort">`+
-          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
-        :`<label class="setcell__field"><span>${term("RIR")}</span><input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}"></label>`;
-      return `<div class="setrow setcell ${cls}" role="gridcell" data-set="${esc(key)}">`+
-        `<div class="setcell__top"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="Tap to mark as warmup">${isW?"W":n}</button>`+
-        `<span>Set ${n}</span><button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Done"}</button></div>`+
-        `<label class="setcell__field setcell__load"><span>${unitLabel()}</span><div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="Set ${n} decrease ${unitLabel()}">−</button>`+
-        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
-        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="Set ${n} increase ${unitLabel()}">+</button></div></label>`+
-        `<label class="setcell__field"><span>Reps</span><input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(repsVal)}"></label>`+
-        rirCell+`</div>`;
+        ?`<div class="effort" role="group" aria-label="${esc(exLabel)} set ${n} effort">`+
+          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}" aria-label="${esc(exLabel)} set ${n} ${e} effort">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
+        :`<label class="setcell__field"><span>${term("RIR")}</span><input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} RIR" value="${esc(rirVal)}"></label>`;
+      const done=committed.has(key);
+      return `<td class="setrow setcell ${cls}" data-set="${esc(key)}">`+
+        `<div class="setcell__top"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" aria-label="${esc(exLabel)} set ${n} ${isW?"mark as working set":"mark as warm-up"}" title="Toggle warm-up set">${isW?"W":n}</button>`+
+        `<span>Set ${n}</span><button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${done?"true":"false"}" aria-label="${done?"Undo":"Complete"} ${esc(exLabel)} set ${n}">${done?"✓":"Done"}</button></div>`+
+        `<div class="setcell__fields">`+
+        `<label class="setcell__field setcell__load"><span>${unitLabel()}</span><div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" aria-label="${esc(exLabel)} set ${n} decrease ${unitLabel()}">−</button>`+
+        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
+        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" aria-label="${esc(exLabel)} set ${n} increase ${unitLabel()}">+</button></div></label>`+
+        `<label class="setcell__field"><span>Reps</span><input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="${esc(exLabel)} set ${n} reps" value="${esc(repsVal)}"></label>`+
+        rirCell+`</div></td>`;
     }).join("");
     const perf=substituted.get(ex.id);
     const nameHtml=perf?`${esc(perf)} <span class="ex__subfor">(for ${esc(ex.name)})</span>`:esc(ex.name);
@@ -764,22 +767,23 @@ function renderWorkout(){
       `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" role="row" data-ex="${esc(ex.id)}">`+
-      `<div class="sg__exercise" role="rowheader"><div class="ex__top"><div class="ex__head"><h3 class="ex__name">${nameHtml}</h3>`+
+    const isCollapsed=collapsed.has(ex.id),isSkipped=skipped.has(ex.id);
+    return `<tr class="exercise is-${r.status}${isCollapsed?" is-collapsed":""}${isSkipped?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
+      `<th class="sg__exercise" scope="row"><div class="ex__top"><div class="ex__head"><span class="ex__name">${nameHtml}</span>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span>${ex.sets}×${ex.min}-${ex.max} reps · ${term("RIR")} 0-${fmt(state.settings.rirHigh)}</p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
-      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="Skip ${esc(ex.name)} today">Skip</button>`+
-      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="Toggle ${esc(ex.name)} sets">▾</button></div></div>`+
-      subPick+`</div>`+
-      `<div class="sg__previous" role="gridcell">${prevHtml||`<span class="sg__empty">No prior sets</span>`}${deltaHtml}`+
-      (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+`</div>`+
-      `<div class="sg__target" role="gridcell"><div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
+      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-pressed="${isSkipped?"true":"false"}" aria-label="${isSkipped?"Restore":"Skip"} ${esc(ex.name)}">${isSkipped?"Restore":"Skip"}</button>`+
+      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-expanded="${isCollapsed?"false":"true"}" aria-label="${isCollapsed?"Show":"Hide"} ${esc(ex.name)} sets">▾</button></div></div>`+
+      subPick+`</th>`+
+      `<td class="sg__previous">${prevHtml||`<span class="sg__empty">No prior sets</span>`}${deltaHtml}`+
+      (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+`</td>`+
+      `<td class="sg__target"><div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
-      `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p></div>`+
-      rows+`</article>`;
+      `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p></td>`+
+      rows+`</tr>`;
   }).join("");
-  wk.innerHTML=banner+`<div class="sessiongrid" role="grid" aria-label="${esc(day)} workout sets" style="--set-count:${maxSets}">${gridHead}${gridRows}</div>`;
+  wk.innerHTML=banner+`<table class="sessiongrid" aria-label="${esc(day)} workout sets" style="--set-count:${maxSets};--sets-width:${maxSets*220}px">${gridHead}<tbody>${gridRows}</tbody></table>`;
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -810,7 +814,9 @@ function bindWorkout(){
     if(committed.has(key)){committed.delete(key)}
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
-      b.textContent=committed.has(key)?"✓":"Done"}
+      const done=committed.has(key),name=b.closest(".exercise")?.querySelector(".ex__name")?.textContent.trim()||"Exercise";
+      b.textContent=done?"✓":"Done";b.setAttribute("aria-pressed",done?"true":"false");
+      b.setAttribute("aria-label",`${done?"Undo":"Complete"} ${name} set ${key.split("_").at(-1)}`)}
     saveDraft();updateSaveMeta();
     if(committed.has(key))startRest()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
@@ -848,7 +854,9 @@ function bindWorkout(){
     saveDraft();updateSaveMeta()});
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
-    const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
+    const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now);
+    const name=prog.find(id)?.name||"exercise";b.setAttribute("aria-expanded",now?"false":"true");
+    b.setAttribute("aria-label",`${now?"Show":"Hide"} ${name} sets`)});
   if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const bar=document.createElement("div");bar.className="focusbar";
     bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
@@ -1384,8 +1392,8 @@ function dayCard(d){
   const body=exs.length
     ?exs.map((e,i)=>exCard(e,i,exs.length)).join("")
     :`<p class="pday__empty">No exercises yet. Add your first below.</p>`;
-  return `<div class="pday" role="grid" aria-label="${esc(d)} exercises" data-day="${esc(d)}">`+
-    `<div class="pday__head" role="row">`+
+  return `<div class="pday" aria-label="${esc(d)} exercises" data-day="${esc(d)}">`+
+    `<div class="pday__head">`+
       `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(d)}" aria-label="Day name">`+
       `<span class="pday__count">${exs.length} ex · ${sets} sets</span>`+
       `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="Delete day" aria-label="Delete ${esc(d)}">✕</button>`+
@@ -1397,8 +1405,8 @@ function dayCard(d){
 
 function exCard(e,i,n){
   const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"></label>`;
-  return `<div class="pex" role="row" data-id="${esc(e.id)}">`+
-    `<div class="pex__head" role="gridcell">`+
+  return `<div class="pex" data-id="${esc(e.id)}">`+
+    `<div class="pex__head">`+
       `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="Exercise name" aria-label="Exercise name">`+
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="Move up">▲</button>`+

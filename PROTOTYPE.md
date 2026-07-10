@@ -5,7 +5,8 @@ Session Grid is a table-first workout workspace. Exercises are rows, previous pe
 ## Log workspace
 
 - The workout uses practical ARIA grid, row, column-header, row-header, and grid-cell semantics.
-- Exercise, previous-performance, and recommendation columns remain visible while set cells scroll horizontally.
+- On desktop, the exercise, previous-performance, and recommendation columns stay pinned while set cells scroll.
+- On mobile, horizontal movement stays inside the workout table and only the exercise label is pinned; previous performance, recommendations, and set cells move within that viewport.
 - Each set cell contains load, reps, RIR or effort, warm-up status, and completion without opening another surface.
 - Skip, collapse, warm-up, increment, decrement, and completion controls retain at least 44px touch targets.
 - Focus mode filters the same grid to one exercise. Collapsing a row hides set cells but leaves context and controls available.
