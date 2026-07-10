@@ -233,6 +233,17 @@ async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   );
 }
 
+async function activateExercise(page, exId) {
+  const summary = page.locator(`.exercise[data-ex="${exId}"] .event-summary`);
+  if (await summary.count()) {
+    await summary.click();
+    await page.waitForFunction(
+      (id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-current"),
+      exId
+    );
+  }
+}
+
 async function saveWorkout(page, { expectNewRows = true } = {}) {
   const beforeLen = (await getState(page))?.log?.length ?? 0;
   await page.click(".btn--save");
@@ -249,7 +260,7 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
         /* ignore */
       }
       const toast = document.querySelector("#toast:not(.hidden)")?.textContent || "";
-      return /forged|Enter weight/i.test(toast);
+      return /Workout saved|Enter weight/i.test(toast);
     },
     { k: KEY, len: beforeLen },
     { timeout: 8000 }
@@ -502,6 +513,7 @@ async function main() {
   // Zero-load set is skipped on save (week-10 regression)
   await page.fill("#date", isoDateFromWeeksAgo(1));
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
+  await activateExercise(page, d1Exs[0].id);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
   await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
   await saveWorkout(page);
@@ -714,6 +726,7 @@ async function main() {
   const d2Exs = await getProgramExercises(page, "Day 2");
   const draftEx = d2Exs[0];
   const draftLoad = "137.5";
+  await activateExercise(page, draftEx.id);
   await page.fill(`[data-k="${draftEx.id}_1_load"]`, draftLoad);
   await page.fill(`[data-k="${draftEx.id}_1_reps"]`, "7");
   await page.waitForFunction(
@@ -1366,6 +1379,7 @@ async function main() {
   const wEx = wMeta[0];
   await fillExerciseSets(page, wEx.id, wEx.sets, 100, 6, 2);
   await page.click(`[data-warm="${wEx.id}_1"]`);
+  await activateExercise(page, wEx.id);
   await page.fill(`[data-k="${wEx.id}_1_load"]`, "20");
   await saveWorkout(page);
   const wState = await getState(page);
@@ -1856,6 +1870,7 @@ async function main() {
     "Log → open exercise → set rows show as suggestions until touched"
   );
 
+  await activateExercise(page, ex0);
   await page.fill(`[data-k="${ex0}_1_load"]`, "100");
   await page.click(`.saveset[data-save="${ex0}_1"]`);
   await page.waitForTimeout(80);
@@ -2063,10 +2078,10 @@ async function main() {
   );
   const gaugeLabel = await page.locator("#heatGauge .gauge__label").textContent();
   assert(
-    /hot/i.test(gaugeLabel),
-    "Heat gauge labels session as hot when lifts are ready",
+    /ready/i.test(gaugeLabel),
+    "Progress status labels ready exercises",
     `label="${gaugeLabel}"`,
-    "Log → after add-load recs → gauge shows N hot"
+    "Log → after add-load recommendations → status shows N ready"
   );
   await page.locator("#heatGauge").click();
   assert(
@@ -2074,9 +2089,9 @@ async function main() {
       (id) => !document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-collapsed"),
       exHot.id
     ),
-    "Heat gauge click expands a hot lift card",
+    "Progress status click expands a ready exercise",
     "Card still collapsed after gauge click",
-    "Tap heat gauge → first hot exercise expands"
+    "Tap progress status → first ready exercise expands"
   );
 
   // Session notes persist on saved rows
@@ -2176,6 +2191,7 @@ async function main() {
   // Skipped exercise is not saved
   const metaSkip = await getExerciseMeta(page, "Day 1");
   const skipId = metaSkip[0].id;
+  await activateExercise(page, skipId);
   await page.fill(`[data-k="${skipId}_1_load"]`, "50");
   await page.click(`.ex__skip[data-skip="${skipId}"]`);
   await page.waitForTimeout(80);
@@ -2276,6 +2292,7 @@ async function main() {
   await selectDay(page, "Day 1");
   const unitMeta = await getExerciseMeta(page, "Day 1");
   const unitEx = unitMeta[0].id;
+  await activateExercise(page, unitEx);
   await page.fill(`[data-k="${unitEx}_1_load"]`, "100");
   await page.fill(`[data-k="${unitEx}_1_reps"]`, "6");
   await page.fill(`[data-k="${unitEx}_1_rir"]`, "1");
@@ -2362,13 +2379,14 @@ async function main() {
   await selectDay(page, "Day 1");
   const effMeta = await getExerciseMeta(page, "Day 1");
   const effEx = effMeta[0];
+  await activateExercise(page, effEx.id);
   assert(
     (await page.locator('#workout .term[data-term="Effort"]').count()) > 0,
     "Effort mode Log header has Effort glossary term",
     "No #workout .term[data-term=\"Effort\"]",
     "Settings effort mode → Log → Effort column header is a term"
   );
-  await page.click('#workout .term[data-term="Effort"]');
+  await page.locator('.exercise.is-current .term[data-term="Effort"]').evaluate((button) => button.click());
   await page.waitForTimeout(80);
   const effortGlossaryBody = await page.locator("#glossary .glossary__body").textContent();
   assert(
@@ -2379,6 +2397,7 @@ async function main() {
     "Log → tap Effort header → glossary popover shows mapping"
   );
   await page.click("#glossary .glossary__close");
+  await activateExercise(page, effEx.id);
   await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
   await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
   await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="easy"]`);
@@ -2493,19 +2512,20 @@ async function main() {
     "Log → reopen → bodyweight prefilled"
   );
 
-  // Focus mode shows one exercise; Finish saves like list mode
+  // Current-event mode expands one exercise and keeps the queue visible.
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await page.click("#modeFocus");
   await page.waitForTimeout(80);
   const visible = await page.locator("#workout .exercise:not(.is-current)").evaluateAll((els) =>
-    els.every((e) => getComputedStyle(e).display === "none")
+    els.every((e) => getComputedStyle(e.querySelector(".event-body")).display === "none" &&
+      getComputedStyle(e.querySelector(".event-summary")).display !== "none")
   );
   assert(
     visible,
-    "Focus mode shows one exercise at a time",
-    "Non-current exercises visible in focus mode",
-    "Log → Focus → only current card shown"
+    "Current-event mode expands one exercise and keeps the queue visible",
+    "Non-current event details expanded or queue summaries hidden",
+    "Log → Current event → one detail expanded with future summaries"
   );
   const focusMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
