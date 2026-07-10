@@ -802,7 +802,7 @@ function renderWorkout(){
       prevHtml+deltaHtml+
       `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}</div></article>`;
   }).join("");
-  renderTimelineChrome(fl,curId);
+  renderTimelineChrome(exercises(),curId);
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -876,11 +876,12 @@ function bindWorkout(){
     if(idx<0)return;focusIndex=idx;collapsed.delete(id);logMode="focus";renderWorkout();focusCurrentEvent()});
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
-  {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0,current=$("#workout .exercise.is-current");
+  {const fl=focusList(),all=exercises(),at=fl.length?Math.min(focusIndex,fl.length-1):0,current=$("#workout .exercise.is-current");
+    const currentOrdinal=current?all.findIndex(ex=>ex.id===current.dataset.ex)+1:0;
     const nextSet=current?.querySelector(".setrow:not(.is-done) .saveset");
     const bar=document.createElement("div");bar.className="focusbar";
     bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
-      `<span class="focusbar__prog">${fl.length?at+1:0} of ${fl.length}</span>`+
+      `<span class="focusbar__prog">${currentOrdinal} of ${all.length}</span>`+
       (nextSet?`<button type="button" class="btn btn--forge" data-dock-save>Save current set</button>`:"")+
       (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--steel" data-ffinish>Save workout</button>`:`<button type="button" class="btn btn--steel" data-fnext>Next</button>`);
     bar.classList.add("actiondock");
@@ -1293,9 +1294,11 @@ function renderHistory(){
     const top=sets.filter(isWork).reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
     const vol=sum(sets.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
     const delta=sessionDeltaCounts(sets),deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
-    const receipts=sets.map(row=>`<span>${esc(displayName(row))} · Set ${esc(row.set)} · ${fmtLoad(row.load)}×${row.reps}</span>`).join("");
+    const receipts=sets.map(row=>`<span class="session__receipt"><span class="receipt__name">${esc(displayName(row))}</span> `+
+      `<span class="receipt__set">· Set ${esc(row.set)}</span> <span class="receipt__result">· ${fmtLoad(row.load)}×${row.reps}</span></span>`).join("");
     return `<div class="session history-event timeline-event"><div class="session__info"><div class="session__day">${esc(s.day)}</div>`+
-      `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}<div class="session__receipts">${receipts}</div></div>`+
+      `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
+      `<div class="session__receipts">${receipts}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
   }).join(""):`<div class="table"><div class="empty">No workouts saved yet. Use the Log tab to add one.</div></div>`;

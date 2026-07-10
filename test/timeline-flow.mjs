@@ -43,6 +43,12 @@ try {
   assert(await page.locator(".exercise.is-current").count() === 1, "exactly one exercise event is current");
   assert(await page.locator(".exercise.is-future").count() > 0, "future exercises render as a queue");
   assert(await page.locator(".actiondock").count() === 1, "sticky action dock is present");
+  const plannedExerciseTotal = await page.locator("#workout .exercise").count();
+  assert(
+    (await page.locator("#sessionProgress").textContent()).endsWith(`of ${plannedExerciseTotal}`) &&
+      (await page.locator(".focusbar__prog").textContent()).endsWith(`of ${plannedExerciseTotal}`),
+    "exercise total starts from the full programmed sequence",
+  );
 
   const targets = await page.locator("button:visible, input:visible, select:visible, textarea:visible").evaluateAll((controls) =>
     controls.map((control) => {
@@ -110,6 +116,11 @@ try {
         await page.evaluate(() => document.activeElement?.closest(".exercise.is-current") !== null),
         "focus restores inside the new current event",
       );
+      assert(
+        (await page.locator("#sessionProgress").textContent()).endsWith(`of ${plannedExerciseTotal}`) &&
+          (await page.locator(".focusbar__prog").textContent()).endsWith(`of ${plannedExerciseTotal}`),
+        "exercise total remains stable after Next",
+      );
     }
   }
   await page.click("[data-fprev]");
@@ -117,6 +128,13 @@ try {
     await page.locator(".exercise.is-current").getAttribute("data-checkpoint") === "2",
     "Back returns to the previous event",
   );
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  assert(
+    (await page.locator("#sessionProgress").textContent()).endsWith(`of ${plannedExerciseTotal}`) &&
+      (await page.locator(".focusbar__prog").textContent()).endsWith(`of ${plannedExerciseTotal}`),
+    "exercise total remains stable after Prev and scroll",
+  );
+  await page.evaluate(() => window.scrollTo(0, 0));
   const visitedZeroSet = page.locator('.exercise[data-checkpoint="3"]');
   assert(
     (await visitedZeroSet.getAttribute("class")).includes("is-visited") &&
@@ -132,6 +150,11 @@ try {
       (await skippedEvent.getAttribute("class")).includes("is-incomplete") &&
       !(await skippedEvent.getAttribute("class")).includes("is-past"),
     "skipped exercise remains incomplete instead of completed",
+  );
+  assert(
+    (await page.locator("#sessionProgress").textContent()).endsWith(`of ${plannedExerciseTotal}`) &&
+      (await page.locator(".focusbar__prog").textContent()).endsWith(`of ${plannedExerciseTotal}`),
+    "skipping an exercise does not reduce the programmed total",
   );
   await page.click(".skipbar__show");
 
@@ -260,7 +283,7 @@ try {
     window.closeTour?.();
   });
   await page.click('nav button[data-view="history"]');
-  const historyReceipts = await page.locator("#sessions .session__receipts span").allTextContents();
+  const historyReceipts = await page.locator("#sessions .session__receipt").allTextContents();
   assert(historyReceipts.length === 8, "History renders all 8+ logged sets without truncation");
   assert(
     historyReceipts.every((receipt, index) => receipt.startsWith(expectedHistory[index])),
@@ -276,6 +299,31 @@ try {
     historyTableOrder.every((row, index) => row === expectedHistory[index]),
     "History set table follows program and set order",
   );
+  await page.setViewportSize({ width: 320, height: 900 });
+  const historyLayout = await page.locator("#sessions .history-event").evaluate((card) => {
+    const info = card.querySelector(".session__info").getBoundingClientRect();
+    const receipts = card.querySelector(".session__receipts").getBoundingClientRect();
+    const actions = card.querySelector(".session__btns").getBoundingClientRect();
+    const cardRect = card.getBoundingClientRect();
+    const names = [...card.querySelectorAll(".receipt__name")].map((name) => {
+      const styles = getComputedStyle(name);
+      return name.getBoundingClientRect().height / Number.parseFloat(styles.lineHeight);
+    });
+    return {
+      cardWidth: cardRect.width,
+      infoWidth: info.width,
+      receiptWidth: receipts.width,
+      actionsAfterReceipts: actions.top >= receipts.bottom,
+      maxNameLines: names.length ? Math.max(...names) : Number.POSITIVE_INFINITY,
+    };
+  });
+  assert(
+    historyLayout.infoWidth >= historyLayout.cardWidth - 32 &&
+      historyLayout.receiptWidth >= historyLayout.cardWidth - 32 &&
+      historyLayout.actionsAfterReceipts,
+    "History summary, receipts, and actions use separate full-width rows at 320px",
+  );
+  assert(historyLayout.maxNameLines <= 2.1, "History receipt exercise names remain legible at 320px");
 
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload({ waitUntil: "domcontentloaded" });
