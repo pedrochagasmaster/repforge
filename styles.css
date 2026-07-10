@@ -268,6 +268,7 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .sets__head:has(~ .setrow .effort),.setrow:has(.effort){grid-template-columns:1.4rem 2.2fr .7fr 1.9fr auto}
 .setrow:has(.effort) .stepbtn{width:26px}
 .sets__head{margin-bottom:4px}
+.setrow>*{min-width:0} /* let fr columns shrink below the inputs' intrinsic min-content */
 .sets__head span{font-size:11px;color:var(--steel);letter-spacing:.1em;text-align:center}
 .sets__head span:first-child{text-align:left}
 .setrow{margin-top:8px}
@@ -762,11 +763,13 @@ nav button.active .nav__icon{background:var(--ember)}
     border-radius:18px 18px 0 0;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 }
 @media (max-width:360px){
-  .sets__head,.setrow{grid-template-columns:1.3rem 2.3fr 1fr .8fr auto;gap:5px}
-  .sets__head:has(~ .setrow .effort),.setrow:has(.effort){grid-template-columns:1.3rem 2fr .8fr 1.9fr auto}
+  .sets__head,.setrow{grid-template-columns:1.1rem 2.1fr .9fr .7fr auto;gap:4px}
+  .sets__head:has(~ .setrow .effort),.setrow:has(.effort){grid-template-columns:1.1rem 2.4fr .7fr 1.8fr auto}
   .vrow{grid-template-columns:7rem 1fr auto}
   .setrow input{font-size:15px;padding:12px 2px}
-  .stepbtn{width:27px;font-size:17px}
-  .saveset{min-width:42px;padding:0 4px}
+  .stepbtn{width:24px;font-size:17px}
+  .setrow:has(.effort) .stepbtn{width:20px}
+  .effort__btn{font-size:10.5px;padding:0 1px}
+  .saveset{min-width:38px;padding:0 4px}
   .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem;gap:6px}
 }
