@@ -333,6 +333,7 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
+const visitedExercises=new Set();
 let logMode="focus",focusIndex=0,statsSeg="overview",prFilter="all";
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
@@ -660,7 +661,8 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   if(lbl){for(const n of [...lbl.childNodes])if(n.nodeType===3)n.remove();
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
-function focusCurrentEvent(){requestAnimationFrame(()=>$("#workout .exercise.is-current .ex__name")?.focus({preventScroll:true}))}
+function focusCurrentEvent(){requestAnimationFrame(()=>{const heading=$("#workout .exercise.is-current .ex__name");
+  heading?.focus({preventScroll:true});const status=$("#timelineStatus");if(status&&heading)status.textContent=`Current event: ${heading.textContent.trim()}`})}
 function setLogMode(m){logMode=m;focusIndex=0;renderWorkout();if(m==="focus")focusCurrentEvent()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
@@ -672,7 +674,8 @@ function goToLogExercise(exId){
   $('nav button[data-view="log"]').click();
   const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
-  $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);
+    if(on)b.setAttribute("aria-current","location");else b.removeAttribute("aria-current")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview();
   if($("#stats").classList.contains("active"))requestAnimationFrame(()=>$("#"+STATS_SEG[seg])?.scrollIntoView({behavior:"smooth",block:"start"}))}
@@ -708,14 +711,16 @@ function render(){renderTabs();renderWorkout();renderStats();renderHistory();ren
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
-  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
+  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;focusIndex=0;renderTabs();renderWorkout()})}
 
 function renderTimelineChrome(list,currentId){
   const currentIndex=Math.max(0,list.findIndex(ex=>ex.id===currentId)),current=list[currentIndex];
   const progress=$("#sessionProgress");if(progress)progress.textContent=current?`Exercise ${currentIndex+1} of ${list.length}`:"No exercises";
   const outline=$("#sessionOutline");if(outline)outline.innerHTML=
     `<p class="timeline-panel__title">Workout outline</p>`+
-    list.map((ex,index)=>`<button type="button" data-outline="${esc(ex.id)}" class="${ex.id===currentId?"active":index<currentIndex?"done":""}"><span>${index+1}</span>${esc(ex.name)}</button>`).join("")+
+    list.map((ex,index)=>{const done=Array.from({length:ex.sets},(_,i)=>committed.has(`${ex.id}_${i+1}`)).filter(Boolean).length;
+      const stateClass=done===ex.sets&&ex.sets>0?"done":visitedExercises.has(ex.id)||done>0?"incomplete":"";
+      return `<button type="button" data-outline="${esc(ex.id)}" class="${ex.id===currentId?"active":stateClass}"><span>${index+1}</span>${esc(ex.name)}</button>`}).join("")+
     `<div class="outline-complete">Save workout</div>`;
   const detail=$("#eventDetail");if(detail)detail.innerHTML=current?(()=>{
     const rec=recommendation(current),done=Array.from({length:current.sets},(_,i)=>committed.has(`${current.id}_${i+1}`)).filter(Boolean).length;
@@ -739,14 +744,18 @@ function renderWorkout(){
   const fl=focusList();
   if(fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=fl.length?fl[focusIndex]?.id:null;
-  const currentPosition=exercises().findIndex(ex=>ex.id===curId);
+  if(curId)visitedExercises.add(curId);
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
   $("#modeFull")?.classList.toggle("active",logMode==="full");
   $("#modeFocus")?.classList.toggle("active",logMode==="focus");
   wk.innerHTML=banner+`<div class="timeline-event timeline-event--start is-past"><span class="event-index">Start</span><span>Workout started</span><time>${esc($("#date")?.value||today())}</time></div>`+exercises().map((ex,checkpointIndex)=>{
     const r=recommendation(ex),prev=last(ex);
-    const eventState=checkpointIndex===currentPosition?"is-current":checkpointIndex<currentPosition?"is-past":"is-future";
     const doneCount=Array.from({length:ex.sets},(_,i)=>committed.has(`${ex.id}_${i+1}`)).filter(Boolean).length;
+    const isComplete=ex.sets>0&&doneCount===ex.sets;
+    const isVisited=visitedExercises.has(ex.id)||doneCount>0||skipped.has(ex.id);
+    const eventState=ex.id===curId
+      ?`is-current ${isComplete?"is-complete":"is-incomplete"}`
+      :isComplete?"is-past is-complete":isVisited?"is-visited is-incomplete":"is-future";
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
@@ -1024,9 +1033,7 @@ function renderStats(){
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({Exercise:r.Exercise,[unitLabel()]:fmtLoad(r.load),Reps:r.reps,RIR:fmt(r.rir),Date:r.date}));
   $("#tops").innerHTML=table(progRows);
   renderPRs();renderAttention();renderCompleted();renderReview();
-  if(statsSeg==="strength")renderStrengthDash();
-  if(statsSeg==="volume")renderVolumeDash();
-  if(statsSeg==="prs")renderPRTimeline();
+  renderStrengthDash();renderVolumeDash();renderPRTimeline();
 }
 
 function detectPRs(log,opts={}){
@@ -1266,16 +1273,27 @@ function draw(rows){
 function redrawChart(){if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
+function sessionRowsInProgramOrder(sessionId){
+  const order=new Map(prog.exercises.map((exercise,index)=>[exercise.id,index]));
+  return state.log.filter(row=>row.session===sessionId).map((row,loggedIndex)=>({row,loggedIndex})).sort((a,b)=>{
+    const ao=order.get(a.row.exerciseId),bo=order.get(b.row.exerciseId);
+    if(ao!=null&&bo!=null&&ao!==bo)return ao-bo;
+    if(ao!=null&&bo==null)return-1;
+    if(ao==null&&bo!=null)return 1;
+    if((a.row.exerciseId||a.row.name)===(b.row.exerciseId||b.row.name)&&a.row.set!==b.row.set)return a.row.set-b.row.set;
+    return a.loggedIndex-b.loggedIndex;
+  }).map(item=>item.row)}
+
 function renderHistory(){
   const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
     const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
-    const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
+    const sets=sessionRowsInProgramOrder(s.session);
     if(s.session===editSession)return sessionEditor(s,sets);
     const top=sets.filter(isWork).reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
     const vol=sum(sets.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
     const delta=sessionDeltaCounts(sets),deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
-    const receipts=sets.slice(0,6).map(row=>`<span>${esc(displayName(row))} · ${fmtLoad(row.load)}×${row.reps}</span>`).join("");
+    const receipts=sets.map(row=>`<span>${esc(displayName(row))} · Set ${esc(row.set)} · ${fmtLoad(row.load)}×${row.reps}</span>`).join("");
     return `<div class="session history-event timeline-event"><div class="session__info"><div class="session__day">${esc(s.day)}</div>`+
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}<div class="session__receipts">${receipts}</div></div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
@@ -1285,7 +1303,8 @@ function renderHistory(){
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
+  const rows=sessions.flatMap(session=>sessionRowsInProgramOrder(session.session))
+    .map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 

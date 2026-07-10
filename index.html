@@ -64,7 +64,8 @@
         <div class="timeline-shell">
           <aside id="sessionOutline" class="session-outline" aria-label="Workout outline"></aside>
           <div class="timeline-main">
-            <div id="workout" aria-live="polite"></div>
+            <div id="timelineStatus" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+            <div id="workout"></div>
             <div class="timeline-event timeline-event--notes">
               <span class="event-kicker">Notes</span>
               <label class="field">Session notes
@@ -89,14 +90,14 @@
 
     <section id="stats" class="view" aria-label="Stats">
       <div class="sectionhead"><p class="eyebrow">Performance review</p><h2>Stats</h2></div>
-      <div id="statsSeg" class="seg seg--stats" role="tablist" aria-label="Stats sections">
-        <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true">Overview</button>
-        <button type="button" role="tab" data-seg="strength" aria-selected="false">Strength</button>
-        <button type="button" role="tab" data-seg="volume" aria-selected="false">Volume</button>
-        <button type="button" role="tab" data-seg="prs" aria-selected="false">PRs</button>
-        <button type="button" role="tab" data-seg="review" aria-selected="false">Review</button>
+      <div id="statsSeg" class="seg seg--stats" role="navigation" aria-label="Stats sections">
+        <button id="statsNavOverview" type="button" data-seg="overview" class="active" aria-controls="segOverview" aria-current="location">Overview</button>
+        <button id="statsNavStrength" type="button" data-seg="strength" aria-controls="segStrength">Strength</button>
+        <button id="statsNavVolume" type="button" data-seg="volume" aria-controls="segVolume">Volume</button>
+        <button id="statsNavPRs" type="button" data-seg="prs" aria-controls="segPRs">PRs</button>
+        <button id="statsNavReview" type="button" data-seg="review" aria-controls="segReview">Review</button>
       </div>
-      <div id="segOverview" class="stats-seg active">
+      <div id="segOverview" class="stats-seg active" role="region" aria-labelledby="statsNavOverview">
         <div id="thisWeek" class="thisweek card"></div>
         <div id="attention" class="attention"></div>
         <div id="metrics" class="metrics"></div>
@@ -120,12 +121,12 @@
           <h3 class="subhead">Top loads by exercise</h3><div id="tops" class="table"></div>
         </details>
       </div>
-      <div id="segStrength" class="stats-seg"><h3 class="subhead">Strength</h3><div id="strengthDash" class="table"></div></div>
-      <div id="segVolume" class="stats-seg">
+      <div id="segStrength" class="stats-seg" role="region" aria-labelledby="statsNavStrength"><h3 class="subhead">Strength</h3><div id="strengthDash" class="table"></div></div>
+      <div id="segVolume" class="stats-seg" role="region" aria-labelledby="statsNavVolume">
         <h3 class="subhead">Volume</h3>
         <div id="volumeDash" class="table"></div>
       </div>
-      <div id="segPRs" class="stats-seg">
+      <div id="segPRs" class="stats-seg" role="region" aria-labelledby="statsNavPRs">
         <p class="lede">Every personal record across your log — load, reps, and estimated one-rep max.</p>
         <div id="prFilterSeg" class="seg seg--window" role="tablist" aria-label="PR kind filter">
           <button type="button" data-prf="all" class="active" role="tab" aria-selected="true">All</button>
@@ -136,7 +137,7 @@
         </div>
         <div id="prTimeline" class="prtimeline"></div>
       </div>
-      <div id="segReview" class="stats-seg"><h3 class="subhead">Review</h3><div id="reviewPanel"></div></div>
+      <div id="segReview" class="stats-seg" role="region" aria-labelledby="statsNavReview"><h3 class="subhead">Review</h3><div id="reviewPanel"></div></div>
     </section>
 
     <section id="history" class="view" aria-label="History">

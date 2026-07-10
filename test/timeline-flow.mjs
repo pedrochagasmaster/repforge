@@ -38,6 +38,8 @@ try {
   assert(await page.locator("#eventDetail").count() === 1, "desktop event detail exists");
   assert(await page.locator(".timeline-event--start").count() === 1, "stream begins with a session start event");
   assert(await page.locator(".timeline-event--complete").count() === 1, "stream ends with a completion event");
+  assert(await page.locator("#workout").getAttribute("aria-live") === null, "workout container is not a live region");
+  assert(await page.locator("#timelineStatus").getAttribute("aria-live") === "polite", "dedicated timeline status is a live region");
   assert(await page.locator(".exercise.is-current").count() === 1, "exactly one exercise event is current");
   assert(await page.locator(".exercise.is-future").count() > 0, "future exercises render as a queue");
   assert(await page.locator(".actiondock").count() === 1, "sticky action dock is present");
@@ -71,6 +73,13 @@ try {
   assert(await page.locator(".exercise.is-current .setrow.is-done").count() === 1, "action dock saves the current set");
   assert(await page.locator(".exercise.is-current .timeline-rest").count() === 1, "saved set adds a rest interval event");
   assert(!(await page.locator("#restBar").getAttribute("class")).includes("hidden"), "saving a set starts the rest timer");
+  const restTargets = await page.locator("#restBar:visible, .ex__rest:visible, .timeline-rest button:visible").evaluateAll((controls) =>
+    controls.map((control) => {
+      const rect = control.getBoundingClientRect();
+      return { width: rect.width, height: rect.height };
+    }),
+  );
+  assert(restTargets.every(({ width, height }) => width >= 44 && height >= 44), "rest controls meet 44px targets");
 
   for (const expected of ["1", "2", "3"]) {
     assert(
@@ -92,14 +101,31 @@ try {
     await page.locator(".exercise.is-current").getAttribute("data-checkpoint") === "2",
     "Back returns to the previous event",
   );
+  const visitedZeroSet = page.locator('.exercise[data-checkpoint="3"]');
+  assert(
+    (await visitedZeroSet.getAttribute("class")).includes("is-visited") &&
+      (await visitedZeroSet.getAttribute("class")).includes("is-incomplete") &&
+      !(await visitedZeroSet.getAttribute("class")).includes("is-past"),
+    "visited zero-set exercise remains explicitly incomplete",
+  );
+  const skippedId = await page.locator(".exercise.is-current").getAttribute("data-ex");
+  await page.click(".exercise.is-current .ex__skip");
+  const skippedEvent = page.locator(`.exercise[data-ex="${skippedId}"]`);
+  assert(
+    (await skippedEvent.getAttribute("class")).includes("is-skipped") &&
+      (await skippedEvent.getAttribute("class")).includes("is-incomplete") &&
+      !(await skippedEvent.getAttribute("class")).includes("is-past"),
+    "skipped exercise remains incomplete instead of completed",
+  );
+  await page.click(".skipbar__show");
 
   await page.click(".btn--save");
   await page.waitForFunction(() => document.querySelector("#toast")?.textContent.includes("Workout saved."));
   assert((await page.locator("#toast").textContent()).includes("Workout saved."), "full workout save uses neutral confirmation");
 
-  const visibleCopy = (await page.locator("body").innerText()).replaceAll("RepForge", "");
+  const visibleCopy = (await page.locator("body").textContent()).replace(/repforge/gi, "");
   assert(
-    !/\b(ascent|topographic|trail|summit|checkpoint|elevation|grade|climb|route|forged)\b/i.test(visibleCopy),
+    !/\b(ascent|topographic|trail|summit|checkpoint|elevation|grade|climb|route|forge|forged)\b/i.test(visibleCopy),
     "visible copy is neutral and task-oriented",
   );
 
@@ -128,6 +154,21 @@ try {
 
   await page.click('nav button[data-view="stats"]');
   assert(await page.locator("#stats .stats-seg").count() >= 5, "Stats contains period sections");
+  assert(await page.locator('#statsSeg[role="navigation"]').count() === 1, "Stats section control uses navigation semantics");
+  assert(await page.locator('#statsSeg [role="tab"]').count() === 0, "Stats stacked-section controls are not tabs");
+  assert(
+    await page.locator("#statsSeg button").evaluateAll((buttons) =>
+      buttons.every((button) => button.hasAttribute("aria-controls")) &&
+        buttons.filter((button) => button.getAttribute("aria-current") === "location").length === 1,
+    ),
+    "Stats navigation exposes aria-controls and current section",
+  );
+  assert(
+    await page.locator("#stats .stats-seg").evaluateAll((sections) =>
+      sections.every((section) => getComputedStyle(section).display !== "none" && section.getAttribute("role") === "region"),
+    ),
+    "all Stats sections render as stacked regions",
+  );
   assert(await page.locator("#metrics .metric").count() === 4, "saved workout updates Stats");
   assert(
     await page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight),
@@ -146,10 +187,79 @@ try {
 
   await page.click('nav button[data-view="program"]');
   assert(await page.locator("#programEditor").getAttribute("class").then((value) => value.includes("sequence")), "Program uses sequence structure");
+  await page.setViewportSize({ width: 320, height: 900 });
+  const programNameWidths = await page.locator("#programName, .pday__name, .pex__name").evaluateAll((inputs) =>
+    inputs.slice(0, 3).map((input) => input.getBoundingClientRect().width),
+  );
+  assert(programNameWidths.every((width) => width >= 150), "Program name fields remain usable at 320px");
+  await page.setViewportSize({ width: 1280, height: 900 });
   const beforeOrder = await page.locator("#programEditor .pday").first().locator(".pex__name").evaluateAll((inputs) => inputs.slice(0, 2).map((input) => input.value));
   await page.locator("#programEditor .pday").first().locator('[data-act="down"]').first().click();
   const afterOrder = await page.locator("#programEditor .pday").first().locator(".pex__name").evaluateAll((inputs) => inputs.slice(0, 2).map((input) => input.value));
   assert(beforeOrder[0] === afterOrder[1] && beforeOrder[1] === afterOrder[0], "Program sequence can be reordered");
+
+  const expectedHistory = await page.evaluate(async () => {
+    const key = "repforge_v1";
+    const state = JSON.parse(localStorage.getItem(key));
+    const day = state.program[0].day;
+    const exercises = state.program.filter((exercise) => exercise.day === day);
+    const ordered = [];
+    for (const exercise of exercises) {
+      for (let set = 1; set <= exercise.sets && ordered.length < 8; set++) {
+        ordered.push({
+          session: "timeline-history-eight",
+          date: "2026-07-10",
+          created: `2026-07-10T09:00:${String(ordered.length).padStart(2, "0")}Z`,
+          day,
+          exerciseId: exercise.id,
+          name: exercise.name,
+          set,
+          load: 80 + ordered.length,
+          reps: 8,
+          rir: 1,
+        });
+      }
+      if (ordered.length === 8) break;
+    }
+    state.log = [...ordered].reverse();
+    localStorage.setItem(key, JSON.stringify(state));
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("repforge", 1);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction("kv", "readwrite");
+      transaction.objectStore("kv").put(state, key);
+      transaction.oncomplete = resolve;
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+    return ordered.map((row) => `${row.name} · Set ${row.set}`);
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#dayTabs button", { state: "attached" });
+  await page.evaluate(() => {
+    window.closeOnboarding?.();
+    window.closeTour?.();
+  });
+  await page.click('nav button[data-view="history"]');
+  const historyReceipts = await page.locator("#sessions .session__receipts span").allTextContents();
+  assert(historyReceipts.length === 8, "History renders all 8+ logged sets without truncation");
+  assert(
+    historyReceipts.every((receipt, index) => receipt.startsWith(expectedHistory[index])),
+    "History receipts follow program and set order",
+  );
+  const historyTableOrder = await page.locator("#historyTable tbody tr").evaluateAll((rows) =>
+    rows.map((row) => {
+      const cells = row.querySelectorAll("td");
+      return `${cells[2]?.textContent.trim()} · Set ${cells[3]?.textContent.trim()}`;
+    }),
+  );
+  assert(
+    historyTableOrder.every((row, index) => row === expectedHistory[index]),
+    "History set table follows program and set order",
+  );
 
   await page.evaluate(() => navigator.serviceWorker.ready);
   await page.reload({ waitUntil: "domcontentloaded" });

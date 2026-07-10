@@ -27,4 +27,4 @@ The active event keeps the existing load, reps, RIR, substitution, warmup, skip,
 - Existing data structures, local storage keys, IndexedDB mirror, imports, exports, and progression behavior remain compatible.
 - Existing selectors remain available for established features and browser simulation.
 - All visible interface copy is neutral and task-oriented.
-- Service-worker cache is `repforge-timeline-v16`.
+- Service-worker cache is `repforge-timeline-v17`.

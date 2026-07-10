@@ -1,4 +1,4 @@
-const CACHE = "repforge-timeline-v16";
+const CACHE = "repforge-timeline-v17";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon.svg",
