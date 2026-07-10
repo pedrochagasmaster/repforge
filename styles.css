@@ -909,7 +909,10 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .sg__exercise,.sg__previous,.sg__target,.sg__sethead,.setcell{
   min-width:0;border:0;border-right:1px solid var(--border-soft);border-bottom:1px solid var(--border-strong);background:var(--surface-raised);
 }
-.sg__exercise{position:sticky;left:0;z-index:8;width:var(--exercise-col);padding:10px;text-align:left;vertical-align:top}
+.sg__exercise{
+  position:sticky;left:0;z-index:8;width:var(--exercise-col);padding:10px;
+  text-align:left;vertical-align:top;white-space:normal;overflow-wrap:anywhere;
+}
 .sg__previous{width:var(--previous-col)}
 .sg__target{width:var(--target-col)}
 .sg__sethead,.setcell{width:var(--set-col)}
@@ -920,6 +923,11 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
 .sessiongrid__head .sg__previous,.sessiongrid__head .sg__target{background:var(--surface-inset);z-index:17}
 .sg__sethead{text-align:center!important}
 .sg__empty{color:var(--text-muted);font-size:11px}
+.sg__context-label{
+  display:block;margin-bottom:7px;color:var(--text-secondary);
+  font-family:var(--mono);font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;
+}
+.sg__mobile-context{display:none}
 
 .ex__top{display:block}
 .ex__head{margin-bottom:8px}
@@ -933,7 +941,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 
   border:1px solid var(--border-strong);border-radius:3px;background:var(--surface-raised);color:var(--text-primary);
 }
 .subst{display:block;margin-top:8px}
-.subst__pick{width:100%;min-height:40px}
+.subst__pick{display:block;width:100%;min-height:40px}
 .prev{display:block;margin:0;font-size:11px;line-height:1.6}
 .prev .copylast{display:flex;margin-top:8px;min-height:44px}
 .copylast{border-radius:3px}
@@ -1081,16 +1089,42 @@ nav button.active .nav__icon{background:var(--accent)}
   .gridHint{display:block}
   .commandbar{grid-template-columns:minmax(0,1fr) 44px auto}
   .commandbar #voiceBtn{display:none!important}
-  .sessiongrid{--exercise-col:148px;--previous-col:136px;--target-col:156px;--set-col:204px}
-  .sg__previous,.sg__target{position:static}
-  .sessiongrid__head .sg__previous,.sessiongrid__head .sg__target{position:static}
-  .sg__exercise{box-shadow:3px 0 0 rgba(21,32,43,.08)}
+  .sessiongrid{
+    --exercise-col:100px;--set-col:204px;
+    width:calc(var(--exercise-col) + var(--mobile-sets-width));min-width:0;
+  }
+  .sg__previous,.sg__target,.sessiongrid__head .sg__previous,.sessiongrid__head .sg__target{display:none}
+  .sg__exercise{padding:6px;box-shadow:3px 0 0 rgba(21,32,43,.08)}
   .sessiongrid .exercise{min-height:202px}
   .ex__name{font-size:13px}
   .ex__meta{font-size:8px}
-  .ex__topend{display:grid;grid-template-columns:repeat(2,44px)}
+  .ex__topend{display:grid;grid-template-columns:repeat(2,44px);gap:0}
   .ex__rest{display:none!important}
   .ex__skip{font-size:9px;padding:0}
+  .sg__mobile-context{
+    display:block;margin-top:8px;border-top:1px solid var(--border-soft);
+    color:var(--text-primary);font-weight:400;text-align:left;
+  }
+  .sg__mobile-context summary{
+    display:flex;align-items:center;min-height:44px;cursor:pointer;
+    color:var(--accent);font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;
+  }
+  .sg__mobile-context summary::after{content:"+";margin-left:auto;font-size:16px}
+  .sg__mobile-context[open] summary::after{content:"−"}
+  .sg__exercise:has(.sg__mobile-context[open]){z-index:40}
+  .sg__mobile-context-body{
+    position:fixed;z-index:1000;left:12px;right:12px;bottom:74px;width:auto;max-height:65vh;overflow-y:auto;
+    padding:12px;border:1px solid var(--border-strong);background:var(--surface-raised);
+    box-shadow:var(--shadow-floating);
+  }
+  .sg__context-close{
+    width:100%;min-height:44px;margin-bottom:12px;border-color:var(--accent);
+    background:var(--accent);color:var(--text-on-accent);
+  }
+  .sg__mobile-context-body>div+div{margin-top:12px;padding-top:12px;border-top:1px solid var(--border-soft)}
+  .sg__mobile-context .prev .copylast{width:100%}
+  .setcell__top{grid-template-columns:44px 1fr}
+  .setcell__top>span{display:none}
   .sessionSummary__data{grid-template-columns:repeat(2,1fr)}
   .field{margin-top:12px}
   .btn--save{max-width:none}

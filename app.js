@@ -724,15 +724,16 @@ function renderWorkout(){
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
   const dayExercises=exercises(),maxSets=Math.max(1,...dayExercises.map(ex=>ex.sets));
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
+  document.querySelector(".gridHint")?.classList.toggle("hidden",logMode==="focus");
   const gridHead=`<thead><tr class="sessiongrid__head">`+
     `<th class="sg__exercise" scope="col">Exercise</th>`+
     `<th class="sg__previous" scope="col">Previous</th>`+
-    `<th class="sg__target" scope="col">Recommendation</th>`+
+    `<th class="sg__target" scope="col">Suggested</th>`+
     Array.from({length:maxSets},(_,i)=>`<th class="sg__sethead" scope="col">Set ${i+1}</th>`).join("")+
     `</tr></thead>`;
   const gridRows=dayExercises.map(ex=>{
     const r=recommendation(ex),prev=last(ex);
-    const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
+    const prevHtml=prev.length?`<div class="prev">${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
     const rows=Array.from({length:maxSets},(_,i)=>{const n=i+1;
       if(n>ex.sets)return `<td class="setrow setcell setcell--empty" aria-hidden="true"></td>`;
@@ -747,18 +748,18 @@ function renderWorkout(){
       const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
       const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
       const rirCell=effortMode
-        ?`<div class="effort" role="group" aria-label="${esc(exLabel)} set ${n} effort">`+
-          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}" aria-label="${esc(exLabel)} set ${n} ${e} effort">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
-        :`<label class="setcell__field"><span>${term("RIR")}</span><input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} RIR" value="${esc(rirVal)}"></label>`;
+        ?`<div class="effort" role="group" aria-label="${esc(exLabel)} set ${n} entered effort">`+
+          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}" aria-label="${esc(exLabel)} set ${n} entered ${e} effort">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
+        :`<label class="setcell__field"><span>Entered ${term("RIR")}</span><input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} entered RIR" value="${esc(rirVal)}"></label>`;
       const done=committed.has(key);
       return `<td class="setrow setcell ${cls}" data-set="${esc(key)}">`+
         `<div class="setcell__top"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" aria-label="${esc(exLabel)} set ${n} ${isW?"mark as working set":"mark as warm-up"}" title="Toggle warm-up set">${isW?"W":n}</button>`+
         `<span>Set ${n}</span><button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${done?"true":"false"}" aria-label="${done?"Undo":"Complete"} ${esc(exLabel)} set ${n}">${done?"✓":"Done"}</button></div>`+
         `<div class="setcell__fields">`+
-        `<label class="setcell__field setcell__load"><span>${unitLabel()}</span><div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" aria-label="${esc(exLabel)} set ${n} decrease ${unitLabel()}">−</button>`+
-        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
+        `<label class="setcell__field setcell__load"><span>Entered ${unitLabel()}</span><div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" aria-label="${esc(exLabel)} set ${n} decrease ${unitLabel()}">−</button>`+
+        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} entered ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
         `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" aria-label="${esc(exLabel)} set ${n} increase ${unitLabel()}">+</button></div></label>`+
-        `<label class="setcell__field"><span>Reps</span><input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="${esc(exLabel)} set ${n} reps" value="${esc(repsVal)}"></label>`+
+        `<label class="setcell__field"><span>Entered reps</span><input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="${esc(exLabel)} set ${n} entered reps" value="${esc(repsVal)}"></label>`+
         rirCell+`</div></td>`;
     }).join("");
     const perf=substituted.get(ex.id);
@@ -767,6 +768,10 @@ function renderWorkout(){
       `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
+    const setupHtml=ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"";
+    const previousContent=`<span class="sg__context-label">Previous</span>${prevHtml||`<span class="sg__empty">No prior sets</span>`}${deltaHtml}${setupHtml}`;
+    const suggestedContent=`<span class="sg__context-label">Suggested</span><div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
+      `<span class="chip">${esc(r.label)}</span></div><p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`;
     const isCollapsed=collapsed.has(ex.id),isSkipped=skipped.has(ex.id);
     return `<tr class="exercise is-${r.status}${isCollapsed?" is-collapsed":""}${isSkipped?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
       `<th class="sg__exercise" scope="row"><div class="ex__top"><div class="ex__head"><span class="ex__name">${nameHtml}</span>`+
@@ -775,15 +780,14 @@ function renderWorkout(){
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-pressed="${isSkipped?"true":"false"}" aria-label="${isSkipped?"Restore":"Skip"} ${esc(ex.name)}">${isSkipped?"Restore":"Skip"}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-expanded="${isCollapsed?"false":"true"}" aria-label="${isCollapsed?"Show":"Hide"} ${esc(ex.name)} sets">▾</button></div></div>`+
-      subPick+`</th>`+
-      `<td class="sg__previous">${prevHtml||`<span class="sg__empty">No prior sets</span>`}${deltaHtml}`+
-      (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+`</td>`+
-      `<td class="sg__target"><div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
-      `<span class="chip">${esc(r.label)}</span></div>`+
-      `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p></td>`+
+      subPick+`<details class="sg__mobile-context"><summary>Details</summary><div class="sg__mobile-context-body">`+
+      `<button type="button" class="sg__context-close" data-close-context>Close details</button>`+
+      `<div>${previousContent}</div><div>${suggestedContent}</div></div></details></th>`+
+      `<td class="sg__previous">${previousContent}</td>`+
+      `<td class="sg__target">${suggestedContent}</td>`+
       rows+`</tr>`;
   }).join("");
-  wk.innerHTML=banner+`<table class="sessiongrid" aria-label="${esc(day)} workout sets" style="--set-count:${maxSets};--sets-width:${maxSets*220}px">${gridHead}<tbody>${gridRows}</tbody></table>`;
+  wk.innerHTML=banner+`<table class="sessiongrid" aria-label="${esc(day)} workout sets" style="--set-count:${maxSets};--sets-width:${maxSets*220}px;--mobile-sets-width:${maxSets*204}px">${gridHead}<tbody>${gridRows}</tbody></table>`;
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -836,6 +840,7 @@ function bindWorkout(){
       if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmt(s.rir)}}
     localStorage.setItem(DRAFT,JSON.stringify(d));saveDraft();renderWorkout();toast("Filled from last session.")});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
+  $$("#workout [data-close-context]").forEach(b=>b.onclick=()=>{b.closest("details").open=false});
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
     skipped.has(id)?skipped.delete(id):skipped.add(id);
     if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
