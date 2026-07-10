@@ -333,7 +333,7 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all",historySort="newest";
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -722,31 +722,44 @@ function renderWorkout(){
   const fl=focusList();
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
+  const dayExercises=exercises(),maxSets=Math.max(1,...dayExercises.map(ex=>ex.sets));
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
-  wk.innerHTML=banner+exercises().map(ex=>{
+  const gridHead=`<thead><tr class="sessiongrid__head">`+
+    `<th class="sg__exercise" scope="col">Exercise</th>`+
+    `<th class="sg__previous" scope="col">Previous</th>`+
+    `<th class="sg__target" scope="col">Recommendation</th>`+
+    Array.from({length:maxSets},(_,i)=>`<th class="sg__sethead" scope="col">Set ${i+1}</th>`).join("")+
+    `</tr></thead>`;
+  const gridRows=dayExercises.map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
-    const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
+    const rows=Array.from({length:maxSets},(_,i)=>{const n=i+1;
+      if(n>ex.sets)return `<td class="setrow setcell setcell--empty" aria-hidden="true"></td>`;
+      const old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
       const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
       const key=`${ex.id}_${n}`;
+      const exLabel=displayName(ex);
       const isW=warmups.has(key);
       const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}`;
       const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
       const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
       const rirCell=effortMode
-        ?`<div class="effort" role="group" aria-label="Set ${n} effort">`+
-          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
-        :`<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`;
-      return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="Tap to mark as warmup">${isW?"W":n}</button>`+
-        `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="Set ${n} decrease ${unitLabel()}">−</button>`+
-        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
-        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="Set ${n} increase ${unitLabel()}">+</button></div>`+
-        `<input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(repsVal)}">`+
-        rirCell+
-        `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Save"}</button></div>`;
+        ?`<div class="effort" role="group" aria-label="${esc(exLabel)} set ${n} effort">`+
+          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}" aria-label="${esc(exLabel)} set ${n} ${e} effort">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
+        :`<label class="setcell__field"><span>${term("RIR")}</span><input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} RIR" value="${esc(rirVal)}"></label>`;
+      const done=committed.has(key);
+      return `<td class="setrow setcell ${cls}" data-set="${esc(key)}">`+
+        `<div class="setcell__top"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" aria-label="${esc(exLabel)} set ${n} ${isW?"mark as working set":"mark as warm-up"}" title="Toggle warm-up set">${isW?"W":n}</button>`+
+        `<span>Set ${n}</span><button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${done?"true":"false"}" aria-label="${done?"Undo":"Complete"} ${esc(exLabel)} set ${n}">${done?"✓":"Done"}</button></div>`+
+        `<div class="setcell__fields">`+
+        `<label class="setcell__field setcell__load"><span>${unitLabel()}</span><div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" aria-label="${esc(exLabel)} set ${n} decrease ${unitLabel()}">−</button>`+
+        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="${esc(exLabel)} set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
+        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" aria-label="${esc(exLabel)} set ${n} increase ${unitLabel()}">+</button></div></label>`+
+        `<label class="setcell__field"><span>Reps</span><input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="${esc(exLabel)} set ${n} reps" value="${esc(repsVal)}"></label>`+
+        rirCell+`</div></td>`;
     }).join("");
     const perf=substituted.get(ex.id);
     const nameHtml=perf?`${esc(perf)} <span class="ex__subfor">(for ${esc(ex.name)})</span>`:esc(ex.name);
@@ -754,21 +767,23 @@ function renderWorkout(){
       `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
-      `<div class="ex__top"><div class="ex__head"><h3 class="ex__name">${nameHtml}</h3>`+
+    const isCollapsed=collapsed.has(ex.id),isSkipped=skipped.has(ex.id);
+    return `<tr class="exercise is-${r.status}${isCollapsed?" is-collapsed":""}${isSkipped?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
+      `<th class="sg__exercise" scope="row"><div class="ex__top"><div class="ex__head"><span class="ex__name">${nameHtml}</span>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span>${ex.sets}×${ex.min}-${ex.max} reps · ${term("RIR")} 0-${fmt(state.settings.rirHigh)}</p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
-      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="Skip ${esc(ex.name)} today">Skip</button>`+
-      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="Toggle ${esc(ex.name)} sets">▾</button></div></div>`+
-      `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
+      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-pressed="${isSkipped?"true":"false"}" aria-label="${isSkipped?"Restore":"Skip"} ${esc(ex.name)}">${isSkipped?"Restore":"Skip"}</button>`+
+      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-expanded="${isCollapsed?"false":"true"}" aria-label="${isCollapsed?"Show":"Hide"} ${esc(ex.name)} sets">▾</button></div></div>`+
+      subPick+`</th>`+
+      `<td class="sg__previous">${prevHtml||`<span class="sg__empty">No prior sets</span>`}${deltaHtml}`+
+      (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+`</td>`+
+      `<td class="sg__target"><div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
-      `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`+
-      (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
-      subPick+
-      prevHtml+deltaHtml+
-      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}</article>`;
+      `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p></td>`+
+      rows+`</tr>`;
   }).join("");
+  wk.innerHTML=banner+`<table class="sessiongrid" aria-label="${esc(day)} workout sets" style="--set-count:${maxSets};--sets-width:${maxSets*220}px">${gridHead}<tbody>${gridRows}</tbody></table>`;
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -778,8 +793,8 @@ function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId
   const ex=prog.find(exId);if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
   if(!text){el?.remove();return}
   if(el)el.textContent=text;else{const n=document.createElement("div");n.className="delta-prev";n.textContent=text;
-    const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
-    if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sets__head")?"beforebegin":"afterend",n)}}
+    const anchor=art.querySelector(".prev")||art.querySelector(".sg__previous");
+    if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sg__previous")?"afterbegin":"afterend",n)}}
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
@@ -799,7 +814,9 @@ function bindWorkout(){
     if(committed.has(key)){committed.delete(key)}
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
-      b.textContent=committed.has(key)?"✓":"Save"}
+      const done=committed.has(key),name=b.closest(".exercise")?.querySelector(".ex__name")?.textContent.trim()||"Exercise";
+      b.textContent=done?"✓":"Done";b.setAttribute("aria-pressed",done?"true":"false");
+      b.setAttribute("aria-label",`${done?"Undo":"Complete"} ${name} set ${key.split("_").at(-1)}`)}
     saveDraft();updateSaveMeta();
     if(committed.has(key))startRest()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
@@ -837,7 +854,9 @@ function bindWorkout(){
     saveDraft();updateSaveMeta()});
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
-    const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
+    const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now);
+    const name=prog.find(id)?.name||"exercise";b.setAttribute("aria-expanded",now?"false":"true");
+    b.setAttribute("aria-label",`${now?"Show":"Hide"} ${name} sets`)});
   if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const bar=document.createElement("div");bar.className="focusbar";
     bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
@@ -852,7 +871,7 @@ function bindWorkout(){
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"forge";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} ready`:"ready";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
   g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
@@ -868,8 +887,14 @@ function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercise
 
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const done=[...committed].length;
-  const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&+i.value>0).length;
-  $("#saveMeta").textContent=done?`${day} · ${done}/${planned} sets done`:(entered?`${day} · ${entered}/${planned} entered`:`${day} · ${planned} sets`);}
+  const loadInputs=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&+i.value>0);
+  const entered=loadInputs.length,enteredLoad=sum(loadInputs.map(i=>+i.value||0));
+  $("#saveMeta").textContent=done?`${day} · ${done}/${planned} sets done`:(entered?`${day} · ${entered}/${planned} entered`:`${day} · ${planned} sets`);
+  const summaryExercises=$("#summaryExercises"),summarySets=$("#summarySets"),summaryLoad=$("#summaryLoad"),summaryProgress=$("#summaryProgress");
+  if(summaryExercises)summaryExercises.textContent=exs.length;
+  if(summarySets)summarySets.textContent=`${done} / ${planned}`;
+  if(summaryLoad)summaryLoad.textContent=`${kfmt(enteredLoad)} ${unitLabel()}`;
+  if(summaryProgress)summaryProgress.textContent=`${planned?Math.round(done/planned*100):0}%`;}
 
 function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
@@ -899,7 +924,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=`Workout forged — ${rows.length} ${plural(rows.length,"set")} logged.`;
+  let msg=`Workout saved — ${rows.length} ${plural(rows.length,"set")} logged.`;
   if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render()}finally{saving=false}}
@@ -951,6 +976,13 @@ function recentDeltaRows(){const sessMap=new Map();
         e1RM:fmt(Math.round(toDisplay(m.bestE1rm))),Delta:cmp.status==="new"?"—":formatDelta(cmp)||"—"})}}
   return out}
 
+function sparkline(values,label){
+  const src=values.length>1?values:[0,...values],w=120,h=30,pad=3,min=Math.min(...src,0),max=Math.max(...src,1),range=max-min||1;
+  const points=src.map((value,i)=>`${pad+i*(w-pad*2)/Math.max(1,src.length-1)},${h-pad-(value-min)*(h-pad*2)/range}`).join(" ");
+  const text=src.map(value=>fmt(Math.round(value))).join(", ");
+  return `<svg class="sparkline" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(label)}: ${esc(text)}">`+
+    `<polyline points="${points}" vector-effect="non-scaling-stroke"></polyline></svg>`}
+
 function renderStats(){
   renderThisWeek();
   // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
@@ -961,13 +993,24 @@ function renderStats(){
   const sums=summaries();
   const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
   const bestE=state.log.length?Math.max(...state.log.filter(isWork).map(x=>e1rm(+x.load,+x.reps))):0;
+  const sessionMap=new Map();
+  for(const row of state.log){if(!sessionMap.has(row.session))sessionMap.set(row.session,[]);sessionMap.get(row.session).push(row)}
+  const sessionRows=[...sessionMap.values()].sort((a,b)=>String(a[0]?.created).localeCompare(String(b[0]?.created)));
+  let cumulativeSets=0,cumulativeVolume=0,runningBest=0;
+  const sessionSeries=sessionRows.map((rows,index)=>{
+    cumulativeSets+=rows.length;
+    cumulativeVolume+=sum(rows.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+    runningBest=Math.max(runningBest,...rows.filter(isWork).map(x=>e1rm(+x.load,+x.reps)),0);
+    return{sessions:index+1,sets:cumulativeSets,volume:toDisplay(cumulativeVolume),best:toDisplay(runningBest)}});
+  const series=key=>sessionSeries.slice(-8).map(point=>point[key]);
   const tiles=[
-    {label:"Sessions",val:new Set(state.log.map(x=>x.session)).size},
-    {label:"Sets logged",val:state.log.length},
-    {label:"Volume",val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
-    {label:"Best e1RM",val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0},
+    {label:"Sessions",val:new Set(state.log.map(x=>x.session)).size,series:series("sessions")},
+    {label:"Sets logged",val:state.log.length,series:series("sets")},
+    {label:"Volume",val:kfmt(toDisplay(totalVol)),unit:unitLabel(),series:series("volume")},
+    {label:"Best e1RM",val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0,series:series("best")},
   ];
-  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("");
+  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__copy"><div class="metric__label">${t.label}</div>`+
+    `<div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>${sparkline(t.series,t.label+" trend")}</div>`).join("");
 
   const old=$("#statExercise").value;
   $("#statExercise").innerHTML=keys.map(k=>`<option value="${esc(k)}">${esc(keyLabel(k))}</option>`).join("")||"<option>No data</option>";
@@ -1194,37 +1237,53 @@ function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=
 
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
+function chartTheme(c){
+  const style=getComputedStyle(c);
+  const read=(token,fallback)=>style.getPropertyValue(token).trim()||fallback;
+  return{
+    grid:read("--chart-grid","#b8af9d"),
+    label:read("--chart-label","#4b5863"),
+    value:read("--chart-value","#102238"),
+    areaStart:read("--chart-area-start","rgba(168,47,40,.24)"),
+    areaEnd:read("--chart-area-end","rgba(168,47,40,0)"),
+    lineStart:read("--chart-line-start","#00658a"),
+    lineMid:read("--chart-line-mid","#705500"),
+    lineEnd:read("--chart-line-end","#a82f28"),
+    point:read("--chart-point","#705500"),
+    pointCurrent:read("--chart-point-current","#a82f28"),
+    pointShadow:read("--chart-point-shadow","rgba(168,47,40,.32)")
+  }}
 function draw(rows){
   const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#8b97a8",dim:"#7b8899",rule:"#2a323d",mist:"#eceff4"};
+  const C=chartTheme(c);
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Mono",monospace';ctx.textBaseline="middle";
-  if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}
+  if(!rows.length){ctx.fillStyle=C.label;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}
   const vals=rows.map(r=>r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
   const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
   const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?d.toFixed(1):fmt(Math.round(d))};
   // gridlines + y labels
-  ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
+  ctx.strokeStyle=C.grid;ctx.lineWidth=1;ctx.fillStyle=C.label;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val),padL-8,gy)}
   // area fill
-  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
+  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,C.areaStart);grad.addColorStop(1,C.areaEnd);
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
   // line (cool -> hot, left to right = progression heating up)
-  const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
+  const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.lineStart);lg.addColorStop(.55,C.lineMid);lg.addColorStop(1,C.lineEnd);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
   // points
   rows.forEach((r,i)=>{const last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(r.top),last?5:3,0,7);
-    if(last){ctx.fillStyle=C.white;ctx.shadowColor=C.ember;ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;}
-    else{ctx.fillStyle=C.gold;ctx.fill()}});
+    if(last){ctx.fillStyle=C.pointCurrent;ctx.shadowColor=C.pointShadow;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;}
+    else{ctx.fillStyle=C.point;ctx.fill()}});
   // last value callout
-  const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.white;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Mono",monospace';
+  const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.value;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Mono",monospace';
   ctx.fillText(`${fmtLoad(rows.at(-1).top)}${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
   // x labels (first & last date)
-  ctx.fillStyle=C.dim;ctx.font='10px "Plex Mono",monospace';ctx.textBaseline="alphabetic";
+  ctx.fillStyle=C.label;ctx.font='10px "Plex Mono",monospace';ctx.textBaseline="alphabetic";
   ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
@@ -1245,13 +1304,21 @@ function renderHistory(){
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
-  }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
+  }).join(""):`<div class="table"><div class="empty">No sessions yet. Save a workout from the Log tab.</div></div>`;
   $$("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Delete this session? This cannot be undone.")){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast("Session deleted.")}});
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
+  const sorters={
+    newest:(a,b)=>b.date.localeCompare(a.date)||String(b.created).localeCompare(String(a.created)),
+    oldest:(a,b)=>a.date.localeCompare(b.date)||String(a.created).localeCompare(String(b.created)),
+    exercise:(a,b)=>displayName(a).localeCompare(displayName(b))||b.date.localeCompare(a.date)||a.set-b.set,
+    load:(a,b)=>(+b.load||0)-(+a.load||0)||b.date.localeCompare(a.date)
+  };
+  const rows=[...state.log].sort(sorters[historySort]||sorters.newest)
+    .map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
+  const sort=$("#historySort");if(sort){sort.value=historySort;sort.onchange=()=>{historySort=sort.value;renderHistory()}};
 }
 
 function sessionEditor(s,sets){
@@ -1325,7 +1392,7 @@ function dayCard(d){
   const body=exs.length
     ?exs.map((e,i)=>exCard(e,i,exs.length)).join("")
     :`<p class="pday__empty">No exercises yet. Add your first below.</p>`;
-  return `<div class="pday" data-day="${esc(d)}">`+
+  return `<div class="pday" aria-label="${esc(d)} exercises" data-day="${esc(d)}">`+
     `<div class="pday__head">`+
       `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(d)}" aria-label="Day name">`+
       `<span class="pday__count">${exs.length} ex · ${sets} sets</span>`+
@@ -1618,7 +1685,7 @@ const TOUR=[
   {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. RepForge reads your history and tells you when you're ready to add load."},
   {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
-  {view:"log",title:"Heat gauge & rest timer",body:"The <b>forge</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
+  {view:"log",title:"Progress and rest timer",body:"The <b>ready</b> indicator shows how many exercises are ready for more weight. Tap an exercise's rest button to start the <b>rest timer</b> in the top bar."},
   {view:"log",title:"Finish the workout",body:"When you're done, tap <b>Finish workout</b> to save. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
