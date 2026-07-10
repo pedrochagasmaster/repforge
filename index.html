@@ -120,6 +120,7 @@
           <option value="volume">Volume</option><option value="prs">PRs</option><option value="review">Review</option>
         </select></label>
       </div>
+      <p id="statsSearchStatus" class="stats-search-status" aria-live="polite"></p>
       <div id="statsSeg" class="seg seg--stats" role="tablist" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true">Overview</button>
         <button type="button" role="tab" data-seg="strength" aria-selected="false">Strength</button>
@@ -339,6 +340,7 @@
     <button type="button" class="btn btn--forge installbanner__action hidden" id="installBannerAction">Install</button>
   </div>
   <div id="toast" class="toast hidden"></div>
+  <script src="command-parser.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

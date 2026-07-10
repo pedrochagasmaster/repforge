@@ -1,5 +1,6 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1";
 const DB="repforge",STORE="kv";
+const {normalizeCommandText,parseSetCommand}=window.RepForgeCommandParser;
 function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);
   r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function idbGet(key){const db=await idbOpen();
@@ -61,7 +62,8 @@ const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExpo
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
 const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled)});
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const speechRecognitionApi=()=>Object.prototype.hasOwnProperty.call(window,"__repforgeTestSpeechRecognition")
+  ?window.__repforgeTestSpeechRecognition:window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>unit==="lb"?(+v||0)/LB:(+v||0);
@@ -335,6 +337,8 @@ const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let captureTargetId=null,captureOrder=[],detailOpen=false,statsQuery="",historyQuery="";
+let detailReturnFocus=null,detailInertState=[];
+const detailModalMedia=window.matchMedia("(max-width: 899px)");
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -678,8 +682,20 @@ function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview();
   applyStatsQuery()}
 function applyStatsQuery(){
-  const q=statsQuery.trim().toLowerCase(),scope=$("#"+(STATS_SEG[statsSeg]||"segOverview"));if(!scope)return;
-  scope.querySelectorAll(".attn__chip,.metric,.prtl__row,tbody tr,.vrow").forEach(el=>el.classList.toggle("query-hidden",!!q&&!el.textContent.toLowerCase().includes(q)))
+  const q=statsQuery.trim().toLowerCase(),scope=$("#"+(STATS_SEG[statsSeg]||"segOverview")),status=$("#statsSearchStatus");if(!scope)return;
+  $$("#stats .query-hidden").forEach(el=>el.classList.remove("query-hidden"));
+  if(!q){if(status)status.textContent="";return}
+  if(statsSeg==="overview"&&$("#statsDeep"))$("#statsDeep").open=true;
+  const selectors={
+    overview:"#thisWeek .thisweek__rows > div,#thisWeek .thisweek__status,#attention .attn__chip,#metrics .metric,#trend span,#prLedger tbody tr,#completedVolume .vrow,#recent tbody tr,#recentDeltas tbody tr,#tops tbody tr,.empty",
+    strength:"tbody tr,.empty",
+    volume:"tbody tr,.empty",
+    prs:".prtl__row,.empty",
+    review:"#reviewPanel .blockprogress > *,#reviewPanel .review__summary,#reviewPanel > .lede,#reviewPanel > .empty"
+  };
+  const items=[...scope.querySelectorAll(selectors[statsSeg]||".empty")];
+  let matches=0;for(const el of items){const hit=el.textContent.toLowerCase().includes(q);el.classList.toggle("query-hidden",!hit);if(hit)matches++}
+  if(status)status.textContent=matches?`${matches} ${matches===1?"match":"matches"} in ${STATS_SEG[statsSeg].replace(/^seg/,"")}.`:`No matches in ${STATS_SEG[statsSeg].replace(/^seg/,"")}.`
 }
 
 // RIR-aware double-progression recommendation.
@@ -733,20 +749,54 @@ function setCaptureTarget(id,{focusComposer=true}={}){
   captureTargetId=id;renderWorkout();
   if(focusComposer)$("#commandInput")?.focus()
 }
-function setDetailOpen(open){
+function detailTriggerReference(trigger){
+  if(trigger?.selector)return trigger;
+  if(!(trigger instanceof Element))return{selector:"#openDetail"};
+  let selector=trigger.id?`#${CSS.escape(trigger.id)}`:null;
+  if(trigger.dataset.feedKey)selector=`[data-feed-key="${CSS.escape(trigger.dataset.feedKey)}"]`;
+  else if(trigger.dataset.captureTarget)selector=`[data-capture-target="${CSS.escape(trigger.dataset.captureTarget)}"]`;
+  return{element:trigger,selector}
+}
+function restoreDetailBackground(){
+  for(const item of detailInertState){item.element.inert=item.inert;
+    if(item.ariaHidden==null)item.element.removeAttribute("aria-hidden");else item.element.setAttribute("aria-hidden",item.ariaHidden)}
+  detailInertState=[]
+}
+function syncDetailPresentation(){
+  const sheet=$("#detailSheet"),form=$("#logForm");if(!sheet)return;
+  const modal=detailOpen&&detailModalMedia.matches;
+  restoreDetailBackground();
+  sheet.setAttribute("aria-modal",modal?"true":"false");
+  document.body.classList.toggle("detail-is-open",modal);
+  if(modal){
+    document.body.append(sheet);
+    const background=[...document.body.children].filter(el=>el!==sheet&&["HEADER","MAIN","NAV"].includes(el.tagName));
+    detailInertState=background.map(element=>({element,inert:element.inert,ariaHidden:element.getAttribute("aria-hidden")}));
+    for(const {element} of detailInertState){element.inert=true;element.setAttribute("aria-hidden","true")}
+  }else if(form&&sheet.parentElement!==form)form.append(sheet)
+}
+function detailFocusable(){
+  const sheet=$("#detailSheet");if(!sheet)return[];
+  return [...sheet.querySelectorAll("button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])")]
+    .filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0})
+}
+function setDetailOpen(open,trigger){
   detailOpen=!!open;
   const sheet=$("#detailSheet");if(!sheet)return;
+  if(detailOpen)detailReturnFocus=detailTriggerReference(trigger);
   sheet.classList.toggle("hidden",!detailOpen);
-  document.body.classList.toggle("detail-is-open",detailOpen);
-  if(detailOpen){$("#detailTitle").textContent=captureExercise()?.name||"Exercise details";$("#closeDetail")?.focus()}
-  else $("#openDetail")?.focus()
+  syncDetailPresentation();
+  if(detailOpen){$("#detailTitle").textContent=captureExercise()?.name||"Exercise details";
+    if(detailModalMedia.matches)$("#closeDetail")?.focus();else $("#workout .is-capture-target input")?.focus()}
+  else{const target=detailReturnFocus?.element?.isConnected?detailReturnFocus.element:detailReturnFocus?.selector?$(detailReturnFocus.selector):null;
+    detailReturnFocus=null;(target||$("#openDetail")||$("#commandInput"))?.focus()}
 }
-function renderCaptureUI(){
+function renderCaptureUI({preserveFeed=false}={}){
   const ex=captureExercise(),list=exercises().filter(e=>!skipped.has(e.id));
   const target=$("#captureTargetName");if(target)target.textContent=ex?.name||"No exercise";
   $$("#workout .exercise").forEach(a=>a.classList.toggle("is-capture-target",a.dataset.ex===ex?.id));
   const dock=$("#exerciseDock");if(dock){dock.innerHTML=list.map((e,i)=>`<button type="button" role="tab" data-capture-target="${esc(e.id)}" aria-selected="${e.id===ex?.id?"true":"false"}" tabindex="${e.id===ex?.id?"0":"-1"}"><span>${i+1}</span>${esc(e.name)}</button>`).join("");
-    $$("[data-capture-target]").forEach((b,i)=>{b.onclick=()=>setCaptureTarget(b.dataset.captureTarget);
+    $$("[data-capture-target]").forEach((b,i)=>{b.onclick=()=>{if(b.dataset.captureTarget===captureTargetId)setDetailOpen(true,b);else setCaptureTarget(b.dataset.captureTarget)};
       b.onkeydown=event=>{if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;event.preventDefault();
         const next=(i+(event.key==="ArrowRight"?1:-1)+list.length)%list.length;captureTargetId=list[next].id;renderWorkout();$$("[data-capture-target]")[next]?.focus()}})}
   const suggestions=$("#captureSuggestions");if(suggestions){const previous=ex?last(ex):[],r=ex?recommendation(ex):null;
@@ -763,8 +813,8 @@ function renderCaptureUI(){
     return{key,...p,load,reps,effort}}).filter(Boolean);
   const feed=$("#captureFeed"),count=$("#captureFeedCount");
   if(count)count.textContent=`${items.length} ${plural(items.length,"set")}`;
-  if(feed){feed.innerHTML=items.length?items.map((item,i)=>`<button type="button" class="capture-item" data-feed-ex="${esc(item.ex.id)}"><span class="capture-item__index">${String(i+1).padStart(2,"0")}</span><span class="capture-item__main"><b>${esc(item.ex.name)}</b><small>Set ${item.set}</small></span><strong>${esc(item.load)} × ${esc(item.reps)} ${esc(item.effort)}</strong><span class="capture-item__state">${committed.has(item.key)?"Saved":"Draft"}</span></button>`).join(""):`<p class="capture-empty">Captured sets appear here.</p>`;
-    $$("[data-feed-ex]").forEach(b=>b.onclick=()=>{captureTargetId=b.dataset.feedEx;renderWorkout();setDetailOpen(true)})}
+  if(feed&&!preserveFeed){feed.innerHTML=items.length?items.map((item,i)=>`<button type="button" class="capture-item" data-feed-ex="${esc(item.ex.id)}" data-feed-key="${esc(item.key)}"><span class="capture-item__index">${String(i+1).padStart(2,"0")}</span><span class="capture-item__main"><b>${esc(item.ex.name)}</b><small>Set ${item.set}</small></span><strong>${esc(item.load)} × ${esc(item.reps)} ${esc(item.effort)}</strong><span class="capture-item__state">${committed.has(item.key)?"Saved":"Draft"}</span></button>`).join(""):`<p class="capture-empty">Captured sets appear here.</p>`;
+    $$("[data-feed-ex]").forEach(b=>b.onclick=()=>{captureTargetId=b.dataset.feedEx;renderCaptureUI({preserveFeed:true});setDetailOpen(true,b)})}
   const planned=sum(list.map(e=>e.sets)),done=committed.size,summary=$("#sessionSummary");
   if(summary)summary.innerHTML=`<p class="session-summary__label">Session</p><div><strong>${done}</strong><span>saved sets</span></div><dl><div><dt>Day</dt><dd>${esc(day)}</dd></div><div><dt>Planned</dt><dd>${planned} sets</dd></div><div><dt>Exercises</dt><dd>${list.length}</dd></div></dl>`;
   $("#detailSheet")?.classList.toggle("hidden",!detailOpen);
@@ -1078,27 +1128,6 @@ function detectPRs(log,opts={}){
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
-function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
-  .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
-function parseSetCommand(text){
-  const n=normalizeCommandText(text),warnings=[];
-  let set=null,load,reps,rir=null,effort=null,unit=null,confidence="low",gotReps=false;
-  const setM=n.match(/(?:set|s)\s*(\d+)/);if(setM)set=+setM[1];
-  const primary=n.match(/(\d+(?:\.\d+)?)\s*(kg|lb)?\s*(?:x|for)\s*(\d+)/);
-  if(primary){load=+primary[1];unit=primary[2]||null;reps=+primary[3];confidence="high";gotReps=true}
-  else{const nums=(n.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
-    if(set!=null){const i=nums.indexOf(set);if(i>=0)nums.splice(i,1)}
-    if(!nums.length)return {ok:false,error:"Could not read a set from that.",warnings};
-    if(nums.length<2)return {ok:false,error:"Could not find reps.",warnings};
-    load=nums[0];reps=nums[1];gotReps=true;if(nums.length>=3)rir=nums[2]}
-  if(!gotReps)return {ok:false,error:"Could not find reps.",warnings};
-  const rirM=n.match(/(?:rir|@)\s*(\d+(?:\.\d+)?)/);if(rirM)rir=+rirM[1];
-  else{const tr=n.match(/\b(\d+(?:\.\d+)?)\s*rir\b/);if(tr)rir=+tr[1]}
-  const ef=n.match(/\b(easy|hard|max)\b/);if(ef)effort=ef[1];
-  if(!unit){const u=n.match(/\b(\d+(?:\.\d+)?)\s*(kg|lb)\b/);if(u)unit=u[2]}
-  let exerciseName=null;const exSrc=setM?n.slice(setM.index+setM[0].length).trim():n;
-  const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
-  return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
 window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
@@ -1154,12 +1183,16 @@ function handleCommandSubmit(){
   renderCaptureUI();toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`);
   $("#commandInput")?.focus()}
 function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!state.settings.voiceInputEnabled)}
+function voiceInputFailed(message){
+  toast(message);$("#commandInput")?.focus()
+}
 function startVoiceInput(){
-  if(!SR){toast("Voice input is not available. Type the set instead.");$("#commandInput")?.focus();return}
-  const rec=new SR();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
+  const SpeechRecognition=speechRecognitionApi();
+  if(!SpeechRecognition){voiceInputFailed("Voice input is not available. Type the set instead.");return}
+  const rec=new SpeechRecognition();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
   rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
-  rec.onerror=()=>toast("Voice input failed. Type the set instead.");
-  try{rec.start()}catch{toast("Voice input failed. Type the set instead.")}}
+  rec.onerror=()=>voiceInputFailed("Voice input failed. Type the set instead.");
+  try{rec.start()}catch{voiceInputFailed("Voice input failed to start. Type the set instead.")}}
 window.__repforgeBlockSnapshot=blockSnapshot;
 window.__repforgeBuildPlainSummary=buildPlainSummary;
 
@@ -1175,7 +1208,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
     b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
   const events=prTimeline(prFilter);
-  if(!events.length){el.innerHTML=`<div class="empty">No PRs match this filter yet.</div>`;return}
+  if(!events.length){el.innerHTML=`<div class="empty">No PRs match this filter yet.</div>`;applyStatsQuery();return}
   const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const prDate=d=>{const p=String(d||"").split("-");return p.length===3?`${months[+p[1]-1]} ${+p[2]}`:String(d||"")};
   const kindLbl=k=>k==="load"?"Load PR":k==="reps"?"Reps PR":"e1RM PR";
@@ -1188,7 +1221,8 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
       `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
       `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
       `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
-      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("")}
+      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("");
+  applyStatsQuery()}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -1750,7 +1784,7 @@ function init(){
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
     if(!g.contains(e.target)&&!e.target.closest("[data-term]"))g.classList.add("hidden")});
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
-  $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
+  $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart();applyStatsQuery()});
   $("#date").value=today();
   $("#bodyweight").value=lastBodyweight();
   updateBodyweightField();
@@ -1764,10 +1798,17 @@ function init(){
   const cmdHelp=$("#commandHelp");if(cmdHelp)cmdHelp.onclick=e=>{e.stopPropagation();glossaryPopover("quick entry",cmdHelp)};
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=startVoiceInput;
   updateVoiceBtn();
-  $("#openDetail").onclick=()=>setDetailOpen(true);
+  $("#openDetail").onclick=e=>setDetailOpen(true,e.currentTarget);
   $("#closeDetail").onclick=()=>setDetailOpen(false);
   $$("[data-detail-close]").forEach(b=>b.onclick=()=>setDetailOpen(false));
-  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&detailOpen)setDetailOpen(false)});
+  document.addEventListener("keydown",e=>{if(!detailOpen||!detailModalMedia.matches)return;
+    if(e.key==="Escape"){e.preventDefault();setDetailOpen(false);return}
+    if(e.key!=="Tab")return;const focusable=detailFocusable();if(!focusable.length){e.preventDefault();return}
+    const first=focusable[0],last=focusable.at(-1);
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
+  document.addEventListener("focusin",e=>{if(detailOpen&&detailModalMedia.matches&&!$("#detailSheet").contains(e.target))detailFocusable()[0]?.focus()});
+  detailModalMedia.addEventListener("change",()=>{if(detailOpen){syncDetailPresentation();(detailModalMedia.matches?$("#closeDetail"):$("#workout .is-capture-target input"))?.focus()}});
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
   $("#statsQuery").oninput=e=>{statsQuery=e.target.value;applyStatsQuery()};

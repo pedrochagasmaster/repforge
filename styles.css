@@ -1074,6 +1074,7 @@ h2{font-size:40px;line-height:1;letter-spacing:.02em;text-transform:none}
   display:block;font-family:var(--display);font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--steel);
 }
 .workspace-filter input,.workspace-filter select,.activity-search input{min-height:46px;margin-top:6px}
+.stats-search-status{min-height:20px;margin:-8px 0 10px;color:var(--steel);font-size:12px}
 .query-hidden{display:none!important}
 .thisweek,.metric,.card,.session,.table,.advanced{
   border-radius:2px;background:var(--slag);box-shadow:none;
@@ -1094,6 +1095,8 @@ h2{font-size:40px;line-height:1;letter-spacing:.02em;text-transform:none}
 .history-table-source{display:none}
 nav{background:rgba(11,13,18,.97);border-top:1px solid var(--rule-soft)}
 nav button.active{background:transparent}
+body.detail-is-open{overflow:hidden}
+body.detail-is-open>header,body.detail-is-open>main,body.detail-is-open>nav{pointer-events:none;user-select:none}
 
 @media (max-width:520px){
   .commandbar{grid-template-columns:minmax(0,1fr) auto}
