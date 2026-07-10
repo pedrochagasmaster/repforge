@@ -653,6 +653,13 @@ function deltaPreviewFor(ex,draft){const rows=draftRowsForExercise(ex,draft);if(
 // Stalled = 3+ recent sessions at the same working load with no gain in top-set reps.
 function isStalled(sess){if(sess.length<3)return false;const r=sess.slice(-3),l0=r[0].med,rep0=r[0].maxReps;
   return r.every(s=>Math.abs(s.med-l0)<0.01)&&r.every(s=>s.maxReps<=rep0)}
+// Recover = grinding near failure AND performance did not improve vs prior session (same/lower load).
+function recoverSignal(ex,sess,rirCeiling=0.5){sess=sess||sessionsFor(ex);if(sess.length<2)return false;
+  const last=sess.at(-1),prior=sess.at(-2);
+  if(last.avgRir==null||!(+last.avgRir<=rirCeiling))return false;
+  if(last.maxReps==null||last.medReps==null||prior.maxReps==null||prior.medReps==null)return false;
+  if(+last.med-+prior.med>=0.01)return false;
+  return +last.maxReps<=+prior.maxReps&&+last.medReps<=+prior.medReps}
 function round(v){const raw=+state.settings.minJump;const inc=Number.isFinite(raw)&&raw>0?raw:2.5;return Math.round(v/inc)*inc}
 function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
@@ -692,10 +699,11 @@ function recommendation(ex){
   // Reduce uses the typical (median) set, so one junk set won't force a back-off — and it gives a real lighter target.
   if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:"Back off",text:`Most sets fell below ${ex.min} reps. Drop the load and rebuild the range.`,load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled};
   if(stalled)return{status:"reduce",heat:.3,label:"Stalled · deload",text:"No progress in three sessions. Take a lighter session or add a set, then rebuild.",load,stalled:true};
-  if(rir<=0.5)return{status:"hold",heat:.42,label:"Hold · recover",text:"Sets are grinding near failure. Hold the load and bank some recovery.",load,stalled:false};
+  if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:"Hold · recover",text:"Hard sets, but reps didn't move. Hold the load and bank recovery.",load,stalled:false};
   if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:"Push reps",text:"You left reps in reserve. Push closer to failure before adding load.",load,stalled:false};
   return{status:"hold",heat:.48,label:"Hold · add reps",text:"Keep the load and chase more reps inside your RIR target.",load,stalled:false};
 }
+
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}}
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
@@ -1164,8 +1172,7 @@ function attentionSignal(ex,fatigueCluster){
   const planned=prog.volume(),done=completedHardSets(7);
   for(const m of muscles(ex.primary)){const p=planned.get(m),d=done.get(m),target=p?p.d+p.p:0,actual=d?d.d+d.p:0;
     if(target>0&&actual<target)return{key:"vol",why:"primary muscle under weekly volume target."}}
-  const last=sess.at(-1);
-  if(last&&(last.avgRir<=0.5||(fatigueCluster&&r.status==="hold"&&last.avgRir<=1)))return{key:"fatigue",why:"sets grinding near failure."};
+  if(recoverSignal(ex,sess)||(fatigueCluster&&r.status==="hold"&&recoverSignal(ex,sess,1)))return{key:"fatigue",why:"hard sets, but reps did not move."};
   return null}
 function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const r=recommendation(ex);return r.status==="reduce"||r.stalled}).length>=2;
   const defs=[{key:"add",cls:"add",lead:"Ready to add"},{key:"reduce",cls:"reduce",lead:"Back off / stalled"},{key:"new",cls:"new",lead:"Untested"},
@@ -1173,6 +1180,8 @@ function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const
   const g=Object.fromEntries(defs.map(d=>[d.key,[]]));
   for(const ex of prog.exercises){const sig=attentionSignal(ex,fatigueCluster);if(sig)g[sig.key].push({ex,why:sig.why})}
   return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
+window.__repforgeRecoverSignal=recoverSignal;
+window.__repforgeRecommendation=recommendation;
 window.__repforgeAttention=attentionGroups;
 function renderAttention(){const el=$("#attention");if(!el)return;
   const groups=attentionGroups();
