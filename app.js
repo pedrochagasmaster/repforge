@@ -101,7 +101,7 @@ const defaultAlternates={
 const program=[
 ["Day 1",1,"Hack squat or pendulum squat",2,4,8,"Quads","Glutes,Adductors"],["Day 1",2,"Seated leg curl",2,4,8,"Hamstrings",""] ,["Day 1",3,"Incline converging chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 1",4,"Chest-supported machine row",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],["Day 1",5,"Machine lateral raise",2,6,8,"Side delts",""] ,["Day 1",6,"Hip adduction machine",2,6,8,"Adductors",""] ,
 ["Day 2",1,"45 degree leg press, quad-biased",2,4,8,"Quads","Glutes,Adductors"],["Day 2",2,"Smith machine RDL or machine hip hinge",2,4,8,"Hamstrings,Glutes","Spinal erectors"],["Day 2",3,"Machine shoulder press",2,4,8,"Front delts","Side delts,Triceps"],["Day 2",4,"Neutral-grip pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],["Day 2",5,"Pec deck",2,6,8,"Chest",""] ,["Day 2",6,"Machine preacher curl",2,6,8,"Biceps",""] ,
-["Day 3",1,"Leg extension",2,6,8,"Quads",""] ,["Day 3",2,"Lying or seated leg curl",2,6,8,"Hamstrings",""] ,["Day 3",3,"Machine chest dip or plate-loaded chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 3",4,"Plate-loaded high row",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],["Day 3",5,"Reverse pec deck",2,6,8,"Rear delts","Mid/upper back"],["Day 3",6,"Cable pressdown",2,6,8,"Triceps",""]
+["Day 3",1,"Leg extension",2,6,8,"Quads",""] ,["Day 3",2,"Lying or seated leg curl",2,6,8,"Hamstrings",""] ,["Day 3",3,"Machine chest dip or chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 3",4,"High row machine",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],["Day 3",5,"Reverse pec deck",2,6,8,"Rear delts","Mid/upper back"],["Day 3",6,"Cable pressdown",2,6,8,"Triceps",""]
 ].map(x=>{const ex={id:uid(),day:x[0],order:x[1],name:x[2],sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]};if(defaultAlternates[x[2]])ex.alternates=defaultAlternates[x[2]];return ex});
 
 const programBeginner=[
@@ -333,7 +333,7 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let logMode="focus",focusIndex=0,overviewOpen=false,overviewTrigger=null,statsSeg="overview",prFilter="all";
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -660,38 +660,79 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   if(lbl){for(const n of [...lbl.childNodes])if(n.nodeType===3)n.remove();
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
-function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
+function setLogMode(m){
+  if(m==="full"){openSessionOverview();return}
+  logMode="focus";
+  $("#modeFull").classList.remove("active");
+  $("#modeFocus").classList.add("active");
+  closeSessionOverview();
+  renderWorkout()
+}
+function setFocusIndex(next,{focus=false}={}){
+  const list=focusList();
+  focusIndex=Math.max(0,Math.min(Number(next)||0,Math.max(0,list.length-1)));
+  renderWorkout();
+  if(focus)requestAnimationFrame(()=>$("#workout .ex__name")?.focus())
+}
+function closeSessionOverview({restoreFocus=true}={}){
+  const dialog=$("#sessionOverview"),trigger=overviewTrigger;
+  overviewOpen=false;
+  overviewTrigger=null;
+  if(dialog?.open)dialog.close();
+  $("#modeFull")?.classList.remove("active");
+  $("#modeFocus")?.classList.add("active");
+  if(restoreFocus&&trigger?.isConnected)requestAnimationFrame(()=>trigger.focus())
+}
+function openSessionOverview(){
+  const dialog=$("#sessionOverview");if(!dialog)return;
+  overviewTrigger=document.activeElement instanceof HTMLElement?document.activeElement:$("#modeFull");
+  overviewOpen=true;
+  renderSessionOverview();
+  if(!dialog.open)dialog.showModal();
+  $("#modeFull")?.classList.add("active");
+  $("#modeFocus")?.classList.remove("active");
+  requestAnimationFrame(()=>$("#overviewClose")?.focus())
+}
+function trapSessionOverviewFocus(event){
+  if(event.key!=="Tab"||!overviewOpen)return;
+  const dialog=$("#sessionOverview");
+  const focusable=[...dialog.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(element=>element.getClientRects().length);
+  if(!focusable.length){event.preventDefault();dialog.focus();return}
+  const first=focusable[0],last=focusable.at(-1),active=document.activeElement;
+  if(event.shiftKey&&(active===first||!dialog.contains(active))){event.preventDefault();last.focus()}
+  else if(!event.shiftKey&&(active===last||!dialog.contains(active))){event.preventDefault();first.focus()}
+}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   day=ex.day;
-  if(logMode==="focus"){
-    const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
-    focusIndex=idx>=0?idx:0;
-  }
+  logMode="focus";
+  const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
+  focusIndex=idx>=0?idx:0;
   $('nav button[data-view="log"]').click();
-  const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
+  renderWorkout()}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
 
-// Recommendation -> RIR-aware double progression, mapped to a temperature/status.
+// Recommendation -> RIR-aware double progression with neutral action labels.
 function recommendation(ex){
   const sess=sessionsFor(ex);
-  if(!sess.length)return{status:"new",heat:.12,label:"New lift",text:`No history yet. Pick a load you can hold for ${ex.min}-${ex.max} reps at 0-${state.settings.rirHigh} RIR.`,load:null,stalled:false};
+  if(!sess.length)return{status:"new",heat:.12,label:"Exercise",text:`Choose a load for ${ex.min}-${ex.max} reps at 0-${state.settings.rirHigh} RIR.`,load:null,stalled:false};
   const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length,rir=l.avgRir,rirHigh=+state.settings.rirHigh;
   const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
   // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
   const nearTop=n>=3&&atTop>=n-1&&l.minReps>=ex.max-1;
   const stalled=isStalled(sess);
-  if((allTop||nearTop)&&rir>=rirHigh+1)return{status:"add2",heat:1,label:"Add load ++",text:"You topped the range with reps to spare. Jump up boldly.",load:round(load+jump(load,2)),stalled:false};
-  if(allTop||nearTop)return{status:"add",heat:.82,label:"Add load",text:"Every set hit the top of the range. Add weight.",load:round(load+jump(load,1)),stalled:false};
+  if((allTop||nearTop)&&rir>=rirHigh+1)return{status:"add2",heat:1,label:"Add load",text:"All sets reached the top of the range with reps in reserve.",load:round(load+jump(load,2)),stalled:false};
+  if(allTop||nearTop)return{status:"add",heat:.82,label:"Add load",text:"All sets reached the top of the range.",load:round(load+jump(load,1)),stalled:false};
   // Reduce uses the typical (median) set, so one junk set won't force a back-off — and it gives a real lighter target.
-  if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:"Back off",text:`Most sets fell below ${ex.min} reps. Drop the load and rebuild the range.`,load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled};
-  if(stalled)return{status:"reduce",heat:.3,label:"Stalled · deload",text:"No progress in three sessions. Take a lighter session or add a set, then rebuild.",load,stalled:true};
-  if(rir<=0.5)return{status:"hold",heat:.42,label:"Hold · recover",text:"Sets are grinding near failure. Hold the load and bank some recovery.",load,stalled:false};
-  if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:"Push reps",text:"You left reps in reserve. Push closer to failure before adding load.",load,stalled:false};
-  return{status:"hold",heat:.48,label:"Hold · add reps",text:"Keep the load and chase more reps inside your RIR target.",load,stalled:false};
+  if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:"Reduce load",text:`Most sets fell below ${ex.min} reps. Use a lower load.`,load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled};
+  if(stalled)return{status:"reduce",heat:.3,label:"Reduce load",text:"Progress has held steady for three sessions. Use a lighter session.",load,stalled:true};
+  if(rir<=0.5)return{status:"hold",heat:.42,label:"Keep load",text:"Keep the current load and allow more recovery.",load,stalled:false};
+  if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:"Keep load",text:"Keep the load and add reps before increasing it.",load,stalled:false};
+  return{status:"hold",heat:.48,label:"Keep load",text:"Keep the load and add reps within the target range.",load,stalled:false};
 }
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}}
@@ -706,24 +747,64 @@ function render(){renderTabs();renderWorkout();renderStats();renderHistory();ren
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
-  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
+  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;focusIndex=0;renderTabs();renderWorkout()})}
+
+function renderFocusChrome(list){
+  const planned=sum(list.map(ex=>ex.sets));
+  const done=[...committed].filter(key=>list.some(ex=>key.startsWith(ex.id+"_"))).length;
+  const rail=$("#sessionRail");
+  if(rail){
+    rail.setAttribute("aria-valuemin","0");
+    rail.setAttribute("aria-valuemax",String(planned));
+    rail.setAttribute("aria-valuenow",String(done));
+    rail.setAttribute("aria-valuetext",planned?`${done} of ${planned} sets complete. Exercise ${focusIndex+1} of ${list.length}.`:"No sets planned.");
+    rail.innerHTML=`<div class="sessionrail__meta"><span>${done} of ${planned} sets</span><span>Exercise ${list.length?focusIndex+1:0} of ${list.length}</span></div>`+
+      `<div class="sessionrail__track"><span style="width:${planned?Math.round(done/planned*100):0}%"></span></div>`
+  }
+  const nav=$("#exerciseNavigator");
+  if(nav)nav.innerHTML=`<p class="exnav__title">Exercises</p>`+list.map((ex,index)=>{
+    const exDone=[...committed].filter(key=>key.startsWith(ex.id+"_")).length,on=index===focusIndex;
+    return `<button type="button" class="exnav__item${on?" active":""}" data-focus="${index}" aria-current="${on?"step":"false"}">`+
+      `<span class="exnav__index">${index+1}</span><span class="exnav__name">${esc(substituted.get(ex.id)||ex.name)}</span>`+
+      `<span class="exnav__count">${exDone}/${ex.sets}</span></button>`}).join("");
+  const controls=$("#focusControls"),last=Math.max(0,list.length-1);
+  if(controls)controls.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${focusIndex===0?"disabled":""}>Previous</button>`+
+    `<span class="focusbar__prog">${list.length?focusIndex+1:0} / ${list.length}</span>`+
+    `<button type="button" class="btn btn--primary" data-fnext ${focusIndex>=last?"disabled":""}>Next</button>`;
+  $$("[data-focus]").forEach(button=>button.onclick=()=>setFocusIndex(+button.dataset.focus,{focus:true}));
+  $("[data-fprev]")?.addEventListener("click",()=>setFocusIndex(focusIndex-1,{focus:true}));
+  $("[data-fnext]")?.addEventListener("click",()=>setFocusIndex(focusIndex+1,{focus:true}));
+  if(overviewOpen)renderSessionOverview()
+}
+
+function renderSessionOverview(){
+  const list=focusList(),target=$("#overviewList");if(!target)return;
+  target.innerHTML=list.map((ex,index)=>{
+    const done=[...committed].filter(key=>key.startsWith(ex.id+"_")).length,r=recommendation(ex);
+    return `<button type="button" class="overview-row" data-overview-focus="${index}">`+
+      `<span class="overview-row__index">${index+1}</span><span><strong>${esc(substituted.get(ex.id)||ex.name)}</strong>`+
+      `<small>${esc(r.label)} · ${done} of ${ex.sets} sets</small></span><span aria-hidden="true">›</span></button>`}).join("");
+  $$("[data-overview-focus]").forEach(button=>button.onclick=()=>{closeSessionOverview({restoreFocus:false});setFocusIndex(+button.dataset.overviewFocus,{focus:true})})
+}
 
 function renderWorkout(){
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
-    lc.textContent=nm||mc.current!=null?`${nm||"Untitled program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's session"}
+    lc.textContent=nm||mc.current!=null?`${nm||"Program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Session"}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
   warmups.clear();(draft.__warm||[]).forEach(k=>warmups.add(k));
   const effortMode=state.settings.rirMode==="effort";
   const restOn=+state.settings.restSec>0;
-  const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
-  const banner=hiddenCount?`<div class="skipbar">${hiddenCount} hidden today <button type="button" class="skipbar__show">Show all</button></div>`:"";
-  const fl=focusList();
-  if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
-  const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
-  const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
-  wk.innerHTML=banner+exercises().map(ex=>{
+  const list=focusList();
+  focusIndex=Math.max(0,Math.min(focusIndex,Math.max(0,list.length-1)));
+  const ex=list[focusIndex],wk=$("#workout");
+  wk.className="is-focus";
+  if(!ex){
+    wk.innerHTML=`<div class="empty-state"><h3>No exercises</h3><p>Choose another day or add an exercise in Program.</p></div>`;
+    renderFocusChrome(list);return
+  }
+  const exerciseHtml=(()=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
@@ -736,17 +817,24 @@ function renderWorkout(){
       const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}`;
       const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
       const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
+      if(committed.has(key)){
+        const effortText=effortMode?effortVal[0].toUpperCase()+effortVal.slice(1):`RIR ${esc(rirVal)}`;
+        return `<div class="setreceipt" data-set="${esc(key)}"><span class="setreceipt__set">Set ${n}${isW?" · Warm-up":""}</span>`+
+          `<strong>${esc(kgVal)} ${unitLabel()} × ${esc(repsVal)}</strong><span>${effortText}</span>`+
+          `<button type="button" class="receipt-edit" data-reopen="${esc(key)}">Edit</button></div>`}
       const rirCell=effortMode
         ?`<div class="effort" role="group" aria-label="Set ${n} effort">`+
           ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
-        :`<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`;
-      return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="Tap to mark as warmup">${isW?"W":n}</button>`+
-        `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="Set ${n} decrease ${unitLabel()}">−</button>`+
+        :`<label class="numberfield numberfield--rir"><span>RIR</span><input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}"></label>`;
+      return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="Mark set ${n} as warm-up">${isW?"W":n}</button>`+
+        `<label class="numberfield numberfield--load"><span>Load (${unitLabel()})</span><div class="numbercontrol"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-amount="load" data-dir="-1" aria-label="Set ${n} decrease ${unitLabel()}">−</button>`+
         `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
-        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="Set ${n} increase ${unitLabel()}">+</button></div>`+
+        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-amount="load" data-dir="1" aria-label="Set ${n} increase ${unitLabel()}">+</button></div></label>`+
+        `<label class="numberfield numberfield--reps"><span>Reps</span><div class="numbercontrol"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-amount="1" data-dir="-1" aria-label="Set ${n} decrease reps">−</button>`+
         `<input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(repsVal)}">`+
+        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-amount="1" data-dir="1" aria-label="Set ${n} increase reps">+</button></div></label>`+
         rirCell+
-        `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Save"}</button></div>`;
+        `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Complete set ${n}">Complete</button></div>`;
     }).join("");
     const perf=substituted.get(ex.id);
     const nameHtml=perf?`${esc(perf)} <span class="ex__subfor">(for ${esc(ex.name)})</span>`:esc(ex.name);
@@ -754,21 +842,22 @@ function renderWorkout(){
       `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
-      `<div class="ex__top"><div class="ex__head"><h3 class="ex__name">${nameHtml}</h3>`+
+    return `<article class="exercise is-${r.status} is-current" data-ex="${esc(ex.id)}">`+
+      `<div class="ex__top"><div class="ex__head"><p class="ex__position">Exercise ${focusIndex+1} of ${list.length}</p><h3 class="ex__name" tabindex="-1">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span>${ex.sets}×${ex.min}-${ex.max} reps · ${term("RIR")} 0-${fmt(state.settings.rirHigh)}</p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
-      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="Skip ${esc(ex.name)} today">Skip</button>`+
-      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="Toggle ${esc(ex.name)} sets">▾</button></div></div>`+
+      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="Skip ${esc(ex.name)}">Skip</button></div></div>`+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
       `<p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`+
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       subPick+
       prevHtml+deltaHtml+
-      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}</article>`;
-  }).join("");
+      `<div class="setstack">${rows}</div></article>`;
+  })();
+  wk.innerHTML=exerciseHtml;
+  renderFocusChrome(list);
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -781,7 +870,7 @@ function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId
     const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
     if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sets__head")?"beforebegin":"afterend",n)}}
 
-function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
+function saveDraft(){const d=loadDraft();$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
   d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
 
@@ -795,19 +884,15 @@ function bindWorkout(){
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
     const load=+($(`[data-k="${key}_load"]`)?.value)||0;
     if(load<=0){toast("Enter a weight before saving the set.");return}
-    const row=b.closest(".setrow");
-    if(committed.has(key)){committed.delete(key)}
-    else{committed.add(key);touched.add(key)}
-    if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
-      b.textContent=committed.has(key)?"✓":"Save"}
-    saveDraft();updateSaveMeta();
-    if(committed.has(key))startRest()});
+    committed.add(key);touched.add(key);saveDraft();startRest();renderWorkout()});
+  $$("#workout [data-reopen]").forEach(b=>b.onclick=()=>{committed.delete(b.dataset.reopen);saveDraft();renderWorkout()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
-    const incKg=+state.settings.minJump||2.5,curKg=fromDisplay(+inp.value||0),
-      nextKg=Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg);
-    inp.value=fmt(toDisplay(nextKg));
+    if(b.dataset.amount==="load"){
+      const incKg=+state.settings.minJump||2.5,curKg=fromDisplay(+inp.value||0);
+      inp.value=fmt(toDisplay(Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg)))
+    }else inp.value=fmt(Math.max(0,(+inp.value||0)+(+b.dataset.amount||1)*(+b.dataset.dir)));
     const row=inp.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta()});
@@ -835,27 +920,15 @@ function bindWorkout(){
     b.classList.add("active");touched.add(key);
     const row=b.closest(".setrow");if(row)row.classList.remove("is-suggested");
     saveDraft();updateSaveMeta()});
-  const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
-  $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
-    const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
-  if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
-    const bar=document.createElement("div");bar.className="focusbar";
-    bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
-      `<span class="focusbar__prog">${fl.length?at+1:0} of ${fl.length}</span>`+
-      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Finish workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
-    $("#workout").append(bar);
-    const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
-    const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
-    const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit()}
 }
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"forge";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} add`:"Session";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
-  g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
+  g.onclick=hot?()=>{const first=exs.find(ex=>{const s=recommendation(ex).status;return s==="add"||s==="add2"});if(first)goToLogExercise(first.id)}:null;}
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
   const flagged=exs.filter(e=>{const r=recommendation(e);return r.status==="reduce"||r.stalled}).length;
@@ -872,15 +945,17 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   $("#saveMeta").textContent=done?`${day} · ${done}/${planned} sets done`:(entered?`${day} · ${entered}/${planned} entered`:`${day} · ${planned} sets`);}
 
 function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
-  try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
+  try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[],draft=loadDraft();
   const bwRaw=$("#bodyweight").value,bw=bwRaw===""||bwRaw==null?0:posNum(fromDisplay(bwRaw));
   for(const ex of exercises()){if(skipped.has(ex.id))continue;for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
-    const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
+    const loadRaw=draft[`${key}_load`]??$(`[data-k="${key}_load"]`)?.value;
+    const repsRaw=draft[`${key}_reps`]??$(`[data-k="${key}_reps"]`)?.value;
+    const load=posNum(fromDisplay(loadRaw)),reps=posNum(repsRaw);
     let rir;
     if(state.settings.rirMode==="effort"){
-      const draft=loadDraft(),eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"hard";
-      rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
+      const eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"hard";
+      rir=EFFORT_RIR[eff]??1}else{rir=posNum(draft[`${key}_rir`]??$(`[data-k="${key}_rir"]`)?.value)}
     if(load<=0)continue;
     if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
@@ -899,7 +974,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=`Workout forged — ${rows.length} ${plural(rows.length,"set")} logged.`;
+  let msg=`Workout saved — ${rows.length} ${plural(rows.length,"set")}.`;
   if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render()}finally{saving=false}}
@@ -1149,7 +1224,7 @@ function attentionSignal(ex,fatigueCluster){
   if(last&&(last.avgRir<=0.5||(fatigueCluster&&r.status==="hold"&&last.avgRir<=1)))return{key:"fatigue",why:"sets grinding near failure."};
   return null}
 function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const r=recommendation(ex);return r.status==="reduce"||r.stalled}).length>=2;
-  const defs=[{key:"add",cls:"add",lead:"Ready to add"},{key:"reduce",cls:"reduce",lead:"Back off / stalled"},{key:"new",cls:"new",lead:"Untested"},
+  const defs=[{key:"add",cls:"add",lead:"Add load"},{key:"reduce",cls:"reduce",lead:"Reduce load"},{key:"new",cls:"new",lead:"No history"},
     {key:"stale",cls:"stale",lead:"Not trained recently"},{key:"vol",cls:"vol",lead:"Volume low"},{key:"fatigue",cls:"fatigue",lead:"Possible fatigue"}];
   const g=Object.fromEntries(defs.map(d=>[d.key,[]]));
   for(const ex of prog.exercises){const sig=attentionSignal(ex,fatigueCluster);if(sig)g[sig.key].push({ex,why:sig.why})}
@@ -1245,7 +1320,7 @@ function renderHistory(){
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
-  }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
+  }).join(""):`<div class="table"><div class="empty">No sessions yet.</div></div>`;
   $$("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Delete this session? This cannot be undone.")){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast("Session deleted.")}});
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
@@ -1265,7 +1340,7 @@ function sessionEditor(s,sets){
     `<label class="edate">Date<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>RIR</span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">Cancel</button>`+
-    `<button type="button" class="btn btn--forge" data-edsave="${esc(s.session)}">Save changes</button></div></div>`;
+    `<button type="button" class="btn btn--primary" data-edsave="${esc(s.session)}">Save changes</button></div></div>`;
 }
 
 function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
@@ -1548,7 +1623,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
       return `<div class="onb__day"><div class="onb__dayname">${esc(d)}</div>`+
         exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(e.primary)}</div>`).join("")+`</div>`});
     html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
-      `<button type="button" id="onbSave" class="btn btn--forge">Save program</button>`+
+      `<button type="button" id="onbSave" class="btn btn--primary">Save program</button>`+
       `<button type="button" id="onbEdit" class="btn btn--steel">Edit before saving</button>`+
       `<button type="button" id="onbRestart" class="btn btn--steel">Start over</button></div></div>`}
   body.innerHTML=html;
@@ -1616,10 +1691,10 @@ function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(f
 const TOUR=[
   {view:"log",title:"Welcome to RepForge",body:"A local-only tracker for progressive overload — everything stays on this device, nothing is uploaded. This quick tour shows every feature. Tap <b>Next</b> to begin, or <b>Skip tour</b> anytime."},
   {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. RepForge reads your history and tells you when you're ready to add load."},
-  {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
+  {view:"log",title:"Focus and Overview",body:"Focus shows one exercise at a time. Use <b>Previous</b> and <b>Next</b> to move through the session, or open <b>Overview</b> to select any exercise."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
-  {view:"log",title:"Heat gauge & rest timer",body:"The <b>forge</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
-  {view:"log",title:"Finish the workout",body:"When you're done, tap <b>Finish workout</b> to save. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
+  {view:"log",title:"Session status and rest timer",body:"The session status shows how many exercises are ready for more weight. Use the exercise timer when you need a rest interval."},
+  {view:"log",title:"Save the workout",body:"When the session is complete, tap <b>Save workout</b>. Stats and History update immediately."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
   {view:"program",title:"Program & blocks",body:"Build your split in the visual editor — days, exercises, muscles and rep ranges. See planned weekly <b>volume</b>, and use <b>End block</b> to review a mesocycle and plan the next one."},
@@ -1639,7 +1714,7 @@ function renderTour(){
   const extra=$("#tourExtra");
   if(s.install){
     $("#tourBody").innerHTML=`Add RepForge to your home screen for a fast, full-screen, offline app that works with no signal. ${installInstructions()}`;
-    extra.innerHTML=installPrompt?`<button type="button" id="tourInstallBtn" class="btn btn--forge">Install now</button>`:"";
+    extra.innerHTML=installPrompt?`<button type="button" id="tourInstallBtn" class="btn btn--primary">Install now</button>`:"";
     const ib=$("#tourInstallBtn");if(ib)ib.onclick=triggerInstall;
   }else{$("#tourBody").innerHTML=s.body;extra.innerHTML=""}
   $("#tourDots").innerHTML=steps.map((_,i)=>`<span class="tour__dot${i===tourStep?" is-on":""}"></span>`).join("");
@@ -1680,6 +1755,16 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
+  $("#overviewClose").onclick=()=>closeSessionOverview();
+  $("#sessionOverview").addEventListener("keydown",trapSessionOverviewFocus);
+  $("#sessionOverview").addEventListener("cancel",event=>{event.preventDefault();closeSessionOverview()});
+  document.addEventListener("keydown",event=>{
+    if(event.key==="Escape"&&overviewOpen){closeSessionOverview();$("#modeFull").focus();return}
+    if(!$("#log").classList.contains("active")||overviewOpen||event.altKey||event.ctrlKey||event.metaKey)return;
+    if(event.target.closest("input,textarea,select,button"))return;
+    if(event.key==="ArrowLeft"){event.preventDefault();setFocusIndex(focusIndex-1,{focus:true})}
+    if(event.key==="ArrowRight"){event.preventDefault();setFocusIndex(focusIndex+1,{focus:true})}
+  });
   const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
   if(cmdApply)cmdApply.onclick=handleCommandSubmit;
   if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
@@ -1706,7 +1791,7 @@ function init(){
   const lc=$("#logContext");if(lc)lc.onclick=()=>{$('nav button[data-view="stats"]').click();setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
-  $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$("nav button").forEach(b=>b.onclick=()=>{if(b.dataset.view!=="log")closeSessionOverview({restoreFocus:false});$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
   $("nav button.active")?.setAttribute("aria-current","page");
   render();

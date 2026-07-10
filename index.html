@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0e1116">
-  <meta name="description" content="RepForge is a local-only progressive overload tracker. Heat means you are ready to add load.">
+  <meta name="theme-color" content="#ffffff">
+  <meta name="description" content="RepForge is a local-only progressive overload tracker.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,36 +19,39 @@
   <header class="topbar">
     <a class="brand" href="#" aria-label="RepForge home">
       <span class="brand__mark" aria-hidden="true"></span>
-      <span class="brand__word">REP<em>FORGE</em></span>
+      <span class="brand__word">RepForge</span>
     </a>
     <div class="topbar__end">
       <button id="restBar" type="button" class="restbar hidden" aria-live="polite" aria-label="Rest timer — tap to stop">
         <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
       </button>
-      <button id="heatGauge" type="button" class="gauge" title="Session heat — how many lifts are ready to add load">
+      <button id="heatGauge" type="button" class="gauge" title="Exercises ready to add load">
         <span class="gauge__fill"></span>
-        <span class="gauge__label">forge</span>
+        <span class="gauge__label">Session</span>
       </button>
       <button id="installBtn" class="btn btn--ghost hidden">Install</button>
     </div>
   </header>
 
   <main>
-    <section id="log" class="view active" aria-label="Log workout">
+    <section id="log" class="view active" aria-label="Session">
       <div class="sectionhead">
-        <button type="button" class="eyebrow eyebrow--link" id="logContext">Today's session</button>
+        <button type="button" class="eyebrow eyebrow--link" id="logContext">Session</button>
         <div class="sectionhead__row">
-          <h2>Log workout</h2>
+          <h2>Session</h2>
           <label class="datepick">Date<input id="date" type="date"></label>
         </div>
       </div>
       <div class="modeswitch" role="group" aria-label="Log layout">
-        <button type="button" id="modeFull" class="active">List</button>
-        <button type="button" id="modeFocus">Focus</button>
+        <button type="button" id="modeFull">Overview</button>
+        <button type="button" id="modeFocus" class="active">Focus</button>
       </div>
       <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
       <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="fatigue" class="fatigue hidden"></div>
+      <div id="sessionRail" class="sessionrail" role="progressbar" aria-label="Session progress"
+        aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="No sets planned"
+        aria-live="polite" aria-atomic="true"></div>
       <div class="commandbar">
         <input id="commandInput" type="text" autocomplete="off" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry" aria-describedby="commandHelpText">
         <button type="button" id="commandHelp" class="btn btn--steel commandbar__help" aria-label="Quick entry syntax help">?</button>
@@ -57,22 +60,40 @@
       </div>
       <p id="commandHelpText" class="visually-hidden">Quick set entry. Format: load x reps @RIR, for example 80 x 8 @1. Optionally start with the exercise name.</p>
       <form id="logForm">
-        <div id="workout"></div>
-        <label class="field">Session notes
-          <textarea id="notes" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
-        </label>
-        <label class="field" id="bodyweightLabel">Bodyweight (optional)
-          <input id="bodyweight" type="number" step="any" min="0" inputmode="decimal" placeholder="kg">
-        </label>
-        <button class="btn btn--forge btn--save" type="submit">
-          <span>Finish workout</span>
+        <div class="focusdeck">
+          <aside id="exerciseNavigator" class="exnav" aria-label="Exercises"></aside>
+          <div class="focusdeck__main">
+            <div id="workout"></div>
+            <div id="focusControls" class="focusbar" aria-label="Exercise navigation"></div>
+          </div>
+        </div>
+        <details class="sessiondetails">
+          <summary>Session details</summary>
+          <label class="field">Notes
+            <textarea id="notes" placeholder="Optional session notes"></textarea>
+          </label>
+          <label class="field" id="bodyweightLabel">Bodyweight (optional)
+            <input id="bodyweight" type="number" step="any" min="0" inputmode="decimal" placeholder="kg">
+          </label>
+        </details>
+        <button class="btn btn--primary btn--save" type="submit">
+          <span>Save workout</span>
           <span id="saveMeta" class="btn__meta"></span>
         </button>
       </form>
+      <dialog id="sessionOverview" class="overview-sheet" aria-labelledby="overviewTitle" tabindex="-1">
+        <div class="overview-sheet__panel">
+          <div class="overview-sheet__head">
+            <div><p class="eyebrow">Session</p><h3 id="overviewTitle">Overview</h3></div>
+            <button type="button" id="overviewClose" class="iconbtn" aria-label="Close overview">✕</button>
+          </div>
+          <div id="overviewList" class="overview-list"></div>
+        </div>
+      </dialog>
     </section>
 
     <section id="stats" class="view" aria-label="Stats">
-      <div class="sectionhead"><p class="eyebrow">The numbers</p><h2>Stats</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Training summary</p><h2>Stats</h2></div>
       <div id="statsSeg" class="seg seg--stats" role="tablist" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true">Overview</button>
         <button type="button" role="tab" data-seg="strength" aria-selected="false">Strength</button>
@@ -124,13 +145,13 @@
     </section>
 
     <section id="history" class="view" aria-label="History">
-      <div class="sectionhead"><p class="eyebrow">The ledger</p><h2>History</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Saved sessions</p><h2>History</h2></div>
       <h3 class="subhead">Sessions</h3><div id="sessions" class="sessions"></div>
       <h3 class="subhead">Every set</h3><div id="historyTable" class="table"></div>
     </section>
 
     <section id="program" class="view" aria-label="Program">
-      <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Training plan</p><h2>Program</h2></div>
       <div id="programMeta" class="pmeta" aria-label="Program summary"></div>
       <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <button id="endBlock" class="btn btn--steel program__endblock" type="button">End block</button>
@@ -141,7 +162,7 @@
         <summary>Advanced · edit raw JSON</summary>
         <p class="lede">Editing here replaces the whole program. Use the visual editor above for everyday changes.</p>
         <label class="field">Program JSON<textarea id="programJson" rows="14" spellcheck="false"></textarea></label>
-        <button id="saveProgram" class="btn btn--forge" type="button">Save JSON</button>
+        <button id="saveProgram" class="btn btn--primary" type="button">Save JSON</button>
         <div class="btnrow">
           <button id="exportProgram" class="btn btn--steel" type="button">Export program JSON</button>
           <label class="btn btn--steel file">Import program JSON<input id="importProgram" type="file" accept=".json,application/json"></label>
@@ -153,7 +174,7 @@
     </section>
 
     <section id="settings" class="view" aria-label="Settings">
-      <div class="sectionhead"><p class="eyebrow">The dials</p><h2>Settings</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Preferences</p><h2>Settings</h2></div>
       <div class="card">
         <p class="cardtitle">Progression</p>
         <p class="lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
@@ -170,14 +191,14 @@
         <p class="lede">Voice input is optional and depends on browser support. Typed commands work offline. Voice recognition may be processed by your browser provider.</p>
         <button id="beginnerProgram" type="button" class="btn btn--steel">Use beginner-friendly program</button>
         <details class="advanced">
-          <summary>Advanced · progression dials</summary>
+          <summary>Advanced progression settings</summary>
           <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>
           <label class="field">Minimum jump (kg)<input id="minJump" type="number" step="0.25" inputmode="decimal"></label>
           <p class="lede">Minimum jump increment is always in kg regardless of display units.</p>
           <label class="field">Target RIR ceiling<input id="rirHigh" type="number" step="0.5" inputmode="decimal"></label>
           <label class="field">Hard-set RIR ceiling<input id="hardRir" type="number" step="0.5" inputmode="decimal"></label>
           <p class="lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
-          <button id="saveSettings" class="btn btn--forge">Save settings</button>
+          <button id="saveSettings" class="btn btn--primary">Save settings</button>
         </details>
       </div>
       <div class="card">
@@ -214,7 +235,7 @@
         <div id="onbBody" class="onb__body"></div>
         <div class="onb__nav">
           <button type="button" id="onbBack" class="btn btn--steel">Back</button>
-          <button type="button" id="onbNext" class="btn btn--forge">Next</button>
+          <button type="button" id="onbNext" class="btn btn--primary">Next</button>
         </div>
       </div>
     </section>
@@ -244,14 +265,14 @@
       <button type="button" class="btn btn--steel blockreview__act" data-strategy="onboarding">Start from onboarding again</button>
     </div>
     <div class="btnrow">
-      <button type="button" id="blockReviewClose" class="btn btn--forge">Close</button>
+      <button type="button" id="blockReviewClose" class="btn btn--primary">Close</button>
     </div>
   </div>
   <div id="importChoice" class="importchoice hidden" role="dialog" aria-modal="true" aria-label="Import backup">
     <p class="importchoice__title">Import backup</p>
     <p class="importchoice__body" id="importChoiceBody"></p>
     <div class="btnrow">
-      <button type="button" id="importMerge" class="btn btn--forge">Merge</button>
+      <button type="button" id="importMerge" class="btn btn--primary">Merge</button>
       <button type="button" id="importReplace" class="btn btn--danger">Replace all</button>
       <button type="button" id="importCancel" class="btn btn--steel">Cancel</button>
     </div>
@@ -260,7 +281,7 @@
     <p class="importchoice__title">End this training block?</p>
     <p class="importchoice__body">You'll review this block's progress and pick how to start the next one. Nothing is deleted.</p>
     <div class="btnrow">
-      <button type="button" id="endBlockGo" class="btn btn--forge">Review block</button>
+      <button type="button" id="endBlockGo" class="btn btn--primary">Review block</button>
       <button type="button" id="endBlockCancel" class="btn btn--steel">Cancel</button>
     </div>
   </div>
@@ -276,7 +297,7 @@
       <div class="tour__dots" id="tourDots" aria-hidden="true"></div>
       <div class="tour__nav">
         <button type="button" id="tourBack" class="btn btn--steel">Back</button>
-        <button type="button" id="tourNext" class="btn btn--forge">Next</button>
+        <button type="button" id="tourNext" class="btn btn--primary">Next</button>
       </div>
     </div>
   </div>
@@ -287,7 +308,7 @@
       <p class="installbanner__title">Install RepForge</p>
       <p class="installbanner__body" id="installBannerBody"></p>
     </div>
-    <button type="button" class="btn btn--forge installbanner__action hidden" id="installBannerAction">Install</button>
+    <button type="button" class="btn btn--primary installbanner__action hidden" id="installBannerAction">Install</button>
   </div>
   <div id="toast" class="toast hidden"></div>
   <script src="app.js"></script>
