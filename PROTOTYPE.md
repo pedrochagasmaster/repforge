@@ -19,11 +19,14 @@ The treatment stays minimal: texture is low-contrast, shadows communicate physic
 - Existing DOM ids, classes used by JavaScript, data attributes, labels, tab roles, and focus behavior remain intact.
 - Load remains the widest set value and is visually bracketed by plates; reps and RIR remain compact adjacent readings.
 - The existing per-set Save control becomes the collar. Its text and accessible name are unchanged, while `is-done` supplies the locked visual state.
+- Mobile set assemblies reflow to two rows so steppers, set toggles, and collars remain at least 44 × 44 CSS pixels down to a 320px viewport.
 - Existing progression heat remains semantic, translated into painted rail color and a small industrial indicator.
+- Oxidized red is a decorative `--paint-oxide` token; readable add-load and hot text uses the separate AA-rated `--status-hot` token.
 - Focus and List modes remain the same control with a recessed two-position switch treatment.
 - Touch targets and the five-item bottom navigation retain their dimensions. The narrow-screen rules reduce plate widths before reducing readable type.
 - Motion is brief and mechanical, and the existing `prefers-reduced-motion` rule disables it.
-- The service-worker cache is bumped to `repforge-v14-loading-bay` so the prototype cannot be masked by the previous shell.
+- Operational stencil labels use an 11px minimum, while muted text uses a contrast-safe token on every dark panel surface.
+- The service-worker cache is bumped to `repforge-v15-loading-bay-a11y` so the reviewed prototype cannot be masked by the previous shell.
 
 ## Reference principles
 
