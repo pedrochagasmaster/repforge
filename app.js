@@ -842,7 +842,7 @@ function bindWorkout(){
     const bar=document.createElement("div");bar.className="focusbar";
     bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
       `<span class="focusbar__prog">${fl.length?at+1:0} of ${fl.length}</span>`+
-      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Finish workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
+      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Save workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
     $("#workout").append(bar);
     const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
     const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
@@ -852,7 +852,7 @@ function bindWorkout(){
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"forge";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} ready`:"energy";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
   g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
@@ -899,7 +899,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=`Workout forged — ${rows.length} ${plural(rows.length,"set")} logged.`;
+  let msg=`System stabilized — ${rows.length} ${plural(rows.length,"set")} logged.`;
   if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render()}finally{saving=false}}
@@ -931,12 +931,12 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
     "Δ block":fmtDelta(r.blockDelta),PRs:r.prs,Signal:r.signal})))}
 
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
-  el.innerHTML=`<div class="thisweek__title">This week</div><div class="thisweek__rows">`+
+  el.innerHTML=`<div class="thisweek__title">This week's constellation</div><div class="thisweek__rows">`+
     `<div>${w.completedDays} / ${w.plannedDays} days logged</div>`+
     `<div>${w.totalHardSets} hard ${plural(w.totalHardSets,"set")}</div>`+
     `<div>${w.improvedLifts} lift${w.improvedLifts===1?"":"s"} improved</div>`+
     `<div>${w.readyToAdd} ready to add</div></div>`+
-    `<div class="thisweek__status">Status: <b>${esc(w.status)}</b></div>`}
+    `<div class="thisweek__status">Orbital stability: <b>${esc(w.status)}</b></div>`}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
   const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
@@ -1212,7 +1212,7 @@ function draw(rows){
   const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  // line (cool -> hot, left to right = progression heating up)
+  // Progression path: electric blue history toward coral current state.
   const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
@@ -1618,8 +1618,8 @@ const TOUR=[
   {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. RepForge reads your history and tells you when you're ready to add load."},
   {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
-  {view:"log",title:"Heat gauge & rest timer",body:"The <b>forge</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
-  {view:"log",title:"Finish the workout",body:"When you're done, tap <b>Finish workout</b> to save. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
+  {view:"log",title:"Energy gauge & rest timer",body:"The <b>energy</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
+  {view:"log",title:"Save the workout",body:"When you're done, tap <b>Save workout</b>. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
   {view:"program",title:"Program & blocks",body:"Build your split in the visual editor — days, exercises, muscles and rep ranges. See planned weekly <b>volume</b>, and use <b>End block</b> to review a mesocycle and plan the next one."},
