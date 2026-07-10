@@ -722,7 +722,8 @@ function renderWorkout(){
   const fl=focusList();
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
-  const dayExercises=exercises(),maxSets=Math.max(1,...dayExercises.map(ex=>ex.sets));
+  const dayExercises=logMode==="focus"?(curId?fl.filter(ex=>ex.id===curId):[]):exercises();
+  const maxSets=Math.max(1,...dayExercises.map(ex=>ex.sets));
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
   document.querySelector(".gridHint")?.classList.toggle("hidden",logMode==="focus");
   const gridHead=`<thead><tr class="sessiongrid__head">`+
@@ -769,9 +770,10 @@ function renderWorkout(){
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
     const setupHtml=ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"";
-    const previousContent=`<span class="sg__context-label">Previous</span>${prevHtml||`<span class="sg__empty">No prior sets</span>`}${deltaHtml}${setupHtml}`;
-    const suggestedContent=`<span class="sg__context-label">Suggested</span><div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
+    const previousContent=`<span class="sg__context-label">Previous performance</span>${prevHtml||`<span class="sg__empty">No previous data</span>`}${deltaHtml}${setupHtml}`;
+    const suggestedContent=`<span class="sg__context-label">Suggested next set</span><div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div><p class="rec">${esc(r.text)}${r.load!==null?` Target <b>${fmtLoad(r.load)} ${unitLabel()}</b>.`:""}</p>`;
+    const enteredContent=`<span class="sg__context-label">Entered current values</span><p class="sg__entered-copy">Edit the load, reps, and RIR fields in this row.</p>`;
     const isCollapsed=collapsed.has(ex.id),isSkipped=skipped.has(ex.id);
     return `<tr class="exercise is-${r.status}${isCollapsed?" is-collapsed":""}${isSkipped?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
       `<th class="sg__exercise" scope="row"><div class="ex__top"><div class="ex__head"><span class="ex__name">${nameHtml}</span>`+
@@ -780,14 +782,14 @@ function renderWorkout(){
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-pressed="${isSkipped?"true":"false"}" aria-label="${isSkipped?"Restore":"Skip"} ${esc(ex.name)}">${isSkipped?"Restore":"Skip"}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-expanded="${isCollapsed?"false":"true"}" aria-label="${isCollapsed?"Show":"Hide"} ${esc(ex.name)} sets">▾</button></div></div>`+
-      subPick+`<details class="sg__mobile-context"><summary>Details</summary><div class="sg__mobile-context-body">`+
+      subPick+`<details class="sg__mobile-context"><summary>Details</summary><div class="sg__mobile-context-body" popover="manual">`+
       `<button type="button" class="sg__context-close" data-close-context>Close details</button>`+
-      `<div>${previousContent}</div><div>${suggestedContent}</div></div></details></th>`+
+      `<div>${previousContent}</div><div>${suggestedContent}</div><div>${enteredContent}</div></div></details></th>`+
       `<td class="sg__previous">${previousContent}</td>`+
       `<td class="sg__target">${suggestedContent}</td>`+
       rows+`</tr>`;
   }).join("");
-  wk.innerHTML=banner+`<table class="sessiongrid" aria-label="${esc(day)} workout sets" style="--set-count:${maxSets};--sets-width:${maxSets*220}px;--mobile-sets-width:${maxSets*204}px">${gridHead}<tbody>${gridRows}</tbody></table>`;
+  wk.innerHTML=banner+`<table class="sessiongrid${logMode==="focus"?" sessiongrid--focus":""}" aria-label="${esc(day)} ${logMode==="focus"?"focused exercise":"workout"} sets" style="--set-count:${maxSets};--sets-width:${maxSets*220}px;--mobile-sets-width:${maxSets*204}px">${gridHead}<tbody>${gridRows}</tbody></table>`;
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -805,6 +807,10 @@ function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x
   d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
+  $$("#workout .sg__mobile-context").forEach(details=>{const panel=details.querySelector(".sg__mobile-context-body");
+    if(typeof panel?.showPopover!=="function"){panel?.removeAttribute("popover");return}
+    details.ontoggle=()=>{if(details.open&&!panel.matches(":popover-open"))panel.showPopover();
+      else if(!details.open&&panel.matches(":popover-open"))panel.hidePopover()}});
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();

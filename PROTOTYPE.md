@@ -6,10 +6,10 @@ Session Grid is a table-first workout workspace. Exercises are rows, previous pe
 
 - The workout uses a native table with scoped column and row headers.
 - On desktop, the exercise, previous-performance, and suggestion columns stay pinned while set cells scroll.
-- On mobile, Previous and Suggested context moves into a keyboard-operable Details disclosure in each pinned exercise row header. Only exercise and full-width set columns remain in the horizontal table flow.
+- On mobile, Previous performance, Suggested next set, and Entered current values are explicitly separated in a keyboard-operable Details disclosure. Missing history reads “No previous data.” Only exercise and full-width set columns remain in the horizontal table flow.
 - Each set cell contains load, reps, RIR or effort, warm-up status, and completion without opening another surface.
 - Skip, collapse, warm-up, increment, decrement, and completion controls retain at least 44px touch targets.
-- Focus mode filters the same grid to one exercise and removes the generic horizontal-scroll hint. Collapsing a row hides set cells but leaves context and controls available.
+- Focus mode renders a single exercise row, removes the generic horizontal-scroll hint, and provides Previous/Next controls to move through the training day. Returning to Grid mode restores the full table.
 - Desktop uses a two-pane layout: the grid occupies the main pane and a sticky summary reports exercises, completed sets, entered load, and completion percentage.
 - Mobile confines horizontal movement to the grid viewport so the page and bottom navigation remain stable.
 
