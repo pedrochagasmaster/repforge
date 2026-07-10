@@ -1827,6 +1827,86 @@ async function main() {
     "Reps inside range → is-hold"
   );
 
+  // Performance-gated Hold · recover (spec 2026-07-10 / plan 037)
+  beginPhase("Phase 12a2: Hold · recover performance gate");
+
+  function setRows(ex, day, date, load, setSpecs) {
+    const session = `${date}_${day}_recover_${ex.id}_${date}_${load}`;
+    const created = new Date(`${date}T12:00:00Z`).toISOString();
+    const specs = [];
+    for (let i = 0; i < ex.sets; i++) specs.push(setSpecs[Math.min(i, setSpecs.length - 1)]);
+    return specs.map((s, i) => ({
+      session, date, day, name: ex.name || "Recover test", exerciseId: ex.id, set: i + 1,
+      load, reps: s.reps, rir: s.rir, notes: "", created,
+      primary: ex.primary || "", secondary: ex.secondary || "",
+    }));
+  }
+
+  const recoverCaseDefs = [
+    {
+      name: "Grind + rep gain → Hold · add reps",
+      build: (ex, day, mid) => [
+        ...setRows(ex, day, "2025-03-01", 60, [{ reps: mid, rir: 1 }, { reps: mid, rir: 1 }]),
+        ...setRows(ex, day, "2025-03-08", 60, [{ reps: mid + 1, rir: 0 }, { reps: mid, rir: 0 }]),
+      ],
+      expectChip: /hold\s*·\s*add reps/i,
+      expectRecover: false,
+    },
+    {
+      name: "Grind + flat reps → Hold · recover",
+      build: (ex, day, mid) => [
+        ...setRows(ex, day, "2025-03-01", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+        ...setRows(ex, day, "2025-03-08", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+      ],
+      expectChip: /hold\s*·\s*recover/i,
+      expectRecover: true,
+    },
+    {
+      name: "Grind + load jump → Hold · add reps",
+      build: (ex, day, mid) => {
+        const low = Math.max(ex.min, mid - 1);
+        return [
+          ...setRows(ex, day, "2025-03-01", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+          ...setRows(ex, day, "2025-03-08", 62.5, [{ reps: low, rir: 0 }, { reps: low, rir: 0 }]),
+        ];
+      },
+      expectChip: /hold\s*·\s*add reps/i,
+      expectRecover: false,
+    },
+    {
+      name: "Single grinding session → Hold · add reps",
+      build: (ex, day, mid) => setRows(ex, day, "2025-03-08", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+      expectChip: /hold\s*·\s*add reps/i,
+      expectRecover: false,
+    },
+  ];
+
+  for (const c of recoverCaseDefs) {
+    await clearState(page);
+    await reloadApp(page);
+    const recoverEx = (await getExerciseMeta(page, matrixDay))[0];
+    const mid = Math.max(recoverEx.min, Math.min(recoverEx.max - 1, recoverEx.min + 1));
+    const card = await scenarioRecommendation(page, {
+      day: matrixDay,
+      exId: recoverEx.id,
+      rows: c.build(recoverEx, matrixDay, mid),
+    });
+    const signal = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      return {
+        recover: window.__repforgeRecoverSignal?.(ex),
+        label: window.__repforgeRecommendation?.(ex)?.label,
+      };
+    }, recoverEx.id);
+    assert(
+      c.expectChip.test(card?.chip || "") && signal.recover === c.expectRecover,
+      c.name,
+      JSON.stringify({ card, signal }),
+      `Seed sessions → ${c.name}`
+    );
+  }
+
   await clearState(page);
   await reloadApp(page);
 

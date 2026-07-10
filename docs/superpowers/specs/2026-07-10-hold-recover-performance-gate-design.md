@@ -1,7 +1,8 @@
 # Hold · recover — performance-gated design
 
-> **Status**: Spec ready for human review (2026-07-10).
+> **Status**: Implemented on `cursor/hold-recover-performance-gate-9cc1` (2026-07-10).
 > **Branch**: `cursor/hold-recover-performance-gate-9cc1`
+> **Build plan**: `plans/037-hold-recover-performance-gate.md`
 > **Scope**: Recommendation engine + attention-board fatigue signal only.
 > **Evidence base**: Live `app.js` recommendation / attention paths at workspace HEAD.
 
