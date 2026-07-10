@@ -2063,10 +2063,10 @@ async function main() {
   );
   const gaugeLabel = await page.locator("#heatGauge .gauge__label").textContent();
   assert(
-    /hot/i.test(gaugeLabel),
-    "Heat gauge labels session as hot when lifts are ready",
+    /climb/i.test(gaugeLabel),
+    "Route gauge labels ready lifts as climbs",
     `label="${gaugeLabel}"`,
-    "Log → after add-load recs → gauge shows N hot"
+    "Log → after add-load recs → gauge shows N climbs"
   );
   await page.locator("#heatGauge").click();
   assert(
@@ -2074,9 +2074,9 @@ async function main() {
       (id) => !document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-collapsed"),
       exHot.id
     ),
-    "Heat gauge click expands a hot lift card",
+    "Route gauge click expands a ready checkpoint",
     "Card still collapsed after gauge click",
-    "Tap heat gauge → first hot exercise expands"
+    "Tap route gauge → first ready checkpoint expands"
   );
 
   // Session notes persist on saved rows

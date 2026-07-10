@@ -723,7 +723,7 @@ function renderWorkout(){
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
-  wk.innerHTML=banner+exercises().map(ex=>{
+  wk.innerHTML=banner+exercises().map((ex,checkpointIndex)=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
@@ -754,7 +754,7 @@ function renderWorkout(){
       `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
+    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}" data-checkpoint="${checkpointIndex+1}">`+
       `<div class="ex__top"><div class="ex__head"><h3 class="ex__name">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span>${ex.sets}×${ex.min}-${ex.max} reps · ${term("RIR")} 0-${fmt(state.settings.rirHigh)}</p></div>`+
       `<div class="ex__topend">`+
@@ -852,7 +852,7 @@ function bindWorkout(){
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"grade";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} climb${hot===1?"":"s"}`:"grade";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
   g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
@@ -1197,7 +1197,8 @@ window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function draw(rows){
   const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={ember:"#f05a28",gold:"#ff8a32",white:"#15342d",quench:"#2457d6",steel:"#4f5f58",dim:"#66736b",rule:"#9d9a86",mist:"#15342d"};
+  const css=getComputedStyle(document.documentElement);
+  const C={ember:css.getPropertyValue("--orange-semantic").trim(),gold:"#ff8a32",white:"#15342d",quench:"#2457d6",steel:"#4f5f58",dim:"#66736b",rule:"#9d9a86",mist:"#15342d"};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Mono",monospace';ctx.textBaseline="middle";
   if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}
@@ -1213,7 +1214,7 @@ function draw(rows){
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
   // trail profile (cobalt foothill -> orange summit)
-  const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
+  const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.ember);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
   // points

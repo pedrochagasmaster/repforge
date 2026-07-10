@@ -1,4 +1,4 @@
-const CACHE = "repforge-ascent-v14";
+const CACHE = "repforge-ascent-v15";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon.svg",
