@@ -30,3 +30,5 @@ Strong and Hevy establish the useful logging hierarchy: exercise first, then pre
 ## Visual system
 
 Warm ivory is the map stock; deep navy is the wayfinding ink. Blue is the primary workout route, red signals progression and history service, yellow marks the current line, green marks completed stops, and purple identifies program planning. Plex Sans and Plex Mono provide neutral signage and tabular numerals. Corners are square, shadows are minimal, and surfaces are separated with rules rather than card grids or glass effects.
+
+Palette values are exposed through semantic surface, text, route, state, and chart tokens. The canvas chart reads those computed CSS tokens rather than carrying a separate hard-coded theme. Text-bearing route colors meet WCAG AA against ivory: red 5.85:1, hold yellow 6.07:1, active blue with white 6.50:1, chart labels 6.31:1, and chart values 13.87:1.

@@ -1194,37 +1194,53 @@ function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=
 
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
+function chartTheme(c){
+  const style=getComputedStyle(c);
+  const read=(token,fallback)=>style.getPropertyValue(token).trim()||fallback;
+  return{
+    grid:read("--chart-grid","#b8af9d"),
+    label:read("--chart-label","#4b5863"),
+    value:read("--chart-value","#102238"),
+    areaStart:read("--chart-area-start","rgba(168,47,40,.24)"),
+    areaEnd:read("--chart-area-end","rgba(168,47,40,0)"),
+    lineStart:read("--chart-line-start","#00658a"),
+    lineMid:read("--chart-line-mid","#705500"),
+    lineEnd:read("--chart-line-end","#a82f28"),
+    point:read("--chart-point","#705500"),
+    pointCurrent:read("--chart-point-current","#a82f28"),
+    pointShadow:read("--chart-point-shadow","rgba(168,47,40,.32)")
+  }}
 function draw(rows){
   const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#8b97a8",dim:"#7b8899",rule:"#2a323d",mist:"#eceff4"};
+  const C=chartTheme(c);
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Mono",monospace';ctx.textBaseline="middle";
-  if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}
+  if(!rows.length){ctx.fillStyle=C.label;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}
   const vals=rows.map(r=>r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
   const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
   const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?d.toFixed(1):fmt(Math.round(d))};
   // gridlines + y labels
-  ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
+  ctx.strokeStyle=C.grid;ctx.lineWidth=1;ctx.fillStyle=C.label;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val),padL-8,gy)}
   // area fill
-  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
+  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,C.areaStart);grad.addColorStop(1,C.areaEnd);
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
   // line (cool -> hot, left to right = progression heating up)
-  const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
+  const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.lineStart);lg.addColorStop(.55,C.lineMid);lg.addColorStop(1,C.lineEnd);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
   // points
   rows.forEach((r,i)=>{const last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(r.top),last?5:3,0,7);
-    if(last){ctx.fillStyle=C.white;ctx.shadowColor=C.ember;ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;}
-    else{ctx.fillStyle=C.gold;ctx.fill()}});
+    if(last){ctx.fillStyle=C.pointCurrent;ctx.shadowColor=C.pointShadow;ctx.shadowBlur=12;ctx.fill();ctx.shadowBlur=0;}
+    else{ctx.fillStyle=C.point;ctx.fill()}});
   // last value callout
-  const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.white;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Mono",monospace';
+  const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.value;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Mono",monospace';
   ctx.fillText(`${fmtLoad(rows.at(-1).top)}${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
   // x labels (first & last date)
-  ctx.fillStyle=C.dim;ctx.font='10px "Plex Mono",monospace';ctx.textBaseline="alphabetic";
+  ctx.fillStyle=C.label;ctx.font='10px "Plex Mono",monospace';ctx.textBaseline="alphabetic";
   ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
