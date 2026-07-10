@@ -573,8 +573,11 @@ function parseProgramImport(parsed){
   return null}
 function save(){persist()}
 function persist(){
-  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}
-  idbSet(KEY,state).catch(e=>console.warn("idb persist failed",e))}
+  let lsOk=true;
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){lsOk=false;console.warn("localStorage mirror failed",e)}
+  idbSet(KEY,state).catch(e=>{console.warn("idb persist failed",e);
+    // Only alarm the user when neither store took the write — data is genuinely at risk.
+    if(!lsOk&&!persist.warned){persist.warned=true;toast("Couldn't save to this browser — storage may be full. Export a backup now.")}})}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
@@ -727,13 +730,14 @@ function renderWorkout(){
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>Last:</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">Copy</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
+    let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
       const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
       const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
       const key=`${ex.id}_${n}`;
       const isW=warmups.has(key);
-      const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}`;
+      const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}`;
       const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
       const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
       const rirCell=effortMode
@@ -756,7 +760,7 @@ function renderWorkout(){
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
     return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
       `<div class="ex__top"><div class="ex__head"><h3 class="ex__name">${nameHtml}</h3>`+
-      `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span>${ex.sets}×${ex.min}-${ex.max} reps · ${term("RIR")} 0-${fmt(state.settings.rirHigh)}</p></div>`+
+      `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · <span class="nowrap">${term("RIR")} 0-${fmt(state.settings.rirHigh)}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="Skip ${esc(ex.name)} today">Skip</button>`+
@@ -773,6 +777,11 @@ function renderWorkout(){
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
 }
+
+// Keep the "next set up" marker on the first unsaved row of an exercise card.
+function updateNextMarker(art){if(!art)return;let found=false;
+  art.querySelectorAll(".setrow").forEach(r=>{const on=!found&&!r.classList.contains("is-done");if(on)found=true;
+    r.classList.toggle("is-next",on)})}
 
 function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
   const ex=prog.find(exId);if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
@@ -799,7 +808,7 @@ function bindWorkout(){
     if(committed.has(key)){committed.delete(key)}
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
-      b.textContent=committed.has(key)?"✓":"Save"}
+      b.textContent=committed.has(key)?"✓":"Save";updateNextMarker(row.closest(".exercise"))}
     saveDraft();updateSaveMeta();
     if(committed.has(key))startRest()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
@@ -952,6 +961,16 @@ function recentDeltaRows(){const sessMap=new Map();
   return out}
 
 function renderStats(){
+  // First run: point at the Log tab instead of an all-zero dashboard.
+  const hasLog=state.log.some(isWork),intro=$("#statsIntro");
+  if(intro){
+    intro.classList.toggle("hidden",hasLog);
+    intro.innerHTML=hasLog?"":`<p class="emptystate__title">Nothing forged yet</p>`+
+      `<p class="emptystate__body">Stats build themselves from your sets — log one workout and this page fills in.</p>`+
+      `<button type="button" class="btn btn--forge" id="statsIntroGo">Log your first workout</button>`;
+    const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
+    for(const sel of["#thisWeek","#attention","#metrics","#statsDeep"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+  }
   renderThisWeek();
   // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
   const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
