@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#080914">
-  <meta name="description" content="RepForge is a local-only progressive overload tracker. Build consistency and keep your training system in orbit.">
+  <meta name="theme-color" content="#0b0d12">
+  <meta name="description" content="RepForge is a local-only progressive overload tracker built for fast workout capture.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,15 +19,15 @@
   <header class="topbar">
     <a class="brand" href="#" aria-label="RepForge home">
       <span class="brand__mark" aria-hidden="true"></span>
-      <span class="brand__word">REP<em>FORGE</em><small>Gravity training system</small></span>
+      <span class="brand__word">REP<em>FORGE</em><small>Training log</small></span>
     </a>
     <div class="topbar__end">
       <button id="restBar" type="button" class="restbar hidden" aria-live="polite" aria-label="Rest timer — tap to stop">
         <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
       </button>
-      <button id="heatGauge" type="button" class="gauge" title="Orbital energy — how many lifts are ready to add load">
+      <button id="heatGauge" type="button" class="gauge" title="Exercises ready to add load">
         <span class="gauge__fill"></span>
-        <span class="gauge__label">energy</span>
+        <span class="gauge__label">ready</span>
       </button>
       <button id="installBtn" class="btn btn--ghost hidden">Install</button>
     </div>
@@ -36,43 +36,90 @@
   <main>
     <section id="log" class="view active" aria-label="Log workout">
       <div class="sectionhead">
-        <button type="button" class="eyebrow eyebrow--link" id="logContext">Today's session</button>
+        <button type="button" class="eyebrow eyebrow--link" id="logContext">Current session</button>
         <div class="sectionhead__row">
-          <h2>Log workout</h2>
+          <h2>Log</h2>
           <label class="datepick">Date<input id="date" type="date"></label>
         </div>
       </div>
-      <div class="modeswitch" role="group" aria-label="Log layout">
+      <div class="modeswitch hidden" role="group" aria-label="Legacy log layout">
         <button type="button" id="modeFull" class="active">List</button>
         <button type="button" id="modeFocus">Focus</button>
       </div>
       <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
       <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="fatigue" class="fatigue hidden"></div>
-      <div class="commandbar">
-        <input id="commandInput" type="text" autocomplete="off" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry" aria-describedby="commandHelpText">
-        <button type="button" id="commandHelp" class="btn btn--steel commandbar__help" aria-label="Quick entry syntax help">?</button>
-        <button type="button" id="voiceBtn" class="btn btn--steel hidden" aria-label="Voice input">🎤</button>
-        <button type="button" id="commandApply" class="btn btn--steel">Apply</button>
-      </div>
-      <p id="commandHelpText" class="visually-hidden">Quick set entry. Format: load x reps @RIR, for example 80 x 8 @1. Optionally start with the exercise name.</p>
       <form id="logForm">
-        <div id="workout"></div>
-        <label class="field">Session notes
-          <textarea id="notes" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
-        </label>
-        <label class="field" id="bodyweightLabel">Bodyweight (optional)
-          <input id="bodyweight" type="number" step="any" min="0" inputmode="decimal" placeholder="kg">
-        </label>
-        <button class="btn btn--forge btn--save" type="submit">
-          <span>Save workout</span>
-          <span id="saveMeta" class="btn__meta"></span>
-        </button>
+        <div class="capture-layout">
+          <div class="capture-main">
+            <section class="composer" aria-labelledby="composerLabel">
+              <div class="composer__context">
+                <p class="composer__label" id="composerLabel">Quick capture</p>
+                <p class="composer__target">Target: <strong id="captureTargetName">Exercise</strong></p>
+              </div>
+              <div class="commandbar">
+                <input id="commandInput" type="text" autocomplete="off" placeholder="80 x 8 @1" aria-label="Set entry" aria-describedby="commandHelpText">
+                <button type="button" id="voiceBtn" class="btn composer__voice hidden" aria-label="Dictate set">Mic</button>
+                <button type="button" id="commandApply" class="btn btn--forge">Apply</button>
+              </div>
+              <div class="composer__help">
+                <p id="commandHelpText">Enter load × reps @RIR. Add an exercise name or “set 2” when needed.</p>
+                <button type="button" id="commandHelp" class="composer__helpbtn" aria-label="Show quick capture help">Syntax help</button>
+              </div>
+              <div id="captureSuggestions" class="capture-suggestions" aria-label="Previous set suggestions"></div>
+            </section>
+            <section class="exercise-switcher" aria-labelledby="exerciseDockLabel">
+              <div class="capture-sectionhead">
+                <h3 id="exerciseDockLabel">Exercise</h3>
+                <span>Use arrow keys to switch</span>
+              </div>
+              <div id="exerciseDock" class="exercise-dock" role="tablist" aria-label="Target exercise"></div>
+            </section>
+            <section class="capture-feed-wrap" aria-labelledby="captureFeedLabel">
+              <div class="capture-sectionhead">
+                <h3 id="captureFeedLabel">Session sets</h3>
+                <span id="captureFeedCount">0 captured</span>
+              </div>
+              <div id="captureFeed" class="capture-feed" aria-live="polite"></div>
+            </section>
+          </div>
+          <aside class="session-side" aria-label="Session summary">
+            <div id="sessionSummary" class="session-summary"></div>
+            <button type="button" id="openDetail" class="btn btn--steel detail-open">Edit selected exercise</button>
+            <label class="field">Session notes
+              <textarea id="notes" placeholder="Optional notes"></textarea>
+            </label>
+            <label class="field" id="bodyweightLabel">Bodyweight (optional)
+              <input id="bodyweight" type="number" step="any" min="0" inputmode="decimal" placeholder="kg">
+            </label>
+            <button class="btn btn--forge btn--save" type="submit">
+              <span>Save workout</span>
+              <span id="saveMeta" class="btn__meta"></span>
+            </button>
+          </aside>
+        </div>
+        <div id="detailSheet" class="detail-sheet hidden" role="dialog" aria-modal="false" aria-labelledby="detailTitle">
+          <div class="detail-sheet__backdrop" data-detail-close></div>
+          <div class="detail-sheet__panel">
+            <div class="detail-sheet__head">
+              <div><p class="eyebrow">Detailed entry</p><h3 id="detailTitle">Exercise details</h3></div>
+              <button type="button" id="closeDetail" class="detail-sheet__close" aria-label="Close exercise details">Close</button>
+            </div>
+            <div id="workout"></div>
+          </div>
+        </div>
       </form>
     </section>
 
     <section id="stats" class="view" aria-label="Stats">
-      <div class="sectionhead"><p class="eyebrow">Weekly constellation</p><h2>Stats</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Analysis</p><h2>Stats</h2></div>
+      <div class="workspace-filter" role="search">
+        <label>Search stats<input id="statsQuery" type="search" placeholder="Exercise or metric"></label>
+        <label>View<select id="statsViewFilter">
+          <option value="overview">Overview</option><option value="strength">Strength</option>
+          <option value="volume">Volume</option><option value="prs">PRs</option><option value="review">Review</option>
+        </select></label>
+      </div>
       <div id="statsSeg" class="seg seg--stats" role="tablist" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true">Overview</button>
         <button type="button" role="tab" data-seg="strength" aria-selected="false">Strength</button>
@@ -124,13 +171,15 @@
     </section>
 
     <section id="history" class="view" aria-label="History">
-      <div class="sectionhead"><p class="eyebrow">Flight record</p><h2>History</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Activity</p><h2>History</h2></div>
+      <label class="activity-search">Search history<input id="historySearch" type="search" placeholder="Exercise, day, or date"></label>
       <h3 class="subhead">Sessions</h3><div id="sessions" class="sessions"></div>
-      <h3 class="subhead">Every set</h3><div id="historyTable" class="table"></div>
+      <h3 class="subhead">Sets</h3><div id="historyActivity" class="history-activity"></div>
+      <div id="historyTable" class="table history-table-source"></div>
     </section>
 
     <section id="program" class="view" aria-label="Program">
-      <div class="sectionhead"><p class="eyebrow">Orbital map</p><h2>Program</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Training plan</p><h2>Program</h2></div>
       <div id="programMeta" class="pmeta" aria-label="Program summary"></div>
       <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <button id="endBlock" class="btn btn--steel program__endblock" type="button">End block</button>
@@ -153,7 +202,7 @@
     </section>
 
     <section id="settings" class="view" aria-label="Settings">
-      <div class="sectionhead"><p class="eyebrow">System controls</p><h2>Settings</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Preferences</p><h2>Settings</h2></div>
       <div class="card">
         <p class="cardtitle">Progression</p>
         <p class="lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>

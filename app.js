@@ -334,6 +334,7 @@ const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let captureTargetId=null,captureOrder=[],detailOpen=false,statsQuery="",historyQuery="";
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -673,9 +674,15 @@ function goToLogExercise(exId){
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
+  if($("#statsViewFilter"))$("#statsViewFilter").value=seg;
+  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview();
+  applyStatsQuery()}
+function applyStatsQuery(){
+  const q=statsQuery.trim().toLowerCase(),scope=$("#"+(STATS_SEG[statsSeg]||"segOverview"));if(!scope)return;
+  scope.querySelectorAll(".attn__chip,.metric,.prtl__row,tbody tr,.vrow").forEach(el=>el.classList.toggle("query-hidden",!!q&&!el.textContent.toLowerCase().includes(q)))
+}
 
-// Recommendation -> RIR-aware double progression, mapped to a temperature/status.
+// RIR-aware double-progression recommendation.
 function recommendation(ex){
   const sess=sessionsFor(ex);
   if(!sess.length)return{status:"new",heat:.12,label:"New lift",text:`No history yet. Pick a load you can hold for ${ex.min}-${ex.max} reps at 0-${state.settings.rirHigh} RIR.`,load:null,stalled:false};
@@ -702,16 +709,73 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
 
-function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt()}
+function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();updateVoiceBtn()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
-  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
+  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;captureTargetId=null;renderTabs();renderWorkout()})}
+
+function captureExercise(){
+  const list=exercises().filter(e=>!skipped.has(e.id));
+  let ex=list.find(e=>e.id===captureTargetId);
+  if(!ex){ex=list[0]||null;captureTargetId=ex?.id||null}
+  return ex
+}
+function captureKeyParts(key){
+  const ex=exercises().find(e=>String(key).startsWith(`${e.id}_`));
+  if(!ex)return null;
+  const set=Number(String(key).slice(ex.id.length+1));
+  return Number.isFinite(set)?{ex,set}:null
+}
+function markCapture(key){if(key&&!captureOrder.includes(key))captureOrder.push(key)}
+function setCaptureTarget(id,{focusComposer=true}={}){
+  if(!exercises().some(e=>e.id===id))return;
+  captureTargetId=id;renderWorkout();
+  if(focusComposer)$("#commandInput")?.focus()
+}
+function setDetailOpen(open){
+  detailOpen=!!open;
+  const sheet=$("#detailSheet");if(!sheet)return;
+  sheet.classList.toggle("hidden",!detailOpen);
+  document.body.classList.toggle("detail-is-open",detailOpen);
+  if(detailOpen){$("#detailTitle").textContent=captureExercise()?.name||"Exercise details";$("#closeDetail")?.focus()}
+  else $("#openDetail")?.focus()
+}
+function renderCaptureUI(){
+  const ex=captureExercise(),list=exercises().filter(e=>!skipped.has(e.id));
+  const target=$("#captureTargetName");if(target)target.textContent=ex?.name||"No exercise";
+  $$("#workout .exercise").forEach(a=>a.classList.toggle("is-capture-target",a.dataset.ex===ex?.id));
+  const dock=$("#exerciseDock");if(dock){dock.innerHTML=list.map((e,i)=>`<button type="button" role="tab" data-capture-target="${esc(e.id)}" aria-selected="${e.id===ex?.id?"true":"false"}" tabindex="${e.id===ex?.id?"0":"-1"}"><span>${i+1}</span>${esc(e.name)}</button>`).join("");
+    $$("[data-capture-target]").forEach((b,i)=>{b.onclick=()=>setCaptureTarget(b.dataset.captureTarget);
+      b.onkeydown=event=>{if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;event.preventDefault();
+        const next=(i+(event.key==="ArrowRight"?1:-1)+list.length)%list.length;captureTargetId=list[next].id;renderWorkout();$$("[data-capture-target]")[next]?.focus()}})}
+  const suggestions=$("#captureSuggestions");if(suggestions){const previous=ex?last(ex):[],r=ex?recommendation(ex):null;
+    const tokens=previous.slice(0,3).map(row=>({label:`${fmtLoad(row.load)} × ${row.reps} @${fmt(row.rir)}`,value:`${fmtLoad(row.load)} x ${row.reps} @${fmt(row.rir)}`}));
+    if(!tokens.length&&r?.load)tokens.push({label:`Suggested ${fmtLoad(r.load)} × ${ex.min} @1`,value:`${fmtLoad(r.load)} x ${ex.min} @1`});
+    suggestions.innerHTML=tokens.length?`<span>Previous</span>${tokens.map(t=>`<button type="button" data-capture-suggestion="${esc(t.value)}">${esc(t.label)}</button>`).join("")}`:"";
+    $$("[data-capture-suggestion]").forEach(b=>b.onclick=()=>{const input=$("#commandInput");input.value=b.dataset.captureSuggestion;input.focus()})}
+  const keys=[...captureOrder,...[...touched].filter(k=>!captureOrder.includes(k))];
+  const items=keys.map(key=>{const p=captureKeyParts(key);if(!p)return null;
+    const load=$(`[data-k="${key}_load"]`)?.value,reps=$(`[data-k="${key}_reps"]`)?.value;
+    if(!load)return null;
+    let effort="";if(state.settings.rirMode==="effort")effort=$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"";
+    else{const rir=$(`[data-k="${key}_rir"]`)?.value;effort=rir!==""?`@${rir}`:""}
+    return{key,...p,load,reps,effort}}).filter(Boolean);
+  const feed=$("#captureFeed"),count=$("#captureFeedCount");
+  if(count)count.textContent=`${items.length} ${plural(items.length,"set")}`;
+  if(feed){feed.innerHTML=items.length?items.map((item,i)=>`<button type="button" class="capture-item" data-feed-ex="${esc(item.ex.id)}"><span class="capture-item__index">${String(i+1).padStart(2,"0")}</span><span class="capture-item__main"><b>${esc(item.ex.name)}</b><small>Set ${item.set}</small></span><strong>${esc(item.load)} × ${esc(item.reps)} ${esc(item.effort)}</strong><span class="capture-item__state">${committed.has(item.key)?"Saved":"Draft"}</span></button>`).join(""):`<p class="capture-empty">Captured sets appear here.</p>`;
+    $$("[data-feed-ex]").forEach(b=>b.onclick=()=>{captureTargetId=b.dataset.feedEx;renderWorkout();setDetailOpen(true)})}
+  const planned=sum(list.map(e=>e.sets)),done=committed.size,summary=$("#sessionSummary");
+  if(summary)summary.innerHTML=`<p class="session-summary__label">Session</p><div><strong>${done}</strong><span>saved sets</span></div><dl><div><dt>Day</dt><dd>${esc(day)}</dd></div><div><dt>Planned</dt><dd>${planned} sets</dd></div><div><dt>Exercises</dt><dd>${list.length}</dd></div></dl>`;
+  $("#detailSheet")?.classList.toggle("hidden",!detailOpen);
+  if(detailOpen&&$("#detailTitle"))$("#detailTitle").textContent=ex?.name||"Exercise details"
+}
 
 function renderWorkout(){
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null?`${nm||"Untitled program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's session"}
   const draft=loadDraft();
+  captureOrder=Array.isArray(draft.__captureOrder)?draft.__captureOrder.filter(k=>typeof k==="string"):[];
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
   warmups.clear();(draft.__warm||[]).forEach(k=>warmups.add(k));
@@ -722,6 +786,7 @@ function renderWorkout(){
   const fl=focusList();
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
+  captureExercise();
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
@@ -771,7 +836,7 @@ function renderWorkout(){
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
-  updateBodyweightField();
+  updateBodyweightField();renderCaptureUI();
 }
 
 function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
@@ -783,12 +848,14 @@ function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
-  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
+  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];d.__captureOrder=[...captureOrder];
+  localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
-    if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
+    if(row&&row.dataset.set){touched.add(row.dataset.set);markCapture(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();
+    renderCaptureUI();
     const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1])};
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
@@ -797,13 +864,13 @@ function bindWorkout(){
     if(load<=0){toast("Enter a weight before saving the set.");return}
     const row=b.closest(".setrow");
     if(committed.has(key)){committed.delete(key)}
-    else{committed.add(key);touched.add(key)}
+    else{committed.add(key);touched.add(key);markCapture(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
       b.textContent=committed.has(key)?"✓":"Save"}
-    saveDraft();updateSaveMeta();
+    saveDraft();updateSaveMeta();renderCaptureUI();
     if(committed.has(key))startRest()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
-    warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
+    warmups.has(key)?warmups.delete(key):warmups.add(key);markCapture(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const incKg=+state.settings.minJump||2.5,curKg=fromDisplay(+inp.value||0),
       nextKg=Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg);
@@ -852,7 +919,7 @@ function bindWorkout(){
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} ready`:"energy";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} ready`:"ready";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
   g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
@@ -931,12 +998,12 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
     "Δ block":fmtDelta(r.blockDelta),PRs:r.prs,Signal:r.signal})))}
 
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
-  el.innerHTML=`<div class="thisweek__title">This week's constellation</div><div class="thisweek__rows">`+
+  el.innerHTML=`<div class="thisweek__title">This week</div><div class="thisweek__rows">`+
     `<div>${w.completedDays} / ${w.plannedDays} days logged</div>`+
     `<div>${w.totalHardSets} hard ${plural(w.totalHardSets,"set")}</div>`+
     `<div>${w.improvedLifts} lift${w.improvedLifts===1?"":"s"} improved</div>`+
     `<div>${w.readyToAdd} ready to add</div></div>`+
-    `<div class="thisweek__status">Orbital stability: <b>${esc(w.status)}</b></div>`}
+    `<div class="thisweek__status">Status: <b>${esc(w.status)}</b></div>`}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
   const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
@@ -994,6 +1061,7 @@ function renderStats(){
   if(statsSeg==="strength")renderStrengthDash();
   if(statsSeg==="volume")renderVolumeDash();
   if(statsSeg==="prs")renderPRTimeline();
+  applyStatsQuery();
 }
 
 function detectPRs(log,opts={}){
@@ -1047,6 +1115,8 @@ function resolveExerciseFromCommand(parsed,currentExercises){
     const q=parsed.exerciseName.toLowerCase();
     const hit=currentExercises.filter(e=>{const n=e.name.toLowerCase();return n.startsWith(q)||n.includes(q)});
     return hit.length===1?hit[0]:null}
+  const selected=currentExercises.find(e=>e.id===captureTargetId);
+  if(selected)return selected;
   if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
   return currentExercises[0]||null}
 function applyParsedCommand(parsed,context){
@@ -1069,7 +1139,7 @@ function applyParsedCommand(parsed,context){
     $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>b.classList.toggle("active",b.dataset.e===eff))}
   else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
   touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
-  saveDraft();updateSaveMeta();return{ex,set:setN}}
+  markCapture(key);saveDraft();updateSaveMeta();return{ex,set:setN,key}}
 function handleCommandSubmit(){
   const v=$("#commandInput")?.value?.trim();if(!v)return;
   const parsed=parseSetCommand(v);
@@ -1078,12 +1148,15 @@ function handleCommandSubmit(){
   if(!ex){toast("Couldn't match that exercise.");return}
   const r=applyParsedCommand(parsed,{day,logMode});
   if(!r)return;
+  captureTargetId=r.ex.id;
   $("#commandInput").value="";
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
-  toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`)}
-function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
+  renderCaptureUI();toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`);
+  $("#commandInput")?.focus()}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!state.settings.voiceInputEnabled)}
 function startVoiceInput(){
-  if(!SR)return;const rec=new SR();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
+  if(!SR){toast("Voice input is not available. Type the set instead.");$("#commandInput")?.focus();return}
+  const rec=new SR();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
   rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
   rec.onerror=()=>toast("Voice input failed. Type the set instead.");
   try{rec.start()}catch{toast("Voice input failed. Type the set instead.")}}
@@ -1233,7 +1306,8 @@ function redrawChart(){if(!$("#stats").classList.contains("active")||statsSeg!==
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 function renderHistory(){
-  const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
+  const q=historyQuery.trim().toLowerCase(),matches=row=>!q||[row.date,row.day,displayName(row),row.notes].join(" ").toLowerCase().includes(q);
+  const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].filter(s=>state.log.some(r=>r.session===s.session&&matches(r))).sort((a,b)=>{
     const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
     const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
@@ -1245,12 +1319,14 @@ function renderHistory(){
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
-  }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
+  }).join(""):`<div class="table"><div class="empty">${q?"No matching sessions.":"No sessions yet."}</div></div>`;
   $$("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Delete this session? This cannot be undone.")){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast("Session deleted.")}});
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
+  const activity=[...state.log].filter(matches).sort((a,b)=>String(b.created).localeCompare(String(a.created))||b.date.localeCompare(a.date)||a.set-b.set);
+  const feed=$("#historyActivity");if(feed)feed.innerHTML=activity.length?activity.map(x=>`<article class="history-event"><time>${esc(x.date)}</time><div><strong>${esc(displayName(x))}</strong><span>${esc(x.day)} · Set ${x.warmup?`W${x.set}`:x.set}</span></div><b>${esc(fmtLoad(x.load))} × ${esc(x.reps)} <small>@${esc(fmt(x.rir))}</small></b></article>`).join(""):`<p class="capture-empty">${q?"No matching sets.":"Saved sets appear here."}</p>`;
+  const rows=activity.map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 
@@ -1618,7 +1694,7 @@ const TOUR=[
   {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. RepForge reads your history and tells you when you're ready to add load."},
   {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
-  {view:"log",title:"Energy gauge & rest timer",body:"The <b>energy</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
+  {view:"log",title:"Readiness & rest timer",body:"The <b>ready</b> indicator shows how many lifts are ready for more weight. Use the set timer to track rest periods."},
   {view:"log",title:"Save the workout",body:"When you're done, tap <b>Save workout</b>. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
@@ -1682,12 +1758,21 @@ function init(){
   $("#modeFocus").onclick=()=>setLogMode("focus");
   const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
   if(cmdApply)cmdApply.onclick=handleCommandSubmit;
-  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
+  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit();return}
+    if(e.altKey&&(e.key==="ArrowLeft"||e.key==="ArrowRight")){e.preventDefault();const list=exercises().filter(x=>!skipped.has(x.id)),at=Math.max(0,list.findIndex(x=>x.id===captureTargetId));
+      if(list.length)setCaptureTarget(list[(at+(e.key==="ArrowRight"?1:-1)+list.length)%list.length].id)}};
   const cmdHelp=$("#commandHelp");if(cmdHelp)cmdHelp.onclick=e=>{e.stopPropagation();glossaryPopover("quick entry",cmdHelp)};
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=startVoiceInput;
   updateVoiceBtn();
+  $("#openDetail").onclick=()=>setDetailOpen(true);
+  $("#closeDetail").onclick=()=>setDetailOpen(false);
+  $$("[data-detail-close]").forEach(b=>b.onclick=()=>setDetailOpen(false));
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"&&detailOpen)setDetailOpen(false)});
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
+  $("#statsQuery").oninput=e=>{statsQuery=e.target.value;applyStatsQuery()};
+  $("#statsViewFilter").onchange=e=>setStatsSeg(e.target.value);
+  $("#historySearch").oninput=e=>{historyQuery=e.target.value;renderHistory()};
   $("#saveProgram").onclick=saveProgram;
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;

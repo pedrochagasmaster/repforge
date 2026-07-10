@@ -1,4 +1,4 @@
-const CACHE = "repforge-v15-gravity";
+const CACHE = "repforge-v16-quick-capture";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon.svg", "./icons/icon-maskable.svg",
