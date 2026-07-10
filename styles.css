@@ -797,7 +797,6 @@ main::after{right:20px;border-right:2px solid var(--gold);transform:skewX(35deg)
 .brand__mark::after{inset:8px;border-radius:50%;background:#25100f}
 .brand__word{color:var(--whitehot);font-size:22px;letter-spacing:.075em;text-shadow:2px 2px 0 #6a1b1b}
 .brand__word em{color:var(--gold);background:none;text-shadow:2px 2px 0 #6a1b1b}
-.brand__word small{display:block;margin-top:3px;color:var(--steel);font-family:var(--body);font-size:7px;font-weight:600;letter-spacing:.21em;text-shadow:none;text-transform:uppercase}
 .gauge,.restbar{
   min-height:32px;border:2px solid #56352c;border-radius:4px;background:#0c0908;color:var(--gold);
   box-shadow:inset 0 3px 8px #000,0 1px rgba(255,241,201,.12);
@@ -831,6 +830,7 @@ input:focus,select:focus,textarea:focus{border-color:var(--quench);box-shadow:in
 .btn--forge{border-color:#a43c32;color:#fff2cf;background:linear-gradient(#d34a37,#9f2427 58%,#741b20);box-shadow:inset 0 1px #ff9b64,inset 0 -4px rgba(71,8,13,.38),0 4px 0 #400d12,0 8px 18px -9px #ef4b33}
 .btn--steel{background:linear-gradient(#41302a,#211715)}.btn--danger{background:linear-gradient(#5d2023,#331417);color:#ffd8cc}
 .btn--save{clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 10px,100% calc(100% - 10px),calc(100% - 10px) 100%,10px 100%,0 calc(100% - 10px),0 10px)}
+.btn--save:focus-visible{clip-path:none;outline:none;box-shadow:inset 0 1px #ff9b64,inset 0 -4px rgba(71,8,13,.38),0 0 0 3px var(--quench),0 0 0 6px var(--iron)}
 .exercise,.card,.metric,.session,.pmeta,.pday,.pex,.table,.advanced{
   border-radius:4px;background:linear-gradient(145deg,#2a1b19,#17100f);border:1px solid #754b3c;
   box-shadow:var(--shadow),inset 0 0 0 4px rgba(12,8,7,.45);
@@ -876,5 +876,9 @@ nav button.active .nav__icon{background:var(--gold);filter:drop-shadow(0 0 4px r
   main{width:calc(100% - 10px);padding:20px 12px 38px;outline-offset:-5px}.topbar{padding-left:12px;padding-right:12px}
   .brand__word{font-size:19px}.brand__mark{width:28px;height:28px}.gauge{font-size:9px;padding:5px 7px}
   h2{font-size:34px}.exercise{padding-left:17px;padding-right:11px}
+}
+@media (max-width:360px){
+  .topbar{flex-wrap:wrap;gap:8px}
+  .topbar__end{width:100%;justify-content:space-between;gap:6px}
 }
 @media (prefers-reduced-motion:reduce){body.is-lamp-chase::after{display:none}}

@@ -1,13 +1,13 @@
 {
   "name": "RepForge",
   "short_name": "RepForge",
-  "description": "Local-only progressive overload tracker with a glanceable orbital training system.",
+  "description": "Local-only progressive overload tracker with a high-score strength interface.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#080914",
-  "theme_color": "#080914",
+  "background_color": "#160f0e",
+  "theme_color": "#160f0e",
   "categories": ["health", "fitness", "productivity"],
   "icons": [
     {

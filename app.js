@@ -579,10 +579,10 @@ function parseProgramImport(parsed){
   if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null};
   if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null};
   return null}
-function save(){persist()}
-function persist(){
-  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}
-  idbSet(KEY,state).catch(e=>console.warn("idb persist failed",e))}
+function mirrorState(){
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){console.warn("localStorage mirror failed",e)}}
+function save(){const pending=persist();pending.catch(e=>console.warn("idb persist failed",e));return pending}
+async function persist(){mirrorState();await idbSet(KEY,state)}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
@@ -879,7 +879,7 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&+i.value>0).length;
   $("#saveMeta").textContent=done?`${day} · ${done}/${planned} sets done`:(entered?`${day} · ${entered}/${planned} entered`:`${day} · ${planned} sets`);}
 
-function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
+async function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
   const bwRaw=$("#bodyweight").value,bw=bwRaw===""||bwRaw==null?0:posNum(fromDisplay(bwRaw));
   for(const ex of exercises()){if(skipped.has(ex.id))continue;for(let n=1;n<=ex.sets;n++){
@@ -904,7 +904,12 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     const match=matchLift(ex);
     const prevTop=Math.max(0,...state.log.filter(x=>match(x)&&isWork(x)).map(r=>+r.load));
     if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
-  state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
+  const logLength=state.log.length;state.log.push(...rows);
+  try{await save()}
+  catch(e){
+    state.log.length=logLength;mirrorState();console.error("workout persist failed",e);
+    toast("Workout wasn't saved. Your entries are still here — try again.");return}
+  clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");lampChase();
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
   let msg=`High score saved — ${rows.length} ${plural(rows.length,"set")} logged.`;
@@ -1205,9 +1210,9 @@ window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function draw(rows){
   const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#8b97a8",dim:"#7b8899",rule:"#2a323d",mist:"#eceff4"};
+  const C={ember:"#cf2f2f",gold:"#f0a82e",white:"#fff1c9",quench:"#57c7d4",steel:"#c9bba4",dim:"#a0927f",rule:"#6d4639",mist:"#f6e6c5"};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
-  ctx.font='11px "Plex Mono",monospace';ctx.textBaseline="middle";
+  ctx.font='600 11px "Saira Condensed",sans-serif';ctx.textBaseline="middle";
   if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}
   const vals=rows.map(r=>r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
@@ -1217,10 +1222,10 @@ function draw(rows){
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val),padL-8,gy)}
   // area fill
-  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
+  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(207,47,47,.24)");grad.addColorStop(1,"rgba(207,47,47,0)");
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  // Progression path: electric blue history toward coral current state.
+  // Backglass score path: cool history resolves to an amber-lit current score.
   const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
@@ -1229,10 +1234,10 @@ function draw(rows){
     if(last){ctx.fillStyle=C.white;ctx.shadowColor=C.ember;ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;}
     else{ctx.fillStyle=C.gold;ctx.fill()}});
   // last value callout
-  const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.white;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Mono",monospace';
+  const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.white;ctx.textAlign=lx>w-60?"right":"left";ctx.font='700 12px "Saira Condensed",sans-serif';
   ctx.fillText(`${fmtLoad(rows.at(-1).top)}${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
   // x labels (first & last date)
-  ctx.fillStyle=C.dim;ctx.font='10px "Plex Mono",monospace';ctx.textBaseline="alphabetic";
+  ctx.fillStyle=C.dim;ctx.font='600 10px "Saira Condensed",sans-serif';ctx.textBaseline="alphabetic";
   ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
@@ -1627,7 +1632,7 @@ const TOUR=[
   {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
   {view:"log",title:"Lit targets & rest clock",body:"The <b>targets</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
-  {view:"log",title:"Finish the workout",body:"When you're done, tap <b>Finish workout</b> to save. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
+  {view:"log",title:"Save the workout",body:"When you're done, tap <b>Save workout</b>. After it is safely stored, your Stats and History update — and a rest/backup reminder appears when it's time."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
   {view:"program",title:"Program & blocks",body:"Build your split in the visual editor — days, exercises, muscles and rep ranges. See planned weekly <b>volume</b>, and use <b>End block</b> to review a mesocycle and plan the next one."},
