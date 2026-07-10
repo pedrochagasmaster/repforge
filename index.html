@@ -49,7 +49,9 @@
       <div id="dayTabs" class="seg" role="tablist" aria-label="Training day"></div>
       <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="fatigue" class="fatigue hidden"></div>
-      <div id="sessionRail" class="sessionrail" aria-label="Session progress"></div>
+      <div id="sessionRail" class="sessionrail" role="progressbar" aria-label="Session progress"
+        aria-valuemin="0" aria-valuemax="0" aria-valuenow="0" aria-valuetext="No sets planned"
+        aria-live="polite" aria-atomic="true"></div>
       <div class="commandbar">
         <input id="commandInput" type="text" autocomplete="off" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry" aria-describedby="commandHelpText">
         <button type="button" id="commandHelp" class="btn btn--steel commandbar__help" aria-label="Quick entry syntax help">?</button>
@@ -79,15 +81,15 @@
           <span id="saveMeta" class="btn__meta"></span>
         </button>
       </form>
-      <div id="sessionOverview" class="overview-sheet hidden" role="dialog" aria-modal="true" aria-label="Session overview">
+      <dialog id="sessionOverview" class="overview-sheet" aria-labelledby="overviewTitle" tabindex="-1">
         <div class="overview-sheet__panel">
           <div class="overview-sheet__head">
-            <div><p class="eyebrow">Session</p><h3>Overview</h3></div>
+            <div><p class="eyebrow">Session</p><h3 id="overviewTitle">Overview</h3></div>
             <button type="button" id="overviewClose" class="iconbtn" aria-label="Close overview">✕</button>
           </div>
           <div id="overviewList" class="overview-list"></div>
         </div>
-      </div>
+      </dialog>
     </section>
 
     <section id="stats" class="view" aria-label="Stats">
@@ -189,7 +191,7 @@
         <p class="lede">Voice input is optional and depends on browser support. Typed commands work offline. Voice recognition may be processed by your browser provider.</p>
         <button id="beginnerProgram" type="button" class="btn btn--steel">Use beginner-friendly program</button>
         <details class="advanced">
-          <summary>Advanced · progression dials</summary>
+          <summary>Advanced progression settings</summary>
           <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>
           <label class="field">Minimum jump (kg)<input id="minJump" type="number" step="0.25" inputmode="decimal"></label>
           <p class="lede">Minimum jump increment is always in kg regardless of display units.</p>

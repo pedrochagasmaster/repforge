@@ -1,4 +1,4 @@
-const CACHE = "repforge-v16-focus-deck";
+const CACHE = "repforge-v17-focus-deck-a11y";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon.svg",

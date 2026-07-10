@@ -333,7 +333,7 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="focus",focusIndex=0,overviewOpen=false,statsSeg="overview",prFilter="all";
+let logMode="focus",focusIndex=0,overviewOpen=false,overviewTrigger=null,statsSeg="overview",prFilter="all";
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -674,19 +674,34 @@ function setFocusIndex(next,{focus=false}={}){
   renderWorkout();
   if(focus)requestAnimationFrame(()=>$("#workout .ex__name")?.focus())
 }
-function closeSessionOverview(){
+function closeSessionOverview({restoreFocus=true}={}){
+  const dialog=$("#sessionOverview"),trigger=overviewTrigger;
   overviewOpen=false;
-  $("#sessionOverview")?.classList.add("hidden");
+  overviewTrigger=null;
+  if(dialog?.open)dialog.close();
   $("#modeFull")?.classList.remove("active");
-  $("#modeFocus")?.classList.add("active")
+  $("#modeFocus")?.classList.add("active");
+  if(restoreFocus&&trigger?.isConnected)requestAnimationFrame(()=>trigger.focus())
 }
 function openSessionOverview(){
+  const dialog=$("#sessionOverview");if(!dialog)return;
+  overviewTrigger=document.activeElement instanceof HTMLElement?document.activeElement:$("#modeFull");
   overviewOpen=true;
   renderSessionOverview();
-  $("#sessionOverview")?.classList.remove("hidden");
+  if(!dialog.open)dialog.showModal();
   $("#modeFull")?.classList.add("active");
   $("#modeFocus")?.classList.remove("active");
   requestAnimationFrame(()=>$("#overviewClose")?.focus())
+}
+function trapSessionOverviewFocus(event){
+  if(event.key!=="Tab"||!overviewOpen)return;
+  const dialog=$("#sessionOverview");
+  const focusable=[...dialog.querySelectorAll('button:not([disabled]),[href],input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])')]
+    .filter(element=>element.getClientRects().length);
+  if(!focusable.length){event.preventDefault();dialog.focus();return}
+  const first=focusable[0],last=focusable.at(-1),active=document.activeElement;
+  if(event.shiftKey&&(active===first||!dialog.contains(active))){event.preventDefault();last.focus()}
+  else if(!event.shiftKey&&(active===last||!dialog.contains(active))){event.preventDefault();first.focus()}
 }
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
@@ -738,8 +753,14 @@ function renderFocusChrome(list){
   const planned=sum(list.map(ex=>ex.sets));
   const done=[...committed].filter(key=>list.some(ex=>key.startsWith(ex.id+"_"))).length;
   const rail=$("#sessionRail");
-  if(rail)rail.innerHTML=`<div class="sessionrail__meta"><span>${done} of ${planned} sets</span><span>Exercise ${list.length?focusIndex+1:0} of ${list.length}</span></div>`+
-    `<div class="sessionrail__track"><span style="width:${planned?Math.round(done/planned*100):0}%"></span></div>`;
+  if(rail){
+    rail.setAttribute("aria-valuemin","0");
+    rail.setAttribute("aria-valuemax",String(planned));
+    rail.setAttribute("aria-valuenow",String(done));
+    rail.setAttribute("aria-valuetext",planned?`${done} of ${planned} sets complete. Exercise ${focusIndex+1} of ${list.length}.`:"No sets planned.");
+    rail.innerHTML=`<div class="sessionrail__meta"><span>${done} of ${planned} sets</span><span>Exercise ${list.length?focusIndex+1:0} of ${list.length}</span></div>`+
+      `<div class="sessionrail__track"><span style="width:${planned?Math.round(done/planned*100):0}%"></span></div>`
+  }
   const nav=$("#exerciseNavigator");
   if(nav)nav.innerHTML=`<p class="exnav__title">Exercises</p>`+list.map((ex,index)=>{
     const exDone=[...committed].filter(key=>key.startsWith(ex.id+"_")).length,on=index===focusIndex;
@@ -763,7 +784,7 @@ function renderSessionOverview(){
     return `<button type="button" class="overview-row" data-overview-focus="${index}">`+
       `<span class="overview-row__index">${index+1}</span><span><strong>${esc(substituted.get(ex.id)||ex.name)}</strong>`+
       `<small>${esc(r.label)} · ${done} of ${ex.sets} sets</small></span><span aria-hidden="true">›</span></button>`}).join("");
-  $$("[data-overview-focus]").forEach(button=>button.onclick=()=>{closeSessionOverview();setFocusIndex(+button.dataset.overviewFocus,{focus:true})})
+  $$("[data-overview-focus]").forEach(button=>button.onclick=()=>{closeSessionOverview({restoreFocus:false});setFocusIndex(+button.dataset.overviewFocus,{focus:true})})
 }
 
 function renderWorkout(){
@@ -1734,7 +1755,9 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
-  $("#overviewClose").onclick=closeSessionOverview;
+  $("#overviewClose").onclick=()=>closeSessionOverview();
+  $("#sessionOverview").addEventListener("keydown",trapSessionOverviewFocus);
+  $("#sessionOverview").addEventListener("cancel",event=>{event.preventDefault();closeSessionOverview()});
   document.addEventListener("keydown",event=>{
     if(event.key==="Escape"&&overviewOpen){closeSessionOverview();$("#modeFull").focus();return}
     if(!$("#log").classList.contains("active")||overviewOpen||event.altKey||event.ctrlKey||event.metaKey)return;
@@ -1768,7 +1791,7 @@ function init(){
   const lc=$("#logContext");if(lc)lc.onclick=()=>{$('nav button[data-view="stats"]').click();setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
-  $$("nav button").forEach(b=>b.onclick=()=>{if(b.dataset.view!=="log")closeSessionOverview();$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$("nav button").forEach(b=>b.onclick=()=>{if(b.dataset.view!=="log")closeSessionOverview({restoreFocus:false});$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
