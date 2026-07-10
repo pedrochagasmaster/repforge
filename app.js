@@ -1342,8 +1342,8 @@ function exCard(e,i,n){
     `<div class="pex__head">`+
       `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="Exercise name" aria-label="Exercise name">`+
       `<div class="pex__move">`+
-        `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="Move up">▲</button>`+
-        `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="Move down">▼</button>`+
+        `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="Move ${esc(e.name)} earlier">▲</button>`+
+        `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="Move ${esc(e.name)} later">▼</button>`+
         `<button class="iconbtn iconbtn--del" type="button" data-act="delEx" data-id="${esc(e.id)}" aria-label="Delete exercise">✕</button>`+
       `</div>`+
     `</div>`+
@@ -1376,9 +1376,23 @@ function bindEditor(){
 function editorAction(act,ds){
   if(act==="addEx"){prog.addExercise(ds.day);persistProgram();render();toast("Exercise added.")}
   else if(act==="delEx"){if(confirm("Remove this exercise from your program? Logged history will stay on this device.")){prog.removeExercise(ds.id);persistProgram();render();toast("Exercise removed.")}}
-  else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
-  else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
+  else if(act==="up")moveProgramExercise(ds.id,-1)
+  else if(act==="down")moveProgramExercise(ds.id,1)
   else if(act==="delDay"){if(confirm(`Delete ${ds.day} and all of its exercises? Logged history for these exercises will remain.`)){prog.removeDay(ds.day);persistProgram();render();toast("Day deleted.")}}
+}
+
+function moveProgramExercise(id,dir){
+  const ex=prog.find(id);if(!ex)return;
+  const before=prog.forDay(ex.day),from=before.findIndex(item=>item.id===id);
+  prog.move(id,dir);
+  const after=prog.forDay(ex.day),position=after.findIndex(item=>item.id===id);
+  if(position===from)return;
+  persistProgram();render();
+  const card=$(`.pex[data-id="${CSS.escape(id)}"]`),act=dir<0?"up":"down",fallback=dir<0?"down":"up";
+  const same=card?.querySelector(`[data-act="${act}"]`),other=card?.querySelector(`[data-act="${fallback}"]`);
+  (same&&!same.disabled?same:other&&!other.disabled?other:card?.querySelector(".pex__name"))?.focus();
+  const status=$("#programReorderStatus"),message=`${ex.name} moved to position ${position+1} of ${after.length} in ${ex.day}.`;
+  if(status){status.textContent="";requestAnimationFrame(()=>status.textContent=message)}
 }
 
 function renderVolume(){
@@ -1616,9 +1630,8 @@ function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(f
 const TOUR=[
   {view:"log",title:"Welcome to RepForge",body:"A local-only tracker for progressive overload — everything stays on this device, nothing is uploaded. This quick tour shows every feature. Tap <b>Next</b> to begin, or <b>Skip tour</b> anytime."},
   {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then choose exercises from the board in any order. RepForge reads your history and shows when to add load."},
-  {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
+  {view:"log",title:"Board and Inspector",body:"Select an <b>exercise tile</b> on the Board to open its <b>Inspector</b>. Save a set to update the tile and return to the Board, or close the Inspector without saving."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with an exercise name (<b>bench 80 x 8</b>) to select it. The <b>?</b> explains the syntax; turn on the microphone in Settings for hands-free entry."},
-  {view:"log",title:"Exercise board",body:"Choose exercises in any order. Each tile shows completion, previous performance, and the next recommendation. Set entry opens in a focused detail panel."},
   {view:"log",title:"Finish the session",body:"Use <b>Finish</b> when the session is complete. Stats and History update after the workout is stored."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
