@@ -26,4 +26,4 @@ Mobile dashboards need a scannable hierarchy and progressive disclosure rather t
 
 ## Implementation constraints
 
-The prototype stays dependency-free and local-only. Existing IDs, selectors, storage keys, render paths, focus behavior, and accessible names are preserved. CSS owns the orbital presentation; JavaScript changes only visible vocabulary. The service-worker cache is bumped so the updated shell and icon replace cached versions.
+The prototype stays dependency-free and local-only. Existing IDs, selectors, storage keys, render paths, focus behavior, and accessible names are preserved. CSS owns the orbital presentation; JavaScript changes only visible vocabulary. The service-worker cache is bumped so the updated shell and icons replace cached versions. The manifest uses the framed icon for general launch surfaces and a separate full-bleed maskable icon whose planet and satellite stay inside the central safe zone.

@@ -899,7 +899,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=`System stabilized — ${rows.length} ${plural(rows.length,"set")} logged.`;
+  let msg=`Workout saved — ${rows.length} ${plural(rows.length,"set")} logged.`;
   if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render()}finally{saving=false}}
