@@ -1,28 +1,30 @@
-# RepForge Ascent
+# RepForge Timeline Flow
 
 ## Concept
 
-Ascent turns progressive overload into a route through topographic terrain. Each exercise is a numbered checkpoint on one continuous trail. Readiness becomes grade: cobalt marks a conservative foothill, orange marks a steep opportunity to add load, and the route profile shows how the athlete is gaining elevation over time.
+Timeline Flow treats a workout as a chronological stream of events. The stream begins with session start, moves through exercise and set events, records rest intervals and notes, and ends with workout completion. One exercise event is current and expanded. Earlier events compress into receipts; later exercises remain a lightweight queue.
 
-The visual system uses weatherproof map colors—bone paper, spruce ink, safety orange, and cobalt—plus contour lines, trail blazes, elevation-style numerals, dashed survey rules, and compact field-map labels. Decorative safety orange stays vivid, while a darker semantic orange provides WCAG AA text and CTA contrast. It deliberately avoids editorial layouts, generic fitness neon, card grids, blur, and glass surfaces.
+The active event keeps the existing load, reps, RIR, substitution, warmup, skip, and rest controls. A sticky action dock provides Back, Save current set, Next, and Save workout actions. Moving between events restores keyboard focus to the new current exercise.
 
-## Reference principles
+## Supporting views
 
-### Humanist mobile data visualization
+- History reuses the event stream, with each saved workout followed by compact set receipts and edit/delete controls.
+- Stats presents Overview, Strength, Volume, PRs, and Review as stacked period sections with sticky section navigation.
+- Program presents days and exercises as an ordered sequence and retains its existing move controls.
+- Desktop layouts add a sticky workout outline on the left and current-event details on the right.
 
-Data stays tied to the athlete's next goal. Large values represent useful progress signals, readiness sits beside the exercise it affects, and the Stats view reads as a trail profile rather than an abstract dashboard.
+## Accessibility and responsive behavior
 
-### Topographic and trail wayfinding
-
-Exercises share a continuous route and use checkpoint numbering for sequence. Blazes, contour intervals, map keys, summit markers, and elevation colors communicate position and direction without changing the app's underlying workout model.
-
-### Progressive disclosure
-
-The active route exposes the information needed to log now. Dense analysis remains behind the existing “Open full trail profile” disclosure, while focus mode, advanced settings, and editing flows keep their established behavior.
+- Interactive controls use a minimum 44px target.
+- Focus moves to the current event after Back, Next, or outline selection.
+- Text and controls meet WCAG AA contrast.
+- Reduced-motion preferences disable transitions and animations.
+- Mobile widths stack set controls without horizontal page overflow.
 
 ## Scope and constraints
 
 - Static, offline-first PWA with no new dependencies.
-- Existing JavaScript selectors, interactions, form semantics, labels, and mobile behavior are retained.
-- The prototype changes visual presentation and map-oriented copy only; saved data remains compatible with `repforge_v1`.
-- Service-worker cache is bumped to `repforge-ascent-v15`.
+- Existing data structures, local storage keys, IndexedDB mirror, imports, exports, and progression behavior remain compatible.
+- Existing selectors remain available for established features and browser simulation.
+- All visible interface copy is neutral and task-oriented.
+- Service-worker cache is `repforge-timeline-v16`.

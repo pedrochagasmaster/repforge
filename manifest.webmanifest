@@ -1,13 +1,13 @@
 {
   "name": "RepForge",
   "short_name": "RepForge",
-  "description": "A local-only progressive overload tracker that maps training as a topographic ascent.",
+  "description": "A local-only progressive overload tracker with event-based workout logging.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#e9e3d5",
-  "theme_color": "#143f36",
+  "background_color": "#eceeeb",
+  "theme_color": "#ffffff",
   "categories": ["health", "fitness", "productivity"],
   "icons": [
     {
