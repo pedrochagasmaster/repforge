@@ -66,9 +66,25 @@ try {
   assert(contrast(colors.muted, colors.surface) >= 4.5, "secondary text contrast meets WCAG AA");
 
   const currentSet = page.locator(".exercise.is-current .setrow").first();
-  await currentSet.locator('input[data-k$="_load"]').fill("80");
-  await currentSet.locator('input[data-k$="_reps"]').fill("8");
-  await currentSet.locator('input[data-k$="_rir"]').fill("1");
+  const currentLoad = currentSet.locator('input[data-k$="_load"]');
+  await currentLoad.click();
+  await page.keyboard.press("ControlOrMeta+A");
+  await page.keyboard.type("70");
+  assert(await currentLoad.inputValue() === "70", "direct keyboard entry updates the current load");
+  assert(
+    await currentLoad.evaluate((input) => JSON.parse(localStorage.getItem("repforge_draft_v1") || "{}")[input.dataset.k]) === "70",
+    "direct keyboard entry persists the current load draft",
+  );
+
+  await page.locator("#commandInput").fill("80 x 8 @1");
+  await page.click("#commandApply");
+  assert(await currentLoad.inputValue() === "80", "quick entry applies load to the current set");
+  assert(await currentSet.locator('input[data-k$="_reps"]').inputValue() === "8", "quick entry applies reps to the current set");
+  assert(await currentSet.locator('input[data-k$="_rir"]').inputValue() === "1", "quick entry applies RIR to the current set");
+  assert(
+    await currentLoad.evaluate((input) => JSON.parse(localStorage.getItem("repforge_draft_v1") || "{}")[input.dataset.k]) === "80",
+    "quick entry persists the current load draft",
+  );
   await page.click("[data-dock-save]");
   assert(await page.locator(".exercise.is-current .setrow.is-done").count() === 1, "action dock saves the current set");
   assert(await page.locator(".exercise.is-current .timeline-rest").count() === 1, "saved set adds a rest interval event");
