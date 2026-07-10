@@ -1,13 +1,13 @@
 {
   "name": "RepForge",
   "short_name": "RepForge",
-  "description": "Local-only progressive overload tracker with a high-score strength interface.",
+  "description": "Local-only progressive overload tracker with an exercise board.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#160f0e",
-  "theme_color": "#160f0e",
+  "background_color": "#f2f0e9",
+  "theme_color": "#111614",
   "categories": ["health", "fitness", "productivity"],
   "icons": [
     {

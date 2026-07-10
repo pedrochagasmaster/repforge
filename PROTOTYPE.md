@@ -1,39 +1,29 @@
-# High Score
+# Exercise Board
 
-This isolated RepForge prototype treats a workout as a restrained electromechanical pinball game: sets are targets, progression readiness is a lit lamp, PRs are score reels, the rest timer is the ball-in-play clock, and saving a workout runs a brief lamp chase.
+This prototype changes RepForge from a sequential form into a spatial workspace. The Log view shows every exercise as a large tile with completion, previous performance, and the next recommendation. A tile opens a focused set-entry inspector; saving a set closes the inspector, updates the tile, and returns keyboard focus to the board. Exercises can therefore be completed in any order without losing session context.
 
-The reference is a 1950s–1970s backglass and control panel, not an arcade terminal. Black lacquer, cream sign-painting, cherry red, amber lamps, sparing cyan, and geometric linework provide the atmosphere. Display faces use the existing condensed sign-painter typeface rather than a pixel font. Inset numeric wells and visibly raised controls carry the physical metaphor; there is no terminal copy, generic neon, glass blur, or card-grid decoration.
+Stats uses the same overview-to-detail pattern: metric tiles open a shared inspector and keep the larger analysis available below. Program exercises are arranged as editable tiles with explicit earlier/later buttons, so reordering works with touch, mouse, and keyboard.
+
+## Interaction architecture
+
+- `renderWorkout()` owns the board overview and derives each tile from program, draft, history, and recommendation state.
+- `exerciseEditor()` owns focused set entry without duplicating session data.
+- `openInspector()` and `closeInspector()` provide one focus-trapped surface for exercise and metric details, including focus return.
+- Draft values remain in `repforge_draft_v1`; completed workouts still persist through the existing IndexedDB and `localStorage` path.
+- The compact session bar remains visible above navigation and exposes status plus the final Finish action.
+- Program movement uses ordinary buttons and the existing program model; no pointer-only drag behavior is required.
 
 ## Usability constraints
 
-- Existing IDs, selectors, DOM hierarchy, labels, focus behavior, and data flow remain intact.
-- The metaphor reinforces state: amber means ready or complete, cyan remains the cool/back-off signal, and red is reserved for primary action and urgency.
-- Controls keep their text labels. Physical styling is a signifier, not a replacement for instructions or accessible names.
-- Numeric wells are high-contrast and recessed; buttons are raised, have a pressed state, and retain keyboard focus rings.
-- The rest timer stays in the persistent top bar and remains stoppable with one tap.
-- The completion chase is decorative, lasts under one second, never blocks input, and is skipped when `prefers-reduced-motion: reduce` is active.
-- Mobile remains the primary layout. Geometric framing compresses rather than forcing horizontal scrolling.
+- Interactive controls are at least 44 CSS pixels high.
+- Selected, completed, in-progress, hover, and keyboard-focus states remain visually distinct.
+- The inspector fills the mobile viewport and becomes a right-side panel on larger screens.
+- One, two, three, and four board columns are used at 320, 390, 760, and 1280 pixels respectively.
+- Escape closes the inspector, Tab remains inside it, and focus returns to the tile that opened it.
+- Reduced-motion preferences remove view and inspector transitions.
+- Persistence failure keeps the draft and avoids any success message.
+- Offline behavior, imports, exports, history editing, program editing, settings, onboarding, and install behavior remain available without dependencies.
 
-## References and architectural translation
+## Visual system
 
-### Physical affordances and signifiers
-
-Don Norman distinguishes an affordance from the perceptible cue that communicates it, calling the cue a signifier. In a screen interface, styling must make actions discoverable rather than merely imitate material. RepForge therefore reserves raised edges, highlights, and downward travel for actual buttons; editable values alone receive recessed wells.
-
-- Don Norman, [“Signifiers, not affordances”](https://jnd.org/signifiers-not-affordances/)
-- Don Norman, [“Affordances and Design”](https://jnd.org/affordances-and-design/)
-
-### Real-time score display
-
-Electromechanical pinball moved from illuminated scoring panels to mechanical reel counters in the 1950s, making changing totals legible at a glance without consuming the whole backglass. RepForge translates that hierarchy into dark, inset number windows for metrics and PR values while leaving descriptive text outside the display.
-
-- Russ Jensen / Internet Pinball Database, [“Pinball Scoring Themes”](https://www.ipdb.org/archive/russjensen/scoring.htm)
-- Terra Technica, [“1953: Introduction of reel counters and improved electromechanics”](https://www.terratechnica.info/en/time-travel/pinball/1953)
-
-### Snappy motion as architecture
-
-Motion is state feedback, not ambient spectacle. Nielsen Norman Group recommends roughly 100 ms for simple feedback and 200–300 ms for larger state changes, with the shortest non-jarring duration preferred. The prototype keeps presses near-instant, existing view transitions brief, and the completion chase isolated behind one body state. That class is set only after persistence succeeds, so motion reflects application truth rather than running ahead of it.
-
-- Nielsen Norman Group, [“Executing UX Animations: Duration and Motion Characteristics”](https://www.nngroup.com/articles/animation-duration/)
-
-The architecture remains dependency-free: existing render functions own state, CSS owns presentation, and one `lampChase()` function bridges successful workout persistence to decorative feedback. Reduced-motion handling exists in both JavaScript and CSS so the effect is never initiated for users who request less motion and remains suppressed if styles load independently.
+The interface uses a neutral work-surface palette, dense labels, clear borders, and large typographic hierarchy. Color communicates completion, recommendation, selection, and caution. Styling does not explain itself in visible copy; labels describe only user tasks and data.
