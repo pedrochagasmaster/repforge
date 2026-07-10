@@ -33,6 +33,14 @@ const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
 const shortDate=d=>{const p=String(d||"").split("-");return p.length===3?`${+p[1]}/${+p[2]}`:String(d||"")};
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)};
+function lampChase(){
+  if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
+  document.body.classList.remove("is-lamp-chase");
+  void document.body.offsetWidth;
+  document.body.classList.add("is-lamp-chase");
+  clearTimeout(lampChase.timer);
+  lampChase.timer=setTimeout(()=>document.body.classList.remove("is-lamp-chase"),900);
+}
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
@@ -842,7 +850,7 @@ function bindWorkout(){
     const bar=document.createElement("div");bar.className="focusbar";
     bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
       `<span class="focusbar__prog">${fl.length?at+1:0} of ${fl.length}</span>`+
-      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Finish workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
+      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Save workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
     $("#workout").append(bar);
     const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
     const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
@@ -852,7 +860,7 @@ function bindWorkout(){
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"forge";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} lit`:"targets";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
   g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
@@ -897,9 +905,9 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     const prevTop=Math.max(0,...state.log.filter(x=>match(x)&&isWork(x)).map(r=>+r.load));
     if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
-  const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
+  const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");lampChase();
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=`Workout forged — ${rows.length} ${plural(rows.length,"set")} logged.`;
+  let msg=`High score saved — ${rows.length} ${plural(rows.length,"set")} logged.`;
   if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render()}finally{saving=false}}
@@ -1212,7 +1220,7 @@ function draw(rows){
   const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  // line (cool -> hot, left to right = progression heating up)
+  // Progression path: electric blue history toward coral current state.
   const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
@@ -1618,7 +1626,7 @@ const TOUR=[
   {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. RepForge reads your history and tells you when you're ready to add load."},
   {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
-  {view:"log",title:"Heat gauge & rest timer",body:"The <b>forge</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
+  {view:"log",title:"Lit targets & rest clock",body:"The <b>targets</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
   {view:"log",title:"Finish the workout",body:"When you're done, tap <b>Finish workout</b> to save. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
