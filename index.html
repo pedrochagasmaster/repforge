@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0e1116">
-  <meta name="description" content="RepForge is a local-only progressive overload tracker. Heat means you are ready to add load.">
+  <meta name="theme-color" content="#143f36">
+  <meta name="description" content="RepForge Ascent maps progressive overload as a route through topographic terrain.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
@@ -19,15 +19,15 @@
   <header class="topbar">
     <a class="brand" href="#" aria-label="RepForge home">
       <span class="brand__mark" aria-hidden="true"></span>
-      <span class="brand__word">REP<em>FORGE</em></span>
+      <span class="brand__word">REP<em>FORGE</em><small>ASCENT</small></span>
     </a>
     <div class="topbar__end">
       <button id="restBar" type="button" class="restbar hidden" aria-live="polite" aria-label="Rest timer — tap to stop">
         <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
       </button>
-      <button id="heatGauge" type="button" class="gauge" title="Session heat — how many lifts are ready to add load">
+      <button id="heatGauge" type="button" class="gauge" title="Route grade — how many lifts are ready to add load">
         <span class="gauge__fill"></span>
-        <span class="gauge__label">forge</span>
+        <span class="gauge__label">grade</span>
       </button>
       <button id="installBtn" class="btn btn--ghost hidden">Install</button>
     </div>
@@ -36,11 +36,16 @@
   <main>
     <section id="log" class="view active" aria-label="Log workout">
       <div class="sectionhead">
-        <button type="button" class="eyebrow eyebrow--link" id="logContext">Today's session</button>
+        <button type="button" class="eyebrow eyebrow--link" id="logContext">Today's route</button>
         <div class="sectionhead__row">
-          <h2>Log workout</h2>
+          <h2>Make the ascent</h2>
           <label class="datepick">Date<input id="date" type="date"></label>
         </div>
+      </div>
+      <div class="routekey" aria-label="Route legend">
+        <span><i class="routekey__blaze" aria-hidden="true"></i> Active route</span>
+        <span><i class="routekey__contour" aria-hidden="true"></i> Grade = readiness</span>
+        <strong>01 → summit</strong>
       </div>
       <div class="modeswitch" role="group" aria-label="Log layout">
         <button type="button" id="modeFull" class="active">List</button>
@@ -72,7 +77,7 @@
     </section>
 
     <section id="stats" class="view" aria-label="Stats">
-      <div class="sectionhead"><p class="eyebrow">The numbers</p><h2>Stats</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Trail profile</p><h2>Elevation gained</h2></div>
       <div id="statsSeg" class="seg seg--stats" role="tablist" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true">Overview</button>
         <button type="button" role="tab" data-seg="strength" aria-selected="false">Strength</button>
@@ -85,7 +90,7 @@
         <div id="attention" class="attention"></div>
         <div id="metrics" class="metrics"></div>
         <details class="advanced" id="statsDeep">
-          <summary>Dig deeper — charts &amp; tables</summary>
+          <summary>Open full trail profile</summary>
           <div class="card chartcard">
             <label class="field">Exercise<select id="statExercise"></select></label>
             <div id="trend" class="trend"></div>
@@ -124,13 +129,13 @@
     </section>
 
     <section id="history" class="view" aria-label="History">
-      <div class="sectionhead"><p class="eyebrow">The ledger</p><h2>History</h2></div>
-      <h3 class="subhead">Sessions</h3><div id="sessions" class="sessions"></div>
-      <h3 class="subhead">Every set</h3><div id="historyTable" class="table"></div>
+      <div class="sectionhead"><p class="eyebrow">Route archive</p><h2>Past ascents</h2></div>
+      <h3 class="subhead">Trail days</h3><div id="sessions" class="sessions"></div>
+      <h3 class="subhead">Every checkpoint</h3><div id="historyTable" class="table"></div>
     </section>
 
     <section id="program" class="view" aria-label="Program">
-      <div class="sectionhead"><p class="eyebrow">The blueprint</p><h2>Program</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Route planner</p><h2>Program map</h2></div>
       <div id="programMeta" class="pmeta" aria-label="Program summary"></div>
       <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <button id="endBlock" class="btn btn--steel program__endblock" type="button">End block</button>
@@ -153,7 +158,7 @@
     </section>
 
     <section id="settings" class="view" aria-label="Settings">
-      <div class="sectionhead"><p class="eyebrow">The dials</p><h2>Settings</h2></div>
+      <div class="sectionhead"><p class="eyebrow">Field kit</p><h2>Settings</h2></div>
       <div class="card">
         <p class="cardtitle">Progression</p>
         <p class="lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>

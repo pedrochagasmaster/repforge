@@ -1,13 +1,13 @@
 {
   "name": "RepForge",
   "short_name": "RepForge",
-  "description": "Local-only progressive overload tracker for machine-only bodybuilding training.",
+  "description": "A local-only progressive overload tracker that maps training as a topographic ascent.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",
   "orientation": "portrait",
-  "background_color": "#0e1116",
-  "theme_color": "#0e1116",
+  "background_color": "#e9e3d5",
+  "theme_color": "#143f36",
   "categories": ["health", "fitness", "productivity"],
   "icons": [
     {

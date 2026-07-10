@@ -710,7 +710,7 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
 
 function renderWorkout(){
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
-    lc.textContent=nm||mc.current!=null?`${nm||"Untitled program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's session"}
+    lc.textContent=nm||mc.current!=null?`${nm||"Untitled route"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's route"}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
@@ -852,7 +852,7 @@ function bindWorkout(){
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"forge";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"grade";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
   g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
@@ -1197,7 +1197,7 @@ window.__repforgeChartLabelDecimals=chartLabelDecimals;
 function draw(rows){
   const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#8b97a8",dim:"#7b8899",rule:"#2a323d",mist:"#eceff4"};
+  const C={ember:"#f05a28",gold:"#ff8a32",white:"#15342d",quench:"#2457d6",steel:"#4f5f58",dim:"#66736b",rule:"#9d9a86",mist:"#15342d"};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Mono",monospace';ctx.textBaseline="middle";
   if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText("Log this lift to chart its progression.",w/2,h/2);return}
@@ -1209,16 +1209,16 @@ function draw(rows){
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val),padL-8,gy)}
   // area fill
-  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
+  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(36,87,214,.24)");grad.addColorStop(1,"rgba(36,87,214,0)");
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  // line (cool -> hot, left to right = progression heating up)
+  // trail profile (cobalt foothill -> orange summit)
   const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
   // points
   rows.forEach((r,i)=>{const last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(r.top),last?5:3,0,7);
-    if(last){ctx.fillStyle=C.white;ctx.shadowColor=C.ember;ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;}
+    if(last){ctx.fillStyle=C.ember;ctx.strokeStyle=C.white;ctx.lineWidth=2;ctx.fill();ctx.stroke();}
     else{ctx.fillStyle=C.gold;ctx.fill()}});
   // last value callout
   const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.white;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Mono",monospace';
@@ -1245,7 +1245,7 @@ function renderHistory(){
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
-  }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
+  }).join(""):`<div class="table"><div class="empty">No ascents yet. Start your first route on the Log tab.</div></div>`;
   $$("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Delete this session? This cannot be undone.")){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast("Session deleted.")}});
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});

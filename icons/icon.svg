@@ -1,15 +1,7 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <defs>
-    <linearGradient id="heat" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff5a1f"/>
-      <stop offset="0.55" stop-color="#ffb44c"/>
-      <stop offset="1" stop-color="#ffe9c7"/>
-    </linearGradient>
-  </defs>
-  <rect width="512" height="512" rx="116" fill="#0e1116"/>
-  <rect x="36" y="36" width="440" height="440" rx="92" fill="none" stroke="#2a323d" stroke-width="6"/>
-  <!-- stacked plates / heat bars: short (cool) to long (hot) = progressive overload -->
-  <rect x="150" y="150" width="120" height="40" rx="20" fill="#4fb6d9"/>
-  <rect x="150" y="236" width="186" height="40" rx="20" fill="#ffb44c"/>
-  <rect x="150" y="322" width="240" height="40" rx="20" fill="url(#heat)"/>
+  <rect width="512" height="512" rx="112" fill="#143f36"/>
+  <path d="M65 301c56-95 108-151 177-153 77-3 89 74 153 66 22-3 39-12 52-23M56 348c66-107 124-169 194-170 75-1 88 70 145 63 27-3 46-16 61-32M67 397c70-109 130-168 197-167 69 1 83 62 134 58 26-2 46-12 62-27" fill="none" stroke="#f4f0e7" stroke-width="12" stroke-linecap="round" opacity=".9"/>
+  <path d="M93 376 204 254l67 62 127-171" fill="none" stroke="#f05a28" stroke-width="25" stroke-linecap="square" stroke-linejoin="round"/>
+  <circle cx="93" cy="376" r="28" fill="#2457d6" stroke="#f4f0e7" stroke-width="12"/>
+  <path d="m398 108 39 68h-78z" fill="#f4f0e7"/>
 </svg>
