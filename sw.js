@@ -1,4 +1,4 @@
-const CACHE = "repforge-v13";
+const CACHE = "repforge-v17-exercise-board-review";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./icons/icon.svg",
