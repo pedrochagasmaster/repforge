@@ -1,5 +1,6 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1";
 const DB="repforge",STORE="kv";
+const {normalizeCommandText,parseSetCommand}=window.RepForgeCommandParser;
 function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);
   r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function idbGet(key){const db=await idbOpen();
@@ -61,7 +62,8 @@ const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExpo
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
 const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled)});
-const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+const speechRecognitionApi=()=>Object.prototype.hasOwnProperty.call(window,"__repforgeTestSpeechRecognition")
+  ?window.__repforgeTestSpeechRecognition:window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>unit==="lb"?(+v||0)/LB:(+v||0);
@@ -334,6 +336,9 @@ const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let captureTargetId=null,captureOrder=[],detailOpen=false,statsQuery="",historyQuery="";
+let detailReturnFocus=null,detailInertState=[];
+const detailModalMedia=window.matchMedia("(max-width: 899px)");
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -673,9 +678,27 @@ function goToLogExercise(exId){
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
+  if($("#statsViewFilter"))$("#statsViewFilter").value=seg;
+  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview();
+  applyStatsQuery()}
+function applyStatsQuery(){
+  const q=statsQuery.trim().toLowerCase(),scope=$("#"+(STATS_SEG[statsSeg]||"segOverview")),status=$("#statsSearchStatus");if(!scope)return;
+  $$("#stats .query-hidden").forEach(el=>el.classList.remove("query-hidden"));
+  if(!q){if(status)status.textContent="";return}
+  if(statsSeg==="overview"&&$("#statsDeep"))$("#statsDeep").open=true;
+  const selectors={
+    overview:"#thisWeek .thisweek__rows > div,#thisWeek .thisweek__status,#attention .attn__chip,#metrics .metric,#trend span,#prLedger tbody tr,#completedVolume .vrow,#recent tbody tr,#recentDeltas tbody tr,#tops tbody tr,.empty",
+    strength:"tbody tr,.empty",
+    volume:"tbody tr,.empty",
+    prs:".prtl__row,.empty",
+    review:"#reviewPanel .blockprogress > *,#reviewPanel .review__summary,#reviewPanel > .lede,#reviewPanel > .empty"
+  };
+  const items=[...scope.querySelectorAll(selectors[statsSeg]||".empty")];
+  let matches=0;for(const el of items){const hit=el.textContent.toLowerCase().includes(q);el.classList.toggle("query-hidden",!hit);if(hit)matches++}
+  if(status)status.textContent=matches?`${matches} ${matches===1?"match":"matches"} in ${STATS_SEG[statsSeg].replace(/^seg/,"")}.`:`No matches in ${STATS_SEG[statsSeg].replace(/^seg/,"")}.`
+}
 
-// Recommendation -> RIR-aware double progression, mapped to a temperature/status.
+// RIR-aware double-progression recommendation.
 function recommendation(ex){
   const sess=sessionsFor(ex);
   if(!sess.length)return{status:"new",heat:.12,label:"New lift",text:`No history yet. Pick a load you can hold for ${ex.min}-${ex.max} reps at 0-${state.settings.rirHigh} RIR.`,load:null,stalled:false};
@@ -702,16 +725,107 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
 
-function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt()}
+function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();updateVoiceBtn()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
-  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
+  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;captureTargetId=null;renderTabs();renderWorkout()})}
+
+function captureExercise(){
+  const list=exercises().filter(e=>!skipped.has(e.id));
+  let ex=list.find(e=>e.id===captureTargetId);
+  if(!ex){ex=list[0]||null;captureTargetId=ex?.id||null}
+  return ex
+}
+function captureKeyParts(key){
+  const ex=exercises().find(e=>String(key).startsWith(`${e.id}_`));
+  if(!ex)return null;
+  const set=Number(String(key).slice(ex.id.length+1));
+  return Number.isFinite(set)?{ex,set}:null
+}
+function markCapture(key){if(key&&!captureOrder.includes(key))captureOrder.push(key)}
+function setCaptureTarget(id,{focusComposer=true}={}){
+  if(!exercises().some(e=>e.id===id))return;
+  captureTargetId=id;renderWorkout();
+  if(focusComposer)$("#commandInput")?.focus()
+}
+function detailTriggerReference(trigger){
+  if(trigger?.selector)return trigger;
+  if(!(trigger instanceof Element))return{selector:"#openDetail"};
+  let selector=trigger.id?`#${CSS.escape(trigger.id)}`:null;
+  if(trigger.dataset.feedKey)selector=`[data-feed-key="${CSS.escape(trigger.dataset.feedKey)}"]`;
+  else if(trigger.dataset.captureTarget)selector=`[data-capture-target="${CSS.escape(trigger.dataset.captureTarget)}"]`;
+  return{element:trigger,selector}
+}
+function restoreDetailBackground(){
+  for(const item of detailInertState){item.element.inert=item.inert;
+    if(item.ariaHidden==null)item.element.removeAttribute("aria-hidden");else item.element.setAttribute("aria-hidden",item.ariaHidden)}
+  detailInertState=[]
+}
+function syncDetailPresentation(){
+  const sheet=$("#detailSheet"),form=$("#logForm");if(!sheet)return;
+  const modal=detailOpen&&detailModalMedia.matches;
+  restoreDetailBackground();
+  sheet.setAttribute("aria-modal",modal?"true":"false");
+  document.body.classList.toggle("detail-is-open",modal);
+  if(modal){
+    document.body.append(sheet);
+    const background=[...document.body.children].filter(el=>el!==sheet&&["HEADER","MAIN","NAV"].includes(el.tagName));
+    detailInertState=background.map(element=>({element,inert:element.inert,ariaHidden:element.getAttribute("aria-hidden")}));
+    for(const {element} of detailInertState){element.inert=true;element.setAttribute("aria-hidden","true")}
+  }else if(form&&sheet.parentElement!==form)form.append(sheet)
+}
+function detailFocusable(){
+  const sheet=$("#detailSheet");if(!sheet)return[];
+  return [...sheet.querySelectorAll("button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])")]
+    .filter(el=>{const r=el.getBoundingClientRect();return r.width>0&&r.height>0})
+}
+function setDetailOpen(open,trigger){
+  detailOpen=!!open;
+  const sheet=$("#detailSheet");if(!sheet)return;
+  if(detailOpen)detailReturnFocus=detailTriggerReference(trigger);
+  sheet.classList.toggle("hidden",!detailOpen);
+  syncDetailPresentation();
+  if(detailOpen){$("#detailTitle").textContent=captureExercise()?.name||"Exercise details";
+    if(detailModalMedia.matches)$("#closeDetail")?.focus();else $("#workout .is-capture-target input")?.focus()}
+  else{const target=detailReturnFocus?.element?.isConnected?detailReturnFocus.element:detailReturnFocus?.selector?$(detailReturnFocus.selector):null;
+    detailReturnFocus=null;(target||$("#openDetail")||$("#commandInput"))?.focus()}
+}
+function renderCaptureUI({preserveFeed=false}={}){
+  const ex=captureExercise(),list=exercises().filter(e=>!skipped.has(e.id));
+  const target=$("#captureTargetName");if(target)target.textContent=ex?.name||"No exercise";
+  $$("#workout .exercise").forEach(a=>a.classList.toggle("is-capture-target",a.dataset.ex===ex?.id));
+  const dock=$("#exerciseDock");if(dock){dock.innerHTML=list.map((e,i)=>`<button type="button" role="tab" data-capture-target="${esc(e.id)}" aria-selected="${e.id===ex?.id?"true":"false"}" tabindex="${e.id===ex?.id?"0":"-1"}"><span>${i+1}</span>${esc(e.name)}</button>`).join("");
+    $$("[data-capture-target]").forEach((b,i)=>{b.onclick=()=>{if(b.dataset.captureTarget===captureTargetId)setDetailOpen(true,b);else setCaptureTarget(b.dataset.captureTarget)};
+      b.onkeydown=event=>{if(event.key!=="ArrowLeft"&&event.key!=="ArrowRight")return;event.preventDefault();
+        const next=(i+(event.key==="ArrowRight"?1:-1)+list.length)%list.length;captureTargetId=list[next].id;renderWorkout();$$("[data-capture-target]")[next]?.focus()}})}
+  const suggestions=$("#captureSuggestions");if(suggestions){const previous=ex?last(ex):[],r=ex?recommendation(ex):null;
+    const tokens=previous.slice(0,3).map(row=>({label:`${fmtLoad(row.load)} × ${row.reps} @${fmt(row.rir)}`,value:`${fmtLoad(row.load)} x ${row.reps} @${fmt(row.rir)}`}));
+    if(!tokens.length&&r?.load)tokens.push({label:`Suggested ${fmtLoad(r.load)} × ${ex.min} @1`,value:`${fmtLoad(r.load)} x ${ex.min} @1`});
+    suggestions.innerHTML=tokens.length?`<span>Previous</span>${tokens.map(t=>`<button type="button" data-capture-suggestion="${esc(t.value)}">${esc(t.label)}</button>`).join("")}`:"";
+    $$("[data-capture-suggestion]").forEach(b=>b.onclick=()=>{const input=$("#commandInput");input.value=b.dataset.captureSuggestion;input.focus()})}
+  const keys=[...captureOrder,...[...touched].filter(k=>!captureOrder.includes(k))];
+  const items=keys.map(key=>{const p=captureKeyParts(key);if(!p)return null;
+    const load=$(`[data-k="${key}_load"]`)?.value,reps=$(`[data-k="${key}_reps"]`)?.value;
+    if(!load)return null;
+    let effort="";if(state.settings.rirMode==="effort")effort=$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"";
+    else{const rir=$(`[data-k="${key}_rir"]`)?.value;effort=rir!==""?`@${rir}`:""}
+    return{key,...p,load,reps,effort}}).filter(Boolean);
+  const feed=$("#captureFeed"),count=$("#captureFeedCount");
+  if(count)count.textContent=`${items.length} ${plural(items.length,"set")}`;
+  if(feed&&!preserveFeed){feed.innerHTML=items.length?items.map((item,i)=>`<button type="button" class="capture-item" data-feed-ex="${esc(item.ex.id)}" data-feed-key="${esc(item.key)}"><span class="capture-item__index">${String(i+1).padStart(2,"0")}</span><span class="capture-item__main"><b>${esc(item.ex.name)}</b><small>Set ${item.set}</small></span><strong>${esc(item.load)} × ${esc(item.reps)} ${esc(item.effort)}</strong><span class="capture-item__state">${committed.has(item.key)?"Saved":"Draft"}</span></button>`).join(""):`<p class="capture-empty">Captured sets appear here.</p>`;
+    $$("[data-feed-ex]").forEach(b=>b.onclick=()=>{captureTargetId=b.dataset.feedEx;renderCaptureUI({preserveFeed:true});setDetailOpen(true,b)})}
+  const planned=sum(list.map(e=>e.sets)),done=committed.size,summary=$("#sessionSummary");
+  if(summary)summary.innerHTML=`<p class="session-summary__label">Session</p><div><strong>${done}</strong><span>saved sets</span></div><dl><div><dt>Day</dt><dd>${esc(day)}</dd></div><div><dt>Planned</dt><dd>${planned} sets</dd></div><div><dt>Exercises</dt><dd>${list.length}</dd></div></dl>`;
+  $("#detailSheet")?.classList.toggle("hidden",!detailOpen);
+  if(detailOpen&&$("#detailTitle"))$("#detailTitle").textContent=ex?.name||"Exercise details"
+}
 
 function renderWorkout(){
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null?`${nm||"Untitled program"}${mc.current!=null?` · Week ${mc.current} of ${mc.total}`:""}`:"Today's session"}
   const draft=loadDraft();
+  captureOrder=Array.isArray(draft.__captureOrder)?draft.__captureOrder.filter(k=>typeof k==="string"):[];
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
   warmups.clear();(draft.__warm||[]).forEach(k=>warmups.add(k));
@@ -722,6 +836,7 @@ function renderWorkout(){
   const fl=focusList();
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
+  captureExercise();
   const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
@@ -771,7 +886,7 @@ function renderWorkout(){
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
-  updateBodyweightField();
+  updateBodyweightField();renderCaptureUI();
 }
 
 function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
@@ -783,12 +898,14 @@ function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
-  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
+  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];d.__captureOrder=[...captureOrder];
+  localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
-    if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
+    if(row&&row.dataset.set){touched.add(row.dataset.set);markCapture(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();
+    renderCaptureUI();
     const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1])};
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
@@ -797,13 +914,13 @@ function bindWorkout(){
     if(load<=0){toast("Enter a weight before saving the set.");return}
     const row=b.closest(".setrow");
     if(committed.has(key)){committed.delete(key)}
-    else{committed.add(key);touched.add(key)}
+    else{committed.add(key);touched.add(key);markCapture(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
       b.textContent=committed.has(key)?"✓":"Save"}
-    saveDraft();updateSaveMeta();
+    saveDraft();updateSaveMeta();renderCaptureUI();
     if(committed.has(key))startRest()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
-    warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
+    warmups.has(key)?warmups.delete(key):warmups.add(key);markCapture(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const incKg=+state.settings.minJump||2.5,curKg=fromDisplay(+inp.value||0),
       nextKg=Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg);
@@ -842,7 +959,7 @@ function bindWorkout(){
     const bar=document.createElement("div");bar.className="focusbar";
     bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>Prev</button>`+
       `<span class="focusbar__prog">${fl.length?at+1:0} of ${fl.length}</span>`+
-      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Finish workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
+      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>Save workout</button>`:`<button type="button" class="btn btn--forge" data-fnext>Next</button>`);
     $("#workout").append(bar);
     const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
     const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
@@ -852,7 +969,7 @@ function bindWorkout(){
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
   g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?`${hot} hot`:"forge";
+  g.querySelector(".gauge__label").textContent=hot?`${hot} ready`:"ready";
   g.classList.toggle("is-hot",hot>0);
   g.style.cursor=hot?"pointer":"default";
   g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
@@ -899,7 +1016,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
   const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=`Workout forged — ${rows.length} ${plural(rows.length,"set")} logged.`;
+  let msg=`Workout saved — ${rows.length} ${plural(rows.length,"set")} logged.`;
   if(prLifts.length)msg+=` PR: ${prLifts.join(", ")}.`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render()}finally{saving=false}}
@@ -994,6 +1111,7 @@ function renderStats(){
   if(statsSeg==="strength")renderStrengthDash();
   if(statsSeg==="volume")renderVolumeDash();
   if(statsSeg==="prs")renderPRTimeline();
+  applyStatsQuery();
 }
 
 function detectPRs(log,opts={}){
@@ -1010,27 +1128,6 @@ function detectPRs(log,opts={}){
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
-function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
-  .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
-function parseSetCommand(text){
-  const n=normalizeCommandText(text),warnings=[];
-  let set=null,load,reps,rir=null,effort=null,unit=null,confidence="low",gotReps=false;
-  const setM=n.match(/(?:set|s)\s*(\d+)/);if(setM)set=+setM[1];
-  const primary=n.match(/(\d+(?:\.\d+)?)\s*(kg|lb)?\s*(?:x|for)\s*(\d+)/);
-  if(primary){load=+primary[1];unit=primary[2]||null;reps=+primary[3];confidence="high";gotReps=true}
-  else{const nums=(n.match(/\d+(?:\.\d+)?/g)||[]).map(Number);
-    if(set!=null){const i=nums.indexOf(set);if(i>=0)nums.splice(i,1)}
-    if(!nums.length)return {ok:false,error:"Could not read a set from that.",warnings};
-    if(nums.length<2)return {ok:false,error:"Could not find reps.",warnings};
-    load=nums[0];reps=nums[1];gotReps=true;if(nums.length>=3)rir=nums[2]}
-  if(!gotReps)return {ok:false,error:"Could not find reps.",warnings};
-  const rirM=n.match(/(?:rir|@)\s*(\d+(?:\.\d+)?)/);if(rirM)rir=+rirM[1];
-  else{const tr=n.match(/\b(\d+(?:\.\d+)?)\s*rir\b/);if(tr)rir=+tr[1]}
-  const ef=n.match(/\b(easy|hard|max)\b/);if(ef)effort=ef[1];
-  if(!unit){const u=n.match(/\b(\d+(?:\.\d+)?)\s*(kg|lb)\b/);if(u)unit=u[2]}
-  let exerciseName=null;const exSrc=setM?n.slice(setM.index+setM[0].length).trim():n;
-  const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
-  return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
 window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
@@ -1047,6 +1144,8 @@ function resolveExerciseFromCommand(parsed,currentExercises){
     const q=parsed.exerciseName.toLowerCase();
     const hit=currentExercises.filter(e=>{const n=e.name.toLowerCase();return n.startsWith(q)||n.includes(q)});
     return hit.length===1?hit[0]:null}
+  const selected=currentExercises.find(e=>e.id===captureTargetId);
+  if(selected)return selected;
   if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
   return currentExercises[0]||null}
 function applyParsedCommand(parsed,context){
@@ -1069,7 +1168,7 @@ function applyParsedCommand(parsed,context){
     $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>b.classList.toggle("active",b.dataset.e===eff))}
   else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
   touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
-  saveDraft();updateSaveMeta();return{ex,set:setN}}
+  markCapture(key);saveDraft();updateSaveMeta();return{ex,set:setN,key}}
 function handleCommandSubmit(){
   const v=$("#commandInput")?.value?.trim();if(!v)return;
   const parsed=parseSetCommand(v);
@@ -1078,15 +1177,22 @@ function handleCommandSubmit(){
   if(!ex){toast("Couldn't match that exercise.");return}
   const r=applyParsedCommand(parsed,{day,logMode});
   if(!r)return;
+  captureTargetId=r.ex.id;
   $("#commandInput").value="";
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
-  toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`)}
-function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
+  renderCaptureUI();toast(`Applied: ${fmt(parsed.load)}×${parsed.reps}${rirBit}`);
+  $("#commandInput")?.focus()}
+function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!state.settings.voiceInputEnabled)}
+function voiceInputFailed(message){
+  toast(message);$("#commandInput")?.focus()
+}
 function startVoiceInput(){
-  if(!SR)return;const rec=new SR();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
+  const SpeechRecognition=speechRecognitionApi();
+  if(!SpeechRecognition){voiceInputFailed("Voice input is not available. Type the set instead.");return}
+  const rec=new SpeechRecognition();rec.lang="en-US";rec.interimResults=false;rec.maxAlternatives=1;
   rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
-  rec.onerror=()=>toast("Voice input failed. Type the set instead.");
-  try{rec.start()}catch{toast("Voice input failed. Type the set instead.")}}
+  rec.onerror=()=>voiceInputFailed("Voice input failed. Type the set instead.");
+  try{rec.start()}catch{voiceInputFailed("Voice input failed to start. Type the set instead.")}}
 window.__repforgeBlockSnapshot=blockSnapshot;
 window.__repforgeBuildPlainSummary=buildPlainSummary;
 
@@ -1102,7 +1208,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   $$("#prFilterSeg button").forEach(b=>{const on=b.dataset.prf===prFilter;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
     b.onclick=()=>{prFilter=b.dataset.prf;renderPRTimeline()}});
   const events=prTimeline(prFilter);
-  if(!events.length){el.innerHTML=`<div class="empty">No PRs match this filter yet.</div>`;return}
+  if(!events.length){el.innerHTML=`<div class="empty">No PRs match this filter yet.</div>`;applyStatsQuery();return}
   const months=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
   const prDate=d=>{const p=String(d||"").split("-");return p.length===3?`${months[+p[1]-1]} ${+p[2]}`:String(d||"")};
   const kindLbl=k=>k==="load"?"Load PR":k==="reps"?"Reps PR":"e1RM PR";
@@ -1115,7 +1221,8 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
       `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
       `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
       `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
-      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("")}
+      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("");
+  applyStatsQuery()}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
@@ -1212,7 +1319,7 @@ function draw(rows){
   const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
   ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  // line (cool -> hot, left to right = progression heating up)
+  // Progression path: electric blue history toward coral current state.
   const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
   ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
@@ -1233,7 +1340,8 @@ function redrawChart(){if(!$("#stats").classList.contains("active")||statsSeg!==
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 function renderHistory(){
-  const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
+  const q=historyQuery.trim().toLowerCase(),matches=row=>!q||[row.date,row.day,displayName(row),row.notes].join(" ").toLowerCase().includes(q);
+  const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].filter(s=>state.log.some(r=>r.session===s.session&&matches(r))).sort((a,b)=>{
     const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
     const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
@@ -1245,12 +1353,14 @@ function renderHistory(){
       `<div class="session__sub">${esc(s.date)} · ${sets.length} sets · <span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span> top · ${kfmt(toDisplay(vol))} ${unitLabel()}</div>${deltaLine}</div>`+
       `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">Edit</button>`+
       `<button class="session__del" data-del="${esc(s.session)}">Delete</button></div></div>`;
-  }).join(""):`<div class="table"><div class="empty">No sessions yet. Forge your first on the Log tab.</div></div>`;
+  }).join(""):`<div class="table"><div class="empty">${q?"No matching sessions.":"No sessions yet."}</div></div>`;
   $$("[data-del]").forEach(b=>b.onclick=()=>{if(confirm("Delete this session? This cannot be undone.")){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast("Session deleted.")}});
   $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
+  const activity=[...state.log].filter(matches).sort((a,b)=>String(b.created).localeCompare(String(a.created))||b.date.localeCompare(a.date)||a.set-b.set);
+  const feed=$("#historyActivity");if(feed)feed.innerHTML=activity.length?activity.map(x=>`<article class="history-event"><time>${esc(x.date)}</time><div><strong>${esc(displayName(x))}</strong><span>${esc(x.day)} · Set ${x.warmup?`W${x.set}`:x.set}</span></div><b>${esc(fmtLoad(x.load))} × ${esc(x.reps)} <small>@${esc(fmt(x.rir))}</small></b></article>`).join(""):`<p class="capture-empty">${q?"No matching sets.":"Saved sets appear here."}</p>`;
+  const rows=activity.map(x=>({Date:x.date,Day:x.day,Exercise:displayName(x),Set:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),Reps:x.reps,RIR:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 
@@ -1618,8 +1728,8 @@ const TOUR=[
   {view:"log",title:"Log your session",body:"Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. RepForge reads your history and tells you when you're ready to add load."},
   {view:"log",title:"List or Focus",body:"Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone."},
   {view:"log",title:"Quick entry & voice",body:"Type a set like <b>80 x 8 @1</b> and hit <b>Apply</b>. Start with a lift name (<b>bench 80 x 8</b>) to target it. The <b>?</b> explains the syntax; turn on the 🎤 mic in Settings for hands-free entry."},
-  {view:"log",title:"Heat gauge & rest timer",body:"The <b>forge</b> gauge (top-right) shows how many lifts are ready for more weight. Tap a set's rest button to run the <b>rest timer</b> up in the top bar."},
-  {view:"log",title:"Finish the workout",body:"When you're done, tap <b>Finish workout</b> to save. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
+  {view:"log",title:"Readiness & rest timer",body:"The <b>ready</b> indicator shows how many lifts are ready for more weight. Use the set timer to track rest periods."},
+  {view:"log",title:"Save the workout",body:"When you're done, tap <b>Save workout</b>. Your Stats and History update instantly — and a rest/backup reminder appears when it's time."},
   {view:"stats",title:"Stats & trends",body:"Track progress across <b>Overview</b>, <b>Strength</b>, <b>Volume</b>, <b>PRs</b> and a plain-language <b>Review</b>. Open <b>Dig deeper</b> for charts and per-exercise trends."},
   {view:"history",title:"History",body:"Every saved <b>session</b> and every individual <b>set</b> lives here. Tap a session to review — or edit a past workout if you logged something wrong."},
   {view:"program",title:"Program & blocks",body:"Build your split in the visual editor — days, exercises, muscles and rep ranges. See planned weekly <b>volume</b>, and use <b>End block</b> to review a mesocycle and plan the next one."},
@@ -1674,7 +1784,7 @@ function init(){
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
     if(!g.contains(e.target)&&!e.target.closest("[data-term]"))g.classList.add("hidden")});
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
-  $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
+  $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart();applyStatsQuery()});
   $("#date").value=today();
   $("#bodyweight").value=lastBodyweight();
   updateBodyweightField();
@@ -1682,12 +1792,28 @@ function init(){
   $("#modeFocus").onclick=()=>setLogMode("focus");
   const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
   if(cmdApply)cmdApply.onclick=handleCommandSubmit;
-  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
+  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit();return}
+    if(e.altKey&&(e.key==="ArrowLeft"||e.key==="ArrowRight")){e.preventDefault();const list=exercises().filter(x=>!skipped.has(x.id)),at=Math.max(0,list.findIndex(x=>x.id===captureTargetId));
+      if(list.length)setCaptureTarget(list[(at+(e.key==="ArrowRight"?1:-1)+list.length)%list.length].id)}};
   const cmdHelp=$("#commandHelp");if(cmdHelp)cmdHelp.onclick=e=>{e.stopPropagation();glossaryPopover("quick entry",cmdHelp)};
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=startVoiceInput;
   updateVoiceBtn();
+  $("#openDetail").onclick=e=>setDetailOpen(true,e.currentTarget);
+  $("#closeDetail").onclick=()=>setDetailOpen(false);
+  $$("[data-detail-close]").forEach(b=>b.onclick=()=>setDetailOpen(false));
+  document.addEventListener("keydown",e=>{if(!detailOpen||!detailModalMedia.matches)return;
+    if(e.key==="Escape"){e.preventDefault();setDetailOpen(false);return}
+    if(e.key!=="Tab")return;const focusable=detailFocusable();if(!focusable.length){e.preventDefault();return}
+    const first=focusable[0],last=focusable.at(-1);
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
+  document.addEventListener("focusin",e=>{if(detailOpen&&detailModalMedia.matches&&!$("#detailSheet").contains(e.target))detailFocusable()[0]?.focus()});
+  detailModalMedia.addEventListener("change",()=>{if(detailOpen){syncDetailPresentation();(detailModalMedia.matches?$("#closeDetail"):$("#workout .is-capture-target input"))?.focus()}});
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;
+  $("#statsQuery").oninput=e=>{statsQuery=e.target.value;applyStatsQuery()};
+  $("#statsViewFilter").onchange=e=>setStatsSeg(e.target.value);
+  $("#historySearch").oninput=e=>{historyQuery=e.target.value;renderHistory()};
   $("#saveProgram").onclick=saveProgram;
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
