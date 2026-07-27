@@ -162,8 +162,10 @@
         <label class="field">Units<select id="unit"><option value="kg">kg</option><option value="lb">lb</option></select></label>
         <fieldset class="field rirmode">
           <legend>RIR logging</legend>
-          <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> Numbers</label>
-          <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> Easy / Hard / Max</label>
+          <div class="rirmode__opts">
+            <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> Numbers</label>
+            <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> Easy / Hard / Max</label>
+          </div>
         </fieldset>
         <p class="lede">Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
         <button id="createProgram" type="button" class="btn btn--steel">Create new program</button>
