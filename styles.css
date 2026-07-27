@@ -70,6 +70,8 @@ a{color:inherit;text-decoration:none}
 
 main{width:min(100%,var(--maxw));margin:0 auto;
   padding:16px max(14px,env(safe-area-inset-right)) 36px max(14px,env(safe-area-inset-left))}
+/* Opacity-only: a transform on .view makes sticky/fixed descendants use it
+   as their containing block and was contributing to Stats table header drift. */
 .view{display:none;animation:rise .42s cubic-bezier(.2,.7,.2,1) both}
 .view.active{display:block}
 .hidden{display:none!important}
@@ -313,8 +315,13 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 .trend{font-family:var(--mono);font-size:12px;color:var(--steel);margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:6px 16px}
 .trend b{color:var(--mist);font-weight:600}
 .trend .up{color:var(--gold)}.trend .down{color:var(--quench)}
-.prledger{margin:8px 0 12px}
-.prledger table{font-size:12px}
+/* Keep wide PR tables in their own horizontal scroller so sticky/page
+   overflow cannot desync the header row from the body columns. */
+.prledger{
+  margin:8px 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+  border:1px solid var(--rule-soft);border-radius:12px;background:var(--slag);
+}
+.prledger table{font-size:12px;margin:0}
 .pr-row td{vertical-align:middle}
 .pr-kind{display:inline-block;font-family:var(--mono);font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
 .pr-kind--load{color:var(--gold);background:rgba(255,180,76,.12)}
@@ -335,11 +342,13 @@ h2{font-family:var(--display);font-weight:800;font-size:34px;line-height:.95;let
 canvas{width:100%;display:block;margin-top:6px}
 
 /* ---- Tables (ledger) ---- */
-.table{background:var(--slag);border:1px solid var(--rule);border-radius:14px;overflow:auto;margin-bottom:8px}
-table{width:100%;border-collapse:collapse;min-width:520px}
+.table{background:var(--slag);border:1px solid var(--rule);border-radius:14px;overflow:auto;-webkit-overflow-scrolling:touch;margin-bottom:8px}
+/* separate+spacing:0 avoids sticky/collapse header drift; no sticky th —
+   sticky headers under a transformed .view and wide overflow desync columns. */
+table{width:100%;border-collapse:separate;border-spacing:0;min-width:520px}
 th,td{padding:11px 13px;text-align:left;font-size:13px;white-space:nowrap;border-bottom:1px solid var(--rule-soft)}
 th{font-family:var(--display);text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;color:var(--steel);
-  background:var(--anvil);position:sticky;top:0}
+  background:var(--anvil)}
 td{font-family:var(--mono);font-size:13px;color:var(--mist)}
 td:first-child,th:first-child{font-family:var(--body)}
 tbody tr:last-child td{border-bottom:0}
@@ -747,7 +756,7 @@ nav button.active .nav__icon{background:var(--ember)}
 .edbtns .btn{flex:1;padding:12px}
 
 /* ---- Motion ---- */
-@keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes rise{from{opacity:0}to{opacity:1}}
 @keyframes toastin{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes emberpulse{0%,100%{box-shadow:0 0 16px -4px var(--ember)}50%{box-shadow:0 0 26px 0 var(--ember)}}
 @keyframes stamp{0%{transform:scale(1)}30%{transform:scale(.97)}60%{transform:scale(1.01)}100%{transform:scale(1)}}
