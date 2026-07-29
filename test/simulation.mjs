@@ -3792,6 +3792,173 @@ async function main() {
     "Enter draft kg/reps for an exercise with prior sessions"
   );
 
+  beginPhase("\nPhase: program day collapse");
+  await nav(page, "program");
+  const collapseDay = await page.locator("#programEditor .pday").first().getAttribute("data-day");
+  const expandedVisible = await page
+    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .isVisible();
+  assert(
+    expandedVisible,
+    "Program days start expanded",
+    `Exercise list not visible for ${collapseDay}`,
+    "Program tab → first day card"
+  );
+  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
+  await page.waitForTimeout(120);
+  const collapsedHidden = await page
+    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .isHidden();
+  assert(
+    collapsedHidden,
+    "Toggling a day collapses its exercise list",
+    `Exercise list still visible for ${collapseDay}`,
+    "Program tab → day card → caret button"
+  );
+  const collapseAria = await page.getAttribute(
+    `#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`,
+    "aria-expanded"
+  );
+  assert(
+    collapseAria === "false",
+    "Collapse caret reports aria-expanded=false",
+    `aria-expanded=${collapseAria}`,
+    "Program tab → day card → caret button"
+  );
+  const collapsePref = await page.evaluate(() => {
+    try {
+      return JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").collapsedProgramDays || [];
+    } catch {
+      return [];
+    }
+  });
+  assert(
+    collapsePref.includes(collapseDay),
+    "Collapsed day is stored in UI prefs",
+    `Prefs: ${JSON.stringify(collapsePref)}`,
+    "Collapse a day → inspect localStorage repforge_ui_v1"
+  );
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#log.view.active", { timeout: 8000 });
+  await nav(page, "program");
+  const stillCollapsed = await page
+    .locator(`#programEditor .pday[data-day="${collapseDay}"]`)
+    .evaluate((el) => el.classList.contains("is-collapsed"));
+  assert(
+    stillCollapsed,
+    "Collapsed day survives a reload",
+    `${collapseDay} re-rendered expanded`,
+    "Collapse a day → reload → Program tab"
+  );
+  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
+  await page.waitForTimeout(120);
+
+  beginPhase("\nPhase: exercise session notes + exercise page");
+  await nav(page, "log");
+  const noteDay = "Day 1";
+  await selectDay(page, noteDay);
+  const noteExs = await getExerciseMeta(page, noteDay);
+  const noteEx = noteExs[0];
+  const noteExName = (
+    await page.textContent(`#workout [data-ex="${noteEx.id}"] .ex__name`)
+  ).trim();
+  const NOTE_TEXT = "Seat 4, pin 6, wide grip";
+  await page.fill("#date", "2026-02-02");
+  await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
+  await page.click(`[data-exnote-toggle="${noteEx.id}"]`);
+  await page.fill(`[data-exnote="${noteEx.id}"]`, NOTE_TEXT);
+  await page.waitForTimeout(120);
+  const noteDraft = await page.evaluate((k) => {
+    try {
+      return JSON.parse(localStorage.getItem(k) || "{}").__exnotes || {};
+    } catch {
+      return {};
+    }
+  }, DRAFT);
+  assert(
+    noteDraft[noteEx.id] === NOTE_TEXT,
+    "Exercise note is kept in the draft",
+    `Draft notes: ${JSON.stringify(noteDraft)}`,
+    "Log tab → exercise card → Note → type"
+  );
+  await saveWorkout(page);
+  const noteState = await getState(page);
+  const savedNoteRows = noteState.log.filter(
+    (r) => r.exerciseId === noteEx.id && r.date === "2026-02-02"
+  );
+  assert(
+    savedNoteRows.length > 0 && savedNoteRows.every((r) => r.exNote === NOTE_TEXT),
+    "Saved log rows carry the exercise note",
+    `Rows: ${JSON.stringify(savedNoteRows.map((r) => r.exNote))}`,
+    "Log a session with an exercise note → inspect state.log"
+  );
+  const notePrefill = await page.inputValue(`[data-exnote="${noteEx.id}"]`);
+  assert(
+    notePrefill === NOTE_TEXT,
+    "Next session prefills the last exercise note",
+    `Prefill: "${notePrefill}"`,
+    "Save a session with a note → note field for that exercise"
+  );
+  await page.click(`#workout [data-ex="${noteEx.id}"] .ex__namebtn`);
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+  const exDetailText = await page.textContent("#exDetail");
+  assert(
+    exDetailText.includes(noteExName),
+    "Exercise page shows the exercise name",
+    `Content: ${(exDetailText || "").slice(0, 200)}`,
+    "Log tab → tap an exercise name"
+  );
+  assert(
+    /Sessions/.test(exDetailText) && /Best e1RM/.test(exDetailText),
+    "Exercise page shows summary metrics",
+    `Content: ${(exDetailText || "").slice(0, 300)}`,
+    "Log tab → tap an exercise name"
+  );
+  const exSessionNote = await page.textContent(".exsessions");
+  assert(
+    exSessionNote.includes(NOTE_TEXT),
+    "Exercise page shows the session note",
+    `Session history: ${(exSessionNote || "").slice(0, 300)}`,
+    "Log a note → tap the exercise name → Session history"
+  );
+  const exChart = await page.$("#exChart");
+  assert(exChart, "Exercise page renders its chart canvas", "Missing #exChart", "Exercise page");
+  const navActiveWhileDetail = await page.$$eval("nav button.active", (b) => b.length);
+  assert(
+    navActiveWhileDetail === 0,
+    "No bottom-nav tab is marked active on the exercise page",
+    `Active nav buttons: ${navActiveWhileDetail}`,
+    "Open the exercise page → inspect nav"
+  );
+  await page.click("#exBack");
+  await page.waitForSelector("#log.view.active", { timeout: 5000 });
+  assert(
+    await page.locator('nav button[data-view="log"].active').count(),
+    "Back from the exercise page restores the Log tab",
+    "Log tab not active after Back",
+    "Exercise page → Back"
+  );
+  await nav(page, "settings");
+  const noteCsvPath = join(tmpDir, "log-notes.csv");
+  const [noteCsvDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#exportCsv"),
+  ]);
+  await noteCsvDownload.saveAs(noteCsvPath);
+  const noteCsv = readFileSync(noteCsvPath, "utf8");
+  assert(
+    noteCsv.split("\n")[0].includes("exercise_note"),
+    "CSV export includes an exercise_note column",
+    `Header: ${noteCsv.split("\n")[0]}`,
+    "Settings → Export log CSV"
+  );
+  assert(
+    noteCsv.includes(NOTE_TEXT),
+    "CSV export carries the exercise note value",
+    "NOTE_TEXT missing from CSV body",
+    "Log a note → Settings → Export log CSV"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

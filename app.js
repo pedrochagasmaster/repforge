@@ -334,6 +334,7 @@ const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let exView=null;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -713,7 +714,8 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
 
-function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt()}
+function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
+  if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
@@ -761,13 +763,21 @@ function renderWorkout(){
         `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Save"}</button></div>`;
     }).join("");
     const perf=substituted.get(ex.id);
-    const nameHtml=perf?`${esc(perf)} <span class="ex__subfor">(for ${esc(ex.name)})</span>`:esc(ex.name);
+    const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">(for ${esc(ex.name)})</span>`:esc(ex.name);
+    const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="Open ${esc(perf||ex.name)} stats and history">${nameLabel}</button>`;
+    const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
+    const notePreview=noteVal?esc(noteVal):"Add a note for this session";
+    const noteHtml=`<div class="exnote${noteVal?" has-note":""}">`+
+      `<button type="button" class="exnote__toggle" data-exnote-toggle="${esc(ex.id)}" aria-expanded="false" aria-controls="exnote_${esc(ex.id)}">`+
+      `<span class="exnote__lab">Note</span><span class="exnote__preview">${notePreview}</span></button>`+
+      `<textarea class="exnote__input hidden" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" rows="2" `+
+      `placeholder="Machine setup, seat height, grip — carried into next session" aria-label="Session note for ${esc(ex.name)}">${esc(noteVal)}</textarea></div>`;
     const subPick=ex.alternates?.length?`<div class="subst"><span class="subst__lab">Use:</span><select class="subst__pick" data-sub="${esc(ex.id)}" aria-label="Substitute for ${esc(ex.name)}">`+
       `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>Other…</option></select></div>`:"";
     return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
-      `<div class="ex__top"><div class="ex__head"><h3 class="ex__name">${nameHtml}</h3>`+
+      `<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · <span class="nowrap">${term("RIR")} 0-${fmt(state.settings.rirHigh)}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="Start rest timer">⏱</button>`:"")+
@@ -779,7 +789,7 @@ function renderWorkout(){
       (ex.notes?`<p class="setup"><span>Setup</span>${esc(ex.notes)}</p>`:"")+
       subPick+
       prevHtml+deltaHtml+
-      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}</article>`;
+      `<div class="sets__head"><span>Set</span><span>${unitLabel()}</span><span>reps</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}${noteHtml}</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
@@ -798,8 +808,21 @@ function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId
     const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
     if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sets__head")?"beforebegin":"afterend",n)}}
 
+// Latest note the lifter left on this exercise, so machine setup carries into the next session.
+function lastExerciseNote(ex){const match=matchLift(ex);
+  const rows=state.log.filter(r=>match(r)&&String(r.exNote||"").trim());
+  if(!rows.length)return"";
+  const latest=rows.sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created))).at(-1);
+  return String(latest.exNote).trim()}
+function currentExerciseNote(exId){const el=$(`[data-exnote="${exId}"]`);
+  if(el)return el.value.trim();
+  const d=loadDraft().__exnotes||{};return String(d[exId]??"").trim()}
+
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
+  // Store every note field, empty included — an empty value is the lifter clearing a carried-forward note.
+  const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
+  if(Object.keys(notes).length)d.__exnotes=notes;
   d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
@@ -852,6 +875,15 @@ function bindWorkout(){
     b.classList.add("active");touched.add(key);
     const row=b.closest(".setrow");if(row)row.classList.remove("is-suggested");
     saveDraft();updateSaveMeta()});
+  $$("#workout .exnote__toggle").forEach(b=>b.onclick=()=>{const wrap=b.closest(".exnote"),ta=wrap?.querySelector(".exnote__input");if(!ta)return;
+    const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
+    wrap.classList.toggle("is-open",open);
+    if(open){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}});
+  $$("#workout .exnote__input").forEach(t=>{t.oninput=()=>{saveDraft();
+    const prev=t.closest(".exnote")?.querySelector(".exnote__preview");
+    if(prev)prev.textContent=t.value.trim()||"Add a note for this session";
+    t.closest(".exnote")?.classList.toggle("has-note",!!t.value.trim())}});
+  $$("#workout .ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
@@ -891,7 +923,9 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
 function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
   try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
   const bwRaw=$("#bodyweight").value,bw=bwRaw===""||bwRaw==null?0:posNum(fromDisplay(bwRaw));
-  for(const ex of exercises()){if(skipped.has(ex.id))continue;for(let n=1;n<=ex.sets;n++){
+  for(const ex of exercises()){if(skipped.has(ex.id))continue;
+    const exNote=currentExerciseNote(ex.id);
+    for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
     const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
     let rir;
@@ -902,6 +936,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
     if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
+    if(exNote)row.exNote=exNote;
     if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
     rows.push(row)}}
@@ -1222,8 +1257,9 @@ function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=
 
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
-function draw(rows){
-  const c=$("#chart"),ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
+function draw(rows,sel="#chart"){
+  const c=$(sel);if(!c)return;
+  const ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
   const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#8b97a8",dim:"#7b8899",rule:"#2a323d",mist:"#eceff4"};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
@@ -1257,7 +1293,9 @@ function draw(rows){
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
 
-function redrawChart(){if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
+function redrawChart(){
+  if($("#exercise")?.classList.contains("active")&&exView){draw(summaries().filter(x=>x.liftKey===exView.key),"#exChart");return}
+  if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 function renderHistory(){
@@ -1307,6 +1345,91 @@ function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"
   state.log=state.log.filter(r=>r.session!==sid||+r.load>0);
   editSession=null;save();render();toast("Session updated.");}
 
+// ---- Exercise detail: one lift's stats, session history and session notes ----
+// Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
+function exerciseSessionsDetail(key){const m=new Map();
+  for(const r of state.log){if(liftKey(r)!==key)continue;
+    if(!m.has(r.session))m.set(r.session,{session:r.session,date:r.date,day:r.day,created:r.created,rows:[],note:""});
+    const e=m.get(r.session);e.rows.push(r);
+    if(!e.note&&String(r.exNote||"").trim())e.note=String(r.exNote).trim()}
+  return [...m.values()].sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created)))}
+
+function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
+function openExerciseView(key,from){if(!key)return;
+  exView={key,from:from||currentViewId()};
+  $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
+  window.scrollTo({top:0});renderExerciseView()}
+function closeExerciseView(){const back=exView?.from||"log";exView=null;
+  $$("nav button").forEach(x=>{const on=x.dataset.view===back;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id===back));
+  window.scrollTo({top:0});render()}
+
+function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
+  const key=exView.key,tmpl=prog.find(key),sessions=exerciseSessionsDetail(key);
+  const latest=sessions.at(-1)?.rows.at(-1);
+  const name=latest?displayName(latest):(tmpl?.name||key);
+  const exRef=tmpl||(latest?{id:latest.exerciseId,name:latest.name}:null);
+  const back=$("#exBack");if(back)back.textContent=`← Back to ${exView.from==="log"?"Log":exView.from.charAt(0).toUpperCase()+exView.from.slice(1)}`;
+
+  const metaBits=[];
+  if(tmpl){metaBits.push(`<span class="ex__tag">${esc(tmpl.primary)}</span>`);
+    metaBits.push(`<span class="nowrap">${esc(tmpl.day)}</span>`);
+    metaBits.push(`<span class="nowrap">${tmpl.sets}×${tmpl.min}-${tmpl.max} reps</span>`)}
+  else metaBits.push(`<span class="nowrap">Not in the current program</span>`);
+  const rec=tmpl?recommendation(tmpl):null;
+  const recHtml=rec?`<div class="exdet__rec is-${rec.status}"><span class="chip">${esc(rec.label)}</span>`+
+    `<p class="rec">${esc(rec.text)}${rec.load!==null?` Target <b>${fmtLoad(rec.load)} ${unitLabel()}</b>.`:""}</p></div>`:"";
+
+  const sums=summaries().filter(x=>x.liftKey===key);
+  const work=state.log.filter(r=>liftKey(r)===key&&isWork(r));
+  const topLoad=Math.max(0,...work.map(r=>+r.load||0));
+  const bestE=work.length?Math.max(...work.map(r=>e1rm(+r.load,+r.reps))):0;
+  const totalVol=sum(work.map(r=>(+r.load||0)*(+r.reps||0)));
+  const tiles=[
+    {label:"Sessions",val:sessions.length},
+    {label:"Top load",val:topLoad?fmtLoad(topLoad):"—",unit:topLoad?unitLabel():""},
+    {label:"Best e1RM",val:bestE?fmt(Math.round(toDisplay(bestE))):"—",unit:bestE?unitLabel():"",hot:bestE>0},
+    {label:"Volume",val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
+  ];
+
+  let trendHtml="";
+  if(sums.length){const first=sums[0].top,last=sums.at(-1).top,delta=last-first;
+    const dir=delta>0?"up":delta<0?"down":"",arrow=delta>0?"▲":delta<0?"▼":"·";
+    trendHtml=`<div class="trend"><span>Top load <b>${fmtLoad(first)}→${fmtLoad(last)} ${unitLabel()}</b></span>`+
+      `<span class="${dir}">${arrow} ${fmt(toDisplay(Math.abs(delta)))} ${unitLabel()} over ${sums.length} ${plural(sums.length,"session")}</span></div>`}
+
+  const prEvents=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===key).reverse();
+  const prHtml=prEvents.length?`<table><thead><tr><th>Date</th><th>Kind</th><th>Load</th><th>Reps</th><th>e1RM</th></tr></thead><tbody>`+
+    prEvents.slice(0,8).map(ev=>{const kindLabel=ev.kind==="e1rm"?"e1RM":ev.kind.charAt(0).toUpperCase()+ev.kind.slice(1);
+      const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
+      return `<tr><td>${esc(ev.date)}</td><td><span class="pr-kind ${kindCls}">${esc(kindLabel)}</span></td>`+
+        `<td>${esc(fmtLoad(ev.load))}</td><td>${esc(ev.reps)}</td><td>${esc(fmt(Math.round(toDisplay(e1rm(ev.load,ev.reps)))))}</td></tr>`}).join("")+
+    `</tbody></table>`:`<div class="empty">No PRs on this lift yet.</div>`;
+
+  const historyHtml=sessions.length?[...sessions].reverse().map(s=>{
+    const setsTxt=[...s.rows].sort((a,b)=>a.set-b.set)
+      .map(r=>`<span class="exsess__set${r.warmup?" is-warmup":""}">${r.warmup?"W ":""}${fmtLoad(r.load)}×${r.reps}<small>@${fmt(r.rir)}</small></span>`).join("");
+    const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
+    const badge=cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"";
+    const note=s.note?`<p class="exsess__note"><span>Note</span>${esc(s.note)}</p>`:"";
+    return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(s.date)}</span>`+
+      `<span class="exsess__day">${esc(s.day)}</span>${badge}</div>`+
+      `<div class="exsess__sets">${setsTxt}</div>${note}</div>`}).join("")
+    :`<div class="table"><div class="empty">No sets logged for this lift yet.</div></div>`;
+
+  el.innerHTML=`<p class="eyebrow">Exercise</p><h2 class="exdet__name">${esc(name)}</h2>`+
+    `<p class="ex__meta exdet__meta">${metaBits.join(" · ")}</p>`+
+    recHtml+
+    `<div class="metrics">${tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div>`+
+      `<div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("")}</div>`+
+    `<div class="card">${trendHtml}<canvas id="exChart" height="240" aria-label="Top load over time for ${esc(name)}"></canvas></div>`+
+    `<h3 class="subhead">Personal records</h3><div class="table">${prHtml}</div>`+
+    `<h3 class="subhead">Session history</h3><p class="lede">Notes you add on the Log tab show up here with the session they belong to.</p>`+
+    `<div class="exsessions">${historyHtml}</div>`;
+  draw(sums,"#exChart");
+}
+
 function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolume()}
 
 function renderProgramChips(){
@@ -1339,6 +1462,15 @@ function renderProgramHeader(){
   startInp.onchange=()=>{persistProgramMeta({started:startInp.value||null});renderProgramChips()};
 }
 
+// Collapsed program days live in UI prefs so the state survives reloads without touching training data.
+function collapsedProgramDays(){const v=uiPrefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
+function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
+  on?cur.add(d):cur.delete(d);
+  setUiPref("collapsedProgramDays",[...cur].filter(x=>prog.days().includes(x)))}
+function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
+  if(!cur.includes(oldName))return;
+  setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
+
 function renderProgramEditor(){
   const ds=prog.days();
   $("#programEditor").innerHTML=ds.length
@@ -1350,14 +1482,16 @@ function renderProgramEditor(){
 
 function dayCard(d){
   const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets));
+  const isCollapsed=collapsedProgramDays().includes(d);
   const body=exs.length
     ?exs.map((e,i)=>exCard(e,i,exs.length)).join("")
     :`<p class="pday__empty">No exercises yet. Add your first below.</p>`;
-  return `<div class="pday" data-day="${esc(d)}">`+
+  return `<div class="pday${isCollapsed?" is-collapsed":""}" data-day="${esc(d)}">`+
     `<div class="pday__head">`+
       `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(d)}" aria-label="Day name">`+
       `<span class="pday__count">${exs.length} ex · ${sets} sets</span>`+
       `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="Delete day" aria-label="Delete ${esc(d)}">✕</button>`+
+      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${isCollapsed?"Expand":"Collapse"} ${esc(d)}" aria-label="${isCollapsed?"Expand":"Collapse"} ${esc(d)}">▾</button>`+
     `</div>`+
     `<div class="pexlist">${body}</div>`+
     `<button class="btn btn--steel pday__add" type="button" data-act="addEx" data-day="${esc(d)}">+ Add exercise</button>`+
@@ -1394,7 +1528,8 @@ function bindEditor(){
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
     inp.onchange=()=>{const old=inp.dataset.day,next=inp.value.trim();
-      if(prog.renameDay(old,next)){for(const row of state.log)if(row.day===old)row.day=next;
+      if(prog.renameDay(old,next)){renameCollapsedDay(old,next);
+        for(const row of state.log)if(row.day===old)row.day=next;
         if(day===old)day=next;persistProgram();save();render();toast("Day renamed.")}
       else{inp.value=old;toast(prog.days().includes(next)?"That day name already exists.":"Couldn't rename day.")}};
   });
@@ -1402,11 +1537,17 @@ function bindEditor(){
 }
 
 function editorAction(act,ds){
-  if(act==="addEx"){prog.addExercise(ds.day);persistProgram();render();toast("Exercise added.")}
+  if(act==="toggleDay"){const card=$(`#programEditor .pday[data-day="${CSS.escape(ds.day)}"]`);if(!card)return;
+    const now=!card.classList.contains("is-collapsed");
+    card.classList.toggle("is-collapsed",now);setDayCollapsed(ds.day,now);
+    const btn=card.querySelector(".pday__caret");
+    if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
+      btn.setAttribute("aria-label",`${now?"Expand":"Collapse"} ${ds.day}`);btn.title=`${now?"Expand":"Collapse"} ${ds.day}`}}
+  else if(act==="addEx"){prog.addExercise(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast("Exercise added.")}
   else if(act==="delEx"){if(confirm("Remove this exercise from your program? Logged history will stay on this device.")){prog.removeExercise(ds.id);persistProgram();render();toast("Exercise removed.")}}
   else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
   else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
-  else if(act==="delDay"){if(confirm(`Delete ${ds.day} and all of its exercises? Logged history for these exercises will remain.`)){prog.removeDay(ds.day);persistProgram();render();toast("Day deleted.")}}
+  else if(act==="delDay"){if(confirm(`Delete ${ds.day} and all of its exercises? Logged history for these exercises will remain.`)){prog.removeDay(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast("Day deleted.")}}
 }
 
 function renderVolume(){
@@ -1462,7 +1603,7 @@ function exportCsv(){
     ["is_hard_set",r=>(+r.load>0&&+r.reps>0&&+r.rir<=hr&&!r.warmup)?1:0],
     ["is_warmup",r=>r.warmup?1:0],
     ["bodyweight",r=>r.bodyweight??""],
-    ["notes",r=>r.notes],["created",r=>r.created],
+    ["notes",r=>r.notes],["exercise_note",r=>r.exNote||""],["created",r=>r.created],
   ];
   const q=v=>`"${String(v??"").replaceAll('"','""')}"`;
   const csv=[cols.map(c=>c[0]).join(","),
@@ -1734,8 +1875,10 @@ function init(){
   const lc=$("#logContext");if(lc)lc.onclick=()=>{$('nav button[data-view="stats"]').click();setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm("Delete the training log? Export a backup first if you need it.")){state.log=[];clearDraft();save();render();toast("Log deleted.")}};
-  $$("nav button").forEach(b=>b.onclick=()=>{$$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$("nav button").forEach(b=>b.onclick=()=>{exView=null;
+    $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
+  $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
   maybeShowOnboarding();
