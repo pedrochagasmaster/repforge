@@ -32,6 +32,14 @@ _Avoid_: Workout (acceptable in casual copy; session is the domain term)
 One recorded set — load, reps, RIR — linked to an exercise template via exercise id.
 _Avoid_: Set entry, record
 
+**Exercise session note**:
+A free-text note attached to one exercise within one session — machine settings, seat height, grip. Stored on that session's log rows and carried forward as the default for the next session of that lift.
+_Avoid_: Setup notes (that is the program template field), comment, log note (the session-wide note field)
+
+**Exercise page**:
+A per-lift view — recommendation, summary metrics, top-load chart, PRs, and session history with notes — reached by tapping an exercise name on the Log tab. Not a bottom-nav section.
+_Avoid_: Exercise detail modal, lift profile, deep dive (that is the Stats disclosure)
+
 **Training day**:
 A labeled group within the program (e.g. Day 1) whose exercises appear together on the Log tab.
 _Avoid_: Session (a session is an instance; a training day is the template grouping)

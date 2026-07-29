@@ -771,6 +771,61 @@ nav button.active .nav__icon{background:var(--ember)}
   *{animation:none!important;transition:none!important}
 }
 
+/* ---- Program day collapse ---- */
+.pday__caret{transition:transform .2s ease,color .15s ease,border-color .15s ease}
+.pday.is-collapsed .pday__caret{transform:rotate(-90deg)}
+.pday.is-collapsed .pexlist,.pday.is-collapsed .pday__add{display:none}
+.pday.is-collapsed .pday__head{margin-bottom:0}
+
+/* ---- Exercise name as a link into the exercise page ---- */
+.ex__namebtn{display:flex;align-items:baseline;gap:6px;width:100%;margin:0;padding:0;border:0;background:none;
+  color:var(--mist);text-align:left;cursor:pointer}
+/* Chevron via ::after so the heading's text content stays exactly the exercise name. */
+.ex__namebtn::after{content:"›";flex:none;color:var(--steel-dim);font-size:.8em;transition:color .15s ease,transform .15s ease}
+.ex__namebtn:hover{color:var(--whitehot)}
+.ex__namebtn:hover::after{color:var(--ember);transform:translateX(2px)}
+
+/* ---- Per-exercise session note on the log card ---- */
+.exnote{margin-top:10px}
+.exnote__toggle{display:flex;align-items:baseline;gap:8px;width:100%;margin:0;padding:7px 0 0;border:0;border-top:1px solid var(--rule-soft);
+  background:none;cursor:pointer;text-align:left;font-family:var(--mono);font-size:11.5px;color:var(--steel-dim)}
+.exnote__lab{flex:none;text-transform:uppercase;letter-spacing:.1em;font-size:10px;color:var(--steel-dim)}
+.exnote__preview{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--steel-dim);font-style:italic}
+.exnote.has-note .exnote__preview{color:var(--steel);font-style:normal}
+.exnote.has-note .exnote__lab{color:var(--gold)}
+.exnote__toggle:hover .exnote__preview{color:var(--mist)}
+.exnote.is-open .exnote__preview{display:none}
+.exnote__input{margin-top:8px;min-height:62px;font-family:var(--mono);font-size:12.5px;line-height:1.45;
+  background:var(--iron);border:1px solid var(--rule-soft);border-radius:10px;padding:9px 11px;color:var(--mist);resize:vertical}
+.exnote__input.hidden{display:none}
+.exercise.is-collapsed .exnote,.exercise.is-skipped .exnote{display:none}
+
+/* ---- Exercise detail view ---- */
+.exview__back{margin:0;padding:8px 12px;border:1px solid var(--rule);background:var(--iron);color:var(--steel);
+  border-radius:9px;cursor:pointer;font-family:var(--display);font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;font-size:11px}
+.exview__back:hover{color:var(--mist);border-color:var(--steel-dim)}
+.exdet__name{font-family:var(--display);font-weight:800;font-size:30px;line-height:1.04;letter-spacing:.01em;margin-bottom:4px}
+.exdet__meta{margin-bottom:14px}
+.exdet__rec{--heat:#586474;background:var(--slag);border:1px solid var(--rule);border-left:4px solid var(--heat);
+  border-radius:var(--r);padding:13px 15px;margin-bottom:14px}
+.exdet__rec.is-add,.exdet__rec.is-add2{--heat:var(--ember)}
+.exdet__rec.is-hold{--heat:var(--gold)}
+.exdet__rec.is-reduce{--heat:var(--quench)}
+.exdet__rec .rec{margin:8px 0 0}
+.exsessions{display:flex;flex-direction:column;gap:11px}
+.exsess{background:var(--slag);border:1px solid var(--rule-soft);border-radius:13px;padding:12px 14px}
+.exsess__head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-family:var(--mono);font-size:11.5px;color:var(--steel-dim)}
+.exsess__date{color:var(--mist);font-weight:600}
+.exsess__delta{margin-left:auto;font-family:var(--display);font-weight:700;text-transform:uppercase;
+  letter-spacing:.05em;font-size:10px;color:var(--steel);border:1px solid var(--rule);border-radius:999px;padding:2px 8px}
+.exsess__sets{display:flex;flex-wrap:wrap;gap:5px 12px;margin-top:8px;font-family:var(--mono);font-size:13px;color:var(--mist)}
+.exsess__set small{color:var(--steel-dim);font-size:.82em;margin-left:1px}
+.exsess__set.is-warmup{color:var(--steel-dim)}
+.exsess__note{font-family:var(--mono);font-size:11.5px;color:var(--steel);margin:10px 0 0;line-height:1.45;
+  border-left:2px solid var(--rule);padding-left:9px;white-space:pre-wrap}
+.exsess__note span{display:block;color:var(--steel-dim);text-transform:uppercase;letter-spacing:.1em;font-size:10px;margin-bottom:3px}
+
 /* ---- Responsive up ---- */
 @media (min-width:680px){
   .metrics{grid-template-columns:repeat(4,1fr)}
