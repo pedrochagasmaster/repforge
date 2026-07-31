@@ -336,7 +336,7 @@ function generateProgramFromOnboarding(answers){
   return program}
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
-let restEnd=0,restTick=null;
+let restEnd=0,restTick=null,restNotified=false;
 const collapsed=new Set();
 const skipped=new Set();
 const substituted=new Map();
@@ -716,13 +716,31 @@ function recommendation(ex){
 }
 
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}}
+function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}
+  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
-  if(left<=0){b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;return}
+  if(left<=0){
+    b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;
+    if(restNotified)return;
+    restNotified=true;
+    if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
+    if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
+    else RepForgeNotify.fireOS({title:"RepForge",body:"Rest done — next set.",tag:"repforge-rest",url:"./index.html"});
+    return}
   b.querySelector(".restbar__time").textContent=fmtClock(left)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
-  restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
+  restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
+/** Shared visibility handler — Task 5 extends with updateSessionBanner(). */
+function onAppVisible(){
+  if(document.visibilityState!=="visible")return;
+  if(restEnd&&Date.now()>=restEnd){
+    const b=$("#restBar");
+    if(b){b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");
+      if(restTick){clearInterval(restTick);restTick=null}}
+  }
+}
 
 function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
@@ -1858,6 +1876,7 @@ function init(){
   $("#replayTour").onclick=startTour;
   $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
+  document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
     if(!g.contains(e.target)&&!e.target.closest("[data-term]"))g.classList.add("hidden")});
