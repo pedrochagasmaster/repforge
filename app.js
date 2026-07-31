@@ -1,5 +1,9 @@
-const KEY="repforge_v1",DRAFT="repforge_draft_v1";
+const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const DB="repforge",STORE="kv";
+function loadNotifyMeta(){
+  try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
+}
+function saveNotifyMeta(m){localStorage.setItem(NOTIFY_META,JSON.stringify(m))}
 function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);
   r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function idbGet(key){const db=await idbOpen();
@@ -732,7 +736,7 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
-/** Shared visibility handler — Task 5 extends with updateSessionBanner(). */
+/** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
   if(restEnd&&Date.now()>=restEnd){
@@ -740,6 +744,56 @@ function onAppVisible(){
     if(b){b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");
       if(restTick){clearInterval(restTick);restTick=null}}
   }
+  updateSessionBanner();
+}
+
+function updateSessionBanner(){
+  const el=$("#sessionBanner"); if(!el) return;
+  const n=state.settings.notify;
+  const hide=()=>{el.className="sessionbanner hidden"; el.innerHTML=""; el.onclick=null};
+  if(!n||!n.enabled) return hide();
+  if(RepForgeSchedule.hasLoggedOn(state.log, today())) return hide();
+  if(!state.log.length) return hide();
+
+  const due=RepForgeSchedule.mostOverdueDay(state.log, days(), today());
+  if(!due) return hide();
+
+  const meta=loadNotifyMeta();
+  const hour=new Date().getHours();
+  const usual=RepForgeSchedule.usualHour(state.log);
+  const missedOk=!!n.missed && usual!=null && hour>=usual;
+  const sessionOk=!!n.session;
+
+  if(!missedOk && !sessionOk) return hide();
+  if(!missedOk && meta.sessionBannerDate===today() && meta.sessionBannerDismissed) return hide();
+  if(missedOk && meta.missedBannerDate===today() && meta.missedBannerDismissed) return hide();
+
+  const isMissed=missedOk;
+  const title=isMissed
+    ? `You usually train around ${usual}:00`
+    : `Today: ${due.day}`;
+  const body=isMissed
+    ? `${due.day} is due — tap to start`
+    : `Tap to open ${due.day}`;
+
+  function dismissForToday(){
+    const m=loadNotifyMeta();
+    if(isMissed){m.missedBannerDate=today(); m.missedBannerDismissed=true}
+    else{m.sessionBannerDate=today(); m.sessionBannerDismissed=true}
+    saveNotifyMeta(m);
+    hide();
+  }
+
+  el.className=`sessionbanner${isMissed?" is-missed":""}`;
+  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="Dismiss for today">✕</button>`+
+    `<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
+  el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
+  el.onclick=()=>{
+    day=due.day;
+    dismissForToday();
+    renderTabs(); renderWorkout();
+    toast(`${due.day} ready.`);
+  };
 }
 
 function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
@@ -822,6 +876,7 @@ function renderWorkout(){
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
+  updateSessionBanner();
 }
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
