@@ -62,7 +62,7 @@
           <textarea id="notes" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
         </label>
         <label class="field" id="bodyweightLabel">Bodyweight (optional)
-          <input id="bodyweight" type="number" step="any" min="0" inputmode="decimal" placeholder="kg">
+          <input id="bodyweight" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
         </label>
         <button class="btn btn--forge btn--save" type="submit">
           <span>Finish workout</span>
@@ -165,7 +165,7 @@
       <div class="card">
         <p class="cardtitle">Progression</p>
         <p class="lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
-        <label class="field">Rest timer (seconds, 0 = off)<input id="restSec" type="number" step="5" min="0" inputmode="numeric"></label>
+        <label class="field">Rest timer (seconds, 0 = off)<input id="restSec" type="text" inputmode="numeric" enterkeyhint="done"></label>
         <label class="field">Units<select id="unit"><option value="kg">kg</option><option value="lb">lb</option></select></label>
         <fieldset class="field rirmode">
           <legend>RIR logging</legend>
@@ -181,11 +181,11 @@
         <button id="beginnerProgram" type="button" class="btn btn--steel">Use beginner-friendly program</button>
         <details class="advanced">
           <summary>Advanced · progression dials</summary>
-          <label class="field">Load jump %<input id="jumpPct" type="number" step="0.5" inputmode="decimal"></label>
-          <label class="field">Minimum jump (kg)<input id="minJump" type="number" step="0.25" inputmode="decimal"></label>
+          <label class="field">Load jump %<input id="jumpPct" type="text" inputmode="decimal" enterkeyhint="next"></label>
+          <label class="field">Minimum jump (kg)<input id="minJump" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <p class="lede">Minimum jump increment is always in kg regardless of display units.</p>
-          <label class="field">Target RIR ceiling<input id="rirHigh" type="number" step="0.5" inputmode="decimal"></label>
-          <label class="field">Hard-set RIR ceiling<input id="hardRir" type="number" step="0.5" inputmode="decimal"></label>
+          <label class="field">Target RIR ceiling<input id="rirHigh" type="text" inputmode="decimal" enterkeyhint="next"></label>
+          <label class="field">Hard-set RIR ceiling<input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
           <p class="lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
           <button id="saveSettings" class="btn btn--forge">Save settings</button>
         </details>

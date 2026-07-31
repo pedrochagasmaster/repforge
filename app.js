@@ -63,8 +63,16 @@ const normBool=(v,def)=>typeof v==="boolean"?v:def;
 const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled)});
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
+/* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
+   type=number rejects it on iOS, and unary + / Number() treat "90,5" as NaN.
+   parseDec mirrors normalizeCommandText: digit-comma-digit → period. */
+const parseDec=v=>{
+  if(typeof v==="number")return Number.isFinite(v)?v:NaN;
+  if(v==null||v==="")return NaN;
+  const n=Number(String(v).trim().replace(/(\d),(\d)/g,"$1.$2"));
+  return Number.isFinite(n)?n:NaN};
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
-const fromDisplayUnit=(v,unit)=>unit==="lb"?(+v||0)/LB:(+v||0);
+const fromDisplayUnit=(v,unit)=>{const n=parseDec(v),x=Number.isFinite(n)?n:0;return unit==="lb"?x/LB:x};
 const isLb=()=>state.settings.unit==="lb";
 const toDisplay=kg=>toDisplayUnit(kg,state.settings.unit);
 const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
@@ -79,10 +87,10 @@ function convertDraftUnits(oldUnit,newUnit){
   for(const k of Object.keys(d)){
     if(k.startsWith("__")||!k.endsWith("_load"))continue;
     const v=d[k];if(v===""||v==null)continue;
-    const n=+v;if(!Number.isFinite(n))continue;
+    const n=parseDec(v);if(!Number.isFinite(n))continue;
     d[k]=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
   if(changed)localStorage.setItem(DRAFT,JSON.stringify(d))}
-const posNum=(v,f=0)=>Math.max(0,Number.isFinite(+v)?+v:f);
+const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
 const liftKey=x=>x.exerciseId||x.name;
 const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
@@ -644,8 +652,8 @@ function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
 function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
 function draftRowsForExercise(ex,draft){const warm=new Set(draft.__warm||[]),rows=[];
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(warm.has(key))continue;
-    const ld=fromDisplay(+draft[`${key}_load`]||0),rp=+draft[`${key}_reps`]||0;if(ld<=0||rp<=0)continue;
-    let rir=+draft[`${key}_rir`];if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+    const ld=fromDisplay(draft[`${key}_load`]||0),rp=parseDec(draft[`${key}_reps`])||0;if(ld<=0||rp<=0)continue;
+    let rir=parseDec(draft[`${key}_rir`]);if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
     else if(!Number.isFinite(rir))rir=1;
     rows.push({exerciseId:ex.id,name:ex.name,day:ex.day,load:ld,reps:rp,rir,warmup:false})}
   return rows}
@@ -753,12 +761,12 @@ function renderWorkout(){
       const rirCell=effortMode
         ?`<div class="effort" role="group" aria-label="Set ${n} effort">`+
           ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${e==="easy"?"Easy":e==="hard"?"Hard":"Max"}</button>`).join("")+`</div>`
-        :`<input data-k="${ex.id}_${n}_rir" type="number" step="0.5" min="0" inputmode="decimal" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`;
+        :`<input data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="next" aria-label="Set ${n} RIR" value="${esc(rirVal)}">`;
       return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="Tap to mark as warmup">${isW?"W":n}</button>`+
         `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="Set ${n} decrease ${unitLabel()}">−</button>`+
-        `<input data-k="${ex.id}_${n}_load" type="number" step="any" min="0" inputmode="decimal" aria-label="Set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
+        `<input data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="Set ${n} ${unitLabel()}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
         `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="Set ${n} increase ${unitLabel()}">+</button></div>`+
-        `<input data-k="${ex.id}_${n}_reps" type="number" step="1" min="0" inputmode="numeric" aria-label="Set ${n} reps" value="${esc(repsVal)}">`+
+        `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="Set ${n} reps" value="${esc(repsVal)}">`+
         rirCell+
         `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="Save set ${n}">${committed.has(key)?"✓":"Save"}</button></div>`;
     }).join("");
@@ -833,7 +841,7 @@ function bindWorkout(){
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
-    const load=+($(`[data-k="${key}_load"]`)?.value)||0;
+    const load=parseDec($(`[data-k="${key}_load"]`)?.value)||0;
     if(load<=0){toast("Enter a weight before saving the set.");return}
     const row=b.closest(".setrow");
     if(committed.has(key)){committed.delete(key)}
@@ -845,7 +853,7 @@ function bindWorkout(){
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
-    const incKg=+state.settings.minJump||2.5,curKg=fromDisplay(+inp.value||0),
+    const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
       nextKg=Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg);
     inp.value=fmt(toDisplay(nextKg));
     const row=inp.closest(".setrow");
@@ -917,7 +925,7 @@ function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercise
 
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const done=[...committed].length;
-  const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&+i.value>0).length;
+  const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
   $("#saveMeta").textContent=done?`${day} · ${done}/${planned} sets done`:(entered?`${day} · ${entered}/${planned} entered`:`${day} · ${planned} sets`);}
 
 function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
@@ -1103,6 +1111,7 @@ window.__repforgeCompleteProgram=completeCurrentProgram;
 window.__repforgeStartNextMeso=startNextMesocycle;
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
+window.__repforgeParseDec=parseDec;
 
 function resolveExerciseFromCommand(parsed,currentExercises){
   if(parsed.exerciseName){
@@ -1323,9 +1332,9 @@ function renderHistory(){
 function sessionEditor(s,sets){
   const rows=sets.map(r=>{const key=`${liftKey(r)}|${r.set}`;
     return `<div class="edrow"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${esc(key)}" type="number" step="any" min="0" inputmode="decimal" value="${esc(fmtLoad(r.load))}" aria-label="${esc(displayName(r))} set ${r.set} ${unitLabel()}">`+
-      `<input class="edrow__in" data-ek="reps|${esc(key)}" type="number" step="1" min="0" inputmode="numeric" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} set ${r.set} reps">`+
-      `<input class="edrow__in" data-ek="rir|${esc(key)}" type="number" step="0.5" min="0" inputmode="decimal" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} set ${r.set} RIR"></div>`}).join("");
+      `<input class="edrow__in" data-ek="load|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoad(r.load))}" aria-label="${esc(displayName(r))} set ${r.set} ${unitLabel()}">`+
+      `<input class="edrow__in" data-ek="reps|${esc(key)}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} set ${r.set} reps">`+
+      `<input class="edrow__in" data-ek="rir|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} set ${r.set} RIR"></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
     `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
     `<label class="edate">Date<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
@@ -1578,14 +1587,14 @@ function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump
   const le=state.settings.lastExport;const ago=le?`Last backup: ${le.slice(0,10)}.`:"Last backup: never.";
   $("#storageNote").textContent=`${ago} Everything lives in this browser under "${KEY}". There is no cloud copy — export before clearing site data or switching phones.`}
 
-function commitSettings(silent){const num=(sel,def,min)=>{const n=+$(sel).value;return Number.isFinite(n)&&n>=min?n:def};
+function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg";
   const oldRirMode=state.settings.rirMode;
   const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
-    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=+bw.value;if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
+    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldRirMode!==newRirMode)clearDraft();
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=+$("#minJump").value;return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked});
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked});
   save();render();if(!silent)toast("Settings saved.");}
 
 function table(rows){if(!rows.length)return'<div class="empty">No data yet.</div>';const h=Object.keys(rows[0]);
@@ -1842,6 +1851,15 @@ function init(){
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
     if(!g.contains(e.target)&&!e.target.closest("[data-term]"))g.classList.add("hidden")});
+  // Comma decimals from locale keypads: rewrite digit-comma-digit to a period
+  // as the user types so steppers, drafts, and saves all see a parseable value.
+  document.addEventListener("input",e=>{
+    const t=e.target;if(!(t instanceof HTMLInputElement))return;
+    if((t.getAttribute("inputmode")||t.inputMode)!=="decimal")return;
+    const next=t.value.replace(/(\d),(\d)/g,"$1.$2");
+    if(next===t.value)return;
+    const s=t.selectionStart,en=t.selectionEnd;t.value=next;
+    if(s!=null)try{t.setSelectionRange(s,en)}catch{}});
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
   $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
   $("#date").value=today();
