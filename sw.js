@@ -1,6 +1,7 @@
-const CACHE = "repforge-v20";
+const CACHE = "repforge-v21";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
+  "./schedule.js", "./notify.js",
   "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./fonts/saira-600.woff2", "./fonts/saira-700.woff2", "./fonts/saira-800.woff2",
@@ -41,4 +42,20 @@ self.addEventListener("fetch", event => {
       return response;
     }).catch(() => caches.match("./index.html")))
   );
+});
+
+self.addEventListener("notificationclick", event => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "./index.html";
+  event.waitUntil((async () => {
+    const all = await clients.matchAll({ type: "window", includeUncontrolled: true });
+    for (const c of all) {
+      if ("focus" in c) {
+        await c.focus();
+        if ("navigate" in c) try { await c.navigate(url); } catch {}
+        return;
+      }
+    }
+    await clients.openWindow(url);
+  })());
 });

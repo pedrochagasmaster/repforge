@@ -2067,6 +2067,18 @@ function init(){
   maybeShowOnboarding();
   if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner();
 }
+function applyGotoParam(){
+  try{
+    const u=new URL(location.href);
+    const g=u.searchParams.get("goto");
+    if(g && days().includes(g)) day=g;
+    if(u.searchParams.has("goto")){
+      u.searchParams.delete("goto");
+      history.replaceState({}, "", u.pathname+u.search+u.hash);
+    }
+  }catch{}
+}
+
 async function boot(){
   let raw=null;
   try{raw=await idbGet(KEY)}catch(e){console.warn("idb read failed",e)}
@@ -2077,6 +2089,7 @@ async function boot(){
   prog=new Program(state.program);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
   day=days()[0]||"Day 1";
+  applyGotoParam();
   migrateLog();
   persist();
   init();
