@@ -391,15 +391,7 @@ function onUnfinishedIdle(){
   if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
   if(unfinishedAlreadyPrompted()) return;
   if(document.visibilityState==="visible") showUnfinishedPrompt();
-  else{
-    markUnfinishedPrompted();
-    RepForgeNotify.fireOS({
-      title:"RepForge",
-      body:"Still training? Finish or save your session.",
-      tag:"repforge-unfinished",
-      url:"./index.html"
-    });
-  }
+  else RepForgeNotify.fireOS({title:"RepForge",body:"Still training? Finish or save your session.",tag:"repforge-unfinished",url:"./index.html"}).then(ok=>{if(ok)markUnfinishedPrompted()});
 }
 
 function maybeUnfinishedOnOpen(){

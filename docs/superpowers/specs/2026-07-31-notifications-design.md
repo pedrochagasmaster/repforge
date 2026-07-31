@@ -121,7 +121,7 @@ In-app only — no OS notification for this surface.
 
 - On each successful set commit (`committed.add` path that currently calls `startRest`), record `draft.__lastCommitAt = Date.now()` and (re)arm a 15-minute `setTimeout`.
 - On `saveWorkout` success / `clearDraft` → clear timeout; clear any unfinished OS notification tag; clear `__lastCommitAt`.
-- On timeout: if draft still has committed sets and no save → foreground in-app prompt (“Finish your session?” with Save / Dismiss); if hidden → `fireOS` tag `repforge-unfinished`.
+- On timeout: if draft still has committed sets and no save → foreground in-app prompt (“Finish your session?” with Dismiss); if hidden → `fireOS` tag `repforge-unfinished`.
 - **Reopen fallback**: on `init`, if draft has `__done.length > 0`, `__lastCommitAt` is >15 min ago, and unfinished toggle on → show the in-app prompt (covers frozen timers).
 - **Single-reminder guarantee**: `repforge_notify_v1.unfinishedPromptedFor` records the `__lastCommitAt` value already prompted for. OS delivery, the foreground prompt, and the reopen fallback all check it first — one reminder per idle session, no repeats on every app open. A new set commit produces a new `__lastCommitAt`, re-arming the (single) reminder.
 - **Draft carry-over**: `saveDraft` rebuilds the draft object on every input, so `__lastCommitAt` lives in a module variable that `saveDraft` writes back each call; it is only *updated* on set commit.

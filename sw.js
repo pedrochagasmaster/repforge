@@ -52,8 +52,8 @@ self.addEventListener("notificationclick", event => {
     for (const c of all) {
       if ("focus" in c) {
         await c.focus();
-        if ("navigate" in c) try { await c.navigate(url); } catch {}
-        return;
+        if ("navigate" in c) { try { await c.navigate(url); return; } catch {} }
+        break;
       }
     }
     await clients.openWindow(url);
