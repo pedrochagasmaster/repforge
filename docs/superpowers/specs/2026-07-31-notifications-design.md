@@ -1,6 +1,6 @@
 # Notifications (local-only) — design
 
-> **Status**: Spec approved for planning (2026-07-31). Not implemented.
+> **Status**: Implemented on branch `cursor/notifications-plan-3f1b` (2026-07-31).
 > **Build plan**: `docs/superpowers/plans/2026-07-31-notifications.md`
 > **Scope**: Local OS + in-app notifications for rest timer, overdue session, unfinished session, missed day. No backend.
 > **Evidence base**: Live rest timer (`startRest`/`tickRest`/`#restBar`), draft key `repforge_draft_v1`, cache-only `sw.js`, settings via `DEFAULTS`/`normalizeSettings`.
