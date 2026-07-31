@@ -65,9 +65,9 @@ Training data stays in IndexedDB/`localStorage` (`repforge_v1`, `repforge_draft_
 - `mostOverdueDay(log, programDays, todayYmd)` → `{ day, lastDate, daysSince } | null`
   - For each label in `programDays`, find the latest log `date` among rows with that `day`.
   - Pick the largest gap `todayYmd − lastDate`. Never-logged days beat any logged day (treat as infinite overdue).
-  - Tie-break: program day order as given in `programDays`.
-  - Empty log **or** empty `programDays` → `null` (no banner until there is history to compare; see empty-log rule below).
-  - Empty log but we still want a default? **No** — stay hidden until ≥1 logged session exists. Never-logged *siblings* of a partial history still win.
+  - Tie-break: first in `programDays` order. The caller passes `days()` — the label-sorted list — so ties resolve in label order (identical to template order for default `Day N` names).
+  - Empty log **or** empty `programDays` → `null`.
+  - **Assumed decision (operator never confirmed)**: with an empty log the banner stays hidden until ≥1 logged session exists — no first-program-day fallback. Never-logged *siblings* of a partial history still win. Flip this by returning the first program day when the log is empty; one-line change.
 - `usualHour(log)` → median local hour (0–23) of unique sessions’ `created` timestamps, or `null` if fewer than 2 sessions.
 - `hasLoggedOn(log, ymd)` → boolean.
 
@@ -76,7 +76,7 @@ Training data stays in IndexedDB/`localStorage` (`repforge_v1`, `repforge_draft_
 - `canUse()` — `typeof Notification !== "undefined"` and service worker available when needed.
 - `permission()` / `request()` — `request()` only from a user gesture (master toggle on).
 - `enabledFor(settings, type)` — `settings.notify.enabled && settings.notify[type]`.
-- `fireOS({ title, body, tag, url })` — `navigator.serviceWorker.ready` then `reg.showNotification(...)`. Catch failures; never throw into the session loop.
+- `fireOS({ title, body, tag, url })` — `navigator.serviceWorker.getRegistration()` then `reg.showNotification(...)`, falling back to `new Notification`. Never `await serviceWorker.ready`: it never settles when registration failed (app registers with `.catch(()=>{})`), which would hang the call. Catch failures; never throw into the session loop.
 - Types: `"timer" | "session" | "unfinished" | "missed"`.
 
 ### Settings shape
@@ -112,8 +112,8 @@ On `init` / first Log render of a calendar day:
 1. If `!notify.enabled || !notify.session` → skip.
 2. If `hasLoggedOn(log, today)` → skip.
 3. If `mostOverdueDay(...)` is `null` → skip.
-4. If `repforge_notify_v1.sessionBannerDate === today` and dismissed → skip (or show once then remember; dismiss sets the flag).
-5. Render `#sessionBanner` above the workout: “Today: {day} — tap to start”. Tap sets `day`, `renderTabs`+`renderWorkout`, dismisses for today.
+4. If `repforge_notify_v1.sessionBannerDate === today` and dismissed → skip.
+5. Render `#sessionBanner` above the workout: “Today: {day} — tap to start”. The banner **persists until acted on**: tapping it selects the day and dismisses for today; a ✕ button dismisses for today without navigating. Each variant (soft / missed) reappears at most once per calendar day after dismissal.
 
 In-app only — no OS notification for this surface.
 
@@ -123,6 +123,8 @@ In-app only — no OS notification for this surface.
 - On `saveWorkout` success / `clearDraft` → clear timeout; clear any unfinished OS notification tag; clear `__lastCommitAt`.
 - On timeout: if draft still has committed sets and no save → foreground in-app prompt (“Finish your session?” with Save / Dismiss); if hidden → `fireOS` tag `repforge-unfinished`.
 - **Reopen fallback**: on `init`, if draft has `__done.length > 0`, `__lastCommitAt` is >15 min ago, and unfinished toggle on → show the in-app prompt (covers frozen timers).
+- **Single-reminder guarantee**: `repforge_notify_v1.unfinishedPromptedFor` records the `__lastCommitAt` value already prompted for. OS delivery, the foreground prompt, and the reopen fallback all check it first — one reminder per idle session, no repeats on every app open. A new set commit produces a new `__lastCommitAt`, re-arming the (single) reminder.
+- **Draft carry-over**: `saveDraft` rebuilds the draft object on every input, so `__lastCommitAt` lives in a module variable that `saveDraft` writes back each call; it is only *updated* on set commit.
 
 ### Missed day
 

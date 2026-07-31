@@ -262,6 +262,17 @@ git commit -m "Add schedule.js overdue-day inference with unit tests"
     return n[type] !== false;
   }
 
+  // IMPORTANT: never await navigator.serviceWorker.ready here — it NEVER
+  // settles when registration failed (app.js registers with .catch(()=>{})),
+  // which would hang fireOS forever and make the fallback dead code.
+  // getRegistration() resolves undefined when there is no registration.
+  async function swRegistration() {
+    try {
+      if (!("serviceWorker" in navigator)) return null;
+      return (await navigator.serviceWorker.getRegistration()) || null;
+    } catch { return null; }
+  }
+
   async function fireOS({ title, body, tag, url }) {
     if (!canUse() || Notification.permission !== "granted") return false;
     const opts = {
@@ -272,13 +283,13 @@ git commit -m "Add schedule.js overdue-day inference with unit tests"
       icon: "./icons/icon-192.png",
       badge: "./icons/icon-192.png"
     };
-    try {
-      if (navigator.serviceWorker && navigator.serviceWorker.ready) {
-        const reg = await navigator.serviceWorker.ready;
+    const reg = await swRegistration();
+    if (reg && reg.showNotification) {
+      try {
         await reg.showNotification(title || "RepForge", opts);
         return true;
-      }
-    } catch (e) { console.warn("showNotification failed", e); }
+      } catch (e) { console.warn("showNotification failed", e); }
+    }
     try {
       new Notification(title || "RepForge", opts);
       return true;
@@ -290,7 +301,7 @@ git commit -m "Add schedule.js overdue-day inference with unit tests"
 
   async function closeTag(tag) {
     try {
-      const reg = await navigator.serviceWorker?.ready;
+      const reg = await swRegistration();
       if (!reg || !reg.getNotifications) return;
       const list = await reg.getNotifications({ tag });
       list.forEach(n => n.close());
@@ -389,7 +400,7 @@ In `#settings`, after the Progression card (before Guide & install), add:
 
 In `renderSettings`, sync checkboxes from `state.settings.notify` and set `#notifyPermStatus` text from `RepForgeNotify.permission()` (e.g. `OS permission: granted|denied|default|unsupported`). Disable `#notifyTypes` inputs when master is off.
 
-In `commitSettings`, read the five checkboxes into `notify:normalizeNotify({...})`. When master flips from off→on, `await RepForgeNotify.request()` then re-render status.
+In `commitSettings`, read the five checkboxes into `notify:normalizeNotify({...})`. When master flips from off→on, call `RepForgeNotify.request()` **synchronously within the change-event handler, before any other `await`** — iOS only honors permission requests made inside a user gesture. Re-render the status line when the promise settles. If the user denies OS permission, keep `notify.enabled` as the user set it (in-app banners still work); never flip the master toggle off on denial.
 
 Bind `onchange` on the five inputs like `voiceInputEnabled`.
 
@@ -436,7 +447,7 @@ Near `restEnd` / `restTick`:
 let restNotified=false;
 ```
 
-In `startRest`, set `restNotified=false` and call `RepForgeNotify.closeTag("repforge-rest")`.
+In `startRest`, set `restNotified=false` and call `RepForgeNotify.closeTag("repforge-rest")`. In `stopRest`, also call `RepForgeNotify.closeTag("repforge-rest")` so a manually stopped timer clears any already-shown notification.
 
 - [ ] **Step 2: Fire on zero in `tickRest`**
 
@@ -449,7 +460,7 @@ Replace the `left<=0` branch so it:
 5. If `document.visibilityState==="visible"` → `navigator.vibrate?.([200,100,200])`.
 6. Else → `RepForgeNotify.fireOS({ title:"RepForge", body:"Rest done — next set.", tag:"repforge-rest", url:"./index.html" })`.
 
-On `visibilitychange` to visible: if `restEnd` and `Date.now()>=restEnd` and bar exists, ensure `is-done` UI; **do not** call `fireOS` for a late expiry.
+On `visibilitychange` to visible: if `restEnd` and `Date.now()>=restEnd` and bar exists, ensure `is-done` UI; **do not** call `fireOS` for a late expiry. Register **one** `visibilitychange` listener shared with Task 5's `updateSessionBanner()` call — a single handler doing both, not two listeners.
 
 - [ ] **Step 3: Smoke + commit**
 
@@ -514,22 +525,36 @@ function updateSessionBanner(){
     ? `${due.day} is due — tap to start`
     : `Tap to open ${due.day}`;
 
-  el.className=`sessionbanner${isMissed?" is-missed":""}`;
-  el.innerHTML=`<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
-  el.onclick=()=>{
-    day=due.day;
+  function dismissForToday(){
     const m=loadNotifyMeta();
     if(isMissed){m.missedBannerDate=today(); m.missedBannerDismissed=true}
     else{m.sessionBannerDate=today(); m.sessionBannerDismissed=true}
     saveNotifyMeta(m);
     hide();
+  }
+
+  el.className=`sessionbanner${isMissed?" is-missed":""}`;
+  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="Dismiss for today">✕</button>`+
+    `<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
+  el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
+  el.onclick=()=>{
+    day=due.day;
+    dismissForToday();
     renderTabs(); renderWorkout();
     toast(`${due.day} ready.`);
   };
 }
 ```
 
-Call `updateSessionBanner()` from `renderWorkout` (end) and from `document.addEventListener("visibilitychange", ...)` when becoming visible.
+Semantics (this resolves the spec's "show once" wording): the banner
+**persists until acted on** — either tapped (navigates to the day) or
+dismissed via ✕ — and each variant reappears **at most once per calendar
+day** after dismissal. Add `.sessionbanner__close` styles (absolute top-right,
+small tap target ≥ 40px) next to the Task 3 CSS.
+
+Call `updateSessionBanner()` from `renderWorkout` (end) and from **one shared**
+`visibilitychange` handler (the same one Task 4 uses for the rest-timer done
+state — register a single listener that does both; do not add two listeners).
 
 - [ ] **Step 3: Verify + commit**
 
@@ -550,8 +575,8 @@ git commit -m "Show overdue training-day banner on open and after usual hour"
 - Modify: `index.html` (add `#unfinishedBanner` near session banner)
 
 **Interfaces:**
-- Consumes: `RepForgeNotify.enabledFor`, `fireOS`, `closeTag`
-- Produces: `draft.__lastCommitAt`; single 15‑min timeout; `#unfinishedBanner` + `document.body.dataset.unfinishedPrompt`
+- Consumes: `RepForgeNotify.enabledFor`, `fireOS`, `closeTag`; `loadNotifyMeta`/`saveNotifyMeta` from Task 5 (Task 5 must land first)
+- Produces: `draft.__lastCommitAt` (carried by `saveDraft`); module `lastCommitAt`; single 15‑min timeout; `repforge_notify_v1.unfinishedPromptedFor`; `#unfinishedBanner` + `document.body.dataset.unfinishedPrompt`
 
 - [ ] **Step 1: Markup**
 
@@ -565,8 +590,17 @@ git commit -m "Show overdue training-day banner on open and after usual hour"
 
 - [ ] **Step 2: Arm / clear helpers**
 
+**CRITICAL — draft rebuild trap:** `saveDraft()` (`app.js`) rebuilds the draft
+object from scratch (`const d={}`) on **every input event**. Any field written
+into the draft elsewhere is wiped by the next keystroke. Therefore
+`__lastCommitAt` MUST live in a module-level variable that `saveDraft` writes
+back on every call, and MUST only be **updated** in the set-commit handler.
+Never write `Date.now()` inside `saveDraft` itself — that would reset the idle
+clock on every keystroke and break "15 minutes after the last *committed set*".
+
 ```js
 let unfinishedTimer=null;
+let lastCommitAt=0;             // module-level; hydrated from draft at boot
 const UNFINISHED_MS=15*60*1000;
 
 function clearUnfinishedWatch(){
@@ -574,13 +608,24 @@ function clearUnfinishedWatch(){
   if(window.RepForgeNotify) RepForgeNotify.closeTag("repforge-unfinished");
 }
 
-function armUnfinishedWatch(){
+function armUnfinishedWatch(delayMs=UNFINISHED_MS){
   clearUnfinishedWatch();
   if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
-  unfinishedTimer=setTimeout(onUnfinishedIdle, UNFINISHED_MS);
+  unfinishedTimer=setTimeout(onUnfinishedIdle, Math.max(0,delayMs));
+}
+
+// Single-reminder guarantee: remember which commit timestamp we already
+// prompted for (in repforge_notify_v1), so reopening the app or receiving
+// the OS notification does not produce repeat prompts for the same session.
+function unfinishedAlreadyPrompted(){
+  return loadNotifyMeta().unfinishedPromptedFor===lastCommitAt;
+}
+function markUnfinishedPrompted(){
+  const m=loadNotifyMeta(); m.unfinishedPromptedFor=lastCommitAt; saveNotifyMeta(m);
 }
 
 function showUnfinishedPrompt(){
+  markUnfinishedPrompted();
   document.body.dataset.unfinishedPrompt="1";
   const el=$("#unfinishedBanner");
   if(!el) return;
@@ -595,41 +640,47 @@ function onUnfinishedIdle(){
   const draft=loadDraft();
   if(!(draft.__done||[]).length) return;
   if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  if(unfinishedAlreadyPrompted()) return;
   if(document.visibilityState==="visible") showUnfinishedPrompt();
-  else RepForgeNotify.fireOS({
-    title:"RepForge",
-    body:"Still training? Finish or save your session.",
-    tag:"repforge-unfinished",
-    url:"./index.html"
-  });
+  else{
+    markUnfinishedPrompted();
+    RepForgeNotify.fireOS({
+      title:"RepForge",
+      body:"Still training? Finish or save your session.",
+      tag:"repforge-unfinished",
+      url:"./index.html"
+    });
+  }
 }
 ```
 
-On set commit (where `committed.add(key)` / `startRest()` runs): set `__lastCommitAt=Date.now()` in draft via `saveDraft`, then `armUnfinishedWatch()`.
+Wiring:
 
-Ensure `saveDraft` persists `__lastCommitAt` when present:
+1. In the save-set click handler (`bindWorkout`, where `committed.add(key)` then
+   `startRest()` runs): set `lastCommitAt=Date.now()` **before** `saveDraft()`,
+   then `armUnfinishedWatch()`.
+2. In `saveDraft`, after `d.__done=[...committed];...` add the carry-over:
 
 ```js
-// when saving draft after a commit:
-d.__lastCommitAt=Date.now();
+if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
 ```
 
-On `saveWorkout` success and `clearDraft`: `clearUnfinishedWatch()`; remove `__lastCommitAt`; hide unfinished banner; delete `document.body.dataset.unfinishedPrompt`.
+3. On `saveWorkout` success and in `clearDraft`: `clearUnfinishedWatch()`;
+   `lastCommitAt=0`; hide `#unfinishedBanner`; `delete document.body.dataset.unfinishedPrompt`.
 
 - [ ] **Step 3: Reopen fallback in `init` after first render**
 
 ```js
 function maybeUnfinishedOnOpen(){
-  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
   const draft=loadDraft();
+  lastCommitAt=+draft.__lastCommitAt||0;   // hydrate module state from draft
+  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
   const done=(draft.__done||[]).length;
-  const at=+draft.__lastCommitAt||0;
-  if(done && at && Date.now()-at>=UNFINISHED_MS) showUnfinishedPrompt();
-  else if(done && at){
-    const left=UNFINISHED_MS-(Date.now()-at);
-    clearUnfinishedWatch();
-    unfinishedTimer=setTimeout(onUnfinishedIdle, Math.max(0,left));
-  }
+  if(!done||!lastCommitAt) return;
+  if(unfinishedAlreadyPrompted()) return;  // single reminder per session
+  const elapsed=Date.now()-lastCommitAt;
+  if(elapsed>=UNFINISHED_MS) showUnfinishedPrompt();
+  else armUnfinishedWatch(UNFINISHED_MS-elapsed);
 }
 ```
 
@@ -715,12 +766,15 @@ git commit -m "Handle notification clicks and ?goto= deep links"
 
 - [ ] **Step 1: Write `test/notifications.mjs`**
 
-Mirror `test/recover-gate.mjs` harness (`clearState`, `persistState`, `waitForApp`). Cases:
+Mirror `test/recover-gate.mjs` harness (`clearState`, `persistState`, `waitForApp`). Use `context.grantPermissions(["notifications"], { origin: BASE })` so the granted code path is exercised (headless otherwise auto-denies). Cases:
 
 1. **Settings persist** — enable master + disable `missed`, reload, assert checkbox state.
-2. **Overdue banner** — seed program Days 1–3; log only Day 1 recently; open app with notifications enabled; assert `#sessionBanner` is visible and `page.evaluate(() => RepForgeSchedule.mostOverdueDay(...))` matches banner day.
-3. **`?goto=Day 2`** — open `BASE+"?goto="+encodeURIComponent("Day 2")`; assert selected day tab `aria-selected="true"`.
-4. **Unfinished reopen** — inject draft with `__done` and `__lastCommitAt: Date.now()-16*60*1000`; enable unfinished; reload; assert `document.body.dataset.unfinishedPrompt === "1"` and `#unfinishedBanner` visible.
+2. **Overdue banner (soft variant)** — seed program Days 1–3; log **exactly one** session (Day 1, recent). One session means `usualHour` returns `null`, which deterministically forces the soft variant regardless of wall-clock hour. Open app with notifications enabled; assert `#sessionBanner` visible, no `is-missed` class, and `page.evaluate(() => RepForgeSchedule.mostOverdueDay(...))` matches the banner day.
+3. **Missed variant (escalated)** — seed **two+** sessions whose `created` timestamps are at **00:00 local time** (build with `new Date(y,m,d,0,0).toISOString()` in the page, not a hard-coded Z string), so `usualHour` = 0 ≤ any current hour → escalation always on. Assert `#sessionBanner.is-missed`.
+4. **Banner dismissal** — click `.sessionbanner__close`; assert banner hidden; reload; assert it stays hidden for the day (meta `repforge_notify_v1`).
+5. **`?goto=Day 2`** — open `BASE+"?goto="+encodeURIComponent("Day 2")`; assert selected day tab `aria-selected="true"` and that `location.search` no longer contains `goto`.
+6. **Unfinished reopen** — inject draft with `__done` and `__lastCommitAt: Date.now()-16*60*1000`; enable unfinished; reload; assert `document.body.dataset.unfinishedPrompt === "1"` and `#unfinishedBanner` visible.
+7. **Unfinished single-reminder** — after case 6, reload again without changing the draft; assert the prompt does **not** reappear (`unfinishedPromptedFor` matches).
 
 - [ ] **Step 2: Run**
 
@@ -752,10 +806,12 @@ git commit -m "Add Playwright checks for notification surfaces"
 ```bash
 node --check schedule.js notify.js app.js sw.js
 node test/schedule.mjs
+# server: python3 -m http.server 8000 (repo root, leave running)
 cd test && node notifications.mjs
+node simulation.mjs   # full existing regression suite — new Log-tab markup must not break it
 ```
 
-Expected: all exit 0.
+Expected: all exit 0, simulation reports `FAILED: 0`. If `simulation.mjs` fails on selectors that assume the previous Log-tab structure, fix the markup or update the selector — do not skip the suite.
 
 - [ ] **Step 2: Mark spec implemented**
 
@@ -793,7 +849,14 @@ git commit -m "Mark notifications design implemented"
 |------|--------|
 | OS tag rest | `repforge-rest` |
 | OS tag unfinished | `repforge-unfinished` |
-| Draft field | `__lastCommitAt` (ms number) |
-| Meta key | `repforge_notify_v1` |
+| Draft field | `__lastCommitAt` (ms number; carried by `saveDraft` from module `lastCommitAt`) |
+| Meta key | `repforge_notify_v1` — `{sessionBannerDate, sessionBannerDismissed, missedBannerDate, missedBannerDismissed, unfinishedPromptedFor}` |
 | Settings | `state.settings.notify.{enabled,timer,session,unfinished,missed}` |
 | Deep link | `?goto=<program day label>` |
+
+## Known edges (accepted, documented)
+
+- **Tie-break order is `days()` order** — the label-sorted list (`localeCompare` numeric), not template order. For default `Day N` labels these coincide; renamed labels sort alphabetically.
+- **Renamed day labels orphan their history**: a renamed day has no log rows under the new label, so it counts as never-logged (= most overdue) until first logged under the new name.
+- **Background timers are best-effort**: a frozen/locked tab (especially iOS) may never run the tick that fires the rest/unfinished OS notification; the reopen fallback and in-app done state are the safety net.
+- **`usualHour` lags schedule changes** (median over all history). Acceptable for v1.
