@@ -42,6 +42,7 @@
           <label class="datepick">Date<input id="date" type="date"></label>
         </div>
       </div>
+      <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
       <div class="modeswitch" role="group" aria-label="Log layout">
         <button type="button" id="modeFull" class="active">List</button>
         <button type="button" id="modeFocus">Focus</button>
@@ -191,6 +192,18 @@
         </details>
       </div>
       <div class="card">
+        <p class="cardtitle">Notifications</p>
+        <p class="lede">Local reminders on this device. Best with RepForge installed to the home screen. Background delivery is best-effort — iOS may suspend timers when the app is closed.</p>
+        <label class="field field--check"><input type="checkbox" id="notifyEnabled"> Enable notifications</label>
+        <div id="notifyTypes" class="notifytypes">
+          <label class="field field--check"><input type="checkbox" id="notifyTimer"> Rest timer done</label>
+          <label class="field field--check"><input type="checkbox" id="notifySession"> Today's session (on open)</label>
+          <label class="field field--check"><input type="checkbox" id="notifyUnfinished"> Unfinished session (15 min idle)</label>
+          <label class="field field--check"><input type="checkbox" id="notifyMissed"> Missed day (after usual training hour)</label>
+        </div>
+        <p class="lede" id="notifyPermStatus"></p>
+      </div>
+      <div class="card">
         <p class="cardtitle">Guide &amp; install</p>
         <p class="lede">New here or want a refresher? Walk through every feature. Install RepForge for a full-screen, offline app.</p>
         <div class="btnrow">
@@ -300,6 +313,8 @@
     <button type="button" class="btn btn--forge installbanner__action hidden" id="installBannerAction">Install</button>
   </div>
   <div id="toast" class="toast hidden"></div>
+  <script src="schedule.js"></script>
+  <script src="notify.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

@@ -829,6 +829,16 @@ nav button.active .nav__icon{background:var(--ember)}
   border-left:2px solid var(--rule);padding-left:9px;white-space:pre-wrap}
 .exsess__note span{display:block;color:var(--steel-dim);text-transform:uppercase;letter-spacing:.1em;font-size:10px;margin-bottom:3px}
 
+/* ---- Notifications ---- */
+.sessionbanner{margin:0 0 .75rem;padding:.75rem 1rem;border:1px solid var(--rule);border-radius:12px;background:var(--slag);cursor:pointer}
+.sessionbanner.hidden{display:none}
+.sessionbanner.is-missed{border-color:var(--gold)}
+.sessionbanner__title{font-weight:700;margin:0 0 .25rem}
+.sessionbanner__body{margin:0;opacity:.85;font-size:.9rem}
+.notifytypes{display:grid;gap:.35rem;margin:.5rem 0}
+#unfinishedBanner{margin:0 0 .75rem;padding:.75rem 1rem;border:1px solid var(--rule);border-radius:12px}
+#unfinishedBanner.hidden{display:none}
+
 /* ---- Responsive up ---- */
 @media (min-width:680px){
   .metrics{grid-template-columns:repeat(4,1fr)}
