@@ -85,7 +85,14 @@ const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
 const unitLabel=()=>isLb()?"lb":"kg";
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const term=t=>`<button type="button" class="term" data-term="${esc(t)}">${esc(t)}</button>`;
-const clearDraft=()=>localStorage.removeItem(DRAFT);
+function clearDraft(){
+  localStorage.removeItem(DRAFT);
+  clearUnfinishedWatch();
+  lastCommitAt=0;
+  const el=$("#unfinishedBanner");
+  if(el){el.classList.add("hidden");el.hidden=true}
+  delete document.body.dataset.unfinishedPrompt;
+}
 const loadDraft=()=>{try{return JSON.parse(localStorage.getItem(DRAFT)||"{}")}catch{clearDraft();return{}}};
 function convertDraftUnits(oldUnit,newUnit){
   if(oldUnit===newUnit)return;
@@ -341,6 +348,71 @@ function generateProgramFromOnboarding(answers){
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null,restNotified=false;
+let unfinishedTimer=null;
+let lastCommitAt=0;             // module-level; hydrated from draft at boot
+const UNFINISHED_MS=15*60*1000;
+
+function clearUnfinishedWatch(){
+  if(unfinishedTimer){clearTimeout(unfinishedTimer); unfinishedTimer=null}
+  if(window.RepForgeNotify) RepForgeNotify.closeTag("repforge-unfinished");
+}
+
+function armUnfinishedWatch(delayMs=UNFINISHED_MS){
+  clearUnfinishedWatch();
+  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  unfinishedTimer=setTimeout(onUnfinishedIdle, Math.max(0,delayMs));
+}
+
+// Single-reminder guarantee: remember which commit timestamp we already
+// prompted for (in repforge_notify_v1), so reopening the app or receiving
+// the OS notification does not produce repeat prompts for the same session.
+function unfinishedAlreadyPrompted(){
+  return loadNotifyMeta().unfinishedPromptedFor===lastCommitAt;
+}
+function markUnfinishedPrompted(){
+  const m=loadNotifyMeta(); m.unfinishedPromptedFor=lastCommitAt; saveNotifyMeta(m);
+}
+
+function showUnfinishedPrompt(){
+  markUnfinishedPrompted();
+  document.body.dataset.unfinishedPrompt="1";
+  const el=$("#unfinishedBanner");
+  if(!el) return;
+  el.classList.remove("hidden");
+  el.hidden=false;
+  const d=$("#unfinishedDismiss");
+  if(d) d.onclick=()=>{ el.classList.add("hidden"); el.hidden=true; };
+}
+
+function onUnfinishedIdle(){
+  unfinishedTimer=null;
+  const draft=loadDraft();
+  if(!(draft.__done||[]).length) return;
+  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  if(unfinishedAlreadyPrompted()) return;
+  if(document.visibilityState==="visible") showUnfinishedPrompt();
+  else{
+    markUnfinishedPrompted();
+    RepForgeNotify.fireOS({
+      title:"RepForge",
+      body:"Still training? Finish or save your session.",
+      tag:"repforge-unfinished",
+      url:"./index.html"
+    });
+  }
+}
+
+function maybeUnfinishedOnOpen(){
+  const draft=loadDraft();
+  lastCommitAt=+draft.__lastCommitAt||0;   // hydrate module state from draft
+  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  const done=(draft.__done||[]).length;
+  if(!done||!lastCommitAt) return;
+  if(unfinishedAlreadyPrompted()) return;  // single reminder per session
+  const elapsed=Date.now()-lastCommitAt;
+  if(elapsed>=UNFINISHED_MS) showUnfinishedPrompt();
+  else armUnfinishedWatch(UNFINISHED_MS-elapsed);
+}
 const collapsed=new Set();
 const skipped=new Set();
 const substituted=new Map();
@@ -906,7 +978,9 @@ function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x
   // Store every note field, empty included — an empty value is the lifter clearing a carried-forward note.
   const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
   if(Object.keys(notes).length)d.__exnotes=notes;
-  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
+  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];
+  if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
+  localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
@@ -923,8 +997,9 @@ function bindWorkout(){
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
       b.textContent=committed.has(key)?"✓":"Save";updateNextMarker(row.closest(".exercise"))}
+    if(committed.has(key))lastCommitAt=Date.now();
     saveDraft();updateSaveMeta();
-    if(committed.has(key))startRest()});
+    if(committed.has(key)){startRest();armUnfinishedWatch()}});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
@@ -1988,6 +2063,7 @@ function init(){
   $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
+  maybeUnfinishedOnOpen();
   maybeShowOnboarding();
   if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner();
 }
