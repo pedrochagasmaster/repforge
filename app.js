@@ -1,5 +1,9 @@
-const KEY="repforge_v1",DRAFT="repforge_draft_v1";
+const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const DB="repforge",STORE="kv";
+function loadNotifyMeta(){
+  try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
+}
+function saveNotifyMeta(m){localStorage.setItem(NOTIFY_META,JSON.stringify(m))}
 function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);
   r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
 async function idbGet(key){const db=await idbOpen();
@@ -57,10 +61,12 @@ function glossaryPopover(term,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__body").textContent=GLOSSARY[term]||"";
   g.classList.remove("hidden");
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
-const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric",voiceInputEnabled:false};
+const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
-const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled)});
+function normalizeNotify(n){
+  return{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false}}
+const normalizeSettings=s=>({jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)});
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -79,7 +85,14 @@ const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
 const unitLabel=()=>isLb()?"lb":"kg";
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const term=t=>`<button type="button" class="term" data-term="${esc(t)}">${esc(t)}</button>`;
-const clearDraft=()=>localStorage.removeItem(DRAFT);
+function clearDraft(){
+  localStorage.removeItem(DRAFT);
+  clearUnfinishedWatch();
+  lastCommitAt=0;
+  const el=$("#unfinishedBanner");
+  if(el){el.classList.add("hidden");el.hidden=true}
+  delete document.body.dataset.unfinishedPrompt;
+}
 const loadDraft=()=>{try{return JSON.parse(localStorage.getItem(DRAFT)||"{}")}catch{clearDraft();return{}}};
 function convertDraftUnits(oldUnit,newUnit){
   if(oldUnit===newUnit)return;
@@ -334,7 +347,64 @@ function generateProgramFromOnboarding(answers){
   return program}
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
-let restEnd=0,restTick=null;
+let restEnd=0,restTick=null,restNotified=false;
+let unfinishedTimer=null;
+let lastCommitAt=0;             // module-level; hydrated from draft at boot
+const UNFINISHED_MS=15*60*1000;
+
+function clearUnfinishedWatch(){
+  if(unfinishedTimer){clearTimeout(unfinishedTimer); unfinishedTimer=null}
+  if(window.RepForgeNotify) RepForgeNotify.closeTag("repforge-unfinished");
+}
+
+function armUnfinishedWatch(delayMs=UNFINISHED_MS){
+  clearUnfinishedWatch();
+  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  unfinishedTimer=setTimeout(onUnfinishedIdle, Math.max(0,delayMs));
+}
+
+// Single-reminder guarantee: remember which commit timestamp we already
+// prompted for (in repforge_notify_v1), so reopening the app or receiving
+// the OS notification does not produce repeat prompts for the same session.
+function unfinishedAlreadyPrompted(){
+  return loadNotifyMeta().unfinishedPromptedFor===lastCommitAt;
+}
+function markUnfinishedPrompted(){
+  const m=loadNotifyMeta(); m.unfinishedPromptedFor=lastCommitAt; saveNotifyMeta(m);
+}
+
+function showUnfinishedPrompt(){
+  markUnfinishedPrompted();
+  document.body.dataset.unfinishedPrompt="1";
+  const el=$("#unfinishedBanner");
+  if(!el) return;
+  el.classList.remove("hidden");
+  el.hidden=false;
+  const d=$("#unfinishedDismiss");
+  if(d) d.onclick=()=>{ el.classList.add("hidden"); el.hidden=true; };
+}
+
+function onUnfinishedIdle(){
+  unfinishedTimer=null;
+  const draft=loadDraft();
+  if(!(draft.__done||[]).length) return;
+  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  if(unfinishedAlreadyPrompted()) return;
+  if(document.visibilityState==="visible") showUnfinishedPrompt();
+  else RepForgeNotify.fireOS({title:"RepForge",body:"Still training? Finish or save your session.",tag:"repforge-unfinished",url:"./index.html"}).then(ok=>{if(ok)markUnfinishedPrompted()});
+}
+
+function maybeUnfinishedOnOpen(){
+  const draft=loadDraft();
+  lastCommitAt=+draft.__lastCommitAt||0;   // hydrate module state from draft
+  if(!RepForgeNotify.enabledFor(state.settings,"unfinished")) return;
+  const done=(draft.__done||[]).length;
+  if(!done||!lastCommitAt) return;
+  if(unfinishedAlreadyPrompted()) return;  // single reminder per session
+  const elapsed=Date.now()-lastCommitAt;
+  if(elapsed>=UNFINISHED_MS) showUnfinishedPrompt();
+  else armUnfinishedWatch(UNFINISHED_MS-elapsed);
+}
 const collapsed=new Set();
 const skipped=new Set();
 const substituted=new Map();
@@ -714,13 +784,81 @@ function recommendation(ex){
 }
 
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}}
+function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}
+  if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
-  if(left<=0){b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;return}
+  if(left<=0){
+    b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;
+    if(restNotified)return;
+    restNotified=true;
+    if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
+    if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
+    else RepForgeNotify.fireOS({title:"RepForge",body:"Rest done — next set.",tag:"repforge-rest",url:"./index.html"});
+    return}
   b.querySelector(".restbar__time").textContent=fmtClock(left)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
-  restEnd=Date.now()+s*1000;const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
+  restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
+/** Shared visibility handler — rest-timer catch-up + session banner. */
+function onAppVisible(){
+  if(document.visibilityState!=="visible")return;
+  if(restEnd&&Date.now()>=restEnd){
+    const b=$("#restBar");
+    if(b){b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");
+      if(restTick){clearInterval(restTick);restTick=null}}
+  }
+  updateSessionBanner();
+}
+
+function updateSessionBanner(){
+  const el=$("#sessionBanner"); if(!el) return;
+  const n=state.settings.notify;
+  const hide=()=>{el.className="sessionbanner hidden"; el.innerHTML=""; el.onclick=null};
+  if(!n||!n.enabled) return hide();
+  if(RepForgeSchedule.hasLoggedOn(state.log, today())) return hide();
+  if(!state.log.length) return hide();
+
+  const due=RepForgeSchedule.mostOverdueDay(state.log, days(), today());
+  if(!due) return hide();
+
+  const meta=loadNotifyMeta();
+  const hour=new Date().getHours();
+  const usual=RepForgeSchedule.usualHour(state.log);
+  const missedOk=!!n.missed && usual!=null && hour>=usual;
+  const sessionOk=!!n.session;
+
+  if(!missedOk && !sessionOk) return hide();
+  if(!missedOk && meta.sessionBannerDate===today() && meta.sessionBannerDismissed) return hide();
+  if(missedOk && meta.missedBannerDate===today() && meta.missedBannerDismissed) return hide();
+
+  const isMissed=missedOk;
+  const title=isMissed
+    ? `You usually train around ${usual}:00`
+    : `Today: ${due.day}`;
+  const body=isMissed
+    ? `${due.day} is due — tap to start`
+    : `Tap to open ${due.day}`;
+
+  function dismissForToday(){
+    const m=loadNotifyMeta();
+    if(isMissed){m.missedBannerDate=today(); m.missedBannerDismissed=true}
+    else{m.sessionBannerDate=today(); m.sessionBannerDismissed=true}
+    saveNotifyMeta(m);
+    hide();
+  }
+
+  el.className=`sessionbanner${isMissed?" is-missed":""}`;
+  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="Dismiss for today">✕</button>`+
+    `<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
+  el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
+  el.onclick=()=>{
+    day=due.day;
+    dismissForToday();
+    renderTabs(); renderWorkout();
+    toast(`${due.day} ready.`);
+  };
+}
 
 function render(){renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
@@ -802,6 +940,7 @@ function renderWorkout(){
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
+  updateSessionBanner();
 }
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
@@ -831,7 +970,9 @@ function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x
   // Store every note field, empty included — an empty value is the lifter clearing a carried-forward note.
   const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
   if(Object.keys(notes).length)d.__exnotes=notes;
-  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];localStorage.setItem(DRAFT,JSON.stringify(d))}
+  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];
+  if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
+  localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
@@ -848,8 +989,9 @@ function bindWorkout(){
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
       b.textContent=committed.has(key)?"✓":"Save";updateNextMarker(row.closest(".exercise"))}
+    if(committed.has(key))lastCommitAt=Date.now();
     saveDraft();updateSaveMeta();
-    if(committed.has(key))startRest()});
+    if(committed.has(key)){startRest();armUnfinishedWatch()}});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
@@ -1582,6 +1724,14 @@ function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump
   $("#restSec").value=state.settings.restSec;$("#unit").value=state.settings.unit;
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
+  const n=state.settings.notify||normalizeNotify();
+  const ne=$("#notifyEnabled");if(ne)ne.checked=!!n.enabled;
+  const nt=$("#notifyTimer");if(nt)nt.checked=n.timer!==false;
+  const ns=$("#notifySession");if(ns)ns.checked=n.session!==false;
+  const nu=$("#notifyUnfinished");if(nu)nu.checked=n.unfinished!==false;
+  const nm=$("#notifyMissed");if(nm)nm.checked=n.missed!==false;
+  $$("#notifyTypes input").forEach(i=>{i.disabled=!n.enabled});
+  const ps=$("#notifyPermStatus");if(ps)ps.textContent=`OS permission: ${window.RepForgeNotify?RepForgeNotify.permission():"unsupported"}`;
   updateVoiceBtn();
   const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",isStandalone());
   const le=state.settings.lastExport;const ago=le?`Last backup: ${le.slice(0,10)}.`:"Last backup: never.";
@@ -1594,7 +1744,7 @@ function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldRirMode!==newRirMode)clearDraft();
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked});
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!$("#notifyEnabled")?.checked,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   save();render();if(!silent)toast("Settings saved.");}
 
 function table(rows){if(!rows.length)return'<div class="empty">No data yet.</div>';const h=Object.keys(rows[0]);
@@ -1848,6 +1998,7 @@ function init(){
   $("#replayTour").onclick=startTour;
   $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
+  document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
     if(!g.contains(e.target)&&!e.target.closest("[data-term]"))g.classList.add("hidden")});
@@ -1888,6 +2039,11 @@ function init(){
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
   $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
   const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
+  const ne=$("#notifyEnabled");
+  if(ne)ne.onchange=()=>{const turningOn=!state.settings.notify?.enabled&&ne.checked;
+    let req=null;if(turningOn&&window.RepForgeNotify)req=RepForgeNotify.request();
+    commitSettings(true);if(req)Promise.resolve(req).then(()=>renderSettings())};
+  ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=()=>commitSettings(true)});
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{$('nav button[data-view="stats"]').click();setStatsSeg("review")};
@@ -1899,9 +2055,22 @@ function init(){
   $("#exBack").onclick=closeExerciseView;
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
+  maybeUnfinishedOnOpen();
   maybeShowOnboarding();
   if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner();
 }
+function applyGotoParam(){
+  try{
+    const u=new URL(location.href);
+    const g=u.searchParams.get("goto");
+    if(g && days().includes(g)) day=g;
+    if(u.searchParams.has("goto")){
+      u.searchParams.delete("goto");
+      history.replaceState({}, "", u.pathname+u.search+u.hash);
+    }
+  }catch{}
+}
+
 async function boot(){
   let raw=null;
   try{raw=await idbGet(KEY)}catch(e){console.warn("idb read failed",e)}
@@ -1912,6 +2081,7 @@ async function boot(){
   prog=new Program(state.program);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
   day=days()[0]||"Day 1";
+  applyGotoParam();
   migrateLog();
   persist();
   init();
