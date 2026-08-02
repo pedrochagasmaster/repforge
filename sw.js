@@ -1,7 +1,7 @@
-const CACHE = "repforge-v21";
+const CACHE = "repforge-v22";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
-  "./schedule.js", "./notify.js",
+  "./schedule.js", "./notify.js", "./i18n.js",
   "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./fonts/saira-600.woff2", "./fonts/saira-700.woff2", "./fonts/saira-800.woff2",
@@ -19,7 +19,7 @@ self.addEventListener("activate", event => {
   self.clients.claim();
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/manifest.webmanifest"]);
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
