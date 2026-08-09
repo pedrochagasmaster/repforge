@@ -44,7 +44,11 @@ these should hit a STOP condition:
 
 - No accounts, no cloud sync, no backend. Local-first is the product.
 - No social feed, leaderboards, sharing, or gamification (streaks/badges/XP).
-- No AI chat coach or auto-generated programs.
+- ~~No AI chat coach or auto-generated programs.~~ **Amended 2026-08 by
+  owner decision ([ADR 0002](../docs/adr/0002-byok-ai-coach.md), plan 038):
+  an opt-in BYOK AI coach is in scope. Still rejected: any AI feature that
+  requires a RepForge-operated backend, ships on by default, mutates state
+  without explicit user approval, or leaks data/keys into exports.**
 - No sixth nav tab; new depth ships hidden/collapsed/off the Log tab.
 - Protect the Log tab's speed above all else.
 
@@ -256,6 +260,16 @@ bars; mic emoji → SVG; one-time coach marks / first-run tips (needs a
 "tips seen" state design); converting the remaining native `confirm()` calls
 (follow-up noted in plan 035).
 
+## Wave 5 — owner-directed direction work
+
+Written against `5023c1c` (2026-08-09) from an interactive product-owner
+decision session (grilled decision-by-decision, all choices recorded in the
+plan's "Product decisions" section and [ADR 0002](../docs/adr/0002-byok-ai-coach.md)).
+
+| # | Plan | Category | Effort | Risk | Source |
+|---|------|----------|--------|------|--------|
+| 038 | [BYOK AI coach — chat sheet + user-approved program proposals](./038-ai-coach.md) | direction | L | HIGH | Product owner decision; ADR 0002 supersedes the prior AI rejection |
+
 ## Backlog (not yet planned in detail)
 
 Grounded in the report but deferred — each needs its own plan before execution.
@@ -281,7 +295,9 @@ export → 017, beginner program variant → 022, mesocycle blocks → 023 (spik
 Consensus across ≥5 personas that these betray the product:
 
 - Social feed / leaderboards / PR sharing / community.
-- AI coaching chat, auto-generated programs.
+- ~~AI coaching chat, auto-generated programs.~~ Superseded 2026-08 for the
+  BYOK-only shape — see [ADR 0002](../docs/adr/0002-byok-ai-coach.md) and
+  [plan 038](./038-ai-coach.md). Cloud/backend-dependent AI remains rejected.
 - Full coach SaaS (billing, scheduling, nutrition, in-app messaging).
 - Wearable / HRV / sleep / readiness dashboards.
 - Exercise GIF/video library, form-check empire.
@@ -339,3 +355,4 @@ Consensus across ≥5 personas that these betray the product:
 | 034 | DONE |
 | 035 | DONE |
 | 036 | DONE |
+| 038 | READY — execute per plan; STOP conditions guard the amended guardrails |

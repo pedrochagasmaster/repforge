@@ -55,3 +55,19 @@ _Avoid_: Report card, grade, score
 **Generated program**:
 A program created from onboarding answers; the user can edit it before saving.
 _Avoid_: Auto-plan, AI workout, recommended routine
+
+**Coach**:
+The opt-in, bring-your-own-key LLM chat surface (plan 038, ADR 0002). Grounded in coach context; may emit coach proposals. Distinct from the deterministic signals (recommendations, program status), which exist without it.
+_Avoid_: AI assistant, chatbot, trainer
+
+**Coach context**:
+The scoped, deterministic payload sent with a coach request — program, derived signals, and a bounded window of log data chosen per entry point. Bodyweight is excluded unless the lifter opts in; the payload is inspectable in the coach sheet.
+_Avoid_: Prompt (the persona/system text), data dump
+
+**Coach proposal**:
+A structured, validated program change emitted by the coach and applied only by an explicit user tap. Proposals target the program (templates and metadata), never the log.
+_Avoid_: Auto-adjustment, AI edit, recommendation (reserved for the deterministic engine)
+
+**Session review**:
+A coach conversation seeded with the just-saved session and its previous comparable session, offered (never auto-opened) after Save workout.
+_Avoid_: Workout grade, post-workout report
