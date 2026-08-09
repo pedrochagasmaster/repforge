@@ -1076,7 +1076,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
     rows.push(row)}}
-  if(!rows.length){toast(t("toast.enter_weight_before_save_set"));return}
+  if(!rows.length){toast(t("toast.enter_weight_before_save"));return}
   const prLifts=[];
   for(const ex of exercises()){if(skipped.has(ex.id))continue;
     const mine=rows.filter(r=>r.exerciseId===ex.id&&!r.warmup);if(!mine.length)continue;
