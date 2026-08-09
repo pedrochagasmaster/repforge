@@ -514,6 +514,7 @@
   "notify.rest.body": "Rest done — next set.",
   "notify.permission.unsupported": "unsupported",
   "toast.enter_weight_before_save_set": "Enter a weight before saving the set.",
+  "toast.enter_weight_before_save": "Enter weight on at least one set before saving.",
   "toast.filled_from_last": "Filled from last session.",
   "toast.trimmed_priority": "Trimmed to your priority lifts. Skip individually to adjust.",
   "toast.workout_forged": "Workout forged — {n} {sets} logged.",
