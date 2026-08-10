@@ -201,9 +201,16 @@ async function clearState(page) {
 
 async function nav(page, view) {
   if (view === "settings") {
+    // Profile control lives on Today; leave workout shell first if needed.
+    await page.evaluate(() => {
+      if (typeof window.__repforgeLeaveWorkout === "function") window.__repforgeLeaveWorkout();
+      if (typeof window.__repforgeShowSettings === "function") window.__repforgeShowSettings();
+    });
     const open = page.locator("#openSettings");
-    if (await open.count()) await open.click();
-    else await page.evaluate(() => window.__repforgeShowSettings?.());
+    if ((await open.count()) && (await open.isVisible().catch(() => false))) {
+      // Prefer the real click path when the control is on-screen.
+      await open.click();
+    }
     await page.waitForSelector(`#settings.view.active`, { timeout: 5000 });
     return;
   }
@@ -235,6 +242,23 @@ async function setLogDate(page, value) {
     el.dispatchEvent(new Event("input", { bubbles: true }));
     el.dispatchEvent(new Event("change", { bubbles: true }));
   }, value);
+}
+
+/** List/Focus mode toggles live in the workout overflow menu. */
+async function openWorkoutOverflow(page) {
+  const panel = page.locator("#woOverflow");
+  if (await panel.evaluate((el) => el.classList.contains("hidden")).catch(() => true)) {
+    await page.click("#woOverflowBtn");
+    await page.waitForFunction(() => {
+      const el = document.querySelector("#woOverflow");
+      return el && !el.classList.contains("hidden");
+    }, { timeout: 3000 });
+  }
+}
+
+async function clickLogMode(page, mode) {
+  await openWorkoutOverflow(page);
+  await page.click(mode === "focus" ? "#modeFocus" : "#modeFull");
 }
 
 async function firstDayName(page) {
@@ -2934,7 +2958,7 @@ async function main() {
   // Focus mode shows one exercise; Finish saves like list mode
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.click("#modeFocus");
+  await clickLogMode(page, "focus");
   await page.waitForTimeout(80);
   const visible = await page.locator("#workout .exercise:not(.is-current)").evaluateAll((els) =>
     els.every((e) => getComputedStyle(e).display === "none")
@@ -2966,7 +2990,7 @@ async function main() {
     "No saved row from focus mode",
     "Log → Focus → fill → Finish → rows saved"
   );
-  await page.click("#modeFull");
+  await clickLogMode(page, "full");
 
   // IndexedDB holds primary state (localStorage mirror kept for harness)
   const idbHasState = await page.evaluate(async (k) => {
