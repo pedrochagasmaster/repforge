@@ -3052,22 +3052,82 @@ async function main() {
   );
   await page.click("#workout .exercise.is-current .ex__rest");
   await page.waitForTimeout(150);
-  const restVsDock = await page.evaluate(() => {
+  const restVsNav = await page.evaluate(() => {
     const bar = document.querySelector("#restBar");
-    const dock = document.querySelector("#workoutDock");
-    if (!bar || !dock || bar.classList.contains("hidden")) return null;
+    const tabs = document.querySelector("nav");
+    if (!bar || !tabs || bar.classList.contains("hidden")) return null;
     const b = bar.getBoundingClientRect();
-    const d = dock.getBoundingClientRect();
-    return { barBottom: Math.round(b.bottom), dockTop: Math.round(d.top), barVisible: b.height > 0 };
+    const n = tabs.getBoundingClientRect();
+    return { barBottom: Math.round(b.bottom), navTop: Math.round(n.top), barVisible: b.height > 0 };
   });
   assert(
-    restVsDock && restVsDock.barVisible && restVsDock.barBottom <= restVsDock.dockTop,
-    "focus rest timer floats clear of the workout dock",
-    JSON.stringify(restVsDock),
-    "Focus → tap ⏱ → timer sits above the Previous/Next dock, never behind it"
+    restVsNav && restVsNav.barVisible && restVsNav.barBottom <= restVsNav.navTop,
+    "focus rest timer floats clear of the tab bar",
+    JSON.stringify(restVsNav),
+    "Focus → tap ⏱ → timer sits above the tab bar, never behind it"
   );
   await page.click("#restBar");
   await page.waitForTimeout(80);
+
+  // Focus mode is a swipeable card deck: no fixed dock, and page content must
+  // scroll clear of the tab bar rather than sliding under it.
+  assert(
+    (await page.locator("#workoutDock").count()) === 0,
+    "focus mode has no fixed bottom dock",
+    `workoutDock count=${await page.locator("#workoutDock").count()}`,
+    "Focus mode navigates by swipe + header chevrons instead of a dock"
+  );
+  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+  await page.waitForTimeout(150);
+  const bottomClearance = await page.evaluate(() => {
+    const navRect = document.querySelector("nav").getBoundingClientRect();
+    const card = document.querySelector("#workout .exercise.is-current");
+    const last = card.lastElementChild || card;
+    return { lastBottom: Math.round(last.getBoundingClientRect().bottom), navTop: Math.round(navRect.top) };
+  });
+  assert(
+    bottomClearance.lastBottom <= bottomClearance.navTop,
+    "focus content scrolls clear of the tab bar",
+    JSON.stringify(bottomClearance),
+    "Focus → scroll to the bottom → last card content stays above the tab bar"
+  );
+  await page.evaluate(() => window.scrollTo(0, 0));
+
+  // Dragging the card sideways advances the deck (Tinder-style).
+  const swipeFrom = await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
+  const cardBox = await page.locator("#workout .exercise.is-current").boundingBox();
+  // Grab the card by its header — steppers and buttons keep their own gestures.
+  const swipeY = Math.round(cardBox.y + 40);
+  const swipeX = Math.round(cardBox.x + cardBox.width - 30);
+  await page.mouse.move(swipeX, swipeY);
+  await page.mouse.down();
+  for (const step of [-40, -110, -200, -260]) {
+    await page.mouse.move(swipeX + step, swipeY);
+    await page.waitForTimeout(20);
+  }
+  await page.mouse.up();
+  await page.waitForTimeout(450);
+  const swipeTo = await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
+  assert(
+    swipeFrom && swipeTo && swipeFrom !== swipeTo,
+    "swiping the focus card left advances to the next exercise",
+    `from=${swipeFrom} to=${swipeTo}`,
+    "Focus → drag the card leftwards past the threshold → next exercise"
+  );
+  await page.click("#woPrev");
+  await page.waitForTimeout(200);
+  assert(
+    (await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex)) === swipeFrom,
+    "header chevron returns to the previous exercise",
+    `back=${await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex)}`,
+    "Focus → tap ‹ in the progress header → previous exercise"
+  );
+  assert(
+    await page.evaluate(() => document.querySelector("#woPrev")?.disabled === true),
+    "previous chevron is disabled on the first exercise",
+    `disabled=${await page.evaluate(() => document.querySelector("#woPrev")?.disabled)}`,
+    "Focus → first exercise → ‹ cannot be tapped"
+  );
   const focusMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
   // Focus mode commits per set via the "Log set" button next to the current set
@@ -3119,6 +3179,69 @@ async function main() {
     "Log → Focus → fill → Finish → rows saved"
   );
   await clickLogMode(page, "full");
+
+  beginPhase("Phase: workout entry CTA + transition");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+  const ctaFresh = (await page.locator("#startWorkout").textContent())?.trim();
+  assert(
+    /start/i.test(ctaFresh || ""),
+    "Today CTA reads Start workout with no session in progress",
+    `cta="${ctaFresh}"`,
+    "Clear draft → Today → CTA says Start workout"
+  );
+  await page.evaluate(() => {
+    window.__animSeen = { enter: false, leave: false };
+    const obs = new MutationObserver((muts) => {
+      for (const m of muts) {
+        const el = m.target;
+        if (el.id === "workoutShell" && el.classList.contains("wo-anim-enter")) window.__animSeen.enter = true;
+        if (el.id === "todayDash" && el.classList.contains("wo-anim-leave")) window.__animSeen.leave = true;
+      }
+    });
+    obs.observe(document.querySelector("#workoutShell"), { attributes: true, attributeFilter: ["class"] });
+    obs.observe(document.querySelector("#todayDash"), { attributes: true, attributeFilter: ["class"] });
+  });
+  await page.click("#startWorkout");
+  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  await page.waitForTimeout(120);
+  const ctaMeta = await getExerciseMeta(page, "Day 1");
+  await fillExerciseSets(page, ctaMeta[0].id, 1, 80, 6, 1);
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+  await page.waitForTimeout(120);
+  const ctaResume = (await page.locator("#startWorkout").textContent())?.trim();
+  assert(
+    /continue/i.test(ctaResume || ""),
+    "Today CTA reads Continue workout while a session is in progress",
+    `cta="${ctaResume}"`,
+    "Start a session → leave → Today CTA says Continue workout"
+  );
+  const animSeen = await page.evaluate(() => window.__animSeen);
+  assert(
+    animSeen.enter === true && animSeen.leave === true,
+    "entering and leaving a workout each play a transition",
+    JSON.stringify(animSeen),
+    "Today → Start workout → shell animates in; leave → dashboard animates back"
+  );
+  await page.click("#startWorkout");
+  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  assert(
+    (await getState(page)) &&
+      (await page.evaluate((k) => {
+        const d = JSON.parse(localStorage.getItem(k) || "{}");
+        return Object.keys(d).some((x) => /_load$/.test(x) && +d[x] === 80);
+      }, DRAFT)),
+    "Continue workout resumes the in-progress draft",
+    "draft load 80 missing after resume",
+    "Today → Continue workout → previously entered sets are still there"
+  );
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
 
   // IndexedDB holds primary state (localStorage mirror kept for harness)
   const idbHasState = await page.evaluate(async (k) => {

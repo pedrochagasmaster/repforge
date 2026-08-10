@@ -418,6 +418,7 @@ const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,focusEditSet=null,statsSeg="overview",prFilter="all";
+let focusEnterFrom=0,focusDrag=null,focusFlinging=false;
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
@@ -991,28 +992,77 @@ function updateSessionBanner(){
 function draftHasProgress(){try{const d=JSON.parse(localStorage.getItem(DRAFT)||"{}");
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length)return true;
   return Object.keys(d).some(k=>/_load$/.test(k)&&parseDec(d[k])>0)}catch{return false}}
-function setWorkoutActive(on){workoutActive=!!on;document.body.classList.toggle("is-workout",workoutActive);
+function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
+  document.body.classList.toggle("is-workout",workoutActive);
   const dash=$("#todayDash"),shell=$("#workoutShell");
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  if(!workoutActive){document.body.classList.remove("is-focus-wo");$("#workoutDock")?.classList.add("hidden");closeWorkoutOverflow()}
-  updateWorkoutDock()}
-function updateWorkoutDock(){
-  const dock=$("#workoutDock");if(!dock)return;
-  // Focus-mode dock is exercise navigation only; logging lives next to the
-  // current set and the rest timer is the floating bar shared with List mode.
-  const show=workoutActive&&logMode==="focus";
-  document.body.classList.toggle("is-focus-wo",show);
-  if(!show){dock.classList.add("hidden");return}
-  dock.classList.remove("hidden");
-  // Page padding and the floating rest timer both clear the dock, so measure it
-  // rather than trusting a hardcoded height across locales and font sizes.
-  const h=dock.offsetHeight;if(h)document.documentElement.style.setProperty("--dock",`${h}px`);
-  const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
-  const prev=$("#woPrev"),next=$("#woNext");
-  if(prev){prev.disabled=at<=0;prev.onclick=()=>{if(focusIndex>0){focusIndex--;renderWorkout();window.scrollTo({top:0})}}}
-  if(next){next.disabled=at>=fl.length-1;next.onclick=()=>{if(focusIndex<fl.length-1){focusIndex++;renderWorkout();window.scrollTo({top:0})}}}
-}
+  if(!workoutActive){document.body.classList.remove("is-focus-wo");closeWorkoutOverflow()}
+  updateFocusChrome();
+  if(workoutActive!==was)playPanelAnimation(workoutActive?shell:dash,workoutActive?"wo-anim-enter":"wo-anim-leave")}
+/** Replay a one-shot CSS animation on a panel that just became visible. */
+function playPanelAnimation(el,cls){if(!el)return;
+  el.classList.remove("wo-anim-enter","wo-anim-leave");
+  void el.offsetWidth;
+  el.classList.add(cls);
+  el.addEventListener("animationend",()=>el.classList.remove(cls),{once:true})}
+function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive&&logMode==="focus")}
+function focusGo(dir){
+  const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
+  if(next<0||next>=fl.length)return false;
+  focusIndex=next;focusEnterFrom=dir>0?1:-1;renderWorkout();window.scrollTo({top:0});return true}
+function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
+  return at+dir>=0&&at+dir<fl.length}
+function focusCard(){return $("#workout.is-focus .exercise.is-current")}
+/** Slide the freshly rendered card in from the side the swipe came from. */
+function playFocusCardEnter(){
+  const card=focusCard();if(!card)return;
+  card.style.transform="";card.style.opacity="";
+  if(!focusEnterFrom)return;
+  const from=focusEnterFrom;focusEnterFrom=0;
+  card.classList.add("is-entering");
+  card.style.transform=`translateX(${from*60}%) rotate(${from*5}deg)`;card.style.opacity="0";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{
+    card.classList.remove("is-entering");card.style.transform="";card.style.opacity=""}))}
+function focusDragStart(e){
+  if(focusFlinging||!workoutActive||logMode!=="focus")return;
+  if(e.pointerType==="mouse"&&e.button!==0)return;
+  const el=e.target instanceof Element?e.target:null;
+  // Fields keep their caret; every other part of the card is draggable, with the
+  // click that follows a real drag swallowed so buttons don't also fire.
+  if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
+  const card=focusCard();if(!card)return;
+  focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card}}
+function focusDragMove(e){
+  if(!focusDrag||e.pointerId!==focusDrag.id)return;
+  const mx=e.clientX-focusDrag.x,my=e.clientY-focusDrag.y;
+  if(!focusDrag.axis){
+    if(Math.abs(mx)<8&&Math.abs(my)<8)return;
+    // Vertical intent belongs to the page scroller, so drop the drag entirely.
+    if(Math.abs(my)>=Math.abs(mx)){focusDrag=null;return}
+    focusDrag.axis="x";focusDrag.card.classList.add("is-dragging")}
+  const blocked=(mx>0&&!focusCanGo(-1))||(mx<0&&!focusCanGo(1));
+  focusDrag.dx=blocked?mx*.28:mx;
+  focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`;
+  focusDrag.card.style.opacity=String(Math.max(.5,1-Math.abs(focusDrag.dx)/520))}
+function swallowNextClick(){
+  const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
+  document.addEventListener("click",stop,{capture:true,once:true});
+  setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
+function focusDragEnd(e){
+  if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
+  const{card,dx,axis}=focusDrag;focusDrag=null;
+  if(axis!=="x")return;
+  if(Math.abs(dx)>8)swallowNextClick();
+  card.classList.remove("is-dragging");
+  const dir=dx<0?1:-1,width=card.offsetWidth||320;
+  const past=Math.abs(dx)>=Math.min(130,Math.max(60,width*.25));
+  if(!past||!focusCanGo(dir)){card.style.transform="";card.style.opacity="";return}
+  focusFlinging=true;
+  card.style.transform=`translateX(${dir>0?"-":""}120%) rotate(${dir>0?-14:14}deg)`;
+  card.style.opacity="0";
+  if(!uiPrefs.focusSwipeSeen)setUiPref("focusSwipeSeen",true);
+  setTimeout(()=>{focusFlinging=false;focusGo(dir)},170)}
 function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
@@ -1044,6 +1094,10 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
       if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}
+  // A draft with logged or filled sets means the session is still open.
+  const cta=$("#startWorkout")?.querySelector("span");
+  if(cta){const key=draftHasProgress()?"today.continue":"today.start";
+    cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
   const weekEl=$("#todayWeek");if(weekEl){const w=weeklySnapshot(),{start}=weekRange(today()),letters=weekdayLetters();
     const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
     const cells=letters.map((lab,i)=>{const d=new Date(`${start}T12:00:00`);d.setDate(d.getDate()+i);
@@ -1233,7 +1287,7 @@ function renderWorkout(){
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
   updateSessionBanner();
-  updateWorkoutDock();
+  updateFocusChrome();
 }
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
@@ -1293,7 +1347,7 @@ function bindWorkout(){
     const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
     if(committed.has(key)){startRest();armUnfinishedWatch()}
     if(logMode==="focus")renderWorkout();
-    else updateWorkoutDock()});
+    else updateFocusChrome()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
@@ -1350,15 +1404,22 @@ function bindWorkout(){
   if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
     if(progEl){progEl.classList.remove("hidden");
-      progEl.innerHTML=`<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
-        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`}
-    const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
+      progEl.innerHTML=`<div class="wo-progress__top">`+
+        `<button type="button" class="focusnav" id="woPrev" aria-label="${esc(t("focus.prev_ex"))}"${at<=0?" disabled":""}>‹</button>`+
+        `<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
+        `<button type="button" class="focusnav" id="woNext" aria-label="${esc(t("focus.next_ex"))}"${at>=fl.length-1?" disabled":""}>›</button></div>`+
+        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`+
+        (fl.length>1&&!uiPrefs.focusSwipeSeen?`<p class="focus-hint">${esc(t("focus.swipe_hint"))}</p>`:"");
+      $("#woPrev").onclick=()=>focusGo(-1);
+      $("#woNext").onclick=()=>focusGo(1)}
+    const n=$("[data-fnext]");if(n)n.onclick=()=>focusGo(1);
     const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit();
     // Tap a committed set row to reopen it for editing in the steppers.
     $$("#workout [data-editset]").forEach(b=>b.onclick=()=>{
-      focusEditSet={exId:b.dataset.editex,n:+b.dataset.editn};saveDraft();renderWorkout()})}
+      focusEditSet={exId:b.dataset.editex,n:+b.dataset.editn};saveDraft();renderWorkout()});
+    playFocusCardEnter()}
   else{$("#woProgress")?.classList.add("hidden")}
-  updateWorkoutDock();
+  updateFocusChrome();
 }
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
@@ -2454,6 +2515,19 @@ function init(){
   document.addEventListener("click",dismissOverflow);
   document.addEventListener("touchstart",dismissOverflow,{passive:true});
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeWorkoutOverflow()});
+  // Focus mode is a card deck: drag it sideways, or use the arrow keys.
+  const wk=$("#workout");
+  if(wk)wk.addEventListener("pointerdown",focusDragStart);
+  window.addEventListener("pointermove",focusDragMove,{passive:true});
+  window.addEventListener("pointerup",focusDragEnd);
+  window.addEventListener("pointercancel",focusDragEnd);
+  document.addEventListener("keydown",e=>{
+    if(!workoutActive||logMode!=="focus")return;
+    if(e.metaKey||e.ctrlKey||e.altKey)return;
+    const el=e.target instanceof Element?e.target:null;
+    if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
+    if(e.key==="ArrowRight")focusGo(1);
+    else if(e.key==="ArrowLeft")focusGo(-1)});
   const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>closeWorkoutOverflow());
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};

@@ -14,18 +14,29 @@ hand-written static PWA (`index.html`, `styles.css`, `app.js`, `i18n.js`, `sw.js
 
 These override the sections below where they conflict.
 
-- **Focus-mode dock is navigation only.** It holds "Previous exercise" / "Next exercise";
-  nothing else. Logging happens on a "Log set" button attached to the current set, and
+- **Focus mode is a swipeable card deck, with no dock.** The fixed dock was removed: it
+  floated over a page that reserved no room for it, so content scrolled underneath. Focus
+  mode keeps the normal tab bar and the normal body padding. Exercises are changed by
+  dragging the card sideways — it tracks the pointer, tilts, rubber-bands at the ends of
+  the session, and flies out past the threshold. Any part of the card except a text field
+  starts the drag, and the click after a real drag is swallowed. Chevrons in the progress
+  header (`#woPrev` / `#woNext`) and the ← / → keys do the same thing for reach and
+  accessibility, and a one-time hint sits under the progress bar until the first swipe.
+- **Logging stays on the card.** The "Log set" button is attached to the current set, and
   Finish workout only appears once every set of the session is logged, so a finished
   exercise can no longer end the session by accident.
-- **One rest timer for both modes.** The floating `#restBar` is the only rest surface;
-  Focus mode offsets it above the dock (dock height measured at render time) instead of
-  rendering its own chip. The ⏱ starter lives in each exercise header in both modes.
+- **One rest timer for both modes.** The floating `#restBar` is the only rest surface, in
+  the same place in both modes; Focus renders no chip of its own. The ⏱ starter lives in
+  each exercise header in both modes.
 - **The workout ⋯ menu is a popover.** It closes on any choice inside it, on an outside
   tap, and on Escape — iOS never delivers the focus loss a hover-era menu relied on.
 - **No free-text quick entry.** The typed command bar is removed from the UI. Set-command
   parsing stays and backs voice input, which lives in the ⋯ menu and applies a spoken set
   directly (`applyCommandText`).
+- **Home resumes an open session.** The Today CTA reads "Continue workout" whenever the
+  draft holds logged or filled sets, and "Start workout" otherwise.
+- **Entering and leaving a workout animates.** The workout shell rises into place and the
+  dashboard settles back on return; both are skipped under `prefers-reduced-motion`.
 
 ## 1. Design language
 
