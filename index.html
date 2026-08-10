@@ -55,6 +55,13 @@
         <button type="button" class="eyebrow eyebrow--link hidden" id="logContext" data-i18n="log.context.today">Today's session</button>
       </div>
 
+      <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
+      <div id="unfinishedBanner" class="hidden" role="status" hidden>
+        <p class="sessionbanner__title" data-i18n="log.unfinished.title">Unfinished session</p>
+        <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Finish on Log, then Save workout.</p>
+        <button type="button" id="unfinishedDismiss" class="btn btn--steel" data-i18n="log.unfinished.dismiss">Dismiss</button>
+      </div>
+
       <!-- Active workout shell (mock 01) — existing IDs preserved -->
       <div id="workoutShell" class="hidden">
         <div class="wo-head">
@@ -74,12 +81,6 @@
               <button type="button" id="woToggleCommand" data-i18n="log.command.apply">Command bar</button>
             </div>
           </div>
-        </div>
-        <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
-        <div id="unfinishedBanner" class="hidden" role="status" hidden>
-          <p class="sessionbanner__title" data-i18n="log.unfinished.title">Unfinished session</p>
-          <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Finish on Log, then Save workout.</p>
-          <button type="button" id="unfinishedDismiss" class="btn btn--steel" data-i18n="log.unfinished.dismiss">Dismiss</button>
         </div>
         <div id="dayTabs" class="seg" role="tablist" data-i18n-aria="log.training_day_aria" aria-label="Training day"></div>
         <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>

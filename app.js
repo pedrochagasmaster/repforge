@@ -1035,6 +1035,7 @@ function render(){applyI18n();
   if(!workoutActive&&draftHasProgress())workoutActive=true;
   setWorkoutActive(workoutActive);
   renderToday();renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
+  updateSessionBanner();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
@@ -1042,7 +1043,7 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout();renderToday()})}
 
 function renderWorkout(){
-  if(!workoutActive){updateGauge();return}
+  if(!workoutActive){updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null?(mc.current!=null?t("log.context.program_week",{name:nm||t("untitled_program"),n:mc.current,total:mc.total}):(nm||t("untitled_program"))):t("log.context.today")}
   const draft=loadDraft();
