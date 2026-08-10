@@ -18,7 +18,7 @@
 </head>
 <body>
   <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
-  <button id="restBar" type="button" class="restbar restbar--float hidden" aria-live="polite" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to stop">
+  <button id="restBar" type="button" class="restbar hidden" aria-live="polite" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to stop">
     <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
   </button>
   <button id="heatGauge" type="button" class="visually-hidden" data-i18n-title="top.heat_title" title="Session heat — how many lifts are ready to add load" tabindex="-1">
@@ -71,27 +71,20 @@
             <div class="wo-head__sub" id="woDaySub"></div>
           </div>
           <div style="position:relative;justify-self:end">
-            <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="More"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
+            <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="woOverflow"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
             <div id="woOverflow" class="wo-overflow hidden">
               <div class="modeswitch" role="group" data-i18n-aria="log.layout_aria" aria-label="Log layout">
                 <button type="button" id="modeFull" class="active" data-i18n="log.mode.list">List</button>
                 <button type="button" id="modeFocus" data-i18n="log.mode.focus">Focus</button>
               </div>
               <label class="datepick"><span data-i18n="log.date">Date</span><input id="date" type="date"></label>
-              <button type="button" id="woToggleCommand" data-i18n="log.command.apply">Command bar</button>
+              <button type="button" id="voiceBtn" class="wo-overflow__item hidden" data-i18n="log.command.voice">Voice input</button>
             </div>
           </div>
         </div>
         <div id="dayTabs" class="seg" role="tablist" data-i18n-aria="log.training_day_aria" aria-label="Training day"></div>
         <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
         <div id="fatigue" class="fatigue hidden"></div>
-        <div class="commandbar" id="commandBarWrap">
-          <input id="commandInput" type="text" autocomplete="off" data-i18n-placeholder="log.command.placeholder" data-i18n-aria="log.command.aria" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry" aria-describedby="commandHelpText">
-          <button type="button" id="commandHelp" class="btn btn--steel commandbar__help" data-i18n-aria="log.command.help_aria" aria-label="Quick entry syntax help">?</button>
-          <button type="button" id="voiceBtn" class="btn btn--steel hidden" data-i18n-aria="log.command.voice_aria" aria-label="Voice input">🎤</button>
-          <button type="button" id="commandApply" class="btn btn--steel" data-i18n="log.command.apply">Apply</button>
-        </div>
-        <p id="commandHelpText" class="visually-hidden" data-i18n="log.command.help_text">Quick set entry. Format: load x reps @RIR, for example 80 x 8 @1. Optionally start with the exercise name.</p>
         <form id="logForm">
           <div id="woProgress" class="wo-progress hidden" aria-live="polite"></div>
           <div id="workout"></div>
@@ -106,10 +99,6 @@
             <span id="saveMeta" class="btn__meta"></span>
           </button>
         </form>
-        <button type="button" class="restchip restchip--inline hidden" id="woRestChip" data-i18n-aria="focus.rest_aria" aria-label="Rest timer">
-          <span aria-hidden="true">⏱</span>
-          <span><span class="restchip__lab" data-i18n="log.rest_chip">Rest</span><span class="restchip__time">—</span></span>
-        </button>
         <div id="workoutDock" class="workout-dock hidden">
           <button type="button" class="docknav" id="woPrev" data-i18n="focus.prev_ex">Previous exercise</button>
           <button type="button" class="docknav docknav--next" id="woNext" data-i18n="focus.next_ex">Next exercise</button>
@@ -302,7 +291,7 @@
           <button type="button" class="toggle" id="voiceToggle" aria-pressed="false" data-i18n-aria="settings.voice_enable"></button>
           <input type="checkbox" id="voiceInputEnabled" class="visually-hidden">
         </div>
-        <p class="lede" data-i18n="settings.voice_lede">Voice input is optional and depends on browser support. Typed commands work offline. Voice recognition may be processed by your browser provider.</p>
+        <p class="lede" data-i18n="settings.voice_lede">Voice input is optional and depends on browser support. When on, a Voice input button appears in the workout ⋯ menu. Voice recognition may be processed by your browser provider.</p>
       </div>
 
       <p class="settings-group__label" data-i18n="settings.group.notifications">Notifications</p>
