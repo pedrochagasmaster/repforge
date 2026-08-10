@@ -981,21 +981,23 @@ function draftHasProgress(){try{const d=JSON.parse(localStorage.getItem(DRAFT)||
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length)return true;
   return Object.keys(d).some(k=>/_load$/.test(k)&&parseDec(d[k])>0)}catch{return false}}
 function setWorkoutActive(on){workoutActive=!!on;document.body.classList.toggle("is-workout",workoutActive);
-  const dash=$("#todayDash"),shell=$("#workoutShell"),dock=$("#workoutDock");
+  const dash=$("#todayDash"),shell=$("#workoutShell");
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  if(dock){dock.classList.toggle("hidden",!workoutActive);dock.hidden=!workoutActive}
-  const float=$("#restBar");if(float){float.classList.toggle("restbar--float",!workoutActive);if(workoutActive)float.classList.add("hidden")}}
+  const float=$("#restBar");if(float)float.classList.toggle("restbar--float",!workoutActive);
+  if(!workoutActive)$("#workoutDock")?.classList.add("hidden");
+  updateWorkoutDock()}
 function updateWorkoutDock(){
   const dock=$("#workoutDock"),cta=$("#dockLogSet"),chip=$("#dockRest");if(!dock)return;
-  if(!workoutActive){dock.classList.add("hidden");return}
+  // Sticky dock is Focus-mode chrome (mock 01); List mode keeps the inline Save set buttons.
+  if(!workoutActive||logMode!=="focus"){dock.classList.add("hidden");return}
   dock.classList.remove("hidden");
   if(cta){
-    const nextBtn=$("#workout .setrow.is-next .saveset")||$("#workout .setrow:not(.is-done) .saveset");
+    const nextBtn=$("#workout .exercise.is-current .setrow.is-next .saveset")||$("#workout .exercise.is-current .setrow:not(.is-done) .saveset");
     const label=cta.querySelector("span")||cta;
     label.textContent=nextBtn?t("today.log_set"):t("log.finish");
     cta.onclick=()=>{
-      const btn=$("#workout .setrow.is-next .saveset")||$("#workout .setrow:not(.is-done) .saveset");
+      const btn=$("#workout .exercise.is-current .setrow.is-next .saveset")||$("#workout .exercise.is-current .setrow:not(.is-done) .saveset");
       if(btn)btn.click();else $("#logForm")?.requestSubmit();
     };
   }
