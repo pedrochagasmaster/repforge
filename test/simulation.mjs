@@ -1030,14 +1030,16 @@ async function main() {
     "Program tab → edit program name"
   );
   await nav(page, "log");
-  const logEyebrow = await page.locator("#logContext").textContent();
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  const todayProg = await page.locator("#todayProgram").textContent();
   assert(
-    logEyebrow.includes("Simulation Split"),
+    todayProg.includes("Simulation Split"),
     "Log tab eyebrow shows the program name",
-    `eyebrow=${logEyebrow}`,
-    "Program tab → name program → Log tab eyebrow"
+    `todayProgram=${todayProg}`,
+    "Program tab → name program → Today program strip"
   );
-  await page.click("#logContext");
+  // Compatibility hook: #logContext still deep-links to Stats → Review (may be visually hidden).
+  await page.evaluate(() => document.querySelector("#logContext")?.click());
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   const eyebrowNavOk = await page.evaluate(() => {
     const stats = document.querySelector("#stats.view.active");
@@ -1048,7 +1050,7 @@ async function main() {
     eyebrowNavOk,
     "Log week eyebrow opens Stats Review segment",
     `eyebrowNavOk=${eyebrowNavOk}`,
-    "Log tab → click #logContext → Stats Review active"
+    "Today → #logContext click → Stats Review active"
   );
   await nav(page, "program");
   const startedIso = (() => {
@@ -3308,12 +3310,13 @@ async function main() {
     "mesocycleLengthWeeks=6 → total 6"
   );
   await nav(page, "log");
-  const logCtxMeso = await page.locator("#logContext").textContent();
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  const logCtxMeso = await page.locator("#todayProgram").textContent();
   assert(
     /of 6/.test(logCtxMeso),
     "P7: Log context shows Week X of 6",
-    `logContext=${logCtxMeso}`,
-    "Log tab → #logContext includes of 6"
+    `todayProgram=${logCtxMeso}`,
+    "Today dashboard → program strip includes of 6"
   );
   await nav(page, "program");
   const weekChipText = await page.locator("#pmetaChipsTop").textContent();
