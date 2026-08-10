@@ -1278,6 +1278,8 @@ async function main() {
   const tmpDir = mkdtempSync(join(tmpdir(), "repforge-test-"));
   const jsonPath = join(tmpDir, "backup.json");
 
+  await page.click("#dataBackupRow");
+  await page.waitForSelector("#dataBackupPanel.is-open", { timeout: 3000 });
   const [jsonDownload] = await Promise.all([
     page.waitForEvent("download"),
     page.click("#exportJson"),
@@ -2845,6 +2847,8 @@ async function main() {
 
   beginPhase("Phase: effort RIR mode");
   await nav(page, "settings");
+  await page.click("#rirModeRow");
+  await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
   await page.check('input[name="rirMode"][value="effort"]');
   await page.waitForTimeout(120);
   await nav(page, "log");
@@ -2923,6 +2927,8 @@ async function main() {
     "Toggle effort mode in Settings"
   );
   await nav(page, "settings");
+  await page.click("#rirModeRow");
+  await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
   assert(
     /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
     "Settings shows effort scale legend with RIR 3",

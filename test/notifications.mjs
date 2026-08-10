@@ -177,6 +177,8 @@ console.log("\nNotification surfaces");
       return false;
     }
   });
+  await page.click("#notifyConfigRow");
+  await page.waitForSelector("#notifyTypes.is-open", { timeout: 3000 });
   await page.uncheck("#notifyMissed");
   await page.waitForFunction(async () => {
     const ls = JSON.parse(localStorage.getItem("repforge_v1") || "{}")?.settings?.notify;
