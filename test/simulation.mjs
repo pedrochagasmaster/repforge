@@ -3024,8 +3024,10 @@ async function main() {
   await page.click("[data-fnext]");
   await page.waitForTimeout(80);
   for (let i = 0; i < focusMeta.length + 1; i++) {
-    if (await page.locator("[data-ffinish]").count()) {
-      await page.click("[data-ffinish]");
+    const hasFinish = await page.locator("[data-ffinish]").count();
+    if (hasFinish) {
+      // Finish control may be visually-hidden chrome; invoke via DOM.
+      await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
       break;
     }
     if (await page.locator("[data-fnext]").count()) {
