@@ -3036,20 +3036,47 @@ async function main() {
   );
   const focusMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
-  await page.click("[data-fnext]");
-  await page.waitForTimeout(80);
-  for (let i = 0; i < focusMeta.length + 1; i++) {
-    const hasFinish = await page.locator("[data-ffinish]").count();
-    if (hasFinish) {
-      // Finish control may be visually-hidden chrome; invoke via DOM.
-      await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
-      break;
+  // Focus mode commits per set via the "Log set" button next to the current set
+  // (values must be filled first), navigates exercises with the dock, and only
+  // offers Finish once every set is logged.
+  const fillCurrentFocusSet = () =>
+    page.evaluate(() => {
+      const cur = document.querySelector("#workout .exercise.is-current");
+      const key = cur?.querySelector(".curset")?.dataset.set;
+      if (!key) return false;
+      for (const [suffix, val] of [["load", 90], ["reps", 6], ["rir", 1]]) {
+        const el = cur.querySelector(`[data-k="${key}_${suffix}"]`);
+        if (!el || el.value === String(val)) continue;
+        el.value = String(val);
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      return true;
+    });
+  for (let guard = 0; guard < 80; guard++) {
+    const finish = await page.evaluate(() => {
+      const f = document.querySelector("[data-ffinish]");
+      return f && !f.classList.contains("visually-hidden") && f.offsetParent !== null;
+    });
+    if (finish) break;
+    let acted = false;
+    if (await fillCurrentFocusSet()) {
+      acted = await page.evaluate(() => {
+        const b = document.querySelector("#workout .exercise.is-current .curset__save");
+        if (b) { b.click(); return true; }
+        return false;
+      });
     }
-    if (await page.locator("[data-fnext]").count()) {
-      await page.click("[data-fnext]");
-      await page.waitForTimeout(60);
+    if (!acted) {
+      acted = await page.evaluate(() => {
+        const b = document.querySelector("#woNext");
+        if (b && !b.disabled) { b.click(); return true; }
+        return false;
+      });
     }
+    if (!acted) break;
+    await page.waitForTimeout(60);
   }
+  await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
   await page.waitForTimeout(120);
   assert(
     (await getState(page)).log.some((r) => r.exerciseId === focusMeta[0].id && +r.load === 90),
