@@ -26,7 +26,6 @@
   --danger:#C93A2B;
   --radius:14px;
   --nav:72px;
-  --dock:70px;
   --maxw:560px;
 
   --display:"Plex Sans",system-ui,sans-serif;
@@ -369,37 +368,36 @@ div.settings-row{cursor:default}
 .wo-head__title{font-size:17px;font-weight:600}
 .wo-head__sub{font-size:13px;color:var(--ink-soft);margin-top:2px}
 .wo-progress{margin-bottom:18px}
-.wo-progress__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;text-align:right}
-.workout-dock{
-  position:fixed;left:0;right:0;bottom:calc(var(--nav) + env(safe-area-inset-bottom));
-  z-index:20;background:var(--bg);border-top:1px solid var(--rule);
-  padding:10px max(16px,env(safe-area-inset-right)) 10px max(16px,env(safe-area-inset-left));
-  display:flex;align-items:center;justify-content:space-between;gap:10px;
-  width:min(100%,var(--maxw));margin:0 auto;
+.wo-progress__top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+.wo-progress__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.focusnav{
+  flex:none;width:36px;height:36px;padding:0;border:0;background:none;cursor:pointer;
+  color:var(--ink-soft);font-size:22px;line-height:1;border-radius:50%;
 }
-.docknav{
-  display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:8px 4px;
-  border:0;background:none;cursor:pointer;font-size:16px;font-weight:500;color:var(--ink);
-  white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;
-}
-.docknav::before{content:"‹";font-size:20px;line-height:1}
-.docknav--next::before{content:none}
-.docknav--next::after{content:"›";font-size:20px;line-height:1}
-.docknav:disabled{color:var(--ink-faint);cursor:default}
+.focusnav:disabled{color:var(--rule);cursor:default}
+.focus-hint{margin:10px 0 0;font-size:12px;color:var(--ink-faint);text-align:center}
 body.is-workout #logWorkspace{padding-bottom:72px}
-body.is-workout.is-focus-wo{padding-bottom:calc(var(--dock) + env(safe-area-inset-bottom))}
-body.is-workout.is-focus-wo .workout-dock:not(.hidden){display:flex}
-body.is-workout.is-focus-wo .workout-dock{bottom:env(safe-area-inset-bottom)}
-body.is-workout.is-focus-wo nav{display:none}
-/* Focus hides the tab bar, so the floating rest timer clears the dock instead. */
-body.is-workout.is-focus-wo .restbar{bottom:calc(var(--dock) + 16px + env(safe-area-inset-bottom))}
-.workout-dock{display:none}
 body.is-workout #logForm{padding-bottom:24px}
-body.is-workout.is-focus-wo #logForm{padding-bottom:88px}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
 .segbar--ex{margin-top:4px}
+
+/* Focus card: drag it sideways to change exercise (vertical scroll stays native). */
+body.is-focus-wo{overflow-x:hidden}
+#workout.is-focus .exercise.is-current{
+  touch-action:pan-y;transform-origin:50% 120%;will-change:transform;
+  transition:transform .26s cubic-bezier(.2,.7,.2,1),opacity .26s ease;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
+}
+#workout.is-focus .exercise.is-current input,
+#workout.is-focus .exercise.is-current textarea{-webkit-user-select:text;user-select:text}
+#workout.is-focus .exercise.is-current.is-dragging{transition:none}
+#workout.is-focus .exercise.is-current.is-entering{transition:none}
+@media (prefers-reduced-motion:reduce){
+  #workout.is-focus .exercise.is-current{transition:none}
+}
+
 #workout.is-focus .heat,
 #workout.is-focus .ex__topend,
 #workout.is-focus .setup,
@@ -966,6 +964,13 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .sectionhead__row{display:flex;align-items:flex-end;justify-content:space-between;gap:14px}
 
 @keyframes rise{from{opacity:0}to{opacity:1}}
+@keyframes woEnter{from{opacity:0;transform:translateY(16px) scale(.98)}to{opacity:1;transform:none}}
+@keyframes woLeave{from{opacity:0;transform:translateY(-12px)}to{opacity:1;transform:none}}
+.wo-anim-enter{animation:woEnter .32s cubic-bezier(.2,.7,.2,1) both}
+.wo-anim-leave{animation:woLeave .28s cubic-bezier(.2,.7,.2,1) both}
+@media (prefers-reduced-motion:reduce){
+  .wo-anim-enter,.wo-anim-leave{animation:none}
+}
 @keyframes toastin{from{opacity:0;transform:translateX(-50%) translateY(10px)}to{opacity:1;transform:translateX(-50%) translateY(0)}}
 @keyframes stamp{0%{transform:scale(1)}30%{transform:scale(.97)}60%{transform:scale(1.01)}100%{transform:scale(1)}}
 
