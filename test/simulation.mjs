@@ -353,7 +353,7 @@ async function cardInfo(page, idx) {
     return {
       status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
       chip: a.querySelector(".chip")?.textContent || "",
-      rec: a.querySelector(".rec")?.textContent || "",
+      rec: a.querySelector(".recblock")?.textContent || "",
       setup: a.querySelector(".setup")?.textContent || "",
       collapsed: a.classList.contains("is-collapsed"),
     };
@@ -426,7 +426,7 @@ async function cardInfoById(page, exId) {
     return {
       status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
       chip: a.querySelector(".chip")?.textContent || "",
-      rec: a.querySelector(".rec")?.textContent || "",
+      rec: a.querySelector(".recblock")?.textContent || "",
       setup: a.querySelector(".setup")?.textContent || "",
       collapsed: a.classList.contains("is-collapsed"),
     };
@@ -1158,7 +1158,7 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Push Day");
-  const recText = await page.locator("#workout .exercise").first().locator(".rec").textContent();
+  const recText = await page.locator("#workout .exercise").first().locator(".recblock").textContent();
   const hasAddLoad =
     recText.includes("Add load") || recText.includes("Add load ++") || recText.includes("Target");
   assert(
@@ -2469,7 +2469,7 @@ async function main() {
     "Log → 3 sessions same load, no rep gain → Stalled · deload"
   );
   const yInfo = await cardInfo(page, 1);
-  const yTarget = +(yInfo.rec.match(/Target\s+([\d.]+)\s*kg/)?.[1] || 0);
+  const yTarget = +(yInfo.rec.match(/(?:Hold|Target)\s+([\d.]+)\s*kg/)?.[1] || 0);
   assert(
     yInfo.status === "is-reduce" && yTarget > 0 && yTarget < 80,
     "Back off returns a real lighter target",
@@ -2608,7 +2608,10 @@ async function main() {
 
   // Edit a logged session in History
   await nav(page, "history");
-  await page.locator(".session__edit").first().click();
+  await page.locator("#sessions .hist-row.session, #sessions .session").first().click();
+  const editBtn = page.locator("[data-edit], .session__edit").first();
+  await editBtn.waitFor({ state: "visible", timeout: 5000 });
+  await editBtn.click();
   await page.waitForTimeout(100);
   const editInput = page.locator('.session--edit [data-ek^="load|"]').first();
   await editInput.fill("123");
