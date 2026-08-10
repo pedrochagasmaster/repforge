@@ -213,6 +213,14 @@ async function nav(page, view) {
     if (b) b.click();
   }, view);
   await page.waitForSelector(`#${view}.view.active`, { timeout: 5000 });
+  if (view === "program") {
+    // Editor is behind the Edit toggle (overview is the default read view).
+    const hidden = await page.locator("#programEditorWrap.is-hidden").count();
+    if (hidden) {
+      await page.click("#programEditToggle");
+      await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+    }
+  }
   if (view === "log") {
     // Ensure workout shell is available for set logging assertions
     const dash = page.locator("#todayDash:not(.hidden)");
