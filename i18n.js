@@ -65,6 +65,7 @@ const EN = {
   "log.substitute.aria": "Substitute for {name}",
   "log.substitute.other": "Other…",
   "log.rest_aria": "Start rest timer",
+  "log.rest_chip": "Rest",
   "log.skip": "Skip",
   "log.skip_aria": "Skip {name} today",
   "log.toggle_sets_aria": "Toggle {name} sets",
@@ -1477,6 +1478,7 @@ const PT = {
   "onb.goal.changes": "Faixas de reps, volume inicial e sugestões de divisão.",
   "onb.have_program": "Já tenho um programa",
   "onb.import": "Importar",
+  "log.rest_chip": "Descanso",
 };
 
 (function (root) {

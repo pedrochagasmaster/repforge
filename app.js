@@ -774,7 +774,7 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   if(lbl){for(const n of [...lbl.childNodes])if(n.nodeType===3)n.remove();
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
-function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
+function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   day=ex.day;
@@ -905,17 +905,22 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
     b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;
+    const dt=$("#dockRestTime");if(dt)dt.textContent="0:00";$("#dockRest")?.classList.add("is-done");
     if(restNotified)return;
     restNotified=true;
     if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
     if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
     else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"});
     return}
-  b.querySelector(".restbar__time").textContent=fmtClock(left)}
+  const clock=fmtClock(left);
+  b.querySelector(".restbar__time").textContent=clock;
+  const dt=$("#dockRestTime");if(dt)dt.textContent=clock;$("#dockRest")?.classList.remove("is-done")}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
-  b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
+  const clock=fmtClock(s);b.querySelector(".restbar__time").textContent=clock;
+  const dt=$("#dockRestTime");if(dt)dt.textContent=clock;$("#dockRest")?.classList.remove("is-done");
+  clearInterval(restTick);restTick=setInterval(tickRest,250)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -976,11 +981,35 @@ function draftHasProgress(){try{const d=JSON.parse(localStorage.getItem(DRAFT)||
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length)return true;
   return Object.keys(d).some(k=>/_load$/.test(k)&&parseDec(d[k])>0)}catch{return false}}
 function setWorkoutActive(on){workoutActive=!!on;document.body.classList.toggle("is-workout",workoutActive);
-  const dash=$("#todayDash"),shell=$("#workoutShell");
+  const dash=$("#todayDash"),shell=$("#workoutShell"),dock=$("#workoutDock");
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  const float=$("#restBar");if(float)float.classList.toggle("restbar--float",!workoutActive)}
+  if(dock){dock.classList.toggle("hidden",!workoutActive);dock.hidden=!workoutActive}
+  const float=$("#restBar");if(float){float.classList.toggle("restbar--float",!workoutActive);if(workoutActive)float.classList.add("hidden")}}
+function updateWorkoutDock(){
+  const dock=$("#workoutDock"),cta=$("#dockLogSet"),chip=$("#dockRest");if(!dock)return;
+  if(!workoutActive){dock.classList.add("hidden");return}
+  dock.classList.remove("hidden");
+  if(cta){
+    const nextBtn=$("#workout .setrow.is-next .saveset")||$("#workout .setrow:not(.is-done) .saveset");
+    const label=cta.querySelector("span")||cta;
+    label.textContent=nextBtn?t("today.log_set"):t("log.finish");
+    cta.onclick=()=>{
+      const btn=$("#workout .setrow.is-next .saveset")||$("#workout .setrow:not(.is-done) .saveset");
+      if(btn)btn.click();else $("#logForm")?.requestSubmit();
+    };
+  }
+  if(chip){
+    const bar=$("#restBar");
+    const on=bar&&!bar.classList.contains("hidden");
+    chip.classList.toggle("is-done",!!(on&&bar.classList.contains("is-done")));
+    const tEl=$("#dockRestTime"),src=bar?.querySelector(".restbar__time");
+    if(tEl)tEl.textContent=on&&src?src.textContent:fmtClock(+state.settings.restSec||0);
+    chip.onclick=()=>{if(on)stopRest();else startRest(+state.settings.restSec||0)};
+  }
+}
 function enterWorkout(opts={}){setWorkoutActive(true);if(opts.day)day=opts.day;
+  // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
 function leaveWorkout(){setWorkoutActive(false);renderToday();window.scrollTo({top:0})}
@@ -1028,7 +1057,8 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const lc=$("#logContext");if(lc){const nm2=state.programMeta?.name,mc2=mesocycleWeek();
     const hasCtx=!!(nm2||mc2.current!=null);
     lc.textContent=hasCtx?(mc2.current!=null?t("log.context.program_week",{name:nm2||t("untitled_program"),n:mc2.current,total:mc2.total}):(nm2||t("untitled_program"))):t("log.context.today");
-    lc.classList.toggle("hidden",!hasCtx)}
+    // Kept as a hidden deep-link hook; Today shows the program strip instead.
+    lc.classList.add("hidden")}
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
@@ -1128,6 +1158,7 @@ function renderWorkout(){
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
   updateSessionBanner();
+  updateWorkoutDock();
 }
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
@@ -1231,14 +1262,29 @@ function bindWorkout(){
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
   if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
-    const bar=document.createElement("div");bar.className="focusbar";
-    bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>${esc(t("log.focus.prev"))}</button>`+
-      `<span class="focusbar__prog">${esc(t("log.focus.progress",{a:fl.length?at+1:0,b:fl.length}))}</span>`+
-      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>${esc(t("log.finish"))}</button>`:`<button type="button" class="btn btn--forge" data-fnext>${esc(t("log.focus.next"))}</button>`);
-    $("#workout").append(bar);
-    const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
-    const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
-    const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit()}
+    const progEl=$("#woProgress");
+    if(progEl){progEl.classList.remove("hidden");
+      progEl.innerHTML=`<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
+        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`}
+    const dock=$("#workoutDock");if(dock)dock.classList.remove("hidden");
+    const dockBtn=$("#dockLogSet");
+    if(dockBtn){const lastFocus=fl.length&&at>=fl.length-1;const cur=fl[at];
+      const allDone=cur&&Array.from({length:cur.sets},(_,i)=>committed.has(`${cur.id}_${i+1}`)).every(Boolean);
+      dockBtn.querySelector("span")&&(dockBtn.querySelector("span").textContent=lastFocus&&allDone?t("log.finish"):t("today.log_set"));
+      dockBtn.onclick=()=>{
+        if(lastFocus&&allDone){$("#logForm").requestSubmit();return}
+        const next=$("#workout .exercise.is-current .setrow:not(.is-done) .saveset, #workout .exercise.is-current .setrow.is-next .saveset");
+        if(next)next.click();
+        else if(lastFocus)$("#logForm").requestSubmit();
+        else{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})}
+      }}
+    const dockRest=$("#dockRest");if(dockRest)dockRest.onclick=()=>startRest(+state.settings.restSec||0);
+    // Sync dock rest chip with floating rest bar time when visible.
+    const rt=$("#restBar .restbar__time"),dt=$("#dockRestTime");if(rt&&dt)dt.textContent=rt.textContent||"—";
+  }else{
+    $("#woProgress")?.classList.add("hidden");
+    $("#workoutDock")?.classList.add("hidden");
+  }
 }
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
@@ -2306,10 +2352,11 @@ function init(){
   $("#restBar").onclick=stopRest;
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
-  const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
-  const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({});
+  const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
+  const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
   const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=()=>$("#woOverflow")?.classList.toggle("hidden");
+  const woCmd=$("#woToggleCommand");if(woCmd)woCmd.onclick=()=>$("#commandBarWrap")?.classList.toggle("is-hidden");
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};

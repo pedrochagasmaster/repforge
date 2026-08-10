@@ -222,12 +222,10 @@ async function nav(page, view) {
     }
   }
   if (view === "log") {
-    // Ensure workout shell is available for set logging assertions
+    // Ensure workout shell is available for set logging assertions (List mode).
     const dash = page.locator("#todayDash:not(.hidden)");
     if (await dash.count()) {
-      const start = page.locator("#startWorkout");
-      if (await start.count()) await start.click();
-      else await page.evaluate(() => window.__repforgeEnterWorkout?.());
+      await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
       await page.waitForSelector("#workoutShell:not(.hidden), #workout", { timeout: 5000 });
     }
   }

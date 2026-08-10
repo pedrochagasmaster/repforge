@@ -735,5 +735,6 @@
   "block_strategy.onboarding.cap": "Explorar outra abordagem",
   "onb.goal.changes": "Faixas de reps, volume inicial e sugestões de divisão.",
   "onb.have_program": "Já tenho um programa",
-  "onb.import": "Importar"
+  "onb.import": "Importar",
+  "log.rest_chip": "Descanso"
 }

@@ -93,6 +93,7 @@
         </div>
         <p id="commandHelpText" class="visually-hidden" data-i18n="log.command.help_text">Quick set entry. Format: load x reps @RIR, for example 80 x 8 @1. Optionally start with the exercise name.</p>
         <form id="logForm">
+          <div id="woProgress" class="wo-progress hidden" aria-live="polite"></div>
           <div id="workout"></div>
           <label class="field"><span data-i18n="log.notes">Session notes</span>
             <textarea id="notes" data-i18n-placeholder="log.notes.placeholder" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
@@ -105,6 +106,13 @@
             <span id="saveMeta" class="btn__meta"></span>
           </button>
         </form>
+        <div id="workoutDock" class="workout-dock hidden">
+          <button type="button" class="restchip" id="dockRest" aria-label="Rest timer">
+            <span aria-hidden="true">⏱</span>
+            <span><span class="restchip__lab" data-i18n="log.rest_chip">Rest</span><span class="restchip__time" id="dockRestTime">—</span></span>
+          </button>
+          <button type="button" class="btn btn--cta" id="dockLogSet"><span data-i18n="today.log_set">Log set</span></button>
+        </div>
       </div>
     </section>
 

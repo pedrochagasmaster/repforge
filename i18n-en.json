@@ -63,6 +63,7 @@
   "log.substitute.aria": "Substitute for {name}",
   "log.substitute.other": "Other…",
   "log.rest_aria": "Start rest timer",
+  "log.rest_chip": "Rest",
   "log.skip": "Skip",
   "log.skip_aria": "Skip {name} today",
   "log.toggle_sets_aria": "Toggle {name} sets",

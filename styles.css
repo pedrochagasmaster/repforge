@@ -335,8 +335,23 @@ input:not(:where([type=checkbox],[type=radio])):focus,select:focus,textarea:focu
 .restchip__time{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--ink)}
 .restchip.is-done{border-color:var(--accent);color:var(--accent)}
 body.is-workout #logWorkspace{padding-bottom:72px}
+body.is-workout{padding-bottom:calc(var(--nav) + 72px + env(safe-area-inset-bottom))}
 body.is-workout .workout-dock{display:flex}
+body.is-workout .restbar.restbar--float{display:none!important}
 .workout-dock.hidden{display:none!important}
+body.is-workout #logForm{padding-bottom:88px}
+body.is-workout.is-focus-wo .btn--save{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.segbar--ex{margin-top:4px}
+#workout.is-focus .heat{display:none}
+#workout.is-focus .exercise.is-current .setrow.is-next{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:0;padding:14px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);margin:12px 0
+}
+#workout.is-focus .exercise.is-current .setrow.is-next .setrow__n,
+#workout.is-focus .exercise.is-current .setrow.is-next .saveset{display:none}
+#workout.is-focus .exercise.is-current .setrow.is-next .kg{grid-column:1;border-right:1px solid var(--rule);padding:8px}
+#workout.is-focus .exercise.is-current .setrow.is-next input[data-k$="_reps"]{grid-column:2;border:0;background:transparent;text-align:center;font-size:32px;font-weight:620;padding:8px}
+#workout.is-focus .exercise.is-current .setrow.is-next input[data-k$="_rir"]{grid-column:3;border:0;background:transparent;text-align:center;font-size:32px;font-weight:620;padding:8px}
+#workout.is-focus .exercise.is-current .setrow.is-next .kg input{border:0;background:transparent;text-align:center;font-size:32px;font-weight:620;border-bottom:2px solid var(--accent);border-radius:0;padding:4px 0}
 
 /* Rest bar (floating when not in workout) */
 .restbar{
