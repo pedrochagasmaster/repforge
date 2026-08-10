@@ -724,9 +724,11 @@ async function main() {
   } else {
     pass("Analysis attention chip click skipped (no analysis-group chips)");
   }
-  const actionAttnChip = page.locator("#attention .attn--new .attn__chip, #readyList [data-ready]").first();
+  const actionAttnChip = page.locator("#readyList [data-ready], #attention .attn--new .attn__chip").first();
   if ((await actionAttnChip.count()) > 0) {
     const actionMeta = await page.evaluate(() => {
+      const ready = document.querySelector("#readyList [data-ready]");
+      if (ready) return { id: ready.getAttribute("data-ready"), day: null, via: "ready" };
       const groups = typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : [];
       const newChip = document.querySelector("#attention .attn--new .attn__chip");
       if (newChip) {
@@ -734,8 +736,7 @@ async function main() {
         const item = grp?.items?.[0];
         return item ? { id: item.ex.id, day: item.ex.day, via: "attn" } : null;
       }
-      const ready = document.querySelector("#readyList [data-ready]");
-      return ready ? { id: ready.getAttribute("data-ready"), day: null, via: "ready" } : null;
+      return null;
     });
     await actionAttnChip.click();
     let actionNavOk = false;
@@ -746,12 +747,12 @@ async function main() {
         return !!detail && (!id || (detail.textContent || "").length > 0);
       }, actionMeta?.id || "");
     } else {
-      await page.waitForSelector("#log.view.active", { timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
       actionNavOk = await page.evaluate(
         ({ id, day }) => {
           const tab = document.querySelector("#dayTabs button.active");
           const card = document.querySelector(`#workout [data-ex="${id}"]`);
-          return tab?.dataset.day === day && !!card;
+          return document.querySelector("#log")?.classList.contains("active") && tab?.dataset.day === day && !!card;
         },
         actionMeta || { id: "", day: "" }
       );
