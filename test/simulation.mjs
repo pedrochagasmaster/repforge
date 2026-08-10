@@ -1104,7 +1104,11 @@ async function main() {
 
   await nav(page, "history");
   const sessionsBefore = (await getState(page)).log.length;
+  // Delete lives in the expanded session row (mock 04).
+  const firstSession = page.locator("#sessions .hist-row.session, #sessions .session").first();
+  await firstSession.click();
   const delBtn = page.locator(".session__del").first();
+  await delBtn.waitFor({ state: "visible", timeout: 5000 });
   const delSessionId = await delBtn.getAttribute("data-del");
   await delBtn.click();
   await page.waitForTimeout(150);
