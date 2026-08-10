@@ -417,7 +417,7 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let logMode="full",focusIndex=0,focusEditSet=null,statsSeg="overview",prFilter="all";
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
@@ -910,12 +910,24 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   if(anchor)anchor.insertAdjacentElement("afterend",el);
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
+function updateRestSurface(){
+  const bar=$("#restBar");if(!bar)return;
+  const inFocusWo=document.body.classList.contains("is-focus-wo");
+  const on=!bar.classList.contains("hidden");
+  bar.classList.toggle("restbar--focus",inFocusWo);
+  const chip=$("#woRestChip");if(!chip)return;
+  chip.classList.toggle("hidden",!(inFocusWo&&on));
+  chip.classList.toggle("is-done",on&&bar.classList.contains("is-done"));
+  const t=chip.querySelector(".restchip__time"),src=bar.querySelector(".restbar__time");
+  if(t)t.textContent=on&&src?src.textContent:"—";
+}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}
+  updateRestSurface();
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
     b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;
-    const dt=$("#dockRestTime");if(dt)dt.textContent="0:00";$("#dockRest")?.classList.add("is-done");
+    updateRestSurface();
     if(restNotified)return;
     restNotified=true;
     if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
@@ -924,12 +936,12 @@ function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((re
     return}
   const clock=fmtClock(left);
   b.querySelector(".restbar__time").textContent=clock;
-  const dt=$("#dockRestTime");if(dt)dt.textContent=clock;$("#dockRest")?.classList.remove("is-done")}
+  updateRestSurface()}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
   const clock=fmtClock(s);b.querySelector(".restbar__time").textContent=clock;
-  const dt=$("#dockRestTime");if(dt)dt.textContent=clock;$("#dockRest")?.classList.remove("is-done");
+  updateRestSurface();
   clearInterval(restTick);restTick=setInterval(tickRest,250)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
@@ -996,36 +1008,19 @@ function setWorkoutActive(on){workoutActive=!!on;document.body.classList.toggle(
   if(shell)shell.classList.toggle("hidden",!workoutActive);
   const float=$("#restBar");if(float)float.classList.toggle("restbar--float",!workoutActive);
   if(!workoutActive){document.body.classList.remove("is-focus-wo");$("#workoutDock")?.classList.add("hidden")}
-  updateWorkoutDock()}
+  updateWorkoutDock();updateRestSurface()}
 function updateWorkoutDock(){
-  const dock=$("#workoutDock"),cta=$("#dockLogSet"),chip=$("#dockRest");if(!dock)return;
-  // Sticky dock is Focus-mode chrome (mock 01); List mode keeps the inline Save set buttons.
+  const dock=$("#workoutDock");if(!dock)return;
+  // Focus-mode dock is exercise navigation only; logging lives next to the
+  // current set and the rest timer is the floating chip.
   const show=workoutActive&&logMode==="focus";
   document.body.classList.toggle("is-focus-wo",show);
-  if(!show){dock.classList.add("hidden");cta?.removeAttribute("data-ffinish");return}
+  if(!show){dock.classList.add("hidden");return}
   dock.classList.remove("hidden");
-  if(cta){
-    const nextBtn=$("#workout .exercise.is-current .curset .saveset")||
-      $("#workout .exercise.is-current .setrow.is-next .saveset")||
-      $("#workout .exercise.is-current .setrow:not(.is-done) .saveset");
-    const label=cta.querySelector("span")||cta;
-    label.textContent=nextBtn?t("today.log_set"):t("log.finish");
-    if(nextBtn)cta.removeAttribute("data-ffinish");else cta.setAttribute("data-ffinish","");
-    cta.onclick=()=>{
-      const btn=$("#workout .exercise.is-current .curset .saveset")||
-        $("#workout .exercise.is-current .setrow.is-next .saveset")||
-        $("#workout .exercise.is-current .setrow:not(.is-done) .saveset");
-      if(btn)btn.click();else $("#logForm")?.requestSubmit();
-    };
-  }
-  if(chip){
-    const bar=$("#restBar");
-    const on=bar&&!bar.classList.contains("hidden");
-    chip.classList.toggle("is-done",!!(on&&bar.classList.contains("is-done")));
-    const tEl=$("#dockRestTime"),src=bar?.querySelector(".restbar__time");
-    if(tEl)tEl.textContent=on&&src?src.textContent:fmtClock(+state.settings.restSec||0);
-    chip.onclick=()=>{if(on)stopRest();else startRest(+state.settings.restSec||0)};
-  }
+  const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
+  const prev=$("#woPrev"),next=$("#woNext");
+  if(prev){prev.disabled=at<=0;prev.onclick=()=>{if(focusIndex>0){focusIndex--;renderWorkout();window.scrollTo({top:0})}}}
+  if(next){next.disabled=at>=fl.length-1;next.onclick=()=>{if(focusIndex<fl.length-1){focusIndex++;renderWorkout();window.scrollTo({top:0})}}}
 }
 function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
@@ -1130,22 +1125,23 @@ function cursetHtml(ex,n,r,draft,prev,effortMode){
     ?`<div class="effort" role="group" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
       ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${esc(t("effort."+e))}</button>`).join("")+`</div>`
     :`<input class="curset__val" data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`+
-      `<div class="curset__unit">RIR</div><span class="curset__underline" aria-hidden="true"></span>`+
+      `<span class="curset__underline" aria-hidden="true"></span>`+
       `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:"RIR"}))}">−</button>`+
       `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:"RIR"}))}">+</button></div>`;
+  const repsLab=esc(t("log.reps"));
   return `<div class="curset" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div><div class="curset__grid">`+
     `<div class="curset__cell is-load is-active"><div class="curset__cell-lab is-accent">${esc(t("today.load"))}</div>`+
     `<input class="curset__val" data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" value="${esc(kgVal)}">`+
-    `<div class="curset__unit">${esc(unitLabel())}</div><span class="curset__underline" aria-hidden="true"></span>`+
+    `<span class="curset__underline" aria-hidden="true"></span>`+
     `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div></div>`+
-    `<div class="curset__cell"><div class="curset__cell-lab">${esc(t("log.reps"))}</div>`+
+    `<div class="curset__cell"><div class="curset__cell-lab">${repsLab}</div>`+
     `<input class="curset__val" data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-    `<div class="curset__unit">${esc(t("log.reps"))}</div><span class="curset__underline" aria-hidden="true"></span>`+
-    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:t("log.reps")}))}">−</button>`+
-    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:t("log.reps")}))}">+</button></div></div>`+
-    `<div class="curset__cell"><div class="curset__cell-lab">${effortMode?esc(term("Effort")):"RIR"}</div>${rirInner}</div></div>`+
-    `<button type="button" class="saveset visually-hidden" data-save="${esc(key)}" aria-label="${esc(t("log.save_set_aria",{n}))}">${esc(t("log.save_set"))}</button></div>`}
+    `<span class="curset__underline" aria-hidden="true"></span>`+
+    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:repsLab}))}">−</button>`+
+    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:repsLab}))}">+</button></div></div>`+
+    `<div class="curset__cell"><div class="curset__cell-lab">${effortMode?esc(term("Effort")):"RIR"}</div>${rirInner}</div></div></div>`+
+    `<button type="button" class="saveset btn btn--cta curset__save" data-save="${esc(key)}"><span>${esc(t("today.log_set"))}</span></button></div>`}
 function renderWorkout(){
   if(!workoutActive){updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
@@ -1172,6 +1168,11 @@ function renderWorkout(){
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
     const isFocusCur=logMode==="focus"&&ex.id===curId;
+    // Focus: reopen a tapped committed set instead of advancing past it.
+    if(isFocusCur&&focusEditSet&&focusEditSet.exId===ex.id){
+      const m=focusEditSet.n;if(m>=1&&m<=ex.sets&&committed.has(`${ex.id}_${m}`)){committed.delete(`${ex.id}_${m}`);touched.add(`${ex.id}_${m}`)}
+      nextSet=m>=1&&m<=ex.sets?m:nextSet;focusEditSet=null;
+    }
     const rows=Array.from({length:ex.sets},(_,i)=>{
       const n=i+1;if(isFocusCur&&n===nextSet&&nextSet)return"";
       return setRowHtml(ex,n,r,draft,prev,nextSet,effortMode)}).join("");
@@ -1181,14 +1182,20 @@ function renderWorkout(){
         const{kgVal,repsVal,rirVal}=setFieldVals(ex,n,r,draft,prev);
         const kgDisp=(()=>{const n=parseDec(kgVal);return Number.isFinite(n)?fmt(n):kgVal})();
         const rirDisp=(()=>{const n=parseDec(rirVal);return Number.isFinite(n)?fmt(n):rirVal})();
-        done.push(`<div class="settable__row"><span>${n}</span><span>${esc(kgDisp)}</span><span>${esc(repsVal)}</span><span>${esc(rirDisp)}</span><span class="is-check">✓</span></div>`)}
+        done.push(`<button type="button" class="settable__row" data-editset="${esc(key)}" data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"><span>${n}</span><span>${esc(kgDisp)}</span><span>${esc(repsVal)}</span><span>${esc(rirDisp)}</span><span class="is-check">✓</span></button>`)}
       if(!done.length)return"";
       return `<div class="settable"><div class="settable__head"><span>${esc(t("log.set"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("log.reps"))}</span><span>RIR</span><span></span></div>${done.join("")}</div>`})();
-    const curHtml=isFocusCur&&nextSet?cursetHtml(ex,nextSet,r,draft,prev,effortMode):"";
+    const allDone=isFocusCur&&focusList().every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+    // Finish lives next to the sets and only once every exercise is logged;
+    // the visually-hidden fallback on the last exercise keeps the harness path.
+    const curHtml=!isFocusCur?"":nextSet?cursetHtml(ex,nextSet,r,draft,prev,effortMode)
+      :allDone?`<div class="focus-done"><p class="focus-done__msg">${esc(t("focus.all_done"))}</p>`+
+        `<button type="button" class="btn btn--cta" data-ffinish><span>${esc(t("log.finish"))}</span></button></div>`
+      :"";
     const nextEx=isFocusCur&&fl.length&&at<fl.length-1?fl[at+1]:null;
     const nextHtml=nextEx?`<button type="button" class="focus-next" data-fnext><span class="focus-next__lab">${esc(t("today.up_next_ex"))}</span>`+
       `<span class="focus-next__main">${esc(nextEx.name)} · ${nextEx.sets} ${esc(tp(nextEx.sets,"set"))}</span><span class="chevron" aria-hidden="true"></span></button>`:"";
-    const finishHtml=isFocusCur&&fl.length&&at>=fl.length-1?`<button type="button" class="visually-hidden" data-ffinish>${esc(t("log.finish"))}</button>`:"";
+    const finishHtml="";
     const perf=substituted.get(ex.id);
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
@@ -1355,7 +1362,13 @@ function bindWorkout(){
       progEl.innerHTML=`<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
         `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`}
     const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
-    const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit()}
+    const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit();
+    // Tap a committed set row to reopen it for editing in the steppers.
+    $$("#workout [data-editset]").forEach(b=>b.onclick=()=>{
+      focusEditSet={exId:b.dataset.editex,n:+b.dataset.editn};saveDraft();renderWorkout()});
+    const chip=$("#woRestChip");if(chip)chip.onclick=()=>{
+      const bar=$("#restBar"),on=bar&&!bar.classList.contains("hidden");
+      if(on)stopRest();else{startRest(+state.settings.restSec||0);renderWorkout()}}}
   else{$("#woProgress")?.classList.add("hidden")}
   updateWorkoutDock();
 }
