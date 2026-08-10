@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#F4F2EF">
-  <meta name="description" content="RepForge is a local-only progressive overload tracker. Heat means you are ready to add load.">
+  <meta name="description" content="RepForge is a local-only progressive overload tracker for calm, focused training. All data stays on this device.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -101,7 +101,7 @@
           <label class="field" id="bodyweightLabel"><span data-i18n="log.bodyweight">Bodyweight (optional)</span>
             <input id="bodyweight" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
           </label>
-          <button class="btn btn--forge btn--save" type="submit">
+          <button class="btn btn--cta btn--save" type="submit">
             <span data-i18n="log.finish">Finish workout</span>
             <span id="saveMeta" class="btn__meta"></span>
           </button>
@@ -241,7 +241,7 @@
           <summary data-i18n="program.advanced.summary">Advanced · edit raw JSON</summary>
           <p class="lede" data-i18n="program.advanced.lede">Editing here replaces the whole program. Use the visual editor above for everyday changes.</p>
           <label class="field"><span data-i18n="program.json">Program JSON</span><textarea id="programJson" rows="14" spellcheck="false"></textarea></label>
-          <button id="saveProgram" class="btn btn--forge" type="button" data-i18n="program.save_json">Save JSON</button>
+          <button id="saveProgram" class="btn btn--cta" type="button" data-i18n="program.save_json">Save JSON</button>
           <div class="btnrow">
             <button id="exportProgram" class="btn btn--steel" type="button" data-i18n="program.export_json">Export program JSON</button>
             <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program JSON</span><input id="importProgram" type="file" accept=".json,application/json"></label>
@@ -282,18 +282,20 @@
           <span class="settings-row__label" data-i18n="settings.units">Units</span>
           <span class="settings-row__value"><select id="unit" style="margin:0;border:0;background:transparent;padding:0;width:auto"><option value="kg">kg</option><option value="lb">lb</option></select></span>
         </label>
-        <div class="settings-row" style="cursor:default">
+        <button type="button" class="settings-row" id="rirModeRow">
           <span class="settings-row__label" data-i18n="settings.rir_logging">RIR logging</span>
-          <span class="settings-row__value"></span>
+          <span class="settings-row__value"><span id="rirModeDisplay">Numbers</span> <span class="chevron">›</span></span>
+        </button>
+        <div id="rirModePanel" class="settings-panel">
+          <fieldset class="field rirmode">
+            <legend class="visually-hidden" data-i18n="settings.rir_logging">RIR logging</legend>
+            <div class="rirmode__opts">
+              <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">Numbers</span></label>
+              <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
+            </div>
+          </fieldset>
+          <p class="lede" data-i18n="settings.effort_lede">Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
         </div>
-        <fieldset class="field rirmode">
-          <legend class="visually-hidden" data-i18n="settings.rir_logging">RIR logging</legend>
-          <div class="rirmode__opts">
-            <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">Numbers</span></label>
-            <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
-          </div>
-        </fieldset>
-        <p class="lede" data-i18n="settings.effort_lede">Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.voice_enable">Enable voice input</span>
           <button type="button" class="toggle" id="voiceToggle" aria-pressed="false" data-i18n-aria="settings.voice_enable"></button>
@@ -372,7 +374,7 @@
           <label class="field"><span data-i18n="settings.target_rir_ceiling">Target RIR ceiling</span><input id="rirHigh" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <label class="field"><span data-i18n="settings.hard_rir_ceiling">Hard-set RIR ceiling</span><input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
           <p class="lede" data-i18n="settings.hard_rir_lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
-          <button id="saveSettings" class="btn btn--forge" data-i18n="settings.save">Save settings</button>
+          <button id="saveSettings" class="btn btn--cta" data-i18n="settings.save">Save settings</button>
           </div>
         </details>
       </div>
@@ -422,7 +424,7 @@
         <div id="onbBody" class="onb__body"></div>
         <div class="onb__nav">
           <button type="button" id="onbBack" class="btn btn--steel" data-i18n="onb.back">Back</button>
-          <button type="button" id="onbNext" class="btn btn--forge" data-i18n="onb.next">Continue</button>
+          <button type="button" id="onbNext" class="btn btn--cta" data-i18n="onb.next">Continue</button>
         </div>
       </div>
     </section>
@@ -447,19 +449,12 @@
       <div></div>
     </div>
     <div id="blockReviewBody" class="blockreview__body"></div>
-    <div class="blockreview__actions">
-      <button type="button" class="btn btn--steel blockreview__act" data-strategy="repeat" data-i18n="dialog.block_review.repeat">Repeat same program</button>
-      <button type="button" class="btn btn--steel blockreview__act" data-strategy="repeat_swaps" data-i18n="dialog.block_review.repeat_swaps">Repeat with swaps</button>
-      <button type="button" class="btn btn--steel blockreview__act" data-strategy="increase_volume" data-i18n="dialog.block_review.increase_volume">Increase volume</button>
-      <button type="button" class="btn btn--steel blockreview__act" data-strategy="reduce_volume" data-i18n="dialog.block_review.reduce_volume">Reduce volume</button>
-      <button type="button" class="btn btn--steel blockreview__act" data-strategy="onboarding" data-i18n="dialog.block_review.onboarding">Start from onboarding again</button>
-    </div>
   </div>
   <div id="importChoice" class="importchoice hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
     <p class="importchoice__title" data-i18n="dialog.import.title">Import backup</p>
     <p class="importchoice__body" id="importChoiceBody"></p>
     <div class="btnrow">
-      <button type="button" id="importMerge" class="btn btn--forge" data-i18n="dialog.import.merge">Merge</button>
+      <button type="button" id="importMerge" class="btn btn--cta" data-i18n="dialog.import.merge">Merge</button>
       <button type="button" id="importReplace" class="btn btn--danger" data-i18n="dialog.import.replace_all">Replace all</button>
       <button type="button" id="importCancel" class="btn btn--steel" data-i18n="dialog.import.cancel">Cancel</button>
     </div>
@@ -468,7 +463,7 @@
     <p class="importchoice__title" data-i18n="dialog.end_block.title">End this training block?</p>
     <p class="importchoice__body" data-i18n="dialog.end_block.body">You'll review this block's progress and pick how to start the next one. Nothing is deleted.</p>
     <div class="btnrow">
-      <button type="button" id="endBlockGo" class="btn btn--forge" data-i18n="dialog.end_block.review">Review block</button>
+      <button type="button" id="endBlockGo" class="btn btn--cta" data-i18n="dialog.end_block.review">Review block</button>
       <button type="button" id="endBlockCancel" class="btn btn--steel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </div>
@@ -484,7 +479,7 @@
       <div class="tour__dots" id="tourDots" aria-hidden="true"></div>
       <div class="tour__nav">
         <button type="button" id="tourBack" class="btn btn--steel" data-i18n="tour.back">Back</button>
-        <button type="button" id="tourNext" class="btn btn--forge" data-i18n="tour.next">Next</button>
+        <button type="button" id="tourNext" class="btn btn--cta" data-i18n="tour.next">Next</button>
       </div>
     </div>
   </div>
@@ -495,7 +490,7 @@
       <p class="installbanner__title" data-i18n="install.title">Install RepForge</p>
       <p class="installbanner__body" id="installBannerBody"></p>
     </div>
-    <button type="button" class="btn btn--forge installbanner__action hidden" id="installBannerAction" data-i18n="install.action">Install</button>
+    <button type="button" class="btn btn--cta installbanner__action hidden" id="installBannerAction" data-i18n="install.action">Install</button>
   </div>
   <div id="toast" class="toast hidden"></div>
   <script src="schedule.js"></script>
