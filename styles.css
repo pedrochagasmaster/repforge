@@ -508,13 +508,13 @@ body.is-workout.is-focus-wo #commandBarWrap.is-hidden{display:none!important}
 /* Current-set steppers (Focus / mock 01) */
 .curset{margin:16px 0 8px}
 .curset__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
-.curset__grid{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
-.curset__cell{padding:12px 6px 14px;text-align:center;border-right:1px solid var(--rule)}
+.curset__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.curset__cell{min-width:0;padding:12px 6px 14px;text-align:center;border-right:1px solid var(--rule);overflow:hidden}
 .curset__cell:last-child{border-right:0}
 .curset__cell-lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
 .curset__cell-lab.is-accent{color:var(--accent)}
 .curset__val,.curset__cell input.curset__val{
-  width:100%;margin:0;padding:0;border:0;background:transparent;border-radius:0;
+  width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;border-radius:0;
   font-size:32px;font-weight:620;line-height:1.1;color:var(--ink);text-align:center;
   font-variant-numeric:tabular-nums;min-height:0;box-shadow:none;
 }
