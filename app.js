@@ -985,12 +985,14 @@ function setWorkoutActive(on){workoutActive=!!on;document.body.classList.toggle(
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
   const float=$("#restBar");if(float)float.classList.toggle("restbar--float",!workoutActive);
-  if(!workoutActive)$("#workoutDock")?.classList.add("hidden");
+  if(!workoutActive){document.body.classList.remove("is-focus-wo");$("#workoutDock")?.classList.add("hidden")}
   updateWorkoutDock()}
 function updateWorkoutDock(){
   const dock=$("#workoutDock"),cta=$("#dockLogSet"),chip=$("#dockRest");if(!dock)return;
   // Sticky dock is Focus-mode chrome (mock 01); List mode keeps the inline Save set buttons.
-  if(!workoutActive||logMode!=="focus"){dock.classList.add("hidden");return}
+  const show=workoutActive&&logMode==="focus";
+  document.body.classList.toggle("is-focus-wo",show);
+  if(!show){dock.classList.add("hidden");return}
   dock.classList.remove("hidden");
   if(cta){
     const nextBtn=$("#workout .exercise.is-current .setrow.is-next .saveset")||$("#workout .exercise.is-current .setrow:not(.is-done) .saveset");

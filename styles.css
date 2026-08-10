@@ -339,7 +339,6 @@ body.is-workout.is-focus-wo{padding-bottom:calc(var(--nav) + 72px + env(safe-are
 body.is-workout.is-focus-wo .workout-dock:not(.hidden){display:flex}
 body.is-workout .restbar.restbar--float{display:none!important}
 .workout-dock{display:none}
-.workout-dock:not(.hidden){display:flex}
 body.is-workout #logForm{padding-bottom:24px}
 body.is-workout.is-focus-wo #logForm{padding-bottom:88px}
 /* .btn--save stays actionable for Playwright even in Focus mode */
