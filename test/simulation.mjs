@@ -4326,7 +4326,9 @@ async function main() {
     await page.textContent(`#workout [data-ex="${noteEx.id}"] .ex__name`)
   ).trim();
   const NOTE_TEXT = "Seat 4, pin 6, wide grip";
-  await setLogDate(page, "2026-02-02");
+  // The exercise page lists only the 8 most recent sessions for the lift —
+  // a months-old date falls out of the window once a year of history exists.
+  await setLogDate(page, isoDateFromWeeksAgo(0));
   await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
   await page.click(`[data-exnote-toggle="${noteEx.id}"]`);
   await page.fill(`[data-exnote="${noteEx.id}"]`, NOTE_TEXT);
