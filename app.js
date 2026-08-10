@@ -1267,25 +1267,16 @@ function bindWorkout(){
     if(progEl){progEl.classList.remove("hidden");
       progEl.innerHTML=`<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
         `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`}
-    const dock=$("#workoutDock");if(dock)dock.classList.remove("hidden");
-    const dockBtn=$("#dockLogSet");
-    if(dockBtn){const lastFocus=fl.length&&at>=fl.length-1;const cur=fl[at];
-      const allDone=cur&&Array.from({length:cur.sets},(_,i)=>committed.has(`${cur.id}_${i+1}`)).every(Boolean);
-      dockBtn.querySelector("span")&&(dockBtn.querySelector("span").textContent=lastFocus&&allDone?t("log.finish"):t("today.log_set"));
-      dockBtn.onclick=()=>{
-        if(lastFocus&&allDone){$("#logForm").requestSubmit();return}
-        const next=$("#workout .exercise.is-current .setrow:not(.is-done) .saveset, #workout .exercise.is-current .setrow.is-next .saveset");
-        if(next)next.click();
-        else if(lastFocus)$("#logForm").requestSubmit();
-        else{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})}
-      }}
-    const dockRest=$("#dockRest");if(dockRest)dockRest.onclick=()=>startRest(+state.settings.restSec||0);
-    // Sync dock rest chip with floating rest bar time when visible.
-    const rt=$("#restBar .restbar__time"),dt=$("#dockRestTime");if(rt&&dt)dt.textContent=rt.textContent||"—";
-  }else{
-    $("#woProgress")?.classList.add("hidden");
-    $("#workoutDock")?.classList.add("hidden");
-  }
+    const bar=document.createElement("div");bar.className="focusbar";
+    bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>${esc(t("log.focus.prev"))}</button>`+
+      `<span class="focusbar__prog">${esc(t("log.focus.progress",{a:fl.length?at+1:0,b:fl.length}))}</span>`+
+      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>${esc(t("log.finish"))}</button>`:`<button type="button" class="btn btn--forge" data-fnext>${esc(t("log.focus.next"))}</button>`);
+    $("#workout").append(bar);
+    const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
+    const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
+    const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit()}
+  else{$("#woProgress")?.classList.add("hidden")}
+  updateWorkoutDock();
 }
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
