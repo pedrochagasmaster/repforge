@@ -697,12 +697,26 @@ async function main() {
       `Click ${view} tab → inspect aria-current`
     );
   }
-  const dimColor = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue("--steel-dim").trim());
+  const dimContrast = await page.evaluate(() => {
+    const css = getComputedStyle(document.documentElement);
+    const hex = (name) => css.getPropertyValue(name).trim();
+    const lum = (h) => {
+      const c = [1, 3, 5]
+        .map((i) => parseInt(h.slice(i, i + 2), 16) / 255)
+        .map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const ratio = (a, b) => {
+      const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (l1 + 0.05) / (l2 + 0.05);
+    };
+    return { token: hex("--steel-dim"), onSlag: ratio(hex("--steel-dim"), hex("--slag")), onAnvil: ratio(hex("--steel-dim"), hex("--anvil")) };
+  });
   assert(
-    dimColor.toLowerCase() === "#7b8899",
-    "Secondary dim text token meets the audited AA value",
-    `--steel-dim=${dimColor}`,
-    "Computed style on :root → --steel-dim"
+    dimContrast.onSlag >= 4.5 && dimContrast.onAnvil >= 4.5,
+    "Secondary dim text token meets AA contrast on raised surfaces",
+    `--steel-dim=${dimContrast.token} slag=${dimContrast.onSlag.toFixed(2)} anvil=${dimContrast.onAnvil.toFixed(2)}`,
+    "Computed style on :root → contrast(--steel-dim vs --slag/--anvil)"
   );
   await nav(page, "log");
 
@@ -1911,6 +1925,11 @@ async function main() {
     );
 
     // In-session: short set 1 (below min reps) eases set 2 DOWN.
+    const beforePortuguese = await getState(page);
+    await persistState(page, {
+      ...beforePortuguese,
+      settings: { ...beforePortuguese.settings, lang: "pt" },
+    });
     await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
     await reloadApp(page);
     await nav(page, "log");
@@ -1933,11 +1952,141 @@ async function main() {
       "Save a below-range set 1 → set 2 suggested load decreases"
     );
     assert(
-      /fell short|eased/i.test(dynDownNote || ""),
-      "In-session note explains the downward ease",
+      /abaixo da faixa|caiu para/i.test(dynDownNote || ""),
+      "In-session note explains the downward ease in Portuguese",
       `note="${dynDownNote}"`,
-      "Short set 1 → highlighted 'eased' note"
+      "Portuguese UI + short set 1 → localized highlighted note"
     );
+    const blockNotePt = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .rec__block`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      /tendência do bloco|força subindo/i.test(blockNotePt || ""),
+      "Block-trend note is localized in Portuguese",
+      `note="${blockNotePt}"`,
+      "Portuguese UI + seeded block trend → localized trend note"
+    );
+
+    // A falling block is weak evidence: it tempers a double jump to one step.
+    const fallingLog = [
+      ...mkSess(dISO(21), 140, max, 1, "f1"),
+      ...mkSess(dISO(14), 120, max, 1, "f2"),
+      ...mkSess(dISO(7), 100, max, 3, "f3"),
+    ];
+    const beforeFalling = await getState(page);
+    await persistState(page, {
+      ...beforeFalling,
+      settings: { ...beforeFalling.settings, lang: "en" },
+      log: fallingLog,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    const tempered = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      const rec = window.__repforgeRecommendation?.(ex);
+      return rec && { status: rec.status, text: rec.text, block: rec.block };
+    }, dynEx.id);
+    assert(
+      tempered?.status === "add" &&
+        tempered?.block?.dir === "falling" &&
+        /one step|not a big jump/i.test(tempered?.text || ""),
+      "Falling block trend tempers a bold double jump to one load step",
+      JSON.stringify(tempered),
+      "Seed falling e1RM trend + easy top-range latest session → Add load, not Add load ++"
+    );
+  }
+
+  // Performance-gated Hold · recover (spec 2026-07-10 / plan 037)
+  beginPhase("Phase 12a2: Hold · recover performance gate");
+
+  function setRows(ex, day, date, load, setSpecs) {
+    const session = `${date}_${day}_recover_${ex.id}_${date}_${load}`;
+    const created = new Date(`${date}T12:00:00Z`).toISOString();
+    const specs = [];
+    for (let i = 0; i < ex.sets; i++) specs.push(setSpecs[Math.min(i, setSpecs.length - 1)]);
+    return specs.map((s, i) => ({
+      session, date, day, name: ex.name || "Recover test", exerciseId: ex.id, set: i + 1,
+      load, reps: s.reps, rir: s.rir, notes: "", created,
+      primary: ex.primary || "", secondary: ex.secondary || "",
+    }));
+  }
+
+  const recoverCaseDefs = [
+    {
+      name: "Grind + rep gain → Hold · add reps",
+      build: (ex, day, mid) => [
+        ...setRows(ex, day, "2025-03-01", 60, [{ reps: mid, rir: 1 }, { reps: mid, rir: 1 }]),
+        ...setRows(ex, day, "2025-03-08", 60, [{ reps: mid + 1, rir: 0 }, { reps: mid, rir: 0 }]),
+      ],
+      expectChip: /hold\s*·\s*add reps/i,
+      expectRecover: false,
+    },
+    {
+      name: "Grind + flat reps → Hold · recover",
+      build: (ex, day, mid) => [
+        ...setRows(ex, day, "2025-03-01", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+        ...setRows(ex, day, "2025-03-08", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+      ],
+      expectChip: /hold\s*·\s*recover/i,
+      expectRecover: true,
+    },
+    {
+      name: "Grind + load jump → Hold · add reps",
+      build: (ex, day, mid) => {
+        const low = Math.max(ex.min, mid - 1);
+        return [
+          ...setRows(ex, day, "2025-03-01", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+          ...setRows(ex, day, "2025-03-08", 62.5, [{ reps: low, rir: 0 }, { reps: low, rir: 0 }]),
+        ];
+      },
+      expectChip: /hold\s*·\s*add reps/i,
+      expectRecover: false,
+    },
+    {
+      name: "Single grinding session → Hold · add reps",
+      build: (ex, day, mid) => setRows(ex, day, "2025-03-08", 60, [{ reps: mid, rir: 0 }, { reps: mid, rir: 0 }]),
+      expectChip: /hold\s*·\s*add reps/i,
+      expectRecover: false,
+    },
+  ];
+
+  for (const c of recoverCaseDefs) {
+    await clearState(page);
+    await reloadApp(page);
+    const recoverEx = (await getExerciseMeta(page, matrixDay))[0];
+    const mid = Math.max(recoverEx.min, Math.min(recoverEx.max - 1, recoverEx.min + 1));
+    const card = await scenarioRecommendation(page, {
+      day: matrixDay,
+      exId: recoverEx.id,
+      rows: c.build(recoverEx, matrixDay, mid),
+    });
+    const signal = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      return {
+        recover: window.__repforgeRecoverSignal?.(ex),
+        label: window.__repforgeRecommendation?.(ex)?.label,
+      };
+    }, recoverEx.id);
+    assert(
+      c.expectChip.test(card?.chip || "") && signal.recover === c.expectRecover,
+      c.name,
+      JSON.stringify({ card, signal }),
+      `Seed sessions → ${c.name}`
+    );
+    if (c.expectRecover) {
+      const targetReps = +(await page.inputValue(`[data-k="${recoverEx.id}_1_reps"]`));
+      assert(
+        targetReps === mid,
+        "Hold · recover keeps the previous rep target instead of auto-incrementing",
+        `target=${targetReps} expected=${mid}`,
+        "Flat grinding sessions → Hold · recover → next target stays at prior reps"
+      );
+    }
   }
 
   await clearState(page);
@@ -3823,6 +3972,173 @@ async function main() {
     "Log tab live delta preview vs last session",
     `Preview: ${deltaPreview || "(empty)"}`,
     "Enter draft kg/reps for an exercise with prior sessions"
+  );
+
+  beginPhase("\nPhase: program day collapse");
+  await nav(page, "program");
+  const collapseDay = await page.locator("#programEditor .pday").first().getAttribute("data-day");
+  const expandedVisible = await page
+    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .isVisible();
+  assert(
+    expandedVisible,
+    "Program days start expanded",
+    `Exercise list not visible for ${collapseDay}`,
+    "Program tab → first day card"
+  );
+  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
+  await page.waitForTimeout(120);
+  const collapsedHidden = await page
+    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .isHidden();
+  assert(
+    collapsedHidden,
+    "Toggling a day collapses its exercise list",
+    `Exercise list still visible for ${collapseDay}`,
+    "Program tab → day card → caret button"
+  );
+  const collapseAria = await page.getAttribute(
+    `#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`,
+    "aria-expanded"
+  );
+  assert(
+    collapseAria === "false",
+    "Collapse caret reports aria-expanded=false",
+    `aria-expanded=${collapseAria}`,
+    "Program tab → day card → caret button"
+  );
+  const collapsePref = await page.evaluate(() => {
+    try {
+      return JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").collapsedProgramDays || [];
+    } catch {
+      return [];
+    }
+  });
+  assert(
+    collapsePref.includes(collapseDay),
+    "Collapsed day is stored in UI prefs",
+    `Prefs: ${JSON.stringify(collapsePref)}`,
+    "Collapse a day → inspect localStorage repforge_ui_v1"
+  );
+  await page.reload({ waitUntil: "networkidle" });
+  await page.waitForSelector("#log.view.active", { timeout: 8000 });
+  await nav(page, "program");
+  const stillCollapsed = await page
+    .locator(`#programEditor .pday[data-day="${collapseDay}"]`)
+    .evaluate((el) => el.classList.contains("is-collapsed"));
+  assert(
+    stillCollapsed,
+    "Collapsed day survives a reload",
+    `${collapseDay} re-rendered expanded`,
+    "Collapse a day → reload → Program tab"
+  );
+  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
+  await page.waitForTimeout(120);
+
+  beginPhase("\nPhase: exercise session notes + exercise page");
+  await nav(page, "log");
+  const noteDay = "Day 1";
+  await selectDay(page, noteDay);
+  const noteExs = await getExerciseMeta(page, noteDay);
+  const noteEx = noteExs[0];
+  const noteExName = (
+    await page.textContent(`#workout [data-ex="${noteEx.id}"] .ex__name`)
+  ).trim();
+  const NOTE_TEXT = "Seat 4, pin 6, wide grip";
+  await page.fill("#date", "2026-02-02");
+  await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
+  await page.click(`[data-exnote-toggle="${noteEx.id}"]`);
+  await page.fill(`[data-exnote="${noteEx.id}"]`, NOTE_TEXT);
+  await page.waitForTimeout(120);
+  const noteDraft = await page.evaluate((k) => {
+    try {
+      return JSON.parse(localStorage.getItem(k) || "{}").__exnotes || {};
+    } catch {
+      return {};
+    }
+  }, DRAFT);
+  assert(
+    noteDraft[noteEx.id] === NOTE_TEXT,
+    "Exercise note is kept in the draft",
+    `Draft notes: ${JSON.stringify(noteDraft)}`,
+    "Log tab → exercise card → Note → type"
+  );
+  await saveWorkout(page);
+  const noteState = await getState(page);
+  const savedNoteRows = noteState.log.filter(
+    (r) => r.exerciseId === noteEx.id && r.date === "2026-02-02"
+  );
+  assert(
+    savedNoteRows.length > 0 && savedNoteRows.every((r) => r.exNote === NOTE_TEXT),
+    "Saved log rows carry the exercise note",
+    `Rows: ${JSON.stringify(savedNoteRows.map((r) => r.exNote))}`,
+    "Log a session with an exercise note → inspect state.log"
+  );
+  const notePrefill = await page.inputValue(`[data-exnote="${noteEx.id}"]`);
+  assert(
+    notePrefill === NOTE_TEXT,
+    "Next session prefills the last exercise note",
+    `Prefill: "${notePrefill}"`,
+    "Save a session with a note → note field for that exercise"
+  );
+  await page.click(`#workout [data-ex="${noteEx.id}"] .ex__namebtn`);
+  await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+  const exDetailText = await page.textContent("#exDetail");
+  assert(
+    exDetailText.includes(noteExName),
+    "Exercise page shows the exercise name",
+    `Content: ${(exDetailText || "").slice(0, 200)}`,
+    "Log tab → tap an exercise name"
+  );
+  assert(
+    /Sessions/.test(exDetailText) && /Best e1RM/.test(exDetailText),
+    "Exercise page shows summary metrics",
+    `Content: ${(exDetailText || "").slice(0, 300)}`,
+    "Log tab → tap an exercise name"
+  );
+  const exSessionNote = await page.textContent(".exsessions");
+  assert(
+    exSessionNote.includes(NOTE_TEXT),
+    "Exercise page shows the session note",
+    `Session history: ${(exSessionNote || "").slice(0, 300)}`,
+    "Log a note → tap the exercise name → Session history"
+  );
+  const exChart = await page.$("#exChart");
+  assert(exChart, "Exercise page renders its chart canvas", "Missing #exChart", "Exercise page");
+  const navActiveWhileDetail = await page.$$eval("nav button.active", (b) => b.length);
+  assert(
+    navActiveWhileDetail === 0,
+    "No bottom-nav tab is marked active on the exercise page",
+    `Active nav buttons: ${navActiveWhileDetail}`,
+    "Open the exercise page → inspect nav"
+  );
+  await page.click("#exBack");
+  await page.waitForSelector("#log.view.active", { timeout: 5000 });
+  assert(
+    await page.locator('nav button[data-view="log"].active').count(),
+    "Back from the exercise page restores the Log tab",
+    "Log tab not active after Back",
+    "Exercise page → Back"
+  );
+  await nav(page, "settings");
+  const noteCsvPath = join(tmpDir, "log-notes.csv");
+  const [noteCsvDownload] = await Promise.all([
+    page.waitForEvent("download"),
+    page.click("#exportCsv"),
+  ]);
+  await noteCsvDownload.saveAs(noteCsvPath);
+  const noteCsv = readFileSync(noteCsvPath, "utf8");
+  assert(
+    noteCsv.split("\n")[0].includes("exercise_note"),
+    "CSV export includes an exercise_note column",
+    `Header: ${noteCsv.split("\n")[0]}`,
+    "Settings → Export log CSV"
+  );
+  assert(
+    noteCsv.includes(NOTE_TEXT),
+    "CSV export carries the exercise note value",
+    "NOTE_TEXT missing from CSV body",
+    "Log a note → Settings → Export log CSV"
   );
 
   // Console errors

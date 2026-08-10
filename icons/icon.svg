@@ -1,15 +1,55 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="heat" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#ff5a1f"/>
-      <stop offset="0.55" stop-color="#ffb44c"/>
-      <stop offset="1" stop-color="#ffe9c7"/>
+    <linearGradient id="molten" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ffe9c7"/>
+      <stop offset="0.35" stop-color="#ffb44c"/>
+      <stop offset="0.7" stop-color="#ff5a1f"/>
+      <stop offset="1" stop-color="#c73a10"/>
     </linearGradient>
+    <linearGradient id="bevel" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2a323d"/>
+      <stop offset="0.5" stop-color="#0e1116"/>
+      <stop offset="1" stop-color="#07090c"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="52%" r="42%">
+      <stop offset="0" stop-color="#ff5a1f" stop-opacity="0.45"/>
+      <stop offset="0.55" stop-color="#ff5a1f" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#ff5a1f" stop-opacity="0"/>
+    </radialGradient>
+    <filter id="soft" x="-20%" y="-20%" width="140%" height="140%">
+      <feGaussianBlur stdDeviation="6" result="b"/>
+      <feMerge>
+        <feMergeNode in="b"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
   </defs>
-  <rect width="512" height="512" rx="116" fill="#0e1116"/>
-  <rect x="36" y="36" width="440" height="440" rx="92" fill="none" stroke="#2a323d" stroke-width="6"/>
-  <!-- stacked plates / heat bars: short (cool) to long (hot) = progressive overload -->
-  <rect x="150" y="150" width="120" height="40" rx="20" fill="#4fb6d9"/>
-  <rect x="150" y="236" width="186" height="40" rx="20" fill="#ffb44c"/>
-  <rect x="150" y="322" width="240" height="40" rx="20" fill="url(#heat)"/>
+  <rect width="512" height="512" rx="116" fill="url(#bevel)"/>
+  <rect x="18" y="18" width="476" height="476" rx="100" fill="#0e1116"/>
+  <rect x="18" y="18" width="476" height="476" rx="100" fill="url(#glow)"/>
+  <g filter="url(#soft)" fill="url(#molten)">
+    <!-- five descending bars -->
+    <rect x="214" y="128" width="84" height="28" rx="6"/>
+    <rect x="198" y="168" width="116" height="28" rx="6"/>
+    <rect x="180" y="208" width="152" height="28" rx="6"/>
+    <rect x="160" y="248" width="192" height="28" rx="6"/>
+    <rect x="138" y="288" width="236" height="28" rx="6"/>
+    <!-- anvil / pedestal base -->
+    <path d="M96 348
+             C120 330, 150 322, 180 320
+             H332
+             C362 322, 392 330, 416 348
+             C424 356, 420 368, 408 372
+             H104
+             C92 368, 88 356, 96 348Z"/>
+    <path d="M168 372 H344 L328 404 H184 Z"/>
+  </g>
+  <!-- top-edge highlights for emboss -->
+  <g fill="#ffe9c7" opacity="0.55">
+    <rect x="216" y="130" width="80" height="4" rx="2"/>
+    <rect x="200" y="170" width="112" height="4" rx="2"/>
+    <rect x="182" y="210" width="148" height="4" rx="2"/>
+    <rect x="162" y="250" width="188" height="4" rx="2"/>
+    <rect x="140" y="290" width="232" height="4" rx="2"/>
+  </g>
 </svg>

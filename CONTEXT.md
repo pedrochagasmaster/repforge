@@ -32,6 +32,14 @@ _Avoid_: Workout (acceptable in casual copy; session is the domain term)
 One recorded set — load, reps, RIR — linked to an exercise template via exercise id.
 _Avoid_: Set entry, record
 
+**Exercise session note**:
+A free-text note attached to one exercise within one session — machine settings, seat height, grip. Stored on that session's log rows and carried forward as the default for the next session of that lift.
+_Avoid_: Setup notes (that is the program template field), comment, log note (the session-wide note field)
+
+**Exercise page**:
+A per-lift view — recommendation, summary metrics, top-load chart, PRs, and session history with notes — reached by tapping an exercise name on the Log tab. Not a bottom-nav section.
+_Avoid_: Exercise detail modal, lift profile, deep dive (that is the Stats disclosure)
+
 **Training day**:
 A labeled group within the program (e.g. Day 1) whose exercises appear together on the Log tab.
 _Avoid_: Session (a session is an instance; a training day is the template grouping)
@@ -47,3 +55,19 @@ _Avoid_: Report card, grade, score
 **Generated program**:
 A program created from onboarding answers; the user can edit it before saving.
 _Avoid_: Auto-plan, AI workout, recommended routine
+
+**Coach**:
+The opt-in, bring-your-own-key LLM chat surface (plan 038, ADR 0002). Grounded in coach context; may emit coach proposals. Distinct from the deterministic signals (recommendations, program status), which exist without it.
+_Avoid_: AI assistant, chatbot, trainer
+
+**Coach context**:
+The scoped, deterministic payload sent with a coach request — program, derived signals, and a bounded window of log data chosen per entry point. Bodyweight is excluded unless the lifter opts in; the payload is inspectable in the coach sheet.
+_Avoid_: Prompt (the persona/system text), data dump
+
+**Coach proposal**:
+A structured, validated program change emitted by the coach and applied only by an explicit user tap. Proposals target the program (templates and metadata), never the log.
+_Avoid_: Auto-adjustment, AI edit, recommendation (reserved for the deterministic engine)
+
+**Session review**:
+A coach conversation seeded with the just-saved session and its previous comparable session, offered (never auto-opened) after Save workout.
+_Avoid_: Workout grade, post-workout report
