@@ -1836,6 +1836,7 @@ async function main() {
     const dynEx = st.program
       .filter((e) => e.day === "Day 1")
       .sort((a, b) => a.order - b.order)[0];
+    dynEx.sets = Math.max(3, dynEx.sets);
     const { min, max, sets } = dynEx;
     const dISO = (daysAgo) => {
       const d = new Date();
