@@ -1828,9 +1828,10 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
 function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
-  const ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle");
+  const ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
+  if(meta)meta.classList.toggle("visually-hidden",!programEditMode);
   if(tog)tog.textContent=programEditMode?t("program.done_edit"):t("program.edit")}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
