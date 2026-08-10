@@ -409,7 +409,7 @@ const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let exView=null;
-let workoutActive=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null;
+let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -1017,14 +1017,14 @@ function updateWorkoutDock(){
     chip.onclick=()=>{if(on)stopRest();else startRest(+state.settings.restSec||0)};
   }
 }
-function enterWorkout(opts={}){setWorkoutActive(true);if(opts.day)day=opts.day;
+function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
   else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active");$("#commandBarWrap")?.classList.remove("is-hidden")}
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
   if(logMode==="focus")$("#commandBarWrap")?.classList.add("is-hidden");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
-function leaveWorkout(){setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
+function leaveWorkout(){workoutLeft=true;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
   for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
   return seen}
@@ -1079,7 +1079,9 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
 }
 
 function render(){applyI18n();
-  if(!workoutActive&&draftHasProgress())workoutActive=true;
+  // Auto-resume an in-progress session (page reload mid-workout), but never
+  // override an explicit leave — otherwise every tab switch re-hides the nav.
+  if(!workoutActive&&!workoutLeft&&draftHasProgress())workoutActive=true;
   setWorkoutActive(workoutActive);
   renderToday();renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
@@ -2358,7 +2360,7 @@ function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
-  workoutActive=false;window.scrollTo({top:0});render()}
+  workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render()}
 function navTo(view){
   if(view==="settings"){showSettings();return}
   const b=$(`nav button[data-view="${view}"]`);
@@ -2483,7 +2485,7 @@ function init(){
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm(t("confirm.delete_log"))){state.log=[];clearDraft();save();render();toast(t("toast.log_deleted"))}};
-  $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;
+  $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;workoutLeft=true;
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
