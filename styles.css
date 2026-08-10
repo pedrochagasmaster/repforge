@@ -470,7 +470,7 @@ body.is-workout.is-focus-wo #commandBarWrap.is-hidden{display:none!important}
 
 .sets__head,.setrow{display:grid;grid-template-columns:1.4rem 2.3fr 1fr .8fr auto;gap:6px;align-items:center}
 .sets__head:has(~ .setrow .effort),.setrow:has(.effort){grid-template-columns:1.4rem 2.2fr .7fr 1.9fr auto}
-.setrow:has(.effort) .stepbtn{width:26px}
+.setrow:has(.effort) .stepbtn{width:44px;min-width:44px}
 .sets__head{margin-bottom:4px;padding-top:8px;border-top:1px solid var(--rule)}
 .setrow>*{min-width:0}
 .sets__head span{font-size:11px;color:var(--ink-faint);letter-spacing:.08em;text-align:center;text-transform:uppercase;font-weight:600}
@@ -497,7 +497,7 @@ body.is-workout.is-focus-wo #commandBarWrap.is-hidden{display:none!important}
 .kg input{width:auto;flex:1;min-width:0;margin-top:0;padding-left:0;padding-right:0;
   border:0;background:transparent;border-radius:0;min-height:44px}
 .kg input:focus{box-shadow:none;border-color:transparent}
-.stepbtn{flex:none;width:32px;min-height:46px;border:0;background:var(--bg);color:var(--ink-soft);
+.stepbtn{flex:none;width:44px;min-width:44px;min-height:44px;border:0;background:var(--bg);color:var(--ink-soft);
   cursor:pointer;font-size:20px;line-height:1;padding:0}
 .stepbtn:hover{color:var(--ink)}
 .copylast{flex:none;margin-left:auto;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
@@ -522,8 +522,8 @@ body.is-workout.is-focus-wo #commandBarWrap.is-hidden{display:none!important}
 .curset__cell input.curset__val:focus{outline:none;box-shadow:none;border-color:transparent}
 .curset__cell.is-load input.curset__val:focus{border-bottom-color:var(--accent)}
 .curset__unit{font-size:12px;color:var(--ink-soft);margin-top:2px}
-.curset__steps{display:flex;justify-content:center;gap:14px;margin-top:10px}
-.curset__steps .stepbtn{width:36px;height:36px;min-height:36px;border-radius:50%;border:1px solid var(--rule);background:var(--surface)}
+.curset__steps{display:flex;justify-content:center;gap:10px;margin-top:10px}
+.curset__steps .stepbtn{width:44px;height:44px;min-width:44px;min-height:44px;border-radius:50%;border:1px solid var(--rule);background:var(--surface)}
 
 /* ---- Metrics ---- */
 .metrics{display:grid;grid-template-columns:repeat(2,1fr);gap:0;margin-bottom:6px;
@@ -988,7 +988,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
   .sets__head:has(~ .setrow .effort),.setrow:has(.effort){grid-template-columns:1.1rem 2.4fr .7fr 1.8fr auto}
   .vrow{grid-template-columns:1fr auto}
   .setrow input{font-size:15px;padding:12px 2px}
-  .stepbtn{width:24px;font-size:17px}
+  .stepbtn{width:44px;min-width:44px;font-size:17px}
   .saveset{min-width:38px;padding:0 4px}
   .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem;gap:6px}
   .curset__val{font-size:26px}
