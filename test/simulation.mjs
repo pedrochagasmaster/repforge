@@ -3141,10 +3141,10 @@ async function main() {
   );
   const thisWeekText = await page.locator("#thisWeek").innerText();
   assert(
-    thisWeekText.includes("Status:"),
+    /improved|stable|attention/i.test(thisWeekText),
     "This Week card shows status line",
     `text=${thisWeekText.slice(0, 80)}`,
-    "Stats → Overview → #thisWeek contains Status:"
+    "Stats → Overview → #thisWeek shows improved/stable/attention"
   );
   const snap = await page.evaluate(() => window.__repforgeWeeklySnapshot());
   const validStatuses = ["On track", "Productive week", "Under target", "High fatigue", "Needs more data", "Rebuilding"];

@@ -605,11 +605,11 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
     `<div class="statrow__cell"><div class="statrow__val">${review.stalledLifts}</div><div class="statrow__cap">${esc(t("block_review.stalled"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${pct}%</div><div class="statrow__cap">${esc(t("block_review.volume"))}</div></div></div>`+
     `<div class="recblock"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(copy.line.replace(/^Recommendation:\s*/i,""))}</div>`+
-    `<p class="recblock__body">${esc(copy.why)}</p>`+
+    `<div class="recblock__head">${esc(copy.line)}</div>`+
+    `<p class="recblock__body"><span class="recblock__why-lab">${esc(t("review.why"))}</span> ${esc(copy.why)}</p>`+
     `<button type="button" class="text-link" id="blockSeeAnalysis">${esc(t("block_review.see_analysis"))}</button></div>`+
     `<p class="section-label">${esc(t("block_review.next_block"))}</p>`+
-    `<div id="blockStrategies">${strategies.map(s=>`<button type="button" class="radio-card blockreview__act${s.id===recStrategy?" is-selected":""}" data-strategy="${s.id}">`+
+    `<div id="blockStrategies">${strategies.map(s=>`<button type="button" class="radio-card blockreview__act${s.id===recStrategy?" is-selected is-recommended":""}" data-strategy="${s.id}">`+
       `<span class="radio-card__body"><span class="radio-card__title">${esc(s.title)}${s.id===recStrategy?` <span class="tag-rec">${esc(t("aria.recommended"))}</span>`:""}</span>`+
       `<span class="radio-card__cap">${esc(s.cap)}</span></span><span class="radio-card__mark"></span></button>`).join("")}</div>`+
     `<p class="blockreview__lock">🔒 ${esc(t("block_review.preserved"))}</p>`+
@@ -1331,7 +1331,7 @@ function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySn
   const attnN=(attentionGroups().find(g=>g.key==="reduce")?.items.length||0)+(attentionGroups().find(g=>g.key==="stale")?.items.length||0);
   const withHist=prog.exercises.filter(e=>sessionsFor(e).length).length;
   const flatGuess=Math.max(0,withHist-w.improvedLifts-(attnN||0)-(w.readyToAdd||0));
-  el.innerHTML=`<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,sets:w.totalHardSets}))}</div>`+
+  el.innerHTML=`<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
     `<div class="statrow">`+
     `<div class="statrow__cell"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${flatGuess}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+

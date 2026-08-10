@@ -631,7 +631,7 @@
   "today.target": "Alvo {min}–{max} reps · RIR 0–{rir}",
   "today.log_set": "Registrar série",
   "today.up_next_ex": "A seguir",
-  "stats.this_week.line": "{done} de {planned} sessões · {sets} séries efetivas",
+  "stats.this_week.line": "{done} de {planned} sessões · {sets}",
   "stats.this_week.improved": "melhoraram",
   "stats.this_week.stable": "estáveis",
   "stats.this_week.attention": "atenção",
