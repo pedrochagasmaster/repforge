@@ -154,7 +154,7 @@ console.log("\nNotification surfaces");
   await page.click('#openSettings'); await page.waitForSelector('#settings.view.active');
   await page.waitForSelector("#notifyEnabled");
 
-  await page.locator("#notifyEnabled").check({ force: true });
+  await page.locator("#notifyToggle").click();
   // Let the master-toggle save (and its async IDB write) finish before changing
   // a type flag — rapid back-to-back commits can race on IndexedDB.
   await page.waitForFunction(async () => {
