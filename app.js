@@ -1894,10 +1894,11 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const topLoad=Math.max(0,...work.map(r=>+r.load||0));
   const bestE=work.length?Math.max(...work.map(r=>e1rm(+r.load,+r.reps))):0;
   const prCount=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===key).length;
+  const lcFirst=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const tiles=[
-    {label:t("stats.metric.sessions").toLowerCase(),val:sessions.length},
+    {label:lcFirst(t("stats.metric.sessions")),val:sessions.length},
     {label:t("exercise.top_load"),val:topLoad?`${fmtLoad(topLoad)} ${unitLabel()}`:"—"},
-    {label:t("stats.metric.best_e1rm").toLowerCase(),val:bestE?`${fmt(Math.round(toDisplay(bestE)))} ${unitLabel()}`:"—"},
+    {label:lcFirst(t("stats.metric.best_e1rm")),val:bestE?`${fmt(Math.round(toDisplay(bestE)))} ${unitLabel()}`:"—"},
     {label:t("stats.metric.prs"),val:prCount},
   ];
   const sums=summaries().filter(x=>x.liftKey===key);

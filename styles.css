@@ -290,8 +290,10 @@ input:not(:where([type=checkbox],[type=radio])):focus,select:focus,textarea:focu
 }
 .settings-row{
   display:flex;align-items:center;gap:12px;min-height:52px;padding:10px 14px;
-  border-bottom:1px solid var(--rule);background:var(--surface);
+  border:0;border-bottom:1px solid var(--rule);background:var(--surface);
+  width:100%;text-align:left;appearance:none;cursor:pointer;
 }
+div.settings-row{cursor:default}
 .settings-row:last-child{border-bottom:0}
 .settings-row__label{flex:1;min-width:0;font-size:16px;font-weight:500;color:var(--ink)}
 .settings-row__cap{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px}
@@ -1067,7 +1069,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .statrow__cell:last-child{border-right:0}
 .statrow__val{font-size:22px;font-weight:650;line-height:1.1}
 .statrow--4 .statrow__val{font-size:17px}
-.statrow__cap{font-size:12px;color:var(--ink-soft);margin-top:4px;text-transform:lowercase}
+.statrow__cap{font-size:12px;color:var(--ink-soft);margin-top:4px}
 .statrow--4 .statrow__cap{font-size:10px;line-height:1.2}
 .statrow__cell.is-attn .statrow__val{color:var(--accent)}
 .statrow__dot{display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent);margin-left:4px;vertical-align:middle}
