@@ -98,7 +98,7 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
   border:0;background:transparent;color:var(--ink-soft);cursor:pointer;border-radius:50%;
 }
 .icon-btn:hover{color:var(--ink)}
-.icon-btn--profile{border:1.5px solid var(--rule-strong);color:var(--ink-soft)}
+.icon-btn--profile{border:1.5px solid var(--rule);color:var(--ink-faint);background:transparent}
 .icon-btn svg,.nav__icon{display:block}
 .text-btn{
   background:none;border:0;padding:8px 4px;cursor:pointer;color:var(--ink-soft);
@@ -968,6 +968,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 
 .ex__namebtn{display:flex;align-items:baseline;gap:6px;width:100%;margin:0;padding:0;border:0;background:none;color:var(--ink);text-align:left;cursor:pointer}
 .ex__namebtn::after{content:"›";flex:none;color:var(--ink-faint);font-size:.8em}
+#workout.is-focus .exercise.is-current .ex__namebtn::after{content:none;display:none}
 .ex__namebtn:hover{color:var(--accent)}
 
 .exnote{margin-top:10px}
@@ -1041,7 +1042,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 /* ---- Shell class aliases (HTML / renderToday) ---- */
 .pagehead__titles{min-width:0;flex:1}
 .profile-btn{
-  width:44px;height:44px;border-radius:50%;border:1.5px solid var(--rule);
+  width:40px;height:40px;border-radius:50%;border:1.5px solid var(--rule-strong);
   background:transparent;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-faint);padding:0;
 }
 .profile-btn:hover{color:var(--ink-soft);border-color:var(--rule-strong)}
