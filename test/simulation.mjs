@@ -728,9 +728,12 @@ async function main() {
   if ((await actionAttnChip.count()) > 0) {
     const actionMeta = await page.evaluate(() => {
       const groups = typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : [];
-      const grp = groups.find((g) => g.key === "new" || g.key === "add");
-      const item = grp?.items?.[0];
-      if (item) return { id: item.ex.id, day: item.ex.day, via: "attn" };
+      const newChip = document.querySelector("#attention .attn--new .attn__chip");
+      if (newChip) {
+        const grp = groups.find((g) => g.key === "new");
+        const item = grp?.items?.[0];
+        return item ? { id: item.ex.id, day: item.ex.day, via: "attn" } : null;
+      }
       const ready = document.querySelector("#readyList [data-ready]");
       return ready ? { id: ready.getAttribute("data-ready"), day: null, via: "ready" } : null;
     });
