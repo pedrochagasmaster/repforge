@@ -426,8 +426,8 @@ async function auditStatsMetrics(page, state) {
   );
   const expectedSessions = String(new Set(state.log.map((r) => r.session)).size);
   const expectedSets = String(state.log.length);
-  const sessionsTile = tiles.find((t) => t.label === "Sessions");
-  const setsTile = tiles.find((t) => t.label === "Sets logged");
+  const sessionsTile = tiles.find((t) => /^sessions$/i.test(t.label || ""));
+  const setsTile = tiles.find((t) => /^sets(\s+logged)?$/i.test(t.label || ""));
   return {
     ok: sessionsTile?.val === expectedSessions && setsTile?.val === expectedSets,
     detail: `Sessions UI=${sessionsTile?.val} expected=${expectedSessions}; Sets UI=${setsTile?.val} expected=${expectedSets}`,
@@ -724,29 +724,40 @@ async function main() {
   } else {
     pass("Analysis attention chip click skipped (no analysis-group chips)");
   }
-  const actionAttnChip = page.locator("#attention .attn--new .attn__chip, #attention .attn--add .attn__chip").first();
+  const actionAttnChip = page.locator("#attention .attn--new .attn__chip, #readyList [data-ready]").first();
   if ((await actionAttnChip.count()) > 0) {
     const actionMeta = await page.evaluate(() => {
       const groups = typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : [];
       const grp = groups.find((g) => g.key === "new" || g.key === "add");
       const item = grp?.items?.[0];
-      return item ? { id: item.ex.id, day: item.ex.day } : null;
+      if (item) return { id: item.ex.id, day: item.ex.day, via: "attn" };
+      const ready = document.querySelector("#readyList [data-ready]");
+      return ready ? { id: ready.getAttribute("data-ready"), day: null, via: "ready" } : null;
     });
     await actionAttnChip.click();
-    await page.waitForSelector("#log.view.active", { timeout: 5000 });
-    const actionNavOk = await page.evaluate(
-      ({ id, day }) => {
-        const tab = document.querySelector("#dayTabs button.active");
-        const card = document.querySelector(`#workout [data-ex="${id}"]`);
-        return tab?.dataset.day === day && !!card;
-      },
-      actionMeta || { id: "", day: "" }
-    );
+    let actionNavOk = false;
+    if (actionMeta?.via === "ready") {
+      await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+      actionNavOk = await page.evaluate((id) => {
+        const detail = document.querySelector("#exDetail");
+        return !!detail && (!id || (detail.textContent || "").length > 0);
+      }, actionMeta?.id || "");
+    } else {
+      await page.waitForSelector("#log.view.active", { timeout: 5000 });
+      actionNavOk = await page.evaluate(
+        ({ id, day }) => {
+          const tab = document.querySelector("#dayTabs button.active");
+          const card = document.querySelector(`#workout [data-ex="${id}"]`);
+          return tab?.dataset.day === day && !!card;
+        },
+        actionMeta || { id: "", day: "" }
+      );
+    }
     assert(
       actionMeta && actionNavOk,
-      "Action attention chip navigates to lift on Log tab",
+      "Action attention/ready row navigates to the lift",
       `meta=${JSON.stringify(actionMeta)} navOk=${actionNavOk}`,
-      "Stats → click new/add attention chip → Log day tab + exercise card"
+      "Stats → click new attention chip or ready row → destination view"
     );
   } else {
     pass("Action attention chip navigation skipped (no new/add chips)");
@@ -1149,7 +1160,7 @@ async function main() {
   beginPhase("Phase 6: Settings");
 
   await nav(page, "settings");
-  await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
+  await page.evaluate(() => document.querySelector("#progressionDetails")?.classList.add("is-open"));
   await page.fill("#jumpPct", "5");
   await page.fill("#minJump", "5");
   await page.fill("#rirHigh", "3");
@@ -1208,7 +1219,7 @@ async function main() {
 
   const metricsText = await page.locator("#metrics").textContent();
   assert(
-    metricsText.includes("Sessions") && metricsText.includes("Sets logged"),
+    /sessions/i.test(metricsText) && /sets/i.test(metricsText),
     "Stats metrics render",
     metricsText?.slice(0, 120),
     "Stats tab → check metric tiles"

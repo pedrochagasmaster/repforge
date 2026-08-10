@@ -29,8 +29,15 @@ function syncLang(){if(!I18N)return;I18N.setLang(state?.settings?.lang||I18N.det
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
-const fmt=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
-const kfmt=v=>{const n=Number(v)||0;return n>=10000?(n/1000).toFixed(n>=100000?0:1).replace(/\.0$/,"")+"k":String(Math.round(n))};
+const fmtPlain=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
+const uiLang=()=>state?.settings?.lang||(typeof I18N!=="undefined"&&I18N?.getLang?.())||"en";
+const isPt=()=>uiLang()==="pt";
+const locTag=()=>isPt()?"pt-BR":"en-US";
+/** Locale-aware display number (PT decimal comma). Not for input values. */
+const fmt=v=>{const s=fmtPlain(v);if(!s)return"";return isPt()?s.replace(".",","):s};
+const kfmt=v=>{const n=Number(v)||0;
+  if(n>=10000){const raw=(n/1000).toFixed(n>=100000?0:1).replace(/\.0$/,"");return (isPt()?raw.replace(".",","):raw)+"k"}
+  try{return Math.round(n).toLocaleString(locTag())}catch{return String(Math.round(n))}};
 const plural=(n,word)=>`${word}${+n===1?"":"s"}`;
 const avg=a=>a.length?a.reduce((s,x)=>s+Number(x||0),0)/a.length:0;
 const median=a=>{if(!a.length)return 0;const s=[...a].map(Number).sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
@@ -44,7 +51,9 @@ function sessionsInRange(start,end){const ids=new Set();for(const x of state.log
 window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
-const shortDate=d=>{const p=String(d||"").split("-");return p.length===3?`${+p[1]}/${+p[2]}`:String(d||"")};
+const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
+  const day=+p[2],mon=t("month_short."+(+p[1]-1));
+  return isPt()?`${day} ${mon}`:`${mon} ${day}`};
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
@@ -80,6 +89,7 @@ const toDisplay=kg=>toDisplayUnit(kg,state.settings.unit);
 const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
 const unitLabel=()=>isLb()?"lb":"kg";
 const fmtLoad=kg=>fmt(toDisplay(kg));
+const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
 function clearDraft(){
   localStorage.removeItem(DRAFT);
@@ -97,7 +107,7 @@ function convertDraftUnits(oldUnit,newUnit){
     if(k.startsWith("__")||!k.endsWith("_load"))continue;
     const v=d[k];if(v===""||v==null)continue;
     const n=parseDec(v);if(!Number.isFinite(n))continue;
-    d[k]=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
+    d[k]=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
   if(changed)localStorage.setItem(DRAFT,JSON.stringify(d))}
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
@@ -409,7 +419,7 @@ const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null;
+let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -887,7 +897,7 @@ function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
     if(committed.has(key)||touched.has(key)||warmups.has(key))continue;
     const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,rec,draft,old);
-    if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoad(sg.load)}
+    if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoadPlain(sg.load)}
     if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}
   saveDraft();updateInSessionNote(exId)}
 function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
@@ -966,7 +976,7 @@ function updateSessionBanner(){
   }
 
   el.className=`sessionbanner${isMissed?" is-missed":""}`;
-  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}">✕</button>`+
+  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
     `<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
   el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
   el.onclick=()=>{
@@ -1029,7 +1039,8 @@ function dayMuscles(d){const seen=[],exs=exercises(d||day);
   for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
   return seen}
 function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN(+d))return iso;
-  try{return d.toLocaleDateString(I18N?.speechLang?.()||state.settings.lang||"en",{weekday:"long",day:"numeric",month:"long"})}
+  try{const s=d.toLocaleDateString(I18N?.speechLang?.()||state.settings.lang||"en",{weekday:"long",day:"numeric",month:"long"});
+    return s?s.charAt(0).toUpperCase()+s.slice(1):s}
   catch{return iso}}
 function weekdayLetters(){return state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
 function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
@@ -1059,7 +1070,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const up=$("#todayUpNext");if(up){const ds=days(),idx=Math.max(0,ds.indexOf(day)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(next)}</div>`+
-        `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron">›</span></button>`;
+        `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
       $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
     else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
   const lastEl=$("#todayLast");if(lastEl){const dates=state.log.map(r=>String(r.date)).filter(Boolean).sort();
@@ -1093,11 +1104,11 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
 
 function setFieldVals(ex,n,r,draft,prev){
   const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
-  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoad(sg.load):(old&&old.load!=null?fmtLoad(old.load):""));
+  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(old&&old.load!=null?fmtLoadPlain(old.load):""));
   const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
   const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
-  const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
+  const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
 function setRowHtml(ex,n,r,draft,prev,nextSet,effortMode){
   const{key,isW,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
@@ -1119,18 +1130,18 @@ function cursetHtml(ex,n,r,draft,prev,effortMode){
     ?`<div class="effort" role="group" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
       ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${esc(t("effort."+e))}</button>`).join("")+`</div>`
     :`<input class="curset__val" data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`+
-      `<div class="curset__unit">RIR</div>`+
+      `<div class="curset__unit">RIR</div><span class="curset__underline" aria-hidden="true"></span>`+
       `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:"RIR"}))}">−</button>`+
       `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:"RIR"}))}">+</button></div>`;
   return `<div class="curset" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div><div class="curset__grid">`+
-    `<div class="curset__cell is-load"><div class="curset__cell-lab is-accent">${esc(t("today.load"))}</div>`+
+    `<div class="curset__cell is-load is-active"><div class="curset__cell-lab is-accent">${esc(t("today.load"))}</div>`+
     `<input class="curset__val" data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" value="${esc(kgVal)}">`+
-    `<div class="curset__unit">${esc(unitLabel())}</div>`+
+    `<div class="curset__unit">${esc(unitLabel())}</div><span class="curset__underline" aria-hidden="true"></span>`+
     `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div></div>`+
     `<div class="curset__cell"><div class="curset__cell-lab">${esc(t("log.reps"))}</div>`+
     `<input class="curset__val" data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-    `<div class="curset__unit">${esc(t("log.reps"))}</div>`+
+    `<div class="curset__unit">${esc(t("log.reps"))}</div><span class="curset__underline" aria-hidden="true"></span>`+
     `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:t("log.reps")}))}">−</button>`+
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:t("log.reps")}))}">+</button></div></div>`+
     `<div class="curset__cell"><div class="curset__cell-lab">${effortMode?esc(term("Effort")):"RIR"}</div>${rirInner}</div></div>`+
@@ -1168,13 +1179,15 @@ function renderWorkout(){
       if(!isFocusCur)return"";
       const done=[];for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(!committed.has(key))continue;
         const{kgVal,repsVal,rirVal}=setFieldVals(ex,n,r,draft,prev);
-        done.push(`<div class="settable__row"><span>${n}</span><span>${esc(kgVal)}</span><span>${esc(repsVal)}</span><span>${esc(rirVal)}</span><span class="is-check">✓</span></div>`)}
+        const kgDisp=(()=>{const n=parseDec(kgVal);return Number.isFinite(n)?fmt(n):kgVal})();
+        const rirDisp=(()=>{const n=parseDec(rirVal);return Number.isFinite(n)?fmt(n):rirVal})();
+        done.push(`<div class="settable__row"><span>${n}</span><span>${esc(kgDisp)}</span><span>${esc(repsVal)}</span><span>${esc(rirDisp)}</span><span class="is-check">✓</span></div>`)}
       if(!done.length)return"";
       return `<div class="settable"><div class="settable__head"><span>${esc(t("log.set"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("log.reps"))}</span><span>RIR</span><span></span></div>${done.join("")}</div>`})();
     const curHtml=isFocusCur&&nextSet?cursetHtml(ex,nextSet,r,draft,prev,effortMode):"";
     const nextEx=isFocusCur&&fl.length&&at<fl.length-1?fl[at+1]:null;
     const nextHtml=nextEx?`<button type="button" class="focus-next" data-fnext><span class="focus-next__lab">${esc(t("today.up_next_ex"))}</span>`+
-      `<span class="focus-next__main">${esc(nextEx.name)} · ${nextEx.sets} ${esc(tp(nextEx.sets,"set"))}</span><span class="chevron">›</span></button>`:"";
+      `<span class="focus-next__main">${esc(nextEx.name)} · ${nextEx.sets} ${esc(tp(nextEx.sets,"set"))}</span><span class="chevron" aria-hidden="true"></span></button>`:"";
     const finishHtml=isFocusCur&&fl.length&&at>=fl.length-1?`<button type="button" class="visually-hidden" data-ffinish>${esc(t("log.finish"))}</button>`:"";
     const perf=substituted.get(ex.id);
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
@@ -1193,16 +1206,18 @@ function renderWorkout(){
     const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
     const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
       `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
+    const setX=nextSet||ex.sets;
     const focusHead=isFocusCur?`<p class="focus-ex__muscle">${esc(ex.primary)}</p>`+
       `<div class="focus-ex__row"><h3 class="focus-ex__name">${nameHtml}</h3>`+
-      `<div class="focus-ex__setof">${esc(t("today.set_of",{x:nextSet||ex.sets,y:ex.sets})).replace(String(nextSet||ex.sets),`<b>${nextSet||ex.sets}</b>`)}</div></div>`+
-      `<p class="focus-ex__target">${esc(t("today.target",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)}))}</p>`:"";
+      `<div class="focus-ex__setof">${esc(t("today.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setX}</b>`)}</div></div>`+
+      `<div class="focus-ex__target-row"><p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)}))}</p>`+
+      `<button type="button" class="icon-btn icon-btn--note" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--note" aria-hidden="true"></span></button></div>`:"";
     const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · <span class="nowrap">${term("RIR")} 0-${fmt(state.settings.rirHigh)}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}">⏱</button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
-      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}">▾</button></div></div>`;
+      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
     return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${isFocusCur?" is-current":""}" data-ex="${esc(ex.id)}">`+
       (isFocusCur?focusHead:listHead)+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
@@ -1286,11 +1301,11 @@ function bindWorkout(){
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const key=b.dataset.step||"",dir=+b.dataset.dir||0;
     if(/_reps$|_rir$/.test(key)){
-      const cur=parseDec(inp.value)||0;inp.value=fmt(Math.max(0,cur+dir));
+      const cur=parseDec(inp.value)||0;inp.value=fmtPlain(Math.max(0,cur+dir));
     }else{
       const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
         nextKg=Math.max(0,Math.round((curKg+incKg*dir)/incKg)*incKg);
-      inp.value=fmt(toDisplay(nextKg));
+      inp.value=fmtPlain(toDisplay(nextKg));
     }
     const row=inp.closest(".setrow, .curset");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
@@ -1299,8 +1314,8 @@ function bindWorkout(){
     const d=loadDraft();
     for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
       if(state.settings.rirMode==="effort")d[`${key}_effort`]=+s.rir>=2.5?"easy":+s.rir<=0.5?"max":"hard";
-      for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmt(toDisplay(s.load)):fmt(s[f])}
-      if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmt(s.rir)}}
+      for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmtPlain(toDisplay(s.load)):fmtPlain(s[f])}
+      if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
     localStorage.setItem(DRAFT,JSON.stringify(d));saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
@@ -1319,7 +1334,10 @@ function bindWorkout(){
     b.classList.add("active");touched.add(key);
     const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
-  $$("#workout .exnote__toggle").forEach(b=>b.onclick=()=>{const wrap=b.closest(".exnote"),ta=wrap?.querySelector(".exnote__input");if(!ta)return;
+  $$("#workout [data-exnote-toggle]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
+    if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
+    const ta=wrap?.querySelector(".exnote__input");if(!ta)return;
     const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
     wrap.classList.toggle("is-open",open);
     if(open){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}});
@@ -1452,14 +1470,17 @@ function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
     :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`}
 function renderReadyList(){const el=$("#readyList");if(!el)return;
   const add=attentionGroups().find(g=>g.key==="add");
-  if(!add?.items.length){el.innerHTML="";return}
-  el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}</p>`+
-    add.items.map(({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
+  if(!add?.items.length){el.innerHTML="";readyExpanded=false;return}
+  const items=add.items,cap=4,shown=readyExpanded?items:items.slice(0,cap),more=items.length-cap;
+  const row=({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
       const delta=r.load!=null&&base!=null?r.load-base:null;
       const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
       return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)} ›</span></button>`}).join("");
-  $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"))}
+        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}<span class="chevron" aria-hidden="true"></span></span></button>`};
+  el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}</p>`+shown.map(row).join("")+
+    (more>0&&!readyExpanded?`<button type="button" class="link-row-cta" id="readySeeAll"><span>${esc(t("stats.ready_see_all",{n:items.length}))}</span><span class="chevron" aria-hidden="true"></span></button>`:"");
+  $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"));
+  const see=$("#readySeeAll");if(see)see.onclick=()=>{readyExpanded=true;renderReadyList()}}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
   const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
@@ -1496,13 +1517,14 @@ function renderStats(){
   const sums=summaries();
   const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
   const bestE=state.log.length?Math.max(...state.log.filter(isWork).map(x=>e1rm(+x.load,+x.reps))):0;
+  const lc=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const tiles=[
-    {label:t("stats.metric.sessions"),val:new Set(state.log.map(x=>x.session)).size},
-    {label:t("stats.metric.sets_logged"),val:state.log.length},
-    {label:t("stats.metric.volume"),val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
-    {label:t("stats.metric.best_e1rm"),val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0},
+    {label:lc(t("stats.metric.sessions")),val:new Set(state.log.map(x=>x.session)).size},
+    {label:lc(t("stats.metric.sets_logged")),val:state.log.length},
+    {label:lc(t("stats.metric.volume")),val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
+    {label:lc(t("stats.metric.best_e1rm")),val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0},
   ];
-  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("");
+  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div><div class="metric__label">${t.label}</div></div>`).join("");
 
   const old=$("#statExercise").value;
   $("#statExercise").innerHTML=keys.map(k=>`<option value="${esc(k)}">${esc(keyLabel(k))}</option>`).join("")||`<option>${esc(t("stats.table.no_data"))}</option>`;
@@ -1693,13 +1715,14 @@ window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
 window.__repforgeAttention=attentionGroups;
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const groups=attentionGroups();
-  const html=groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
-    `<p class="attn__why">${esc(items[0]?.why||"")}</p>`+
-    items.map(({ex})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}">${esc(ex.name)}</button>`).join("")+`</div>`).join("");
-  el.innerHTML=html||`<div class="attn__grp"><span class="attn__lead">${esc(t("attention.empty"))}</span></div>`;
+  const groups=attentionGroups().filter(g=>g.key!=="add");
+  if(!groups.length){el.innerHTML="";return}
+  const html=`<p class="section-label">${esc(t("attention.title"))}</p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
+    `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
+    items.map(({ex,why})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("");
+  el.innerHTML=html;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
-    if(grp==="add"||grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
+    if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
     else{const has=[...$("#statExercise").options].some(o=>o.value===k);
       if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast(t("toast.chart_missing_lift"))}});}
 
@@ -1742,7 +1765,7 @@ function draw(rows,sel="#chart"){
   const vals=rows.map(r=>r.e1rm??r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
   const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
-  const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?d.toFixed(1):fmt(Math.round(d))};
+  const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?fmt(+d.toFixed(1)):fmt(Math.round(d))};
   const accent="#E04E14";
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
@@ -1791,7 +1814,7 @@ function renderHistory(){
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
       (open?`<div class="hist-row__actions" style="margin-top:8px"><button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
         `<button class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div>`:"")+
-      `</div><span class="chevron">${open?"˄":"›"}</span></div>`;
+      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div>`;
   }).join(""):`<div class="table"><div class="empty">${esc(t("history.empty.sessions"))}</div></div>`;
   $$("#sessions .hist-row[data-sess]").forEach(row=>row.onclick=e=>{if(e.target.closest("[data-edit],[data-del]"))return;
     expandedSession=expandedSession===row.dataset.sess?null:row.dataset.sess;renderHistory()});
@@ -1832,7 +1855,7 @@ function renderHistoryCalendar(){const el=$("#historyCalendar");if(!el)return;
 function sessionEditor(s,sets){
   const rows=sets.map(r=>{const key=`${liftKey(r)}|${r.set}`;
     return `<div class="edrow"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoad(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
+      `<input class="edrow__in" data-ek="load|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
       `<input class="edrow__in" data-ek="reps|${esc(key)}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
       `<input class="edrow__in" data-ek="rir|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}"></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
@@ -1919,13 +1942,13 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<p class="exdet__meta">${tmpl?`${esc(tmpl.day)} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
     recHtml+
     `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
-    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="link-accent">${esc(t("exercise.range_12w"))}</span></p>`+
+    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><button type="button" class="range-quiet">${esc(t("exercise.range_12w"))}<span class="caret" aria-hidden="true"></span></button></p>`+
     `<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
     `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
     `<p class="section-label">${esc(t("exercise.records"))}</p>`+
-    (loadPr?`<div class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))} ›</span></div>`:"")+
-    (e1Pr?`<div class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))} ›</span></div>`:"")+
-    `<button type="button" class="link-accent" id="exSeePrs" style="margin:10px 0">${esc(t("exercise.see_all_prs"))}</button>`+
+    (loadPr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
+    (e1Pr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
+    `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   draw(sums,"#exChart");
   $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
@@ -1948,9 +1971,9 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
     daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}"><div>`+
       `<div class="prog-day__title">${esc(d)}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
-      `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))} <span class="chevron">${open?"˄":"›"}</span></div></button>`;
+      `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
     if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
-      `<button type="button" class="link-accent" data-exopen="${esc(exs[0]?.id||"")}">${esc(t("program.see_details"))}</button></div>`}
+      `<button type="button" class="link-row-cta" data-exopen="${esc(exs[0]?.id||"")}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
     daysHtml+=`</div>`}
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
@@ -1964,9 +1987,9 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     `<div class="statrow__cell"><div class="statrow__val">${vol?Math.round(vol.ratio*100)+"%":"—"}</div><div class="statrow__cap">${esc(t("program.stat.volume"))}</div></div>`+
     `</div>${daysHtml}`+
     `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
-    `<div class="listrow"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div>`+
-    `<button type="button" class="link-accent" id="seeVolumeAudit">${esc(t("program.see_audit"))} ›</button></div>`+
-    `<div class="listrow" style="border:0"><button type="button" class="link-accent" id="reviewBlockLink">${esc(t("program.review_block"))}</button></div>`;
+    `<button type="button" class="listrow" id="seeVolumeAudit"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
+    `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
+    `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
     const cur=new Set(uiPrefs.overviewOpenDays||[]);
     if(!(uiPrefs.overviewOpenDays||[]).length&&ds[0])cur.add(ds[0]);
@@ -2034,8 +2057,8 @@ function dayCard(d){
     `<div class="pday__head">`+
       `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(d)}" aria-label="${esc(t("program.day.name_aria"))}">`+
       `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets}))}</span>`+
-      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:d}))}">✕</button>`+
-      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}">▾</button>`+
+      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
     `</div>`+
     `<div class="pexlist">${body}</div>`+
     `<button class="btn btn--steel pday__add" type="button" data-act="addEx" data-day="${esc(d)}">${esc(t("program.day.add_exercise"))}</button>`+
@@ -2050,7 +2073,7 @@ function exCard(e,i,n){
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
         `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="${esc(t("program.exercise.move_down"))}">▼</button>`+
-        `<button class="iconbtn iconbtn--del" type="button" data-act="delEx" data-id="${esc(e.id)}" aria-label="${esc(t("program.exercise.delete_aria"))}">✕</button>`+
+        `<button class="iconbtn iconbtn--del" type="button" data-act="delEx" data-id="${esc(e.id)}" aria-label="${esc(t("program.exercise.delete_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
       `</div>`+
     `</div>`+
     `<div class="pex__nums">${num("sets",esc(t("program.exercise.sets")))}${num("min",esc(t("program.exercise.min_reps")))}${num("max",esc(t("program.exercise.max_reps")))}</div>`+
@@ -2137,7 +2160,7 @@ function renderSettings(){
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   const sn=$("#storageNote");if(sn)sn.textContent=`${ago} ${t("settings.storage.note",{key:KEY})}`;
-  const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${(bytes/1048576).toFixed(1)} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
+  const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
 }
 
 function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
@@ -2145,7 +2168,7 @@ function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel
   const oldRirMode=state.settings.rirMode;
   const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
-    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
+    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldRirMode!==newRirMode)clearDraft();
   state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!$("#notifyEnabled")?.checked,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
@@ -2427,7 +2450,7 @@ function init(){
   const statsPeriod=$("#statsPeriod");if(statsPeriod)statsPeriod.onclick=()=>{volWindow=volWindow===7?28:7;$$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});renderStats();renderCompleted()};
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>$("#restSecPanel")?.classList.toggle("is-open");
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>$("#rirModePanel")?.classList.toggle("is-open");
-  const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>{const d=$("#progressionDetails");if(d)d.open=!d.open};
+  const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>{const d=$("#progressionDetails");if(d)d.classList.toggle("is-open")};
   const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>$("#notifyTypes")?.classList.toggle("is-open");
   const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>$("#dataBackupPanel")?.classList.toggle("is-open");
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>$("#dataImportPanel")?.classList.toggle("is-open");
