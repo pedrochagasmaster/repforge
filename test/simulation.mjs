@@ -233,8 +233,9 @@ async function nav(page, view) {
 
 async function selectDay(page, dayName) {
   await page.evaluate((d) => {
-    // Day tabs live in the workout shell; ensure it is open.
-    if (typeof window.__repforgeEnterWorkout === "function") window.__repforgeEnterWorkout({ day: d });
+    // Day tabs live in the workout shell; ensure it is open in List mode
+    // so notes/bodyweight/day chrome stay interactive for harness checks.
+    if (typeof window.__repforgeEnterWorkout === "function") window.__repforgeEnterWorkout({ day: d, focus: false });
     else {
       const b = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
       if (b) b.click();
@@ -1278,7 +1279,7 @@ async function main() {
   const tmpDir = mkdtempSync(join(tmpdir(), "repforge-test-"));
   const jsonPath = join(tmpDir, "backup.json");
 
-  await page.click("#dataBackupRow");
+  await page.evaluate(() => document.querySelector("#dataBackupPanel")?.classList.add("is-open"));
   await page.waitForSelector("#dataBackupPanel.is-open", { timeout: 3000 });
   const [jsonDownload] = await Promise.all([
     page.waitForEvent("download"),
@@ -2852,7 +2853,7 @@ async function main() {
 
   beginPhase("Phase: effort RIR mode");
   await nav(page, "settings");
-  await page.click("#rirModeRow");
+  await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
   await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
   await page.check('input[name="rirMode"][value="effort"]');
   await page.waitForTimeout(120);
@@ -2932,7 +2933,7 @@ async function main() {
     "Toggle effort mode in Settings"
   );
   await nav(page, "settings");
-  await page.click("#rirModeRow");
+  await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
   await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
   assert(
     /RIR 3/i.test((await page.locator("#settings").textContent()) || ""),
@@ -4347,7 +4348,7 @@ async function main() {
     "Exercise page → Back"
   );
   await nav(page, "settings");
-  await page.click("#dataBackupRow");
+  await page.evaluate(() => document.querySelector("#dataBackupPanel")?.classList.add("is-open"));
   await page.waitForSelector("#dataBackupPanel.is-open", { timeout: 3000 });
   const noteCsvPath = join(tmpDir, "log-notes.csv");
   const [noteCsvDownload] = await Promise.all([

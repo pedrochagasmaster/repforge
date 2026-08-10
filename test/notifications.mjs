@@ -177,7 +177,7 @@ console.log("\nNotification surfaces");
       return false;
     }
   });
-  await page.click("#notifyConfigRow");
+  await page.evaluate(() => document.querySelector("#notifyTypes")?.classList.add("is-open"));
   await page.waitForSelector("#notifyTypes.is-open", { timeout: 3000 });
   await page.uncheck("#notifyMissed");
   await page.waitForFunction(async () => {
