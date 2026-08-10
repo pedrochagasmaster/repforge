@@ -1827,6 +1827,299 @@ async function main() {
     "Reps inside range → is-hold"
   );
 
+  // ── Phase 12a-dyn: Dynamic per-set suggestions (session + block signals) ──
+  beginPhase("Phase 12a-dyn: Dynamic load/reps suggestions");
+  await clearState(page);
+  await reloadApp(page);
+  {
+    const st = await getState(page);
+    const dynEx = st.program
+      .filter((e) => e.day === "Day 1")
+      .sort((a, b) => a.order - b.order)[0];
+    dynEx.sets = Math.max(3, dynEx.sets);
+    const { min, max, sets } = dynEx;
+    const dISO = (daysAgo) => {
+      const d = new Date();
+      d.setUTCDate(d.getUTCDate() - daysAgo);
+      return d.toISOString().slice(0, 10);
+    };
+    const mkSess = (date, load, reps, rir, tag) => {
+      const session = `${date}_Day 1_dyn_${tag}`;
+      const created = new Date(`${date}T12:00:00Z`).toISOString();
+      return Array.from({ length: sets }, (_, i) => ({
+        session, date, day: "Day 1", name: dynEx.name, exerciseId: dynEx.id,
+        set: i + 1, load, reps, rir, notes: "", created,
+        primary: dynEx.primary, secondary: dynEx.secondary,
+      }));
+    };
+    // Three in-range sessions with rising load → block trend "rising", last → hold.
+    const dynLog = [
+      ...mkSess(dISO(21), 100, min, 1, "s1"),
+      ...mkSess(dISO(14), 105, min, 1, "s2"),
+      ...mkSess(dISO(7), 110, min, 1, "s3"),
+    ];
+    await persistState(page, {
+      ...st,
+      programMeta: { ...st.programMeta, started: dISO(28), mesocycleStatus: "active", onboarded: true },
+      log: dynLog,
+    });
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+
+    const blockNote = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .rec__block`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      /rising/i.test(blockNote || ""),
+      "Block-trend note reflects rising strength across the block",
+      `note="${blockNote}"`,
+      "Seed 3 rising in-range sessions → card shows a rising block-trend note"
+    );
+
+    const dynBaseLoad1 = await page.inputValue(`[data-k="${dynEx.id}_1_load"]`);
+    assert(
+      dynBaseLoad1 === "110",
+      "Set 1 base load comes from the previous session median",
+      `load=${dynBaseLoad1}`,
+      "Previous session median 110 → set 1 pre-fills 110"
+    );
+    const dynBaseReps1 = +(await page.inputValue(`[data-k="${dynEx.id}_1_reps"]`));
+    assert(
+      dynBaseReps1 === min + 1,
+      "Hold auto-increments the rep target to last reps + 1 (double progression)",
+      `reps=${dynBaseReps1} expected=${min + 1}`,
+      `Previous session ${min} reps at a held load → set 1 target ${min + 1}`
+    );
+    const dynBaseLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
+
+    // In-session: easy top-rep set 1 nudges set 2 UP with an explanatory note.
+    await page.fill(`[data-k="${dynEx.id}_1_load"]`, "110");
+    await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(max));
+    await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "3");
+    await page.click(`.saveset[data-save="${dynEx.id}_1"]`);
+    await page.waitForTimeout(120);
+    const dynUpLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
+    const dynUpReps2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_reps"]`));
+    const dynUpNote = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      dynUpLoad2 > dynBaseLoad2,
+      "Easy set 1 (top reps, high RIR) nudges set 2 load up in-session",
+      `base2=${dynBaseLoad2} now=${dynUpLoad2}`,
+      "Save an easy set 1 → set 2 suggested load increases"
+    );
+    assert(
+      dynUpReps2 === min,
+      "After an in-session load bump, set 2 reps reset to the bottom of the range",
+      `reps=${dynUpReps2} min=${min}`,
+      "Load bump mid-session → reps target drops to range bottom"
+    );
+    assert(
+      /nudged up/i.test(dynUpNote || ""),
+      "In-session note explains the upward nudge",
+      `note="${dynUpNote}"`,
+      "Easy set 1 → highlighted 'nudged up' note"
+    );
+
+    // Editing a still-committed set must immediately recompute later suggestions.
+    await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(Math.max(1, min - 2)));
+    await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "0");
+    await page.waitForTimeout(120);
+    const dynEditedLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
+    const dynEditedNote = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      dynEditedLoad2 < dynBaseLoad2 && /fell short|eased/i.test(dynEditedNote || ""),
+      "Editing a committed set refreshes its later load suggestion and note",
+      `base2=${dynBaseLoad2} now=${dynEditedLoad2} note="${dynEditedNote}"`,
+      "Save an easy set, then edit it below range → set 2 changes from up to down"
+    );
+
+    // In-session: short set 1 (below min reps) eases set 2 DOWN.
+    const beforePortuguese = await getState(page);
+    await persistState(page, {
+      ...beforePortuguese,
+      settings: { ...beforePortuguese.settings, lang: "pt" },
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    const dynBase2b = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
+    await page.fill(`[data-k="${dynEx.id}_1_load"]`, "110");
+    await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(Math.max(1, min - 2)));
+    await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "0");
+    await page.click(`.saveset[data-save="${dynEx.id}_1"]`);
+    await page.waitForTimeout(120);
+    const dynDownLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
+    const dynDownNote = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      dynDownLoad2 < dynBase2b,
+      "Short set 1 (below min reps) eases set 2 load down in-session",
+      `base2=${dynBase2b} now=${dynDownLoad2}`,
+      "Save a below-range set 1 → set 2 suggested load decreases"
+    );
+    assert(
+      /abaixo da faixa|caiu para/i.test(dynDownNote || ""),
+      "In-session note explains the downward ease in Portuguese",
+      `note="${dynDownNote}"`,
+      "Portuguese UI + short set 1 → localized highlighted note"
+    );
+    const blockNotePt = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .rec__block`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      /tendência do bloco|força subindo/i.test(blockNotePt || ""),
+      "Block-trend note is localized in Portuguese",
+      `note="${blockNotePt}"`,
+      "Portuguese UI + seeded block trend → localized trend note"
+    );
+
+    // A falling block is weak evidence: it tempers a double jump to one step.
+    const fallingLog = [
+      ...mkSess(dISO(21), 140, max, 1, "f1"),
+      ...mkSess(dISO(14), 120, max, 1, "f2"),
+      ...mkSess(dISO(7), 100, max, 3, "f3"),
+    ];
+    const beforeFalling = await getState(page);
+    await persistState(page, {
+      ...beforeFalling,
+      settings: { ...beforeFalling.settings, lang: "en" },
+      log: fallingLog,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    const tempered = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      const rec = window.__repforgeRecommendation?.(ex);
+      return rec && { status: rec.status, text: rec.text, block: rec.block };
+    }, dynEx.id);
+    assert(
+      tempered?.status === "add" &&
+        tempered?.block?.dir === "falling" &&
+        /one step|not a big jump/i.test(tempered?.text || ""),
+      "Falling block trend tempers a bold double jump to one load step",
+      JSON.stringify(tempered),
+      "Seed falling e1RM trend + easy top-range latest session → Add load, not Add load ++"
+    );
+
+    // Block direction follows best-set e1RM, matching the rest of the app.
+    const mkMixedSess = (date, heavyReps, backoffLoad, tag) => {
+      const session = `${date}_Day 1_dyn_${tag}`;
+      const created = new Date(`${date}T12:00:00Z`).toISOString();
+      return Array.from({ length: sets }, (_, i) => ({
+        session, date, day: "Day 1", name: dynEx.name, exerciseId: dynEx.id,
+        set: i + 1, load: i === 0 ? 100 : backoffLoad,
+        reps: i === 0 ? Math.min(max, heavyReps) : max, rir: 1, notes: "", created,
+        primary: dynEx.primary, secondary: dynEx.secondary,
+      }));
+    };
+    const bestSetRisingLog = [
+      ...mkMixedSess(dISO(21), min, 80, "best1"),
+      ...mkMixedSess(dISO(14), min + 1, 75, "best2"),
+      ...mkMixedSess(dISO(7), min + 2, 70, "best3"),
+    ];
+    const beforeBestSetTrend = await getState(page);
+    await persistState(page, {
+      ...beforeBestSetTrend,
+      programMeta: { ...beforeBestSetTrend.programMeta, started: dISO(28) },
+      log: bestSetRisingLog,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    const bestSetTrend = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      return window.__repforgeRecommendation?.(ex)?.block;
+    }, dynEx.id);
+    assert(
+      bestSetTrend?.dir === "rising",
+      "Block trend uses each session's best-set e1RM",
+      JSON.stringify(bestSetTrend),
+      "Seed rising best-set e1RM with falling back-off loads → trend remains rising"
+    );
+
+    const noBlockState = await getState(page);
+    await persistState(page, {
+      ...noBlockState,
+      programMeta: { ...noBlockState.programMeta, started: null },
+    });
+    await reloadApp(page);
+    const noBlockTrend = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      return window.__repforgeRecommendation?.(ex)?.block;
+    }, dynEx.id);
+    assert(
+      noBlockTrend?.dir == null && noBlockTrend?.sessions === 0,
+      "No block start disables lifetime-history trend tempering",
+      JSON.stringify(noBlockTrend),
+      "Clear program start date → recommendation has no block trend"
+    );
+
+    if (sets >= 3) {
+      const partialHistoryState = await getState(page);
+      await persistState(page, {
+        ...partialHistoryState,
+        programMeta: { ...partialHistoryState.programMeta, started: dISO(28) },
+        log: dynLog.filter((row) => row.set <= 2),
+      });
+      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await reloadApp(page);
+      const newSetReps = +(await page.inputValue(`[data-k="${dynEx.id}_3_reps"]`));
+      assert(
+        newSetReps === min,
+        "A newly added set without prior history starts at the range minimum",
+        `set3 reps=${newSetReps} expected=${min}`,
+        "History has two sets, program has three → third set does not invent last reps + 1"
+      );
+    }
+
+    // Saving out of order must preserve an edited earlier row and explain set 3.
+    const beforeOutOfOrder = await getState(page);
+    await persistState(page, {
+      ...beforeOutOfOrder,
+      settings: { ...beforeOutOfOrder.settings, lang: "en" },
+      programMeta: { ...beforeOutOfOrder.programMeta, started: dISO(28) },
+      log: dynLog,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await page.fill(`[data-k="${dynEx.id}_1_load"]`, "109");
+    await page.fill(`[data-k="${dynEx.id}_2_load"]`, "110");
+    await page.fill(`[data-k="${dynEx.id}_2_reps"]`, String(max));
+    await page.fill(`[data-k="${dynEx.id}_2_rir"]`, "3");
+    await page.click(`.saveset[data-save="${dynEx.id}_2"]`);
+    await page.waitForTimeout(120);
+    const preservedSet1 = +(await page.inputValue(`[data-k="${dynEx.id}_1_load"]`));
+    const adjustedSet3 = +(await page.inputValue(`[data-k="${dynEx.id}_3_load"]`));
+    const outOfOrderNote = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      preservedSet1 === 109 && adjustedSet3 > 110 && /set 3/i.test(outOfOrderNote || ""),
+      "Out-of-order save preserves touched rows and explains the next adjusted set",
+      `set1=${preservedSet1} set3=${adjustedSet3} note="${outOfOrderNote}"`,
+      "Edit set 1, save easy set 2 → set 1 stays edited; set 3 nudges up with note"
+    );
+  }
+
   // Performance-gated Hold · recover (spec 2026-07-10 / plan 037)
   beginPhase("Phase 12a2: Hold · recover performance gate");
 
@@ -1905,6 +2198,15 @@ async function main() {
       JSON.stringify({ card, signal }),
       `Seed sessions → ${c.name}`
     );
+    if (c.expectRecover) {
+      const targetReps = +(await page.inputValue(`[data-k="${recoverEx.id}_1_reps"]`));
+      assert(
+        targetReps === mid,
+        "Hold · recover keeps the previous rep target instead of auto-incrementing",
+        `target=${targetReps} expected=${mid}`,
+        "Flat grinding sessions → Hold · recover → next target stays at prior reps"
+      );
+    }
   }
 
   await clearState(page);
@@ -2032,15 +2334,15 @@ async function main() {
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
   await saveWorkout(page);
 
-  // Prefill: reps/RIR default to last session
+  // Prefill: hold auto-increments the rep target (last reps + 1); RIR follows last session
   await nav(page, "log");
   await selectDay(page, "Day 1");
   assert(
-    (await page.inputValue(`[data-k="${exX}_1_reps"]`)) === "6" &&
+    (await page.inputValue(`[data-k="${exX}_1_reps"]`)) === "7" &&
       (await page.inputValue(`[data-k="${exX}_1_rir"]`)) === "1",
-    "Log prefills reps/RIR from last session",
+    "Log auto-increments the hold rep target (last reps + 1) and prefills RIR from last session",
     `reps=${await page.inputValue(`[data-k="${exX}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${exX}_1_rir"]`)}`,
-    "Log → save a lift → reopen → reps/RIR match last session"
+    "Log → save 6 reps at a held load → reopen → reps target 7 (chase a rep), RIR matches last session"
   );
 
   // kg stepper adds the minimum jump (2.5)
@@ -3881,10 +4183,11 @@ async function main() {
     `Draft notes: ${JSON.stringify(noteDraft)}`,
     "Log tab → exercise card → Note → type"
   );
+  const noteSessionsBeforeSave = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
   const noteState = await getState(page);
   const savedNoteRows = noteState.log.filter(
-    (r) => r.exerciseId === noteEx.id && r.date === "2026-02-02"
+    (r) => r.exerciseId === noteEx.id && !noteSessionsBeforeSave.has(r.session)
   );
   assert(
     savedNoteRows.length > 0 && savedNoteRows.every((r) => r.exNote === NOTE_TEXT),

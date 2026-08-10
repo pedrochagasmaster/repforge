@@ -500,7 +500,8 @@ function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
     const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
   return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
-    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
+    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
+    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
     .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
 function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex),m=new Map();
   for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
@@ -660,7 +661,8 @@ function sessionsFor(ex){const match=matchLift(ex),m=new Map();
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
     const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
-    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
+    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
+    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
     .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
 const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
 function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
@@ -754,25 +756,112 @@ function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
 
+// Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
+// sessions inside the current block. Only tempers aggressiveness / rep targets.
+function blockTrendFor(sess){
+  const started=state.programMeta?.started;
+  if(!started)return{dir:null,sessions:0};
+  const block=sess.filter(s=>String(s.date)>=started);
+  if(block.length<3)return{dir:null,sessions:block.length};
+  const values=block.map(s=>s.bestE1rm);
+  if(values.some(v=>!(v>0)))return{dir:null,sessions:block.length};
+  const xMean=(values.length-1)/2,yMean=avg(values);
+  let covariance=0,variance=0;
+  values.forEach((value,index)=>{covariance+=(index-xMean)*(value-yMean);variance+=(index-xMean)**2});
+  const projectedChange=variance&&yMean?covariance/variance*(values.length-1)/yMean:0;
+  const dir=projectedChange>=.02?"rising":projectedChange<=-.02?"falling":"flat";
+  return{dir,sessions:block.length,ratio:1+projectedChange}}
+function blockTrendNote(trend){
+  if(!trend||!trend.dir||trend.sessions<3)return"";
+  return t(`rec.block.${trend.dir}`,{sessions:trend.sessions})}
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
+// Primary signal is the previous session; the block trend nudges it weakly.
 function recommendation(ex){
   const sess=sessionsFor(ex);
-  if(!sess.length)return{status:"new",heat:.12,label:t("rec.new.label"),text:t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),load:null,stalled:false};
+  if(!sess.length)return{status:"new",heat:.12,label:t("rec.new.label"),text:t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true};
   const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length,rir=l.avgRir,rirHigh=+state.settings.rirHigh;
   const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
   // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
   const nearTop=n>=3&&atTop>=n-1&&l.minReps>=ex.max-1;
   const stalled=isStalled(sess);
-  if((allTop||nearTop)&&rir>=rirHigh+1)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false};
-  if(allTop||nearTop)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false};
-  // Reduce uses the typical (median) set, so one junk set won't force a back-off — and it gives a real lighter target.
-  if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled};
-  if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load,stalled:true};
-  if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load,stalled:false};
-  if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load,stalled:false};
-  return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),text:t("rec.hold_add_reps.text"),load,stalled:false};
+  const rec=(()=>{
+    if((allTop||nearTop)&&rir>=rirHigh+1)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false,pushReps:false};
+    if(allTop||nearTop)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false};
+    // Reduce uses the typical (median) set, so one junk set won't force a back-off — and it gives a real lighter target.
+    if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
+    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load,stalled:true,pushReps:false};
+    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load,stalled:false,pushReps:false};
+    if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load,stalled:false,pushReps:true};
+    return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),text:t("rec.hold_add_reps.text"),load,stalled:false,pushReps:true};
+  })();
+  const trend=blockTrendFor(sess);
+  // Weak block tempering: a block that is losing strength should not double-jump.
+  if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
+    rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1))}
+  rec.block=trend;rec.blockNote=blockTrendNote(trend);
+  return rec;
 }
-
+// Base reps target from the previous-session recommendation (no in-session data yet).
+// Load-up / back-off resets to the bottom of the range; holds chase one more rep
+// (double progression), capped at the range top. Hold · recover keeps the prior target.
+function baseSetReps(ex,rec,old){
+  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce")return ex.min;
+  const prev=old&&+old.reps>0?+old.reps:null;
+  if(prev==null)return ex.min;
+  if(!rec.pushReps)return Math.max(ex.min,Math.min(ex.max,prev));
+  return Math.max(ex.min,Math.min(ex.max,prev+1))}
+// Per-set load + reps suggestion, layering three signals:
+//  1. previous session (rec.load / baseSetReps) — primary
+//  2. current-session performance (completed sets this workout) — strong autoregulation
+//  3. block trend (folded into rec) — weak
+function setSuggestion(ex,n,rec,draft,old){
+  const rirHigh=+state.settings.rirHigh,minJ=+state.settings.minJump||2.5;
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
+  // Most recent completed working set for this lift earlier in THIS session.
+  let prevInSession=null;
+  for(let k=n-1;k>=1;k--){const key=`${ex.id}_${k}`;
+    if(!done.has(key)||warm.has(key))continue;
+    const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
+    if(!(ld>0&&rp>0))continue;
+    let rir;if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+    else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
+    prevInSession={load:ld,reps:rp,rir};break}
+  if(prevInSession){
+    const{load:L,reps:R,rir}=prevInSession;
+    if(R>=ex.max&&rir>=rirHigh+1)return{load:round(L+jump(L,1)),reps:ex.min,src:"session-up"};
+    if(R<ex.min)return{load:Math.max(round(L-jump(L,1)),minJ),reps:ex.min,src:"session-down"};
+    if(rir<=0)return{load:L,reps:Math.max(ex.min,R-1),src:"session-hold"};
+    return{load:L,reps:Math.max(ex.min,Math.min(ex.max,R)),src:"session-hold"}}
+  return{load:rec.load,reps:rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min),src:"base"}}
+// One-line summary of how the current session is steering the next unlogged set.
+function inSessionNote(ex,draft){
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
+  const rec=recommendation(ex),u=unitLabel();
+  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+    if(done.has(key)||warm.has(key)||changed.has(key))continue;
+    const sg=setSuggestion(ex,n,rec,draft,null);
+    if(sg.src==="session-up")return t("log.insession.up",{set:n,load:fmtLoad(sg.load),unit:u});
+    if(sg.src==="session-down")return t("log.insession.down",{set:n,load:fmtLoad(sg.load),unit:u});
+    if(sg.src==="session-hold")return t("log.insession.hold",{set:n,load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
+  return""}
+// After a set is committed, re-apply suggestions to still-untouched later sets.
+function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
+  const draft=loadDraft(),rec=recommendation(ex),prev=last(ex);
+  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+    if(committed.has(key)||touched.has(key)||warmups.has(key))continue;
+    const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,rec,draft,old);
+    if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoad(sg.load)}
+    if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}
+  saveDraft();updateInSessionNote(exId)}
+function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
+  const ex=prog.find(exId);if(!ex)return;const text=inSessionNote(ex,loadDraft());
+  let el=art.querySelector(".insession");
+  if(!text){el?.remove();return}
+  if(el){el.textContent=text;return}
+  el=document.createElement("div");el.className="insession";el.textContent=text;
+  const anchor=art.querySelector(".delta-prev")||art.querySelector(".prev");
+  if(anchor)anchor.insertAdjacentElement("afterend",el);
+  else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
@@ -872,11 +961,14 @@ function renderWorkout(){
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
     const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
+    const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
+    const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
     const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
       const draftKg=draft[`${ex.id}_${n}_load`];
-      const kgVal=draftKg!=null?draftKg:(r.load!=null?fmtLoad(r.load):(old&&old.load!=null?fmtLoad(old.load):""));
-      const repsVal=draft[`${ex.id}_${n}_reps`]??(old&&old.reps!=null?old.reps:ex.min);
+      const sg=setSuggestion(ex,n,r,draft,old);
+      const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoad(sg.load):(old&&old.load!=null?fmtLoad(old.load):""));
+      const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
       const key=`${ex.id}_${n}`;
       const isW=warmups.has(key);
       const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}`;
@@ -918,9 +1010,10 @@ function renderWorkout(){
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
       `<p class="rec">${esc(r.text)}${r.load!==null?` ${t("log.target",{load:fmtLoad(r.load),unit:unitLabel()})}`:""}</p>`+
+      blockHtml+
       (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
       subPick+
-      prevHtml+deltaHtml+
+      prevHtml+deltaHtml+sessHtml+
       `<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}${noteHtml}</article>`;
   }).join("");
   bindWorkout();
@@ -933,6 +1026,10 @@ function renderWorkout(){
 function updateNextMarker(art){if(!art)return;let found=false;
   art.querySelectorAll(".setrow").forEach(r=>{const on=!found&&!r.classList.contains("is-done");if(on)found=true;
     r.classList.toggle("is-next",on)})}
+function refreshAfterCommittedEdit(row){
+  if(!row?.dataset.set||!committed.has(row.dataset.set))return;
+  const exId=row.closest(".exercise")?.dataset.ex;
+  if(exId)refreshSuggestions(exId)}
 
 function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
   const ex=prog.find(exId);if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
@@ -964,7 +1061,8 @@ function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();
-    const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1])};
+    const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1]);
+    refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
@@ -977,6 +1075,7 @@ function bindWorkout(){
       b.textContent=committed.has(key)?"✓":t("log.save_set");updateNextMarker(row.closest(".exercise"))}
     if(committed.has(key))lastCommitAt=Date.now();
     saveDraft();updateSaveMeta();
+    const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
     if(committed.has(key)){startRest();armUnfinishedWatch()}});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
@@ -986,7 +1085,7 @@ function bindWorkout(){
     inp.value=fmt(toDisplay(nextKg));
     const row=inp.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
-    saveDraft();updateSaveMeta()});
+    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
   $$("#workout .copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
     const d=loadDraft();
     for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
@@ -1010,7 +1109,7 @@ function bindWorkout(){
     b.closest(".effort")?.querySelectorAll(".effort__btn").forEach(x=>x.classList.remove("active"));
     b.classList.add("active");touched.add(key);
     const row=b.closest(".setrow");if(row)row.classList.remove("is-suggested");
-    saveDraft();updateSaveMeta()});
+    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
   $$("#workout .exnote__toggle").forEach(b=>b.onclick=()=>{const wrap=b.closest(".exnote"),ta=wrap?.querySelector(".exnote__input");if(!ta)return;
     const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
     wrap.classList.toggle("is-open",open);
