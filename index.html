@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <meta name="theme-color" content="#0e1116">
+  <meta name="theme-color" content="#F4F2EF">
   <meta name="description" content="RepForge is a local-only progressive overload tracker. Heat means you are ready to add load.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <meta name="apple-mobile-web-app-title" content="RepForge">
   <title>RepForge</title>
   <link rel="manifest" href="manifest.webmanifest">
@@ -17,69 +17,105 @@
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <header class="topbar">
-    <a class="brand" href="#" data-i18n-aria="brand.home_aria" aria-label="RepForge home">
-      <span class="brand__mark" aria-hidden="true"></span>
-      <span class="brand__word">REP<em>FORGE</em></span>
-    </a>
-    <div class="topbar__end">
-      <button id="restBar" type="button" class="restbar hidden" aria-live="polite" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to stop">
-        <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
-      </button>
-      <button id="heatGauge" type="button" class="gauge" data-i18n-title="top.heat_title" title="Session heat — how many lifts are ready to add load">
-        <span class="gauge__fill"></span>
-        <span class="gauge__label" data-i18n="top.gauge.forge">forge</span>
-      </button>
-      <button id="installBtn" class="btn btn--ghost hidden" data-i18n="top.install">Install</button>
-    </div>
-  </header>
+  <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
+  <button id="restBar" type="button" class="restbar restbar--float hidden" aria-live="polite" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to stop">
+    <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
+  </button>
+  <button id="heatGauge" type="button" class="visually-hidden" data-i18n-title="top.heat_title" title="Session heat — how many lifts are ready to add load" tabindex="-1">
+    <span class="gauge__fill"></span>
+    <span class="gauge__label" data-i18n="top.gauge.forge">forge</span>
+  </button>
+  <button id="installBtn" class="btn btn--ghost hidden" data-i18n="top.install" tabindex="-1">Install</button>
 
   <main>
     <section id="log" class="view active" data-i18n-aria="log.aria" aria-label="Log workout">
-      <div class="sectionhead">
-        <button type="button" class="eyebrow eyebrow--link" id="logContext" data-i18n="log.context.today">Today's session</button>
-        <div class="sectionhead__row">
-          <h2 data-i18n="log.title">Log workout</h2>
-          <label class="datepick"><span data-i18n="log.date">Date</span><input id="date" type="date"></label>
+      <!-- Today dashboard (mock 02) -->
+      <div id="todayDash">
+        <div class="pagehead">
+          <div class="pagehead__titles">
+            <h2 class="page-title" data-i18n="nav.log">Today</h2>
+            <p class="page-date" id="todayDate"></p>
+          </div>
+          <div class="pagehead__actions">
+            <button type="button" class="profile-btn" id="openSettings" data-i18n-aria="nav.settings" aria-label="Settings">
+              <span class="profile-btn__icon" aria-hidden="true"></span>
+            </button>
+          </div>
         </div>
+        <div id="todayProgram" class="today-prog hidden"></div>
+        <p class="section-label" data-i18n="today.session_label">Today's session</p>
+        <div id="todaySession" class="today-session"></div>
+        <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
+        <button type="button" class="text-link text-link--center" id="viewExercises" data-i18n="today.view_exercises">View exercises</button>
+        <p class="section-label" data-i18n="today.this_week">This week</p>
+        <div id="todayWeek" class="today-week"></div>
+        <p class="section-label" data-i18n="today.up_next">Up next</p>
+        <div id="todayUpNext" class="today-upnext"></div>
+        <div id="todayLast" class="today-footer"></div>
+        <button type="button" class="eyebrow eyebrow--link hidden" id="logContext" data-i18n="log.context.today">Today's session</button>
       </div>
-      <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
-      <div id="unfinishedBanner" class="hidden" role="status" hidden>
-        <p class="sessionbanner__title" data-i18n="log.unfinished.title">Unfinished session</p>
-        <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Finish on Log, then Save workout.</p>
-        <button type="button" id="unfinishedDismiss" class="btn btn--steel" data-i18n="log.unfinished.dismiss">Dismiss</button>
+
+      <!-- Active workout shell (mock 01) — existing IDs preserved -->
+      <div id="workoutShell" class="hidden">
+        <div class="wo-head">
+          <button type="button" class="icon-btn icon-btn--ghost" id="leaveWorkout" data-i18n-aria="today.leave_workout_aria" aria-label="Back to Today">▾</button>
+          <div class="wo-head__center">
+            <div class="wo-head__title" id="woDayTitle"></div>
+            <div class="wo-head__sub" id="woDaySub"></div>
+          </div>
+          <div style="position:relative;justify-self:end">
+            <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="More">⋯</button>
+            <div id="woOverflow" class="wo-overflow hidden">
+              <div class="modeswitch" role="group" data-i18n-aria="log.layout_aria" aria-label="Log layout">
+                <button type="button" id="modeFull" class="active" data-i18n="log.mode.list">List</button>
+                <button type="button" id="modeFocus" data-i18n="log.mode.focus">Focus</button>
+              </div>
+              <label class="datepick"><span data-i18n="log.date">Date</span><input id="date" type="date"></label>
+              <button type="button" id="woToggleCommand" data-i18n="log.command.apply">Command bar</button>
+            </div>
+          </div>
+        </div>
+        <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
+        <div id="unfinishedBanner" class="hidden" role="status" hidden>
+          <p class="sessionbanner__title" data-i18n="log.unfinished.title">Unfinished session</p>
+          <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Finish on Log, then Save workout.</p>
+          <button type="button" id="unfinishedDismiss" class="btn btn--steel" data-i18n="log.unfinished.dismiss">Dismiss</button>
+        </div>
+        <div id="dayTabs" class="seg" role="tablist" data-i18n-aria="log.training_day_aria" aria-label="Training day"></div>
+        <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
+        <div id="fatigue" class="fatigue hidden"></div>
+        <div class="commandbar" id="commandBarWrap">
+          <input id="commandInput" type="text" autocomplete="off" data-i18n-placeholder="log.command.placeholder" data-i18n-aria="log.command.aria" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry" aria-describedby="commandHelpText">
+          <button type="button" id="commandHelp" class="btn btn--steel commandbar__help" data-i18n-aria="log.command.help_aria" aria-label="Quick entry syntax help">?</button>
+          <button type="button" id="voiceBtn" class="btn btn--steel hidden" data-i18n-aria="log.command.voice_aria" aria-label="Voice input">🎤</button>
+          <button type="button" id="commandApply" class="btn btn--steel" data-i18n="log.command.apply">Apply</button>
+        </div>
+        <p id="commandHelpText" class="visually-hidden" data-i18n="log.command.help_text">Quick set entry. Format: load x reps @RIR, for example 80 x 8 @1. Optionally start with the exercise name.</p>
+        <form id="logForm">
+          <div id="workout"></div>
+          <label class="field"><span data-i18n="log.notes">Session notes</span>
+            <textarea id="notes" data-i18n-placeholder="log.notes.placeholder" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
+          </label>
+          <label class="field" id="bodyweightLabel"><span data-i18n="log.bodyweight">Bodyweight (optional)</span>
+            <input id="bodyweight" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
+          </label>
+          <button class="btn btn--forge btn--save" type="submit">
+            <span data-i18n="log.finish">Finish workout</span>
+            <span id="saveMeta" class="btn__meta"></span>
+          </button>
+        </form>
       </div>
-      <div class="modeswitch" role="group" data-i18n-aria="log.layout_aria" aria-label="Log layout">
-        <button type="button" id="modeFull" class="active" data-i18n="log.mode.list">List</button>
-        <button type="button" id="modeFocus" data-i18n="log.mode.focus">Focus</button>
-      </div>
-      <div id="dayTabs" class="seg" role="tablist" data-i18n-aria="log.training_day_aria" aria-label="Training day"></div>
-      <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
-      <div id="fatigue" class="fatigue hidden"></div>
-      <div class="commandbar">
-        <input id="commandInput" type="text" autocomplete="off" data-i18n-placeholder="log.command.placeholder" data-i18n-aria="log.command.aria" placeholder="Type: 80 x 8 @1" aria-label="Quick set entry" aria-describedby="commandHelpText">
-        <button type="button" id="commandHelp" class="btn btn--steel commandbar__help" data-i18n-aria="log.command.help_aria" aria-label="Quick entry syntax help">?</button>
-        <button type="button" id="voiceBtn" class="btn btn--steel hidden" data-i18n-aria="log.command.voice_aria" aria-label="Voice input">🎤</button>
-        <button type="button" id="commandApply" class="btn btn--steel" data-i18n="log.command.apply">Apply</button>
-      </div>
-      <p id="commandHelpText" class="visually-hidden" data-i18n="log.command.help_text">Quick set entry. Format: load x reps @RIR, for example 80 x 8 @1. Optionally start with the exercise name.</p>
-      <form id="logForm">
-        <div id="workout"></div>
-        <label class="field"><span data-i18n="log.notes">Session notes</span>
-          <textarea id="notes" data-i18n-placeholder="log.notes.placeholder" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
-        </label>
-        <label class="field" id="bodyweightLabel"><span data-i18n="log.bodyweight">Bodyweight (optional)</span>
-          <input id="bodyweight" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
-        </label>
-        <button class="btn btn--forge btn--save" type="submit">
-          <span data-i18n="log.finish">Finish workout</span>
-          <span id="saveMeta" class="btn__meta"></span>
-        </button>
-      </form>
     </section>
 
     <section id="stats" class="view" data-i18n-aria="stats.aria" aria-label="Stats">
-      <div class="sectionhead"><p class="eyebrow" data-i18n="stats.eyebrow">The numbers</p><h2 data-i18n="stats.title">Stats</h2></div>
+      <div class="pagehead">
+        <div class="pagehead__titles">
+          <h2 class="page-title" data-i18n="stats.title">Progress</h2>
+        </div>
+        <div class="pagehead__actions">
+          <span class="text-link" id="statsPeriod" data-i18n="stats.window.28_days">28 days</span>
+        </div>
+      </div>
       <div id="statsSeg" class="seg seg--stats" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true" data-i18n="stats.overview">Overview</button>
         <button type="button" role="tab" data-seg="strength" aria-selected="false" data-i18n="stats.strength">Strength</button>
@@ -89,17 +125,29 @@
       </div>
       <div id="segOverview" class="stats-seg active">
         <div id="statsIntro" class="emptystate hidden"></div>
-        <div id="thisWeek" class="thisweek card"></div>
+        <p class="section-label" data-i18n="today.this_week">This week</p>
+        <div id="thisWeek" class="thisweek card card--plain"></div>
         <div id="attention" class="attention"></div>
         <div id="metrics" class="metrics"></div>
-        <details class="advanced" id="statsDeep">
-          <summary data-i18n="stats.deep.summary">Dig deeper — charts &amp; tables</summary>
-          <div class="card chartcard">
-            <label class="field"><span data-i18n="stats.exercise">Exercise</span><select id="statExercise"></select></label>
-            <div id="trend" class="trend"></div>
-            <div id="prLedger" class="prledger"></div>
+        <p class="section-label section-label--row">
+          <span data-i18n="stats.strength_trend">Strength trend</span>
+        </p>
+        <div class="card chartcard">
+          <label class="field strength-pick"><span class="visually-hidden" data-i18n="stats.exercise">Exercise</span><select id="statExercise"></select></label>
+          <p class="lede" data-i18n="stats.e1rm_caption">Estimated e1RM</p>
+          <div id="trend" class="trend"></div>
+          <div id="prLedger" class="prledger"></div>
+          <div class="chart-wrap">
             <canvas id="chart" height="240" data-i18n-aria="stats.chart_aria" aria-label="Top load over time"></canvas>
           </div>
+        </div>
+        <p class="section-label section-label--row">
+          <span data-i18n="stats.volume_7d">Volume · 7 days</span>
+          <button type="button" class="link-accent" id="gotoVolume" data-i18n="stats.see_volume">See volume ›</button>
+        </p>
+        <div id="overviewVolume" class="volume"></div>
+        <details class="advanced" id="statsDeep">
+          <summary data-i18n="stats.deep.summary">Dig deeper — charts &amp; tables</summary>
           <h3 class="subhead" data-i18n="stats.completed_hard_sets">Completed hard sets</h3>
           <p class="lede" id="statsHardSetLede">Logged sets per muscle within your RIR ceiling — <button type="button" class="term" data-term="hard set">hard set</button> volume you actually did, not the plan.</p>
           <div id="volWindow" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_window_aria" aria-label="Volume window">
@@ -132,77 +180,133 @@
     </section>
 
     <section id="history" class="view" data-i18n-aria="history.aria" aria-label="History">
-      <div class="sectionhead"><p class="eyebrow" data-i18n="history.eyebrow">The ledger</p><h2 data-i18n="history.title">History</h2></div>
-      <h3 class="subhead" data-i18n="history.sessions">Sessions</h3><div id="sessions" class="sessions"></div>
-      <h3 class="subhead" data-i18n="history.every_set">Every set</h3><div id="historyTable" class="table"></div>
+      <div class="pagehead">
+        <div class="pagehead__titles">
+          <h2 class="page-title" data-i18n="history.title">History</h2>
+        </div>
+        <div class="pagehead__actions">
+          <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search">⌕</button>
+          <button type="button" class="icon-btn icon-btn--ghost" id="historyExportBtn" data-i18n-aria="history.export_aria" aria-label="Export CSV">▤</button>
+        </div>
+      </div>
+      <div id="historySearchWrap" class="hist-search hidden">
+        <input id="historySearch" type="search" data-i18n-placeholder="history.search_placeholder" placeholder="Filter sessions…" autocomplete="off">
+      </div>
+      <div id="historyCalendar" class="cal"></div>
+      <p class="section-label" data-i18n="history.recent">Recent</p>
+      <div id="sessions" class="sessions"></div>
+      <details class="advanced">
+        <summary data-i18n="history.every_set">Every set</summary>
+        <div id="historyTable" class="table"></div>
+      </details>
     </section>
 
     <section id="exercise" class="view" data-i18n-aria="exercise.aria" aria-label="Exercise detail">
-      <div class="sectionhead">
-        <button type="button" class="exview__back" id="exBack" data-i18n="exercise.back">← Back</button>
+      <div class="exview-head">
+        <button type="button" class="back-link" id="exBack" data-i18n="exercise.back">← Back</button>
+        <div class="exview-head__title" data-i18n="exercise.title">Exercise</div>
+        <div class="exview-head__right"></div>
       </div>
       <div id="exDetail"></div>
     </section>
 
     <section id="program" class="view" data-i18n-aria="program.aria" aria-label="Program">
-      <div class="sectionhead"><p class="eyebrow" data-i18n="program.eyebrow">The blueprint</p><h2 data-i18n="program.title">Program</h2></div>
-      <div id="programMeta" class="pmeta" data-i18n-aria="program.summary_aria" aria-label="Program summary"></div>
-      <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
-      <button id="endBlock" class="btn btn--steel program__endblock" type="button" data-i18n="program.end_block">End block</button>
-      <p class="lede" data-i18n="program.lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
-      <div id="programEditor" class="peditor"></div>
-      <button id="addDay" class="btn btn--steel peditor__addday" type="button" data-i18n="program.add_day">+ Add day</button>
-      <details class="advanced">
-        <summary data-i18n="program.advanced.summary">Advanced · edit raw JSON</summary>
-        <p class="lede" data-i18n="program.advanced.lede">Editing here replaces the whole program. Use the visual editor above for everyday changes.</p>
-        <label class="field"><span data-i18n="program.json">Program JSON</span><textarea id="programJson" rows="14" spellcheck="false"></textarea></label>
-        <button id="saveProgram" class="btn btn--forge" type="button" data-i18n="program.save_json">Save JSON</button>
-        <div class="btnrow">
-          <button id="exportProgram" class="btn btn--steel" type="button" data-i18n="program.export_json">Export program JSON</button>
-          <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program JSON</span><input id="importProgram" type="file" accept=".json,application/json"></label>
+      <div class="pagehead">
+        <div class="pagehead__titles">
+          <h2 class="page-title" data-i18n="program.title">Program</h2>
         </div>
-      </details>
-      <h3 class="subhead" data-i18n="program.planned_volume">Planned weekly volume</h3>
-      <p class="lede" data-i18n="program.planned_volume.lede" data-i18n-html>Sets per muscle from this program template, assuming each day is trained once per week. See <b>Stats → Completed hard sets</b> for what you actually logged.</p>
-      <div id="volume" class="volume"></div>
+        <div class="pagehead__actions">
+          <button type="button" class="link-accent" id="programEditToggle" data-i18n="program.edit">Edit</button>
+        </div>
+      </div>
+      <div id="programOverview"></div>
+      <div id="programMeta" class="pmeta visually-hidden" data-i18n-aria="program.summary_aria" aria-label="Program summary"></div>
+      <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
+      <div id="programEditorWrap" class="is-hidden">
+        <button id="endBlock" class="btn btn--steel program__endblock" type="button" data-i18n="program.end_block">End block</button>
+        <p class="lede" data-i18n="program.lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
+        <div id="programEditor" class="peditor"></div>
+        <button id="addDay" class="btn btn--steel peditor__addday" type="button" data-i18n="program.add_day">+ Add day</button>
+        <details class="advanced">
+          <summary data-i18n="program.advanced.summary">Advanced · edit raw JSON</summary>
+          <p class="lede" data-i18n="program.advanced.lede">Editing here replaces the whole program. Use the visual editor above for everyday changes.</p>
+          <label class="field"><span data-i18n="program.json">Program JSON</span><textarea id="programJson" rows="14" spellcheck="false"></textarea></label>
+          <button id="saveProgram" class="btn btn--forge" type="button" data-i18n="program.save_json">Save JSON</button>
+          <div class="btnrow">
+            <button id="exportProgram" class="btn btn--steel" type="button" data-i18n="program.export_json">Export program JSON</button>
+            <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program JSON</span><input id="importProgram" type="file" accept=".json,application/json"></label>
+          </div>
+        </details>
+        <h3 class="subhead" data-i18n="program.planned_volume">Planned weekly volume</h3>
+        <p class="lede" data-i18n="program.planned_volume.lede" data-i18n-html>Sets per muscle from this program template, assuming each day is trained once per week. See <b>Stats → Completed hard sets</b> for what you actually logged.</p>
+        <div id="volume" class="volume"></div>
+      </div>
     </section>
 
     <section id="settings" class="view" data-i18n-aria="settings.aria" aria-label="Settings">
-      <div class="sectionhead"><p class="eyebrow" data-i18n="settings.eyebrow">The dials</p><h2 data-i18n="settings.title">Settings</h2></div>
-      <div class="card">
-        <p class="cardtitle" data-i18n="settings.progression">Progression</p>
-        <p class="lede" data-i18n="settings.progression.lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
-        <label class="field"><span data-i18n="settings.language">Language</span><select id="lang"><option value="en">English</option><option value="pt">Português</option></select></label>
-        <label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done"></label>
-        <label class="field"><span data-i18n="settings.units">Units</span><select id="unit"><option value="kg">kg</option><option value="lb">lb</option></select></label>
+      <div class="settings-head">
+        <button type="button" class="back-link" id="settingsBack" data-i18n="settings.back_today">‹ Today</button>
+        <div class="settings-head__title" data-i18n="settings.title">Settings</div>
+        <div></div>
+      </div>
+
+      <div class="settings-identity">
+        <div class="settings-identity__mark" aria-hidden="true">RF</div>
+        <div>
+          <div class="settings-identity__name">RepForge</div>
+          <div class="settings-identity__cap" data-i18n="settings.local_data">Data saved on this device</div>
+          <p class="lede" id="storageNote" style="margin:6px 0 0"></p>
+        </div>
+      </div>
+
+      <p class="settings-group__label" data-i18n="settings.group.training">Training</p>
+      <div class="settings-group">
+        <button type="button" class="settings-row" id="restSecRow">
+          <span class="settings-row__label" data-i18n="settings.rest_timer_short">Rest timer</span>
+          <span class="settings-row__value"><span id="restSecDisplay">2:00</span> <span class="chevron">›</span></span>
+        </button>
+        <div id="restSecPanel" class="settings-panel">
+          <label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done"></label>
+        </div>
+        <label class="settings-row" for="unit">
+          <span class="settings-row__label" data-i18n="settings.units">Units</span>
+          <span class="settings-row__value"><select id="unit" style="margin:0;border:0;background:transparent;padding:0;width:auto"><option value="kg">kg</option><option value="lb">lb</option></select></span>
+        </label>
+        <div class="settings-row" style="cursor:default">
+          <span class="settings-row__label" data-i18n="settings.rir_logging">RIR logging</span>
+          <span class="settings-row__value"></span>
+        </div>
         <fieldset class="field rirmode">
-          <legend data-i18n="settings.rir_logging">RIR logging</legend>
+          <legend class="visually-hidden" data-i18n="settings.rir_logging">RIR logging</legend>
           <div class="rirmode__opts">
             <label class="rirmode__opt"><input type="radio" name="rirMode" value="numeric" checked> <span data-i18n="settings.rir_numbers">Numbers</span></label>
             <label class="rirmode__opt"><input type="radio" name="rirMode" value="effort"> <span data-i18n="settings.rir_effort">Easy / Hard / Max</span></label>
           </div>
         </fieldset>
         <p class="lede" data-i18n="settings.effort_lede">Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
-        <button id="createProgram" type="button" class="btn btn--steel" data-i18n="settings.create_program">Create new program</button>
-        <label class="field field--check"><input type="checkbox" id="voiceInputEnabled"> <span data-i18n="settings.voice_enable">Enable voice input</span></label>
+        <div class="settings-row" style="cursor:default">
+          <span class="settings-row__label" data-i18n="settings.voice_enable">Enable voice input</span>
+          <button type="button" class="toggle" id="voiceToggle" aria-pressed="false" data-i18n-aria="settings.voice_enable"></button>
+          <input type="checkbox" id="voiceInputEnabled" class="visually-hidden">
+        </div>
         <p class="lede" data-i18n="settings.voice_lede">Voice input is optional and depends on browser support. Typed commands work offline. Voice recognition may be processed by your browser provider.</p>
-        <button id="beginnerProgram" type="button" class="btn btn--steel" data-i18n="settings.beginner_program">Use beginner-friendly program</button>
-        <details class="advanced">
-          <summary data-i18n="settings.advanced_progression">Advanced · progression dials</summary>
-          <label class="field"><span data-i18n="settings.load_jump_pct">Load jump %</span><input id="jumpPct" type="text" inputmode="decimal" enterkeyhint="next"></label>
-          <label class="field"><span data-i18n="settings.minimum_jump">Minimum jump (kg)</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next"></label>
-          <p class="lede" data-i18n="settings.minimum_jump_lede">Minimum jump increment is always in kg regardless of display units.</p>
-          <label class="field"><span data-i18n="settings.target_rir_ceiling">Target RIR ceiling</span><input id="rirHigh" type="text" inputmode="decimal" enterkeyhint="next"></label>
-          <label class="field"><span data-i18n="settings.hard_rir_ceiling">Hard-set RIR ceiling</span><input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
-          <p class="lede" data-i18n="settings.hard_rir_lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
-          <button id="saveSettings" class="btn btn--forge" data-i18n="settings.save">Save settings</button>
-        </details>
       </div>
-      <div class="card">
-        <p class="cardtitle" data-i18n="settings.notifications">Notifications</p>
-        <p class="lede" data-i18n="settings.notifications.lede">Local reminders on this device. Best with RepForge installed to the home screen. Background delivery is best-effort — iOS may suspend timers when the app is closed.</p>
-        <label class="field field--check"><input type="checkbox" id="notifyEnabled"> <span data-i18n="settings.notifications.enable">Enable notifications</span></label>
-        <div id="notifyTypes" class="notifytypes">
+
+      <p class="settings-group__label" data-i18n="settings.group.notifications">Notifications</p>
+      <div class="settings-group">
+        <div class="settings-row" style="cursor:default">
+          <span>
+            <span class="settings-row__label" data-i18n="settings.notifications">Notifications</span>
+            <span class="settings-row__cap" data-i18n="settings.notifications.caption">Timer, today's session and unfinished workout</span>
+          </span>
+          <button type="button" class="toggle" id="notifyToggle" aria-pressed="false"></button>
+          <input type="checkbox" id="notifyEnabled" class="visually-hidden">
+        </div>
+        <button type="button" class="settings-row" id="notifyConfigRow">
+          <span class="settings-row__label" data-i18n="settings.notifications.configure">Configure reminders</span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+        <div id="notifyTypes" class="notifytypes settings-panel">
           <label class="field field--check"><input type="checkbox" id="notifyTimer"> <span data-i18n="settings.notifications.timer">Rest timer done</span></label>
           <label class="field field--check"><input type="checkbox" id="notifySession"> <span data-i18n="settings.notifications.session">Today's session (on open)</span></label>
           <label class="field field--check"><input type="checkbox" id="notifyUnfinished"> <span data-i18n="settings.notifications.unfinished">Unfinished session (15 min idle)</span></label>
@@ -210,52 +314,112 @@
         </div>
         <p class="lede" id="notifyPermStatus"></p>
       </div>
-      <div class="card">
-        <p class="cardtitle" data-i18n="settings.guide_install">Guide &amp; install</p>
-        <p class="lede" data-i18n="settings.guide_install.lede">New here or want a refresher? Walk through every feature. Install RepForge for a full-screen, offline app.</p>
-        <div class="btnrow">
-          <button id="replayTour" type="button" class="btn btn--steel" data-i18n="settings.replay_tour">Take the app tour</button>
-          <button id="installApp" type="button" class="btn btn--steel hidden" data-i18n="settings.add_home">Add to home screen</button>
+
+      <p class="settings-group__label" data-i18n="settings.group.app">App</p>
+      <div class="settings-group">
+        <label class="settings-row" for="lang">
+          <span class="settings-row__label" data-i18n="settings.language">Language</span>
+          <span class="settings-row__value"><select id="lang" style="margin:0;border:0;background:transparent;padding:0;width:auto"><option value="en">English</option><option value="pt">Português</option></select></span>
+        </label>
+        <button type="button" class="settings-row" id="replayTour">
+          <span class="settings-row__label" data-i18n="settings.replay_tour">RepForge guide</span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+        <div class="settings-row" style="cursor:default">
+          <span class="settings-row__label" data-i18n="settings.about">About</span>
+          <span class="settings-row__value">1.0</span>
+        </div>
+        <button type="button" class="settings-row hidden" id="installApp">
+          <span class="settings-row__label" data-i18n="settings.add_home">Add to home screen</span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+      </div>
+
+      <p class="settings-group__label" data-i18n="settings.group.program">Program &amp; progression</p>
+      <div class="settings-group">
+        <button type="button" class="settings-row" id="createProgram">
+          <span class="settings-row__label" data-i18n="settings.create_program">Create new program</span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+        <button type="button" class="settings-row" id="beginnerProgram">
+          <span class="settings-row__label" data-i18n="settings.beginner_program">Use beginner-friendly program</span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+        <button type="button" class="settings-row" id="progressionRow">
+          <span>
+            <span class="settings-row__label" data-i18n="settings.advanced_progression_short">Progression controls</span>
+            <span class="settings-row__cap" data-i18n="settings.progression_defaults">Recommended defaults active</span>
+          </span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+        <div id="progressionPanel" class="settings-panel">
+          <p class="lede" data-i18n="settings.progression.lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
+          <label class="field"><span data-i18n="settings.load_jump_pct">Load jump %</span><input id="jumpPct" type="text" inputmode="decimal" enterkeyhint="next"></label>
+          <label class="field"><span data-i18n="settings.minimum_jump">Minimum jump (kg)</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next"></label>
+          <p class="lede" data-i18n="settings.minimum_jump_lede">Minimum jump increment is always in kg regardless of display units.</p>
+          <label class="field"><span data-i18n="settings.target_rir_ceiling">Target RIR ceiling</span><input id="rirHigh" type="text" inputmode="decimal" enterkeyhint="next"></label>
+          <label class="field"><span data-i18n="settings.hard_rir_ceiling">Hard-set RIR ceiling</span><input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
+          <p class="lede" data-i18n="settings.hard_rir_lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
+          <button id="saveSettings" class="btn btn--forge" data-i18n="settings.save">Save settings</button>
         </div>
       </div>
-      <div class="card">
-        <p class="cardtitle" data-i18n="settings.your_data">Your data</p>
-        <p class="lede" id="storageNote"></p>
-        <div class="btnrow">
-          <button id="exportJson" class="btn btn--steel" data-i18n="settings.export_backup_json">Export backup JSON</button>
-          <button id="exportCsv" class="btn btn--steel" data-i18n="settings.export_log_csv">Export log CSV</button>
+
+      <p class="settings-group__label" data-i18n="settings.group.data">Data</p>
+      <div class="settings-group">
+        <button type="button" class="settings-row" id="dataBackupRow">
+          <span class="settings-row__label" data-i18n="settings.backup_export">Backup &amp; export</span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+        <div id="dataBackupPanel" class="settings-panel">
+          <div class="btnrow">
+            <button id="exportJson" class="btn btn--steel" data-i18n="settings.export_backup_json">Export backup JSON</button>
+            <button id="exportCsv" class="btn btn--steel" data-i18n="settings.export_log_csv">Export log CSV</button>
+          </div>
         </div>
-        <label class="btn btn--steel file"><span data-i18n-text data-i18n="settings.import_backup_json">Import backup JSON</span><input id="importJson" type="file" accept=".json,application/json"></label>
+        <button type="button" class="settings-row" id="dataImportRow">
+          <span class="settings-row__label" data-i18n="settings.import_data">Import data</span>
+          <span class="settings-row__value"><span class="chevron">›</span></span>
+        </button>
+        <div id="dataImportPanel" class="settings-panel">
+          <label class="btn btn--steel file"><span data-i18n-text data-i18n="settings.import_backup_json">Import backup JSON</span><input id="importJson" type="file" accept=".json,application/json"></label>
+        </div>
+        <div class="settings-row" style="cursor:default">
+          <span class="settings-row__label" data-i18n="settings.storage">Storage</span>
+          <span class="settings-row__value" id="storageSize">—</span>
+        </div>
       </div>
-      <div class="card card--danger">
-        <p class="cardtitle" data-i18n="settings.danger_zone">Danger zone</p>
-        <p class="lede" data-i18n="settings.danger_lede">This clears every logged set on this device. Export a backup first.</p>
-        <button id="reset" class="btn btn--danger" data-i18n="settings.delete_log">Delete log</button>
-      </div>
+
+      <button type="button" class="settings-row is-danger" id="reset">
+        <span class="settings-row__label" data-i18n="settings.delete_all">Delete all data</span>
+      </button>
+      <p class="visually-hidden" data-i18n="settings.danger_lede">This clears every logged set on this device. Export a backup first.</p>
+      <p class="settings-footer" data-i18n="settings.footer">RepForge · Made for training, not distraction.</p>
     </section>
 
     <section id="onboarding" class="view onboarding hidden" data-i18n-aria="onb.aria" aria-label="Create program">
       <div class="onb">
         <div class="onb__head">
-          <p class="eyebrow" id="onbEyebrow" data-i18n="onb.eyebrow">New program</p>
-          <h2 id="onbTitle">Create your program</h2>
+          <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
+          <div class="onb__title" id="onbEyebrow" data-i18n="onb.eyebrow">New program</div>
+          <div></div>
           <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
+          <div id="onbSegbar" class="segbar" style="grid-column:1/-1"></div>
         </div>
+        <h2 id="onbTitle" class="visually-hidden">Create your program</h2>
         <div id="onbBody" class="onb__body"></div>
         <div class="onb__nav">
           <button type="button" id="onbBack" class="btn btn--steel" data-i18n="onb.back">Back</button>
-          <button type="button" id="onbNext" class="btn btn--forge" data-i18n="onb.next">Next</button>
+          <button type="button" id="onbNext" class="btn btn--forge" data-i18n="onb.next">Continue</button>
         </div>
       </div>
     </section>
   </main>
 
   <nav data-i18n-aria="nav.aria" aria-label="Sections">
-    <button data-view="log" class="active"><span class="nav__icon" data-i="log"></span><span data-i18n="nav.log">Log</span></button>
-    <button data-view="stats"><span class="nav__icon" data-i="stats"></span><span data-i18n="nav.stats">Stats</span></button>
+    <button data-view="log" class="active"><span class="nav__icon" data-i="log"></span><span data-i18n="nav.log">Today</span></button>
+    <button data-view="stats"><span class="nav__icon" data-i="stats"></span><span data-i18n="nav.stats">Progress</span></button>
     <button data-view="history"><span class="nav__icon" data-i="history"></span><span data-i18n="nav.history">History</span></button>
     <button data-view="program"><span class="nav__icon" data-i="program"></span><span data-i18n="nav.program">Program</span></button>
-    <button data-view="settings"><span class="nav__icon" data-i="settings"></span><span data-i18n="nav.settings">Settings</span></button>
   </nav>
 
   <div id="glossary" class="glossary hidden" role="dialog" data-i18n-aria="dialog.glossary.aria" aria-label="Definition">
@@ -264,7 +428,11 @@
     <p class="glossary__body"></p>
   </div>
   <div id="blockReview" class="blockreview hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.block_review.aria" aria-label="Block review">
-    <p class="blockreview__title" data-i18n="dialog.block_review.title">Block review</p>
+    <div class="blockreview__head">
+      <button type="button" class="back-link" id="blockReviewClose" data-i18n="dialog.block_review.close">Close</button>
+      <div class="blockreview__head-title" data-i18n="dialog.block_review.title">Block review</div>
+      <div></div>
+    </div>
     <div id="blockReviewBody" class="blockreview__body"></div>
     <div class="blockreview__actions">
       <button type="button" class="btn btn--steel blockreview__act" data-strategy="repeat" data-i18n="dialog.block_review.repeat">Repeat same program</button>
@@ -272,9 +440,6 @@
       <button type="button" class="btn btn--steel blockreview__act" data-strategy="increase_volume" data-i18n="dialog.block_review.increase_volume">Increase volume</button>
       <button type="button" class="btn btn--steel blockreview__act" data-strategy="reduce_volume" data-i18n="dialog.block_review.reduce_volume">Reduce volume</button>
       <button type="button" class="btn btn--steel blockreview__act" data-strategy="onboarding" data-i18n="dialog.block_review.onboarding">Start from onboarding again</button>
-    </div>
-    <div class="btnrow">
-      <button type="button" id="blockReviewClose" class="btn btn--forge" data-i18n="dialog.block_review.close">Close</button>
     </div>
   </div>
   <div id="importChoice" class="importchoice hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
