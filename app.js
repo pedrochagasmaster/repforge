@@ -1026,7 +1026,12 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       lastEl.innerHTML=`<span class="today-footer__icon" aria-hidden="true">⏱</span>${esc(n===0?t("today.last_trained_today"):n===1?t("today.last_trained_one"):t("today.last_trained",{n}))}`}
     else lastEl.innerHTML=""}
   const lc=$("#logContext");if(lc){const nm2=state.programMeta?.name,mc2=mesocycleWeek();
-    lc.textContent=nm2||mc2.current!=null?(mc2.current!=null?t("log.context.program_week",{name:nm2||t("untitled_program"),n:mc2.current,total:mc2.total}):(nm2||t("untitled_program"))):t("log.context.today")}
+    const hasCtx=!!(nm2||mc2.current!=null);
+    lc.textContent=hasCtx?(mc2.current!=null?t("log.context.program_week",{name:nm2||t("untitled_program"),n:mc2.current,total:mc2.total}):(nm2||t("untitled_program"))):t("log.context.today");
+    lc.classList.toggle("hidden",!hasCtx)}
+  // Program strip also jumps to Progress → Review (legacy #logContext affordance).
+  const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
+    progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
   const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=day;
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();woSub.textContent=mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
