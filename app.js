@@ -1028,8 +1028,9 @@ function focusDragStart(e){
   if(focusFlinging||!workoutActive||logMode!=="focus")return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
   const el=e.target instanceof Element?e.target:null;
-  // Steppers, inputs and links own their own gestures.
-  if(el&&el.closest("input,select,textarea,button,a,label,.exnote"))return;
+  // Fields keep their caret; every other part of the card is draggable, with the
+  // click that follows a real drag swallowed so buttons don't also fire.
+  if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
   const card=focusCard();if(!card)return;
   focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card}}
 function focusDragMove(e){
@@ -1044,10 +1045,15 @@ function focusDragMove(e){
   focusDrag.dx=blocked?mx*.28:mx;
   focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`;
   focusDrag.card.style.opacity=String(Math.max(.5,1-Math.abs(focusDrag.dx)/520))}
+function swallowNextClick(){
+  const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
+  document.addEventListener("click",stop,{capture:true,once:true});
+  setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
   const{card,dx,axis}=focusDrag;focusDrag=null;
   if(axis!=="x")return;
+  if(Math.abs(dx)>8)swallowNextClick();
   card.classList.remove("is-dragging");
   const dir=dx<0?1:-1,width=card.offsetWidth||320;
   const past=Math.abs(dx)>=Math.min(130,Math.max(60,width*.25));
