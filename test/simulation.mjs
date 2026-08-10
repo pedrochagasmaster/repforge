@@ -1160,7 +1160,8 @@ async function main() {
   await selectDay(page, "Push Day");
   const recText = await page.locator("#workout .exercise").first().locator(".recblock").textContent();
   const hasAddLoad =
-    recText.includes("Add load") || recText.includes("Add load ++") || recText.includes("Target");
+    /Add load|Add weight|Hold \d/i.test(recText) ||
+    (await page.locator("#workout .exercise").first().getAttribute("class") || "").includes("is-add");
   assert(
     hasAddLoad,
     "Recommendation reacts to settings + history",
@@ -2149,6 +2150,8 @@ async function main() {
       });
       await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
       await reloadApp(page);
+      await nav(page, "log");
+      await selectDay(page, "Day 1");
       const newSetReps = +(await page.inputValue(`[data-k="${dynEx.id}_3_reps"]`));
       assert(
         newSetReps === min,
