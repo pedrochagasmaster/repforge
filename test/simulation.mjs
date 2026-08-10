@@ -336,20 +336,31 @@ async function waitForSetting(page, path, value) {
 }
 
 async function getExerciseMeta(page, day) {
-  await selectDay(page, day);
+  // Avoid selectDay when already on this workout day — selectDay forces List mode
+  // and would wipe Focus mode mid-check.
+  const needSelect = await page.evaluate((d) => {
+    if (!document.body.classList.contains("is-workout")) return true;
+    const tab = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
+    return !(tab && tab.classList.contains("active"));
+  }, day);
+  if (needSelect) await selectDay(page, day);
   return page.evaluate(() =>
     [...document.querySelectorAll("#workout .exercise")].map((article) => {
       const meta = article.querySelector(".ex__meta")?.textContent || "";
       const range = meta.match(/×(\d+)-(\d+)/);
       const setsMatch = meta.match(/^(\d+)×/);
       let id = null;
+      let setCount = 0;
       article.querySelectorAll("input[data-k]").forEach((inp) => {
-        const m = inp.dataset.k.match(/^(.+)_\d+_/);
-        if (m) id = m[1];
+        const m = inp.dataset.k.match(/^(.+)_(\d+)_/);
+        if (m) {
+          id = m[1];
+          setCount = Math.max(setCount, +m[2]);
+        }
       });
       return {
         id,
-        sets: setsMatch ? +setsMatch[1] : 2,
+        sets: setsMatch ? +setsMatch[1] : setCount || 2,
         min: range ? +range[1] : 4,
         max: range ? +range[2] : 8,
       };

@@ -1019,8 +1019,10 @@ function updateWorkoutDock(){
 }
 function enterWorkout(opts={}){setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
-  if(opts.focus){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
+  if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
+  else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active");$("#commandBarWrap")?.classList.remove("is-hidden")}
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
+  if(logMode==="focus")$("#commandBarWrap")?.classList.add("is-hidden");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
 function leaveWorkout(){setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
