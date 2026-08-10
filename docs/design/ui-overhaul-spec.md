@@ -10,6 +10,23 @@ logic, data model, storage keys, i18n coverage (EN + PT), offline support, and t
 survive. No new runtime dependencies, no build step, no framework — this stays a
 hand-written static PWA (`index.html`, `styles.css`, `app.js`, `i18n.js`, `sw.js`).
 
+## 0. Amendments after phone testing
+
+These override the sections below where they conflict.
+
+- **Focus-mode dock is navigation only.** It holds "Previous exercise" / "Next exercise";
+  nothing else. Logging happens on a "Log set" button attached to the current set, and
+  Finish workout only appears once every set of the session is logged, so a finished
+  exercise can no longer end the session by accident.
+- **One rest timer for both modes.** The floating `#restBar` is the only rest surface;
+  Focus mode offsets it above the dock (dock height measured at render time) instead of
+  rendering its own chip. The ⏱ starter lives in each exercise header in both modes.
+- **The workout ⋯ menu is a popover.** It closes on any choice inside it, on an outside
+  tap, and on Escape — iOS never delivers the focus loss a hover-era menu relied on.
+- **No free-text quick entry.** The typed command bar is removed from the UI. Set-command
+  parsing stays and backs voice input, which lives in the ⋯ menu and applies a spoken set
+  directly (`applyCommandText`).
+
 ## 1. Design language
 
 The current "dark forge" theme (dark blue-black, ember gradients, condensed display font,
