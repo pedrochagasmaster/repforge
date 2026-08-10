@@ -1342,15 +1342,16 @@ function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
       `<span class="vrow__num">${fmt(r.completed7)} / ${fmt(r.planned)}</span>`+
       `<span class="vrow__status${on?" is-on":""}">${esc(below?t("stats.volume_below"):t("stats.volume_on_target"))}</span></div>`}).join("")
     :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`}
-function renderReadyList(){const el=$("#attention");if(!el)return;
+function renderReadyList(){const el=$("#readyList");if(!el)return;
   const add=attentionGroups().find(g=>g.key==="add");
   if(!add?.items.length){el.innerHTML="";return}
   el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}</p>`+
-    add.items.map(({ex,why})=>{const r=recommendation(ex);const delta=r.load!=null&&last(ex)[0]?r.load-(last(ex).find(s=>s.set===1)?.load||last(ex)[0].load):null;
+    add.items.map(({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
+      const delta=r.load!=null&&base!=null?r.load-base:null;
       const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
       return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
         `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)} ›</span></button>`}).join("");
-  $$("#attention [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"))}
+  $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"))}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
   const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
@@ -1374,7 +1375,7 @@ function renderStats(){
       `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
       `<button type="button" class="btn btn--forge" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
     const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#attention","#metrics","#statsDeep"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+    for(const sel of["#thisWeek","#readyList","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
   renderReadyList();
@@ -1416,7 +1417,7 @@ function renderStats(){
     if(!cur||ld>cur.load||(ld===cur.load&&+x.reps>+cur.reps))topByLift.set(k,{Exercise:displayName(x),load:ld,reps:x.reps,rir:x.rir,date:x.date})}
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({[t("stats.table.exercise")]:r.Exercise,[unitLabel()]:fmtLoad(r.load),[t("stats.table.reps")]:r.reps,[t("stats.table.rir")]:fmt(r.rir),[t("stats.table.date")]:r.date}));
   $("#tops").innerHTML=table(progRows);
-  renderPRs();renderCompleted();renderReview();
+  renderPRs();renderAttention();renderCompleted();renderReview();
   if(statsSeg==="strength")renderStrengthDash();
   if(statsSeg==="volume")renderVolumeDash();
   if(statsSeg==="prs")renderPRTimeline();

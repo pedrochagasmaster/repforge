@@ -151,10 +151,10 @@ console.log("\nNotification surfaces");
 // ---------------------------------------------------------------------------
 {
   const { context, page } = await freshPage(browser);
-  await page.click('nav button[data-view="settings"]');
-  await page.waitForSelector("#notifyEnabled", { state: "visible" });
+  await page.click('#openSettings'); await page.waitForSelector('#settings.view.active');
+  await page.waitForSelector("#notifyEnabled");
 
-  await page.check("#notifyEnabled");
+  await page.locator("#notifyEnabled").check({ force: true });
   // Let the master-toggle save (and its async IDB write) finish before changing
   // a type flag — rapid back-to-back commits can race on IndexedDB.
   await page.waitForFunction(async () => {
@@ -202,8 +202,8 @@ console.log("\nNotification surfaces");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.click('nav button[data-view="settings"]');
-  await page.waitForSelector("#notifyEnabled", { state: "visible" });
+  await page.click('#openSettings'); await page.waitForSelector('#settings.view.active');
+  await page.waitForSelector("#notifyEnabled");
 
   const checks = await page.evaluate(() => ({
     enabled: document.querySelector("#notifyEnabled")?.checked,
