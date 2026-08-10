@@ -1924,6 +1924,22 @@ async function main() {
       "Easy set 1 → highlighted 'nudged up' note"
     );
 
+    // Editing a still-committed set must immediately recompute later suggestions.
+    await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(Math.max(1, min - 2)));
+    await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "0");
+    await page.waitForTimeout(120);
+    const dynEditedLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
+    const dynEditedNote = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      dynEditedLoad2 < dynBaseLoad2 && /fell short|eased/i.test(dynEditedNote || ""),
+      "Editing a committed set refreshes its later load suggestion and note",
+      `base2=${dynBaseLoad2} now=${dynEditedLoad2} note="${dynEditedNote}"`,
+      "Save an easy set, then edit it below range → set 2 changes from up to down"
+    );
+
     // In-session: short set 1 (below min reps) eases set 2 DOWN.
     const beforePortuguese = await getState(page);
     await persistState(page, {
@@ -1997,6 +2013,109 @@ async function main() {
       "Falling block trend tempers a bold double jump to one load step",
       JSON.stringify(tempered),
       "Seed falling e1RM trend + easy top-range latest session → Add load, not Add load ++"
+    );
+
+    // Block direction follows best-set e1RM, matching the rest of the app.
+    const mkMixedSess = (date, heavyReps, backoffLoad, tag) => {
+      const session = `${date}_Day 1_dyn_${tag}`;
+      const created = new Date(`${date}T12:00:00Z`).toISOString();
+      return Array.from({ length: sets }, (_, i) => ({
+        session, date, day: "Day 1", name: dynEx.name, exerciseId: dynEx.id,
+        set: i + 1, load: i === 0 ? 100 : backoffLoad,
+        reps: i === 0 ? Math.min(max, heavyReps) : max, rir: 1, notes: "", created,
+        primary: dynEx.primary, secondary: dynEx.secondary,
+      }));
+    };
+    const bestSetRisingLog = [
+      ...mkMixedSess(dISO(21), min, 80, "best1"),
+      ...mkMixedSess(dISO(14), min + 1, 75, "best2"),
+      ...mkMixedSess(dISO(7), min + 2, 70, "best3"),
+    ];
+    const beforeBestSetTrend = await getState(page);
+    await persistState(page, {
+      ...beforeBestSetTrend,
+      programMeta: { ...beforeBestSetTrend.programMeta, started: dISO(28) },
+      log: bestSetRisingLog,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    const bestSetTrend = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      return window.__repforgeRecommendation?.(ex)?.block;
+    }, dynEx.id);
+    assert(
+      bestSetTrend?.dir === "rising",
+      "Block trend uses each session's best-set e1RM",
+      JSON.stringify(bestSetTrend),
+      "Seed rising best-set e1RM with falling back-off loads → trend remains rising"
+    );
+
+    const noBlockState = await getState(page);
+    await persistState(page, {
+      ...noBlockState,
+      programMeta: { ...noBlockState.programMeta, started: null },
+    });
+    await reloadApp(page);
+    const noBlockTrend = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      return window.__repforgeRecommendation?.(ex)?.block;
+    }, dynEx.id);
+    assert(
+      noBlockTrend?.dir == null && noBlockTrend?.sessions === 0,
+      "No block start disables lifetime-history trend tempering",
+      JSON.stringify(noBlockTrend),
+      "Clear program start date → recommendation has no block trend"
+    );
+
+    if (sets >= 3) {
+      const partialHistoryState = await getState(page);
+      await persistState(page, {
+        ...partialHistoryState,
+        programMeta: { ...partialHistoryState.programMeta, started: dISO(28) },
+        log: dynLog.filter((row) => row.set <= 2),
+      });
+      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await reloadApp(page);
+      const newSetReps = +(await page.inputValue(`[data-k="${dynEx.id}_3_reps"]`));
+      assert(
+        newSetReps === min,
+        "A newly added set without prior history starts at the range minimum",
+        `set3 reps=${newSetReps} expected=${min}`,
+        "History has two sets, program has three → third set does not invent last reps + 1"
+      );
+    }
+
+    // Saving out of order must preserve an edited earlier row and explain set 3.
+    const beforeOutOfOrder = await getState(page);
+    await persistState(page, {
+      ...beforeOutOfOrder,
+      settings: { ...beforeOutOfOrder.settings, lang: "en" },
+      programMeta: { ...beforeOutOfOrder.programMeta, started: dISO(28) },
+      log: dynLog,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await page.fill(`[data-k="${dynEx.id}_1_load"]`, "109");
+    await page.fill(`[data-k="${dynEx.id}_2_load"]`, "110");
+    await page.fill(`[data-k="${dynEx.id}_2_reps"]`, String(max));
+    await page.fill(`[data-k="${dynEx.id}_2_rir"]`, "3");
+    await page.click(`.saveset[data-save="${dynEx.id}_2"]`);
+    await page.waitForTimeout(120);
+    const preservedSet1 = +(await page.inputValue(`[data-k="${dynEx.id}_1_load"]`));
+    const adjustedSet3 = +(await page.inputValue(`[data-k="${dynEx.id}_3_load"]`));
+    const outOfOrderNote = await page
+      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      preservedSet1 === 109 && adjustedSet3 > 110 && /set 3/i.test(outOfOrderNote || ""),
+      "Out-of-order save preserves touched rows and explains the next adjusted set",
+      `set1=${preservedSet1} set3=${adjustedSet3} note="${outOfOrderNote}"`,
+      "Edit set 1, save easy set 2 → set 1 stays edited; set 3 nudges up with note"
     );
   }
 
@@ -4063,10 +4182,11 @@ async function main() {
     `Draft notes: ${JSON.stringify(noteDraft)}`,
     "Log tab → exercise card → Note → type"
   );
+  const noteSessionsBeforeSave = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
   const noteState = await getState(page);
   const savedNoteRows = noteState.log.filter(
-    (r) => r.exerciseId === noteEx.id && r.date === "2026-02-02"
+    (r) => r.exerciseId === noteEx.id && !noteSessionsBeforeSave.has(r.session)
   );
   assert(
     savedNoteRows.length > 0 && savedNoteRows.every((r) => r.exNote === NOTE_TEXT),

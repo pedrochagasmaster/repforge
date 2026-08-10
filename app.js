@@ -500,7 +500,8 @@ function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
     const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
   return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
-    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
+    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
+    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
     .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
 function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex),m=new Map();
   for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
@@ -660,7 +661,8 @@ function sessionsFor(ex){const match=matchLift(ex),m=new Map();
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
     const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
-    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),avgRir:avg(o.rirs)}))
+    med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
+    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
     .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
 const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
 function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
@@ -758,9 +760,10 @@ function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
 // sessions inside the current block. Only tempers aggressiveness / rep targets.
 function blockTrendFor(sess){
   const started=state.programMeta?.started;
-  const block=started?sess.filter(s=>String(s.date)>=started):sess;
+  if(!started)return{dir:null,sessions:0};
+  const block=sess.filter(s=>String(s.date)>=started);
   if(block.length<3)return{dir:null,sessions:block.length};
-  const values=block.map(s=>e1rm(s.med,s.medReps));
+  const values=block.map(s=>s.bestE1rm);
   if(values.some(v=>!(v>0)))return{dir:null,sessions:block.length};
   const xMean=(values.length-1)/2,yMean=avg(values);
   let covariance=0,variance=0;
@@ -803,7 +806,8 @@ function recommendation(ex){
 // (double progression), capped at the range top. Hold · recover keeps the prior target.
 function baseSetReps(ex,rec,old){
   if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce")return ex.min;
-  const prev=old&&+old.reps>0?+old.reps:ex.min;
+  const prev=old&&+old.reps>0?+old.reps:null;
+  if(prev==null)return ex.min;
   if(!rec.pushReps)return Math.max(ex.min,Math.min(ex.max,prev));
   return Math.max(ex.min,Math.min(ex.max,prev+1))}
 // Per-set load + reps suggestion, layering three signals:
@@ -832,13 +836,13 @@ function setSuggestion(ex,n,rec,draft,old){
 // One-line summary of how the current session is steering the next unlogged set.
 function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
-  let nextN=null;for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
-    if(!done.has(key)&&!warm.has(key)&&!changed.has(key)){nextN=n;break}}
-  if(nextN==null)return"";
-  const sg=setSuggestion(ex,nextN,recommendation(ex),draft,null),u=unitLabel();
-  if(sg.src==="session-up")return t("log.insession.up",{set:nextN,load:fmtLoad(sg.load),unit:u});
-  if(sg.src==="session-down")return t("log.insession.down",{set:nextN,load:fmtLoad(sg.load),unit:u});
-  if(sg.src==="session-hold")return t("log.insession.hold",{set:nextN,load:fmtLoad(sg.load),unit:u,reps:sg.reps});
+  const rec=recommendation(ex),u=unitLabel();
+  for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+    if(done.has(key)||warm.has(key)||changed.has(key))continue;
+    const sg=setSuggestion(ex,n,rec,draft,null);
+    if(sg.src==="session-up")return t("log.insession.up",{set:n,load:fmtLoad(sg.load),unit:u});
+    if(sg.src==="session-down")return t("log.insession.down",{set:n,load:fmtLoad(sg.load),unit:u});
+    if(sg.src==="session-hold")return t("log.insession.hold",{set:n,load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
   return""}
 // After a set is committed, re-apply suggestions to still-untouched later sets.
 function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
@@ -1022,6 +1026,10 @@ function renderWorkout(){
 function updateNextMarker(art){if(!art)return;let found=false;
   art.querySelectorAll(".setrow").forEach(r=>{const on=!found&&!r.classList.contains("is-done");if(on)found=true;
     r.classList.toggle("is-next",on)})}
+function refreshAfterCommittedEdit(row){
+  if(!row?.dataset.set||!committed.has(row.dataset.set))return;
+  const exId=row.closest(".exercise")?.dataset.ex;
+  if(exId)refreshSuggestions(exId)}
 
 function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
   const ex=prog.find(exId);if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
@@ -1053,7 +1061,8 @@ function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();
-    const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1])};
+    const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1]);
+    refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
@@ -1076,7 +1085,7 @@ function bindWorkout(){
     inp.value=fmt(toDisplay(nextKg));
     const row=inp.closest(".setrow");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
-    saveDraft();updateSaveMeta()});
+    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
   $$("#workout .copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
     const d=loadDraft();
     for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
@@ -1100,7 +1109,7 @@ function bindWorkout(){
     b.closest(".effort")?.querySelectorAll(".effort__btn").forEach(x=>x.classList.remove("active"));
     b.classList.add("active");touched.add(key);
     const row=b.closest(".setrow");if(row)row.classList.remove("is-suggested");
-    saveDraft();updateSaveMeta()});
+    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
   $$("#workout .exnote__toggle").forEach(b=>b.onclick=()=>{const wrap=b.closest(".exnote"),ta=wrap?.querySelector(".exnote__input");if(!ta)return;
     const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
     wrap.classList.toggle("is-open",open);
