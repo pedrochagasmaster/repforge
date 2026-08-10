@@ -1969,14 +1969,15 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const segs=mc.total||6,cur=mc.current||0;
   const started=meta.started?(()=>{const d=new Date(`${meta.started}T12:00:00`);return t("program.started_on",{date:`${d.getDate()} ${t("month_short."+d.getMonth())}`})})():"";
   let daysHtml=`<p class="section-label">${esc(t("program.training_days"))}</p>`;
-  const openDays=new Set(uiPrefs.overviewOpenDays||[]);
-  if(!openDays.size&&ds.length)openDays.add(ds[0]);
+  // A saved array — including an empty one — means the user picked; only an absent pref falls back to the first day.
+  const saved=Array.isArray(uiPrefs.overviewOpenDays)?uiPrefs.overviewOpenDays.filter(x=>typeof x==="string"):null;
+  const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
   for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
-    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}"><div>`+
+    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" aria-expanded="${open?"true":"false"}"><div>`+
       `<div class="prog-day__title">${esc(d)}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
       `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
     if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
-      `<button type="button" class="link-row-cta" data-exopen="${esc(exs[0]?.id||"")}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
+      `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
     daysHtml+=`</div>`}
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
@@ -1994,13 +1995,17 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
     `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
-    const cur=new Set(uiPrefs.overviewOpenDays||[]);
-    if(!(uiPrefs.overviewOpenDays||[]).length&&ds[0])cur.add(ds[0]);
+    const cur=new Set(openDays);
     cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);
-    setUiPref("overviewOpenDays",[...cur]);renderProgramOverview()});
+    setUiPref("overviewOpenDays",[...cur].filter(x=>ds.includes(x)));renderProgramOverview()});
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
+  $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
+
+function openDayInEditor(d){if(!d||!prog.days().includes(d))return;
+  setDayCollapsed(d,false);programEditMode=true;renderProgram();
+  $(`#programEditor .pday[data-day="${CSS.escape(d)}"]`)?.scrollIntoView({behavior:"smooth",block:"start"})}
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
