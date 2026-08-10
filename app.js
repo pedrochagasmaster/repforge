@@ -1332,6 +1332,7 @@ function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySn
   const withHist=prog.exercises.filter(e=>sessionsFor(e).length).length;
   const flatGuess=Math.max(0,withHist-w.improvedLifts-(attnN||0)-(w.readyToAdd||0));
   el.innerHTML=`<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
+    `<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
     `<div class="statrow">`+
     `<div class="statrow__cell"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${flatGuess}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
