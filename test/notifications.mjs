@@ -77,7 +77,8 @@ async function persistState(page, state) {
 
 async function freshPage(browser) {
   const context = await browser.newContext();
-  await context.grantPermissions(["notifications"], { origin: "http://localhost:8000" });
+  const origin = new URL(BASE).origin;
+  await context.grantPermissions(["notifications"], { origin });
   const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
@@ -150,10 +151,10 @@ console.log("\nNotification surfaces");
 // ---------------------------------------------------------------------------
 {
   const { context, page } = await freshPage(browser);
-  await page.click('nav button[data-view="settings"]');
-  await page.waitForSelector("#notifyEnabled", { state: "visible" });
+  await page.click('#openSettings'); await page.waitForSelector('#settings.view.active');
+  await page.waitForSelector("#notifyEnabled");
 
-  await page.check("#notifyEnabled");
+  await page.locator("#notifyToggle").click();
   // Let the master-toggle save (and its async IDB write) finish before changing
   // a type flag — rapid back-to-back commits can race on IndexedDB.
   await page.waitForFunction(async () => {
@@ -176,6 +177,8 @@ console.log("\nNotification surfaces");
       return false;
     }
   });
+  await page.evaluate(() => document.querySelector("#notifyTypes")?.classList.add("is-open"));
+  await page.waitForSelector("#notifyTypes.is-open", { timeout: 3000 });
   await page.uncheck("#notifyMissed");
   await page.waitForFunction(async () => {
     const ls = JSON.parse(localStorage.getItem("repforge_v1") || "{}")?.settings?.notify;
@@ -201,8 +204,8 @@ console.log("\nNotification surfaces");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.click('nav button[data-view="settings"]');
-  await page.waitForSelector("#notifyEnabled", { state: "visible" });
+  await page.click('#openSettings'); await page.waitForSelector('#settings.view.active');
+  await page.waitForSelector("#notifyEnabled");
 
   const checks = await page.evaluate(() => ({
     enabled: document.querySelector("#notifyEnabled")?.checked,

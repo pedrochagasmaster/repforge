@@ -29,8 +29,15 @@ function syncLang(){if(!I18N)return;I18N.setLang(state?.settings?.lang||I18N.det
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
-const fmt=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
-const kfmt=v=>{const n=Number(v)||0;return n>=10000?(n/1000).toFixed(n>=100000?0:1).replace(/\.0$/,"")+"k":String(Math.round(n))};
+const fmtPlain=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
+const uiLang=()=>state?.settings?.lang||(typeof I18N!=="undefined"&&I18N?.getLang?.())||"en";
+const isPt=()=>uiLang()==="pt";
+const locTag=()=>isPt()?"pt-BR":"en-US";
+/** Locale-aware display number (PT decimal comma). Not for input values. */
+const fmt=v=>{const s=fmtPlain(v);if(!s)return"";return isPt()?s.replace(".",","):s};
+const kfmt=v=>{const n=Number(v)||0;
+  if(n>=10000){const raw=(n/1000).toFixed(n>=100000?0:1).replace(/\.0$/,"");return (isPt()?raw.replace(".",","):raw)+"k"}
+  try{return Math.round(n).toLocaleString(locTag())}catch{return String(Math.round(n))}};
 const plural=(n,word)=>`${word}${+n===1?"":"s"}`;
 const avg=a=>a.length?a.reduce((s,x)=>s+Number(x||0),0)/a.length:0;
 const median=a=>{if(!a.length)return 0;const s=[...a].map(Number).sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
@@ -44,7 +51,9 @@ function sessionsInRange(start,end){const ids=new Set();for(const x of state.log
 window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
-const shortDate=d=>{const p=String(d||"").split("-");return p.length===3?`${+p[1]}/${+p[2]}`:String(d||"")};
+const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
+  const day=+p[2],mon=t("month_short."+(+p[1]-1));
+  return isPt()?`${day} ${mon}`:`${mon} ${day}`};
 const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
@@ -80,6 +89,7 @@ const toDisplay=kg=>toDisplayUnit(kg,state.settings.unit);
 const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
 const unitLabel=()=>isLb()?"lb":"kg";
 const fmtLoad=kg=>fmt(toDisplay(kg));
+const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
 function clearDraft(){
   localStorage.removeItem(DRAFT);
@@ -97,7 +107,7 @@ function convertDraftUnits(oldUnit,newUnit){
     if(k.startsWith("__")||!k.endsWith("_load"))continue;
     const v=d[k];if(v===""||v==null)continue;
     const n=parseDec(v);if(!Number.isFinite(n))continue;
-    d[k]=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
+    d[k]=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
   if(changed)localStorage.setItem(DRAFT,JSON.stringify(d))}
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
@@ -409,6 +419,7 @@ const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let exView=null;
+let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -579,12 +590,47 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p></div>`+
     `<p class="review__summary">${esc(summary)}</p>`}
 function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
+  const meta=state.programMeta||{},started=meta.started?new Date(`${meta.started}T12:00:00`):null;
+  const end=new Date(`${today()}T12:00:00`);
+  const range=started?`${started.getDate()} ${t("month_short."+started.getMonth())} – ${end.getDate()} ${t("month_short."+end.getMonth())}`:"";
+  const weeks=meta.mesocycleLengthWeeks||6;
+  const recKey=review.recommendation||"repeat_with_small_swaps";
+  const strategies=[
+    {id:"repeat_swaps",title:t("dialog.block_review.repeat_swaps"),cap:t("block_strategy.repeat_swaps.cap")},
+    {id:"repeat",title:t("dialog.block_review.repeat"),cap:t("block_strategy.repeat.cap")},
+    {id:"increase_volume",title:t("dialog.block_review.increase_volume"),cap:t("block_strategy.increase_volume.cap")},
+    {id:"reduce_volume",title:t("dialog.block_review.reduce_volume"),cap:t("block_strategy.reduce_volume.cap")},
+    {id:"onboarding",title:t("dialog.block_review.onboarding"),cap:t("block_strategy.onboarding.cap")},
+  ];
+  const recStrategy=REC_STRATEGY[recKey]||"repeat_swaps";
   $("#blockReviewBody").innerHTML=
-    `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:review.completedSessions,planned:review.plannedSessions}))}</p>`+
-    `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:review.improvedLifts,flat:review.flatLifts,stalled:review.stalledLifts}))}</p>`+
-    `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
-    `<p class="blockreview__rec">${esc(copy.line)}</p>`+
-    `<p class="blockreview__why"><b>${esc(t("review.why"))}</b> ${esc(copy.why)}</p>`}
+    `<p class="blockreview__prog">${esc(meta.name||t("untitled_program"))}</p>`+
+    `<h2 class="blockreview__hero">${esc(t("dialog.block_review.completed"))}</h2>`+
+    `<p class="blockreview__range">${esc(t("dialog.block_review.range",{weeks,range}))}</p>`+
+    `<div class="blockreview__adherence"><span>${esc(t("review.sessions_completed",{done:review.completedSessions,planned:review.plannedSessions}))}</span><span>${pct}%</span></div>`+
+    `<div class="blockreview__bar"><span style="width:${pct}%"></span><i class="blockreview__bar-knob" style="left:${pct}%"></i></div>`+
+    `<div class="statrow statrow--4">`+
+    `<div class="statrow__cell"><div class="statrow__val">${review.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
+    `<div class="statrow__cell"><div class="statrow__val">${review.flatLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
+    `<div class="statrow__cell"><div class="statrow__val">${review.stalledLifts}</div><div class="statrow__cap">${esc(t("block_review.stalled"))}</div></div>`+
+    `<div class="statrow__cell"><div class="statrow__val">${pct}%</div><div class="statrow__cap">${esc(t("block_review.volume"))}</div></div></div>`+
+    `<div class="recblock"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
+    `<div class="recblock__head">${esc(copy.line)}</div>`+
+    `<p class="recblock__body"><span class="recblock__why-lab">${esc(t("review.why"))}</span> ${esc(copy.why)}</p>`+
+    `<button type="button" class="text-link" id="blockSeeAnalysis">${esc(t("block_review.see_analysis"))}</button></div>`+
+    `<p class="section-label">${esc(t("block_review.next_block"))}</p>`+
+    `<div id="blockStrategies">${strategies.map(s=>`<button type="button" class="radio-card blockreview__act${s.id===recStrategy?" is-selected is-recommended":""}" data-strategy="${s.id}">`+
+      `<span class="radio-card__body"><span class="radio-card__title">${esc(s.title)}${s.id===recStrategy?` <span class="tag-rec">${esc(t("aria.recommended"))}</span>`:""}</span>`+
+      `<span class="radio-card__cap">${esc(s.cap)}</span></span><span class="radio-card__mark"></span></button>`).join("")}</div>`+
+    `<p class="blockreview__lock">🔒 ${esc(t("block_review.preserved"))}</p>`+
+    `<div class="blockreview__sticky"><button type="button" class="btn btn--cta" id="blockStartNext">${esc(t("block_review.start_next"))}</button>`+
+    `<button type="button" class="text-link text-link--center text-link--accent" id="blockDecideLater">${esc(t("block_review.decide_later"))}</button></div>`;
+  let selected=recStrategy;
+  $$("#blockStrategies .blockreview__act").forEach(b=>b.onclick=()=>{selected=b.dataset.strategy;
+    $$("#blockStrategies .blockreview__act").forEach(x=>x.classList.toggle("is-selected",x===b))});
+  $("#blockStartNext").onclick=()=>finishBlockAndStart(selected);
+  $("#blockDecideLater").onclick=closeBlockReview;
+  const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{closeBlockReview();navTo("stats");setStatsSeg("review")}}
 let blockReviewCurrent=null;
 function closeBlockReview(){const d=$("#blockReview");if(d)d.classList.add("hidden")}
 function completeCurrentProgram(review){
@@ -612,10 +658,7 @@ function startNextMesocycle(strategy){
 function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
   completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
 function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  const rec=REC_STRATEGY[review.recommendation];
-  $$(".blockreview__act").forEach(b=>{const on=b.dataset.strategy===rec;b.classList.toggle("is-recommended",on);b.setAttribute("aria-description",on?t("aria.recommended"):"")});
-  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview;
-  $$(".blockreview__act").forEach(b=>b.onclick=()=>finishBlockAndStart(b.dataset.strategy))}
+  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview}
 function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
   d.classList.remove("hidden");
   $("#endBlockGo").onclick=()=>{d.classList.add("hidden");openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))};
@@ -741,7 +784,7 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   if(lbl){for(const n of [...lbl.childNodes])if(n.nodeType===3)n.remove();
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
-function setLogMode(m){logMode=m;focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");renderWorkout()}
+function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");if(m==="focus")$("#commandBarWrap")?.classList.add("is-hidden");else $("#commandBarWrap")?.classList.remove("is-hidden");renderWorkout()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   day=ex.day;
@@ -749,7 +792,11 @@ function goToLogExercise(exId){
     const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
     focusIndex=idx>=0?idx:0;
   }
-  $('nav button[data-view="log"]').click();
+  const logBtn=$('nav button[data-view="log"]');
+  if(logBtn){$$("nav button").forEach(x=>{const on=x===logBtn;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")})}
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
+  document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+  enterWorkout({});
   const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
@@ -850,7 +897,7 @@ function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
     if(committed.has(key)||touched.has(key)||warmups.has(key))continue;
     const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,rec,draft,old);
-    if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoad(sg.load)}
+    if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoadPlain(sg.load)}
     if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}
   saveDraft();updateInSessionNote(exId)}
 function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
@@ -868,17 +915,22 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
     b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;
+    const dt=$("#dockRestTime");if(dt)dt.textContent="0:00";$("#dockRest")?.classList.add("is-done");
     if(restNotified)return;
     restNotified=true;
     if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
     if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
     else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"});
     return}
-  b.querySelector(".restbar__time").textContent=fmtClock(left)}
+  const clock=fmtClock(left);
+  b.querySelector(".restbar__time").textContent=clock;
+  const dt=$("#dockRestTime");if(dt)dt.textContent=clock;$("#dockRest")?.classList.remove("is-done")}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
-  b.querySelector(".restbar__time").textContent=fmtClock(s);clearInterval(restTick);restTick=setInterval(tickRest,250)}
+  const clock=fmtClock(s);b.querySelector(".restbar__time").textContent=clock;
+  const dt=$("#dockRestTime");if(dt)dt.textContent=clock;$("#dockRest")?.classList.remove("is-done");
+  clearInterval(restTick);restTick=setInterval(tickRest,250)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
@@ -924,7 +976,7 @@ function updateSessionBanner(){
   }
 
   el.className=`sessionbanner${isMissed?" is-missed":""}`;
-  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}">✕</button>`+
+  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
     `<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
   el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
   el.onclick=()=>{
@@ -935,14 +987,167 @@ function updateSessionBanner(){
   };
 }
 
-function render(){applyI18n();renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
+function draftHasProgress(){try{const d=JSON.parse(localStorage.getItem(DRAFT)||"{}");
+  if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length)return true;
+  return Object.keys(d).some(k=>/_load$/.test(k)&&parseDec(d[k])>0)}catch{return false}}
+function setWorkoutActive(on){workoutActive=!!on;document.body.classList.toggle("is-workout",workoutActive);
+  const dash=$("#todayDash"),shell=$("#workoutShell");
+  if(dash)dash.classList.toggle("hidden",workoutActive);
+  if(shell)shell.classList.toggle("hidden",!workoutActive);
+  const float=$("#restBar");if(float)float.classList.toggle("restbar--float",!workoutActive);
+  if(!workoutActive){document.body.classList.remove("is-focus-wo");$("#workoutDock")?.classList.add("hidden")}
+  updateWorkoutDock()}
+function updateWorkoutDock(){
+  const dock=$("#workoutDock"),cta=$("#dockLogSet"),chip=$("#dockRest");if(!dock)return;
+  // Sticky dock is Focus-mode chrome (mock 01); List mode keeps the inline Save set buttons.
+  const show=workoutActive&&logMode==="focus";
+  document.body.classList.toggle("is-focus-wo",show);
+  if(!show){dock.classList.add("hidden");cta?.removeAttribute("data-ffinish");return}
+  dock.classList.remove("hidden");
+  if(cta){
+    const nextBtn=$("#workout .exercise.is-current .curset .saveset")||
+      $("#workout .exercise.is-current .setrow.is-next .saveset")||
+      $("#workout .exercise.is-current .setrow:not(.is-done) .saveset");
+    const label=cta.querySelector("span")||cta;
+    label.textContent=nextBtn?t("today.log_set"):t("log.finish");
+    if(nextBtn)cta.removeAttribute("data-ffinish");else cta.setAttribute("data-ffinish","");
+    cta.onclick=()=>{
+      const btn=$("#workout .exercise.is-current .curset .saveset")||
+        $("#workout .exercise.is-current .setrow.is-next .saveset")||
+        $("#workout .exercise.is-current .setrow:not(.is-done) .saveset");
+      if(btn)btn.click();else $("#logForm")?.requestSubmit();
+    };
+  }
+  if(chip){
+    const bar=$("#restBar");
+    const on=bar&&!bar.classList.contains("hidden");
+    chip.classList.toggle("is-done",!!(on&&bar.classList.contains("is-done")));
+    const tEl=$("#dockRestTime"),src=bar?.querySelector(".restbar__time");
+    if(tEl)tEl.textContent=on&&src?src.textContent:fmtClock(+state.settings.restSec||0);
+    chip.onclick=()=>{if(on)stopRest();else startRest(+state.settings.restSec||0)};
+  }
+}
+function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
+  // Focus layout matches mock 01; List remains the default for broad editing/tests.
+  if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
+  else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active");$("#commandBarWrap")?.classList.remove("is-hidden")}
+  document.body.classList.toggle("is-focus-wo",logMode==="focus");
+  if(logMode==="focus")$("#commandBarWrap")?.classList.add("is-hidden");
+  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
+function leaveWorkout(){workoutLeft=true;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
+function dayMuscles(d){const seen=[],exs=exercises(d||day);
+  for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
+  return seen}
+function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN(+d))return iso;
+  try{const s=d.toLocaleDateString(I18N?.speechLang?.()||state.settings.lang||"en",{weekday:"long",day:"numeric",month:"long"});
+    return s?s.charAt(0).toUpperCase()+s.slice(1):s}
+  catch{return iso}}
+function weekdayLetters(){return state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
+function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
+  const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
+  if(progEl){if(nm||mc.current!=null){progEl.classList.remove("hidden");
+    const segs=mc.total||6,cur=mc.current||0;
+    progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
+      (mc.current!=null?`<div class="today-prog__week">${esc(t("today.week_of",{n:mc.current,total:mc.total}))}</div>`:"")+
+      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
+    else{progEl.classList.add("hidden");progEl.innerHTML=""}}
+  const sess=$("#todaySession");if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
+    sess.innerHTML=`<div class="today-session__name">${esc(day)}</div>`+
+      (mus.length?`<div class="today-session__muscles">${esc(mus.join(" · "))}</div>`:"")+
+      `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
+      (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")}
+    const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
+      const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
+      if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}
+  const weekEl=$("#todayWeek");if(weekEl){const w=weeklySnapshot(),{start}=weekRange(today()),letters=weekdayLetters();
+    const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
+    const cells=letters.map((lab,i)=>{const d=new Date(`${start}T12:00:00`);d.setDate(d.getDate()+i);
+      const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+      const isToday=iso===today(),done=trained.has(iso);
+      const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
+      return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
+    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
+  const up=$("#todayUpNext");if(up){const ds=days(),idx=Math.max(0,ds.indexOf(day)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+    if(next){const nEx=exercises(next).length;
+      up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(next)}</div>`+
+        `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
+      $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
+    else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
+  const lastEl=$("#todayLast");if(lastEl){const dates=state.log.map(r=>String(r.date)).filter(Boolean).sort();
+    if(dates.length){const lastD=dates.at(-1),n=Math.max(0,Math.round((new Date(`${today()}T12:00:00`)-new Date(`${lastD}T12:00:00`))/86400000));
+      lastEl.innerHTML=`<span class="today-footer__icon" aria-hidden="true">⏱</span>${esc(n===0?t("today.last_trained_today"):n===1?t("today.last_trained_one"):t("today.last_trained",{n}))}`}
+    else lastEl.innerHTML=""}
+  const lc=$("#logContext");if(lc){const nm2=state.programMeta?.name,mc2=mesocycleWeek();
+    const hasCtx=!!(nm2||mc2.current!=null);
+    lc.textContent=hasCtx?(mc2.current!=null?t("log.context.program_week",{name:nm2||t("untitled_program"),n:mc2.current,total:mc2.total}):(nm2||t("untitled_program"))):t("log.context.today");
+    // Kept as a hidden deep-link hook; Today shows the program strip instead.
+    lc.classList.add("hidden")}
+  // Program strip also jumps to Progress → Review (legacy #logContext affordance).
+  const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
+    progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
+  const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=day;
+  const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();woSub.textContent=mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
+}
+
+function render(){applyI18n();
+  // Auto-resume an in-progress session (page reload mid-workout), but never
+  // override an explicit leave — otherwise every tab switch re-hides the nav.
+  if(!workoutActive&&!workoutLeft&&draftHasProgress())workoutActive=true;
+  setWorkoutActive(workoutActive);
+  renderToday();renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
+  updateSessionBanner();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
-  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout()})}
+  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout();renderToday()})}
 
+function setFieldVals(ex,n,r,draft,prev){
+  const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
+  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(old&&old.load!=null?fmtLoadPlain(old.load):""));
+  const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
+  const key=`${ex.id}_${n}`,isW=warmups.has(key);
+  const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
+  const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
+  return{key,isW,kgVal,repsVal,rirVal,effortVal}}
+function setRowHtml(ex,n,r,draft,prev,nextSet,effortMode){
+  const{key,isW,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
+  const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}`;
+  const rirCell=effortMode
+    ?`<div class="effort" role="group" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
+      ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${esc(t("effort."+e))}</button>`).join("")+`</div>`
+    :`<input data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`;
+  return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="${esc(t("log.warmup_title"))}">${isW?"W":n}</button>`+
+    `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
+    `<input data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
+    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div>`+
+    `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
+    rirCell+
+    `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="${esc(t("log.save_set_aria",{n}))}">${committed.has(key)?"✓":esc(t("log.save_set"))}</button></div>`}
+function cursetHtml(ex,n,r,draft,prev,effortMode){
+  const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
+  const rirInner=effortMode
+    ?`<div class="effort" role="group" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
+      ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${esc(t("effort."+e))}</button>`).join("")+`</div>`
+    :`<input class="curset__val" data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`+
+      `<div class="curset__unit">RIR</div><span class="curset__underline" aria-hidden="true"></span>`+
+      `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:"RIR"}))}">−</button>`+
+      `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:"RIR"}))}">+</button></div>`;
+  return `<div class="curset" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div><div class="curset__grid">`+
+    `<div class="curset__cell is-load is-active"><div class="curset__cell-lab is-accent">${esc(t("today.load"))}</div>`+
+    `<input class="curset__val" data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" value="${esc(kgVal)}">`+
+    `<div class="curset__unit">${esc(unitLabel())}</div><span class="curset__underline" aria-hidden="true"></span>`+
+    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
+    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div></div>`+
+    `<div class="curset__cell"><div class="curset__cell-lab">${esc(t("log.reps"))}</div>`+
+    `<input class="curset__val" data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
+    `<div class="curset__unit">${esc(t("log.reps"))}</div><span class="curset__underline" aria-hidden="true"></span>`+
+    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:t("log.reps")}))}">−</button>`+
+    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:t("log.reps")}))}">+</button></div></div>`+
+    `<div class="curset__cell"><div class="curset__cell-lab">${effortMode?esc(term("Effort")):"RIR"}</div>${rirInner}</div></div>`+
+    `<button type="button" class="saveset visually-hidden" data-save="${esc(key)}" aria-label="${esc(t("log.save_set_aria",{n}))}">${esc(t("log.save_set"))}</button></div>`}
 function renderWorkout(){
+  if(!workoutActive){updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null?(mc.current!=null?t("log.context.program_week",{name:nm||t("untitled_program"),n:mc.current,total:mc.total}):(nm||t("untitled_program"))):t("log.context.today")}
   const draft=loadDraft();
@@ -956,36 +1161,34 @@ function renderWorkout(){
   const fl=focusList();
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
-  const wk=$("#workout");wk.classList.toggle("is-focus",logMode==="focus");
+  const at=logMode==="focus"&&fl.length?Math.min(focusIndex,fl.length-1):0;
+  const wk=$("#workout");if(!wk)return;wk.classList.toggle("is-focus",logMode==="focus");
+  if(logMode==="focus"){$("#commandBarWrap")?.classList.add("is-hidden")}
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
-    const deltaHtml=(()=>{const t=deltaPreviewFor(ex,draft);return t?`<div class="delta-prev">${esc(t)}</div>`:""})()
+    const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
     const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
-    const rows=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(x=>x.set===n);
-      const draftKg=draft[`${ex.id}_${n}_load`];
-      const sg=setSuggestion(ex,n,r,draft,old);
-      const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoad(sg.load):(old&&old.load!=null?fmtLoad(old.load):""));
-      const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
-      const key=`${ex.id}_${n}`;
-      const isW=warmups.has(key);
-      const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}`;
-      const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
-      const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmt(old.rir):1);
-      const rirCell=effortMode
-        ?`<div class="effort" role="group" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
-          ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${esc(t("effort."+e))}</button>`).join("")+`</div>`
-        :`<input data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`;
-      return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="${esc(t("log.warmup_title"))}">${isW?"W":n}</button>`+
-        `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
-        `<input data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
-        `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div>`+
-        `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-        rirCell+
-        `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="${esc(t("log.save_set_aria",{n}))}">${committed.has(key)?"✓":esc(t("log.save_set"))}</button></div>`;
-    }).join("");
+    const isFocusCur=logMode==="focus"&&ex.id===curId;
+    const rows=Array.from({length:ex.sets},(_,i)=>{
+      const n=i+1;if(isFocusCur&&n===nextSet&&nextSet)return"";
+      return setRowHtml(ex,n,r,draft,prev,nextSet,effortMode)}).join("");
+    const doneTable=(()=>{
+      if(!isFocusCur)return"";
+      const done=[];for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(!committed.has(key))continue;
+        const{kgVal,repsVal,rirVal}=setFieldVals(ex,n,r,draft,prev);
+        const kgDisp=(()=>{const n=parseDec(kgVal);return Number.isFinite(n)?fmt(n):kgVal})();
+        const rirDisp=(()=>{const n=parseDec(rirVal);return Number.isFinite(n)?fmt(n):rirVal})();
+        done.push(`<div class="settable__row"><span>${n}</span><span>${esc(kgDisp)}</span><span>${esc(repsVal)}</span><span>${esc(rirDisp)}</span><span class="is-check">✓</span></div>`)}
+      if(!done.length)return"";
+      return `<div class="settable"><div class="settable__head"><span>${esc(t("log.set"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("log.reps"))}</span><span>RIR</span><span></span></div>${done.join("")}</div>`})();
+    const curHtml=isFocusCur&&nextSet?cursetHtml(ex,nextSet,r,draft,prev,effortMode):"";
+    const nextEx=isFocusCur&&fl.length&&at<fl.length-1?fl[at+1]:null;
+    const nextHtml=nextEx?`<button type="button" class="focus-next" data-fnext><span class="focus-next__lab">${esc(t("today.up_next_ex"))}</span>`+
+      `<span class="focus-next__main">${esc(nextEx.name)} · ${nextEx.sets} ${esc(tp(nextEx.sets,"set"))}</span><span class="chevron" aria-hidden="true"></span></button>`:"";
+    const finishHtml=isFocusCur&&fl.length&&at>=fl.length-1?`<button type="button" class="visually-hidden" data-ffinish>${esc(t("log.finish"))}</button>`:"";
     const perf=substituted.get(ex.id);
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
@@ -1000,26 +1203,39 @@ function renderWorkout(){
       `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
       ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
       `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>${esc(t("log.substitute.other"))}</option></select></div>`:"";
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${logMode==="focus"&&ex.id===curId?" is-current":""}" data-ex="${esc(ex.id)}">`+
-      `<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
+    const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
+    const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
+      `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
+    const setX=nextSet||ex.sets;
+    const focusHead=isFocusCur?`<p class="focus-ex__muscle">${esc(ex.primary)}</p>`+
+      `<div class="focus-ex__row"><h3 class="focus-ex__name">${nameHtml}</h3>`+
+      `<div class="focus-ex__setof">${esc(t("today.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setX}</b>`)}</div></div>`+
+      `<div class="focus-ex__target-row"><p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)}))}</p>`+
+      `<button type="button" class="icon-btn icon-btn--note" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--note" aria-hidden="true"></span></button></div>`:"";
+    const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · <span class="nowrap">${term("RIR")} 0-${fmt(state.settings.rirHigh)}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}">⏱</button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
-      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}">▾</button></div></div>`+
+      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
+    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${isFocusCur?" is-current":""}" data-ex="${esc(ex.id)}">`+
+      (isFocusCur?focusHead:listHead)+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
-      `<p class="rec">${esc(r.text)}${r.load!==null?` ${t("log.target",{load:fmtLoad(r.load),unit:unitLabel()})}`:""}</p>`+
-      blockHtml+
+      (isFocusCur?doneTable+curHtml:"")+
+      (isFocusCur?"":recBlock)+
       (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
       subPick+
       prevHtml+deltaHtml+sessHtml+
-      `<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}${noteHtml}</article>`;
+      (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`:`<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}`)+
+      (isFocusCur?recBlock:"")+
+      noteHtml+nextHtml+finishHtml+`</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
   updateSessionBanner();
+  updateWorkoutDock();
 }
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
@@ -1058,7 +1274,7 @@ function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x
   localStorage.setItem(DRAFT,JSON.stringify(d))}
 
 function bindWorkout(){
-  $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow");
+  $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow, .curset");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();
     const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1]);
@@ -1068,30 +1284,38 @@ function bindWorkout(){
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
     const load=parseDec($(`[data-k="${key}_load"]`)?.value)||0;
     if(load<=0){toast(t("toast.enter_weight_before_save_set"));return}
-    const row=b.closest(".setrow");
+    const row=b.closest(".setrow, .curset");
     if(committed.has(key)){committed.delete(key)}
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
-      b.textContent=committed.has(key)?"✓":t("log.save_set");updateNextMarker(row.closest(".exercise"))}
+      if(b.classList.contains("visually-hidden")===false)b.textContent=committed.has(key)?"✓":t("log.save_set");
+      updateNextMarker(row.closest(".exercise"))}
     if(committed.has(key))lastCommitAt=Date.now();
     saveDraft();updateSaveMeta();
     const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
-    if(committed.has(key)){startRest();armUnfinishedWatch()}});
+    if(committed.has(key)){startRest();armUnfinishedWatch()}
+    if(logMode==="focus")renderWorkout();
+    else updateWorkoutDock()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
   $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
-    const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
-      nextKg=Math.max(0,Math.round((curKg+incKg*(+b.dataset.dir))/incKg)*incKg);
-    inp.value=fmt(toDisplay(nextKg));
-    const row=inp.closest(".setrow");
+    const key=b.dataset.step||"",dir=+b.dataset.dir||0;
+    if(/_reps$|_rir$/.test(key)){
+      const cur=parseDec(inp.value)||0;inp.value=fmtPlain(Math.max(0,cur+dir));
+    }else{
+      const incKg=parseDec(state.settings.minJump)||2.5,curKg=fromDisplay(inp.value||0),
+        nextKg=Math.max(0,Math.round((curKg+incKg*dir)/incKg)*incKg);
+      inp.value=fmtPlain(toDisplay(nextKg));
+    }
+    const row=inp.closest(".setrow, .curset");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
   $$("#workout .copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
     const d=loadDraft();
     for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
       if(state.settings.rirMode==="effort")d[`${key}_effort`]=+s.rir>=2.5?"easy":+s.rir<=0.5?"max":"hard";
-      for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmt(toDisplay(s.load)):fmt(s[f])}
-      if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmt(s.rir)}}
+      for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmtPlain(toDisplay(s.load)):fmtPlain(s[f])}
+      if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
     localStorage.setItem(DRAFT,JSON.stringify(d));saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
@@ -1108,9 +1332,12 @@ function bindWorkout(){
   $$("#workout .effort__btn").forEach(b=>b.onclick=()=>{const key=b.dataset.eff;
     b.closest(".effort")?.querySelectorAll(".effort__btn").forEach(x=>x.classList.remove("active"));
     b.classList.add("active");touched.add(key);
-    const row=b.closest(".setrow");if(row)row.classList.remove("is-suggested");
+    const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
-  $$("#workout .exnote__toggle").forEach(b=>b.onclick=()=>{const wrap=b.closest(".exnote"),ta=wrap?.querySelector(".exnote__input");if(!ta)return;
+  $$("#workout [data-exnote-toggle]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
+    if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
+    const ta=wrap?.querySelector(".exnote__input");if(!ta)return;
     const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
     wrap.classList.toggle("is-open",open);
     if(open){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}});
@@ -1123,23 +1350,25 @@ function bindWorkout(){
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
   if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
-    const bar=document.createElement("div");bar.className="focusbar";
-    bar.innerHTML=`<button type="button" class="btn btn--steel" data-fprev ${at===0?"disabled":""}>${esc(t("log.focus.prev"))}</button>`+
-      `<span class="focusbar__prog">${esc(t("log.focus.progress",{a:fl.length?at+1:0,b:fl.length}))}</span>`+
-      (fl.length&&at>=fl.length-1?`<button type="button" class="btn btn--forge" data-ffinish>${esc(t("log.finish"))}</button>`:`<button type="button" class="btn btn--forge" data-fnext>${esc(t("log.focus.next"))}</button>`);
-    $("#workout").append(bar);
-    const p=$("[data-fprev]");if(p)p.onclick=()=>{focusIndex=Math.max(0,focusIndex-1);renderWorkout()};
+    const progEl=$("#woProgress");
+    if(progEl){progEl.classList.remove("hidden");
+      progEl.innerHTML=`<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
+        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`}
     const n=$("[data-fnext]");if(n)n.onclick=()=>{focusIndex=Math.min(fl.length-1,focusIndex+1);renderWorkout();window.scrollTo({top:0})};
     const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit()}
+  else{$("#woProgress")?.classList.add("hidden")}
+  updateWorkoutDock();
 }
 
 function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
   const g=$("#heatGauge"),frac=exs.length?hot/exs.length:0;
-  g.querySelector(".gauge__fill").style.width=`${Math.round(frac*100)}%`;
-  g.querySelector(".gauge__label").textContent=hot?t("top.gauge.hot",{n:hot}):t("top.gauge.forge");
-  g.classList.toggle("is-hot",hot>0);
-  g.style.cursor=hot?"pointer":"default";
-  g.onclick=hot?()=>{const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null;}
+  if(g){const fill=g.querySelector(".gauge__fill"),lab=g.querySelector(".gauge__label");
+    if(fill)fill.style.width=`${Math.round(frac*100)}%`;
+    if(lab)lab.textContent=hot?t("top.gauge.hot",{n:hot}):t("top.gauge.forge");
+    g.classList.toggle("is-hot",hot>0);
+    g.style.cursor=hot?"pointer":"default";
+    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null}
+}
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
   const flagged=exs.filter(e=>{const r=recommendation(e);return r.status==="reduce"||r.stalled}).length;
@@ -1218,12 +1447,40 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
     [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
 
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
-  el.innerHTML=`<div class="thisweek__title">${esc(t("stats.this_week.title"))}</div><div class="thisweek__rows">`+
-    `<div>${esc(t("stats.this_week.days_logged",{done:w.completedDays,planned:w.plannedDays}))}</div>`+
-    `<div>${esc(t("stats.this_week.hard_sets",{hardSet:w.totalHardSets,sets:tp(w.totalHardSets,"set")}))}</div>`+
-    `<div>${esc(t("stats.this_week.lifts_improved",{improved:w.improvedLifts,lifts:tp(w.improvedLifts,"lift")}))}</div>`+
-    `<div>${esc(t("stats.this_week.ready_to_add",{n:w.readyToAdd}))}</div></div>`+
-    `<div class="thisweek__status">${t("stats.this_week.status",{status:`<b>${esc(w.status)}</b>`})}</div>`}
+  const attnN=(attentionGroups().find(g=>g.key==="reduce")?.items.length||0)+(attentionGroups().find(g=>g.key==="stale")?.items.length||0);
+  const withHist=prog.exercises.filter(e=>sessionsFor(e).length).length;
+  const flatGuess=Math.max(0,withHist-w.improvedLifts-(attnN||0)-(w.readyToAdd||0));
+  el.innerHTML=`<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
+    `<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
+    `<div class="statrow">`+
+    `<div class="statrow__cell"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
+    `<div class="statrow__cell"><div class="statrow__val">${flatGuess}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
+    `<div class="statrow__cell${attnN?" is-attn":""}"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
+    `</div>`}
+function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
+  const rows=volumeDashboard(7),planned=prog.volume(),max=Math.max(...rows.map(r=>Math.max(r.planned,r.completed7)),1);
+  el.innerHTML=rows.length?rows.slice(0,8).map(r=>{
+    const on=r.planned>0&&r.completed7>=r.planned*0.6&&r.completed7<=r.planned*1.3;
+    const below=r.planned>0&&r.completed7<r.planned*0.6;
+    const pct=Math.max(4,Math.round((r.completed7/max)*100));
+    return `<div class="vrow"><span class="vrow__name">${esc(r.muscle)}</span>`+
+      `<span class="vrow__bar"><span class="vrow__fill${on?" is-on":""}" style="width:${pct}%"></span></span>`+
+      `<span class="vrow__num">${fmt(r.completed7)} / ${fmt(r.planned)}</span>`+
+      `<span class="vrow__status${on?" is-on":""}">${esc(below?t("stats.volume_below"):t("stats.volume_on_target"))}</span></div>`}).join("")
+    :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`}
+function renderReadyList(){const el=$("#readyList");if(!el)return;
+  const add=attentionGroups().find(g=>g.key==="add");
+  if(!add?.items.length){el.innerHTML="";readyExpanded=false;return}
+  const items=add.items,cap=4,shown=readyExpanded?items:items.slice(0,cap),more=items.length-cap;
+  const row=({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
+      const delta=r.load!=null&&base!=null?r.load-base:null;
+      const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
+      return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
+        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}<span class="chevron" aria-hidden="true"></span></span></button>`};
+  el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}</p>`+shown.map(row).join("")+
+    (more>0&&!readyExpanded?`<button type="button" class="link-row-cta" id="readySeeAll"><span>${esc(t("stats.ready_see_all",{n:items.length}))}</span><span class="chevron" aria-hidden="true"></span></button>`:"");
+  $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"));
+  const see=$("#readySeeAll");if(see)see.onclick=()=>{readyExpanded=true;renderReadyList()}}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
   const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
@@ -1245,11 +1502,13 @@ function renderStats(){
     intro.classList.toggle("hidden",hasLog);
     intro.innerHTML=hasLog?"":`<p class="emptystate__title">${esc(t("stats.empty.title"))}</p>`+
       `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
-      `<button type="button" class="btn btn--forge" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
+      `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
     const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#attention","#metrics","#statsDeep"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+    for(const sel of["#thisWeek","#readyList","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
+  renderReadyList();
+  renderOverviewVolume();
   // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
   const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
   const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
@@ -1258,13 +1517,14 @@ function renderStats(){
   const sums=summaries();
   const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
   const bestE=state.log.length?Math.max(...state.log.filter(isWork).map(x=>e1rm(+x.load,+x.reps))):0;
+  const lc=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const tiles=[
-    {label:t("stats.metric.sessions"),val:new Set(state.log.map(x=>x.session)).size},
-    {label:t("stats.metric.sets_logged"),val:state.log.length},
-    {label:t("stats.metric.volume"),val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
-    {label:t("stats.metric.best_e1rm"),val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0},
+    {label:lc(t("stats.metric.sessions")),val:new Set(state.log.map(x=>x.session)).size},
+    {label:lc(t("stats.metric.sets_logged")),val:state.log.length},
+    {label:lc(t("stats.metric.volume")),val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
+    {label:lc(t("stats.metric.best_e1rm")),val:fmt(Math.round(toDisplay(bestE))),unit:unitLabel(),hot:bestE>0},
   ];
-  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("");
+  $("#metrics").innerHTML=tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div><div class="metric__label">${t.label}</div></div>`).join("");
 
   const old=$("#statExercise").value;
   $("#statExercise").innerHTML=keys.map(k=>`<option value="${esc(k)}">${esc(keyLabel(k))}</option>`).join("")||`<option>${esc(t("stats.table.no_data"))}</option>`;
@@ -1291,6 +1551,7 @@ function renderStats(){
   if(statsSeg==="strength")renderStrengthDash();
   if(statsSeg==="volume")renderVolumeDash();
   if(statsSeg==="prs")renderPRTimeline();
+  const period=$("#statsPeriod");if(period)period.textContent=volWindow===7?t("stats.window.7_days"):t("stats.window.28_days");
 }
 
 function detectPRs(log,opts={}){
@@ -1454,13 +1715,14 @@ window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
 window.__repforgeAttention=attentionGroups;
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const groups=attentionGroups();
-  const html=groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
-    `<p class="attn__why">${esc(items[0]?.why||"")}</p>`+
-    items.map(({ex})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}">${esc(ex.name)}</button>`).join("")+`</div>`).join("");
-  el.innerHTML=html||`<div class="attn__grp"><span class="attn__lead">${esc(t("attention.empty"))}</span></div>`;
+  const groups=attentionGroups().filter(g=>g.key!=="add");
+  if(!groups.length){el.innerHTML="";return}
+  const html=`<p class="section-label">${esc(t("attention.title"))}</p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
+    `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
+    items.map(({ex,why})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("");
+  el.innerHTML=html;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
-    if(grp==="add"||grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
+    if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
     else{const has=[...$("#statExercise").options].some(o=>o.value===k);
       if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast(t("toast.chart_missing_lift"))}});}
 
@@ -1496,35 +1758,26 @@ function draw(rows,sel="#chart"){
   const c=$(sel);if(!c)return;
   const ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={ember:"#ff5a1f",gold:"#ffb44c",white:"#ffe9c7",quench:"#4fb6d9",steel:"#8b97a8",dim:"#7b8899",rule:"#2a323d",mist:"#eceff4"};
+  const C={accent:"#E04E14",steel:"#98948C",dim:"#98948C",rule:"#E4E1DA",mist:"#1B1A17"};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
-  ctx.font='11px "Plex Mono",monospace';ctx.textBaseline="middle";
+  ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="middle";
   if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText(t("stats.chart.empty"),w/2,h/2);return}
-  const vals=rows.map(r=>r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
+  const vals=rows.map(r=>r.e1rm??r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
   const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
-  const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?d.toFixed(1):fmt(Math.round(d))};
-  // gridlines + y labels
+  const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?fmt(+d.toFixed(1)):fmt(Math.round(d))};
+  const accent="#E04E14";
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
-  for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val),padL-8,gy)}
-  // area fill
-  const grad=ctx.createLinearGradient(0,padT,0,padT+ih);grad.addColorStop(0,"rgba(255,90,31,.28)");grad.addColorStop(1,"rgba(255,90,31,0)");
-  ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));
-  ctx.lineTo(X(rows.length-1),padT+ih);ctx.lineTo(X(0),padT+ih);ctx.closePath();ctx.fillStyle=grad;ctx.fill();
-  // line (cool -> hot, left to right = progression heating up)
-  const lg=ctx.createLinearGradient(padL,0,w-padR,0);lg.addColorStop(0,C.quench);lg.addColorStop(.55,C.gold);lg.addColorStop(1,C.white);
-  ctx.strokeStyle=lg;ctx.lineWidth=2.5;ctx.lineJoin="round";ctx.lineCap="round";
-  ctx.beginPath();rows.forEach((r,i)=>i?ctx.lineTo(X(i),Y(r.top)):ctx.moveTo(X(i),Y(r.top)));ctx.stroke();
-  // points
-  rows.forEach((r,i)=>{const last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(r.top),last?5:3,0,7);
-    if(last){ctx.fillStyle=C.white;ctx.shadowColor=C.ember;ctx.shadowBlur=16;ctx.fill();ctx.shadowBlur=0;}
-    else{ctx.fillStyle=C.gold;ctx.fill()}});
-  // last value callout
-  const lx=X(rows.length-1),ly=Y(rows.at(-1).top);ctx.fillStyle=C.white;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Mono",monospace';
-  ctx.fillText(`${fmtLoad(rows.at(-1).top)}${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
-  // x labels (first & last date)
-  ctx.fillStyle=C.dim;ctx.font='10px "Plex Mono",monospace';ctx.textBaseline="alphabetic";
+  for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
+  ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.lineJoin="round";ctx.lineCap="round";
+  ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();
+  rows.forEach((r,i)=>{const v=r.e1rm??r.top,last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(v),last?4:3.5,0,7);
+    ctx.fillStyle=accent;ctx.fill()});
+  const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV);ctx.fillStyle=accent;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Sans",sans-serif';
+  ctx.fillText(`${fmt(Math.round(toDisplay(lastV)))} ${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
+  ctx.fillStyle=C.dim;ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="alphabetic";
   ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
+  if(rows.length>2){ctx.textAlign="center";ctx.fillText(shortDate(rows[Math.floor(rows.length/2)].date),padL+iw/2,h-8)}
   ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
 
@@ -1534,31 +1787,75 @@ function redrawChart(){
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 function renderHistory(){
-  const sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
+  if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
+  renderHistoryCalendar();
+  let sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
     const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
+  const q=histQuery.trim().toLowerCase();
+  if(q)sessions=sessions.filter(s=>{
+    const sets=state.log.filter(r=>r.session===s.session);
+    return String(s.day).toLowerCase().includes(q)||sets.some(r=>displayName(r).toLowerCase().includes(q))});
+  let lastMonth="";
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
     const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
     if(s.session===editSession)return sessionEditor(s,sets);
-    const top=sets.filter(isWork).reduce((m,x)=>{const ld=+x.load,rp=+x.reps;return ld>m.load||(ld===m.load&&rp>m.reps)?{load:ld,reps:rp}:m},{load:0,reps:0});
-    const vol=sum(sets.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+    const work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
     const delta=sessionDeltaCounts(sets),deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
-    return `<div class="session"><div class="session__info"><div class="session__day">${esc(s.day)}</div>`+
-      `<div class="session__sub">${t("history.session.sub",{date:esc(s.date),sets:sets.length,top:`<span class="session__stat">${fmtLoad(top.load)}×${top.reps}</span>`,vol:kfmt(toDisplay(vol)),unit:unitLabel()})}</div>${deltaLine}</div>`+
-      `<div class="session__btns"><button class="session__edit" data-edit="${esc(s.session)}">${esc(t("history.session.edit"))}</button>`+
-      `<button class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
+    const mus=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3);
+    const d=new Date(`${s.date}T12:00:00`);
+    const monthKey=`${d.getFullYear()}-${d.getMonth()}`;
+    let monthHdr="";
+    if(monthKey!==lastMonth){lastMonth=monthKey;monthHdr=`<p class="section-label">${esc(t("month."+d.getMonth()).toUpperCase())}</p>`}
+    const eyebrow=esc(t("history.session_eyebrow",{weekday:t("weekday."+d.getDay()),day:d.getDate(),month:t("month_short."+d.getMonth())}));
+    const open=expandedSession===s.session;
+    return monthHdr+`<div class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
+      `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(s.day)}</div>`+
+      (mus.length?`<div class="session__sub">${esc(mus.join(" · "))}</div>`:"")+
+      `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
+      (open?`<div class="hist-row__actions" style="margin-top:8px"><button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
+        `<button class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div>`:"")+
+      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div>`;
   }).join(""):`<div class="table"><div class="empty">${esc(t("history.empty.sessions"))}</div></div>`;
-  $$("[data-del]").forEach(b=>b.onclick=()=>{if(confirm(t("confirm.delete_session"))){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast(t("toast.session_deleted"))}});
-  $$("[data-edit]").forEach(b=>b.onclick=()=>{editSession=b.dataset.edit;renderHistory()});
+  $$("#sessions .hist-row[data-sess]").forEach(row=>row.onclick=e=>{if(e.target.closest("[data-edit],[data-del]"))return;
+    expandedSession=expandedSession===row.dataset.sess?null:row.dataset.sess;renderHistory()});
+  $$("[data-del]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(confirm(t("confirm.delete_session"))){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast(t("toast.session_deleted"))}});
+  $$("[data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
   const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
+function renderHistoryCalendar(){const el=$("#historyCalendar");if(!el)return;
+  const {y,m}=histMonth,first=new Date(y,m,1),startDow=(first.getDay()+6)%7;
+  const daysInMonth=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();
+  const monthSessions=state.log.filter(r=>String(r.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`));
+  const byDay=new Map();for(const r of monthSessions){const d=+String(r.date).slice(8,10);if(!byDay.has(d))byDay.set(d,{sets:0,pr:false});byDay.get(d).sets++}
+  for(const ev of detectPRs(state.log)){if(String(ev.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`)){const d=+String(ev.date).slice(8,10);const o=byDay.get(d)||{sets:0,pr:false};o.pr=true;byDay.set(d,o)}}
+  const sessCount=new Set(monthSessions.map(r=>r.session)).size,setCount=monthSessions.length;
+  const letters=state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"];
+  // Monday-start letters already match weekdayLetters
+  let cells=letters.map(l=>`<div class="cal-grid__dow">${esc(l)}</div>`).join("");
+  for(let i=0;i<42;i++){let dayNum,out=false,iso;
+    if(i<startDow){dayNum=prevDays-startDow+i+1;out=true;const pm=m===0?11:m-1,py=m===0?y-1:y;iso=`${py}-${String(pm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
+    else if(i-startDow>=daysInMonth){dayNum=i-startDow-daysInMonth+1;out=true;const nm=m===11?0:m+1,ny=m===11?y+1:y;iso=`${ny}-${String(nm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
+    else{dayNum=i-startDow+1;iso=`${y}-${String(m+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
+    const info=!out&&byDay.get(dayNum),isToday=iso===today();
+    let mark="";if(info?.pr)mark=`<span class="cal-grid__mark is-pr"></span>`;else if(info)mark=`<span class="cal-grid__mark is-check">✓</span>`;else if(isToday)mark=`<span class="cal-grid__mark is-today"></span>`;
+    cells+=`<div class="cal-grid__day${out?" is-out":""}">${dayNum}${mark}</div>`;
+    if(i===41)break;if(i>=startDow+daysInMonth-1&&(i+1)%7===0)break}
+  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="Previous">‹</button>`+
+    `<div class="cal-head__title">${esc(t("history.month_title",{month:(()=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s})(),year:y}))}</div>`+
+    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="Next">›</button></div>`+
+    `<div class="cal-summary">${esc(t("history.month_summary",{sessions:sessCount,sets:setCount}))}</div>`+
+    `<div class="cal-grid">${cells}</div>`;
+  $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistory()};
+  $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistory()}}
+
 
 function sessionEditor(s,sets){
   const rows=sets.map(r=>{const key=`${liftKey(r)}|${r.set}`;
     return `<div class="edrow"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoad(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
+      `<input class="edrow__in" data-ek="load|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
       `<input class="edrow__in" data-ek="reps|${esc(key)}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
       `<input class="edrow__in" data-ek="rir|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}"></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
@@ -1566,7 +1863,7 @@ function sessionEditor(s,sets){
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
-    `<button type="button" class="btn btn--forge" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
+    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
 }
 
 function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
@@ -1594,78 +1891,113 @@ function openExerciseView(key,from){if(!key)return;
   exView={key,from:from||currentViewId()};
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
+  document.body.classList.add("is-exercise");document.body.classList.remove("is-settings","is-onboarding","is-workout");
   window.scrollTo({top:0});renderExerciseView()}
 function closeExerciseView(){const back=exView?.from||"log";exView=null;
+  document.body.classList.remove("is-exercise");
+  if(back==="settings"){showSettings();return}
   $$("nav button").forEach(x=>{const on=x.dataset.view===back;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id===back));
   window.scrollTo({top:0});render()}
+function openSettingsView(){showSettings()}
 
 function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const key=exView.key,tmpl=prog.find(key),sessions=exerciseSessionsDetail(key);
   const latest=sessions.at(-1)?.rows.at(-1);
   const name=latest?displayName(latest):(tmpl?.name||key);
   const exRef=tmpl||(latest?{id:latest.exerciseId,name:latest.name}:null);
-  const back=$("#exBack");if(back)back.textContent=t("exercise.back_to",{name:t("nav."+exView.from)||exView.from});
+  const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
+  const back=$("#exBack");if(back)back.textContent=`‹ ${t(backKey)}`;
 
-  const metaBits=[];
-  if(tmpl){metaBits.push(`<span class="ex__tag">${esc(tmpl.primary)}</span>`);
-    metaBits.push(`<span class="nowrap">${esc(tmpl.day)}</span>`);
-    metaBits.push(`<span class="nowrap">${tmpl.sets}×${tmpl.min}-${tmpl.max} ${esc(t("log.reps"))}</span>`)}
-  else metaBits.push(`<span class="nowrap">${esc(t("exercise.not_in_program"))}</span>`);
   const rec=tmpl?recommendation(tmpl):null;
-  const recHtml=rec?`<div class="exdet__rec is-${rec.status}"><span class="chip">${esc(rec.label)}</span>`+
-    `<p class="rec">${esc(rec.text)}${rec.load!==null?` ${t("log.target",{load:fmtLoad(rec.load),unit:unitLabel()})}`:""}</p></div>`:"";
+  const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
+    `<div class="recblock__head">${esc(rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label)}</div>`+
+    `<p class="recblock__body">${esc(rec.text)}</p></div>`+
+    `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button></div></div>`:"";
 
-  const sums=summaries().filter(x=>x.liftKey===key);
   const work=state.log.filter(r=>liftKey(r)===key&&isWork(r));
   const topLoad=Math.max(0,...work.map(r=>+r.load||0));
   const bestE=work.length?Math.max(...work.map(r=>e1rm(+r.load,+r.reps))):0;
-  const totalVol=sum(work.map(r=>(+r.load||0)*(+r.reps||0)));
+  const prCount=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===key).length;
+  const lcFirst=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const tiles=[
-    {label:t("stats.metric.sessions"),val:sessions.length},
-    {label:t("stats.metric.top_load"),val:topLoad?fmtLoad(topLoad):"—",unit:topLoad?unitLabel():""},
-    {label:t("stats.metric.best_e1rm"),val:bestE?fmt(Math.round(toDisplay(bestE))):"—",unit:bestE?unitLabel():"",hot:bestE>0},
-    {label:t("stats.metric.volume"),val:kfmt(toDisplay(totalVol)),unit:unitLabel()},
+    {label:lcFirst(t("stats.metric.sessions")),val:sessions.length},
+    {label:t("exercise.top_load"),val:topLoad?`${fmtLoad(topLoad)} ${unitLabel()}`:"—"},
+    {label:lcFirst(t("stats.metric.best_e1rm")),val:bestE?`${fmt(Math.round(toDisplay(bestE)))} ${unitLabel()}`:"—"},
+    {label:t("stats.metric.prs"),val:prCount},
   ];
-
-  let trendHtml="";
-  if(sums.length){const first=sums[0].top,last=sums.at(-1).top,delta=last-first;
-    const dir=delta>0?"up":delta<0?"down":"",arrow=delta>0?"▲":delta<0?"▼":"·";
-    trendHtml=`<div class="trend"><span>${t("stats.trend.top_load",{a:fmtLoad(first),b:fmtLoad(last),unit:unitLabel()})}</span>`+
-      `<span class="${dir}">${arrow} ${esc(t("stats.trend.over_sessions",{signed:fmt(toDisplay(Math.abs(delta))),unit:unitLabel(),sessions:`${sums.length} ${tp(sums.length,"session")}`}))}</span></div>`}
-
+  const sums=summaries().filter(x=>x.liftKey===key);
   const prEvents=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===key).reverse();
-  const prHtml=prEvents.length?`<table><thead><tr><th>${esc(t("stats.table.date"))}</th><th>${esc(t("stats.table.kind"))}</th><th>${esc(t("stats.table.load"))}</th><th>${esc(t("stats.table.reps"))}</th><th>${esc(t("stats.table.e1rm"))}</th></tr></thead><tbody>`+
-    prEvents.slice(0,8).map(ev=>{const kindLabel=ev.kind==="e1rm"?t("stats.pr.e1rm"):ev.kind==="reps"?t("stats.pr.reps"):t("stats.pr.load");
-      const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
-      return `<tr><td>${esc(ev.date)}</td><td><span class="pr-kind ${kindCls}">${esc(kindLabel)}</span></td>`+
-        `<td>${esc(fmtLoad(ev.load))}</td><td>${esc(ev.reps)}</td><td>${esc(fmt(Math.round(toDisplay(e1rm(ev.load,ev.reps)))))}</td></tr>`}).join("")+
-    `</tbody></table>`:`<div class="empty">${esc(t("exercise.empty.no_prs"))}</div>`;
-
-  const historyHtml=sessions.length?[...sessions].reverse().map(s=>{
-    const setsTxt=[...s.rows].sort((a,b)=>a.set-b.set)
-      .map(r=>`<span class="exsess__set${r.warmup?" is-warmup":""}">${r.warmup?"W ":""}${fmtLoad(r.load)}×${r.reps}<small>@${fmt(r.rir)}</small></span>`).join("");
+  const loadPr=prEvents.find(e=>e.kind==="load"),e1Pr=prEvents.find(e=>e.kind==="e1rm");
+  const historyHtml=sessions.length?[...sessions].reverse().slice(0,8).map(s=>{
+    const best=[...s.rows].filter(isWork).sort((a,b)=>+b.load-+a.load||+b.reps-+a.reps)[0];
     const cmp=exRef?compareExerciseSession(exRef,s.rows):null;
-    const badge=cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"";
-    const note=s.note?`<p class="exsess__note"><span>${esc(t("log.note"))}</span>${esc(s.note)}</p>`:"";
-    return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(s.date)}</span>`+
-      `<span class="exsess__day">${esc(s.day)}</span>${badge}</div>`+
-      `<div class="exsess__sets">${setsTxt}</div>${note}</div>`}).join("")
-    :`<div class="table"><div class="empty">${esc(t("exercise.empty.no_sets"))}</div></div>`;
+    const note=s.note?`<p class="exsess__note">${esc(s.note)}</p>`:"";
+    return `<div class="exsess"><div class="exsess__head"><span class="exsess__date">${esc(shortDate(s.date))}</span>`+
+      (best?`<span class="exsess__set">${fmtLoad(best.load)} × ${best.reps}</span><span class="exsess__day">RIR ${fmt(best.rir)}</span>`:"")+
+      (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
+    :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
-  el.innerHTML=`<p class="eyebrow">${esc(t("exercise.eyebrow"))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="ex__meta exdet__meta">${metaBits.join(" · ")}</p>`+
+  el.innerHTML=`<p class="exdet__muscle">${esc(tmpl?.primary||"")}</p><h2 class="exdet__name">${esc(name)}</h2>`+
+    `<p class="exdet__meta">${tmpl?`${esc(tmpl.day)} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
     recHtml+
-    `<div class="metrics">${tiles.map(t=>`<div class="metric${t.hot?" metric--hot":""}"><div class="metric__label">${t.label}</div>`+
-      `<div class="metric__val">${t.val}${t.unit?`<small>${t.unit}</small>`:""}</div></div>`).join("")}</div>`+
-    `<div class="card">${trendHtml}<canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
-    `<h3 class="subhead">${esc(t("exercise.personal_records"))}</h3><div class="table">${prHtml}</div>`+
-    `<h3 class="subhead">${esc(t("exercise.session_history"))}</h3><p class="lede">${esc(t("exercise.session_history.lede"))}</p>`+
-    `<div class="exsessions">${historyHtml}</div>`;
+    `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
+    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><button type="button" class="range-quiet">${esc(t("exercise.range_12w"))}<span class="caret" aria-hidden="true"></span></button></p>`+
+    `<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
+    `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
+    `<p class="section-label">${esc(t("exercise.records"))}</p>`+
+    (loadPr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
+    (e1Pr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
+    `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
+    `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   draw(sums,"#exChart");
-}
+  $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
+  const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
-function renderProgram(){renderProgramHeader();renderProgramEditor();renderVolume()}
+function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
+  const ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
+  if(ov)ov.classList.toggle("is-hidden",programEditMode);
+  if(ed)ed.classList.toggle("is-hidden",!programEditMode);
+  if(meta)meta.classList.toggle("visually-hidden",!programEditMode);
+  if(tog)tog.textContent=programEditMode?t("program.done_edit"):t("program.edit")}
+function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
+  const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
+  const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
+  const segs=mc.total||6,cur=mc.current||0;
+  const started=meta.started?(()=>{const d=new Date(`${meta.started}T12:00:00`);return t("program.started_on",{date:`${d.getDate()} ${t("month_short."+d.getMonth())}`})})():"";
+  let daysHtml=`<p class="section-label">${esc(t("program.training_days"))}</p>`;
+  const openDays=new Set(uiPrefs.overviewOpenDays||[]);
+  if(!openDays.size&&ds.length)openDays.add(ds[0]);
+  for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
+    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}"><div>`+
+      `<div class="prog-day__title">${esc(d)}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
+      `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
+    if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
+      `<button type="button" class="link-row-cta" data-exopen="${esc(exs[0]?.id||"")}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
+    daysHtml+=`</div>`}
+  const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
+  el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
+    `<div class="prog-overview__meta">${[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ")}</div>`+
+    (mc.current!=null?`<div class="prog-overview__week">${esc(t("today.week_of",{n:mc.current,total:mc.total}))}</div>`+
+      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
+    (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
+    `<div class="statrow">`+
+    `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.sessions_week"))}</div></div>`+
+    `<div class="statrow__cell"><div class="statrow__val">${health?.hot||0}</div><div class="statrow__cap">${esc(t("program.stat.ready"))}</div></div>`+
+    `<div class="statrow__cell"><div class="statrow__val">${vol?Math.round(vol.ratio*100)+"%":"—"}</div><div class="statrow__cap">${esc(t("program.stat.volume"))}</div></div>`+
+    `</div>${daysHtml}`+
+    `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
+    `<button type="button" class="listrow" id="seeVolumeAudit"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
+    `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
+    `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
+  $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
+    const cur=new Set(uiPrefs.overviewOpenDays||[]);
+    if(!(uiPrefs.overviewOpenDays||[]).length&&ds[0])cur.add(ds[0]);
+    cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);
+    setUiPref("overviewOpenDays",[...cur]);renderProgramOverview()});
+  $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
+  const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
+  const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
 
 function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
@@ -1725,8 +2057,8 @@ function dayCard(d){
     `<div class="pday__head">`+
       `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(d)}" aria-label="${esc(t("program.day.name_aria"))}">`+
       `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets}))}</span>`+
-      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:d}))}">✕</button>`+
-      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}">▾</button>`+
+      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
     `</div>`+
     `<div class="pexlist">${body}</div>`+
     `<button class="btn btn--steel pday__add" type="button" data-act="addEx" data-day="${esc(d)}">${esc(t("program.day.add_exercise"))}</button>`+
@@ -1741,7 +2073,7 @@ function exCard(e,i,n){
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
         `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="${esc(t("program.exercise.move_down"))}">▼</button>`+
-        `<button class="iconbtn iconbtn--del" type="button" data-act="delEx" data-id="${esc(e.id)}" aria-label="${esc(t("program.exercise.delete_aria"))}">✕</button>`+
+        `<button class="iconbtn iconbtn--del" type="button" data-act="delEx" data-id="${esc(e.id)}" aria-label="${esc(t("program.exercise.delete_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
       `</div>`+
     `</div>`+
     `<div class="pex__nums">${num("sets",esc(t("program.exercise.sets")))}${num("min",esc(t("program.exercise.min_reps")))}${num("max",esc(t("program.exercise.max_reps")))}</div>`+
@@ -1804,12 +2136,17 @@ function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!
   prog=new Program(parsed);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast(t("toast.program_saved"))}
   catch{toast(t("toast.program_json_invalid"))}}
 
-function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump").value=state.settings.minJump;$("#rirHigh").value=state.settings.rirHigh;$("#hardRir").value=state.settings.hardRir;
-  $("#restSec").value=state.settings.restSec;$("#unit").value=state.settings.unit;const langSel=$("#lang");if(langSel){langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
+function renderSettings(){
+  const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
+  if(jp)jp.value=state.settings.jumpPct;if(mj)mj.value=state.settings.minJump;if(rh)rh.value=state.settings.rirHigh;if(hr)hr.value=state.settings.hardRir;
+  if(rs)rs.value=state.settings.restSec;if(un)un.value=state.settings.unit;
+  const langSel=$("#lang");if(langSel){langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
+  const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
   const n=state.settings.notify||normalizeNotify();
   const ne=$("#notifyEnabled");if(ne)ne.checked=!!n.enabled;
+  const ntog=$("#notifyToggle");if(ntog){ntog.classList.toggle("is-on",!!n.enabled);ntog.setAttribute("aria-pressed",n.enabled?"true":"false")}
   const nt=$("#notifyTimer");if(nt)nt.checked=n.timer!==false;
   const ns=$("#notifySession");if(ns)ns.checked=n.session!==false;
   const nu=$("#notifyUnfinished");if(nu)nu.checked=n.unfinished!==false;
@@ -1818,15 +2155,20 @@ function renderSettings(){$("#jumpPct").value=state.settings.jumpPct;$("#minJump
   const ps=$("#notifyPermStatus");if(ps)ps.textContent=t("settings.notifications.permission",{status:window.RepForgeNotify?RepForgeNotify.permission():t("notify.permission.unsupported")});
   updateVoiceBtn();
   const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",isStandalone());
+  const sec=+state.settings.restSec||0,disp=$("#restSecDisplay");
+  if(disp)disp.textContent=sec?`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`:t("settings.rest_off");
+  const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
-  $("#storageNote").textContent=`${ago} ${t("settings.storage.note",{key:KEY})}`}
+  const sn=$("#storageNote");if(sn)sn.textContent=`${ago} ${t("settings.storage.note",{key:KEY})}`;
+  const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
+}
 
 function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
   const oldRirMode=state.settings.rirMode;
   const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
-    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmt(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
+    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldRirMode!==newRirMode)clearDraft();
   state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!$("#notifyEnabled")?.checked,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
@@ -1911,9 +2253,9 @@ function defaultOnbAnswers(){return{goal:null,experience:null,daysPerWeek:null,s
 function onbGenAnswers(a){const eq=(a.equipment||[]).map(x=>ONB_EQ_GEN[x]||x);
   const goal=a.goal==="strength_hypertrophy"?"strength":a.goal==="beginner_consistency"?"hypertrophy":a.goal||"hypertrophy";
   return{...a,goal,equipment:eq}}
-function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");
+function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
   $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
-function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");
+function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding");
   const log=$("#log");if(log&&!log.classList.contains("active")){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
@@ -1928,27 +2270,35 @@ function onbPick(key,val,multi){if(multi){const arr=onbAnswers[key]||[];const i=
   if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
   renderOnboarding()}
 function onbOpt(cls,key,val,label,sub,multi){const sel=multi?(onbAnswers[key]||[]).includes(val):onbAnswers[key]===val;
-  return `<button type="button" class="onb__opt${sel?" is-selected":""}" data-onb-pick="${esc(key)}" data-onb-val="${esc(val)}" data-onb-multi="${multi?"1":"0"}">${esc(label)}${sub?`<small>${esc(sub)}</small>`:""}</button>`}
+  return `<button type="button" class="radio-card${sel?" is-selected":""}" data-onb-pick="${esc(key)}" data-onb-val="${esc(val)}" data-onb-multi="${multi?"1":"0"}">`+
+    `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
+    `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
 function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
-  if(!body)return;title.textContent=t(`onb.title.${onbStep}`)||t("onb.title.default");step.textContent=t("onb.step",{n:onbStep+1,total:8});
-  back.classList.toggle("hidden",onbStep===0);next.classList.toggle("hidden",onbStep===7);
-  let html="";
-  if(onbStep===0)html=`<p class="onb__lede">${esc(t("onb.goal.lede"))}</p><div class="onb__opts">`+
+  if(!body)return;title.textContent=t(`onb.title.${onbStep}`)||t("onb.title.default");
+  if(step)step.textContent=t("onb.step",{n:onbStep+1,total:8});
+  const seg=$("#onbSegbar");if(seg)seg.innerHTML=Array.from({length:8},(_,i)=>`<span class="segbar__seg${i<=onbStep?" is-current":""}${i<onbStep?" is-done":""}"></span>`).join("");
+  const cancel=$("#onbCancel");if(cancel)cancel.textContent=onbStep===0?t("onb.cancel"):"‹";
+  if(back)back.classList.toggle("hidden",onbStep===0||onbStep===7);
+  if(next){next.classList.toggle("hidden",onbStep===7);next.textContent=t("onb.next")}
+  let html=`<h2 class="onb__q">${esc(t(`onb.title.${onbStep}`)||t("onb.title.default"))}</h2>`;
+  if(onbStep===0)html+=`<p class="onb__explain">${esc(t("onb.goal.lede"))}</p><div class="onb__opts">`+
     onbOpt("","goal","hypertrophy",t("onb.goal.hypertrophy.label"),t("onb.goal.hypertrophy.sub"),false)+
     onbOpt("","goal","strength_hypertrophy",t("onb.goal.strength_hypertrophy.label"),t("onb.goal.strength_hypertrophy.sub"),false)+
-    onbOpt("","goal","beginner_consistency",t("onb.goal.beginner_consistency.label"),t("onb.goal.beginner_consistency.sub"),false)+`</div>`;
-  else if(onbStep===1)html=`<div class="onb__grid">`+
+    onbOpt("","goal","beginner_consistency",t("onb.goal.beginner_consistency.label"),t("onb.goal.beginner_consistency.sub"),false)+`</div>`+
+    `<div class="onb__changes"><div class="onb__changes-lab">${esc(t("onb.what_changes"))}</div><p class="lede">${esc(t("onb.goal.changes"))}</p></div>`+
+    `<p class="onb__import">${esc(t("onb.have_program"))} · <button type="button" id="onbImportLink">${esc(t("onb.import"))}</button></p>`;
+  else if(onbStep===1)html+=`<p class="onb__explain">${esc(t("onb.experience.lede")||"")}</p><div class="onb__opts">`+
     onbOpt("","experience","beginner",t("onb.experience.beginner"),"",false)+onbOpt("","experience","intermediate",t("onb.experience.intermediate"),"",false)+
     onbOpt("","experience","advanced",t("onb.experience.advanced"),"",false)+`</div>`;
-  else if(onbStep===2)html=`<div class="onb__grid">`+[2,3,4,5,6].map(n=>onbOpt("","daysPerWeek",n,String(n),t("onb.days.sub"),false)).join("")+`</div>`;
+  else if(onbStep===2)html+=`<div class="onb__opts">`+[2,3,4,5,6].map(n=>onbOpt("","daysPerWeek",n,String(n),t("onb.days.sub"),false)).join("")+`</div>`;
   else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
-    html=`<p class="onb__lede">${esc(t("onb.split.lede",{n:onbAnswers.daysPerWeek}))}</p><div class="onb__opts">`+
+    html+=`<p class="onb__explain">${esc(t("onb.split.lede",{n:onbAnswers.daysPerWeek}))}</p><div class="onb__opts">`+
       opts.map(s=>onbOpt("","splitType",s,t("split."+s)||ONB_SPLIT_LABEL[s]||s,"",false)).join("")+`</div>`}
-  else if(onbStep===4)html=`<p class="onb__lede">${esc(t("onb.equipment.lede"))}</p><div class="onb__grid">`+
+  else if(onbStep===4)html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
     ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e)||ONB_EQ_LABEL[e],"",true)).join("")+`</div>`;
-  else if(onbStep===5)html=`<p class="onb__lede">${esc(t("onb.priority.lede"))}</p><div class="onb__grid">`+
+  else if(onbStep===5)html+=`<p class="onb__explain">${esc(t("onb.priority.lede"))}</p><div class="onb__opts">`+
     ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,t("muscle."+m)||m,"",true)).join("")+`</div>`;
-  else if(onbStep===6)html=`<div class="onb__opts">`+
+  else if(onbStep===6)html+=`<div class="onb__opts">`+
     onbOpt("","sessionLength","short",t("onb.session.short.label"),t("onb.session.short.sub"),false)+
     onbOpt("","sessionLength","normal",t("onb.session.normal.label"),t("onb.session.normal.sub"),false)+
     onbOpt("","sessionLength","long",t("onb.session.long.label"),t("onb.session.long.sub"),false)+`</div>`;
@@ -1957,7 +2307,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
       return `<div class="onb__day"><div class="onb__dayname">${esc(d)}</div>`+
         exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(e.primary)}</div>`).join("")+`</div>`});
     html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
-      `<button type="button" id="onbSave" class="btn btn--forge">${esc(t("onb.review.save"))}</button>`+
+      `<button type="button" id="onbSave" class="btn btn--cta">${esc(t("onb.review.save"))}</button>`+
       `<button type="button" id="onbEdit" class="btn btn--steel">${esc(t("onb.review.edit"))}</button>`+
       `<button type="button" id="onbRestart" class="btn btn--steel">${esc(t("onb.review.restart"))}</button></div></div>`}
   body.innerHTML=html;
@@ -1966,6 +2316,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=saveOnboardingProgram;
   const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=editOnboardingProgram;
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
+  const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
 function saveOnboardingProgram(){const a=onbAnswers;prog=new Program(generateProgramFromOnboarding(onbGenAnswers(a)));
   persistProgramMeta({goal:a.goal,experience:a.experience,daysPerWeek:a.daysPerWeek,splitType:a.splitType,equipment:a.equipment,
@@ -1996,7 +2347,7 @@ function installInstructions(){
 }
 async function triggerInstall(){
   if(installPrompt){installPrompt.prompt();let outcome="";try{const c=await installPrompt.userChoice;outcome=c?.outcome||""}catch{}
-    installPrompt=null;$("#installBtn").classList.add("hidden");
+    installPrompt=null;$("#installBtn")?.classList.add("hidden");
     if(outcome==="accepted"){hideInstallBanner(false);toast(t("toast.installing"))}
     renderSettings();return}
   showInstallBanner(true);
@@ -2028,7 +2379,21 @@ const TOUR=[
 ];
 let tourStep=0,tourActive=false;
 function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
-function navTo(view){const b=$(`nav button[data-view="${view}"]`);if(b&&!b.classList.contains("active"))b.click()}
+function showSettings(){
+  $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
+  document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
+  workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render()}
+function navTo(view){
+  if(view==="settings"){showSettings();return}
+  const b=$(`nav button[data-view="${view}"]`);
+  if(b){if(!b.classList.contains("active"))b.click();return}
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id===view));
+  window.scrollTo({top:0});render()
+}
+window.__repforgeEnterWorkout=enterWorkout;
+window.__repforgeLeaveWorkout=leaveWorkout;
+window.__repforgeShowSettings=showSettings;
 function startTour(){tourStep=0;tourActive=true;hideInstallBanner(false);$("#tour").classList.remove("hidden");renderTour()}
 function renderTour(){
   const steps=tourSteps(),s=steps[tourStep];
@@ -2039,7 +2404,7 @@ function renderTour(){
   const extra=$("#tourExtra");
   if(s.install){
     $("#tourBody").innerHTML=`${t("tour.install.body_prefix")} ${installInstructions()}`;
-    extra.innerHTML=installPrompt?`<button type="button" id="tourInstallBtn" class="btn btn--forge">${esc(t("tour.install.cta"))}</button>`:"";
+    extra.innerHTML=installPrompt?`<button type="button" id="tourInstallBtn" class="btn btn--cta">${esc(t("tour.install.cta"))}</button>`:"";
     const ib=$("#tourInstallBtn");if(ib)ib.onclick=triggerInstall;
   }else{$("#tourBody").innerHTML=t(`tour.${tourStep}.body`);extra.innerHTML=""}
   $("#tourDots").innerHTML=steps.map((_,i)=>`<span class="tour__dot${i===tourStep?" is-on":""}"></span>`).join("");
@@ -2058,9 +2423,9 @@ function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
-  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("#installBtn").classList.remove("hidden");
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("#installBtn")?.classList.remove("hidden");
     renderSettings();if(tourActive)renderTour();else maybeShowInstallBanner()});
-  window.addEventListener("appinstalled",()=>{installPrompt=null;$("#installBtn").classList.add("hidden");hideInstallBanner(false);renderSettings()});
+  window.addEventListener("appinstalled",()=>{installPrompt=null;$("#installBtn")?.classList.add("hidden");hideInstallBanner(false);renderSettings()});
   $("#installBtn").onclick=triggerInstall;
   $("#installBannerClose").onclick=()=>hideInstallBanner(true);
   $("#installBannerAction").onclick=triggerInstall;
@@ -2070,6 +2435,28 @@ function init(){
   $("#replayTour").onclick=startTour;
   $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
+  const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
+  const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
+  const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
+  const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
+  const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
+  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=()=>$("#woOverflow")?.classList.toggle("hidden");
+  const woCmd=$("#woToggleCommand");if(woCmd)woCmd.onclick=()=>$("#commandBarWrap")?.classList.toggle("is-hidden");
+  const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
+  const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};
+  const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
+  const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
+  const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
+  const statsPeriod=$("#statsPeriod");if(statsPeriod)statsPeriod.onclick=()=>{volWindow=volWindow===7?28:7;$$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});renderStats();renderCompleted()};
+  const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>$("#restSecPanel")?.classList.toggle("is-open");
+  const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>$("#rirModePanel")?.classList.toggle("is-open");
+  const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>{const d=$("#progressionDetails");if(d)d.classList.toggle("is-open")};
+  const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>$("#notifyTypes")?.classList.toggle("is-open");
+  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>$("#dataBackupPanel")?.classList.toggle("is-open");
+  const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>$("#dataImportPanel")?.classList.toggle("is-open");
+  const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitSettings(true)}};
+  const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{const c=$("#notifyEnabled");if(c){c.checked=!c.checked;c.dispatchEvent(new Event("change"))}};
+  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else closeOnboarding()};
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
@@ -2118,10 +2505,11 @@ function init(){
   ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=()=>commitSettings(true)});
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
-  const lc=$("#logContext");if(lc)lc.onclick=()=>{$('nav button[data-view="stats"]').click();setStatsSeg("review")};
+  const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=()=>{if(confirm(t("confirm.delete_log"))){state.log=[];clearDraft();save();render();toast(t("toast.log_deleted"))}};
-  $$("nav button").forEach(b=>b.onclick=()=>{exView=null;
+  $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;workoutLeft=true;
+    document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
   $("#exBack").onclick=closeExerciseView;
