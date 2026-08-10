@@ -206,7 +206,12 @@ async function nav(page, view) {
     await page.waitForSelector(`#settings.view.active`, { timeout: 5000 });
     return;
   }
-  await page.click(`nav button[data-view="${view}"]`);
+  // Tab bar is display:none on settings/exercise/onboarding — click via DOM.
+  await page.evaluate((v) => {
+    document.body.classList.remove("is-settings", "is-exercise", "is-onboarding");
+    const b = document.querySelector(`nav button[data-view="${v}"]`);
+    if (b) b.click();
+  }, view);
   await page.waitForSelector(`#${view}.view.active`, { timeout: 5000 });
   if (view === "log") {
     // Ensure workout shell is available for set logging assertions
