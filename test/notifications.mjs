@@ -77,7 +77,8 @@ async function persistState(page, state) {
 
 async function freshPage(browser) {
   const context = await browser.newContext();
-  await context.grantPermissions(["notifications"], { origin: "http://localhost:8000" });
+  const origin = new URL(BASE).origin;
+  await context.grantPermissions(["notifications"], { origin });
   const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);

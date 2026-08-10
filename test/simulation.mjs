@@ -200,8 +200,25 @@ async function clearState(page) {
 }
 
 async function nav(page, view) {
+  if (view === "settings") {
+    const open = page.locator("#openSettings");
+    if (await open.count()) await open.click();
+    else await page.evaluate(() => window.__repforgeShowSettings?.());
+    await page.waitForSelector(`#settings.view.active`, { timeout: 5000 });
+    return;
+  }
   await page.click(`nav button[data-view="${view}"]`);
   await page.waitForSelector(`#${view}.view.active`, { timeout: 5000 });
+  if (view === "log") {
+    // Ensure workout shell is available for set logging assertions
+    const dash = page.locator("#todayDash:not(.hidden)");
+    if (await dash.count()) {
+      const start = page.locator("#startWorkout");
+      if (await start.count()) await start.click();
+      else await page.evaluate(() => window.__repforgeEnterWorkout?.());
+      await page.waitForSelector("#workoutShell:not(.hidden), #workout", { timeout: 5000 });
+    }
+  }
 }
 
 async function selectDay(page, dayName) {
@@ -687,7 +704,7 @@ async function main() {
   );
 
   // Nav accessibility: each tab exposes aria-current when active
-  for (const view of ["log", "stats", "history", "program", "settings"]) {
+  for (const view of ["log", "stats", "history", "program"]) {
     await nav(page, view);
     const current = await page.locator(`nav button[data-view="${view}"]`).getAttribute("aria-current");
     assert(
@@ -697,6 +714,13 @@ async function main() {
       `Click ${view} tab → inspect aria-current`
     );
   }
+  await nav(page, "settings");
+  assert(
+    await page.locator("#settings.view.active").count() === 1,
+    "Settings view opens via profile control (no nav tab)",
+    "settings view not active",
+    "Today header profile → Settings"
+  );
   const dimContrast = await page.evaluate(() => {
     const css = getComputedStyle(document.documentElement);
     const hex = (name) => css.getPropertyValue(name).trim();
@@ -710,13 +734,13 @@ async function main() {
       const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x);
       return (l1 + 0.05) / (l2 + 0.05);
     };
-    return { token: hex("--steel-dim"), onSlag: ratio(hex("--steel-dim"), hex("--slag")), onAnvil: ratio(hex("--steel-dim"), hex("--anvil")) };
+    return { token: hex("--ink-soft"), onBg: ratio(hex("--ink-soft"), hex("--bg")), onSurface: ratio(hex("--ink-soft"), hex("--surface")) };
   });
   assert(
-    dimContrast.onSlag >= 4.5 && dimContrast.onAnvil >= 4.5,
-    "Secondary dim text token meets AA contrast on raised surfaces",
-    `--steel-dim=${dimContrast.token} slag=${dimContrast.onSlag.toFixed(2)} anvil=${dimContrast.onAnvil.toFixed(2)}`,
-    "Computed style on :root → contrast(--steel-dim vs --slag/--anvil)"
+    dimContrast.onBg >= 4.5 && dimContrast.onSurface >= 4.5,
+    "Secondary text token meets AA contrast on cream surfaces",
+    `--ink-soft=${dimContrast.token} bg=${dimContrast.onBg.toFixed(2)} surface=${dimContrast.onSurface.toFixed(2)}`,
+    "Computed style on :root → contrast(--ink-soft vs --bg/--surface)"
   );
   await nav(page, "log");
 
@@ -2457,22 +2481,29 @@ async function main() {
     JSON.stringify(hotCard),
     "Log max-rep session → reopen → is-add/is-add2"
   );
-  const gaugeLabel = await page.locator("#heatGauge .gauge__label").textContent();
+  // Leave workout to see Today readiness line, then re-enter via it
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+  const readyText = await page.locator("#readyLine, .today-ready").first().textContent();
   assert(
-    /hot/i.test(gaugeLabel),
-    "Heat gauge labels session as hot when lifts are ready",
-    `label="${gaugeLabel}"`,
-    "Log → after add-load recs → gauge shows N hot"
+    /ready|prontos|hot|increase|aumentar/i.test(readyText || ""),
+    "Today readiness line shows lifts ready to increase",
+    `label="${readyText}"`,
+    "Log → after add-load recs → Today shows N ready"
   );
-  await page.locator("#heatGauge").click();
+  await page.locator("#readyLine, .today-ready").first().click();
+  await page.waitForSelector("#workoutShell:not(.hidden), #workout .exercise", { timeout: 5000 });
   assert(
     await page.evaluate(
-      (id) => !document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-collapsed"),
+      (id) => {
+        const el = document.querySelector(`.exercise[data-ex="${id}"]`);
+        return !!el && !el.classList.contains("is-collapsed");
+      },
       exHot.id
     ),
-    "Heat gauge click expands a hot lift card",
-    "Card still collapsed after gauge click",
-    "Tap heat gauge → first hot exercise expands"
+    "Readiness line opens workout and expands a hot lift card",
+    "Card still collapsed after readiness click",
+    "Tap Today readiness → first hot exercise expands"
   );
 
   // Session notes persist on saved rows

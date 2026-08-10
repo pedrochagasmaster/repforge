@@ -352,7 +352,9 @@
           </span>
           <span class="settings-row__value"><span class="chevron">›</span></span>
         </button>
-        <div id="progressionPanel" class="settings-panel">
+        <details class="advanced" id="progressionDetails">
+          <summary data-i18n="settings.advanced_progression">Advanced · progression dials</summary>
+          <div id="progressionPanel" class="settings-panel is-open">
           <p class="lede" data-i18n="settings.progression.lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
           <label class="field"><span data-i18n="settings.load_jump_pct">Load jump %</span><input id="jumpPct" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <label class="field"><span data-i18n="settings.minimum_jump">Minimum jump (kg)</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next"></label>
@@ -361,7 +363,8 @@
           <label class="field"><span data-i18n="settings.hard_rir_ceiling">Hard-set RIR ceiling</span><input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
           <p class="lede" data-i18n="settings.hard_rir_lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
           <button id="saveSettings" class="btn btn--forge" data-i18n="settings.save">Save settings</button>
-        </div>
+          </div>
+        </details>
       </div>
 
       <p class="settings-group__label" data-i18n="settings.group.data">Data</p>
