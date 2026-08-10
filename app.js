@@ -2445,9 +2445,14 @@ function init(){
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
   const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
-  document.addEventListener("click",e=>{
+  // iOS does not reliably bubble click to document, so touchstart backs it up.
+  const dismissOverflow=e=>{
     const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
-    if(!menu.contains(e.target)&&!e.target.closest("#woOverflowBtn"))closeWorkoutOverflow()});
+    const target=e.target instanceof Element?e.target:null;
+    if(target&&(menu.contains(target)||target.closest("#woOverflowBtn")))return;
+    closeWorkoutOverflow()};
+  document.addEventListener("click",dismissOverflow);
+  document.addEventListener("touchstart",dismissOverflow,{passive:true});
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeWorkoutOverflow()});
   const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>closeWorkoutOverflow());
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
