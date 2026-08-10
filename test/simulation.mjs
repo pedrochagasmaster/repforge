@@ -2567,8 +2567,13 @@ async function main() {
     "Tap Today readiness → first hot exercise expands"
   );
 
-  // Session notes persist on saved rows
-  await page.fill("#notes", "Simulation session note");
+  // Session notes persist on saved rows (notes field is Focus-chrome-hidden; set via DOM)
+  await page.evaluate(() => {
+    const el = document.querySelector("#notes");
+    if (!el) throw new Error("#notes missing");
+    el.value = "Simulation session note";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
   await fillExerciseSets(page, exHot.id, 1, 92, 6, 1);
   await saveWorkout(page);
   assert(
@@ -4342,6 +4347,8 @@ async function main() {
     "Exercise page → Back"
   );
   await nav(page, "settings");
+  await page.click("#dataBackupRow");
+  await page.waitForSelector("#dataBackupPanel.is-open", { timeout: 3000 });
   const noteCsvPath = join(tmpDir, "log-notes.csv");
   const [noteCsvDownload] = await Promise.all([
     page.waitForEvent("download"),
