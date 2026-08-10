@@ -234,8 +234,19 @@ async function nav(page, view) {
 }
 
 async function selectDay(page, dayName) {
-  await page.click(`#dayTabs button[data-day="${dayName}"]`);
-  await page.waitForSelector(`#dayTabs button[data-day="${dayName}"].active`, { timeout: 5000 });
+  await page.evaluate((d) => {
+    // Day tabs live in the workout shell; ensure it is open.
+    if (typeof window.__repforgeEnterWorkout === "function") window.__repforgeEnterWorkout({ day: d });
+    else {
+      const b = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
+      if (b) b.click();
+    }
+  }, dayName);
+  await page.waitForFunction(
+    (d) => document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`)?.classList.contains("active"),
+    dayName,
+    { timeout: 5000 }
+  );
 }
 
 /** Date lives in the workout overflow menu (may be hidden) — set via DOM. */
