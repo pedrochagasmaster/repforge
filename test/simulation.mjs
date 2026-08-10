@@ -2326,7 +2326,7 @@ async function main() {
 
   // Settings auto-save on change (no Save click)
   await nav(page, "settings");
-  await page.evaluate(() => document.querySelector("#settings details.advanced")?.setAttribute("open", ""));
+  await page.evaluate(() => document.querySelector("#progressionDetails")?.classList.add("is-open"));
   await page.fill("#hardRir", "3");
   await page.locator("#hardRir").blur();
   await waitForSetting(page, "settings.hardRir", 3);
