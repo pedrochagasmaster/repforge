@@ -1962,8 +1962,11 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     `<div class="listrow"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div>`+
     `<button type="button" class="link-accent" id="seeVolumeAudit">${esc(t("program.see_audit"))} ›</button></div>`+
     `<div class="listrow" style="border:0"><button type="button" class="link-accent" id="reviewBlockLink">${esc(t("program.review_block"))}</button></div>`;
-  $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{const cur=new Set(uiPrefs.overviewOpenDays||[]);
-    cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);setUiPref("overviewOpenDays",[...cur]);renderProgramOverview()});
+  $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
+    const cur=new Set(uiPrefs.overviewOpenDays||[]);
+    if(!(uiPrefs.overviewOpenDays||[]).length&&ds[0])cur.add(ds[0]);
+    cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);
+    setUiPref("overviewOpenDays",[...cur]);renderProgramOverview()});
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
