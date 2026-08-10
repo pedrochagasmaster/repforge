@@ -1142,7 +1142,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .settings-head .back-link{position:absolute;left:0}
 .settings-head__title{font-size:17px;font-weight:600}
 .settings-identity{display:flex;align-items:center;gap:14px;padding:8px 0 18px}
-.settings-identity__mark{width:52px;height:52px;border-radius:50%;background:var(--cta);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none}
+.settings-identity__mark{width:52px;height:52px;border-radius:12px;display:block;object-fit:cover;flex:none}
 .settings-identity__name{font-size:17px;font-weight:600}
 .settings-identity__cap{font-size:13px;color:var(--ink-soft);margin-top:2px}
 .settings-panel{display:none;padding:4px 14px 14px;border-bottom:1px solid var(--rule);background:var(--surface)}
