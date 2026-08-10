@@ -4159,7 +4159,7 @@ async function main() {
   const loadFilterUi = await page.evaluate(() => {
     const rows = [...document.querySelectorAll("#prTimeline .prtl__row")];
     const active = document.querySelector('#prFilterSeg button[data-prf="load"]')?.classList.contains("active");
-    return { count: rows.length, allLoad: rows.length === 0 || rows.every((r) => /Load PR/i.test(r.textContent)), active };
+    return { count: rows.length, allLoad: rows.length === 0 || rows.every((r) => !!r.querySelector(".pr-kind--load")), active };
   });
   assert(
     loadFilterUi.active && loadFilterUi.count > 0 && loadFilterUi.allLoad,
