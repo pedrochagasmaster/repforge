@@ -3034,6 +3034,40 @@ async function main() {
     "Non-current exercises visible in focus mode",
     "Log → Focus → only current card shown"
   );
+  const overflowClosed = await page.evaluate(() => ({
+    hidden: document.querySelector("#woOverflow")?.classList.contains("hidden"),
+    expanded: document.querySelector("#woOverflowBtn")?.getAttribute("aria-expanded"),
+  }));
+  assert(
+    overflowClosed.hidden === true && overflowClosed.expanded === "false",
+    "picking a log mode closes the overflow menu",
+    JSON.stringify(overflowClosed),
+    "Log → ⋯ → Focus → menu collapses on its own"
+  );
+  assert(
+    (await page.locator("#woRestChip").count()) === 0,
+    "focus mode has no separate inline rest chip",
+    `woRestChip count=${await page.locator("#woRestChip").count()}`,
+    "Focus mode reuses the floating #restBar from List mode"
+  );
+  await page.click("#workout .exercise.is-current .ex__rest");
+  await page.waitForTimeout(150);
+  const restVsDock = await page.evaluate(() => {
+    const bar = document.querySelector("#restBar");
+    const dock = document.querySelector("#workoutDock");
+    if (!bar || !dock || bar.classList.contains("hidden")) return null;
+    const b = bar.getBoundingClientRect();
+    const d = dock.getBoundingClientRect();
+    return { barBottom: Math.round(b.bottom), dockTop: Math.round(d.top), barVisible: b.height > 0 };
+  });
+  assert(
+    restVsDock && restVsDock.barVisible && restVsDock.barBottom <= restVsDock.dockTop,
+    "focus rest timer floats clear of the workout dock",
+    JSON.stringify(restVsDock),
+    "Focus → tap ⏱ → timer sits above the Previous/Next dock, never behind it"
+  );
+  await page.click("#restBar");
+  await page.waitForTimeout(80);
   const focusMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
   // Focus mode commits per set via the "Log set" button next to the current set
@@ -3888,85 +3922,52 @@ async function main() {
   const pNoReps = await parseCmd("80");
   assert(!pNoReps.ok && pNoReps.error === "Could not find reps.", "parse: load only", JSON.stringify(pNoReps));
 
-  beginPhase("Phase: command bar apply");
+  beginPhase("Phase: spoken set apply");
   await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const cmdEx0 = await page.evaluate(() => document.querySelector("#workout .exercise")?.dataset.ex);
-  assert(cmdEx0, "command bar: first exercise present", "no .exercise on Log tab", "Open Log with program loaded");
-  await page.fill("#commandInput", "80 x 8 @1");
-  await page.click("#commandApply");
+  assert(cmdEx0, "spoken set: first exercise present", "no .exercise on Log tab", "Open Log with program loaded");
+  const applyCmd = (t) => page.evaluate((x) => window.__repforgeApplyCommandText(x), t);
+  const applied1 = await applyCmd("80 x 8 @1");
   await page.waitForTimeout(120);
   assert(
-    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "80" &&
+    applied1 === true &&
+      (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "80" &&
       (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "8" &&
       (await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)) === "1",
-    "command apply: 80 x 8 @1 fills set 1",
-    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)}`,
-    "Log → type 80 x 8 @1 → Apply → set 1 inputs updated"
+    "spoken set: 80 x 8 @1 fills set 1",
+    `applied=${applied1} load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)}`,
+    "Log → say 80 x 8 @1 → set 1 inputs updated"
   );
-  await page.fill("#commandInput", "set 2 60 x 10");
-  await page.click("#commandApply");
+  await applyCmd("set 2 60 x 10");
   await page.waitForTimeout(120);
   assert(
     (await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)) === "60" &&
       (await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)) === "10",
-    "command apply: set 2 60 x 10 targets set 2",
+    "spoken set: set 2 60 x 10 targets set 2",
     `load=${await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)}`,
-    "Log → type set 2 60 x 10 → Apply → set 2 inputs updated"
+    "Log → say set 2 60 x 10 → set 2 inputs updated"
   );
-  await page.fill("#commandInput", "not a set");
-  await page.click("#commandApply");
+  const appliedBad = await applyCmd("not a set");
   await page.waitForTimeout(120);
   const cmdBadToast = await page.locator("#toast").textContent();
   assert(
-    cmdBadToast.includes("Could not read"),
-    "command apply: invalid command shows error toast",
-    `toast=${cmdBadToast}`,
-    "Log → type nonsense → Apply → error toast, no crash"
-  );
-  assert(
-    (await page.locator("#commandInput").inputValue()) === "not a set",
-    "command apply: invalid command keeps input",
-    `input=${await page.locator("#commandInput").inputValue()}`,
-    "Invalid apply should not clear the command field"
-  );
-  await page.fill("#commandInput", "90 x 6 @2");
-  await page.locator("#commandInput").press("Enter");
-  await page.waitForTimeout(120);
-  assert(
-    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "90" &&
-      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "6",
-    "command apply: Enter key submits command",
-    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)}`,
-    "Log → type command → Enter → inputs updated"
+    appliedBad === false && cmdBadToast.includes("Could not read"),
+    "spoken set: unparseable text shows error toast",
+    `applied=${appliedBad} toast=${cmdBadToast}`,
+    "Log → say nonsense → error toast, no crash"
   );
 
   assert(
-    await page.locator("#commandHelp").isVisible(),
-    "command help button visible on Log tab",
-    "commandHelp not visible",
-    "Log tab → ? button in command bar"
+    (await page.locator("#commandInput").count()) === 0 &&
+      (await page.locator("#commandApply").count()) === 0 &&
+      (await page.locator("#commandBarWrap").count()) === 0,
+    "quick-entry text field removed from the Log surface",
+    `input=${await page.locator("#commandInput").count()} apply=${await page.locator("#commandApply").count()} wrap=${await page.locator("#commandBarWrap").count()}`,
+    "Log tab → no free-text command bar in the redesign"
   );
-  assert(
-    (await page.locator("#commandInput").getAttribute("aria-describedby")) === "commandHelpText" &&
-      (await page.locator("#commandHelpText").count()) === 1,
-    "command input aria-describedby wired",
-    `aria-describedby=${await page.locator("#commandInput").getAttribute("aria-describedby")}`,
-    "Log tab → command input has screen-reader description"
-  );
-  await page.click("#commandHelp");
-  await page.waitForTimeout(80);
-  const glossaryBody = await page.locator("#glossary .glossary__body").textContent();
-  assert(
-    !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
-      (/x 8/i.test(glossaryBody) || /80 x 8/i.test(glossaryBody)),
-    "command help opens glossary with syntax examples",
-    `glossary body: ${glossaryBody?.slice(0, 80)}`,
-    "Log → tap ? → glossary popover shows quick entry syntax"
-  );
-  await page.click("#glossary .glossary__close");
 
   beginPhase("Phase: voice input settings");
   let voiceState = await getState(page);
@@ -3993,15 +3994,14 @@ async function main() {
   );
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.fill("#commandInput", "75 x 7 @1");
-  await page.click("#commandApply");
+  await page.evaluate((x) => window.__repforgeApplyCommandText(x), "75 x 7 @1");
   await page.waitForTimeout(120);
   assert(
     (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "75" &&
       (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "7",
-    "typed command still applies with voice setting enabled",
+    "spoken set still applies with voice setting enabled",
     `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)}`,
-    "Log → enable voice (unsupported) → type 75 x 7 @1 → Apply"
+    "Log → enable voice (unsupported) → apply 75 x 7 @1"
   );
 
   beginPhase("Phase: P16 review tab");

@@ -784,7 +784,12 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   if(lbl){for(const n of [...lbl.childNodes])if(n.nodeType===3)n.remove();
     lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
 function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
-function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");if(m==="focus")$("#commandBarWrap")?.classList.add("is-hidden");else $("#commandBarWrap")?.classList.remove("is-hidden");renderWorkout()}
+function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
+  menu.classList.toggle("hidden",!open);
+  $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
+function closeWorkoutOverflow(){setWorkoutOverflow(false)}
+function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
+function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");closeWorkoutOverflow();renderWorkout()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   day=ex.day;
@@ -910,38 +915,22 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   if(anchor)anchor.insertAdjacentElement("afterend",el);
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
-function updateRestSurface(){
-  const bar=$("#restBar");if(!bar)return;
-  const inFocusWo=document.body.classList.contains("is-focus-wo");
-  const on=!bar.classList.contains("hidden");
-  bar.classList.toggle("restbar--focus",inFocusWo);
-  const chip=$("#woRestChip");if(!chip)return;
-  chip.classList.toggle("hidden",!(inFocusWo&&on));
-  chip.classList.toggle("is-done",on&&bar.classList.contains("is-done"));
-  const t=chip.querySelector(".restchip__time"),src=bar.querySelector(".restbar__time");
-  if(t)t.textContent=on&&src?src.textContent:"—";
-}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}
-  updateRestSurface();
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
     b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;
-    updateRestSurface();
     if(restNotified)return;
     restNotified=true;
     if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
     if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
     else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"});
     return}
-  const clock=fmtClock(left);
-  b.querySelector(".restbar__time").textContent=clock;
-  updateRestSurface()}
+  b.querySelector(".restbar__time").textContent=fmtClock(left)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
-  const clock=fmtClock(s);b.querySelector(".restbar__time").textContent=clock;
-  updateRestSurface();
+  b.querySelector(".restbar__time").textContent=fmtClock(s);
   clearInterval(restTick);restTick=setInterval(tickRest,250)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
@@ -1006,17 +995,19 @@ function setWorkoutActive(on){workoutActive=!!on;document.body.classList.toggle(
   const dash=$("#todayDash"),shell=$("#workoutShell");
   if(dash)dash.classList.toggle("hidden",workoutActive);
   if(shell)shell.classList.toggle("hidden",!workoutActive);
-  const float=$("#restBar");if(float)float.classList.toggle("restbar--float",!workoutActive);
-  if(!workoutActive){document.body.classList.remove("is-focus-wo");$("#workoutDock")?.classList.add("hidden")}
-  updateWorkoutDock();updateRestSurface()}
+  if(!workoutActive){document.body.classList.remove("is-focus-wo");$("#workoutDock")?.classList.add("hidden");closeWorkoutOverflow()}
+  updateWorkoutDock()}
 function updateWorkoutDock(){
   const dock=$("#workoutDock");if(!dock)return;
   // Focus-mode dock is exercise navigation only; logging lives next to the
-  // current set and the rest timer is the floating chip.
+  // current set and the rest timer is the floating bar shared with List mode.
   const show=workoutActive&&logMode==="focus";
   document.body.classList.toggle("is-focus-wo",show);
   if(!show){dock.classList.add("hidden");return}
   dock.classList.remove("hidden");
+  // Page padding and the floating rest timer both clear the dock, so measure it
+  // rather than trusting a hardcoded height across locales and font sizes.
+  const h=dock.offsetHeight;if(h)document.documentElement.style.setProperty("--dock",`${h}px`);
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   const prev=$("#woPrev"),next=$("#woNext");
   if(prev){prev.disabled=at<=0;prev.onclick=()=>{if(focusIndex>0){focusIndex--;renderWorkout();window.scrollTo({top:0})}}}
@@ -1025,9 +1016,8 @@ function updateWorkoutDock(){
 function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
-  else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active");$("#commandBarWrap")?.classList.remove("is-hidden")}
+  else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active")}
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
-  if(logMode==="focus")$("#commandBarWrap")?.classList.add("is-hidden");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
 function leaveWorkout(){workoutLeft=true;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
@@ -1159,7 +1149,6 @@ function renderWorkout(){
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
   const at=logMode==="focus"&&fl.length?Math.min(focusIndex,fl.length-1):0;
   const wk=$("#workout");if(!wk)return;wk.classList.toggle("is-focus",logMode==="focus");
-  if(logMode==="focus"){$("#commandBarWrap")?.classList.add("is-hidden")}
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
@@ -1218,7 +1207,9 @@ function renderWorkout(){
       `<div class="focus-ex__row"><h3 class="focus-ex__name">${nameHtml}</h3>`+
       `<div class="focus-ex__setof">${esc(t("today.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setX}</b>`)}</div></div>`+
       `<div class="focus-ex__target-row"><p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)}))}</p>`+
-      `<button type="button" class="icon-btn icon-btn--note" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--note" aria-hidden="true"></span></button></div>`:"";
+      `<span class="focus-ex__tools">`+
+      (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}">⏱</button>`:"")+
+      `<button type="button" class="icon-btn icon-btn--note" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--note" aria-hidden="true"></span></button></span></div>`:"";
     const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · <span class="nowrap">${term("RIR")} 0-${fmt(state.settings.rirHigh)}</span></p></div>`+
       `<div class="ex__topend">`+
@@ -1365,10 +1356,7 @@ function bindWorkout(){
     const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit();
     // Tap a committed set row to reopen it for editing in the steppers.
     $$("#workout [data-editset]").forEach(b=>b.onclick=()=>{
-      focusEditSet={exId:b.dataset.editex,n:+b.dataset.editn};saveDraft();renderWorkout()});
-    const chip=$("#woRestChip");if(chip)chip.onclick=()=>{
-      const bar=$("#restBar"),on=bar&&!bar.classList.contains("hidden");
-      if(on)stopRest();else{startRest(+state.settings.restSec||0);renderWorkout()}}}
+      focusEditSet={exId:b.dataset.editex,n:+b.dataset.editn};saveDraft();renderWorkout()})}
   else{$("#woProgress")?.classList.add("hidden")}
   updateWorkoutDock();
 }
@@ -1642,21 +1630,23 @@ function applyParsedCommand(parsed,context){
   else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
   touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
   saveDraft();updateSaveMeta();return{ex,set:setN}}
-function handleCommandSubmit(){
-  const v=$("#commandInput")?.value?.trim();if(!v)return;
+/** Fill the next open set from a spoken set, e.g. "80 x 8 @1". Returns true when applied. */
+function applyCommandText(text){
+  const v=String(text||"").trim();if(!v)return false;
   const parsed=parseSetCommand(v);
-  if(!parsed.ok){toast(parsed.error);return}
+  if(!parsed.ok){toast(parsed.error);return false}
   const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
-  if(!ex){toast(t("command.error.no_exercise_match"));return}
+  if(!ex){toast(t("command.error.no_exercise_match"));return false}
   const r=applyParsedCommand(parsed,{day,logMode});
-  if(!r)return;
-  $("#commandInput").value="";
+  if(!r)return false;
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
-  toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}))}
+  toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
+  return true}
+window.__repforgeApplyCommandText=applyCommandText;
 function updateVoiceBtn(){const b=$("#voiceBtn");if(!b)return;b.classList.toggle("hidden",!(SR&&state.settings.voiceInputEnabled))}
 function startVoiceInput(){
   if(!SR)return;const rec=new SR();rec.lang=I18N?I18N.speechLang():"en-US";rec.interimResults=false;rec.maxAlternatives=1;
-  rec.onresult=e=>{const t=e.results[0]?.[0]?.transcript;if(t){$("#commandInput").value=t;handleCommandSubmit()}};
+  rec.onresult=e=>{const said=e.results[0]?.[0]?.transcript;if(said)applyCommandText(said)};
   rec.onerror=()=>toast(t("toast.voice_failed"));
   try{rec.start()}catch{toast(t("toast.voice_failed"))}}
 window.__repforgeBlockSnapshot=blockSnapshot;
@@ -2453,8 +2443,13 @@ function init(){
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
   const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
-  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=()=>$("#woOverflow")?.classList.toggle("hidden");
-  const woCmd=$("#woToggleCommand");if(woCmd)woCmd.onclick=()=>$("#commandBarWrap")?.classList.toggle("is-hidden");
+  const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
+  // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
+  document.addEventListener("click",e=>{
+    const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
+    if(!menu.contains(e.target)&&!e.target.closest("#woOverflowBtn"))closeWorkoutOverflow()});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeWorkoutOverflow()});
+  const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>closeWorkoutOverflow());
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
@@ -2490,11 +2485,7 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
-  const cmdInp=$("#commandInput"),cmdApply=$("#commandApply");
-  if(cmdApply)cmdApply.onclick=handleCommandSubmit;
-  if(cmdInp)cmdInp.onkeydown=e=>{if(e.key==="Enter"){e.preventDefault();handleCommandSubmit()}};
-  const cmdHelp=$("#commandHelp");if(cmdHelp)cmdHelp.onclick=e=>{e.stopPropagation();glossaryPopover("quick entry",cmdHelp)};
-  const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=startVoiceInput;
+  const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").onsubmit=saveWorkout;
   $("#statExercise").onchange=renderStats;

@@ -26,6 +26,7 @@
   --danger:#C93A2B;
   --radius:14px;
   --nav:72px;
+  --dock:70px;
   --maxw:560px;
 
   --display:"Plex Sans",system-ui,sans-serif;
@@ -379,34 +380,25 @@ div.settings-row{cursor:default}
 .docknav{
   display:inline-flex;align-items:center;gap:6px;min-height:48px;padding:8px 4px;
   border:0;background:none;cursor:pointer;font-size:16px;font-weight:500;color:var(--ink);
+  white-space:nowrap;min-width:0;overflow:hidden;text-overflow:ellipsis;
 }
 .docknav::before{content:"‹";font-size:20px;line-height:1}
 .docknav--next::before{content:none}
 .docknav--next::after{content:"›";font-size:20px;line-height:1}
 .docknav:disabled{color:var(--ink-faint);cursor:default}
-.restchip{
-  flex:none;display:inline-flex;align-items:center;gap:8px;
-  background:var(--surface);border:1px solid var(--rule);border-radius:12px;
-  padding:8px 12px;cursor:pointer;min-height:48px;
-}
-.restchip__lab{font-size:10px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);display:block}
-.restchip__time{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--ink)}
-.restchip.is-done{border-color:var(--accent);color:var(--accent)}
-.restchip--inline{float:right;margin:0 0 8px 8px}
 body.is-workout #logWorkspace{padding-bottom:72px}
-body.is-workout.is-focus-wo{padding-bottom:calc(72px + env(safe-area-inset-bottom))}
+body.is-workout.is-focus-wo{padding-bottom:calc(var(--dock) + env(safe-area-inset-bottom))}
 body.is-workout.is-focus-wo .workout-dock:not(.hidden){display:flex}
 body.is-workout.is-focus-wo .workout-dock{bottom:env(safe-area-inset-bottom)}
 body.is-workout.is-focus-wo nav{display:none}
-body.is-workout .restbar.restbar--float{display:none!important}
-body.is-workout .restbar.restbar--focus{display:none!important}
+/* Focus hides the tab bar, so the floating rest timer clears the dock instead. */
+body.is-workout.is-focus-wo .restbar{bottom:calc(var(--dock) + 16px + env(safe-area-inset-bottom))}
 .workout-dock{display:none}
 body.is-workout #logForm{padding-bottom:24px}
 body.is-workout.is-focus-wo #logForm{padding-bottom:88px}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
-body.is-workout.is-focus-wo #commandBarWrap.is-hidden{display:none!important}
 .segbar--ex{margin-top:4px}
 #workout.is-focus .heat,
 #workout.is-focus .ex__topend,
@@ -439,6 +431,7 @@ body.is-workout.is-focus-wo #commandBarWrap.is-hidden{display:none!important}
 .focus-ex__setof{flex:none;font-size:13px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
 .focus-ex__setof b{color:var(--accent);font-weight:700}
 .focus-ex__target-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;min-height:32px}
+.focus-ex__tools{display:flex;align-items:center;gap:6px;flex:none}
 .focus-ex__target{font-size:13px;color:var(--ink-soft);margin:0;flex:1;min-width:0}
 .focus-ex__alvo{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-right:6px}
 .focus-next{
@@ -870,11 +863,6 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .attn--add .attn__lead{color:var(--accent)}
 .ov-week-status{font-size:13px;color:var(--ink-soft);margin:4px 0 8px}
 
-.commandbar{display:flex;gap:8px;margin-bottom:12px}
-.commandbar input{flex:1;min-width:0;padding:12px 14px;border:1px solid var(--rule);border-radius:12px;background:var(--surface);color:var(--ink);font-size:15px}
-.commandbar .btn{flex:none;padding:12px 16px}
-.commandbar__help{flex:none;min-width:2.4rem;padding:10px 0}
-.commandbar #voiceBtn{padding:12px 14px;font-size:1.1rem;line-height:1}
 .field--check{display:flex;align-items:center;gap:10px;font-weight:500;letter-spacing:normal;text-transform:none;color:var(--ink)}
 .field--check input{width:auto;flex:none;margin:0}
 
@@ -1145,9 +1133,10 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .today-upnext,.today-week{margin:0}
 .icon-btn--ghost{border:0;background:transparent}
 .wo-overflow{position:absolute;right:0;top:100%;z-index:15;min-width:220px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:12px;box-shadow:0 8px 24px rgba(0,0,0,.1)}
+.wo-overflow__item{display:block;width:100%;margin-top:10px;min-height:44px;padding:10px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);color:var(--ink);font-family:inherit;font-size:14px;font-weight:600;text-align:left;cursor:pointer}
+.wo-overflow__item.hidden{display:none}
 .is-hidden{display:none!important}
 .card--plain{background:transparent;border:0;padding:0;margin:0;overflow:visible}
-.restbar--float{/* already fixed */}
 .section-label--row{display:flex;align-items:center;justify-content:space-between}
 .settings-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:18px}
 .settings-head .back-link{position:absolute;left:0}
