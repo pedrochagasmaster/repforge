@@ -201,16 +201,8 @@ async function clearState(page) {
 
 async function nav(page, view) {
   if (view === "settings") {
-    // Profile control lives on Today; leave workout shell first if needed.
-    await page.evaluate(() => {
-      if (typeof window.__repforgeLeaveWorkout === "function") window.__repforgeLeaveWorkout();
-      if (typeof window.__repforgeShowSettings === "function") window.__repforgeShowSettings();
-    });
-    const open = page.locator("#openSettings");
-    if ((await open.count()) && (await open.isVisible().catch(() => false))) {
-      // Prefer the real click path when the control is on-screen.
-      await open.click();
-    }
+    // Profile control lives on Today (hidden during active workout / other tabs).
+    await page.evaluate(() => window.__repforgeShowSettings?.());
     await page.waitForSelector(`#settings.view.active`, { timeout: 5000 });
     return;
   }
