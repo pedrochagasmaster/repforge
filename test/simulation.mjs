@@ -226,6 +226,17 @@ async function selectDay(page, dayName) {
   await page.waitForSelector(`#dayTabs button[data-day="${dayName}"].active`, { timeout: 5000 });
 }
 
+/** Date lives in the workout overflow menu (may be hidden) — set via DOM. */
+async function setLogDate(page, value) {
+  await page.evaluate((v) => {
+    const el = document.querySelector("#date");
+    if (!el) throw new Error("#date missing");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+}
+
 async function firstDayName(page) {
   return page.locator("#dayTabs button").first().getAttribute("data-day");
 }
@@ -491,7 +502,7 @@ async function main() {
 
   // UI smoke: one representative save still exercises the full form pipeline
   const smokeDate = isoDateFromWeeksAgo(0);
-  await page.fill("#date", smokeDate);
+  await setLogDate(page, smokeDate);
   await fillExerciseSets(page, d1Exs[0].id, 1, 105, 7, 1);
   await saveWorkout(page);
   sessionCount++;
@@ -517,7 +528,7 @@ async function main() {
   );
 
   // Zero-load set is skipped on save (week-10 regression)
-  await page.fill("#date", isoDateFromWeeksAgo(1));
+  await setLogDate(page, isoDateFromWeeksAgo(1));
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
   await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
@@ -526,7 +537,7 @@ async function main() {
   uiSaveCount++;
 
   // Empty kg field is skipped (week-20 regression)
-  await page.fill("#date", isoDateFromWeeksAgo(2));
+  await setLogDate(page, isoDateFromWeeksAgo(2));
   await fillExerciseSets(page, d1Exs[0].id, 1, 100, 8, 1);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "");
   const logLenBeforeEmpty = (await getState(page)).log.length;
@@ -542,13 +553,13 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const sameDay = "2018-03-20";
-  await page.fill("#date", sameDay);
+  await setLogDate(page, sameDay);
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await saveWorkout(page);
   sessionCount++;
   uiSaveCount++;
 
-  await page.fill("#date", sameDay);
+  await setLogDate(page, sameDay);
   await fillExerciseSets(page, d1Exs[1].id, d1Exs[1].sets, 50, 10, 0);
   await saveWorkout(page);
   sessionCount++;
@@ -1656,7 +1667,7 @@ async function main() {
   // Backdated date in UI
   await nav(page, "log");
   const backdate = "2020-01-15";
-  await page.fill("#date", backdate);
+  await setLogDate(page, backdate);
   const logDay =
     (await page.locator('#dayTabs button[data-day="Day 2"]').count()) > 0
       ? "Day 2"
@@ -1677,7 +1688,7 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, logDay);
   const collisionDate = "2019-06-01";
-  await page.fill("#date", collisionDate);
+  await setLogDate(page, collisionDate);
   const d2b = (await getExerciseMeta(page, logDay))[0];
   await fillExerciseSets(page, d2b.id, 1, 55, 8, 1);
   await page.fill("#notes", "collision-test-A");
@@ -1699,7 +1710,7 @@ async function main() {
   // Invalid step value blocks save silently (HTML5 validation)
   await nav(page, "log");
   await selectDay(page, "Day 3");
-  await page.fill("#date", "2018-04-01");
+  await setLogDate(page, "2018-04-01");
   const d3 = (await getExerciseMeta(page, "Day 3"))[0];
   await fillExerciseSets(page, d3.id, 1, 61.25, 8, 1);
   const logLenBeforeInvalid = (await getState(page)).log.length;
@@ -3676,7 +3687,7 @@ async function main() {
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, deltaDay);
-  await page.fill("#date", deltaDate);
+  await setLogDate(page, deltaDate);
   await fillExerciseSets(page, deltaEx.id, deltaEx.sets, 100, 10, 1);
   const sessionsBeforeDelta = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
@@ -4085,10 +4096,10 @@ async function main() {
   await selectDay(page, browseDay);
   const browseExs = await getExerciseMeta(page, browseDay);
   const browseEx = browseExs[0];
-  await page.fill("#date", "2026-01-15");
+  await setLogDate(page, "2026-01-15");
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 8, 2);
   await saveWorkout(page);
-  await page.fill("#date", "2026-01-16");
+  await setLogDate(page, "2026-01-16");
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 10, 2);
   await saveWorkout(page);
   await nav(page, "stats");
@@ -4196,7 +4207,7 @@ async function main() {
     await page.textContent(`#workout [data-ex="${noteEx.id}"] .ex__name`)
   ).trim();
   const NOTE_TEXT = "Seat 4, pin 6, wide grip";
-  await page.fill("#date", "2026-02-02");
+  await setLogDate(page, "2026-02-02");
   await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
   await page.click(`[data-exnote-toggle="${noteEx.id}"]`);
   await page.fill(`[data-exnote="${noteEx.id}"]`, NOTE_TEXT);
