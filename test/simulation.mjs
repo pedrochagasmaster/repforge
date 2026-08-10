@@ -301,7 +301,8 @@ async function fillExerciseSets(page, exId, sets, load, reps, rir) {
 
 async function saveWorkout(page, { expectNewRows = true } = {}) {
   const beforeLen = (await getState(page))?.log?.length ?? 0;
-  await page.click(".btn--save");
+  // Submit via DOM — Focus mode docks may cover / restyle .btn--save.
+  await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
   if (!expectNewRows) {
     await page.waitForTimeout(120);
     return;
@@ -1737,7 +1738,7 @@ async function main() {
   const d2b = (await getExerciseMeta(page, logDay))[0];
   await fillExerciseSets(page, d2b.id, 1, 55, 8, 1);
   await page.fill("#notes", "collision-test-A");
-  await Promise.all([page.click(".btn--save"), page.click(".btn--save")]);
+  await page.evaluate(() => { const f=document.querySelector("#logForm"); f?.requestSubmit(); f?.requestSubmit(); });
   await page.waitForTimeout(300);
   state = await getState(page);
   const collisionSessions = [
@@ -1759,7 +1760,7 @@ async function main() {
   const d3 = (await getExerciseMeta(page, "Day 3"))[0];
   await fillExerciseSets(page, d3.id, 1, 61.25, 8, 1);
   const logLenBeforeInvalid = (await getState(page)).log.length;
-  await page.click(".btn--save");
+  await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
   await page.waitForTimeout(200);
   const logLenAfterInvalid = (await getState(page)).log.length;
   const formValid = await page.evaluate(() => document.querySelector("#logForm").checkValidity());

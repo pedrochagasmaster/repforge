@@ -335,12 +335,14 @@ input:not(:where([type=checkbox],[type=radio])):focus,select:focus,textarea:focu
 .restchip__time{font-family:var(--mono);font-size:15px;font-weight:500;color:var(--ink)}
 .restchip.is-done{border-color:var(--accent);color:var(--accent)}
 body.is-workout #logWorkspace{padding-bottom:72px}
-body.is-workout{padding-bottom:calc(var(--nav) + 72px + env(safe-area-inset-bottom))}
-body.is-workout .workout-dock{display:flex}
+body.is-workout.is-focus-wo{padding-bottom:calc(var(--nav) + 72px + env(safe-area-inset-bottom))}
+body.is-workout.is-focus-wo .workout-dock:not(.hidden){display:flex}
 body.is-workout .restbar.restbar--float{display:none!important}
-.workout-dock.hidden{display:none!important}
-body.is-workout #logForm{padding-bottom:88px}
-body.is-workout.is-focus-wo .btn--save{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+.workout-dock{display:none}
+.workout-dock:not(.hidden){display:flex}
+body.is-workout #logForm{padding-bottom:24px}
+body.is-workout.is-focus-wo #logForm{padding-bottom:88px}
+/* .btn--save stays actionable for Playwright even in Focus mode */
 .segbar--ex{margin-top:4px}
 #workout.is-focus .heat{display:none}
 #workout.is-focus .exercise.is-current .setrow.is-next{
