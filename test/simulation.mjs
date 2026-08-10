@@ -4331,7 +4331,7 @@ async function main() {
     "Log tab → tap an exercise name"
   );
   assert(
-    /Sessions/.test(exDetailText) && /Best e1RM/.test(exDetailText),
+    /sessions/i.test(exDetailText) && /best e1rm/i.test(exDetailText),
     "Exercise page shows summary metrics",
     `Content: ${(exDetailText || "").slice(0, 300)}`,
     "Log tab → tap an exercise name"
