@@ -3401,6 +3401,94 @@ async function main() {
     "Focus → the scrolling list keeps a third of the card and nothing pads the bottom of it"
   );
 
+  // A short screen must not cost the card its Log set button: the set entry is
+  // the last thing to give, and the first logged set must not push it out.
+  await page.setViewportSize({ width: 360, height: 640 });
+  await page.waitForTimeout(260);
+  const fitMetrics = () =>
+    page.evaluate(() => {
+      const card = document.querySelector("#workout .exercise.is-current");
+      const bodyBox = card.querySelector(".focus-body").getBoundingClientRect();
+      const cardBox = card.getBoundingClientRect();
+      const save = card.querySelector(".curset__save");
+      const saveBox = save?.getBoundingClientRect();
+      return {
+        density: [...card.classList].filter((c) => c === "is-tight" || c === "is-tighter").join("+") || "full",
+        guidance: card.querySelector(".focus-foot .insession")
+          ? "foot"
+          : card.querySelector(".focus-body .insession")
+            ? "body"
+            : "none",
+        footH: Math.round(card.querySelector(".focus-foot").getBoundingClientRect().height),
+        spill: card.scrollHeight - card.clientHeight,
+        saveWhole: !!saveBox && saveBox.bottom <= cardBox.bottom + 1 && saveBox.height >= 44,
+        rowsWhole: [...card.querySelectorAll(".settable__row")].filter((r) => {
+          const b = r.getBoundingClientRect();
+          return b.top >= bodyBox.top - 1 && b.bottom <= bodyBox.bottom + 1;
+        }).length,
+      };
+    });
+  // Drop the harness's own prefills so the card behaves like a fresh session:
+  // the in-session guidance only shows up when the next set is untouched.
+  await page.evaluate((d) => {
+    const draft = JSON.parse(localStorage.getItem(d) || "{}");
+    draft.__touched = [];
+    localStorage.setItem(d, JSON.stringify(draft));
+  }, DRAFT);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.waitForTimeout(260);
+  const fitBefore = await fitMetrics();
+  await page.evaluate(() => {
+    const cur = document.querySelector("#workout .exercise.is-current");
+    const key = cur.querySelector(".curset").dataset.set;
+    for (const [suffix, val] of [["load", 90], ["reps", 6], ["rir", 1]]) {
+      const el = cur.querySelector(`[data-k="${key}_${suffix}"]`);
+      if (!el) continue;
+      el.value = String(val);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+    cur.querySelector(".curset__save").click();
+  });
+  await page.waitForTimeout(300);
+  const fitAfter = await fitMetrics();
+  assert(
+    fitAfter.saveWhole && fitAfter.spill <= 1,
+    "Log set survives the first logged set on a short screen",
+    `before=${JSON.stringify(fitBefore)} after=${JSON.stringify(fitAfter)}`,
+    "360×640 → Focus → log set 1 → the button for set 2 is still whole inside the card"
+  );
+  assert(
+    fitAfter.footH === fitBefore.footH,
+    "the pinned footer keeps its height when a set lands",
+    `before=${JSON.stringify(fitBefore)} after=${JSON.stringify(fitAfter)}`,
+    "Focus → log a set → only the scrolling half of the card changes"
+  );
+  assert(
+    fitAfter.rowsWhole >= 1,
+    "the set just logged shows whole on a short screen",
+    JSON.stringify(fitAfter),
+    "360×640 → Focus → log set 1 → the logged row is in view, not scrolled off the top"
+  );
+  assert(
+    fitAfter.guidance === "body",
+    "session guidance scrolls with the session instead of growing the footer",
+    JSON.stringify(fitAfter),
+    "Focus → log a set → the 'this session' line lands in the scrolling half of the card"
+  );
+  // A window short enough that the set entry cannot fit at full size still has
+  // to hand over a whole Log set button.
+  await page.setViewportSize({ width: 360, height: 520 });
+  await page.waitForTimeout(300);
+  const fitCramped = await fitMetrics();
+  assert(
+    fitCramped.saveWhole && fitCramped.spill <= 1,
+    "a cramped card thins the set entry rather than clipping it",
+    JSON.stringify(fitCramped),
+    "360×520 → Focus → the card sheds ornament and Log set stays whole inside it"
+  );
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.waitForTimeout(260);
+
   // Focus carries List's per-exercise controls: last session's numbers and skip.
   const lastSession = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");

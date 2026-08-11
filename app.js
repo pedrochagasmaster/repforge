@@ -1305,13 +1305,15 @@ function renderWorkout(){
       (isFocusCur?"":recBlock)+
       (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
       subPick+
-      prevHtml+deltaHtml+(isFocusCur?"":sessHtml)+
+      // Guidance scrolls with the session; only the set entry is pinned, so the
+      // footer's height cannot change when the first set lands.
+      prevHtml+deltaHtml+sessHtml+
       (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`:`<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}`)+
       // Once a set is logged the recommendation has been acted on; the logged rows
       // and the in-session line carry it from there.
       (isFocusCur&&!doneTable?recBlock:"")+
       noteHtml+
-      (isFocusCur?`</div>`+(sessHtml+curHtml?`<div class="focus-foot">${sessHtml}${curHtml}</div>`:""):"")+
+      (isFocusCur?`</div>`+(curHtml?`<div class="focus-foot">${curHtml}</div>`:""):"")+
       `</article>`+(isFocusCur?`</div>`:"");
   }).join("");
   bindWorkout();
@@ -1329,11 +1331,36 @@ function sizeFocusDeck(){
   const nav=$("nav")?.getBoundingClientRect().height||0;
   // Room for the stack lips that sit below the deck box.
   deck.style.height=`${Math.max(320,Math.round(window.innerHeight-top-nav-28))}px`;
+  const card=deck.querySelector(".exercise.is-current");
+  fitFocusCard(card);
   // Only leave vertical panning to the browser when there is something to pan:
   // otherwise it claims near-vertical swipes that were meant for the deck.
   const body=deck.querySelector(".focus-body");
-  deck.querySelector(".exercise.is-current")
-    ?.classList.toggle("is-scrollable",!!body&&body.scrollHeight>body.clientHeight+1)}
+  const scrolls=!!body&&body.scrollHeight>body.clientHeight+1;
+  // A short card shows the end of the session, not its beginning: park the set
+  // just logged against the bottom of the scroller instead of half-cutting it.
+  if(scrolls){const last=body.querySelector(".settable__row:last-of-type");
+    body.scrollTop=last
+      ?Math.max(0,body.scrollTop+last.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom)
+      :body.scrollHeight}
+  card?.classList.toggle("is-scrollable",scrolls)}
+/** A short screen must never cost the card its Log set button: thin the card a
+ *  step at a time, ornament first, until what has to fit does. */
+function fitFocusCard(card){
+  const body=card?.querySelector(".focus-body");
+  if(!body||!card.querySelector(".focus-foot"))return;
+  card.classList.remove("is-tight","is-tighter","is-terse");
+  // Layout is read between steps on purpose, so each trim is judged on the last.
+  const clipped=()=>card.scrollHeight>card.clientHeight+1;
+  const overflows=()=>body.scrollHeight>body.clientHeight+1;
+  for(const step of ["is-tight","is-tighter"]){
+    if(!clipped()&&!(overflows()&&body.clientHeight<56))break;
+    card.classList.add(step)}
+  // The guidance line is the first thing to go, but only when dropping it is
+  // what makes the session fit whole.
+  if(!overflows())return;
+  card.classList.add("is-terse");
+  if(overflows())card.classList.remove("is-terse")}
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
 function updateNextMarker(art){if(!art)return;let found=false;
