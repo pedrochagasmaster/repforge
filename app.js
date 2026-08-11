@@ -1045,8 +1045,8 @@ function focusDragMove(e){
   const dir=mx<0?1:-1;
   if(dir!==focusDrag.shown){focusDrag.shown=dir;showBehindCard(dir)}
   focusDrag.dx=blocked?mx*.28:mx;
-  focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`;
-  focusDrag.card.style.opacity=String(Math.max(.5,1-Math.abs(focusDrag.dx)/520))}
+  // The card stays opaque while dragging so it reads as lifted over the one behind.
+  focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`}
 /** Point the card behind the deck at the exercise the current drag is heading for. */
 function showBehindCard(dir){
   const behind=$(".deck__behind");if(!behind)return;
