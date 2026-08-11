@@ -3160,6 +3160,62 @@ async function main() {
     `workoutDock count=${await page.locator("#workoutDock").count()}`,
     "Focus mode navigates by swipe + header chevrons instead of a dock"
   );
+  const deck = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const wrap = card?.parentElement;
+    const cardBox = card.getBoundingClientRect();
+    const peeks = [...(wrap?.querySelectorAll(".deck__peek") || [])].map((p) => {
+      const r = p.getBoundingClientRect();
+      return { side: p.classList.contains("deck__peek--next") ? "next" : "prev", x: Math.round(r.x), w: Math.round(r.width) };
+    });
+    return {
+      wrapped: wrap?.classList.contains("deck") === true,
+      surface: getComputedStyle(card).backgroundColor,
+      pageBg: getComputedStyle(document.body).backgroundColor,
+      radius: parseFloat(getComputedStyle(card).borderTopLeftRadius),
+      peeks,
+      cardRight: Math.round(cardBox.right),
+      upNext: document.querySelectorAll(".focus-next").length,
+      recInsideCard: !!card.querySelector(".recblock"),
+    };
+  });
+  assert(
+    deck.wrapped && deck.radius >= 12 && deck.surface !== deck.pageBg,
+    "the current exercise renders as a raised card",
+    JSON.stringify(deck),
+    "Focus mode → the exercise sits on its own rounded surface, not flat on the page"
+  );
+  assert(
+    deck.peeks.some((p) => p.side === "next" && p.x + p.w >= deck.cardRight + 10),
+    "a sliver of the next card peeks past the current one",
+    JSON.stringify(deck.peeks),
+    "Focus mode → the deck shows the neighbouring card's edge, so swiping reads as possible"
+  );
+  const behind = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
+    const el = document.querySelector(".deck__behind");
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { lip: Math.round(r.bottom - card.bottom), name: el.querySelector(".focus-ex__name")?.textContent };
+  });
+  assert(
+    behind && behind.lip >= 8 && !!behind.name,
+    "a second card sits behind the current one",
+    JSON.stringify(behind),
+    "Focus mode → the next exercise shows as a card lip below the current one and is revealed while dragging"
+  );
+  assert(
+    deck.upNext === 0,
+    "the up-next row is gone from the focus card",
+    `focus-next count=${deck.upNext}`,
+    "Focus mode → navigation is the deck itself, no 'Up next' row"
+  );
+  assert(
+    deck.recInsideCard,
+    "the recommendation block sits inside the focus card",
+    JSON.stringify(deck),
+    "Focus mode → everything below the set table is nested in the card, not spilled after it"
+  );
   await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
   await page.waitForTimeout(150);
   const bottomClearance = await page.evaluate(() => {
@@ -3188,9 +3244,17 @@ async function main() {
     await page.mouse.move(swipeX + step, swipeY);
     await page.waitForTimeout(20);
   }
+  const revealed = await page.evaluate(() => document.querySelector(".deck__behind .focus-ex__name")?.textContent);
   await page.mouse.up();
   await page.waitForTimeout(450);
   const swipeTo = await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
+  const landedName = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim());
+  assert(
+    !!revealed && revealed === landedName,
+    "the card revealed under the drag is the one you land on",
+    `revealed="${revealed}" landed="${landedName}"`,
+    "Focus → drag left → the exercise showing behind the card is the next one"
+  );
   assert(
     swipeFrom && swipeTo && swipeFrom !== swipeTo,
     "swiping the focus card left advances to the next exercise",
