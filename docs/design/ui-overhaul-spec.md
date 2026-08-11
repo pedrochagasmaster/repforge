@@ -21,7 +21,12 @@ These override the sections below where they conflict.
   the session, and flies out past the threshold. Any part of the card except a text field
   starts the drag, and the click after a real drag is swallowed. Chevrons in the progress
   header (`#woPrev` / `#woNext`) and the ← / → keys do the same thing for reach and
-  accessibility, and a one-time hint sits under the progress bar until the first swipe.
+  accessibility.
+- **The current exercise is a literal card.** White surface, hairline border, 18px radius
+  and a soft shadow, with slivers of the neighbouring exercises peeking past its left and
+  right edges. The deck carries the swipe affordance, so there is no hint copy and no
+  "Up next" row inside the card — the peeking edges and the chevrons say it instead.
+  This is the one flat-design exception in Focus mode; List mode stays hairline-separated.
 - **Logging stays on the card.** The "Log set" button is attached to the current set, and
   Finish workout only appears once every set of the session is logged, so a finished
   exercise can no longer end the session by accident.

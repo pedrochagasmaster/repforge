@@ -375,7 +375,6 @@ div.settings-row{cursor:default}
   color:var(--ink-soft);font-size:22px;line-height:1;border-radius:50%;
 }
 .focusnav:disabled{color:var(--rule);cursor:default}
-.focus-hint{margin:10px 0 0;font-size:12px;color:var(--ink-faint);text-align:center}
 body.is-workout #logWorkspace{padding-bottom:72px}
 body.is-workout #logForm{padding-bottom:24px}
 body.is-workout.is-focus-wo #dayTabs,
@@ -383,9 +382,21 @@ body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
 .segbar--ex{margin-top:4px}
 
-/* Focus card: drag it sideways to change exercise (vertical scroll stays native). */
+/* Focus card: a real card you drag sideways (vertical scroll stays native). */
 body.is-focus-wo{overflow-x:hidden}
+.deck{position:relative;margin:4px 0 8px}
+/* Slivers of the neighbouring cards, so the deck reads as swipeable. */
+.deck__peek{
+  position:absolute;top:14px;bottom:14px;width:22px;pointer-events:none;
+  background:var(--surface);border:1px solid var(--rule);
+  box-shadow:0 6px 18px rgba(0,0,0,.05);
+}
+.deck__peek--next{right:-14px;border-left:0;border-radius:0 16px 16px 0}
+.deck__peek--prev{left:-14px;border-right:0;border-radius:16px 0 0 16px}
 #workout.is-focus .exercise.is-current{
+  position:relative;z-index:1;
+  background:var(--surface);border:1px solid var(--rule);border-radius:18px;
+  padding:18px 16px;box-shadow:0 8px 28px rgba(0,0,0,.07);
   touch-action:pan-y;transform-origin:50% 120%;will-change:transform;
   transition:transform .26s cubic-bezier(.2,.7,.2,1),opacity .26s ease;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
@@ -410,8 +421,7 @@ body.is-focus-wo{overflow-x:hidden}
 #workout.is-focus .exercise.is-current .exnote.is-open .exnote__toggle{display:none}
 #workout.is-focus .exercise.is-current .setrow{display:none}
 #workout.is-focus .exercise.is-current .settable,
-#workout.is-focus .exercise.is-current .curset,
-#workout.is-focus .exercise.is-current .focus-next{display:block}
+#workout.is-focus .exercise.is-current .curset{display:block}
 .settable{margin:12px 0 4px}
 .settable__head,.settable__row{
   display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1.2rem;gap:8px;
@@ -432,14 +442,6 @@ body.is-focus-wo{overflow-x:hidden}
 .focus-ex__tools{display:flex;align-items:center;gap:6px;flex:none}
 .focus-ex__target{font-size:13px;color:var(--ink-soft);margin:0;flex:1;min-width:0}
 .focus-ex__alvo{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-right:6px}
-.focus-next{
-  display:flex!important;align-items:center;justify-content:space-between;gap:10px;
-  width:100%;min-height:56px;padding:14px 0;margin-top:8px;background:none;border:0;
-  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
-  cursor:pointer;font:inherit;color:inherit;text-align:left;
-}
-.focus-next__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);flex:none}
-.focus-next__main{flex:1;min-width:0;font-size:15px;font-weight:500;color:var(--ink)}
 .focus-sets-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 .curset__save{width:100%;margin-top:16px}
 .focus-done{margin-top:16px}

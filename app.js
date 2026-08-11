@@ -1061,7 +1061,6 @@ function focusDragEnd(e){
   focusFlinging=true;
   card.style.transform=`translateX(${dir>0?"-":""}120%) rotate(${dir>0?-14:14}deg)`;
   card.style.opacity="0";
-  if(!uiPrefs.focusSwipeSeen)setUiPref("focusSwipeSeen",true);
   setTimeout(()=>{focusFlinging=false;focusGo(dir)},170)}
 function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
@@ -1185,7 +1184,7 @@ function cursetHtml(ex,n,r,draft,prev,effortMode){
     `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:repsLab}))}">−</button>`+
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:repsLab}))}">+</button></div></div>`+
     `<div class="curset__cell"><div class="curset__cell-lab">${effortMode?esc(term("Effort")):"RIR"}</div>${rirInner}</div></div></div>`+
-    `<button type="button" class="saveset btn btn--cta curset__save" data-save="${esc(key)}"><span>${esc(t("today.log_set"))}</span></button></div>`}
+    `<button type="button" class="saveset btn btn--cta curset__save" data-save="${esc(key)}"><span>${esc(t("today.log_set"))}</span></button>`}
 function renderWorkout(){
   if(!workoutActive){updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
@@ -1235,10 +1234,9 @@ function renderWorkout(){
       :allDone?`<div class="focus-done"><p class="focus-done__msg">${esc(t("focus.all_done"))}</p>`+
         `<button type="button" class="btn btn--cta" data-ffinish><span>${esc(t("log.finish"))}</span></button></div>`
       :"";
-    const nextEx=isFocusCur&&fl.length&&at<fl.length-1?fl[at+1]:null;
-    const nextHtml=nextEx?`<button type="button" class="focus-next" data-fnext><span class="focus-next__lab">${esc(t("today.up_next_ex"))}</span>`+
-      `<span class="focus-next__main">${esc(nextEx.name)} · ${nextEx.sets} ${esc(tp(nextEx.sets,"set"))}</span><span class="chevron" aria-hidden="true"></span></button>`:"";
-    const finishHtml="";
+    // Slivers of the neighbouring cards, so the deck reads as swipeable.
+    const peeks=!isFocusCur?"":(at>0?`<div class="deck__peek deck__peek--prev" aria-hidden="true"></div>`:"")+
+      (at<fl.length-1?`<div class="deck__peek deck__peek--next" aria-hidden="true"></div>`:"");
     const perf=substituted.get(ex.id);
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
@@ -1270,7 +1268,8 @@ function renderWorkout(){
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}">⏱</button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${isFocusCur?" is-current":""}" data-ex="${esc(ex.id)}">`+
+    return (isFocusCur?`<div class="deck">${peeks}`:"")+
+      `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${isFocusCur?" is-current":""}" data-ex="${esc(ex.id)}">`+
       (isFocusCur?focusHead:listHead)+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
@@ -1281,7 +1280,7 @@ function renderWorkout(){
       prevHtml+deltaHtml+sessHtml+
       (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`:`<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}`)+
       (isFocusCur?recBlock:"")+
-      noteHtml+nextHtml+finishHtml+`</article>`;
+      noteHtml+`</article>`+(isFocusCur?`</div>`:"");
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
@@ -1408,11 +1407,9 @@ function bindWorkout(){
         `<button type="button" class="focusnav" id="woPrev" aria-label="${esc(t("focus.prev_ex"))}"${at<=0?" disabled":""}>‹</button>`+
         `<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
         `<button type="button" class="focusnav" id="woNext" aria-label="${esc(t("focus.next_ex"))}"${at>=fl.length-1?" disabled":""}>›</button></div>`+
-        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`+
-        (fl.length>1&&!uiPrefs.focusSwipeSeen?`<p class="focus-hint">${esc(t("focus.swipe_hint"))}</p>`:"");
+        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
       $("#woPrev").onclick=()=>focusGo(-1);
       $("#woNext").onclick=()=>focusGo(1)}
-    const n=$("[data-fnext]");if(n)n.onclick=()=>focusGo(1);
     const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit();
     // Tap a committed set row to reopen it for editing in the steppers.
     $$("#workout [data-editset]").forEach(b=>b.onclick=()=>{
