@@ -485,7 +485,23 @@ body.is-focus-wo{overflow-x:hidden}
 #workout.is-focus .settable{margin:6px 0 0}
 #workout.is-focus .settable__row{min-height:42px;padding:5px 0}
 #workout.is-focus .settable__head{padding:4px 0}
-.focus-foot .insession{margin-bottom:0}
+/* Short screens: the card sheds ornament, never controls. Each step lands only
+   if the card still cannot fit what it has to show. */
+.exercise.is-current.is-terse .insession{display:none}
+.exercise.is-current.is-tight .focus-foot{padding:4px 0 6px}
+.exercise.is-current.is-tight .curset__lab{display:none}
+.exercise.is-current.is-tight .focus-foot .curset__cell{padding:4px 4px 0}
+.exercise.is-current.is-tight .curset__underline{margin-top:3px}
+.exercise.is-current.is-tight .curset__steps .stepbtn{height:40px;min-height:40px}
+.exercise.is-current.is-tight .focus-foot .curset__save{margin-top:4px}
+.exercise.is-current.is-tighter .focus-ex__muscle{display:none}
+.exercise.is-current.is-tighter .focus-ex__name{font-size:21px}
+.exercise.is-current.is-tighter .focus-ex__target-row{min-height:28px;margin-bottom:6px}
+.exercise.is-current.is-tighter .curset__cell-lab{margin-bottom:2px}
+.exercise.is-current.is-tighter .curset__val,
+.exercise.is-current.is-tighter .curset__cell input.curset__val{font-size:24px}
+.exercise.is-current.is-tighter .curset__steps .stepbtn{height:36px;min-height:36px}
+.exercise.is-current.is-tighter .curset__save{height:46px;font-size:16px}
 .focus-sets-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 .curset__save{width:100%;margin-top:16px}
 .focus-exdone{margin:6px 0 0;font-size:14px;color:var(--ink-soft);text-align:center}
