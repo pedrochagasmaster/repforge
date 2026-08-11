@@ -628,8 +628,11 @@ body.is-focus-wo{overflow-x:hidden}
 .kg input{width:auto;flex:1;min-width:0;margin-top:0;padding-left:0;padding-right:0;
   border:0;background:transparent;border-radius:0;min-height:44px}
 .kg input:focus{box-shadow:none;border-color:transparent}
+/* The −/+ glyph is not text to be selected: the second tap of a burst would
+   otherwise raise a selection and iOS's magnifier over the control. */
 .stepbtn{flex:none;width:44px;min-width:44px;min-height:44px;border:0;background:var(--bg);color:var(--ink-soft);
-  cursor:pointer;font-size:20px;line-height:1;padding:0}
+  cursor:pointer;font-size:20px;line-height:1;padding:0;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .stepbtn:hover{color:var(--ink)}
 .copylast{flex:none;margin-left:auto;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
   text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:700;
