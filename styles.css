@@ -466,7 +466,13 @@ body.is-focus-wo{overflow-x:hidden}
 .focus-ex__target{font-size:13px;color:var(--ink-soft);margin:0;flex:1;min-width:0}
 .focus-ex__alvo{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-right:6px}
 /* The logged sets scroll between a fixed header and the pinned current set. */
-.focus-body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px}
+.focus-body{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px;
+  scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
+}
+.focus-body::-webkit-scrollbar{width:4px}
+.focus-body::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:4px}
+.focus-body::-webkit-scrollbar-track{background:transparent}
 .focus-foot{flex:none;padding:10px 0 16px;border-top:1px solid var(--rule)}
 .focus-foot .curset{margin-top:8px}
 .focus-foot .insession{margin-bottom:0}
