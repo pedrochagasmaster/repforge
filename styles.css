@@ -381,7 +381,20 @@ body.is-workout #logForm{padding-bottom:24px}
    List mode clears both live inside the card. */
 body.is-workout.is-focus-wo #logWorkspace,
 body.is-workout.is-focus-wo #logForm{padding-bottom:0}
-body.is-workout.is-focus-wo main{padding-bottom:20px}
+/* Focus fills the screen by layout, not by arithmetic: every box between the
+   viewport and the deck hands its height down, so the card cannot be left short
+   by a measurement taken while the viewport was something else. */
+body.is-workout.is-focus-wo main{
+  display:flex;flex-direction:column;
+  height:calc(100dvh - var(--nav) - env(safe-area-inset-bottom));
+  /* The stack's lips sit below the deck box; this is their room. */
+  padding-bottom:20px;
+}
+body.is-workout.is-focus-wo #log.view.active,
+body.is-workout.is-focus-wo #workoutShell,
+body.is-workout.is-focus-wo #logForm,
+body.is-workout.is-focus-wo #workout{display:flex;flex-direction:column;flex:1;min-height:0}
+body.is-workout.is-focus-wo .deck{flex:1;min-height:0}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}

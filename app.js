@@ -1323,14 +1323,12 @@ function renderWorkout(){
   updateFocusChrome();
   sizeFocusDeck();
 }
-/** Lock the deck to the space between the progress header and the tab bar. */
+/** Fit the card to the deck. The deck takes the space between the progress
+ *  header and the tab bar from the layout itself, so there is no measured
+ *  height here to go stale when the viewport changes under it. */
 function sizeFocusDeck(){
   const deck=$("#workout.is-focus .deck");if(!deck)return;
-  // offsetTop walks layout, so an in-flight enter animation can't skew the measurement.
-  let top=0;for(let el=deck;el;el=el.offsetParent)top+=el.offsetTop;
-  const nav=$("nav")?.getBoundingClientRect().height||0;
-  // Room for the stack lips that sit below the deck box.
-  deck.style.height=`${Math.max(320,Math.round(window.innerHeight-top-nav-28))}px`;
+  watchFocusDeck(deck);
   const card=deck.querySelector(".exercise.is-current");
   fitFocusCard(card);
   // Only leave vertical panning to the browser when there is something to pan:
@@ -1344,6 +1342,15 @@ function sizeFocusDeck(){
       ?Math.max(0,body.scrollTop+last.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom)
       :body.scrollHeight}
   card?.classList.toggle("is-scrollable",scrolls)}
+let deckWatch=null,deckWatched=null;
+/** Sizing the deck is the layout's business; refitting the card to it is ours,
+ *  whenever that box changes — a keyboard opening, a toolbar sliding away. */
+function watchFocusDeck(deck){
+  if(deckWatched===deck||!window.ResizeObserver)return;
+  deckWatch=deckWatch||new ResizeObserver(()=>
+    fitFocusCard($("#workout.is-focus .deck .exercise.is-current")));
+  if(deckWatched)deckWatch.unobserve(deckWatched);
+  deckWatch.observe(deck);deckWatched=deck}
 /** A short screen must never cost the card its Log set button: thin the card a
  *  step at a time, ornament first, until what has to fit does. */
 function fitFocusCard(card){

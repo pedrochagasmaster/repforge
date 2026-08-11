@@ -34,8 +34,11 @@ These override the sections below where they conflict.
   button and set list; in Focus both live inside the card, so that padding is dropped and
   only a small margin sits between the deck and the tab bar.
 - **The card is screen-height, not content-height.** It runs from under the progress
-  header to just above the tab bar, measured at render time, so every exercise shows the
-  same box. Inside it: a fixed header, a scrolling middle (last session, logged sets,
+  header to just above the tab bar, and it gets there by layout rather than by
+  arithmetic: in Focus every box from `main` down to the deck is a flex column, `main` is
+  `100dvh` less the tab bar, and the deck takes what is left. Nothing measures the
+  viewport, so nothing can be left sized to a viewport that has since changed — a
+  keyboard opening, a toolbar sliding away. Every exercise shows the same box. Inside it: a fixed header, a scrolling middle (last session, logged sets,
   recommendation, guidance, note) and a pinned footer holding only the current set, so Log
   set is never below the fold. The page itself does not scroll in Focus. The footer claims
   only what set entry needs and the logged rows pack tighter than List's, so the scrolling
