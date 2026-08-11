@@ -83,6 +83,11 @@ These override the sections below where they conflict.
   draft holds logged or filled sets, and "Start workout" otherwise.
 - **Entering and leaving a workout animates.** The workout shell rises into place and the
   dashboard settles back on return; both are skipped under `prefers-reduced-motion`.
+- **The page does not zoom.** Adjusting load or reps means tapping one 44px target several
+  times in a row, and a browser reads two of those taps as double-tap-to-zoom, which throws
+  the layout off mid-set. The viewport meta pins the scale, and every control carries
+  `touch-action:manipulation` because iOS Safari ignores `user-scalable=no` in the browser.
+  Set fields stay at 16px so focusing one cannot zoom either.
 
 ## 1. Design language
 

@@ -36,7 +36,15 @@
 }
 
 *{box-sizing:border-box}
-html{-webkit-text-size-adjust:100%}
+/* Nudging load or reps means tapping the same 44px target several times in a row,
+   and a browser reads two of those taps as double-tap-to-zoom: the page jumps
+   mid-set and there is no way back one-handed. `manipulation` drops the
+   double-tap gesture while leaving taps, scrolling and pinch alone, and it is
+   what stops the zoom in iOS Safari, which ignores `user-scalable=no`. Panning
+   policies set further in (the focus card's `touch-action:none`) still win,
+   because the browser intersects this with theirs. */
+html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+button,input,select,textarea,label,summary,a,[role=button]{touch-action:manipulation}
 body{
   margin:0;
   font-family:var(--body);
