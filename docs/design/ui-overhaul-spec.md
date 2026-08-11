@@ -36,11 +36,19 @@ These override the sections below where they conflict.
 - **The card is screen-height, not content-height.** It runs from under the progress
   header to just above the tab bar, measured at render time, so every exercise shows the
   same box. Inside it: a fixed header, a scrolling middle (last session, logged sets,
-  recommendation, note) and a pinned footer holding the in-session line and the current
-  set, so Log set is never below the fold. The page itself does not scroll in Focus. The
-  footer claims only what set entry needs and the logged rows pack tighter than List's, so
-  the scrolling middle keeps at least a third of the card rather than losing it to padding
-  under Log set.
+  recommendation, guidance, note) and a pinned footer holding only the current set, so Log
+  set is never below the fold. The page itself does not scroll in Focus. The footer claims
+  only what set entry needs and the logged rows pack tighter than List's, so the scrolling
+  middle keeps at least a third of the card rather than losing it to padding under Log set.
+- **Nothing but the set entry is pinned.** Everything that can appear or grow mid-session —
+  the in-session guidance above all — scrolls with the session, so the footer's height
+  cannot change when a set lands and push Log set off the bottom of the card.
+- **A short screen costs the card ornament, never controls.** When the set entry cannot
+  fit at full size, the card thins in steps that are measured, not guessed: first the
+  "Current set" label and the padding around the entry, then the muscle line, the name
+  size and the digits. The guidance line drops only when dropping it is what makes the
+  session fit whole. The scroller keeps the row just logged against its bottom edge, so a
+  short card shows the end of the session rather than the top of its history.
 - **The recommendation steps aside once a set is logged.** It has been acted on by then;
   the logged rows and the in-session line carry the session from there. An exercise whose
   sets are all logged says so in the footer instead of leaving the card blank.
