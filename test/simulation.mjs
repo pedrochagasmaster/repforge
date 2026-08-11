@@ -3282,6 +3282,99 @@ async function main() {
     `disabled=${await page.evaluate(() => document.querySelector("#woPrev")?.disabled)}`,
     "Focus → first exercise → ‹ cannot be tapped"
   );
+  // The card is screen-height: same box on every exercise, with the page itself
+  // never scrolling and the set controls pinned in view.
+  const cardMetrics = () =>
+    page.evaluate(() => {
+      const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
+      const nav = document.querySelector("nav").getBoundingClientRect();
+      const foot = document.querySelector(".focus-foot")?.getBoundingClientRect();
+      return {
+        h: Math.round(card.height),
+        top: Math.round(card.top),
+        gapToNav: Math.round(nav.top - card.bottom),
+        pageScrolls: document.body.scrollHeight > window.innerHeight + 2,
+        footVisible: !!foot && foot.bottom <= card.bottom + 1 && foot.top >= card.top,
+      };
+    });
+  const sizeFirst = await cardMetrics();
+  await page.click("#woNext");
+  await page.waitForTimeout(320);
+  const sizeSecond = await cardMetrics();
+  await page.click("#woPrev");
+  await page.waitForTimeout(320);
+  assert(
+    sizeFirst.h === sizeSecond.h && sizeFirst.top === sizeSecond.top && sizeFirst.h > 300,
+    "the focus card is the same size on every exercise",
+    `first=${JSON.stringify(sizeFirst)} second=${JSON.stringify(sizeSecond)}`,
+    "Focus → swipe between exercises → the card box never changes"
+  );
+  assert(
+    !sizeFirst.pageScrolls && sizeFirst.gapToNav >= 0 && sizeFirst.gapToNav <= 44,
+    "the card fills the screen down to the tab bar without scrolling the page",
+    JSON.stringify(sizeFirst),
+    "Focus → the card runs from the progress header to just above the tab bar"
+  );
+  assert(
+    sizeFirst.footVisible,
+    "the current set stays pinned inside the card",
+    JSON.stringify(sizeFirst),
+    "Focus → the set controls and Log set sit at the bottom of the card, not below the fold"
+  );
+
+  // Focus carries List's per-exercise controls: last session's numbers and skip.
+  const lastSession = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    return {
+      text: card.querySelector(".lastsess__sets")?.textContent?.trim() || "",
+      tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
+      skip: !!card.querySelector(".focus-ex__tools [data-skip]"),
+    };
+  });
+  assert(
+    /\d+.*×\s*\d+.*@/.test(lastSession.text),
+    "the focus card shows last session's load, reps and RIR",
+    JSON.stringify(lastSession),
+    "Focus → an exercise with history lists what was lifted last time"
+  );
+  assert(
+    lastSession.tools === 3 && lastSession.skip,
+    "the focus card carries timer, note and skip tools",
+    JSON.stringify(lastSession),
+    "Focus → the card header holds the rest timer, the note and Skip"
+  );
+  const beforeSkip = await page.evaluate(() => ({
+    ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
+    count: document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length,
+  }));
+  await page.click("#workout .exercise.is-current [data-skip]");
+  await page.waitForTimeout(320);
+  const afterSkip = await page.evaluate(() => ({
+    ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
+    count: document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length,
+    skipbar: !!document.querySelector("#workout .skipbar"),
+  }));
+  assert(
+    afterSkip.ex !== beforeSkip.ex && afterSkip.count === beforeSkip.count - 1 && afterSkip.skipbar,
+    "skipping from the focus card drops it out of the session",
+    `${JSON.stringify(beforeSkip)} -> ${JSON.stringify(afterSkip)}`,
+    "Focus → tap skip → the deck moves on and the hidden-exercises bar appears"
+  );
+  await page.click("#workout .skipbar__show");
+  await page.waitForTimeout(320);
+  assert(
+    (await page.evaluate(() => document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length)) === beforeSkip.count,
+    "restoring skipped exercises puts them back in the deck",
+    `count=${await page.evaluate(() => document.querySelectorAll("#woProgress .segbar--ex .segbar__seg").length)}`,
+    "Focus → Show all in the hidden bar → the skipped exercise returns"
+  );
+  await page.evaluate(() => {
+    const fl = [...document.querySelectorAll("#workout .exercise")];
+    const at = fl.findIndex((e) => e.classList.contains("is-current"));
+    if (at > 0) document.querySelector("#woPrev")?.click();
+  });
+  await page.waitForTimeout(250);
+
   const focusMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
   // Focus mode commits per set via the "Log set" button next to the current set
@@ -3300,12 +3393,20 @@ async function main() {
       }
       return true;
     });
+  let recAfterLog = null;
   for (let guard = 0; guard < 80; guard++) {
     const finish = await page.evaluate(() => {
       const f = document.querySelector("[data-ffinish]");
       return f && !f.classList.contains("visually-hidden") && f.offsetParent !== null;
     });
     if (finish) break;
+    if (recAfterLog === null) {
+      recAfterLog = await page.evaluate(() => {
+        const card = document.querySelector("#workout .exercise.is-current");
+        const logged = card?.querySelectorAll(".settable__row").length || 0;
+        return logged ? { logged, rec: card.querySelectorAll(".recblock").length } : null;
+      });
+    }
     let acted = false;
     if (await fillCurrentFocusSet()) {
       acted = await page.evaluate(() => {
@@ -3324,6 +3425,12 @@ async function main() {
     if (!acted) break;
     await page.waitForTimeout(60);
   }
+  assert(
+    recAfterLog && recAfterLog.logged > 0 && recAfterLog.rec === 0,
+    "the recommendation makes way once a set is logged",
+    JSON.stringify(recAfterLog),
+    "Focus → log a set → the recommendation block drops out of the card"
+  );
   await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
   await page.waitForTimeout(120);
   assert(

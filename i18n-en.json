@@ -11,6 +11,8 @@
   "nav.stats": "Progress",
   "nav.history": "History",
   "focus.all_done": "All sets logged",
+  "focus.ex_done": "Exercise done — swipe for the next one",
+  "focus.last_session": "Last session",
   "focus.edit_set_aria": "Edit set {n}",
   "focus.next_ex": "Next exercise",
   "focus.prev_ex": "Previous exercise",
