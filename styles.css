@@ -486,28 +486,13 @@ body.is-focus-wo{overflow-x:hidden}
 #workout.is-focus .settable__row{min-height:42px;padding:5px 0}
 #workout.is-focus .settable__head{padding:4px 0}
 .focus-foot .insession{margin-bottom:0}
-/* Rest clock docked to the bottom of the card, never floating over it. */
-.focus-rest{
-  display:flex;align-items:center;gap:8px;width:100%;min-height:36px;margin:0 0 6px;
-  padding:6px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);
-  color:var(--ink);font:inherit;cursor:pointer;text-align:left;
-}
-.focus-rest.hidden{display:none!important}
-.focus-rest__dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent)}
-.focus-rest__time{font-family:var(--mono);font-size:14px;line-height:1;min-width:3.2em}
-.focus-rest__lab{margin-left:auto;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
-.focus-rest.is-done{border-color:var(--accent);color:var(--accent)}
-.focus-rest.is-done .focus-rest__lab{color:var(--accent)}
-/* One clock at a time: Focus docks it, so the floating bar stands down. */
-body.is-focus-wo .restbar{display:none!important}
-.focus-rest:not(.hidden)+.insession{display:none}
 .focus-sets-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 .curset__save{width:100%;margin-top:16px}
 .focus-exdone{margin:6px 0 0;font-size:14px;color:var(--ink-soft);text-align:center}
 .focus-done{margin-top:16px}
 .focus-done__msg{font-size:14px;color:var(--ink-soft);margin:0 0 12px}
 
-/* Rest bar (floating when not in workout) */
+/* Rest bar — one floating clock, parked just above the tab bar in every mode */
 .restbar{
   position:fixed;right:max(14px,env(safe-area-inset-right));
   bottom:calc(var(--nav) + 16px + env(safe-area-inset-bottom));z-index:28;
