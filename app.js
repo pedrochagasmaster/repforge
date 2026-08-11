@@ -421,6 +421,8 @@ let logMode="full",focusIndex=0,focusEditSet=null,statsSeg="overview",prFilter="
 let focusEnterFrom=0,focusDrag=null,focusFlinging=false;
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
+// Today's session lists its first few exercises; the rest sit behind a "+N" row.
+const TODAY_EX_PREVIEW=3;let todayExOpen=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
 function migrateLog(){let changed=false;for(const row of state.log){
@@ -1096,27 +1098,46 @@ function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN
     return s?s.charAt(0).toUpperCase()+s.slice(1):s}
   catch{return iso}}
 function weekdayLetters(){return state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
+// The day's exercises, previewed on Today: sets × rep range per row, the rest
+// behind a "+N" disclosure. Tapping a row opens that exercise's page.
+function todayExListHtml(exs){if(!exs.length)return"";
+  const collapsible=exs.length>TODAY_EX_PREVIEW,extra=exs.length-TODAY_EX_PREVIEW;
+  const shown=collapsible&&!todayExOpen?exs.slice(0,TODAY_EX_PREVIEW):exs;
+  const rows=shown.map(e=>`<button type="button" class="today-ex" data-exopen="${esc(e.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:e.name}))}">`+
+    `<span class="today-ex__name">${esc(e.name)}</span>`+
+    `<span class="today-ex__value">${esc(`${e.sets} × ${e.min}–${e.max}`)}<span class="chevron" aria-hidden="true"></span></span></button>`).join("");
+  const label=todayExOpen?t("today.fewer_exercises"):extra===1?t("today.more_exercises_one"):t("today.more_exercises",{n:extra});
+  const more=collapsible
+    ?`<button type="button" class="today-exmore" id="todayExMore" aria-expanded="${todayExOpen?"true":"false"}" aria-controls="todayExList">`+
+      `<span>${esc(label)}</span><span class="chevron ${todayExOpen?"is-up":"is-down"}" aria-hidden="true"></span></button>`
+    :"";
+  return `<div class="today-exlist" id="todayExList">${rows}${more}</div>`}
 function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
+  const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
   if(progEl){if(nm||mc.current!=null){progEl.classList.remove("hidden");
     const segs=mc.total||6,cur=mc.current||0;
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (mc.current!=null?`<div class="today-prog__week">${esc(t("today.week_of",{n:mc.current,total:mc.total}))}</div>`:"")+
-      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
+      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`+
+      (week.plannedDays?`<div class="today-prog__done">${esc(t("today.sessions_done",{done:week.completedDays,planned:week.plannedDays}))}</div>`:"")}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
   const sess=$("#todaySession");if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
     sess.innerHTML=`<div class="today-session__name">${esc(day)}</div>`+
       (mus.length?`<div class="today-session__muscles">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
-      (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")}
+      (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
+      todayExListHtml(exs)}
     const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
       if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}
+    $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
+    const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
   const cta=$("#startWorkout")?.querySelector("span");
   if(cta){const key=draftHasProgress()?"today.continue":"today.start";
     cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
-  const weekEl=$("#todayWeek");if(weekEl){const w=weeklySnapshot(),{start}=weekRange(today()),letters=weekdayLetters();
+  const weekEl=$("#todayWeek");if(weekEl){const w=week,{start}=weekRange(today()),letters=weekdayLetters();
     const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
     const cells=letters.map((lab,i)=>{const d=new Date(`${start}T12:00:00`);d.setDate(d.getDate()+i);
       const iso=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
