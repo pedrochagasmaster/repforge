@@ -605,10 +605,21 @@ body.is-focus-wo{overflow-x:hidden}
 .setrow.is-done .saveset{color:#fff;border-color:transparent;background:var(--cta)}
 .setrow.is-next .setrow__n{color:var(--accent)}
 .setrow.is-next .setrow__n::after{content:"";display:block;margin:3px auto 0;width:4px;height:4px;border-radius:50%;background:var(--accent)}
-.saveset{flex:none;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
+/* The save column is content-sized, so the committed ✓ overlays the label
+   rather than replacing it — a narrower button would drag the row's inputs
+   out of line with the rows above it and with the header. */
+.saveset,.sets__head .sets__head-save{border:1px solid transparent;
   text-transform:uppercase;letter-spacing:.05em;font-size:11.5px;font-weight:700;
-  border-radius:10px;padding:0 8px;cursor:pointer;min-width:46px;min-height:46px;line-height:1}
+  padding:0 8px;min-width:46px}
+.saveset{position:relative;flex:none;border-color:var(--rule);background:var(--surface);color:var(--ink-soft);
+  border-radius:10px;cursor:pointer;min-height:46px;line-height:1}
 .saveset:hover{color:var(--ink);border-color:var(--ink-soft)}
+.setrow.is-done .saveset__label{visibility:hidden}
+.setrow.is-done .saveset::after{content:"✓";position:absolute;inset:0;
+  display:flex;align-items:center;justify-content:center;font-size:15px}
+/* Header mirror of the save button: hidden, but it holds the column open so
+   the KG / REPS / RIR labels stay centred over their inputs. */
+.sets__head .sets__head-save{visibility:hidden;height:0;border-block-width:0}
 
 .setrow input{margin-top:0;text-align:center;font-weight:500;font-size:16px;padding:12px 4px;
   background:var(--surface);border-color:var(--rule);font-variant-numeric:tabular-nums;min-height:46px}
@@ -1123,7 +1134,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
   .vrow{grid-template-columns:1fr auto}
   .setrow input{font-size:15px;padding:12px 2px}
   .stepbtn{width:44px;min-width:44px;font-size:17px}
-  .saveset{min-width:38px;padding:0 4px}
+  .saveset,.sets__head .sets__head-save{min-width:38px;padding:0 4px}
   .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem;gap:6px}
   .curset__val{font-size:26px}
 }

@@ -2457,6 +2457,33 @@ async function main() {
     "Log → enter weight → Save set → row shows done"
   );
 
+  const setGrid = await page.evaluate((exId) => {
+    const cols = (el) => [...el.children].map((c) => Math.round(c.getBoundingClientRect().x * 10) / 10);
+    const done = document.querySelector(`.setrow[data-set="${exId}_1"]`);
+    const next = document.querySelector(`.setrow[data-set="${exId}_2"]`);
+    return {
+      done: cols(done),
+      next: next ? cols(next) : null,
+      head: cols(done.closest(".exercise").querySelector(".sets__head")),
+      saveWidths: [done, next]
+        .filter(Boolean)
+        .map((r) => Math.round(r.querySelector(".saveset").getBoundingClientRect().width)),
+    };
+  }, ex0);
+  const colDrift = (a, b) => Math.max(...a.map((x, i) => Math.abs(x - b[i])));
+  assert(
+    setGrid.next && colDrift(setGrid.done, setGrid.next) < 0.5 && setGrid.saveWidths[0] === setGrid.saveWidths[1],
+    "Saved set row keeps the same columns as the rows below it",
+    `done=[${setGrid.done}] next=[${setGrid.next}] saveWidths=[${setGrid.saveWidths}]`,
+    "Log → Save set → the ✓ stays as wide as the Save label, so the row's fields stay put"
+  );
+  assert(
+    colDrift(setGrid.head, setGrid.done) < 2,
+    "Set table header lines up with the set rows",
+    `head=[${setGrid.head}] row=[${setGrid.done}]`,
+    "Log → the SET / KG / REPS / RIR labels sit over their own columns"
+  );
+
   assert(
     (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-selected")) === "true",
     "Active day tab exposes aria-selected",
