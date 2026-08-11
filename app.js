@@ -916,17 +916,13 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   if(anchor)anchor.insertAdjacentElement("afterend",el);
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
-/** One clock, two places to show it: the floating bar and Focus's docked row. */
+/** The floating bar is the only rest surface, in both log modes. */
 function paintRest(text,done){
-  const b=$("#restBar");
-  if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;b.classList.toggle("is-done",!!done)}
-  $$(".focus-rest").forEach(el=>{const time=el.querySelector(".focus-rest__time");
-    if(time)time.textContent=text;el.classList.toggle("is-done",!!done)})}
-function showRestSurfaces(on){
-  $("#restBar")?.classList.toggle("hidden",!on);
-  $$(".focus-rest").forEach(el=>el.classList.toggle("hidden",!on))}
+  const b=$("#restBar");if(!b)return;
+  const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
+  b.classList.toggle("is-done",!!done)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;
-  showRestSurfaces(false);paintRest("—",false);
+  $("#restBar")?.classList.add("hidden");paintRest("—",false);
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
@@ -940,7 +936,7 @@ function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
   paintRest(fmtClock(left),false)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
-  showRestSurfaces(true);paintRest(fmtClock(s),false);
+  $("#restBar")?.classList.remove("hidden");paintRest(fmtClock(s),false);
   clearInterval(restTick);restTick=setInterval(tickRest,250)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
@@ -1185,14 +1181,6 @@ function setRowHtml(ex,n,r,draft,prev,nextSet,effortMode){
     `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
     rirCell+
     `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="${esc(t("log.save_set_aria",{n}))}">${committed.has(key)?"✓":esc(t("log.save_set"))}</button></div>`}
-/** Rest clock docked in the card footer; hidden until a rest is running. */
-function restRowHtml(){
-  const on=restEnd>0,left=on?Math.max(0,Math.round((restEnd-Date.now())/1000)):0;
-  return `<button type="button" class="focus-rest${on?"":" hidden"}${on&&!left?" is-done":""}" data-reststop `+
-    `aria-live="polite" aria-label="${esc(t("top.rest_timer_aria"))}">`+
-    `<span class="focus-rest__dot" aria-hidden="true"></span>`+
-    `<span class="focus-rest__time">${on?esc(fmtClock(left)):"—"}</span>`+
-    `<span class="focus-rest__lab">${esc(t("focus.rest"))}</span></button>`}
 function cursetHtml(ex,n,r,draft,prev,effortMode){
   const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
   const rirInner=effortMode
@@ -1323,7 +1311,7 @@ function renderWorkout(){
       // and the in-session line carry it from there.
       (isFocusCur&&!doneTable?recBlock:"")+
       noteHtml+
-      (isFocusCur?`</div>`+(sessHtml+curHtml?`<div class="focus-foot">${restRowHtml()}${sessHtml}${curHtml}</div>`:""):"")+
+      (isFocusCur?`</div>`+(sessHtml+curHtml?`<div class="focus-foot">${sessHtml}${curHtml}</div>`:""):"")+
       `</article>`+(isFocusCur?`</div>`:"");
   }).join("");
   bindWorkout();
@@ -1427,7 +1415,6 @@ function bindWorkout(){
       if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
     localStorage.setItem(DRAFT,JSON.stringify(d));saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
-  $$("#workout [data-reststop]").forEach(b=>b.onclick=()=>stopRest());
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
     skipped.has(id)?skipped.delete(id):skipped.add(id);
     if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}

@@ -41,10 +41,6 @@ These override the sections below where they conflict.
   footer claims only what set entry needs and the logged rows pack tighter than List's, so
   the scrolling middle keeps at least a third of the card rather than losing it to padding
   under Log set.
-- **Focus docks the rest clock, it does not float it.** While resting, the clock is a row
-  at the top of the card footer, in place of the in-session line, and the floating
-  `#restBar` stands down. One clock is painted from one place; the floating bar is still
-  the surface in List mode.
 - **The recommendation steps aside once a set is logged.** It has been acted on by then;
   the logged rows and the in-session line carry the session from there. An exercise whose
   sets are all logged says so in the footer instead of leaving the card blank.
@@ -63,8 +59,10 @@ These override the sections below where they conflict.
   Finish workout only appears once every set of the session is logged, so a finished
   exercise can no longer end the session by accident.
 - **One rest timer for both modes.** The floating `#restBar` is the only rest surface, in
-  the same place in both modes; Focus renders no chip of its own. The ⏱ starter lives in
-  each exercise header in both modes.
+  the same place in both modes; Focus renders no chip of its own, which keeps the card's
+  space for the session. It is anchored to the viewport just above the tab bar and is
+  never offset to clear anything, so it cannot drift into the middle of the page. The ⏱
+  starter lives in each exercise header in both modes.
 - **The workout ⋯ menu is a popover.** It closes on any choice inside it, on an outside
   tap, and on Escape — iOS never delivers the focus loss a hover-era menu relied on.
 - **No free-text quick entry.** The typed command bar is removed from the UI. Set-command

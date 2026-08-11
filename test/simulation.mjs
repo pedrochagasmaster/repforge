@@ -3131,31 +3131,31 @@ async function main() {
   await page.waitForTimeout(200);
   const restSurfaces = await page.evaluate(() => {
     const bar = document.querySelector("#restBar");
-    const row = document.querySelector("#workout .focus-rest");
-    const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-    const r = row?.getBoundingClientRect();
+    const b = bar.getBoundingClientRect();
+    const navTop = document.querySelector("nav").getBoundingClientRect().top;
     return {
       floating: !bar.classList.contains("hidden") && getComputedStyle(bar).display !== "none",
-      docked: !!row && !row.classList.contains("hidden"),
-      inCard: !!r && r.top >= card.top && r.bottom <= card.bottom,
-      counting: /^\d+:\d\d$/.test(row?.querySelector(".focus-rest__time")?.textContent?.trim() || ""),
+      inCard: document.querySelectorAll("#workout .focus-rest").length,
+      gapToNav: Math.round(navTop - b.bottom),
+      counting: /^\d+:\d\d$/.test(bar.querySelector(".restbar__time")?.textContent?.trim() || ""),
     };
   });
   assert(
-    restSurfaces.docked && restSurfaces.inCard && restSurfaces.counting && !restSurfaces.floating,
-    "the focus rest timer is docked inside the card, not floating",
+    restSurfaces.floating &&
+      restSurfaces.inCard === 0 &&
+      restSurfaces.counting &&
+      restSurfaces.gapToNav >= 0 &&
+      restSurfaces.gapToNav <= 32,
+    "the focus rest timer floats just above the tab bar",
     JSON.stringify(restSurfaces),
-    "Focus → tap ⏱ → the clock sits in the card above the current set, and the floating bar stands down"
+    "Focus → tap ⏱ → the same floating clock as list mode, parked at the bottom instead of mid-page"
   );
-  await page.click("#workout .focus-rest");
+  await page.click("#restBar");
   await page.waitForTimeout(120);
   assert(
-    await page.evaluate(() => {
-      const row = document.querySelector("#workout .focus-rest");
-      return !row || row.classList.contains("hidden");
-    }),
-    "tapping the docked rest timer clears it",
-    `row=${await page.evaluate(() => document.querySelector("#workout .focus-rest")?.className)}`,
+    await page.evaluate(() => document.querySelector("#restBar").classList.contains("hidden")),
+    "tapping the floating rest timer clears it",
+    `bar=${await page.evaluate(() => document.querySelector("#restBar").className)}`,
     "Focus → tap the rest clock → it goes away"
   );
 
