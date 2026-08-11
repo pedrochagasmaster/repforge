@@ -3108,6 +3108,19 @@ async function main() {
     JSON.stringify(deck.peeks),
     "Focus mode → the deck shows the neighbouring card's edge, so swiping reads as possible"
   );
+  const behind = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
+    const el = document.querySelector(".deck__behind");
+    if (!el) return null;
+    const r = el.getBoundingClientRect();
+    return { lip: Math.round(r.bottom - card.bottom), name: el.querySelector(".focus-ex__name")?.textContent };
+  });
+  assert(
+    behind && behind.lip >= 8 && !!behind.name,
+    "a second card sits behind the current one",
+    JSON.stringify(behind),
+    "Focus mode → the next exercise shows as a card lip below the current one and is revealed while dragging"
+  );
   assert(
     deck.upNext === 0,
     "the up-next row is gone from the focus card",
@@ -3148,9 +3161,17 @@ async function main() {
     await page.mouse.move(swipeX + step, swipeY);
     await page.waitForTimeout(20);
   }
+  const revealed = await page.evaluate(() => document.querySelector(".deck__behind .focus-ex__name")?.textContent);
   await page.mouse.up();
   await page.waitForTimeout(450);
   const swipeTo = await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
+  const landedName = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim());
+  assert(
+    !!revealed && revealed === landedName,
+    "the card revealed under the drag is the one you land on",
+    `revealed="${revealed}" landed="${landedName}"`,
+    "Focus → drag left → the exercise showing behind the card is the next one"
+  );
   assert(
     swipeFrom && swipeTo && swipeFrom !== swipeTo,
     "swiping the focus card left advances to the next exercise",

@@ -1042,9 +1042,19 @@ function focusDragMove(e){
     if(Math.abs(my)>=Math.abs(mx)){focusDrag=null;return}
     focusDrag.axis="x";focusDrag.card.classList.add("is-dragging")}
   const blocked=(mx>0&&!focusCanGo(-1))||(mx<0&&!focusCanGo(1));
+  const dir=mx<0?1:-1;
+  if(dir!==focusDrag.shown){focusDrag.shown=dir;showBehindCard(dir)}
   focusDrag.dx=blocked?mx*.28:mx;
   focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`;
   focusDrag.card.style.opacity=String(Math.max(.5,1-Math.abs(focusDrag.dx)/520))}
+/** Point the card behind the deck at the exercise the current drag is heading for. */
+function showBehindCard(dir){
+  const behind=$(".deck__behind");if(!behind)return;
+  const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,ex=fl[at+dir];
+  if(!ex)return;
+  const m=behind.querySelector(".focus-ex__muscle"),n=behind.querySelector(".focus-ex__name");
+  if(m)m.textContent=ex.primary;
+  if(n)n.textContent=substituted.get(ex.id)||ex.name}
 function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
   document.addEventListener("click",stop,{capture:true,once:true});
@@ -1234,9 +1244,14 @@ function renderWorkout(){
       :allDone?`<div class="focus-done"><p class="focus-done__msg">${esc(t("focus.all_done"))}</p>`+
         `<button type="button" class="btn btn--cta" data-ffinish><span>${esc(t("log.finish"))}</span></button></div>`
       :"";
-    // Slivers of the neighbouring cards, so the deck reads as swipeable.
-    const peeks=!isFocusCur?"":(at>0?`<div class="deck__peek deck__peek--prev" aria-hidden="true"></div>`:"")+
-      (at<fl.length-1?`<div class="deck__peek deck__peek--next" aria-hidden="true"></div>`:"");
+    // The card behind the current one: its lip shows at rest and the whole card is
+    // revealed while dragging, so the deck reads as swipeable without any hint copy.
+    const behindEx=!isFocusCur?null:fl[at+1]||fl[at-1]||null;
+    const peeks=!isFocusCur?"":
+      (at>0?`<div class="deck__peek deck__peek--prev" aria-hidden="true"></div>`:"")+
+      (at<fl.length-1?`<div class="deck__peek deck__peek--next" aria-hidden="true"></div>`:"")+
+      (behindEx?`<div class="deck__behind" aria-hidden="true"><p class="focus-ex__muscle">${esc(behindEx.primary)}</p>`+
+        `<h3 class="focus-ex__name">${esc(substituted.get(behindEx.id)||behindEx.name)}</h3></div>`:"");
     const perf=substituted.get(ex.id);
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
