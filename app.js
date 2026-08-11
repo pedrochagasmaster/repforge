@@ -1014,16 +1014,16 @@ function focusGo(dir){
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
 function focusCard(){return $("#workout.is-focus .exercise.is-current")}
-/** Slide the freshly rendered card in from the side the swipe came from. */
+/** Raise the freshly rendered card from the stack, as if the deck dealt it. */
 function playFocusCardEnter(){
   const card=focusCard();if(!card)return;
-  card.style.transform="";card.style.opacity="";
+  card.style.transform="";
   if(!focusEnterFrom)return;
-  const from=focusEnterFrom;focusEnterFrom=0;
+  focusEnterFrom=0;
   card.classList.add("is-entering");
-  card.style.transform=`translateX(${from*60}%) rotate(${from*5}deg)`;card.style.opacity="0";
+  card.style.transform="scaleX(.97) translateY(16px)";
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    card.classList.remove("is-entering");card.style.transform="";card.style.opacity=""}))}
+    card.classList.remove("is-entering");card.style.transform=""}))}
 function focusDragStart(e){
   if(focusFlinging||!workoutActive||logMode!=="focus")return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
@@ -1042,19 +1042,9 @@ function focusDragMove(e){
     if(Math.abs(my)>=Math.abs(mx)){focusDrag=null;return}
     focusDrag.axis="x";focusDrag.card.classList.add("is-dragging")}
   const blocked=(mx>0&&!focusCanGo(-1))||(mx<0&&!focusCanGo(1));
-  const dir=mx<0?1:-1;
-  if(dir!==focusDrag.shown){focusDrag.shown=dir;showBehindCard(dir)}
   focusDrag.dx=blocked?mx*.28:mx;
-  // The card stays opaque while dragging so it reads as lifted over the one behind.
+  // The card stays opaque while dragging so it reads as lifted off the stack.
   focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`}
-/** Point the card behind the deck at the exercise the current drag is heading for. */
-function showBehindCard(dir){
-  const behind=$(".deck__behind");if(!behind)return;
-  const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,ex=fl[at+dir];
-  if(!ex)return;
-  const m=behind.querySelector(".focus-ex__muscle"),n=behind.querySelector(".focus-ex__name");
-  if(m)m.textContent=ex.primary;
-  if(n)n.textContent=substituted.get(ex.id)||ex.name}
 function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
   document.addEventListener("click",stop,{capture:true,once:true});
@@ -1071,7 +1061,7 @@ function focusDragEnd(e){
   focusFlinging=true;
   card.style.transform=`translateX(${dir>0?"-":""}120%) rotate(${dir>0?-14:14}deg)`;
   card.style.opacity="0";
-  setTimeout(()=>{focusFlinging=false;focusGo(dir)},170)}
+  setTimeout(()=>{focusFlinging=false;focusGo(dir)},150)}
 function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
@@ -1244,14 +1234,10 @@ function renderWorkout(){
       :allDone?`<div class="focus-done"><p class="focus-done__msg">${esc(t("focus.all_done"))}</p>`+
         `<button type="button" class="btn btn--cta" data-ffinish><span>${esc(t("log.finish"))}</span></button></div>`
       :"";
-    // The card behind the current one: its lip shows at rest and the whole card is
-    // revealed while dragging, so the deck reads as swipeable without any hint copy.
-    const behindEx=!isFocusCur?null:fl[at+1]||fl[at-1]||null;
-    const peeks=!isFocusCur?"":
-      (at>0?`<div class="deck__peek deck__peek--prev" aria-hidden="true"></div>`:"")+
-      (at<fl.length-1?`<div class="deck__peek deck__peek--next" aria-hidden="true"></div>`:"")+
-      (behindEx?`<div class="deck__behind" aria-hidden="true"><p class="focus-ex__muscle">${esc(behindEx.primary)}</p>`+
-        `<h3 class="focus-ex__name">${esc(substituted.get(behindEx.id)||behindEx.name)}</h3></div>`:"");
+    // Blank cards under the current one. The stack thins as the session goes, so
+    // the last exercise sits on a bare card.
+    const layers=!isFocusCur?"":Array.from({length:Math.max(0,Math.min(2,fl.length-1-at))},(_,i)=>
+      `<div class="deck__layer deck__layer--${2-i}" aria-hidden="true"></div>`).join("");
     const perf=substituted.get(ex.id);
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
@@ -1283,7 +1269,7 @@ function renderWorkout(){
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}">⏱</button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
-    return (isFocusCur?`<div class="deck">${peeks}`:"")+
+    return (isFocusCur?`<div class="deck">${layers}`:"")+
       `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${isFocusCur?" is-current":""}" data-ex="${esc(ex.id)}">`+
       (isFocusCur?focusHead:listHead)+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
