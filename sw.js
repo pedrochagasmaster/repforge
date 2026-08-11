@@ -1,8 +1,9 @@
-const CACHE = "repforge-v42";
+const CACHE = "repforge-v43";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./schedule.js", "./notify.js", "./i18n.js",
-  "./icons/icon.svg", "./icons/icon-192.png", "./icons/icon-512.png",
+  "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
+  "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
   "./fonts/plexsans.woff2",
   "./fonts/plexmono-400.woff2", "./fonts/plexmono-500.woff2", "./fonts/plexmono-600.woff2"
