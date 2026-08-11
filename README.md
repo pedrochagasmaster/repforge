@@ -49,7 +49,7 @@ styles.css
 app.js
 manifest.webmanifest
 sw.js
-icons/icon.svg
+icons/                  # SVG source, PWA icons, Apple touch icon, and iOS launch images
 .nojekyll
 ```
 
