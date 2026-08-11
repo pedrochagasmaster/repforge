@@ -33,6 +33,21 @@ These override the sections below where they conflict.
 - **Focus mode ends at the deck.** List mode's bottom padding exists to clear the save
   button and set list; in Focus both live inside the card, so that padding is dropped and
   only a small margin sits between the deck and the tab bar.
+- **The card is screen-height, not content-height.** It runs from under the progress
+  header to just above the tab bar, measured at render time, so every exercise shows the
+  same box. Inside it: a fixed header, a scrolling middle (last session, logged sets,
+  recommendation, note) and a pinned footer holding the in-session line and the current
+  set, so Log set is never below the fold. The page itself does not scroll in Focus, and
+  the floating rest timer is offset to sit above the footer instead of over it.
+- **The recommendation steps aside once a set is logged.** It has been acted on by then;
+  the logged rows and the in-session line carry the session from there. An exercise whose
+  sets are all logged says so in the footer instead of leaving the card blank.
+- **Focus carries List's per-exercise controls.** The card header holds three tools of one
+  shape — rest timer, note, skip — and the card lists what was lifted for this exercise in
+  the last session (load × reps @ RIR per set). Skipping drops the exercise from the deck
+  and raises the usual hidden-exercises bar, which restores it.
+- **Icons are outline masks, never glyphs.** The rest timer is a drawn stopwatch, not the
+  ⏱ character, which rendered as a different shape on every platform.
 - **Logging stays on the card.** The "Log set" button is attached to the current set, and
   Finish workout only appears once every set of the session is logged, so a finished
   exercise can no longer end the session by accident.

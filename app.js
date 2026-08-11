@@ -1205,6 +1205,9 @@ function renderWorkout(){
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
+    // Focus keeps the same numbers as List, laid out for the card.
+    const lastHtml=prev.length?`<div class="lastsess"><div class="lastsess__lab">${esc(t("focus.last_session"))}</div>`+
+      `<div class="lastsess__sets">${prev.map(x=>`<span class="lastsess__set">${esc(fmtLoad(x.load))}<span class="lastsess__unit">${esc(unitLabel())}</span> × ${esc(String(x.reps))} <small>@${esc(fmt(x.rir))}</small></span>`).join("")}</div></div>`:"";
     const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
     const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
@@ -1233,7 +1236,7 @@ function renderWorkout(){
     const curHtml=!isFocusCur?"":nextSet?cursetHtml(ex,nextSet,r,draft,prev,effortMode)
       :allDone?`<div class="focus-done"><p class="focus-done__msg">${esc(t("focus.all_done"))}</p>`+
         `<button type="button" class="btn btn--cta" data-ffinish><span>${esc(t("log.finish"))}</span></button></div>`
-      :"";
+      :`<p class="focus-exdone">${esc(t("focus.ex_done"))}</p>`;
     // Blank cards under the current one. The stack thins as the session goes, so
     // the last exercise sits on a bare card.
     const layers=!isFocusCur?"":Array.from({length:Math.max(0,Math.min(2,fl.length-1-at))},(_,i)=>
@@ -1261,34 +1264,59 @@ function renderWorkout(){
       `<div class="focus-ex__setof">${esc(t("today.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setX}</b>`)}</div></div>`+
       `<div class="focus-ex__target-row"><p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)}))}</p>`+
       `<span class="focus-ex__tools">`+
-      (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}">⏱</button>`:"")+
-      `<button type="button" class="icon-btn icon-btn--note" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--note" aria-hidden="true"></span></button></span></div>`:"";
+      (restOn?`<button type="button" class="focus-tool ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
+      `<button type="button" class="focus-tool" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
+      `<button type="button" class="focus-tool ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`+
+      `</span></div>`:"";
     const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · <span class="nowrap">${term("RIR")} 0-${fmt(state.settings.rirHigh)}</span></p></div>`+
       `<div class="ex__topend">`+
-      (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}">⏱</button>`:"")+
+      (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
     return (isFocusCur?`<div class="deck">${layers}`:"")+
       `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${isFocusCur?" is-current":""}" data-ex="${esc(ex.id)}">`+
       (isFocusCur?focusHead:listHead)+
+      // The card is screen-height in Focus: the logged sets scroll in the middle
+      // while the set being worked on stays pinned at the bottom.
+      (isFocusCur?`<div class="focus-body">`:"")+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
-      (isFocusCur?doneTable+curHtml:"")+
+      (isFocusCur?lastHtml+doneTable:"")+
       (isFocusCur?"":recBlock)+
       (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
       subPick+
-      prevHtml+deltaHtml+sessHtml+
+      prevHtml+deltaHtml+(isFocusCur?"":sessHtml)+
       (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`:`<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}`)+
-      (isFocusCur?recBlock:"")+
-      noteHtml+`</article>`+(isFocusCur?`</div>`:"");
+      // Once a set is logged the recommendation has been acted on; the logged rows
+      // and the in-session line carry it from there.
+      (isFocusCur&&!doneTable?recBlock:"")+
+      noteHtml+
+      (isFocusCur?`</div>`+(sessHtml+curHtml?`<div class="focus-foot">${sessHtml}${curHtml}</div>`:""):"")+
+      `</article>`+(isFocusCur?`</div>`:"");
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
   updateSessionBanner();
   updateFocusChrome();
+  sizeFocusDeck();
 }
+/** Lock the deck to the space between the progress header and the tab bar. */
+function sizeFocusDeck(){
+  const root=document.documentElement;
+  const deck=$("#workout.is-focus .deck");
+  if(!deck){root.style.removeProperty("--restbottom");return}
+  // offsetTop walks layout, so an in-flight enter animation can't skew the measurement.
+  let top=0;for(let el=deck;el;el=el.offsetParent)top+=el.offsetTop;
+  const nav=$("nav")?.getBoundingClientRect().height||0;
+  // Room for the stack lips that sit below the deck box.
+  deck.style.height=`${Math.max(320,Math.round(window.innerHeight-top-nav-28))}px`;
+  // Float the rest timer clear of the pinned set controls, so it can never eat a
+  // tap meant for Log set.
+  const foot=deck.querySelector(".focus-foot");
+  if(foot)root.style.setProperty("--restbottom",`${Math.round(window.innerHeight-foot.getBoundingClientRect().top+8)}px`);
+  else root.style.removeProperty("--restbottom")}
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
 function updateNextMarker(art){if(!art)return;let found=false;
@@ -2518,6 +2546,8 @@ function init(){
   document.addEventListener("click",dismissOverflow);
   document.addEventListener("touchstart",dismissOverflow,{passive:true});
   document.addEventListener("keydown",e=>{if(e.key==="Escape")closeWorkoutOverflow()});
+  let deckResize;
+  window.addEventListener("resize",()=>{clearTimeout(deckResize);deckResize=setTimeout(sizeFocusDeck,120)});
   // Focus mode is a card deck: drag it sideways, or use the arrow keys.
   const wk=$("#workout");
   if(wk)wk.addEventListener("pointerdown",focusDragStart);

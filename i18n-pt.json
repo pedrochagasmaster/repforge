@@ -11,6 +11,8 @@
   "nav.stats": "Progresso",
   "nav.history": "Histórico",
   "focus.all_done": "Todas as séries registradas",
+  "focus.ex_done": "Exercício concluído — deslize para o próximo",
+  "focus.last_session": "Última sessão",
   "focus.edit_set_aria": "Editar série {n}",
   "focus.next_ex": "Próximo exercício",
   "focus.prev_ex": "Exercício anterior",
