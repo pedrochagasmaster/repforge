@@ -3276,6 +3276,63 @@ async function main() {
     `back=${await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex)}`,
     "Focus → tap ‹ in the progress header → previous exercise"
   );
+
+  // Real thumbs don't swipe in straight lines: an arc that starts with a vertical
+  // nudge, and a short fast flick, both have to count.
+  const currentEx = () => page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
+  const dragPath = async (path) => {
+    const box = await page.locator("#workout .exercise.is-current").boundingBox();
+    const ox = Math.round(box.x + box.width - 40);
+    const oy = Math.round(box.y + 60);
+    const before = await currentEx();
+    await page.mouse.move(ox, oy);
+    await page.mouse.down();
+    for (const [dx, dy] of path) {
+      await page.mouse.move(ox + dx, oy + dy);
+      await page.waitForTimeout(16);
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+    return { before, after: await currentEx() };
+  };
+  const arc = await dragPath([[-4, 14], [-30, 20], [-90, 26], [-160, 30], [-230, 32]]);
+  assert(
+    arc.before !== arc.after,
+    "a swipe that starts with a vertical nudge still changes the exercise",
+    JSON.stringify(arc),
+    "Focus → swipe in an arc, as a thumb does → the deck advances"
+  );
+  const flick = await dragPath([[-18, 2], [-52, 4], [-74, 6]]);
+  assert(
+    flick.before !== flick.after,
+    "a short fast flick changes the exercise",
+    JSON.stringify(flick),
+    "Focus → flick the card without dragging it far → the deck advances"
+  );
+  const straightDown = await dragPath([[0, 20], [-2, 60], [-4, 120], [-6, 170]]);
+  assert(
+    straightDown.before === straightDown.after,
+    "a vertical drag leaves the deck where it is",
+    JSON.stringify(straightDown),
+    "Focus → drag straight down → no exercise change"
+  );
+  const scrollPolicy = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const body = card.querySelector(".focus-body");
+    const overflows = body.scrollHeight > body.clientHeight + 1;
+    return { overflows, marked: card.classList.contains("is-scrollable"), touch: getComputedStyle(card).touchAction };
+  });
+  assert(
+    scrollPolicy.overflows === scrollPolicy.marked &&
+      scrollPolicy.touch === (scrollPolicy.overflows ? "pan-y" : "none"),
+    "the card only hands vertical gestures to the browser when it can scroll",
+    JSON.stringify(scrollPolicy),
+    "Focus → a card whose content fits keeps every gesture for the deck"
+  );
+  while ((await page.evaluate(() => document.querySelector("#woPrev")?.disabled)) === false) {
+    await page.click("#woPrev");
+    await page.waitForTimeout(220);
+  }
   assert(
     await page.evaluate(() => document.querySelector("#woPrev")?.disabled === true),
     "previous chevron is disabled on the first exercise",

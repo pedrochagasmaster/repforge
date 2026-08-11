@@ -1032,17 +1032,29 @@ function focusDragStart(e){
   // click that follows a real drag swallowed so buttons don't also fire.
   if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
   const card=focusCard();if(!card)return;
-  focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card}}
+  focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card,
+    scrolls:card.classList.contains("is-scrollable"),
+    vx:0,lastX:e.clientX,lastT:e.timeStamp||performance.now()}}
+const DRAG_LOCK=10;
 function focusDragMove(e){
   if(!focusDrag||e.pointerId!==focusDrag.id)return;
   const mx=e.clientX-focusDrag.x,my=e.clientY-focusDrag.y;
   if(!focusDrag.axis){
-    if(Math.abs(mx)<8&&Math.abs(my)<8)return;
-    // Vertical intent belongs to the page scroller, so drop the drag entirely.
-    if(Math.abs(my)>=Math.abs(mx)){focusDrag=null;return}
-    focusDrag.axis="x";focusDrag.card.classList.add("is-dragging")}
-  const blocked=(mx>0&&!focusCanGo(-1))||(mx<0&&!focusCanGo(1));
-  focusDrag.dx=blocked?mx*.28:mx;
+    // A gesture is only surrendered to the scroller when there is something to
+    // scroll, and only when it is emphatically vertical. Otherwise it keeps waiting
+    // for the horizontal axis to win: a thumb swipe usually starts with a vertical
+    // nudge, and the first touch sample of a fast one lands far from the start, so
+    // judging on that first sample throws the whole gesture away.
+    if(focusDrag.scrolls&&Math.abs(my)>=18&&Math.abs(my)>Math.abs(mx)*2){focusDrag=null;return}
+    if(Math.abs(mx)<DRAG_LOCK||Math.abs(mx)<=Math.abs(my))return;
+    focusDrag.axis="x";focusDrag.card.classList.add("is-dragging");
+    // Anchor to where the axis locked so the card doesn't jump by the slop.
+    focusDrag.x=e.clientX-Math.sign(mx)*DRAG_LOCK}
+  const now=e.timeStamp||performance.now(),dt=now-focusDrag.lastT;
+  if(dt>0){focusDrag.vx=(e.clientX-focusDrag.lastX)/dt;focusDrag.lastX=e.clientX;focusDrag.lastT=now}
+  const dx=e.clientX-focusDrag.x;
+  const blocked=(dx>0&&!focusCanGo(-1))||(dx<0&&!focusCanGo(1));
+  focusDrag.dx=blocked?dx*.28:dx;
   // The card stays opaque while dragging so it reads as lifted off the stack.
   focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`}
 function swallowNextClick(){
@@ -1051,12 +1063,15 @@ function swallowNextClick(){
   setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
-  const{card,dx,axis}=focusDrag;focusDrag=null;
+  const{card,dx,axis,vx}=focusDrag;focusDrag=null;
   if(axis!=="x")return;
   if(Math.abs(dx)>8)swallowNextClick();
   card.classList.remove("is-dragging");
   const dir=dx<0?1:-1,width=card.offsetWidth||320;
-  const past=Math.abs(dx)>=Math.min(130,Math.max(60,width*.25));
+  // A short flick counts as much as a long drag, as long as it kept going the way
+  // it was thrown (0.4px/ms is roughly a deliberate flick).
+  const flick=Math.abs(vx)>=.4&&Math.sign(vx)===Math.sign(dx)&&Math.abs(dx)>=28;
+  const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
   if(!past||!focusCanGo(dir)){card.style.transform="";card.style.opacity="";return}
   focusFlinging=true;
   card.style.transform=`translateX(${dir>0?"-":""}120%) rotate(${dir>0?-14:14}deg)`;
@@ -1312,6 +1327,11 @@ function sizeFocusDeck(){
   const nav=$("nav")?.getBoundingClientRect().height||0;
   // Room for the stack lips that sit below the deck box.
   deck.style.height=`${Math.max(320,Math.round(window.innerHeight-top-nav-28))}px`;
+  // Only leave vertical panning to the browser when there is something to pan:
+  // otherwise it claims near-vertical swipes that were meant for the deck.
+  const body=deck.querySelector(".focus-body");
+  deck.querySelector(".exercise.is-current")
+    ?.classList.toggle("is-scrollable",!!body&&body.scrollHeight>body.clientHeight+1);
   // Float the rest timer clear of the pinned set controls, so it can never eat a
   // tap meant for Log set.
   const foot=deck.querySelector(".focus-foot");
