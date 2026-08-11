@@ -377,6 +377,11 @@ div.settings-row{cursor:default}
 .focusnav:disabled{color:var(--rule);cursor:default}
 body.is-workout #logWorkspace{padding-bottom:72px}
 body.is-workout #logForm{padding-bottom:24px}
+/* Focus mode ends at the deck: the save button and set list that the padding in
+   List mode clears both live inside the card. */
+body.is-workout.is-focus-wo #logWorkspace,
+body.is-workout.is-focus-wo #logForm{padding-bottom:0}
+body.is-workout.is-focus-wo main{padding-bottom:20px}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
@@ -385,23 +390,14 @@ body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
 /* Focus card: a real card you drag sideways (vertical scroll stays native). */
 body.is-focus-wo{overflow-x:hidden}
 .deck{position:relative;margin:4px 0 8px}
-/* Slivers of the neighbouring cards, so the deck reads as swipeable. */
-.deck__peek{
-  position:absolute;top:14px;bottom:14px;width:22px;pointer-events:none;
-  background:var(--surface);border:1px solid var(--rule);
-  box-shadow:0 6px 18px rgba(0,0,0,.06);
+/* Blank cards under the current one. No vertical scale, so their lips below the
+   top card stay put at any card height. */
+.deck__layer{
+  position:absolute;inset:0;pointer-events:none;border-radius:18px;
+  background:#EDEAE4;border:1px solid var(--rule-strong);
 }
-.deck__peek--next{right:-14px;border-left:0;border-radius:0 16px 16px 0}
-.deck__peek--prev{left:-14px;border-right:0;border-radius:16px 0 0 16px}
-/* Tinted, not white: the lifted card has to stay legible against the one behind it. */
-.deck__behind{
-  position:absolute;inset:0;overflow:hidden;
-  background:#EAE7E1;border:1px solid var(--rule-strong);border-radius:18px;
-  padding:18px 16px;
-  /* No vertical scale: the lip below the top card stays 16px at any card height. */
-  transform:scaleX(.97) translateY(16px);
-}
-.deck__behind .focus-ex__name{color:var(--ink-soft)}
+.deck__layer--1{transform:scaleX(.97) translateY(10px)}
+.deck__layer--2{background:#E6E2DB;transform:scaleX(.93) translateY(20px)}
 #workout.is-focus .exercise.is-current.is-dragging{
   box-shadow:0 18px 44px rgba(0,0,0,.20);
 }

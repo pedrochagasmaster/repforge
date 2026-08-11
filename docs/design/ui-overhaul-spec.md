@@ -22,13 +22,17 @@ These override the sections below where they conflict.
   starts the drag, and the click after a real drag is swallowed. Chevrons in the progress
   header (`#woPrev` / `#woNext`) and the ← / → keys do the same thing for reach and
   accessibility.
-- **The current exercise is a literal card, on a deck.** White surface, hairline border,
-  18px radius and a soft shadow. A second card sits behind it: its 16px lip shows below at
-  rest, and dragging reveals it in full, named after the exercise the drag is heading for.
-  Slivers of the neighbouring cards also peek past the left and right edges. The deck
-  carries the swipe affordance, so there is no hint copy and no "Up next" row inside the
-  card. This is the one flat-design exception in Focus mode; List mode stays
-  hairline-separated.
+- **The current exercise is a literal card, on a stack.** White surface, hairline border,
+  18px radius and a soft shadow. Up to two blank, tinted cards sit under it with 10px and
+  20px lips showing; the stack thins as the session progresses, so the last exercise sits
+  on a bare card. The cards behind carry no text — a deck shows card backs, not captions.
+  Dragging lifts the top card off with a tilt and a deeper shadow, and the next exercise
+  rises from the stack position into place rather than sliding in from the side. The deck
+  carries the swipe affordance, so there is no hint copy and no "Up next" row. This is the
+  one flat-design exception in Focus mode; List mode stays hairline-separated.
+- **Focus mode ends at the deck.** List mode's bottom padding exists to clear the save
+  button and set list; in Focus both live inside the card, so that padding is dropped and
+  only a small margin sits between the deck and the tab bar.
 - **Logging stays on the card.** The "Log set" button is attached to the current set, and
   Finish workout only appears once every set of the session is logged, so a finished
   exercise can no longer end the session by accident.
