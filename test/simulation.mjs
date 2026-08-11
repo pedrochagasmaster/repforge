@@ -3127,30 +3127,37 @@ async function main() {
     JSON.stringify(overflowClosed),
     "Log → ⋯ → Focus → menu collapses on its own"
   );
-  assert(
-    (await page.locator("#woRestChip").count()) === 0,
-    "focus mode has no separate inline rest chip",
-    `woRestChip count=${await page.locator("#woRestChip").count()}`,
-    "Focus mode reuses the floating #restBar from List mode"
-  );
   await page.click("#workout .exercise.is-current .ex__rest");
-  await page.waitForTimeout(150);
-  const restVsNav = await page.evaluate(() => {
+  await page.waitForTimeout(200);
+  const restSurfaces = await page.evaluate(() => {
     const bar = document.querySelector("#restBar");
-    const tabs = document.querySelector("nav");
-    if (!bar || !tabs || bar.classList.contains("hidden")) return null;
-    const b = bar.getBoundingClientRect();
-    const n = tabs.getBoundingClientRect();
-    return { barBottom: Math.round(b.bottom), navTop: Math.round(n.top), barVisible: b.height > 0 };
+    const row = document.querySelector("#workout .focus-rest");
+    const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
+    const r = row?.getBoundingClientRect();
+    return {
+      floating: !bar.classList.contains("hidden") && getComputedStyle(bar).display !== "none",
+      docked: !!row && !row.classList.contains("hidden"),
+      inCard: !!r && r.top >= card.top && r.bottom <= card.bottom,
+      counting: /^\d+:\d\d$/.test(row?.querySelector(".focus-rest__time")?.textContent?.trim() || ""),
+    };
   });
   assert(
-    restVsNav && restVsNav.barVisible && restVsNav.barBottom <= restVsNav.navTop,
-    "focus rest timer floats clear of the tab bar",
-    JSON.stringify(restVsNav),
-    "Focus → tap ⏱ → timer sits above the tab bar, never behind it"
+    restSurfaces.docked && restSurfaces.inCard && restSurfaces.counting && !restSurfaces.floating,
+    "the focus rest timer is docked inside the card, not floating",
+    JSON.stringify(restSurfaces),
+    "Focus → tap ⏱ → the clock sits in the card above the current set, and the floating bar stands down"
   );
-  await page.click("#restBar");
-  await page.waitForTimeout(80);
+  await page.click("#workout .focus-rest");
+  await page.waitForTimeout(120);
+  assert(
+    await page.evaluate(() => {
+      const row = document.querySelector("#workout .focus-rest");
+      return !row || row.classList.contains("hidden");
+    }),
+    "tapping the docked rest timer clears it",
+    `row=${await page.evaluate(() => document.querySelector("#workout .focus-rest")?.className)}`,
+    "Focus → tap the rest clock → it goes away"
+  );
 
   // Focus mode is a swipeable card deck: no fixed dock, and page content must
   // scroll clear of the tab bar rather than sliding under it.
@@ -3377,6 +3384,21 @@ async function main() {
     "the current set stays pinned inside the card",
     JSON.stringify(sizeFirst),
     "Focus → the set controls and Log set sit at the bottom of the card, not below the fold"
+  );
+  const split = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
+    const body = document.querySelector("#workout .focus-body").getBoundingClientRect();
+    const save = document.querySelector("#workout .curset__save").getBoundingClientRect();
+    return {
+      bodyShare: Math.round((body.height / card.height) * 100),
+      slackUnderSave: Math.round(card.bottom - save.bottom),
+    };
+  });
+  assert(
+    split.bodyShare >= 30 && split.slackUnderSave <= 20,
+    "the logged sets get the space, not the gap under Log set",
+    JSON.stringify(split),
+    "Focus → the scrolling list keeps a third of the card and nothing pads the bottom of it"
   );
 
   // Focus carries List's per-exercise controls: last session's numbers and skip.

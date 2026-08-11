@@ -37,8 +37,14 @@ These override the sections below where they conflict.
   header to just above the tab bar, measured at render time, so every exercise shows the
   same box. Inside it: a fixed header, a scrolling middle (last session, logged sets,
   recommendation, note) and a pinned footer holding the in-session line and the current
-  set, so Log set is never below the fold. The page itself does not scroll in Focus, and
-  the floating rest timer is offset to sit above the footer instead of over it.
+  set, so Log set is never below the fold. The page itself does not scroll in Focus. The
+  footer claims only what set entry needs and the logged rows pack tighter than List's, so
+  the scrolling middle keeps at least a third of the card rather than losing it to padding
+  under Log set.
+- **Focus docks the rest clock, it does not float it.** While resting, the clock is a row
+  at the top of the card footer, in place of the in-session line, and the floating
+  `#restBar` stands down. One clock is painted from one place; the floating bar is still
+  the surface in List mode.
 - **The recommendation steps aside once a set is logged.** It has been acted on by then;
   the logged rows and the in-session line carry the session from there. An exercise whose
   sets are all logged says so in the footer instead of leaving the card blank.

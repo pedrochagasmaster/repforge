@@ -916,30 +916,38 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   if(anchor)anchor.insertAdjacentElement("afterend",el);
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;const b=$("#restBar");if(b){b.classList.add("hidden");b.classList.remove("is-done")}
+/** One clock, two places to show it: the floating bar and Focus's docked row. */
+function paintRest(text,done){
+  const b=$("#restBar");
+  if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;b.classList.toggle("is-done",!!done)}
+  $$(".focus-rest").forEach(el=>{const time=el.querySelector(".focus-rest__time");
+    if(time)time.textContent=text;el.classList.toggle("is-done",!!done)})}
+function showRestSurfaces(on){
+  $("#restBar")?.classList.toggle("hidden",!on);
+  $$(".focus-rest").forEach(el=>el.classList.toggle("hidden",!on))}
+function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;
+  showRestSurfaces(false);paintRest("—",false);
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
-function tickRest(){const b=$("#restBar");if(!b)return;const left=Math.round((restEnd-Date.now())/1000);
+function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
-    b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");clearInterval(restTick);restTick=null;
+    paintRest("0:00",true);clearInterval(restTick);restTick=null;
     if(restNotified)return;
     restNotified=true;
     if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
     if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
     else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"});
     return}
-  b.querySelector(".restbar__time").textContent=fmtClock(left)}
+  paintRest(fmtClock(left),false)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
-  const b=$("#restBar");if(!b)return;b.classList.remove("hidden","is-done");
-  b.querySelector(".restbar__time").textContent=fmtClock(s);
+  showRestSurfaces(true);paintRest(fmtClock(s),false);
   clearInterval(restTick);restTick=setInterval(tickRest,250)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
   if(restEnd&&Date.now()>=restEnd){
-    const b=$("#restBar");
-    if(b){b.querySelector(".restbar__time").textContent="0:00";b.classList.add("is-done");
-      if(restTick){clearInterval(restTick);restTick=null}}
+    paintRest("0:00",true);
+    if(restTick){clearInterval(restTick);restTick=null}
   }
   updateSessionBanner();
 }
@@ -1177,6 +1185,14 @@ function setRowHtml(ex,n,r,draft,prev,nextSet,effortMode){
     `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
     rirCell+
     `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="${esc(t("log.save_set_aria",{n}))}">${committed.has(key)?"✓":esc(t("log.save_set"))}</button></div>`}
+/** Rest clock docked in the card footer; hidden until a rest is running. */
+function restRowHtml(){
+  const on=restEnd>0,left=on?Math.max(0,Math.round((restEnd-Date.now())/1000)):0;
+  return `<button type="button" class="focus-rest${on?"":" hidden"}${on&&!left?" is-done":""}" data-reststop `+
+    `aria-live="polite" aria-label="${esc(t("top.rest_timer_aria"))}">`+
+    `<span class="focus-rest__dot" aria-hidden="true"></span>`+
+    `<span class="focus-rest__time">${on?esc(fmtClock(left)):"—"}</span>`+
+    `<span class="focus-rest__lab">${esc(t("focus.rest"))}</span></button>`}
 function cursetHtml(ex,n,r,draft,prev,effortMode){
   const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
   const rirInner=effortMode
@@ -1307,7 +1323,7 @@ function renderWorkout(){
       // and the in-session line carry it from there.
       (isFocusCur&&!doneTable?recBlock:"")+
       noteHtml+
-      (isFocusCur?`</div>`+(sessHtml+curHtml?`<div class="focus-foot">${sessHtml}${curHtml}</div>`:""):"")+
+      (isFocusCur?`</div>`+(sessHtml+curHtml?`<div class="focus-foot">${restRowHtml()}${sessHtml}${curHtml}</div>`:""):"")+
       `</article>`+(isFocusCur?`</div>`:"");
   }).join("");
   bindWorkout();
@@ -1319,9 +1335,7 @@ function renderWorkout(){
 }
 /** Lock the deck to the space between the progress header and the tab bar. */
 function sizeFocusDeck(){
-  const root=document.documentElement;
-  const deck=$("#workout.is-focus .deck");
-  if(!deck){root.style.removeProperty("--restbottom");return}
+  const deck=$("#workout.is-focus .deck");if(!deck)return;
   // offsetTop walks layout, so an in-flight enter animation can't skew the measurement.
   let top=0;for(let el=deck;el;el=el.offsetParent)top+=el.offsetTop;
   const nav=$("nav")?.getBoundingClientRect().height||0;
@@ -1331,12 +1345,7 @@ function sizeFocusDeck(){
   // otherwise it claims near-vertical swipes that were meant for the deck.
   const body=deck.querySelector(".focus-body");
   deck.querySelector(".exercise.is-current")
-    ?.classList.toggle("is-scrollable",!!body&&body.scrollHeight>body.clientHeight+1);
-  // Float the rest timer clear of the pinned set controls, so it can never eat a
-  // tap meant for Log set.
-  const foot=deck.querySelector(".focus-foot");
-  if(foot)root.style.setProperty("--restbottom",`${Math.round(window.innerHeight-foot.getBoundingClientRect().top+8)}px`);
-  else root.style.removeProperty("--restbottom")}
+    ?.classList.toggle("is-scrollable",!!body&&body.scrollHeight>body.clientHeight+1)}
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
 function updateNextMarker(art){if(!art)return;let found=false;
@@ -1418,6 +1427,7 @@ function bindWorkout(){
       if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
     localStorage.setItem(DRAFT,JSON.stringify(d));saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
+  $$("#workout [data-reststop]").forEach(b=>b.onclick=()=>stopRest());
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
     skipped.has(id)?skipped.delete(id):skipped.add(id);
     if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
