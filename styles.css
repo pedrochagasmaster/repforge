@@ -457,7 +457,7 @@ body.is-focus-wo{overflow-x:hidden}
   font-size:inherit;text-transform:none;letter-spacing:0;
 }
 .focus-ex__tools .focus-tool:active{background:var(--bg)}
-.lastsess{margin:2px 0 14px}
+.lastsess{margin:0 0 10px}
 .lastsess__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
 .lastsess__sets{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:14px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
 .lastsess__set{white-space:nowrap}
@@ -468,15 +468,39 @@ body.is-focus-wo{overflow-x:hidden}
 .focus-ex__alvo{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-right:6px}
 /* The logged sets scroll between a fixed header and the pinned current set. */
 .focus-body{
-  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:8px;
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:4px;
   scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
 }
 .focus-body::-webkit-scrollbar{width:4px}
 .focus-body::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:4px}
 .focus-body::-webkit-scrollbar-track{background:transparent}
-.focus-foot{flex:none;padding:10px 0 16px;border-top:1px solid var(--rule)}
-.focus-foot .curset{margin-top:8px}
+/* The footer only claims what the set entry needs; the rest is the list's. */
+.focus-foot{flex:none;padding:8px 0 10px;border-top:1px solid var(--rule)}
+.focus-foot .curset{margin:2px 0 0}
+.focus-foot .curset__lab{margin-bottom:4px}
+.focus-foot .curset__cell{padding:6px 4px 2px}
+.focus-foot .curset__cell-lab{margin-bottom:4px}
+.focus-foot .curset__save{margin-top:8px}
+/* Logged rows stay tappable but pack tighter, so more of the session shows. */
+#workout.is-focus .settable{margin:6px 0 0}
+#workout.is-focus .settable__row{min-height:42px;padding:5px 0}
+#workout.is-focus .settable__head{padding:4px 0}
 .focus-foot .insession{margin-bottom:0}
+/* Rest clock docked to the bottom of the card, never floating over it. */
+.focus-rest{
+  display:flex;align-items:center;gap:8px;width:100%;min-height:36px;margin:0 0 6px;
+  padding:6px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);
+  color:var(--ink);font:inherit;cursor:pointer;text-align:left;
+}
+.focus-rest.hidden{display:none!important}
+.focus-rest__dot{flex:none;width:7px;height:7px;border-radius:50%;background:var(--accent)}
+.focus-rest__time{font-family:var(--mono);font-size:14px;line-height:1;min-width:3.2em}
+.focus-rest__lab{margin-left:auto;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.focus-rest.is-done{border-color:var(--accent);color:var(--accent)}
+.focus-rest.is-done .focus-rest__lab{color:var(--accent)}
+/* One clock at a time: Focus docks it, so the floating bar stands down. */
+body.is-focus-wo .restbar{display:none!important}
+.focus-rest:not(.hidden)+.insession{display:none}
 .focus-sets-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 .curset__save{width:100%;margin-top:16px}
 .focus-exdone{margin:6px 0 0;font-size:14px;color:var(--ink-soft);text-align:center}
@@ -494,7 +518,6 @@ body.is-focus-wo{overflow-x:hidden}
   box-shadow:0 4px 16px rgba(0,0,0,.08);
 }
 .restbar.hidden{display:none!important}
-body.is-focus-wo .restbar{bottom:var(--restbottom,calc(var(--nav) + 16px + env(safe-area-inset-bottom)))}
 .restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
 .restbar.is-done{border-color:var(--accent);color:var(--accent)}
 .restbar__time{min-width:2.5em;text-align:center}
