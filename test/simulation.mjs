@@ -3164,17 +3164,16 @@ async function main() {
     const card = document.querySelector("#workout .exercise.is-current");
     const wrap = card?.parentElement;
     const cardBox = card.getBoundingClientRect();
-    const peeks = [...(wrap?.querySelectorAll(".deck__peek") || [])].map((p) => {
-      const r = p.getBoundingClientRect();
-      return { side: p.classList.contains("deck__peek--next") ? "next" : "prev", x: Math.round(r.x), w: Math.round(r.width) };
-    });
+    const layers = [...(wrap?.querySelectorAll(".deck__layer") || [])].map((l) => ({
+      lip: Math.round(l.getBoundingClientRect().bottom - cardBox.bottom),
+      text: l.textContent.trim(),
+    }));
     return {
       wrapped: wrap?.classList.contains("deck") === true,
       surface: getComputedStyle(card).backgroundColor,
       pageBg: getComputedStyle(document.body).backgroundColor,
       radius: parseFloat(getComputedStyle(card).borderTopLeftRadius),
-      peeks,
-      cardRight: Math.round(cardBox.right),
+      layers,
       upNext: document.querySelectorAll(".focus-next").length,
       recInsideCard: !!card.querySelector(".recblock"),
     };
@@ -3186,23 +3185,12 @@ async function main() {
     "Focus mode → the exercise sits on its own rounded surface, not flat on the page"
   );
   assert(
-    deck.peeks.some((p) => p.side === "next" && p.x + p.w >= deck.cardRight + 10),
-    "a sliver of the next card peeks past the current one",
-    JSON.stringify(deck.peeks),
-    "Focus mode → the deck shows the neighbouring card's edge, so swiping reads as possible"
-  );
-  const behind = await page.evaluate(() => {
-    const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-    const el = document.querySelector(".deck__behind");
-    if (!el) return null;
-    const r = el.getBoundingClientRect();
-    return { lip: Math.round(r.bottom - card.bottom), name: el.querySelector(".focus-ex__name")?.textContent };
-  });
-  assert(
-    behind && behind.lip >= 8 && !!behind.name,
-    "a second card sits behind the current one",
-    JSON.stringify(behind),
-    "Focus mode → the next exercise shows as a card lip below the current one and is revealed while dragging"
+    deck.layers.length === 2 &&
+      deck.layers.every((l) => l.lip >= 8 && l.text === "") &&
+      deck.layers[0].lip !== deck.layers[1].lip,
+    "blank cards stack under the current one at staggered depths",
+    JSON.stringify(deck.layers),
+    "Focus mode → two empty card lips show below the current card, none of them captioned"
   );
   assert(
     deck.upNext === 0,
@@ -3230,6 +3218,18 @@ async function main() {
     JSON.stringify(bottomClearance),
     "Focus → scroll to the bottom → last card content stays above the tab bar"
   );
+  const deadSpace = await page.evaluate(() => {
+    const deck = document.querySelector(".deck").getBoundingClientRect();
+    const navH = document.querySelector("nav").getBoundingClientRect().height;
+    // Everything below the deck other than the room reserved for the fixed tab bar.
+    return Math.round(document.body.scrollHeight - (deck.bottom + window.scrollY) - navH);
+  });
+  assert(
+    deadSpace <= 48,
+    "the page stops just below the deck",
+    `dead space below deck=${deadSpace}px`,
+    "Focus → nothing but a small margin between the deck and the tab bar's reserved space"
+  );
   await page.evaluate(() => window.scrollTo(0, 0));
 
   // Dragging the card sideways advances the deck (Tinder-style).
@@ -3244,17 +3244,24 @@ async function main() {
     await page.mouse.move(swipeX + step, swipeY);
     await page.waitForTimeout(20);
   }
-  const revealed = await page.evaluate(() => document.querySelector(".deck__behind .focus-ex__name")?.textContent);
+  const lifted = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const layer = document.querySelector(".deck__layer--1");
+    return {
+      moved: Math.round(card.getBoundingClientRect().x),
+      tilted: /matrix/.test(getComputedStyle(card).transform) && getComputedStyle(card).transform !== "none",
+      layerVisible: !!layer && layer.getBoundingClientRect().width > 100,
+    };
+  });
+  assert(
+    lifted.tilted && lifted.layerVisible,
+    "dragging lifts the card off the stack and shows the blank card under it",
+    JSON.stringify(lifted),
+    "Focus → hold a drag halfway → the card is transformed and the deck layer is exposed"
+  );
   await page.mouse.up();
   await page.waitForTimeout(450);
   const swipeTo = await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
-  const landedName = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim());
-  assert(
-    !!revealed && revealed === landedName,
-    "the card revealed under the drag is the one you land on",
-    `revealed="${revealed}" landed="${landedName}"`,
-    "Focus → drag left → the exercise showing behind the card is the next one"
-  );
   assert(
     swipeFrom && swipeTo && swipeFrom !== swipeTo,
     "swiping the focus card left advances to the next exercise",
