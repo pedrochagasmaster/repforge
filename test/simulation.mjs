@@ -3356,6 +3356,7 @@ async function main() {
       return {
         h: Math.round(card.height),
         top: Math.round(card.top),
+        inlineH: document.querySelector("#workout.is-focus .deck")?.style.height || "",
         gapToNav: Math.round(nav.top - card.bottom),
         pageScrolls: document.body.scrollHeight > window.innerHeight + 2,
         footVisible: !!foot && foot.bottom <= card.bottom + 1 && foot.top >= card.top,
@@ -3379,6 +3380,26 @@ async function main() {
     JSON.stringify(sizeFirst),
     "Focus → the card runs from the progress header to just above the tab bar"
   );
+  // Both sizes are read on the frame the viewport changes, before any debounced
+  // handler could run: a card sized by the layout is never briefly — or, if the
+  // resize is missed, lastingly — left short of the screen.
+  await page.setViewportSize({ width: 390, height: 600 });
+  const sizeShrunk = await cardMetrics();
+  await page.setViewportSize({ width: 390, height: 844 });
+  const sizeRestored = await cardMetrics();
+  assert(
+    sizeShrunk.gapToNav >= 0 && sizeShrunk.gapToNav <= 44 && sizeRestored.gapToNav >= 0 && sizeRestored.gapToNav <= 44,
+    "the card follows the viewport with no measurement to catch up",
+    JSON.stringify({ sizeShrunk, sizeRestored }),
+    "Focus → shrink the viewport and give it back → the card fills the screen on the very next frame"
+  );
+  assert(
+    sizeRestored.inlineH === "",
+    "the deck carries no measured height that could go stale",
+    `inline height="${sizeRestored.inlineH}"`,
+    "Focus → the deck takes its height from the layout instead of JS arithmetic"
+  );
+  await page.waitForTimeout(200);
   assert(
     sizeFirst.footVisible,
     "the current set stays pinned inside the card",
