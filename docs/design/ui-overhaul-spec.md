@@ -48,6 +48,11 @@ These override the sections below where they conflict.
   and raises the usual hidden-exercises bar, which restores it.
 - **Icons are outline masks, never glyphs.** The rest timer is a drawn stopwatch, not the
   ⏱ character, which rendered as a different shape on every platform.
+- **The swipe forgives a real thumb.** The gesture is never judged on its first sample:
+  it waits for the horizontal axis to win, and only surrenders to the scroller when the
+  card actually scrolls and the movement is emphatically vertical. A short fast flick
+  commits like a long drag. A card whose content fits sets `touch-action:none`, so the
+  browser cannot claim a near-vertical swipe that had nowhere to scroll anyway.
 - **Logging stays on the card.** The "Log set" button is attached to the current set, and
   Finish workout only appears once every set of the session is logged, so a finished
   exercise can no longer end the session by accident.
