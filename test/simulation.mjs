@@ -1136,6 +1136,89 @@ async function main() {
     "Remove programMeta from storage → reload app"
   );
 
+  // ── Phase 4b: Program overview day disclosure ────────────────────
+  beginPhase("Phase 4b: Program overview disclosure");
+
+  // Drop only the disclosure pref so the tour stays dismissed for later phases.
+  await page.evaluate(() => {
+    const k = "repforge_ui_v1";
+    const o = JSON.parse(localStorage.getItem(k) || "{}");
+    delete o.overviewOpenDays;
+    localStorage.setItem(k, JSON.stringify(o));
+  });
+  await reloadApp(page);
+  await nav(page, "program");
+  // nav() forces the editor open; the day disclosure lives on the read-only overview.
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
+
+  const readOvDay = (idx) =>
+    page.evaluate((i) => {
+      const el = document.querySelectorAll("#programOverview .prog-day")[i];
+      if (!el) return null;
+      const head = el.querySelector(".prog-day__head");
+      return { day: head?.dataset.ovday, open: !!el.querySelector(".prog-day__body"), expanded: head?.getAttribute("aria-expanded") === "true" };
+    }, idx);
+
+  const ovDefault = await readOvDay(0);
+  assert(
+    ovDefault?.open && ovDefault.expanded,
+    "Program overview opens the first day by default",
+    `first day: ${JSON.stringify(ovDefault)}`,
+    "Program tab → overview → first training day"
+  );
+
+  const ovDayName = ovDefault?.day;
+  await page.click(`#programOverview [data-ovday="${ovDayName}"]`);
+  await page.waitForTimeout(200);
+  const ovCollapsed = await readOvDay(0);
+  assert(
+    ovCollapsed && !ovCollapsed.open && !ovCollapsed.expanded,
+    "First training day collapses when tapped",
+    `first day after tap: ${JSON.stringify(ovCollapsed)}`,
+    "Program tab → overview → tap the first day header"
+  );
+
+  await reloadApp(page);
+  await nav(page, "program");
+  await page.click("#programEditToggle");
+  await page.waitForSelector("#programOverview:not(.is-hidden)", { timeout: 5000 });
+  const ovAfterReload = await readOvDay(0);
+  assert(
+    ovAfterReload && !ovAfterReload.open,
+    "Collapsed first day survives a reload",
+    `first day after reload: ${JSON.stringify(ovAfterReload)}`,
+    "Program tab → collapse first day → reload → Program tab"
+  );
+
+  await page.click(`#programOverview [data-ovday="${ovDayName}"]`);
+  await page.waitForTimeout(200);
+  const ovReopened = await readOvDay(0);
+  assert(
+    ovReopened?.open,
+    "First training day re-opens when tapped again",
+    `first day after second tap: ${JSON.stringify(ovReopened)}`,
+    "Program tab → overview → tap the first day header twice"
+  );
+
+  await page.click(`#programOverview [data-ovdetails="${ovDayName}"]`);
+  await page.waitForTimeout(400);
+  const seeDetails = await page.evaluate((d) => {
+    const card = document.querySelector(`#programEditor .pday[data-day="${CSS.escape(d)}"]`);
+    return {
+      exerciseView: document.body.classList.contains("is-exercise"),
+      editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      cardFound: !!card,
+      cardExpanded: !!card && !card.classList.contains("is-collapsed"),
+    };
+  }, ovDayName);
+  assert(
+    !seeDetails.exerciseView && seeDetails.editorOpen && seeDetails.cardExpanded,
+    "See details opens the day in the program editor",
+    `see details result: ${JSON.stringify(seeDetails)}`,
+    "Program tab → overview → See details on a training day"
+  );
+
   // ── Phase 5: Delete sessions ─────────────────────────────────────
   beginPhase("Phase 5: Delete sessions");
 
