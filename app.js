@@ -1180,7 +1180,8 @@ function setRowHtml(ex,n,r,draft,prev,nextSet,effortMode){
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div>`+
     `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
     rirCell+
-    `<button type="button" class="saveset" data-save="${esc(key)}" aria-label="${esc(t("log.save_set_aria",{n}))}">${committed.has(key)?"✓":esc(t("log.save_set"))}</button></div>`}
+    `<button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${committed.has(key)?"true":"false"}" aria-label="${esc(t("log.save_set_aria",{n}))}">`+
+    `<span class="saveset__label">${esc(t("log.save_set"))}</span></button></div>`}
 function cursetHtml(ex,n,r,draft,prev,effortMode){
   const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
   const rirInner=effortMode
@@ -1308,7 +1309,7 @@ function renderWorkout(){
       // Guidance scrolls with the session; only the set entry is pinned, so the
       // footer's height cannot change when the first set lands.
       prevHtml+deltaHtml+sessHtml+
-      (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`:`<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span></span></div>${rows}`)+
+      (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`:`<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span></div>${rows}`)+
       // Once a set is logged the recommendation has been acted on; the logged rows
       // and the in-session line carry it from there.
       (isFocusCur&&!doneTable?recBlock:"")+
@@ -1419,7 +1420,7 @@ function bindWorkout(){
     if(committed.has(key)){committed.delete(key)}
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
-      if(b.classList.contains("visually-hidden")===false)b.textContent=committed.has(key)?"✓":t("log.save_set");
+      if(row.classList.contains("setrow"))b.setAttribute("aria-pressed",committed.has(key)?"true":"false");
       updateNextMarker(row.closest(".exercise"))}
     if(committed.has(key))lastCommitAt=Date.now();
     saveDraft();updateSaveMeta();
