@@ -61,6 +61,38 @@ async function shareOrDownload(text,name,type){
     if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"RepForge backup"});return}}}catch{}
   download(text,name,type)}
 const EFFORT_RIR={easy:3,hard:1,max:0};
+const EFFORT_STEPS=["easy","hard","max"];
+const isEffortMode=()=>state?.settings?.rirMode==="effort";
+/** Bucket a logged RIR into the effort word closest to it. */
+const effortForRir=rir=>+rir>=2.5?"easy":+rir<=0.5?"max":"hard";
+const effortLabel=e=>t("effort."+e);
+/** The same word inside a sentence ("… at hard effort", "… esforço difícil"). */
+const effortWord=e=>effortLabel(e).toLocaleLowerCase(locTag());
+const effortHint=e=>t("effort.hint."+e);
+const EFFORT_TERM={easy:"Easy effort",hard:"Hard effort",max:"Max effort"};
+/** The effort a working set is aimed at, read off the program's RIR ceiling. */
+const targetEffort=()=>effortForRir(state?.settings?.rirHigh);
+/** How a set reads once it is logged: the word in effort mode, else "@RIR". */
+const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
+/** The per-set target line: reps plus the effort or the RIR window behind it. */
+const targetText=ex=>isEffortMode()
+  ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
+  :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
+/** The three-way effort picker — a set row's compact line, the current set's stack. */
+function effortControlHtml(key,n,val,{stack=false,confirmed=true}={}){
+  const cls=`effort${stack?" effort--stack":""}${confirmed?"":" effort--suggested"}`;
+  return `<div class="${cls}" role="radiogroup" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
+    EFFORT_STEPS.map(e=>{const on=val===e;
+      return `<button type="button" class="effort__btn${on?" active":""}" role="radio" aria-checked="${on?"true":"false"}"`+
+        ` tabindex="${on?"0":"-1"}" data-eff="${esc(key)}" data-e="${e}">`+
+        `<span class="effort__word">${esc(effortLabel(e))}</span>`+
+        (stack?`<span class="effort__hint">${esc(effortHint(e))}</span>`:"")+
+        `</button>`}).join("")+`</div>`}
+/** Move a set's effort pick, in every copy of its picker that is on screen. */
+function setEffortPick(key,eff){
+  $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>{const on=b.dataset.e===eff;
+    b.classList.toggle("active",on);b.setAttribute("aria-checked",on?"true":"false");b.tabIndex=on?0:-1;
+    b.closest(".effort")?.classList.remove("effort--suggested")})}
 function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
   g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
@@ -761,7 +793,7 @@ function hasDeltaSummary(c){return c.improved||c.flat||c.regressed||c.new}
 function draftRowsForExercise(ex,draft){const warm=new Set(draft.__warm||[]),rows=[];
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(warm.has(key))continue;
     const ld=fromDisplay(draft[`${key}_load`]||0),rp=parseDec(draft[`${key}_reps`])||0;if(ld<=0||rp<=0)continue;
-    let rir=parseDec(draft[`${key}_rir`]);if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+    let rir=parseDec(draft[`${key}_rir`]);if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
     else if(!Number.isFinite(rir))rir=1;
     rows.push({exerciseId:ex.id,name:ex.name,day:ex.day,load:ld,reps:rp,rir,warmup:false})}
   return rows}
@@ -833,7 +865,11 @@ function blockTrendNote(trend){
 // Primary signal is the previous session; the block trend nudges it weakly.
 function recommendation(ex){
   const sess=sessionsFor(ex);
-  if(!sess.length)return{status:"new",heat:.12,label:t("rec.new.label"),text:t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true};
+  if(!sess.length)return{status:"new",heat:.12,label:t("rec.new.label"),
+    text:isEffortMode()
+      ?t("rec.new.text_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
+      :t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),
+    load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true};
   const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length,rir=l.avgRir,rirHigh=+state.settings.rirHigh;
   const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
   // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
@@ -847,7 +883,8 @@ function recommendation(ex){
     if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load,stalled:true,pushReps:false};
     if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load,stalled:false,pushReps:false};
     if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load,stalled:false,pushReps:true};
-    return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),text:t("rec.hold_add_reps.text"),load,stalled:false,pushReps:true};
+    return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
+      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load,stalled:false,pushReps:true};
   })();
   const trend=blockTrendFor(sess);
   // Weak block tempering: a block that is losing strength should not double-jump.
@@ -878,7 +915,7 @@ function setSuggestion(ex,n,rec,draft,old){
     if(!done.has(key)||warm.has(key))continue;
     const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
     if(!(ld>0&&rp>0))continue;
-    let rir;if(state.settings.rirMode==="effort")rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+    let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
     else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
     prevInSession={load:ld,reps:rp,rir};break}
   if(prevInSession){
@@ -1185,35 +1222,44 @@ function setFieldVals(ex,n,r,draft,prev){
   const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(old&&old.load!=null?fmtLoadPlain(old.load):""));
   const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
-  const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?(old.rir>=2.5?"easy":old.rir<=0.5?"max":"hard"):"hard");
+  const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
   const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
-function setRowHtml(ex,n,r,draft,prev,nextSet,effortMode){
+function setRowHtml(ex,n,r,draft,prev,nextSet){
   const{key,isW,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-  const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}`;
-  const rirCell=effortMode
-    ?`<div class="effort" role="group" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
-      ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${esc(t("effort."+e))}</button>`).join("")+`</div>`
+  const effortMode=isEffortMode();
+  const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}${effortMode?" has-effort":""}`;
+  // Effort takes a line of its own under the numbers: three words never fit the
+  // RIR column, and clipping the last of them hides the option that matters.
+  const rirInput=effortMode?""
     :`<input data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`;
+  const effortLine=effortMode?effortControlHtml(key,n,effortVal,{confirmed:committed.has(key)||touched.has(key)}):"";
   return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="${esc(t("log.warmup_title"))}">${isW?"W":n}</button>`+
     `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
     `<input data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div>`+
     `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-    rirCell+
+    rirInput+
     `<button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${committed.has(key)?"true":"false"}" aria-label="${esc(t("log.save_set_aria",{n}))}">`+
-    `<span class="saveset__label">${esc(t("log.save_set"))}</span></button></div>`}
-function cursetHtml(ex,n,r,draft,prev,effortMode){
+    `<span class="saveset__label">${esc(t("log.save_set"))}</span></button>`+
+    effortLine+`</div>`}
+function cursetHtml(ex,n,r,draft,prev){
   const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-  const rirInner=effortMode
-    ?`<div class="effort" role="group" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
-      ["easy","hard","max"].map(e=>`<button type="button" class="effort__btn${effortVal===e?" active":""}" data-eff="${esc(key)}" data-e="${e}">${esc(t("effort."+e))}</button>`).join("")+`</div>`
-    :`<input class="curset__val" data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`+
-      `<span class="curset__underline" aria-hidden="true"></span>`+
-      `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:"RIR"}))}">−</button>`+
-      `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:"RIR"}))}">+</button></div>`;
+  const effortMode=isEffortMode();
+  // Effort is words, not a number: it gets its own full-width band under the
+  // load / reps steppers instead of a third of the stepper row.
+  const rirCell=effortMode?"":`<div class="curset__cell"><div class="curset__cell-lab">RIR</div>`+
+    `<input class="curset__val" data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`+
+    `<span class="curset__underline" aria-hidden="true"></span>`+
+    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:"RIR"}))}">−</button>`+
+    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:"RIR"}))}">+</button></div></div>`;
+  const effortBand=effortMode
+    ?`<div class="curset__effort"><div class="curset__cell-lab">${term("Effort")}</div>`+
+      effortControlHtml(key,n,effortVal,{stack:true,confirmed:committed.has(key)||touched.has(key)})+`</div>`
+    :"";
   const repsLab=esc(t("log.reps"));
-  return `<div class="curset" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div><div class="curset__grid">`+
+  return `<div class="curset" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div>`+
+    `<div class="curset__grid${effortMode?" curset__grid--pair":""}">`+
     `<div class="curset__cell is-load is-active"><div class="curset__cell-lab is-accent">${esc(t("today.load"))}</div>`+
     `<input class="curset__val" data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" value="${esc(kgVal)}">`+
     `<span class="curset__underline" aria-hidden="true"></span>`+
@@ -1224,7 +1270,7 @@ function cursetHtml(ex,n,r,draft,prev,effortMode){
     `<span class="curset__underline" aria-hidden="true"></span>`+
     `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:repsLab}))}">−</button>`+
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:repsLab}))}">+</button></div></div>`+
-    `<div class="curset__cell"><div class="curset__cell-lab">${effortMode?esc(term("Effort")):"RIR"}</div>${rirInner}</div></div></div>`+
+    rirCell+`</div>`+effortBand+`</div>`+
     `<button type="button" class="saveset btn btn--cta curset__save" data-save="${esc(key)}"><span>${esc(t("today.log_set"))}</span></button>`}
 function renderWorkout(){
   if(!workoutActive){updateGauge();updateSessionBanner();return}
@@ -1234,7 +1280,7 @@ function renderWorkout(){
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
   warmups.clear();(draft.__warm||[]).forEach(k=>warmups.add(k));
-  const effortMode=state.settings.rirMode==="effort";
+  const effortMode=isEffortMode();
   const restOn=+state.settings.restSec>0;
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
   const banner=hiddenCount?`<div class="skipbar">${esc(t("log.skipbar",{n:hiddenCount}))} <button type="button" class="skipbar__show">${esc(t("log.skipbar.show_all"))}</button></div>`:"";
@@ -1245,10 +1291,10 @@ function renderWorkout(){
   const wk=$("#workout");if(!wk)return;wk.classList.toggle("is-focus",logMode==="focus");
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
-    const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>@${fmt(x.rir)}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
+    const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>${esc(effortOrRirLabel(x.rir))}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
     // Focus keeps the same numbers as List, laid out for the card.
     const lastHtml=prev.length?`<div class="lastsess"><div class="lastsess__lab">${esc(t("focus.last_session"))}</div>`+
-      `<div class="lastsess__sets">${prev.map(x=>`<span class="lastsess__set">${esc(fmtLoad(x.load))}<span class="lastsess__unit">${esc(unitLabel())}</span> × ${esc(String(x.reps))} <small>@${esc(fmt(x.rir))}</small></span>`).join("")}</div></div>`:"";
+      `<div class="lastsess__sets">${prev.map(x=>`<span class="lastsess__set">${esc(fmtLoad(x.load))}<span class="lastsess__unit">${esc(unitLabel())}</span> × ${esc(String(x.reps))} <small>${esc(effortOrRirLabel(x.rir))}</small></span>`).join("")}</div></div>`:"";
     const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
     const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
@@ -1261,20 +1307,22 @@ function renderWorkout(){
     }
     const rows=Array.from({length:ex.sets},(_,i)=>{
       const n=i+1;if(isFocusCur&&n===nextSet&&nextSet)return"";
-      return setRowHtml(ex,n,r,draft,prev,nextSet,effortMode)}).join("");
+      return setRowHtml(ex,n,r,draft,prev,nextSet)}).join("");
     const doneTable=(()=>{
       if(!isFocusCur)return"";
       const done=[];for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(!committed.has(key))continue;
-        const{kgVal,repsVal,rirVal}=setFieldVals(ex,n,r,draft,prev);
+        const{kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
         const kgDisp=(()=>{const n=parseDec(kgVal);return Number.isFinite(n)?fmt(n):kgVal})();
-        const rirDisp=(()=>{const n=parseDec(rirVal);return Number.isFinite(n)?fmt(n):rirVal})();
-        done.push(`<button type="button" class="settable__row" data-editset="${esc(key)}" data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"><span>${n}</span><span>${esc(kgDisp)}</span><span>${esc(repsVal)}</span><span>${esc(rirDisp)}</span><span class="is-check">✓</span></button>`)}
+        // A set logged as a word reads back as that word — never as the RIR it maps to.
+        const effDisp=effortMode?effortLabel(effortVal)
+          :(()=>{const n=parseDec(rirVal);return Number.isFinite(n)?fmt(n):rirVal})();
+        done.push(`<button type="button" class="settable__row" data-editset="${esc(key)}" data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"><span>${n}</span><span>${esc(kgDisp)}</span><span>${esc(repsVal)}</span><span class="${effortMode?"settable__eff":""}">${esc(effDisp)}</span><span class="is-check">✓</span></button>`)}
       if(!done.length)return"";
-      return `<div class="settable"><div class="settable__head"><span>${esc(t("log.set"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("log.reps"))}</span><span>RIR</span><span></span></div>${done.join("")}</div>`})();
+      return `<div class="settable"><div class="settable__head"><span>${esc(t("log.set"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):"RIR"}</span><span></span></div>${done.join("")}</div>`})();
     const allDone=isFocusCur&&focusList().every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
     // Finish lives next to the sets and only once every exercise is logged;
     // the visually-hidden fallback on the last exercise keeps the harness path.
-    const curHtml=!isFocusCur?"":nextSet?cursetHtml(ex,nextSet,r,draft,prev,effortMode)
+    const curHtml=!isFocusCur?"":nextSet?cursetHtml(ex,nextSet,r,draft,prev)
       :allDone?`<div class="focus-done"><p class="focus-done__msg">${esc(t("focus.all_done"))}</p>`+
         `<button type="button" class="btn btn--cta" data-ffinish><span>${esc(t("log.finish"))}</span></button></div>`
       :`<p class="focus-exdone">${esc(t("focus.ex_done"))}</p>`;
@@ -1303,14 +1351,15 @@ function renderWorkout(){
     const focusHead=isFocusCur?`<p class="focus-ex__muscle">${esc(ex.primary)}</p>`+
       `<div class="focus-ex__row"><h3 class="focus-ex__name">${nameHtml}</h3>`+
       `<div class="focus-ex__setof">${esc(t("today.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setX}</b>`)}</div></div>`+
-      `<div class="focus-ex__target-row"><p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)}))}</p>`+
+      `<div class="focus-ex__target-row"><p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
       `<span class="focus-ex__tools">`+
       (restOn?`<button type="button" class="focus-tool ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
       `<button type="button" class="focus-tool" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
       `<button type="button" class="focus-tool ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`+
       `</span></div>`:"";
     const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
-      `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · <span class="nowrap">${term("RIR")} 0-${fmt(state.settings.rirHigh)}</span></p></div>`+
+      `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · `+
+      `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
@@ -1330,7 +1379,13 @@ function renderWorkout(){
       // Guidance scrolls with the session; only the set entry is pinned, so the
       // footer's height cannot change when the first set lands.
       prevHtml+deltaHtml+sessHtml+
-      (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`:`<div class="sets__head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):term("RIR")}</span><span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span></div>${rows}`)+
+      (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`
+        :`<div class="sets__head${effortMode?" has-effort":""}"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span>`+
+          (effortMode?"":`<span>${term("RIR")}</span>`)+
+          `<span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span>`+
+          // In effort mode the picker sits on its own line, so its heading does too.
+          (effortMode?`<span class="sets__head-eff">${term("Effort")}</span>`:"")+
+          `</div>${rows}`)+
       // Once a set is logged the recommendation has been acted on; the logged rows
       // and the in-session line carry it from there.
       (isFocusCur&&!doneTable?recBlock:"")+
@@ -1359,10 +1414,12 @@ function sizeFocusDeck(){
   const scrolls=!!body&&body.scrollHeight>body.clientHeight+1;
   // A short card shows the end of the session, not its beginning: park the set
   // just logged against the bottom of the scroller instead of half-cutting it.
+  // Before the first set lands there is no end of the session to show, and the
+  // top of the scroller is where last session and the recommendation read from.
   if(scrolls){const last=body.querySelector(".settable__row:last-of-type");
     body.scrollTop=last
       ?Math.max(0,body.scrollTop+last.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom)
-      :body.scrollHeight}
+      :0}
   card?.classList.toggle("is-scrollable",scrolls)}
 let deckWatch=null,deckWatched=null;
 /** Sizing the deck is the layout's business; refitting the card to it is ours,
@@ -1464,12 +1521,13 @@ function bindWorkout(){
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
   $$("#workout .copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
-    const d=loadDraft();
     for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
-      if(state.settings.rirMode==="effort")d[`${key}_effort`]=+s.rir>=2.5?"easy":+s.rir<=0.5?"max":"hard";
       for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmtPlain(toDisplay(s.load)):fmtPlain(s[f])}
-      if(state.settings.rirMode!=="effort"){const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
-    localStorage.setItem(DRAFT,JSON.stringify(d));saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
+      // The pickers carry the copied effort: saveDraft reads the DOM back, so
+      // writing the draft alone would be overwritten by the stale selection.
+      if(isEffortMode())setEffortPick(key,effortForRir(s.rir));
+      else{const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
+    saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
   $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
     skipped.has(id)?skipped.delete(id):skipped.add(id);
@@ -1482,11 +1540,20 @@ function bindWorkout(){
       if(!t||t===prog.find(id)?.name){substituted.delete(id)}else{substituted.set(id,t)}
     }else if(!sel.value){substituted.delete(id)}else{substituted.set(id,sel.value)}
     renderWorkout()}});
-  $$("#workout .effort__btn").forEach(b=>b.onclick=()=>{const key=b.dataset.eff;
-    b.closest(".effort")?.querySelectorAll(".effort__btn").forEach(x=>x.classList.remove("active"));
-    b.classList.add("active");touched.add(key);
-    const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
-    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
+  $$("#workout .effort__btn").forEach(b=>{
+    b.onclick=()=>{const key=b.dataset.eff;
+      setEffortPick(key,b.dataset.e);touched.add(key);
+      const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
+      saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)};
+    // Arrow keys walk the picker like the single-choice control it is.
+    b.onkeydown=e=>{const step=e.key==="ArrowRight"||e.key==="ArrowDown"?1:e.key==="ArrowLeft"||e.key==="ArrowUp"?-1:0;
+      const jump=e.key==="Home"?0:e.key==="End"?EFFORT_STEPS.length-1:null;
+      if(!step&&jump==null)return;
+      e.preventDefault();
+      const i=EFFORT_STEPS.indexOf(b.dataset.e);
+      const next=jump!=null?jump:(i+step+EFFORT_STEPS.length)%EFFORT_STEPS.length;
+      b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.click();
+      b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.focus()}});
   $$("#workout [data-exnote-toggle]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
     if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
@@ -1554,7 +1621,7 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     const key=`${ex.id}_${n}`;
     const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
     let rir;
-    if(state.settings.rirMode==="effort"){
+    if(isEffortMode()){
       const draft=loadDraft(),eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"hard";
       rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
     if(load<=0)continue;
@@ -1731,6 +1798,14 @@ function detectPRs(log,opts={}){
   return events}
 function normalizeCommandText(text){return String(text??"").toLowerCase().replaceAll("×","x").replace(/@/g," rir ")
   .replace(/(\d),(\d)/g,"$1.$2").replace(/\breps\b/g,"").replace(/\s+/g," ").trim()}
+const deaccent=s=>String(s??"").normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+/** Effort spoken or typed in either language: "hard", "difícil", "dificil". */
+function matchEffortWord(text){
+  const hay=` ${deaccent(text).toLowerCase()} `;
+  for(const e of EFFORT_STEPS){
+    const words=new Set([e,deaccent(effortLabel(e)).toLowerCase()]);
+    for(const w of words)if(w&&new RegExp(`(^|[^a-z])${w}([^a-z]|$)`).test(hay))return e}
+  return null}
 function parseSetCommand(text){
   const n=normalizeCommandText(text),warnings=[];
   let set=null,load,reps,rir=null,effort=null,unit=null,confidence="low",gotReps=false;
@@ -1745,7 +1820,7 @@ function parseSetCommand(text){
   if(!gotReps)return {ok:false,error:t("command.error.could_not_find_reps"),warnings};
   const rirM=n.match(/(?:rir|@)\s*(\d+(?:\.\d+)?)/);if(rirM)rir=+rirM[1];
   else{const tr=n.match(/\b(\d+(?:\.\d+)?)\s*rir\b/);if(tr)rir=+tr[1]}
-  const ef=n.match(/\b(easy|hard|max)\b/);if(ef)effort=ef[1];
+  effort=matchEffortWord(n);
   if(!unit){const u=n.match(/\b(\d+(?:\.\d+)?)\s*(kg|lb)\b/);if(u)unit=u[2]}
   let exerciseName=null;const exSrc=setM?n.slice(setM.index+setM[0].length).trim():n;
   const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
@@ -1782,11 +1857,10 @@ function applyParsedCommand(parsed,context){
   if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
   const loadInp=$(`[data-k="${key}_load"]`);if(loadInp)loadInp.value=fmt(loadDisp);
   const repsInp=$(`[data-k="${key}_reps"]`);if(repsInp)repsInp.value=fmt(parsed.reps);
-  if(state.settings.rirMode==="effort"){
+  if(isEffortMode()){
     let eff=parsed.effort;
-    if(!eff&&parsed.rir!=null)eff=parsed.rir>=2.5?"easy":parsed.rir<=0.5?"max":"hard";
-    if(!eff)eff="hard";
-    $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>b.classList.toggle("active",b.dataset.e===eff))}
+    if(!eff&&parsed.rir!=null)eff=effortForRir(parsed.rir);
+    setEffortPick(key,eff||"hard")}
   else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
   touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
   saveDraft();updateSaveMeta();return{ex,set:setN}}
@@ -1799,7 +1873,7 @@ function applyCommandText(text){
   if(!ex){toast(t("command.error.no_exercise_match"));return false}
   const r=applyParsedCommand(parsed,{day,logMode});
   if(!r)return false;
-  const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${parsed.effort}`:"";
+  const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${effortLabel(parsed.effort)}`:"";
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
   return true}
 window.__repforgeApplyCommandText=applyCommandText;

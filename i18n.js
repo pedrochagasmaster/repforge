@@ -360,6 +360,7 @@ const EN = {
   "block_rec.repeat_with_small_swaps.why": "Adherence was solid and progress was mixed but acceptable.",
   "rec.new.label": "New lift",
   "rec.new.text": "No history yet. Pick a load you can hold for {min}-{max} reps at 0-{rirHigh} RIR.",
+  "rec.new.text_effort": "No history yet. Pick a load you can hold for {min}-{max} reps at {effort} effort.",
   "rec.add2.label": "Add load ++",
   "rec.add2.text": "You topped the range with reps to spare. Jump up boldly.",
   "rec.add.label": "Add load",
@@ -375,6 +376,7 @@ const EN = {
   "rec.push_reps.text": "You left reps in reserve. Push closer to failure before adding load.",
   "rec.hold_add_reps.label": "Hold · add reps",
   "rec.hold_add_reps.text": "Keep the load and chase more reps inside your RIR target.",
+  "rec.hold_add_reps.text_effort": "Keep the load and chase more reps at the same effort.",
   "rec.block.rising": "Block trend: strength rising across {sessions} sessions — keep pressing.",
   "rec.block.falling": "Block trend: strength slipping across {sessions} sessions — bank recovery before you push.",
   "rec.block.flat": "Block trend: holding steady across {sessions} sessions.",
@@ -425,6 +427,9 @@ const EN = {
   "effort.easy": "Easy",
   "effort.hard": "Hard",
   "effort.max": "Max",
+  "effort.hint.easy": "≈3 left",
+  "effort.hint.hard": "≈1 left",
+  "effort.hint.max": "failure",
   "onb.aria": "Create program",
   "onb.eyebrow": "New program",
   "onb.title.default": "Create your program",
@@ -744,7 +749,8 @@ const EN = {
   "attention.title": "Attention",
   "stats.ready_see_all": "See all ({n})",
   "today.target_label": "Target",
-  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}"
+  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}",
+  "today.target_rest_effort": "{min}–{max} reps · {effort} effort"
 };
 const PT = {
   "meta.description": "RepForge é um rastreador local de sobrecarga progressiva para treinos calmos e focados. Tudo fica neste dispositivo.",
@@ -1106,6 +1112,7 @@ const PT = {
   "block_rec.repeat_with_small_swaps.why": "A aderência foi sólida e o progresso foi misto, mas aceitável.",
   "rec.new.label": "Novo exercício",
   "rec.new.text": "Sem histórico ainda. Escolha uma carga que consiga manter por {min}-{max} reps com 0-{rirHigh} RIR.",
+  "rec.new.text_effort": "Sem histórico ainda. Escolha uma carga que consiga manter por {min}-{max} reps com esforço {effort}.",
   "rec.add2.label": "Aumentar carga ++",
   "rec.add2.text": "Você bateu o topo da faixa com reps de sobra. Suba com confiança.",
   "rec.add.label": "Aumentar carga",
@@ -1121,6 +1128,7 @@ const PT = {
   "rec.push_reps.text": "Você deixou reps sobrando. Chegue mais perto da falha antes de aumentar a carga.",
   "rec.hold_add_reps.label": "Manter · somar reps",
   "rec.hold_add_reps.text": "Mantenha a carga e busque mais reps dentro do alvo de RIR.",
+  "rec.hold_add_reps.text_effort": "Mantenha a carga e busque mais reps com o mesmo esforço.",
   "rec.block.rising": "Tendência do bloco: força subindo ao longo de {sessions} sessões — continue avançando.",
   "rec.block.falling": "Tendência do bloco: força caindo ao longo de {sessions} sessões — priorize a recuperação antes de avançar.",
   "rec.block.flat": "Tendência do bloco: força estável ao longo de {sessions} sessões.",
@@ -1171,6 +1179,9 @@ const PT = {
   "effort.easy": "Fácil",
   "effort.hard": "Difícil",
   "effort.max": "Máx",
+  "effort.hint.easy": "sobram ≈3",
+  "effort.hint.hard": "sobra ≈1",
+  "effort.hint.max": "falha",
   "onb.aria": "Criar programa",
   "onb.eyebrow": "Novo programa",
   "onb.title.default": "Crie seu programa",
@@ -1490,7 +1501,8 @@ const PT = {
   "attention.title": "Atenção",
   "stats.ready_see_all": "Ver todos ({n})",
   "today.target_label": "Alvo",
-  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}"
+  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}",
+  "today.target_rest_effort": "{min}–{max} reps · esforço {effort}"
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

@@ -358,6 +358,7 @@
   "block_rec.repeat_with_small_swaps.why": "Adherence was solid and progress was mixed but acceptable.",
   "rec.new.label": "New lift",
   "rec.new.text": "No history yet. Pick a load you can hold for {min}-{max} reps at 0-{rirHigh} RIR.",
+  "rec.new.text_effort": "No history yet. Pick a load you can hold for {min}-{max} reps at {effort} effort.",
   "rec.add2.label": "Add load ++",
   "rec.add2.text": "You topped the range with reps to spare. Jump up boldly.",
   "rec.add.label": "Add load",
@@ -373,6 +374,7 @@
   "rec.push_reps.text": "You left reps in reserve. Push closer to failure before adding load.",
   "rec.hold_add_reps.label": "Hold · add reps",
   "rec.hold_add_reps.text": "Keep the load and chase more reps inside your RIR target.",
+  "rec.hold_add_reps.text_effort": "Keep the load and chase more reps at the same effort.",
   "rec.block.rising": "Block trend: strength rising across {sessions} sessions — keep pressing.",
   "rec.block.falling": "Block trend: strength slipping across {sessions} sessions — bank recovery before you push.",
   "rec.block.flat": "Block trend: holding steady across {sessions} sessions.",
@@ -423,6 +425,9 @@
   "effort.easy": "Easy",
   "effort.hard": "Hard",
   "effort.max": "Max",
+  "effort.hint.easy": "≈3 left",
+  "effort.hint.hard": "≈1 left",
+  "effort.hint.max": "failure",
   "onb.aria": "Create program",
   "onb.eyebrow": "New program",
   "onb.title.default": "Create your program",
@@ -742,5 +747,6 @@
   "attention.title": "Attention",
   "stats.ready_see_all": "See all ({n})",
   "today.target_label": "Target",
-  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}"
+  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}",
+  "today.target_rest_effort": "{min}–{max} reps · {effort} effort"
 }
