@@ -72,8 +72,8 @@ const effortHint=e=>t("effort.hint."+e);
 const EFFORT_TERM={easy:"Easy effort",hard:"Hard effort",max:"Max effort"};
 /** The effort a working set is aimed at, read off the program's RIR ceiling. */
 const targetEffort=()=>effortForRir(state?.settings?.rirHigh);
-/** How a set's effort reads once it is logged: the word, not the RIR behind it. */
-const effortRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
+/** How a set reads once it is logged: the word in effort mode, else "@RIR". */
+const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fmt(rir)}`;
 /** The per-set target line: reps plus the effort or the RIR window behind it. */
 const targetText=ex=>isEffortMode()
   ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
@@ -1231,8 +1231,7 @@ function setRowHtml(ex,n,r,draft,prev,nextSet){
   const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}${effortMode?" has-effort":""}`;
   // Effort takes a line of its own under the numbers: three words never fit the
   // RIR column, and clipping the last of them hides the option that matters.
-  const rirCell=effortMode
-    ?""
+  const rirInput=effortMode?""
     :`<input data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`;
   const effortLine=effortMode?effortControlHtml(key,n,effortVal,{confirmed:committed.has(key)||touched.has(key)}):"";
   return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="${esc(t("log.warmup_title"))}">${isW?"W":n}</button>`+
@@ -1240,7 +1239,7 @@ function setRowHtml(ex,n,r,draft,prev,nextSet){
     `<input data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
     `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div>`+
     `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-    rirCell+
+    rirInput+
     `<button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${committed.has(key)?"true":"false"}" aria-label="${esc(t("log.save_set_aria",{n}))}">`+
     `<span class="saveset__label">${esc(t("log.save_set"))}</span></button>`+
     effortLine+`</div>`}
@@ -1259,7 +1258,7 @@ function cursetHtml(ex,n,r,draft,prev){
       effortControlHtml(key,n,effortVal,{stack:true,confirmed:committed.has(key)||touched.has(key)})+`</div>`
     :"";
   const repsLab=esc(t("log.reps"));
-  return `<div class="curset${effortMode?" has-effort":""}" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div>`+
+  return `<div class="curset" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div>`+
     `<div class="curset__grid${effortMode?" curset__grid--pair":""}">`+
     `<div class="curset__cell is-load is-active"><div class="curset__cell-lab is-accent">${esc(t("today.load"))}</div>`+
     `<input class="curset__val" data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" value="${esc(kgVal)}">`+
@@ -1292,10 +1291,10 @@ function renderWorkout(){
   const wk=$("#workout");if(!wk)return;wk.classList.toggle("is-focus",logMode==="focus");
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
-    const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>${esc(effortRirLabel(x.rir))}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
+    const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>${esc(effortOrRirLabel(x.rir))}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
     // Focus keeps the same numbers as List, laid out for the card.
     const lastHtml=prev.length?`<div class="lastsess"><div class="lastsess__lab">${esc(t("focus.last_session"))}</div>`+
-      `<div class="lastsess__sets">${prev.map(x=>`<span class="lastsess__set">${esc(fmtLoad(x.load))}<span class="lastsess__unit">${esc(unitLabel())}</span> × ${esc(String(x.reps))} <small>${esc(effortRirLabel(x.rir))}</small></span>`).join("")}</div></div>`:"";
+      `<div class="lastsess__sets">${prev.map(x=>`<span class="lastsess__set">${esc(fmtLoad(x.load))}<span class="lastsess__unit">${esc(unitLabel())}</span> × ${esc(String(x.reps))} <small>${esc(effortOrRirLabel(x.rir))}</small></span>`).join("")}</div></div>`:"";
     const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
     const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
