@@ -3287,7 +3287,7 @@ async function main() {
     const row = document.querySelector(".ledger__row[data-editn]");
     return {
       cells: row ? [...row.querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
-      head: [...document.querySelectorAll(".ledger__head span")].map((s) => s.textContent.trim()),
+      head: [...document.querySelectorAll("#workout .exercise.is-current .ledger__head > span")].map((s) => s.textContent.trim()),
     };
   });
   assert(
@@ -3835,6 +3835,7 @@ async function main() {
       label: card.querySelector(".ledger__lab")?.textContent?.trim() || "",
       rows: past.length,
       firstRow: past[0] ? [...past[0].querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
+      head: [...card.querySelectorAll(".ledger__head > span")].map((s) => s.textContent.replace(/\s+/g, " ").trim()),
       tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
       skip: !!card.querySelector(".focus-ex__tools [data-skip]"),
       note: !!card.querySelector(".focus-ex__tools [data-exnote-open]"),
@@ -3842,7 +3843,8 @@ async function main() {
     };
   });
   assert(
-    lastSession.rows > 0 && /kg|lb/.test(lastSession.firstRow[1] || "") && lastSession.label,
+    lastSession.rows > 0 && lastSession.label &&
+      /^\d/.test(lastSession.firstRow[1] || "") && /kg|lb/i.test(lastSession.head[1] || ""),
     "the focus card shows last session's load, reps and RIR",
     JSON.stringify(lastSession),
     "Focus → an exercise with history lists what was lifted last time"

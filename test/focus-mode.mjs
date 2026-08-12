@@ -245,7 +245,7 @@ async function main() {
       loadLab: lab?.textContent?.replace(/\s+/g, " ").trim() || "",
       unitInValue: !!card.querySelector(".curset__unit"),
       pastLoad: load?.textContent?.trim() || "",
-      headLoad: [...card.querySelectorAll(".ledger__head span")].map((s) => s.textContent.replace(/\s+/g, " ").trim())[1] || "",
+      headLoad: [...card.querySelectorAll(".ledger__head > span")].map((s) => s.textContent.replace(/\s+/g, " ").trim())[1] || "",
       pastCols: cols.length,
       loadFits: load ? load.scrollWidth <= load.clientWidth + 1 : false,
       loadWide: loadBox.width,
@@ -416,7 +416,7 @@ async function main() {
   st = await cardState(page);
   const effort = await page.evaluate(() => {
     const spin = document.querySelector(".focus-well [data-effspin]");
-    const head = [...document.querySelectorAll(".ledger__head span")].map((s) => s.textContent.trim());
+    const head = [...document.querySelectorAll("#workout .exercise.is-current .ledger__head > span")].map((s) => s.textContent.trim());
     const row = document.querySelector(".ledger__row[data-editn]");
     return {
       role: spin?.getAttribute("role"),
@@ -726,7 +726,7 @@ async function main() {
       const ledger = card.querySelector(".fcard__ledger");
       const cta = card.querySelector(".focus-well .btn--cta").getBoundingClientRect();
       const cardBox = card.getBoundingClientRect();
-      const clipped = [...card.querySelectorAll(".focus-cue__text, .focus-ex__target, .ledger__head span")]
+      const clipped = [...card.querySelectorAll(".focus-cue__text, .focus-ex__target, .ledger__head > span")]
         .filter((el) => el.scrollWidth > el.clientWidth + 1 && getComputedStyle(el).textOverflow !== "ellipsis").length;
       return {
         spill: card.scrollHeight - card.clientHeight,
