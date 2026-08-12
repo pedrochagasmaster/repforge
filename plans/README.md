@@ -360,4 +360,4 @@ Consensus across ≥5 personas that these betray the product:
 | 035 | DONE |
 | 036 | DONE |
 | 038 | READY — execute per plan; STOP conditions guard the amended guardrails |
-| 039 | READY — execute per plan; product decisions are locked (ADR 0003) |
+| 039 | DONE |

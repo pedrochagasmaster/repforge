@@ -51,6 +51,22 @@ function sessionsInRange(start,end){const ids=new Set();for(const x of state.log
 window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+// Capacity: what a set demonstrated the lifter COULD have done (ADR 0003).
+// RIR credit is capped at hardRir — trustworthy near failure, fantasy far from it.
+// TUNABLE: every constant the capacity engine reads lives here. Never inline them.
+const CAPACITY={jumpMargin:1,bigJumpMargin:3,pushGap:2,dropClamp:.05,
+  baselineSessions:3,temperFloor:.3,temperDamp:.5,temperClamp:.05,temperMinSets:3};
+const clamp=(v,lo,hi)=>Math.min(hi,Math.max(lo,v));
+/** Trusted reps in reserve: negatives floor at 0, blanks keep the conservative 1. */
+const capRir=rir=>{const r=rir===""||rir==null?NaN:+rir;
+  return Math.min(Number.isFinite(r)?Math.max(r,0):1,+state.settings.hardRir||4)};
+const capReps=(reps,rir)=>+reps+capRir(rir);
+const capE1rm=(load,reps,rir)=>e1rm(load,capReps(reps,rir));
+/** Inverse Epley: reps this capacity-e1RM predicts as performable at a load.
+ *  Snapped to 6 decimals so the e1rm round-trip lands exactly on whole reps —
+ *  every trigger below compares against integer rep thresholds, and raw float
+ *  noise (11 arriving as 10.999999999999995) would silently miss them. */
+const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0;
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
@@ -750,6 +766,7 @@ function parseProgramImport(parsed){
   return null}
 function save(){persist()}
 function persist(){
+  dropMemo.clear();
   let lsOk=true;
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){lsOk=false;console.warn("localStorage mirror failed",e)}
   idbSet(KEY,state).catch(e=>{console.warn("idb persist failed",e);
@@ -765,12 +782,23 @@ function last(ex){const match=matchLift(ex);
 // One entry per past session for this lift, oldest→newest, working sets only (load>0).
 function sessionsFor(ex){const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
-    const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[],caps:[],cappedRirs:[]});
+    const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);
+    // Capacity twins of the RIR-blind aggregates — the engine reads these, stats keep the originals.
+    o.caps.push(capE1rm(+x.load,+x.reps,x.rir));o.cappedRirs.push(capRir(x.rir))}
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
     med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
-    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
+    avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index]))),
+    caps:o.caps,bestCap:Math.max(...o.caps),medCap:median(o.caps),medCappedRir:median(o.cappedRirs)}))
     .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+// The lifter's own recent habitual RIR for this lift — a measurement, not a target.
+function typicalRir(ex,sess){sess=sess||sessionsFor(ex);
+  const recent=sess.slice(-CAPACITY.baselineSessions);
+  return recent.length?median(recent.map(s=>s.medCappedRir)):1}
+// Recent typical capacity for off-day detection. null until 2 sessions exist.
+function capacityBaseline(ex,sess){sess=sess||sessionsFor(ex);
+  if(sess.length<2)return null;
+  return median(sess.slice(-CAPACITY.baselineSessions).map(s=>s.bestCap))}
 const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
 function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
 function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)return null;let topLoad=0,topLoadReps=0,totalReps=0,totalVolume=0,bestE1rm=0;const rirs=[];
@@ -899,19 +927,24 @@ function recommendation(ex){
       ?t("rec.new.text_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
       :t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),
     load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true};
-  const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length,rir=l.avgRir,rirHigh=+state.settings.rirHigh;
+  const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length;
   const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
   // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
   const nearTop=n>=3&&atTop>=n-1&&l.minReps>=ex.max-1;
   const stalled=isStalled(sess);
+  // Capacity reps at the session's typical load: what the lifter demonstrated they
+  // could have done there, reps + trusted RIR, normalized across loads (ADR 0003).
+  const medCap=l.medCap,cr=repsAtLoad(medCap,load);
   const rec=(()=>{
-    if((allTop||nearTop)&&rir>=rirHigh+1)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false,pushReps:false};
-    if(allTop||nearTop)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false};
-    // Reduce uses the typical (median) set, so one junk set won't force a back-off — and it gives a real lighter target.
-    if(l.medReps<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
+    if(cr>=ex.max+CAPACITY.bigJumpMargin)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false,pushReps:false};
+    // Capacity extends the jump; performed reps at the top still fire it on their own.
+    if(allTop||nearTop||cr>=ex.max+CAPACITY.jumpMargin)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false};
+    // Back off only when capacity itself falls short of the range — stopping early is not failing.
+    if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
     if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load,stalled:true,pushReps:false};
     if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load,stalled:false,pushReps:false};
-    if(rir>=rirHigh+1)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load,stalled:false,pushReps:true};
+    // Room left inside the range: chase reps before load.
+    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load,stalled:false,pushReps:true};
     return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
       text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load,stalled:false,pushReps:true};
   })();
@@ -920,40 +953,129 @@ function recommendation(ex){
   if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
     rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1))}
   rec.block=trend;rec.blockNote=blockTrendNote(trend);
+  rec.cap=medCap;rec.typRir=typicalRir(ex,sess);
   return rec;
 }
+// Re-entry after a load change: the reps this capacity predicts at the NEW load,
+// minus the lifter's own habitual RIR, clamped into the range. Replaces the blind
+// reset to ex.min — which survives only as the clamp on big percentage jumps.
+const reentryReps=(ex,cap,load,typRir)=>clamp(Math.round(repsAtLoad(cap,load)-(+typRir||0)),ex.min,ex.max);
 // Base reps target from the previous-session recommendation (no in-session data yet).
-// Load-up / back-off resets to the bottom of the range; holds chase one more rep
+// Load-up / back-off re-enters on predicted capacity; holds chase one more rep
 // (double progression), capped at the range top. Hold · recover keeps the prior target.
 function baseSetReps(ex,rec,old){
-  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce")return ex.min;
+  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce")
+    return rec.cap>0&&rec.load>0?reentryReps(ex,rec.cap,rec.load,rec.typRir):ex.min;
   const prev=old&&+old.reps>0?+old.reps:null;
   if(prev==null)return ex.min;
-  if(!rec.pushReps)return Math.max(ex.min,Math.min(ex.max,prev));
-  return Math.max(ex.min,Math.min(ex.max,prev+1))}
+  if(!rec.pushReps)return clamp(prev,ex.min,ex.max);
+  return clamp(prev+1,ex.min,ex.max)}
+// Historical median consecutive-set capacity drop for this lift. Memoized: it walks
+// the whole log and setSuggestion runs per set per render — Log-tab speed comes first.
+const dropMemo=new Map();
+function historicalSetDrop(ex){
+  const memoKey=`${ex.id||ex.name}|${state.log.length}|${state.log.at(-1)?.created||""}`;
+  if(dropMemo.has(memoKey))return dropMemo.get(memoKey);
+  const match=matchLift(ex),m=new Map();
+  for(const x of state.log){if(!match(x)||!(+x.load>0)||!(+x.reps>0)||!isWork(x))continue;
+    if(!m.has(x.session))m.set(x.session,{created:x.created,date:x.date,rows:[]});
+    m.get(x.session).rows.push(x)}
+  const recent=[...m.values()]
+    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))
+    .slice(-CAPACITY.baselineSessions);
+  const drops=[];
+  for(const s of recent){const rows=[...s.rows].sort((a,b)=>(+a.set||0)-(+b.set||0));
+    for(let i=0;i+1<rows.length;i++){
+      const a=capE1rm(+rows[i].load,+rows[i].reps,rows[i].rir),b=capE1rm(+rows[i+1].load,+rows[i+1].reps,rows[i+1].rir);
+      if(a>0)drops.push(Math.max(0,(a-b)/a))}}
+  const value=drops.length?median(drops):0;
+  dropMemo.set(memoKey,value);return value}
+// Expected capacity lost per set: observed today first (needs 2+ sets), else this
+// lift's recent history, else zero. Clamped so one blow-up set can't run away with it.
+function expectedSetDrop(ex,caps){
+  const drops=[];
+  for(let i=0;i+1<(caps||[]).length;i++)if(caps[i]>0)drops.push(Math.max(0,(caps[i]-caps[i+1])/caps[i]));
+  return clamp(drops.length?avg(drops):historicalSetDrop(ex),0,CAPACITY.dropClamp)}
+/** Exact-token muscle overlap between two exercise templates — deliberately NOT the
+ *  fuzzy includes() the muscle filter uses, so "arms" never matches "forearms".
+ *  Primary↔primary full, primary↔secondary half, secondary↔secondary quarter. */
+function muscleOverlap(a,b){
+  const norm=s=>muscles(s).map(x=>x.toLowerCase());
+  const ap=norm(a?.primary),as=norm(a?.secondary),bp=norm(b?.primary),bs=norm(b?.secondary);
+  const hits=(x,y)=>x.some(m=>y.includes(m));
+  if(hits(ap,bp))return 1;
+  if(hits(ap,bs)||hits(as,bp))return .5;
+  if(hits(as,bs))return .25;
+  return 0}
+/** Session freshness: how the lifts already finished today are running against their own
+ *  capacity baselines, weighted by muscle overlap over a systemic floor. Temper-only —
+ *  it can ease a not-yet-started lift's first set, never boost it (decision 7). */
+function sessionFreshness(ex,draft){
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
+  let wSum=0,wDev=0,setCount=0,contributors=0;
+  for(const o of state.program){
+    if(!o||o.id===ex.id||o.day!==ex.day)continue;
+    const caps=[];
+    for(let k=1;k<=(+o.sets||0);k++){const key=`${o.id}_${k}`;
+      if(!done.has(key)||warm.has(key))continue;
+      const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
+      if(!(ld>0&&rp>0))continue;
+      let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
+      else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
+      caps.push(capE1rm(ld,rp,rir))}
+    if(!caps.length)continue;
+    setCount+=caps.length;
+    // No baseline (fewer than 2 sessions) means no way to read today as high or low.
+    const base=capacityBaseline(o);
+    if(!(base>0))continue;
+    const dev=clamp((Math.max(...caps)-base)/base,-.5,.5);
+    const w=CAPACITY.temperFloor+(1-CAPACITY.temperFloor)*muscleOverlap(ex,o);
+    wSum+=w;wDev+=w*dev;contributors++}
+  // Evidence gate: too little logged today, or nothing with a baseline, stays silent.
+  if(setCount<CAPACITY.temperMinSets||!contributors||!(wSum>0))return 1;
+  return clamp(1+CAPACITY.temperDamp*Math.min(wDev/wSum,0),1-CAPACITY.temperClamp,1)}
+/** No sets of this lift logged yet today: previous-session recommendation, eased by
+ *  session freshness. Freshness moves reps; it only touches load when the tempered
+ *  target would otherwise fall out of the bottom of the range. */
+function baseSuggestion(ex,rec,draft,old){
+  const reps=rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min);
+  if(rec.load==null||!(rec.cap>0))return{load:rec.load,reps,src:"base"};
+  const factor=sessionFreshness(ex,draft);
+  if(!(factor<1))return{load:rec.load,reps,src:"base"};
+  const minJ=+state.settings.minJump||2.5,cap=rec.cap*factor;
+  let load=rec.load,raw=Math.round(repsAtLoad(cap,load)-(+rec.typRir||0));
+  // A deficit deep enough to push the target under the range comes out of the load instead.
+  if(raw<ex.min){load=Math.max(round(load-jump(load,1)),minJ);raw=Math.round(repsAtLoad(cap,load)-(+rec.typRir||0))}
+  return{load,reps:Math.min(reps,clamp(raw,ex.min,ex.max)),src:"base",tempered:true}}
 // Per-set load + reps suggestion, layering three signals:
 //  1. previous session (rec.load / baseSetReps) — primary
 //  2. current-session performance (completed sets this workout) — strong autoregulation
 //  3. block trend (folded into rec) — weak
+// In-session prediction is anticipatory: it reads every completed set so far and
+// projects the NEXT one, rather than echoing the last set back at the lifter.
 function setSuggestion(ex,n,rec,draft,old){
-  const rirHigh=+state.settings.rirHigh,minJ=+state.settings.minJump||2.5;
+  const minJ=+state.settings.minJump||2.5;
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
-  // Most recent completed working set for this lift earlier in THIS session.
-  let prevInSession=null;
-  for(let k=n-1;k>=1;k--){const key=`${ex.id}_${k}`;
+  // Every completed working set for this lift earlier in THIS session, in order.
+  const sets=[];
+  for(let k=1;k<n;k++){const key=`${ex.id}_${k}`;
     if(!done.has(key)||warm.has(key))continue;
     const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
     if(!(ld>0&&rp>0))continue;
     let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
     else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
-    prevInSession={load:ld,reps:rp,rir};break}
-  if(prevInSession){
-    const{load:L,reps:R,rir}=prevInSession;
-    if(R>=ex.max&&rir>=rirHigh+1)return{load:round(L+jump(L,1)),reps:ex.min,src:"session-up"};
-    if(R<ex.min)return{load:Math.max(round(L-jump(L,1)),minJ),reps:ex.min,src:"session-down"};
-    if(rir<=0)return{load:L,reps:Math.max(ex.min,R-1),src:"session-hold"};
-    return{load:L,reps:Math.max(ex.min,Math.min(ex.max,R)),src:"session-hold"}}
-  return{load:rec.load,reps:rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min),src:"base"}}
+    sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
+  if(!sets.length)return baseSuggestion(ex,rec,draft,old);
+  const typRir=rec.typRir!=null?rec.typRir:typicalRir(ex);
+  const lastSet=sets.at(-1),L=lastSet.load;
+  const predCap=lastSet.cap*(1-expectedSetDrop(ex,sets.map(s=>s.cap)));
+  const predPerf=repsAtLoad(predCap,L)-typRir;
+  if(predPerf>=ex.max+CAPACITY.jumpMargin){const L2=round(L+jump(L,1));
+    return{load:L2,reps:reentryReps(ex,predCap,L2,typRir),src:"session-up"}}
+  if(predPerf<ex.min){const L2=Math.max(round(L-jump(L,1)),minJ);
+    return{load:L2,reps:reentryReps(ex,predCap,L2,typRir),src:"session-down"}}
+  const reps=clamp(Math.round(predPerf),ex.min,ex.max);
+  return{load:L,reps,src:"session-hold",drop:reps<lastSet.reps}}
 // One-line summary of how the current session is steering the next unlogged set.
 function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
@@ -963,17 +1085,31 @@ function inSessionNote(ex,draft){
     const sg=setSuggestion(ex,n,rec,draft,null);
     if(sg.src==="session-up")return t("log.insession.up",{set:n,load:fmtLoad(sg.load),unit:u});
     if(sg.src==="session-down")return t("log.insession.down",{set:n,load:fmtLoad(sg.load),unit:u});
-    if(sg.src==="session-hold")return t("log.insession.hold",{set:n,load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
+    // Name the signal, never the arithmetic: an anticipated fade reads as a trend.
+    if(sg.src==="session-hold"&&sg.drop)return t("log.insession.drop",{set:n,load:fmtLoad(sg.load),unit:u,reps:sg.reps});
+    if(sg.src==="session-hold")return t("log.insession.hold",{set:n,load:fmtLoad(sg.load),unit:u,reps:sg.reps});
+    if(sg.tempered)return t("log.insession.temper");
+    if((rec.status==="add"||rec.status==="add2")&&sg.load!=null&&sg.reps>ex.min)
+      return t("log.insession.reentry",{load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
   return""}
-// After a set is committed, re-apply suggestions to still-untouched later sets.
-function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
-  const draft=loadDraft(),rec=recommendation(ex),prev=last(ex);
+// Re-apply suggestions to one lift's still-untouched sets, in place.
+function applySuggestions(ex,draft){const rec=recommendation(ex),prev=last(ex);
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
     if(committed.has(key)||touched.has(key)||warmups.has(key))continue;
     const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,rec,draft,old);
     if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoadPlain(sg.load)}
-    if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}
-  saveDraft();updateInSessionNote(exId)}
+    if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}}
+const hasCommittedSets=ex=>{for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
+// After a set is committed, re-apply suggestions to still-untouched later sets.
+function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
+  const draft=loadDraft();
+  applySuggestions(ex,draft);updateInSessionNote(exId);
+  // Session freshness reads the lifts already finished today, so this commit can also
+  // move the opening ghosts of lifts on this day that have not been started yet.
+  // saveDraft() snapshots every input, so an unrefreshed ghost would freeze as drafted.
+  for(const o of exercises(ex.day)){if(o.id===ex.id||hasCommittedSets(o))continue;
+    applySuggestions(o,draft);updateInSessionNote(o.id)}
+  saveDraft()}
 function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
   const ex=prog.find(exId);if(!ex)return;const text=inSessionNote(ex,loadDraft());
   let el=art.querySelector(".insession");
@@ -2207,6 +2343,8 @@ function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const
   return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
 window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
+window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir,capacityBaseline,
+  sessionsFor,expectedSetDrop,sessionFreshness,baseSetReps,setSuggestion};
 window.__repforgeAttention=attentionGroups;
 function renderAttention(){const el=$("#attention");if(!el)return;
   const groups=attentionGroups().filter(g=>g.key!=="add");

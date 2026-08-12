@@ -2139,11 +2139,13 @@ async function main() {
       `base2=${dynBaseLoad2} now=${dynUpLoad2}`,
       "Save an easy set 1 → set 2 suggested load increases"
     );
+    // Plan 039 / ADR 0003: a load bump re-enters on predicted capacity at the new
+    // load, not on a blind reset to the range bottom.
     assert(
-      dynUpReps2 === min,
-      "After an in-session load bump, set 2 reps reset to the bottom of the range",
-      `reps=${dynUpReps2} min=${min}`,
-      "Load bump mid-session → reps target drops to range bottom"
+      dynUpReps2 > min && dynUpReps2 <= max,
+      "After an in-session load bump, set 2 reps re-enter inside the range on capacity",
+      `reps=${dynUpReps2} range=${min}-${max}`,
+      "Load bump mid-session → reps target is the capacity-predicted re-entry, above the range bottom"
     );
     assert(
       /nudged up/i.test(dynUpNote || ""),
@@ -2346,6 +2348,367 @@ async function main() {
       "Out-of-order save preserves touched rows and explains the next adjusted set",
       `set1=${preservedSet1} set3=${adjustedSet3} note="${outOfOrderNote}"`,
       "Edit set 1, save easy set 2 → set 1 stays edited; set 3 nudges up with note"
+    );
+  }
+
+  // ── Phase 12a-cap: Capacity engine (plan 039 / ADR 0003) ─────────
+  // Capacity = performed reps + trusted RIR, normalized across loads as
+  // capacity-e1RM and inverted to predict performable reps at any load.
+  beginPhase("Phase 12a-cap: Capacity-driven load & rep suggestions");
+  {
+    const capRows = (ex, day, date, load, reps, rir, tag) => {
+      const session = `${date}_${day}_cap_${ex.id}_${tag}`;
+      const created = new Date(`${date}T12:00:00Z`).toISOString();
+      return Array.from({ length: ex.sets }, (_, i) => ({
+        session, date, day, name: ex.name, exerciseId: ex.id, set: i + 1,
+        load, reps, rir, notes: "", created,
+        primary: ex.primary, secondary: ex.secondary,
+      }));
+    };
+
+    // ── Pure capacity math ────────────────────────────────────────
+    await clearState(page);
+    await reloadApp(page);
+    const capMath = await page.evaluate(() => {
+      const C = window.__repforgeCapacity;
+      if (!C) return null;
+      return {
+        plain: C.capReps(6, 3),
+        capped: C.capReps(6, 99),
+        blank: C.capReps(6, ""),
+        negative: C.capReps(6, -3),
+        roundTrip: C.repsAtLoad(100 * (1 + 9 / 30), 100),
+        constants: C.CAPACITY,
+      };
+    });
+    assert(
+      capMath?.plain === 9,
+      "Capacity is performed reps plus trusted reps in reserve",
+      JSON.stringify(capMath),
+      "capReps(6, 3) → 9"
+    );
+    assert(
+      capMath?.capped === 10,
+      "RIR credit is capped at the hard-set ceiling (fantasy far from failure)",
+      `capReps(6, 99)=${capMath?.capped} hardRir=4`,
+      "capReps(6, 99) → 10, not 105"
+    );
+    assert(
+      capMath?.blank === 7,
+      "Blank RIR keeps the conservative default of 1",
+      `capReps(6, "")=${capMath?.blank}`,
+      'capReps(6, "") → 7'
+    );
+    assert(
+      capMath?.negative === 6,
+      "Negative RIR floors at zero credit",
+      `capReps(6, -3)=${capMath?.negative}`,
+      "capReps(6, -3) → 6, never below performed reps"
+    );
+    assert(
+      capMath?.roundTrip === 9,
+      "Inverse Epley round-trips exactly onto whole reps",
+      `repsAtLoad(e1rm(100, 9), 100)=${capMath?.roundTrip}`,
+      "repsAtLoad(e1rm(100, 9), 100) → exactly 9, so integer triggers cannot be missed by float noise"
+    );
+    assert(
+      capMath?.constants?.jumpMargin === 1 && capMath?.constants?.bigJumpMargin === 3 &&
+        capMath?.constants?.pushGap === 2 && capMath?.constants?.temperClamp === 0.05,
+      "Capacity tuning constants live in one table",
+      JSON.stringify(capMath?.constants),
+      "window.__repforgeCapacity.CAPACITY exposes the tunables the engine reads"
+    );
+
+    // ── Trigger table: capacity extends jumps, never retracts them ──
+    const capState = await getState(page);
+    const capDay = "Day 1";
+    const capDay1 = capState.program
+      .filter((e) => e.day === capDay)
+      .sort((a, b) => a.order - b.order);
+    assert(
+      capDay1.length >= 6,
+      "Day 1 has enough exercises for the capacity trigger table",
+      `count=${capDay1.length}`,
+      "Default program → Day 1 has six slots"
+    );
+    // A 6-8 range with three sets makes the plan's worked examples apply directly.
+    for (const e of capDay1) { e.min = 6; e.max = 8; e.sets = 3; }
+    const [exCapAdd, exReentry, exCapCapped, exPerfFloor, exCapReduce, exCapHold] = capDay1;
+    await persistState(page, {
+      ...capState,
+      // No block start → no block tempering, so these read the raw trigger chain.
+      programMeta: { ...capState.programMeta, started: null, onboarded: true },
+      log: [
+        // Demonstrated capacity 9 in a 6-8 range, but only 6 performed reps.
+        ...capRows(exCapAdd, capDay, "2025-04-01", 100, 6, 3, "add"),
+        // Top of the range at one RIR → re-entry has real surplus to spend.
+        ...capRows(exReentry, capDay, "2025-04-02", 100, 8, 1, "reentry"),
+        // RIR 6 is credited as 4, so capacity is 10 — short of the ++ margin.
+        ...capRows(exCapCapped, capDay, "2025-04-03", 100, 6, 6, "capped"),
+        // Performed reps at the top with nothing in reserve.
+        ...capRows(exPerfFloor, capDay, "2025-04-04", 100, 8, 0, "floor"),
+        // Capacity itself falls short of the range bottom.
+        ...capRows(exCapReduce, capDay, "2025-04-05", 100, 5, 0, "reduce"),
+        // Stopped early, but capacity still reaches into the range.
+        ...capRows(exCapHold, capDay, "2025-04-06", 100, 5, 2, "hold"),
+      ],
+    });
+    await reloadApp(page);
+    const capRecs = await page.evaluate((ids) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const out = {};
+      for (const [key, id] of Object.entries(ids)) {
+        const ex = (raw.program || []).find((e) => e.id === id);
+        const rec = window.__repforgeRecommendation?.(ex);
+        out[key] = rec && { status: rec.status, load: rec.load, cap: rec.cap, typRir: rec.typRir };
+      }
+      return out;
+    }, {
+      add: exCapAdd.id, reentry: exReentry.id, capped: exCapCapped.id,
+      floor: exPerfFloor.id, reduce: exCapReduce.id, hold: exCapHold.id,
+    });
+    assert(
+      capRecs.add?.status === "add",
+      "Demonstrated capacity above the range top fires the load jump early",
+      JSON.stringify(capRecs.add),
+      "6 reps @ RIR 3 in a 6-8 range (capacity 9) → Add load now, without grinding reps to the top first"
+    );
+    assert(
+      capRecs.capped?.status === "add",
+      "Capped RIR credit does not over-trigger the double jump",
+      JSON.stringify(capRecs.capped),
+      "6 reps @ RIR 6 is credited as capacity 10 → Add load, not Add load ++"
+    );
+    assert(
+      capRecs.floor?.status === "add",
+      "Performed reps at the range top still fire the jump on their own",
+      JSON.stringify(capRecs.floor),
+      "All sets 8 reps @ RIR 0 (capacity 8) → Add load — capacity extends triggers, never retracts them"
+    );
+    assert(
+      capRecs.reduce?.status === "reduce" && capRecs.reduce?.load < 100,
+      "Capacity below the range bottom backs the load off",
+      JSON.stringify(capRecs.reduce),
+      "5 reps @ RIR 0 in a 6-8 range (capacity 5) → Back off with a lighter target"
+    );
+    assert(
+      capRecs.hold?.status === "hold",
+      "Stopping short of the range is not failing it",
+      JSON.stringify(capRecs.hold),
+      "5 reps @ RIR 2 in a 6-8 range (capacity 7) → hold family, NOT Back off"
+    );
+
+    // ── Capacity re-entry after a load change ─────────────────────
+    await nav(page, "log");
+    await selectDay(page, capDay);
+    const reentryLoad = +(await page.inputValue(`[data-k="${exReentry.id}_1_load"]`));
+    const reentryReps = +(await page.inputValue(`[data-k="${exReentry.id}_1_reps"]`));
+    assert(
+      reentryLoad > 100 && reentryReps > exReentry.min && reentryReps <= exReentry.max,
+      "A new load re-enters at capacity-predicted reps, not the range bottom",
+      `load=${reentryLoad} reps=${reentryReps} range=${exReentry.min}-${exReentry.max}`,
+      "Add load with surplus capacity → set 1 targets predicted reps at the new load, above the bottom"
+    );
+    const reentryNote = await page
+      .locator(`.exercise[data-ex="${exReentry.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      /should land at your usual effort/i.test(reentryNote || ""),
+      "The re-entry note explains the new load's rep target",
+      `note="${reentryNote}"`,
+      "Add load with re-entry above the range bottom → log.insession.reentry renders"
+    );
+
+    // A jump dominated by minJump is a big percentage move — the clamp still bites.
+    const lightState = await getState(page);
+    const lightEx = lightState.program.find((e) => e.id === exReentry.id);
+    lightEx.min = 6; lightEx.max = 8; lightEx.sets = 3;
+    await persistState(page, {
+      ...lightState,
+      log: capRows(lightEx, capDay, "2025-04-02", 10, 8, 1, "light"),
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, capDay);
+    const lightReps = +(await page.inputValue(`[data-k="${exReentry.id}_1_reps"]`));
+    assert(
+      lightReps === lightEx.min,
+      "A big-percentage jump still lands at the range bottom via the clamp",
+      `reps=${lightReps} min=${lightEx.min}`,
+      "10 kg lift where minJump dominates → 12.5 kg predicts fewer reps than the range holds → clamp to the bottom"
+    );
+
+    // ── Anticipatory in-session prediction ────────────────────────
+    const dropState = await getState(page);
+    const dropEx = dropState.program.find((e) => e.id === exReentry.id);
+    dropEx.min = 6; dropEx.max = 8; dropEx.sets = 3;
+    await persistState(page, {
+      ...dropState,
+      log: [
+        ...capRows(dropEx, capDay, "2025-04-08", 100, 7, 1, "d1"),
+        ...capRows(dropEx, capDay, "2025-04-15", 100, 7, 1, "d2"),
+      ],
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, capDay);
+    // Two declining sets: capacity 130 then 126.67 → the third is projected lower still.
+    for (const [n, reps] of [[1, 8], [2, 7]]) {
+      await page.fill(`[data-k="${dropEx.id}_${n}_load"]`, "100");
+      await page.fill(`[data-k="${dropEx.id}_${n}_reps"]`, String(reps));
+      await page.fill(`[data-k="${dropEx.id}_${n}_rir"]`, "1");
+      await page.click(`.saveset[data-save="${dropEx.id}_${n}"]`);
+      await page.waitForTimeout(120);
+    }
+    const dropSet3 = +(await page.inputValue(`[data-k="${dropEx.id}_3_reps"]`));
+    assert(
+      dropSet3 <= 7,
+      "The next set anticipates the observed per-set drop instead of echoing the last one",
+      `set3 reps=${dropSet3} set2 performed=7`,
+      "Commit 8 then 7 reps @ RIR 1 → set 3 targets no more than the second set's performed reps"
+    );
+    const dropNote = await page
+      .locator(`.exercise[data-ex="${dropEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      /trending down/i.test(dropNote || ""),
+      "The anticipated-drop note names the trend, not the arithmetic",
+      `note="${dropNote}"`,
+      "Declining sets → log.insession.drop renders"
+    );
+
+    // ── Session freshness: temper-only cross-exercise signal ──────
+    await clearState(page);
+    await reloadApp(page);
+    const freshState = await getState(page);
+    const freshDay1 = freshState.program
+      .filter((e) => e.day === capDay)
+      .sort((a, b) => a.order - b.order);
+    const [exGrind, exOverlap, exApart, exOther] = freshDay1;
+    // Explicit muscles make the overlap weights deterministic.
+    exGrind.primary = "Chest"; exGrind.secondary = "";
+    exOverlap.primary = "Chest"; exOverlap.secondary = "";
+    exApart.primary = "Calves"; exApart.secondary = "";
+    exOther.primary = "Calves"; exOther.secondary = "";
+    for (const e of [exGrind, exOverlap, exApart, exOther]) { e.min = 6; e.max = 8; e.sets = 3; }
+    await persistState(page, {
+      ...freshState,
+      programMeta: { ...freshState.programMeta, started: null, onboarded: true },
+      log: [
+        // Two sessions each → a real capacity baseline for every contributor.
+        ...capRows(exGrind, capDay, "2025-05-01", 100, 8, 2, "g1"),
+        ...capRows(exGrind, capDay, "2025-05-08", 100, 8, 2, "g2"),
+        ...capRows(exOverlap, capDay, "2025-05-01", 100, 8, 1, "o1"),
+        ...capRows(exOverlap, capDay, "2025-05-08", 100, 8, 1, "o2"),
+        ...capRows(exApart, capDay, "2025-05-01", 100, 8, 1, "a1"),
+        ...capRows(exApart, capDay, "2025-05-08", 100, 8, 1, "a2"),
+        ...capRows(exOther, capDay, "2025-05-01", 100, 8, 2, "t1"),
+        ...capRows(exOther, capDay, "2025-05-08", 100, 8, 2, "t2"),
+      ],
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    const freshness = await page.evaluate((ids) => {
+      const C = window.__repforgeCapacity;
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const find = (id) => (raw.program || []).find((e) => e.id === id);
+      const mkDraft = (entries) => {
+        const d = { __done: [], __warm: [], __touched: [] };
+        for (const [exId, n, load, reps, rir] of entries) {
+          d[`${exId}_${n}_load`] = String(load);
+          d[`${exId}_${n}_reps`] = String(reps);
+          d[`${exId}_${n}_rir`] = String(rir);
+          d.__done.push(`${exId}_${n}`);
+        }
+        return d;
+      };
+      const sets = (id, reps, rir) => [1, 2, 3].map((n) => [id, n, 100, reps, rir]);
+      // Grind lift runs 5% under its capacity baseline; the other lift sits on its own.
+      const below = mkDraft([...sets(ids.grind, 6, 2), ...sets(ids.other, 8, 2)]);
+      return {
+        overlap: C.sessionFreshness(find(ids.overlap), below),
+        apart: C.sessionFreshness(find(ids.apart), below),
+        // Above baseline must never boost a downstream lift.
+        above: C.sessionFreshness(find(ids.overlap), mkDraft(sets(ids.grind, 10, 4))),
+        // Two completed sets is not enough evidence to say anything.
+        thin: C.sessionFreshness(find(ids.overlap), mkDraft([
+          [ids.grind, 1, 100, 4, 0], [ids.grind, 2, 100, 4, 0],
+        ])),
+        // A deep deficit is still capped at temperClamp.
+        deep: C.sessionFreshness(find(ids.overlap), mkDraft(sets(ids.grind, 2, 0))),
+      };
+    }, { grind: exGrind.id, overlap: exOverlap.id, apart: exApart.id, other: exOther.id });
+    assert(
+      freshness.overlap < freshness.apart && freshness.overlap < 1 && freshness.apart <= 1,
+      "Session freshness weights the deficit by muscle overlap",
+      JSON.stringify(freshness),
+      "Grind a chest lift below baseline → a second chest lift tempers more than a calf lift"
+    );
+    assert(
+      freshness.above === 1,
+      "Session freshness never boosts a suggestion",
+      `factor=${freshness.above}`,
+      "Earlier lift ABOVE its capacity baseline → factor clamps to exactly 1"
+    );
+    assert(
+      freshness.thin === 1,
+      "Session freshness stays silent without enough completed sets",
+      `factor=${freshness.thin}`,
+      "Only two completed working sets → evidence gate returns a no-op factor"
+    );
+    assert(
+      Math.abs(freshness.deep - 0.95) < 1e-9,
+      "The total freshness adjustment is capped at 5% of capacity",
+      `factor=${freshness.deep}`,
+      "A deep capacity deficit → factor floors at 1 - temperClamp"
+    );
+
+    // The temper reaches the ghost values and says so, on a lift with no sets yet.
+    await nav(page, "log");
+    await selectDay(page, capDay);
+    const beforeTemperReps = +(await page.inputValue(`[data-k="${exOverlap.id}_1_reps"]`));
+    for (const n of [1, 2, 3]) {
+      await page.fill(`[data-k="${exGrind.id}_${n}_load"]`, "100");
+      await page.fill(`[data-k="${exGrind.id}_${n}_reps"]`, "4");
+      await page.fill(`[data-k="${exGrind.id}_${n}_rir"]`, "0");
+      await page.click(`.saveset[data-save="${exGrind.id}_${n}"]`);
+      await page.waitForTimeout(120);
+    }
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, capDay);
+    const afterTemperReps = +(await page.inputValue(`[data-k="${exOverlap.id}_1_reps"]`));
+    assert(
+      afterTemperReps < beforeTemperReps && afterTemperReps >= exOverlap.min,
+      "Grinding an earlier lift eases the first set of a lift not yet started",
+      `before=${beforeTemperReps} after=${afterTemperReps} min=${exOverlap.min}`,
+      "Commit three chest sets well under baseline → the untouched chest lift's set 1 asks for fewer reps"
+    );
+    const temperNote = await page
+      .locator(`.exercise[data-ex="${exOverlap.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      /ran hot today/i.test(temperNote || ""),
+      "The temper note names the signal, not the arithmetic",
+      `note="${temperNote}"`,
+      "Tempered first set → log.insession.temper renders, with no percentages in the copy"
+    );
+
+    // Effort words feed capacity through the same 3/1/0 mapping.
+    const effortCaps = await page.evaluate(() => {
+      const C = window.__repforgeCapacity;
+      return { easy: C.capReps(6, 3), hard: C.capReps(6, 1), max: C.capReps(6, 0) };
+    });
+    assert(
+      effortCaps.easy === 9 && effortCaps.hard === 7 && effortCaps.max === 6,
+      "Effort words map into capacity through the unchanged 3/1/0 RIR scale",
+      JSON.stringify(effortCaps),
+      "easy/hard/max → capacity 9/7/6 on a 6-rep set, all inside the hard-set cap"
     );
   }
 
