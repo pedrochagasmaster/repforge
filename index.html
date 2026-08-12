@@ -88,7 +88,12 @@
             <div class="wo-head__title" id="woDayTitle"></div>
             <div class="wo-head__sub" id="woDaySub"></div>
           </div>
-          <div style="position:relative;justify-self:end">
+          <div class="wo-head__end">
+            <button type="button" class="wo-rest hidden" id="woRest" data-i18n-aria="focus.rest.start_aria" aria-label="Start rest timer" aria-live="off">
+              <span class="wo-rest__dot" aria-hidden="true"></span>
+              <span class="icon-mask icon-mask--sm icon-mask--timer wo-rest__icon" aria-hidden="true"></span>
+              <span class="wo-rest__time" aria-hidden="true"></span>
+            </button>
             <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="woOverflow"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
             <div id="woOverflow" class="wo-overflow hidden">
               <div class="modeswitch" role="group" data-i18n-aria="log.layout_aria" aria-label="Log layout">
@@ -494,6 +499,22 @@
       <p class="installbanner__body" id="installBannerBody"></p>
     </div>
     <button type="button" class="btn btn--cta installbanner__action hidden" id="installBannerAction" data-i18n="install.action">Install</button>
+  </div>
+  <div id="exNoteScrim" class="sheet-scrim hidden"></div>
+  <div id="exNoteSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="exNoteTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <button type="button" class="sheet__act" id="exNoteCancel" data-i18n="dialog.cancel">Cancel</button>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="exNoteTitle" data-i18n="focus.note.title">Exercise note</p>
+        <p class="sheet__sub" id="exNoteFor"></p>
+      </div>
+      <button type="button" class="sheet__act sheet__act--accent" id="exNoteSave" data-i18n="dialog.save">Save</button>
+    </div>
+    <div class="sheet__body">
+      <textarea id="exNoteText" class="sheet__text" data-i18n-placeholder="log.note.placeholder" placeholder="Seat 4, feet high…" data-i18n-aria="focus.note.title" aria-label="Exercise note"></textarea>
+    </div>
+    <p class="sheet__foot" data-i18n="focus.note.carry">Visible in your next session</p>
   </div>
   <div id="toast" class="toast hidden"></div>
   <script src="schedule.js"></script>

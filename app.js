@@ -78,21 +78,26 @@ const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fm
 const targetText=ex=>isEffortMode()
   ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
   :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
-/** The three-way effort picker — a set row's compact line, the current set's stack. */
-function effortControlHtml(key,n,val,{stack=false,confirmed=true}={}){
-  const cls=`effort${stack?" effort--stack":""}${confirmed?"":" effort--suggested"}`;
-  return `<div class="${cls}" role="radiogroup" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
+/** The three-way effort picker — the compact radiogroup on a List set row.
+ *  Focus states it as a spinner instead; see cursetHtml. */
+function effortControlHtml(key,n,val,{confirmed=true}={}){
+  return `<div class="effort${confirmed?"":" effort--suggested"}" role="radiogroup" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
     EFFORT_STEPS.map(e=>{const on=val===e;
       return `<button type="button" class="effort__btn${on?" active":""}" role="radio" aria-checked="${on?"true":"false"}"`+
         ` tabindex="${on?"0":"-1"}" data-eff="${esc(key)}" data-e="${e}">`+
-        `<span class="effort__word">${esc(effortLabel(e))}</span>`+
-        (stack?`<span class="effort__hint">${esc(effortHint(e))}</span>`:"")+
-        `</button>`}).join("")+`</div>`}
-/** Move a set's effort pick, in every copy of its picker that is on screen. */
+        `<span class="effort__word">${esc(effortLabel(e))}</span></button>`}).join("")+`</div>`}
+/** Move a set's effort pick, in every copy of its picker that is on screen —
+ *  the List row's radiogroup and the Focus well's spinner alike. */
 function setEffortPick(key,eff){
   $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>{const on=b.dataset.e===eff;
     b.classList.toggle("active",on);b.setAttribute("aria-checked",on?"true":"false");b.tabIndex=on?0:-1;
-    b.closest(".effort")?.classList.remove("effort--suggested")})}
+    b.closest(".effort")?.classList.remove("effort--suggested")});
+  $$(`[data-effspin="${key}"]`).forEach(el=>{
+    el.dataset.e=eff;el.textContent=effortLabel(eff);
+    el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
+    el.setAttribute("aria-valuetext",effortLabel(eff));
+    const hint=el.parentElement?.querySelector(".curset__hint");
+    if(hint)hint.textContent=effortHint(eff)})}
 function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
   g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
@@ -449,8 +454,16 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
-let logMode="full",focusIndex=0,focusEditSet=null,statsSeg="overview",prFilter="all";
+let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let focusEnterFrom=0,focusDrag=null,focusFlinging=false;
+/** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
+ *  set as it stood when editing began, so cancelling puts it back untouched. */
+let focusEdit=null;
+/** Exercises whose older logged sets the lifter unfolded from behind the
+ *  disclosure row. Folding is the default once a session gets long. */
+const focusUnfolded=new Set();
+/** Sets logged before older rows fold away, and how many stay above the fold. */
+const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
@@ -824,7 +837,7 @@ function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
 function closeWorkoutOverflow(){setWorkoutOverflow(false)}
 function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
-function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");closeWorkoutOverflow();renderWorkout()}
+function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");closeWorkoutOverflow();renderWorkout()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   day=ex.day;
@@ -955,13 +968,34 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   if(anchor)anchor.insertAdjacentElement("afterend",el);
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
-/** The floating bar is the only rest surface, in both log modes. */
+/** Rest reads in two places: the floating bar for List, and the chip in the
+ *  workout header for Focus — where it must never sit over a control. */
 function paintRest(text,done){
-  const b=$("#restBar");if(!b)return;
-  const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
-  b.classList.toggle("is-done",!!done)}
+  const b=$("#restBar");
+  if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
+    b.classList.toggle("is-done",!!done)}
+  const chip=$("#woRest");if(!chip)return;
+  const el=chip.querySelector(".wo-rest__time");if(el)el.textContent=text;
+  chip.classList.toggle("is-done",!!done);
+  const running=chip.classList.contains("is-running");
+  chip.setAttribute("aria-label",running
+    ?t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text})
+    :t("focus.rest.start_aria"))}
+/** Show or hide the header chip, and keep the floating bar out of Focus. */
+function updateRestChrome(){
+  const focus=workoutActive&&logMode==="focus";
+  const chip=$("#woRest");
+  if(chip){
+    const on=focus&&+state.settings.restSec>0;
+    chip.classList.toggle("hidden",!on);
+    chip.classList.toggle("is-running",!!restEnd);
+    if(!restEnd){chip.classList.remove("is-done");
+      chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
+  const bar=$("#restBar");
+  if(bar)bar.classList.toggle("is-shadowed",focus)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;
   $("#restBar")?.classList.add("hidden");paintRest("—",false);
+  updateRestChrome();
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
@@ -975,7 +1009,7 @@ function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
   paintRest(fmtClock(left),false)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
-  $("#restBar")?.classList.remove("hidden");paintRest(fmtClock(s),false);
+  $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
   clearInterval(restTick);restTick=setInterval(tickRest,250)}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
@@ -1049,24 +1083,74 @@ function playPanelAnimation(el,cls){if(!el)return;
   void el.offsetWidth;
   el.classList.add(cls);
   el.addEventListener("animationend",()=>el.classList.remove(cls),{once:true})}
-function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive&&logMode==="focus")}
-function focusGo(dir){
+function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive&&logMode==="focus");
+  updateRestChrome()}
+
+/* ---- Exercise note sheet ---- */
+let exNoteFor=null,exNoteReturn=null;
+function openExNoteSheet(exId){
+  const ex=prog.find(exId);if(!ex)return;
+  const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim"),ta=$("#exNoteText");
+  if(!sheet||!ta)return;
+  exNoteFor=exId;exNoteReturn=document.activeElement;
+  $("#exNoteFor").textContent=substituted.get(exId)||ex.name;
+  ta.value=$(`[data-exnote="${exId}"]`)?.value??(loadDraft().__exnotes?.[exId]??lastExerciseNote(ex));
+  sheet.hidden=false;sheet.classList.remove("hidden");scrim?.classList.remove("hidden");
+  document.body.classList.add("is-sheet-open");
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");
+    ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)})}
+function closeExNoteSheet(){
+  const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim");
+  if(!sheet||sheet.hidden)return;
+  sheet.classList.remove("is-open");scrim?.classList.remove("is-open");
+  document.body.classList.remove("is-sheet-open");
+  const finish=()=>{sheet.classList.add("hidden");sheet.hidden=true;scrim?.classList.add("hidden")};
+  reducedMotion()?finish():setTimeout(finish,220);
+  exNoteFor=null;
+  if(exNoteReturn?.isConnected)exNoteReturn.focus();
+  exNoteReturn=null}
+function saveExNoteSheet(){
+  const id=exNoteFor,val=$("#exNoteText")?.value??"";
+  if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;saveDraft()}
+  closeExNoteSheet();
+  if(id)renderWorkout()}
+/** Keep the sheet above the software keyboard rather than behind it. */
+function trackSheetViewport(){
+  const vv=window.visualViewport;if(!vv)return;
+  const apply=()=>{const inset=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
+    document.documentElement.style.setProperty("--kb",`${Math.round(inset)}px`)};
+  vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);apply()}
+function focusGo(dir,opts={}){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
-  focusIndex=next;focusEnterFrom=dir>0?1:-1;renderWorkout();window.scrollTo({top:0});return true}
+  // A swipe has already carried the card across; only a tap needs the animation.
+  focusIndex=next;focusEnterFrom=opts.animate===false?0:(dir>0?1:-1);
+  focusEdit=null;renderWorkout();window.scrollTo({top:0});return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
 function focusCard(){return $("#workout.is-focus .exercise.is-current")}
-/** Raise the freshly rendered card from the stack, as if the deck dealt it. */
+function focusTrack(){return $("#focusTrack")}
+/** How far the track travels to bring a neighbour card into place. */
+function focusStep(){const card=focusCard();return (card?.offsetWidth||320)+FOCUS_GAP}
+const FOCUS_GAP=14;
+const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+/** Slide the freshly rendered card in from the side it came from. */
 function playFocusCardEnter(){
-  const card=focusCard();if(!card)return;
-  card.style.transform="";
+  const track=focusTrack();if(!track)return;
+  focusSetTrack(track,0,0);
   if(!focusEnterFrom)return;
-  focusEnterFrom=0;
-  card.classList.add("is-entering");
-  card.style.transform="scaleX(.97) translateY(16px)";
+  const from=focusEnterFrom;focusEnterFrom=0;
+  if(reducedMotion())return;
+  track.classList.add("is-jumping");
+  focusSetTrack(track,from*focusStep(),0);
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    card.classList.remove("is-entering");card.style.transform=""}))}
+    track.classList.remove("is-jumping");focusSetTrack(track,0,0)}))}
+/** One place that writes the track's transform, so drag, fling and reset agree. */
+function focusSetTrack(track,dx,rot){
+  if(!track)return;
+  track.style.transform=`translate3d(${dx}px,0,0)`;
+  const card=track.querySelector(".exercise.is-current");
+  if(card)card.style.transform=rot?`rotate(${rot}deg)`:"";}
 function focusDragStart(e){
   if(focusFlinging||!workoutActive||logMode!=="focus")return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
@@ -1074,9 +1158,10 @@ function focusDragStart(e){
   // Fields keep their caret; every other part of the card is draggable, with the
   // click that follows a real drag swallowed so buttons don't also fire.
   if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
-  const card=focusCard();if(!card)return;
-  focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card,
-    scrolls:card.classList.contains("is-scrollable"),
+  const card=focusCard(),track=focusTrack();if(!card||!track)return;
+  const ledger=card.querySelector(".fcard__ledger");
+  focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card,track,
+    scrolls:!!ledger&&ledger.scrollHeight>ledger.clientHeight+1,
     vx:0,lastX:e.clientX,lastT:e.timeStamp||performance.now()}}
 const DRAG_LOCK=10;
 function focusDragMove(e){
@@ -1090,7 +1175,9 @@ function focusDragMove(e){
     // judging on that first sample throws the whole gesture away.
     if(focusDrag.scrolls&&Math.abs(my)>=18&&Math.abs(my)>Math.abs(mx)*2){focusDrag=null;return}
     if(Math.abs(mx)<DRAG_LOCK||Math.abs(mx)<=Math.abs(my))return;
-    focusDrag.axis="x";focusDrag.card.classList.add("is-dragging");
+    focusDrag.axis="x";
+    focusDrag.card.classList.add("is-dragging");
+    $("#focusDeck")?.classList.add("is-swiping");
     // Anchor to where the axis locked so the card doesn't jump by the slop.
     focusDrag.x=e.clientX-Math.sign(mx)*DRAG_LOCK}
   const now=e.timeStamp||performance.now(),dt=now-focusDrag.lastT;
@@ -1098,35 +1185,46 @@ function focusDragMove(e){
   const dx=e.clientX-focusDrag.x;
   const blocked=(dx>0&&!focusCanGo(-1))||(dx<0&&!focusCanGo(1));
   focusDrag.dx=blocked?dx*.28:dx;
-  // The card stays opaque while dragging so it reads as lifted off the stack.
-  focusDrag.card.style.transform=`translateX(${focusDrag.dx}px) rotate(${focusDrag.dx/26}deg)`}
+  // The whole track moves as one, the way a paged view does; the card being
+  // pushed tilts a touch so the gesture reads as picking it up off the stack.
+  focusSetTrack(focusDrag.track,focusDrag.dx,reducedMotion()?0:Math.max(-2,Math.min(2,focusDrag.dx/90)))}
 function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
   document.addEventListener("click",stop,{capture:true,once:true});
   setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
+function focusSettle(track,card,deck){
+  card?.classList.remove("is-dragging");
+  track?.classList.add("is-settling");
+  focusSetTrack(track,0,0);
+  setTimeout(()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")},220)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
-  const{card,dx,axis,vx}=focusDrag;focusDrag=null;
+  const{card,track,dx,axis,vx}=focusDrag;focusDrag=null;
+  const deck=$("#focusDeck");
   if(axis!=="x")return;
   if(Math.abs(dx)>8)swallowNextClick();
-  card.classList.remove("is-dragging");
   const dir=dx<0?1:-1,width=card.offsetWidth||320;
   // A short flick counts as much as a long drag, as long as it kept going the way
   // it was thrown (0.4px/ms is roughly a deliberate flick).
   const flick=Math.abs(vx)>=.4&&Math.sign(vx)===Math.sign(dx)&&Math.abs(dx)>=28;
   const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
-  if(!past||!focusCanGo(dir)){card.style.transform="";card.style.opacity="";return}
+  if(!past||!focusCanGo(dir)){focusSettle(track,card,deck);return}
+  if(reducedMotion()){card.classList.remove("is-dragging");deck?.classList.remove("is-swiping");focusGo(dir,{animate:false});return}
   focusFlinging=true;
-  card.style.transform=`translateX(${dir>0?"-":""}120%) rotate(${dir>0?-14:14}deg)`;
-  card.style.opacity="0";
-  setTimeout(()=>{focusFlinging=false;focusGo(dir)},150)}
+  card.classList.remove("is-dragging");
+  track.classList.add("is-settling");
+  focusSetTrack(track,-dir*focusStep(),0);
+  setTimeout(()=>{
+    focusFlinging=false;track.classList.remove("is-settling");
+    deck?.classList.remove("is-swiping");
+    focusGo(dir,{animate:false})},210)}
 function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
   else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active")}
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
-function leaveWorkout(){workoutLeft=true;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
+function leaveWorkout(){workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
   for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
   return seen}
@@ -1243,35 +1341,233 @@ function setRowHtml(ex,n,r,draft,prev,nextSet){
     `<button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${committed.has(key)?"true":"false"}" aria-label="${esc(t("log.save_set_aria",{n}))}">`+
     `<span class="saveset__label">${esc(t("log.save_set"))}</span></button>`+
     effortLine+`</div>`}
-function cursetHtml(ex,n,r,draft,prev){
+
+/* ============================================================
+   Focus mode
+   One full-height card per exercise: a scrolling ledger of what has been
+   logged on top, and an attached well underneath that never moves — the
+   recommendation, the set being worked on, and the one action that commits it.
+   ============================================================ */
+
+/** Set numbers already committed on this exercise, in order. */
+function focusDoneSets(ex){const out=[];
+  for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
+  return out}
+/** The set the well is working on: the one being edited, else the first unlogged. */
+function focusActiveSet(ex){
+  if(focusEdit&&focusEdit.exId===ex.id&&focusEdit.n>=1&&focusEdit.n<=ex.sets)return focusEdit.n;
+  for(let n=1;n<=ex.sets;n++)if(!committed.has(`${ex.id}_${n}`))return n;
+  return 0}
+const focusExDone=ex=>focusActiveSet(ex)===0;
+/** The load the next set is judged against: this session's last logged set,
+ *  falling back to the matching set of the previous session. */
+function focusRefLoad(ex,n,draft,prev){
+  for(let m=n-1;m>=1;m--){
+    if(!committed.has(`${ex.id}_${m}`))continue;
+    const v=fromDisplay(draft[`${ex.id}_${m}_load`]);
+    if(Number.isFinite(v)&&v>0)return v}
+  const old=prev.find(x=>x.set===n)||prev.at(-1);
+  return old&&old.load!=null?+old.load:null}
+/** The one line above the inputs: what to do with this set, and why. */
+function focusCue(ex,n,r,draft,prev,editing){
+  if(editing)return{kind:"edit",label:t("focus.cue.editing"),text:t("focus.cue.editing_set",{n,total:ex.sets})};
+  const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
+  if(sg.load==null)return{kind:"start",label:t("focus.cue.start"),text:t("focus.cue.pick_load",{min:ex.min,max:ex.max})};
+  const ref=focusRefLoad(ex,n,draft,prev);
+  const move=ref==null?"hold":sg.load>ref+1e-6?"up":sg.load<ref-1e-6?"down":"hold";
+  const reps=sg.reps!=null?sg.reps:ex.min;
+  return{kind:"now",label:t("focus.cue.now"),
+    text:`${t(`focus.cue.${move}`,{load:fmtLoad(sg.load),unit:unitLabel()})} · ${t("focus.cue.reps",{reps})}`}}
+
+/** How a logged set reads back in the ledger. */
+function focusRowVals(ex,n,r,draft,prev,effortMode){
+  const{kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
+  const load=(()=>{const v=parseDec(kgVal);return Number.isFinite(v)?fmt(v):kgVal})();
+  // A set logged as a word reads back as that word — never as the RIR it maps to.
+  const eff=effortMode?effortLabel(effortVal)
+    :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
+  return{load:`${load} ${unitLabel()}`,reps:String(repsVal),eff}}
+
+function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false}){
+  const cells=`<span class="ledger__n">${n}</span><span>${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
+    `<span class="${effortMode?"ledger__eff":""}">${esc(vals.eff)}</span>`+
+    `<span class="ledger__check" aria-hidden="true"></span>`;
+  if(peek)return `<div class="ledger__row">${cells}</div>`;
+  return `<button type="button" class="ledger__row${editing?" is-editing":""}" data-editex="${esc(ex.id)}" data-editn="${n}"`+
+    ` aria-label="${esc(t("focus.edit_set_aria",{n}))}"${editing?' aria-current="true"':""}>${cells}</button>`}
+
+/** The upper ledger: last session before the first set lands, the session's own
+ *  rows after that, with older rows folded away once the list gets long. */
+function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
+  const head=`<div class="ledger__head"><span>${esc(t("log.set"))}</span><span>${esc(t("today.load"))}</span>`+
+    `<span>${esc(t("log.reps"))}</span><span>${effortMode?esc(t("log.effort")):"RIR"}</span><span></span></div>`;
+  // What the columns mean, and how far the session has got, stay put while the
+  // rows underneath them scroll.
+  const top=inner=>`<div class="ledger__top">${inner}</div>`;
+  const done=focusDoneSets(ex);
+  if(!done.length){
+    if(prev.length){
+      const rows=prev.map(x=>{
+        const eff=effortMode?effortLabel(effortForRir(x.rir)):fmt(x.rir);
+        return `<div class="ledger__row is-past"><span class="ledger__n">${x.set}</span>`+
+          `<span>${esc(`${fmtLoad(x.load)} ${unitLabel()}`)}</span><span>${esc(String(x.reps))}</span>`+
+          `<span class="${effortMode?"ledger__eff":""}">${esc(String(eff))}</span><span></span></div>`}).join("");
+      return top(`<p class="ledger__lab">${esc(t("focus.last_session"))}</p>${head}`)+rows}
+    return top(head)+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
+      `<span class="ledger__dash" aria-hidden="true">—</span><span></span></div>`}
+  const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
+  const open=peek?false:focusUnfolded.has(ex.id);
+  const folds=done.length>=FOCUS_FOLD_MIN&&!open;
+  const hidden=folds?done.slice(0,done.length-FOCUS_FOLD_KEEP):[];
+  const shown=folds?done.slice(done.length-FOCUS_FOLD_KEEP):done;
+  const rowsFor=list=>list.map(n=>focusLedgerRow(ex,n,focusRowVals(ex,n,r,draft,prev,effortMode),
+    {effortMode,editing:n===editN,peek})).join("");
+  // A long session leads with a count and a run of ticks, so the sets that
+  // scrolled behind the fold are still accounted for at a glance.
+  const summary=done.length>=FOCUS_FOLD_MIN
+    ?`<p class="ledger__count">${esc(t("focus.ledger.done_count",{n:done.length}))}</p>`+
+      `<div class="ledger__ticks" aria-hidden="true">${done.map(()=>`<span class="ledger__tick"></span>`).join("")}</div>`
+    :"";
+  let disclosure="";
+  if(done.length>=FOCUS_FOLD_MIN&&!peek){
+    const span=open?done.slice(0,done.length-FOCUS_FOLD_KEEP):hidden;
+    const from=span[0],to=span.at(-1);
+    disclosure=`<button type="button" class="ledger__more" data-fold="${esc(ex.id)}" aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(ex.id)}">`+
+      `<span>${esc(t(open?"focus.ledger.hide":"focus.ledger.show",{from,to}))}</span>`+
+      `<span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`}
+  return top(summary+head)+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
+
+/** One value cell of the well: label, big value, hairline, and its steppers. */
+function focusCell(label,inner,{accent=false,steps="",hint="",cls=""}={}){
+  return `<div class="curset__cell${accent?" is-load is-active":""}${cls?` ${cls}`:""}">`+
+    `<div class="curset__cell-lab${accent?" is-accent":""}">${label}</div>${inner}`+
+    (hint?`<div class="curset__hint">${hint}</div>`:"")+
+    `<span class="curset__underline" aria-hidden="true"></span>`+
+    (steps?`<div class="curset__steps">${steps}</div>`:"")+`</div>`}
+const stepBtn=(target,dir,label,attr="data-step")=>
+  `<button type="button" class="stepbtn" ${attr}="${esc(target)}" data-dir="${dir}" tabindex="-1" aria-label="${esc(label)}">${dir>0?"+":"−"}</button>`;
+
+/** The set being worked on — three columns of numbers (or two plus effort). */
+function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
   const{key,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
   const effortMode=isEffortMode();
-  // Effort is words, not a number: it gets its own full-width band under the
-  // load / reps steppers instead of a third of the stepper row.
-  const rirCell=effortMode?"":`<div class="curset__cell"><div class="curset__cell-lab">RIR</div>`+
-    `<input class="curset__val" data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`+
-    `<span class="curset__underline" aria-hidden="true"></span>`+
-    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:"RIR"}))}">−</button>`+
-    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_rir" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:"RIR"}))}">+</button></div></div>`;
-  const effortBand=effortMode
-    ?`<div class="curset__effort"><div class="curset__cell-lab">${term("Effort")}</div>`+
-      effortControlHtml(key,n,effortVal,{stack:true,confirmed:committed.has(key)||touched.has(key)})+`</div>`
-    :"";
   const repsLab=esc(t("log.reps"));
-  return `<div class="curset" data-set="${esc(key)}"><div class="curset__lab">${esc(t("today.current_set"))}</div>`+
-    `<div class="curset__grid${effortMode?" curset__grid--pair":""}">`+
-    `<div class="curset__cell is-load is-active"><div class="curset__cell-lab is-accent">${esc(t("today.load"))}</div>`+
-    `<input class="curset__val" data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" value="${esc(kgVal)}">`+
-    `<span class="curset__underline" aria-hidden="true"></span>`+
-    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
-    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div></div>`+
-    `<div class="curset__cell"><div class="curset__cell-lab">${repsLab}</div>`+
-    `<input class="curset__val" data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-    `<span class="curset__underline" aria-hidden="true"></span>`+
-    `<div class="curset__steps"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:repsLab}))}">−</button>`+
-    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_reps" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:repsLab}))}">+</button></div></div>`+
-    rirCell+`</div>`+effortBand+`</div>`+
-    `<button type="button" class="saveset btn btn--cta curset__save" data-save="${esc(key)}"><span>${esc(t("today.log_set"))}</span></button>`}
+  const unit=unitLabel();
+  // The static copy shows a dash where the live field shows its placeholder.
+  const val=(v,attrs,live=v)=>peek
+    ?`<div class="curset__val curset__val--static">${esc(String(v))}</div>`
+    :`<input class="curset__val" ${attrs} value="${esc(String(live))}">`;
+  // The unit rides on the load's baseline, so the number reads as one figure.
+  const loadCell=focusCell(esc(t("today.load")),
+    `<span class="curset__line">`+
+    val(kgVal||"—",`data-k="${ex.id}_${n}_load" size="4" type="text" inputmode="decimal" enterkeyhint="next" placeholder="—" aria-label="${esc(t("log.set_unit_aria",{n,unit}))}"`,kgVal)+
+    `<span class="curset__unit" aria-hidden="true">${esc(unit)}</span></span>`,
+    {accent:true,steps:peek?"":stepBtn(`${ex.id}_${n}_load`,-1,t("log.set_decrease_aria",{n,unit}))+stepBtn(`${ex.id}_${n}_load`,1,t("log.set_increase_aria",{n,unit}))});
+  const repsCell=focusCell(repsLab,
+    val(repsVal,`data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}"`),
+    {steps:peek?"":stepBtn(`${ex.id}_${n}_reps`,-1,t("log.set_decrease_aria",{n,unit:repsLab}))+stepBtn(`${ex.id}_${n}_reps`,1,t("log.set_increase_aria",{n,unit:repsLab}))});
+  // Effort is a word, so its column is a spinner over the three steps rather
+  // than a free number — same geometry as RIR, same two nudge buttons.
+  const effCell=(()=>{
+    const i=Math.max(0,EFFORT_STEPS.indexOf(effortVal));
+    const body=peek
+      ?`<div class="curset__val curset__val--static curset__val--word">${esc(effortLabel(effortVal))}</div>`
+      :`<div class="curset__val curset__val--word" role="spinbutton" tabindex="0" data-effspin="${esc(key)}" data-e="${esc(effortVal)}"`+
+        ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
+        ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
+    return focusCell(esc(t("log.effort")),body,{cls:"is-effort",hint:esc(effortHint(effortVal)),
+      steps:peek?"":stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep")+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep")})})();
+  const rirCell=focusCell("RIR",
+    val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
+    {steps:peek?"":stepBtn(`${ex.id}_${n}_rir`,-1,t("log.set_decrease_aria",{n,unit:"RIR"}))+stepBtn(`${ex.id}_${n}_rir`,1,t("log.set_increase_aria",{n,unit:"RIR"}))});
+  return `<div class="curset" data-set="${esc(key)}"><div class="curset__grid">`+
+    loadCell+repsCell+(effortMode?effCell:rirCell)+`</div></div>`}
+
+/** The attached lower area: cue, inputs and the single action that commits. */
+function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
+  const n=focusActiveSet(ex);
+  const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
+  if(!n){
+    const done=focusDoneSets(ex).length;
+    const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
+    const sub=allDone
+      ?t("focus.wo_done_sub",{n:focusList().length,lifts:tp(focusList().length,"lift")})
+      :t("focus.ex_done_sets",{n:done,sets:tp(done,"logged set")});
+    const cta=allDone||!hasNext
+      ?`<button type="button" class="btn btn--cta btn--noarrow" data-ffinish>${esc(t("log.finish"))}</button>`
+      :`<button type="button" class="btn btn--cta" data-fnext>${esc(t("focus.next_ex"))}</button>`;
+    return `<div class="focus-well is-done">`+
+      `<div class="focus-done"><span class="focus-done__mark" aria-hidden="true"></span>`+
+      `<div class="focus-done__text"><p class="focus-done__title">${esc(title)}</p>`+
+      `<p class="focus-done__sub">${esc(sub)}</p></div></div>`+
+      (peek?"":cta)+`</div>`}
+  const cue=focusCue(ex,n,r,draft,prev,editing);
+  const key=`${ex.id}_${n}`;
+  const action=peek?""
+    :(editing
+      ?`<button type="button" class="focus-well__cancel" data-fcancel>${esc(t("focus.cancel_edit"))}</button>`+
+        `<button type="button" class="btn btn--cta btn--noarrow saveset" data-save="${esc(key)}">${esc(t("focus.save_edit"))}</button>`
+      :`<button type="button" class="btn btn--cta btn--noarrow saveset" data-save="${esc(key)}">${esc(t("today.log_set"))}</button>`);
+  return `<div class="focus-well${editing?" is-editing":""}">`+
+    `<p class="focus-cue is-${cue.kind}"><span class="focus-cue__bolt" aria-hidden="true"></span>`+
+    `<b class="focus-cue__lab">${esc(cue.label)}</b><span class="focus-cue__sep" aria-hidden="true">·</span>`+
+    `<span class="focus-cue__text">${esc(cue.text)}</span></p>`+
+    cursetHtml(ex,n,r,draft,prev,{peek})+action+`</div>`}
+
+/** A whole focus card. `peek` renders the inert copy that rides in from the
+ *  side during a swipe: same composition, no inputs, no duplicate field keys. */
+function focusCardHtml(ex,r,draft,prev,opts){
+  const{peek=false,hasNext=true,allDone=false,showSkip=true}=opts;
+  const effortMode=isEffortMode();
+  const n=focusActiveSet(ex);
+  const perf=substituted.get(ex.id);
+  const name=perf||ex.name;
+  const nameHtml=peek
+    ?`<h3 class="focus-ex__name">${esc(name)}</h3>`
+    :`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}">${esc(name)}</button></h3>`;
+  const setNo=n||ex.sets;
+  const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
+  const tools=peek?"":`<div class="focus-ex__tools">`+
+    `<button type="button" class="focus-tool${noteVal?" has-note":""}" data-exnote-open="${esc(ex.id)}" aria-label="${esc(t("focus.note_aria",{name}))}">`+
+    `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
+    (showSkip?`<button type="button" class="focus-tool ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}">`+
+      `<span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`:"")+
+    `</div>`;
+  // Every set that is not in the well still needs a field to hold its value:
+  // the draft is read back off the DOM. Inert keeps them out of the tab order.
+  const carriers=peek?"":`<div class="focus-inputs" inert aria-hidden="true">`+
+    Array.from({length:ex.sets},(_,i)=>i+1).filter(m=>m!==n)
+      .map(m=>setRowHtml(ex,m,r,draft,prev,0)).join("")+
+    `<textarea class="exnote__input" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" tabindex="-1">${esc(noteVal)}</textarea></div>`;
+  return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
+    (peek?` aria-hidden="true" data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
+    `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
+    `<span class="focus-ex__muscle">${esc(ex.primary)}</span>`+
+    `<span class="focus-ex__setof">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
+    `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
+    `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
+    `</div>${tools}</div></div>`+
+    `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+
+    focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+
+    carriers+`</article>`}
+
+/** The deck: the live card plus an inert copy of each neighbour, parked off
+ *  screen. Dragging moves all three together, the way a paged view does. */
+function focusDeckHtml(ex,r,draft,prev,{fl,at}){
+  const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
+  // Blank cards under the current one. The stack thins as the session goes, so
+  // the last exercise sits on a bare card.
+  const layers=Array.from({length:Math.max(0,Math.min(2,fl.length-1-at))},(_,i)=>
+    `<div class="deck__layer deck__layer--${2-i}" aria-hidden="true"></div>`).join("");
+  const peek=(e,side)=>e
+    ?`<div class="deck__peek deck__peek--${side}" aria-hidden="true">`+
+      focusCardHtml(e,recommendation(e),draft,last(e),{peek:true,hasNext:true,allDone:false})+`</div>`
+    :"";
+  return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}">${layers}<div class="deck__track" id="focusTrack">`+
+    peek(fl[at-1],"prev")+
+    focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,showSkip:at<fl.length-1})+
+    peek(fl[at+1],"next")+
+    `</div></div>`}
 function renderWorkout(){
   if(!workoutActive){updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
@@ -1291,45 +1587,15 @@ function renderWorkout(){
   const wk=$("#workout");if(!wk)return;wk.classList.toggle("is-focus",logMode==="focus");
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
+    // Focus renders the current exercise as its own full-height card; the rest
+    // stay as (hidden) List markup, which is what carries their draft fields.
+    if(logMode==="focus"&&ex.id===curId)return focusDeckHtml(ex,r,draft,prev,{fl,at});
     const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>${esc(effortOrRirLabel(x.rir))}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
-    // Focus keeps the same numbers as List, laid out for the card.
-    const lastHtml=prev.length?`<div class="lastsess"><div class="lastsess__lab">${esc(t("focus.last_session"))}</div>`+
-      `<div class="lastsess__sets">${prev.map(x=>`<span class="lastsess__set">${esc(fmtLoad(x.load))}<span class="lastsess__unit">${esc(unitLabel())}</span> × ${esc(String(x.reps))} <small>${esc(effortOrRirLabel(x.rir))}</small></span>`).join("")}</div></div>`:"";
     const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
     const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
-    const isFocusCur=logMode==="focus"&&ex.id===curId;
-    // Focus: reopen a tapped committed set instead of advancing past it.
-    if(isFocusCur&&focusEditSet&&focusEditSet.exId===ex.id){
-      const m=focusEditSet.n;if(m>=1&&m<=ex.sets&&committed.has(`${ex.id}_${m}`)){committed.delete(`${ex.id}_${m}`);touched.add(`${ex.id}_${m}`)}
-      nextSet=m>=1&&m<=ex.sets?m:nextSet;focusEditSet=null;
-    }
-    const rows=Array.from({length:ex.sets},(_,i)=>{
-      const n=i+1;if(isFocusCur&&n===nextSet&&nextSet)return"";
-      return setRowHtml(ex,n,r,draft,prev,nextSet)}).join("");
-    const doneTable=(()=>{
-      if(!isFocusCur)return"";
-      const done=[];for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;if(!committed.has(key))continue;
-        const{kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-        const kgDisp=(()=>{const n=parseDec(kgVal);return Number.isFinite(n)?fmt(n):kgVal})();
-        // A set logged as a word reads back as that word — never as the RIR it maps to.
-        const effDisp=effortMode?effortLabel(effortVal)
-          :(()=>{const n=parseDec(rirVal);return Number.isFinite(n)?fmt(n):rirVal})();
-        done.push(`<button type="button" class="settable__row" data-editset="${esc(key)}" data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"><span>${n}</span><span>${esc(kgDisp)}</span><span>${esc(repsVal)}</span><span class="${effortMode?"settable__eff":""}">${esc(effDisp)}</span><span class="is-check">✓</span></button>`)}
-      if(!done.length)return"";
-      return `<div class="settable"><div class="settable__head"><span>${esc(t("log.set"))}</span><span>${esc(unitLabel())}</span><span>${esc(t("log.reps"))}</span><span>${effortMode?term("Effort"):"RIR"}</span><span></span></div>${done.join("")}</div>`})();
-    const allDone=isFocusCur&&focusList().every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
-    // Finish lives next to the sets and only once every exercise is logged;
-    // the visually-hidden fallback on the last exercise keeps the harness path.
-    const curHtml=!isFocusCur?"":nextSet?cursetHtml(ex,nextSet,r,draft,prev)
-      :allDone?`<div class="focus-done"><p class="focus-done__msg">${esc(t("focus.all_done"))}</p>`+
-        `<button type="button" class="btn btn--cta" data-ffinish><span>${esc(t("log.finish"))}</span></button></div>`
-      :`<p class="focus-exdone">${esc(t("focus.ex_done"))}</p>`;
-    // Blank cards under the current one. The stack thins as the session goes, so
-    // the last exercise sits on a bare card.
-    const layers=!isFocusCur?"":Array.from({length:Math.max(0,Math.min(2,fl.length-1-at))},(_,i)=>
-      `<div class="deck__layer deck__layer--${2-i}" aria-hidden="true"></div>`).join("");
+    const rows=Array.from({length:ex.sets},(_,i)=>setRowHtml(ex,i+1,r,draft,prev,nextSet)).join("");
     const perf=substituted.get(ex.id);
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
@@ -1347,16 +1613,6 @@ function renderWorkout(){
     const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
     const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
       `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
-    const setX=nextSet||ex.sets;
-    const focusHead=isFocusCur?`<p class="focus-ex__muscle">${esc(ex.primary)}</p>`+
-      `<div class="focus-ex__row"><h3 class="focus-ex__name">${nameHtml}</h3>`+
-      `<div class="focus-ex__setof">${esc(t("today.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setX}</b>`)}</div></div>`+
-      `<div class="focus-ex__target-row"><p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
-      `<span class="focus-ex__tools">`+
-      (restOn?`<button type="button" class="focus-tool ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
-      `<button type="button" class="focus-tool" data-exnote-toggle="${esc(ex.id)}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
-      `<button type="button" class="focus-tool ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`+
-      `</span></div>`:"";
     const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · `+
       `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
@@ -1364,34 +1620,22 @@ function renderWorkout(){
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
       `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
-    return (isFocusCur?`<div class="deck">${layers}`:"")+
-      `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}${isFocusCur?" is-current":""}" data-ex="${esc(ex.id)}">`+
-      (isFocusCur?focusHead:listHead)+
-      // The card is screen-height in Focus: the logged sets scroll in the middle
-      // while the set being worked on stays pinned at the bottom.
-      (isFocusCur?`<div class="focus-body">`:"")+
+    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
+      listHead+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
-      (isFocusCur?lastHtml+doneTable:"")+
-      (isFocusCur?"":recBlock)+
+      recBlock+
       (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
       subPick+
-      // Guidance scrolls with the session; only the set entry is pinned, so the
-      // footer's height cannot change when the first set lands.
       prevHtml+deltaHtml+sessHtml+
-      (isFocusCur?`<div class="focus-sets-sr">${rows}</div>`
-        :`<div class="sets__head${effortMode?" has-effort":""}"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span>`+
-          (effortMode?"":`<span>${term("RIR")}</span>`)+
-          `<span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span>`+
-          // In effort mode the picker sits on its own line, so its heading does too.
-          (effortMode?`<span class="sets__head-eff">${term("Effort")}</span>`:"")+
-          `</div>${rows}`)+
-      // Once a set is logged the recommendation has been acted on; the logged rows
-      // and the in-session line carry it from there.
-      (isFocusCur&&!doneTable?recBlock:"")+
+      `<div class="sets__head${effortMode?" has-effort":""}"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span>`+
+      (effortMode?"":`<span>${term("RIR")}</span>`)+
+      `<span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span>`+
+      // In effort mode the picker sits on its own line, so its heading does too.
+      (effortMode?`<span class="sets__head-eff">${term("Effort")}</span>`:"")+
+      `</div>${rows}`+
       noteHtml+
-      (isFocusCur?`</div>`+(curHtml?`<div class="focus-foot">${curHtml}</div>`:""):"")+
-      `</article>`+(isFocusCur?`</div>`:"");
+      `</article>`;
   }).join("");
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
@@ -1400,53 +1644,23 @@ function renderWorkout(){
   updateFocusChrome();
   sizeFocusDeck();
 }
-/** Fit the card to the deck. The deck takes the space between the progress
- *  header and the tab bar from the layout itself, so there is no measured
- *  height here to go stale when the viewport changes under it. */
+/** After a render, bring the ledger to the row that matters. The card's own
+ *  height comes from the layout, so nothing is measured into a stale number. */
 function sizeFocusDeck(){
-  const deck=$("#workout.is-focus .deck");if(!deck)return;
-  watchFocusDeck(deck);
-  const card=deck.querySelector(".exercise.is-current");
-  fitFocusCard(card);
-  // Only leave vertical panning to the browser when there is something to pan:
-  // otherwise it claims near-vertical swipes that were meant for the deck.
-  const body=deck.querySelector(".focus-body");
-  const scrolls=!!body&&body.scrollHeight>body.clientHeight+1;
-  // A short card shows the end of the session, not its beginning: park the set
-  // just logged against the bottom of the scroller instead of half-cutting it.
-  // Before the first set lands there is no end of the session to show, and the
-  // top of the scroller is where last session and the recommendation read from.
-  if(scrolls){const last=body.querySelector(".settable__row:last-of-type");
-    body.scrollTop=last
-      ?Math.max(0,body.scrollTop+last.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom)
-      :0}
-  card?.classList.toggle("is-scrollable",scrolls)}
-let deckWatch=null,deckWatched=null;
-/** Sizing the deck is the layout's business; refitting the card to it is ours,
- *  whenever that box changes — a keyboard opening, a toolbar sliding away. */
-function watchFocusDeck(deck){
-  if(deckWatched===deck||!window.ResizeObserver)return;
-  deckWatch=deckWatch||new ResizeObserver(()=>
-    fitFocusCard($("#workout.is-focus .deck .exercise.is-current")));
-  if(deckWatched)deckWatch.unobserve(deckWatched);
-  deckWatch.observe(deck);deckWatched=deck}
-/** A short screen must never cost the card its Log set button: thin the card a
- *  step at a time, ornament first, until what has to fit does. */
-function fitFocusCard(card){
-  const body=card?.querySelector(".focus-body");
-  if(!body||!card.querySelector(".focus-foot"))return;
-  card.classList.remove("is-tight","is-tighter","is-terse");
-  // Layout is read between steps on purpose, so each trim is judged on the last.
-  const clipped=()=>card.scrollHeight>card.clientHeight+1;
-  const overflows=()=>body.scrollHeight>body.clientHeight+1;
-  for(const step of ["is-tight","is-tighter"]){
-    if(!clipped()&&!(overflows()&&body.clientHeight<56))break;
-    card.classList.add(step)}
-  // The guidance line is the first thing to go, but only when dropping it is
-  // what makes the session fit whole.
-  if(!overflows())return;
-  card.classList.add("is-terse");
-  if(overflows())card.classList.remove("is-terse")}
+  const card=focusCard();if(!card)return;
+  const ledger=card.querySelector(".fcard__ledger");if(!ledger)return;
+  const scrolls=ledger.scrollHeight>ledger.clientHeight+1;
+  ledger.classList.toggle("is-scrollable",scrolls);
+  // The newest logged row is the one worth showing; before the first set lands
+  // the top of the ledger is where last session reads from.
+  if(!scrolls)return;
+  const rows=ledger.querySelectorAll(".ledger__row:not(.is-past)");
+  const anchor=ledger.querySelector(".ledger__row.is-editing")
+    ||(rows.length?ledger.lastElementChild:null);
+  if(!anchor){ledger.scrollTop=0;return}
+  const gap=anchor.getBoundingClientRect().bottom-ledger.getBoundingClientRect().bottom;
+  if(gap>0||anchor.getBoundingClientRect().top<ledger.getBoundingClientRect().top)
+    ledger.scrollTop=Math.max(0,ledger.scrollTop+gap+8)}
 
 // Keep the "next set up" marker on the first unsaved row of an exercise card.
 function updateNextMarker(art){if(!art)return;let found=false;
@@ -1476,6 +1690,7 @@ function currentExerciseNote(exId){const el=$(`[data-exnote="${exId}"]`);
 
 function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
   $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
+  $$("#workout [data-effspin]").forEach(e=>d[`${e.dataset.effspin}_effort`]=e.dataset.e);
   // Store every note field, empty included — an empty value is the lifter clearing a carried-forward note.
   const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
   if(Object.keys(notes).length)d.__exnotes=notes;
@@ -1495,20 +1710,27 @@ function bindWorkout(){
     const load=parseDec($(`[data-k="${key}_load"]`)?.value)||0;
     if(load<=0){toast(t("toast.enter_weight_before_save_set"));return}
     const row=b.closest(".setrow, .curset");
-    if(committed.has(key)){committed.delete(key)}
+    // Saving an edit updates the set that is already there; it never toggles it
+    // off, and it never re-arms the rest clock for a set that finished long ago.
+    const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
+    if(editing){touched.add(key)}
+    else if(committed.has(key)){committed.delete(key)}
     else{committed.add(key);touched.add(key)}
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
       if(row.classList.contains("setrow"))b.setAttribute("aria-pressed",committed.has(key)?"true":"false");
       updateNextMarker(row.closest(".exercise"))}
-    if(committed.has(key))lastCommitAt=Date.now();
+    if(committed.has(key)&&!editing)lastCommitAt=Date.now();
+    if(editing)focusEdit=null;
     saveDraft();updateSaveMeta();
     const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
-    if(committed.has(key)){startRest();armUnfinishedWatch()}
+    if(committed.has(key)&&!editing){startRest();armUnfinishedWatch()}
+    if(editing)toast(t("toast.set_updated"));
     if(logMode==="focus")renderWorkout();
     else updateFocusChrome()});
   $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
-  $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
+  $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{if(!b.dataset.step)return;
+    const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const key=b.dataset.step||"",dir=+b.dataset.dir||0;
     if(/_reps$|_rir$/.test(key)){
       const cur=parseDec(inp.value)||0;inp.value=fmtPlain(Math.max(0,cur+dir));
@@ -1554,6 +1776,19 @@ function bindWorkout(){
       const next=jump!=null?jump:(i+step+EFFORT_STEPS.length)%EFFORT_STEPS.length;
       b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.click();
       b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.focus()}});
+  const stepEffort=(key,dir)=>{
+    const el=$(`[data-effspin="${key}"]`);if(!el)return;
+    const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
+    const next=EFFORT_STEPS[Math.min(EFFORT_STEPS.length-1,Math.max(0,i+dir))];
+    if(next===el.dataset.e)return;
+    setEffortPick(key,next);touched.add(key);
+    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
+  $$("#workout [data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
+  $$("#workout [data-effspin]").forEach(el=>{el.onkeydown=e=>{
+    const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
+    const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
+    if(!step&&jump==null)return;
+    e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
   $$("#workout [data-exnote-toggle]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
     if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
@@ -1580,9 +1815,25 @@ function bindWorkout(){
       $("#woPrev").onclick=()=>focusGo(-1);
       $("#woNext").onclick=()=>focusGo(1)}
     const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit();
-    // Tap a committed set row to reopen it for editing in the steppers.
-    $$("#workout [data-editset]").forEach(b=>b.onclick=()=>{
-      focusEditSet={exId:b.dataset.editex,n:+b.dataset.editn};saveDraft();renderWorkout()});
+    $$("#workout [data-fnext]").forEach(b=>b.onclick=()=>focusGo(1));
+    // Tap a logged row to reopen that set in the well, with a way back out.
+    $$("#workout [data-editn]").forEach(b=>b.onclick=()=>{
+      const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft();
+      focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`]}};
+      renderWorkout()});
+    $$("#workout [data-fcancel]").forEach(b=>b.onclick=()=>{
+      if(!focusEdit)return;
+      const{exId,n,snap}=focusEdit,key=`${exId}_${n}`;
+      for(const f2 of ["load","reps","rir"]){
+        if(snap[f2]==null)continue;
+        const inp=$(`[data-k="${key}_${f2}"]`);if(inp)inp.value=snap[f2]}
+      if(snap.effort)setEffortPick(key,snap.effort);
+      focusEdit=null;saveDraft();renderWorkout()});
+    $$("#workout [data-fold]").forEach(b=>b.onclick=()=>{
+      const id=b.dataset.fold;
+      focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
+      renderWorkout()});
+    $$("#workout [data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen));
     playFocusCardEnter()}
   else{$("#woProgress")?.classList.add("hidden")}
   updateFocusChrome();
@@ -2634,6 +2885,11 @@ function navTo(view){
   window.scrollTo({top:0});render()
 }
 window.__repforgeEnterWorkout=enterWorkout;
+// Test seam for the Focus deck, alongside the other __repforge* harness hooks.
+window.__repforgeFocus={
+  go:focusGo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
+  to(i){focusIndex=Math.max(0,i);focusEdit=null;renderWorkout()},
+};
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
 function startTour(){tourStep=0;tourActive=true;hideInstallBanner(false);$("#tour").classList.remove("hidden");renderTour()}
@@ -2677,6 +2933,22 @@ function init(){
   $("#replayTour").onclick=startTour;
   $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
+  // One rest control in the workout header: start it when idle, stop it when running.
+  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{restEnd?stopRest():startRest()};
+  const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
+  const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
+  const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
+  // The sheet is modal: Escape leaves it and Tab stays inside it.
+  document.addEventListener("keydown",e=>{
+    const sheet=$("#exNoteSheet");if(!sheet||sheet.hidden)return;
+    if(e.key==="Escape"){e.preventDefault();closeExNoteSheet();return}
+    if(e.key!=="Tab")return;
+    const stops=$$("#exNoteSheet button, #exNoteSheet textarea").filter(el=>!el.disabled);
+    if(!stops.length)return;
+    const first=stops[0],lastStop=stops[stops.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();lastStop.focus()}
+    else if(!e.shiftKey&&document.activeElement===lastStop){e.preventDefault();first.focus()}});
+  trackSheetViewport();
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});

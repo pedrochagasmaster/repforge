@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Focused Playwright checks for notification surfaces. Requires http://localhost:8000/ */
-import { chromium } from "playwright";
+import { launchChromium } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -142,7 +142,7 @@ async function enableNotify(state, overrides = {}) {
   };
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await launchChromium();
 
 console.log("\nNotification surfaces");
 
