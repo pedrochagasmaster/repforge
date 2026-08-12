@@ -207,13 +207,19 @@ below. Top to bottom:
 1. Header: huge "Hoje" title, `--ink-soft` full date line ("Domingo, 9 de agosto");
    right: circled person icon → settings.
 2. Program strip: program name (16px/600), "Semana 3 de 6" `--ink-soft`, mesocycle
-   segmented bar. Data: `state.programMeta.name`, `mesocycleWeek()`. Hidden when no
-   program meta/name.
+   segmented bar, and a right-aligned "X de Y sessões concluídas" line under the bar
+   (same `weeklySnapshot()` figures as "ESTA SEMANA", so the strip answers "where am I
+   in the block" without scrolling). Data: `state.programMeta.name`, `mesocycleWeek()`.
+   Hidden when no program meta/name.
 3. "SESSÃO DE HOJE" label + session block: training-day name huge (28px/650), muscle
    list `--ink-soft` ("Peito · Ombros · Tríceps" — derive from the day's exercise primary
    muscles, deduped, capped at 3), "N exercícios" meta line (omit the "~52 min" estimate:
    sessions don't track duration), orange-dot readiness line "N exercícios prontos para
-   aumentar" (count of exercises whose recommendation is an increase) when N > 0.
+   aumentar" (count of exercises whose recommendation is an increase) when N > 0, then the
+   day's exercises as hairline rows — name left, "sets × min–max" right, chevron. The
+   first three show; the rest sit behind a "+N exercícios" disclosure that toggles to
+   "Ver menos". A row opens that exercise's page (`openExerciseView`), it does not start
+   the session.
 4. Primary CTA "Começar treino" → enters the active workout (below). Under it, centered
    text link "Ver exercícios" → expands/scrolls to the exercise list without starting.
 5. "ESTA SEMANA": "X de Y sessões concluídas" (from `weeklySnapshot()`/adherence) and a
