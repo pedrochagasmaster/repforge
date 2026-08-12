@@ -455,7 +455,7 @@ const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
-let focusEnterFrom=0,focusDrag=null,focusFlinging=false;
+let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
 let focusEdit=null;
@@ -1120,12 +1120,10 @@ function trackSheetViewport(){
   const apply=()=>{const inset=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
     document.documentElement.style.setProperty("--kb",`${Math.round(inset)}px`)};
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);apply()}
-function focusGo(dir,opts={}){
+function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
-  // A swipe has already carried the card across; only a tap needs the animation.
-  focusIndex=next;focusEnterFrom=opts.animate===false?0:(dir>0?1:-1);
-  focusEdit=null;renderWorkout();window.scrollTo({top:0});return true}
+  focusIndex=next;focusEdit=null;renderWorkout();window.scrollTo({top:0});return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
 function focusCard(){return $("#workout.is-focus .exercise.is-current")}
@@ -1134,17 +1132,24 @@ function focusTrack(){return $("#focusTrack")}
 function focusStep(){const card=focusCard();return (card?.offsetWidth||320)+FOCUS_GAP}
 const FOCUS_GAP=14;
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
-/** Slide the freshly rendered card in from the side it came from. */
-function playFocusCardEnter(){
-  const track=focusTrack();if(!track)return;
-  focusSetTrack(track,0);
-  if(!focusEnterFrom)return;
-  const from=focusEnterFrom;focusEnterFrom=0;
-  if(reducedMotion())return;
-  track.classList.add("is-jumping");
-  focusSetTrack(track,from*focusStep());
-  requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    track.classList.remove("is-jumping");focusSetTrack(track,0)}))}
+/** Carry the deck one card over, animating the track exactly as a fling does,
+ *  then re-render at the new index with the track back at rest. Chevrons, the
+ *  Next exercise button, the arrow keys and a completed swipe all land here. */
+function focusAnimateTo(dir){
+  if(focusFlinging||!focusCanGo(dir))return false;
+  const track=focusTrack(),deck=$("#focusDeck");
+  if(!track||reducedMotion())return focusGo(dir);
+  focusFlinging=true;
+  deck?.classList.add("is-swiping");
+  track.classList.add("is-settling");
+  focusSetTrack(track,-dir*focusStep());
+  setTimeout(()=>{
+    focusFlinging=false;
+    track.classList.remove("is-settling");
+    deck?.classList.remove("is-swiping");
+    focusGo(dir)},FOCUS_SLIDE_MS);
+  return true}
+const FOCUS_SLIDE_MS=210;
 /** One place that writes the track's transform, so drag, fling and reset agree. */
 function focusSetTrack(track,dx){
   if(track)track.style.transform=`translate3d(${dx}px,0,0)`}
@@ -1206,15 +1211,8 @@ function focusDragEnd(e){
   const flick=Math.abs(vx)>=.4&&Math.sign(vx)===Math.sign(dx)&&Math.abs(dx)>=28;
   const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
   if(!past||!focusCanGo(dir)){focusSettle(track,card,deck);return}
-  if(reducedMotion()){card.classList.remove("is-dragging");deck?.classList.remove("is-swiping");focusGo(dir,{animate:false});return}
-  focusFlinging=true;
   card.classList.remove("is-dragging");
-  track.classList.add("is-settling");
-  focusSetTrack(track,-dir*focusStep());
-  setTimeout(()=>{
-    focusFlinging=false;track.classList.remove("is-settling");
-    deck?.classList.remove("is-swiping");
-    focusGo(dir,{animate:false})},210)}
+  focusAnimateTo(dir)}
 function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
@@ -1549,23 +1547,17 @@ function focusCardHtml(ex,r,draft,prev,opts){
     carriers+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
- *  screen. Each card sits in its own slot, on its own share of the stack, so
- *  dragging carries card and stack together instead of sliding one over the
- *  other. */
+ *  screen in its own slot. Dragging — or tapping through — moves all three
+ *  together, the way a paged view does. */
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
-  // Blank cards under each one. The stack thins as the session goes, so the
-  // last exercise sits on a bare card.
-  const layers=i=>Array.from({length:Math.max(0,Math.min(2,fl.length-1-i))},(_,k)=>
-    `<div class="deck__layer deck__layer--${2-k}" aria-hidden="true"></div>`).join("");
-  const slot=(inner,i,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>`+
-    layers(i)+inner+`</div>`;
+  const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
   const peek=(i,side)=>fl[i]
-    ? slot(focusCardHtml(fl[i],recommendation(fl[i]),draft,last(fl[i]),{peek:true,hasNext:true,allDone:false}),i,side)
+    ? slot(focusCardHtml(fl[i],recommendation(fl[i]),draft,last(fl[i]),{peek:true,hasNext:true,allDone:false}),side)
     : "";
   return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}"><div class="deck__track" id="focusTrack">`+
     peek(at-1,"prev")+
-    slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,showSkip:at<fl.length-1}),at)+
+    slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,showSkip:at<fl.length-1}))+
     peek(at+1,"next")+
     `</div></div>`}
 function renderWorkout(){
@@ -1812,10 +1804,10 @@ function bindWorkout(){
         `<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
         `<button type="button" class="focusnav" id="woNext" aria-label="${esc(t("focus.next_ex"))}"${at>=fl.length-1?" disabled":""}>›</button></div>`+
         `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
-      $("#woPrev").onclick=()=>focusGo(-1);
-      $("#woNext").onclick=()=>focusGo(1)}
+      $("#woPrev").onclick=()=>focusAnimateTo(-1);
+      $("#woNext").onclick=()=>focusAnimateTo(1)}
     const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit();
-    $$("#workout [data-fnext]").forEach(b=>b.onclick=()=>focusGo(1));
+    $$("#workout [data-fnext]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     // Tap a logged row to reopen that set in the well, with a way back out.
     $$("#workout [data-editn]").forEach(b=>b.onclick=()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft();
@@ -1833,8 +1825,7 @@ function bindWorkout(){
       const id=b.dataset.fold;
       focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
       renderWorkout()});
-    $$("#workout [data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen));
-    playFocusCardEnter()}
+    $$("#workout [data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen))}
   else{$("#woProgress")?.classList.add("hidden")}
   updateFocusChrome();
 }
@@ -2887,7 +2878,7 @@ function navTo(view){
 window.__repforgeEnterWorkout=enterWorkout;
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
 window.__repforgeFocus={
-  go:focusGo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
+  go:focusAnimateTo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
   to(i){focusIndex=Math.max(0,i);focusEdit=null;renderWorkout()},
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
@@ -2978,8 +2969,8 @@ function init(){
     if(e.metaKey||e.ctrlKey||e.altKey)return;
     const el=e.target instanceof Element?e.target:null;
     if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
-    if(e.key==="ArrowRight")focusGo(1);
-    else if(e.key==="ArrowLeft")focusGo(-1)});
+    if(e.key==="ArrowRight")focusAnimateTo(1);
+    else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
   const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>closeWorkoutOverflow());
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};

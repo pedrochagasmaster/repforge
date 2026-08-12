@@ -3485,19 +3485,15 @@ async function main() {
     const card = document.querySelector("#workout .exercise.is-current");
     const wrap = card?.closest(".deck");
     const slot = card?.closest(".deck__slot");
-    const cardBox = card.getBoundingClientRect();
-    // Each card carries its own share of the stack, inside its own slot.
-    const layers = [...(slot?.querySelectorAll(".deck__layer") || [])].map((l) => ({
-      lip: Math.round(l.getBoundingClientRect().bottom - cardBox.bottom),
-      text: l.textContent.trim(),
-    }));
     return {
       wrapped: !!wrap,
       tracked: slot?.parentElement?.classList.contains("deck__track") === true,
+      // Nothing sits under or behind the card; the deck is the card.
+      layers: wrap.querySelectorAll(".deck__layer").length,
+      slack: Math.round(window.innerHeight - card.getBoundingClientRect().bottom),
       surface: getComputedStyle(card).backgroundColor,
       pageBg: getComputedStyle(document.body).backgroundColor,
       radius: parseFloat(getComputedStyle(card).borderTopLeftRadius),
-      layers,
       upNext: document.querySelectorAll(".focus-next").length,
       cueInsideCard: !!card.querySelector(".focus-well .focus-cue"),
       navHidden: getComputedStyle(document.querySelector("nav")).display === "none",
@@ -3514,12 +3510,10 @@ async function main() {
     "Focus mode → the exercise sits on its own rounded surface, not flat on the page"
   );
   assert(
-    deck.layers.length === 2 &&
-      deck.layers.every((l) => l.lip >= 8 && l.text === "") &&
-      deck.layers[0].lip !== deck.layers[1].lip,
-    "blank cards stack under the current one at staggered depths",
-    JSON.stringify(deck.layers),
-    "Focus mode → two empty card lips show below the current card, none of them captioned"
+    deck.layers === 0 && deck.slack <= 16,
+    "no card stack sits under the card, and the space is the card's",
+    JSON.stringify(deck),
+    "Focus mode → the card runs to the bottom edge with nothing stacked beneath it"
   );
   assert(
     deck.upNext === 0,
@@ -3577,28 +3571,22 @@ async function main() {
     const card = document.querySelector("#workout .exercise.is-current");
     const track = document.querySelector("#focusTrack");
     const peek = document.querySelector(".deck__slot--next");
-    const slot = card.closest(".deck__slot");
-    const layer = slot?.querySelector(".deck__layer");
     return {
       trackMoved: getComputedStyle(track).transform !== "none",
-      // Card and the stack it sits on travel together; nothing tilts off it.
+      // The cards travel flat and upright; nothing tilts.
       cardUpright: getComputedStyle(card).transform === "none",
-      layerWithCard: !!layer &&
-        Math.abs(layer.getBoundingClientRect().x - card.getBoundingClientRect().x) < 14,
       peekShown: !!peek && getComputedStyle(peek).visibility === "visible",
       peekNamed: peek?.querySelector(".focus-ex__name")?.textContent?.trim() || "",
-      peekHasLayer: !!peek?.querySelector(".deck__layer"),
     };
   });
   assert(
-    lifted.trackMoved && lifted.cardUpright && lifted.layerWithCard &&
-      lifted.peekShown && lifted.peekNamed && lifted.peekHasLayer,
-    "dragging carries card, stack and the next exercise's card as one",
+    lifted.trackMoved && lifted.cardUpright && lifted.peekShown && lifted.peekNamed,
+    "dragging carries the card and the next exercise's card as one",
     JSON.stringify(lifted),
-    "Focus → hold a drag halfway → the card rides on its own stack and the next card follows"
+    "Focus → hold a drag halfway → the next card rides in beside the one being pushed"
   );
   await page.mouse.up();
-  await page.waitForTimeout(450);
+  await page.waitForTimeout(600);
   const swipeTo = await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex);
   assert(
     swipeFrom && swipeTo && swipeFrom !== swipeTo,
@@ -3607,7 +3595,7 @@ async function main() {
     "Focus → drag the card leftwards past the threshold → next exercise"
   );
   await page.click("#woPrev");
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(450);
   assert(
     (await page.evaluate(() => document.querySelector("#workout .exercise.is-current")?.dataset.ex)) === swipeFrom,
     "header chevron returns to the previous exercise",
@@ -3630,7 +3618,7 @@ async function main() {
       await page.waitForTimeout(16);
     }
     await page.mouse.up();
-    await page.waitForTimeout(500);
+    await page.waitForTimeout(600);
     return { before, after: await currentEx() };
   };
   const arc = await dragPath([[-4, 14], [-30, 20], [-90, 26], [-160, 30], [-230, 32]]);
@@ -3675,7 +3663,7 @@ async function main() {
   );
   while ((await page.evaluate(() => document.querySelector("#woPrev")?.disabled)) === false) {
     await page.click("#woPrev");
-    await page.waitForTimeout(220);
+    await page.waitForTimeout(450);
   }
   assert(
     await page.evaluate(() => document.querySelector("#woPrev")?.disabled === true),
@@ -3700,10 +3688,10 @@ async function main() {
     });
   const sizeFirst = await cardMetrics();
   await page.click("#woNext");
-  await page.waitForTimeout(320);
+  await page.waitForTimeout(450);
   const sizeSecond = await cardMetrics();
   await page.click("#woPrev");
-  await page.waitForTimeout(320);
+  await page.waitForTimeout(450);
   assert(
     sizeFirst.h === sizeSecond.h && sizeFirst.top === sizeSecond.top && sizeFirst.h > 300,
     "the focus card is the same size on every exercise",
@@ -3895,7 +3883,7 @@ async function main() {
     const at = fl.findIndex((e) => e.classList.contains("is-current"));
     if (at > 0) document.querySelector("#woPrev")?.click();
   });
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(450);
 
   const focusMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, focusMeta[0].id, focusMeta[0].sets, 90, 6, 1);
@@ -3948,7 +3936,7 @@ async function main() {
       });
     }
     if (!acted) break;
-    await page.waitForTimeout(60);
+    await page.waitForTimeout(280);
   }
   assert(
     recAfterLog && recAfterLog.logged > 0 && recAfterLog.rec === 0 && !!recAfterLog.cue,

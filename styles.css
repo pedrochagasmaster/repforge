@@ -421,8 +421,7 @@ body.is-focus-wo{padding-bottom:0}
 body.is-workout.is-focus-wo main{
   display:flex;flex-direction:column;
   height:calc(100dvh - env(safe-area-inset-bottom));
-  /* The stack's lips sit below the deck box; this is their room. */
-  padding-bottom:20px;
+  padding-bottom:10px;
 }
 body.is-workout.is-focus-wo #log.view.active,
 body.is-workout.is-focus-wo #workoutShell,
@@ -437,28 +436,18 @@ body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
    A paged track: the live card at rest position, an inert copy of each
    neighbour parked just off either side. Dragging moves all three as one. */
 body.is-focus-wo{overflow-x:hidden}
-.deck{position:relative;margin:4px 0 8px;overflow-x:clip;overflow-clip-margin:24px}
-/* Each card sits in its own slot with its own share of the stack, so the whole
-   thing travels together when the track moves. */
+.deck{position:relative;margin:4px 0 0;overflow-x:clip;overflow-clip-margin:24px}
+/* Each card sits in its own slot; the track carries all three as one. */
 .deck__track{position:absolute;inset:0;will-change:transform}
-.deck__track.is-settling,.deck__track.is-jumping{transition:transform .21s cubic-bezier(.2,.7,.2,1)}
+.deck__track.is-settling{transition:transform .21s cubic-bezier(.2,.7,.2,1)}
 .deck__slot{position:absolute;top:0;bottom:0;width:100%}
 .deck__slot--prev,.deck__slot--next{visibility:hidden;pointer-events:none}
 .deck__slot--prev{right:calc(100% + 14px)}
 .deck__slot--next{left:calc(100% + 14px)}
 .deck.is-swiping .deck__slot,
-.deck__track.is-settling .deck__slot,
-.deck__track.is-jumping .deck__slot{visibility:visible}
-/* Blank cards under each one. No vertical scale, so their lips below the top
-   card stay put at any card height. */
-.deck__layer{
-  position:absolute;inset:0;pointer-events:none;border-radius:18px;
-  background:#EDEAE4;border:1px solid var(--rule-strong);
-}
-.deck__layer--1{transform:scaleX(.97) translateY(10px)}
-.deck__layer--2{background:#E6E2DB;transform:scaleX(.93) translateY(20px)}
+.deck__track.is-settling .deck__slot{visibility:visible}
 @media (prefers-reduced-motion:reduce){
-  .deck__track.is-settling,.deck__track.is-jumping{transition:none}
+  .deck__track.is-settling{transition:none}
 }
 
 /* ---- Focus card ---- */
@@ -826,7 +815,7 @@ body.is-sheet-open{overflow:hidden}
 /* Short screens trade padding and type scale, never a control: the ledger may
    shrink to a row or two, but the well keeps its inputs and its action. */
 @media (max-height:740px){
-  body.is-workout.is-focus-wo main{padding-bottom:14px}
+  body.is-workout.is-focus-wo main{padding-bottom:8px}
   .wo-head{margin-bottom:10px}
   .wo-progress{margin:0 0 8px}
   .wo-progress__top{margin-bottom:8px}
@@ -840,7 +829,7 @@ body.is-sheet-open{overflow:hidden}
   .curset__val--word{font-size:24px}
 }
 @media (max-height:660px){
-  body.is-workout.is-focus-wo main{padding-bottom:10px}
+  body.is-workout.is-focus-wo main{padding-bottom:6px}
   .wo-head{margin-bottom:6px}
   .wo-progress__top{margin-bottom:6px}
   .fcard__head{padding-top:12px}
