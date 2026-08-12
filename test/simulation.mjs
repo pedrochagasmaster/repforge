@@ -3484,14 +3484,16 @@ async function main() {
   const deck = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     const wrap = card?.closest(".deck");
+    const slot = card?.closest(".deck__slot");
     const cardBox = card.getBoundingClientRect();
-    const layers = [...(wrap?.querySelectorAll(".deck__layer") || [])].map((l) => ({
+    // Each card carries its own share of the stack, inside its own slot.
+    const layers = [...(slot?.querySelectorAll(".deck__layer") || [])].map((l) => ({
       lip: Math.round(l.getBoundingClientRect().bottom - cardBox.bottom),
       text: l.textContent.trim(),
     }));
     return {
       wrapped: !!wrap,
-      tracked: card.parentElement?.classList.contains("deck__track") === true,
+      tracked: slot?.parentElement?.classList.contains("deck__track") === true,
       surface: getComputedStyle(card).backgroundColor,
       pageBg: getComputedStyle(document.body).backgroundColor,
       radius: parseFloat(getComputedStyle(card).borderTopLeftRadius),
@@ -3499,10 +3501,10 @@ async function main() {
       upNext: document.querySelectorAll(".focus-next").length,
       cueInsideCard: !!card.querySelector(".focus-well .focus-cue"),
       navHidden: getComputedStyle(document.querySelector("nav")).display === "none",
-      peeksHidden: [...wrap.querySelectorAll(".deck__peek")].every(
+      peeksHidden: [...wrap.querySelectorAll(".deck__slot--next, .deck__slot--prev")].every(
         (p) => getComputedStyle(p).visibility === "hidden"
       ),
-      peekHasFields: !!wrap.querySelector(".deck__peek [data-k]"),
+      peekHasFields: [...wrap.querySelectorAll(".deck__slot--next, .deck__slot--prev")].some((p) => !!p.querySelector("[data-k]")),
     };
   });
   assert(
@@ -3574,20 +3576,26 @@ async function main() {
   const lifted = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
     const track = document.querySelector("#focusTrack");
-    const peek = document.querySelector(".deck__peek--next");
+    const peek = document.querySelector(".deck__slot--next");
+    const slot = card.closest(".deck__slot");
+    const layer = slot?.querySelector(".deck__layer");
     return {
       trackMoved: getComputedStyle(track).transform !== "none",
-      tilted: getComputedStyle(card).transform !== "none",
+      // Card and the stack it sits on travel together; nothing tilts off it.
+      cardUpright: getComputedStyle(card).transform === "none",
+      layerWithCard: !!layer &&
+        Math.abs(layer.getBoundingClientRect().x - card.getBoundingClientRect().x) < 14,
       peekShown: !!peek && getComputedStyle(peek).visibility === "visible",
       peekNamed: peek?.querySelector(".focus-ex__name")?.textContent?.trim() || "",
-      peekX: peek ? Math.round(peek.getBoundingClientRect().x) : null,
+      peekHasLayer: !!peek?.querySelector(".deck__layer"),
     };
   });
   assert(
-    lifted.trackMoved && lifted.tilted && lifted.peekShown && lifted.peekNamed,
-    "dragging carries the whole track and brings the next exercise's card in",
+    lifted.trackMoved && lifted.cardUpright && lifted.layerWithCard &&
+      lifted.peekShown && lifted.peekNamed && lifted.peekHasLayer,
+    "dragging carries card, stack and the next exercise's card as one",
     JSON.stringify(lifted),
-    "Focus → hold a drag halfway → the next card rides in beside the one being pushed"
+    "Focus → hold a drag halfway → the card rides on its own stack and the next card follows"
   );
   await page.mouse.up();
   await page.waitForTimeout(450);
