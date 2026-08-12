@@ -365,6 +365,7 @@
   "review.block_ending": "Block ending",
   "review.block_ending.body": "Week {n} of {total}.",
   "review.block_ending.cta": "Review block",
+  "review.block_ending.dismiss_aria": "Dismiss block review prompt",
   "review.summary.week": "You're in week {n} of {total} in this block.",
   "review.summary.adherence": "Session adherence looks {status} ({done} of {planned} planned sessions).",
   "review.summary.adherence.solid": "solid",

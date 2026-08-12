@@ -125,6 +125,8 @@ const isLb=()=>state.settings.unit==="lb";
 const toDisplay=kg=>toDisplayUnit(kg,state.settings.unit);
 const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
 const unitLabel=()=>isLb()?"lb":"kg";
+const unitHintHtml=()=>`<span class="unit-hint">${esc(unitLabel())}</span>`;
+const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
@@ -493,9 +495,11 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
   const mesocycleStatus=m.mesocycleStatus==="active"||m.mesocycleStatus==="completed"?m.mesocycleStatus:base.mesocycleStatus;
   const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
   const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
+  const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
-    goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded}}
+    goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
+    blockPromptDismissedId}}
 function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
   return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
     programHistory:Array.isArray(s.programHistory)?s.programHistory:[]}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[]}}
@@ -698,7 +702,7 @@ function startNextMesocycle(strategy){
   else if(strategy==="increase_volume")list=list.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
   else if(strategy==="reduce_volume")list=list.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
   state.programMeta={...state.programMeta,id:uid(),started:today(),mesocycleStatus:"active",completedAt:null,onboarded:true,
-    updated:new Date().toISOString()};
+    blockPromptDismissedId:null,updated:new Date().toISOString()};
   prog=new Program(list);persistProgram();render();
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
@@ -711,10 +715,22 @@ function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
   d.classList.remove("hidden");
   $("#endBlockGo").onclick=()=>{d.classList.add("hidden");openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))};
   $("#endBlockCancel").onclick=()=>d.classList.add("hidden")}
-function renderBlockPrompt(){const mc=mesocycleWeek(),show=mc.isComplete||mc.isFinalWeek;
-  const html=show?`<p><b>${esc(t("review.block_ending"))}</b> ${esc(t("review.block_ending.body",{n:mc.current,total:mc.total}))} <button type="button" class="blockprompt__act">${esc(t("review.block_ending.cta"))}</button></p>`:"";
+function dismissBlockPrompt(){
+  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
+  state.programMeta.blockPromptDismissedId=state.programMeta.id;
+  state.programMeta.updated=new Date().toISOString();
+  save();
+  renderBlockPrompt()}
+function renderBlockPrompt(){const mc=mesocycleWeek();
+  const id=state.programMeta?.id;
+  const dismissed=!!(id&&state.programMeta?.blockPromptDismissedId===id);
+  const show=(mc.isComplete||mc.isFinalWeek)&&!dismissed;
+  const html=show?`<p><b>${esc(t("review.block_ending"))}</b> ${esc(t("review.block_ending.body",{n:mc.current,total:mc.total}))} <button type="button" class="blockprompt__act">${esc(t("review.block_ending.cta"))}</button></p>`+
+    `<button type="button" class="blockprompt__dismiss" aria-label="${esc(t("review.block_ending.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`:"";
   for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
-    el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock}}}
+    el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;
+      const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock;
+      const dismiss=el.querySelector(".blockprompt__dismiss");if(dismiss)dismiss.onclick=e=>{e.stopPropagation();dismissBlockPrompt()}}}}
 function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
   if(!withHistory.length)return null;
   const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
@@ -1381,10 +1397,10 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
   // A set logged as a word reads back as that word — never as the RIR it maps to.
   const eff=effortMode?effortLabel(effortVal)
     :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
-  return{load:`${load} ${unitLabel()}`,reps:String(repsVal),eff}}
+  return{load,reps:String(repsVal),eff}}
 
 function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false}){
-  const cells=`<span class="ledger__n">${n}</span><span>${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
+  const cells=`<span class="ledger__n">${n}</span><span class="ledger__load">${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
     `<span class="${effortMode?"ledger__eff":""}">${esc(vals.eff)}</span>`+
     `<span class="ledger__check" aria-hidden="true"></span>`;
   if(peek)return `<div class="ledger__row">${cells}</div>`;
@@ -1394,8 +1410,9 @@ function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false}){
 /** The upper ledger: last session before the first set lands, the session's own
  *  rows after that, with older rows folded away once the list gets long. */
 function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
-  const head=`<div class="ledger__head"><span>${esc(t("log.set"))}</span><span>${esc(t("today.load"))}</span>`+
-    `<span>${esc(t("log.reps"))}</span><span>${effortMode?esc(t("log.effort")):"RIR"}</span><span></span></div>`;
+  const head=(check=true)=>`<div class="ledger__head"><span>${esc(t("log.set"))}</span><span>${loadHeadHtml()}</span>`+
+    `<span>${esc(t("log.reps"))}</span><span>${effortMode?esc(t("log.effort")):"RIR"}</span>`+
+    (check?`<span></span>`:"")+`</div>`;
   // What the columns mean, and how far the session has got, stay put while the
   // rows underneath them scroll.
   const top=inner=>`<div class="ledger__top">${inner}</div>`;
@@ -1405,10 +1422,10 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
       const rows=prev.map(x=>{
         const eff=effortMode?effortLabel(effortForRir(x.rir)):fmt(x.rir);
         return `<div class="ledger__row is-past"><span class="ledger__n">${x.set}</span>`+
-          `<span>${esc(`${fmtLoad(x.load)} ${unitLabel()}`)}</span><span>${esc(String(x.reps))}</span>`+
-          `<span class="${effortMode?"ledger__eff":""}">${esc(String(eff))}</span><span></span></div>`}).join("");
-      return top(`<p class="ledger__lab">${esc(t("focus.last_session"))}</p>${head}`)+rows}
-    return top(head)+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
+          `<span class="ledger__load">${esc(fmtLoad(x.load))}</span><span>${esc(String(x.reps))}</span>`+
+          `<span class="${effortMode?"ledger__eff":""}">${esc(String(eff))}</span></div>`}).join("");
+      return top(`<p class="ledger__lab">${esc(t("focus.last_session"))}</p>${head(false)}`)+rows}
+    return top(head())+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
       `<span class="ledger__dash" aria-hidden="true">—</span><span></span></div>`}
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
   const open=peek?false:focusUnfolded.has(ex.id);
@@ -1430,7 +1447,7 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     disclosure=`<button type="button" class="ledger__more" data-fold="${esc(ex.id)}" aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(ex.id)}">`+
       `<span>${esc(t(open?"focus.ledger.hide":"focus.ledger.show",{from,to}))}</span>`+
       `<span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`}
-  return top(summary+head)+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
+  return top(summary+head())+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
 
 /** One value cell of the well: label, big value, hairline, and its steppers. */
 function focusCell(label,inner,{accent=false,steps="",hint="",cls=""}={}){
@@ -1452,11 +1469,9 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
   const val=(v,attrs,live=v)=>peek
     ?`<div class="curset__val curset__val--static">${esc(String(v))}</div>`
     :`<input class="curset__val" ${attrs} value="${esc(String(live))}">`;
-  // The unit rides on the load's baseline, so the number reads as one figure.
-  const loadCell=focusCell(esc(t("today.load")),
-    `<span class="curset__line">`+
-    val(kgVal||"—",`data-k="${ex.id}_${n}_load" size="4" type="text" inputmode="decimal" enterkeyhint="next" placeholder="—" aria-label="${esc(t("log.set_unit_aria",{n,unit}))}"`,kgVal)+
-    `<span class="curset__unit" aria-hidden="true">${esc(unit)}</span></span>`,
+  // The unit sits on the Load label so three-digit loads still fit the figure.
+  const loadCell=focusCell(loadHeadHtml(),
+    val(kgVal||"—",`data-k="${ex.id}_${n}_load" size="4" type="text" inputmode="decimal" enterkeyhint="next" placeholder="—" aria-label="${esc(t("log.set_unit_aria",{n,unit}))}"`,kgVal),
     {accent:true,steps:peek?"":stepBtn(`${ex.id}_${n}_load`,-1,t("log.set_decrease_aria",{n,unit}))+stepBtn(`${ex.id}_${n}_load`,1,t("log.set_increase_aria",{n,unit}))});
   const repsCell=focusCell(repsLab,
     val(repsVal,`data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}"`),
@@ -1620,7 +1635,7 @@ function renderWorkout(){
       (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
       subPick+
       prevHtml+deltaHtml+sessHtml+
-      `<div class="sets__head${effortMode?" has-effort":""}"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span>`+
+      `<div class="sets__head${effortMode?" has-effort":""}"><span>${esc(t("log.set"))}</span><span>${loadHeadHtml()}</span><span>${esc(t("log.reps"))}</span>`+
       (effortMode?"":`<span>${term("RIR")}</span>`)+
       `<span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span>`+
       // In effort mode the picker sits on its own line, so its heading does too.

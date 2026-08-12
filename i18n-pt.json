@@ -365,6 +365,7 @@
   "review.block_ending": "Fim do bloco",
   "review.block_ending.body": "Semana {n} de {total}.",
   "review.block_ending.cta": "Revisar bloco",
+  "review.block_ending.dismiss_aria": "Dispensar aviso de revisão do bloco",
   "review.summary.week": "Você está na semana {n} de {total} deste bloco.",
   "review.summary.adherence": "A aderência às sessões está {status} ({done} de {planned} sessões planejadas).",
   "review.summary.adherence.solid": "sólida",

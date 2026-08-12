@@ -4358,6 +4358,51 @@ async function main() {
     programMeta: { ...state.programMeta, started: blockStarted, mesocycleLengthWeeks: 6 },
   });
   await reloadApp(page);
+  await nav(page, "program");
+  const blockBanner = await page.evaluate(() => {
+    const el = document.querySelector("#programBlockBanner");
+    return {
+      hidden: el?.classList.contains("hidden"),
+      text: el?.textContent?.trim() || "",
+      dismiss: !!el?.querySelector(".blockprompt__dismiss"),
+      cta: !!el?.querySelector(".blockprompt__act"),
+    };
+  });
+  assert(
+    !blockBanner.hidden && blockBanner.dismiss && blockBanner.cta,
+    "P8: block-ending prompt is visible and dismissible",
+    JSON.stringify(blockBanner),
+    "Final week → #programBlockBanner with Review block and dismiss"
+  );
+  await page.click("#programBlockBanner .blockprompt__dismiss");
+  await page.waitForTimeout(120);
+  const afterDismiss = await page.evaluate(() => {
+    const el = document.querySelector("#programBlockBanner");
+    const st = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    return {
+      hidden: el?.classList.contains("hidden"),
+      dismissedId: st.programMeta?.blockPromptDismissedId || null,
+      id: st.programMeta?.id || null,
+    };
+  });
+  assert(
+    afterDismiss.hidden && afterDismiss.dismissedId && afterDismiss.dismissedId === afterDismiss.id,
+    "P8: dismissing the block prompt hides it for this mesocycle",
+    JSON.stringify(afterDismiss),
+    "Tap dismiss on #programBlockBanner → hidden, blockPromptDismissedId = program id"
+  );
+  await reloadApp(page);
+  await nav(page, "program");
+  const afterReloadBanner = await page.evaluate(() =>
+    document.querySelector("#programBlockBanner")?.classList.contains("hidden")
+  );
+  assert(
+    afterReloadBanner,
+    "P8: dismissed block prompt stays gone after reload",
+    `hidden=${afterReloadBanner}`,
+    "Reload → #programBlockBanner still hidden"
+  );
+  state = await getState(page);
   const blockReview = await page.evaluate(() =>
     window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
   );

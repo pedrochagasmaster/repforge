@@ -191,6 +191,16 @@ async function main() {
   phase("State 01: new exercise, no history");
   await boot(page);
   await setSetCount(page, 0, 5);
+  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.waitForSelector("#workout .exercise .ex__tag", { timeout: 5000 });
+  const listGap = await page.evaluate(() => {
+    const tag = document.querySelector("#workout .exercise .ex__tag");
+    const target = tag?.nextElementSibling;
+    if (!tag || !target) return null;
+    return Math.round(target.getBoundingClientRect().left - tag.getBoundingClientRect().right);
+  });
+  assert(listGap != null && listGap >= 8,
+    "list mode leaves space between the muscle group and the set target", String(listGap));
   await enterFocus(page, 0);
   let st = await cardState(page);
   assert(st.emptyRow && st.ledgerRows === 0 && st.pastRows === 0,
@@ -221,6 +231,38 @@ async function main() {
   );
   assert(/last session/i.test(ledgerTopLabel),
     "the previous session is labelled as such", ledgerTopLabel);
+  const pastLayout = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const n = card.querySelector(".ledger__row.is-past .ledger__n");
+    const load = card.querySelector(".ledger__row.is-past .ledger__load");
+    const lab = card.querySelector(".curset__cell.is-load .curset__cell-lab");
+    const cardBox = card.getBoundingClientRect();
+    const nBox = n.getBoundingClientRect();
+    const loadBox = load.getBoundingClientRect();
+    const cols = getComputedStyle(card.querySelector(".ledger__row.is-past")).gridTemplateColumns.split(" ").filter(Boolean);
+    return {
+      inset: Math.round(nBox.left - cardBox.left),
+      loadLab: lab?.textContent?.replace(/\s+/g, " ").trim() || "",
+      unitInValue: !!card.querySelector(".curset__unit"),
+      pastLoad: load?.textContent?.trim() || "",
+      headLoad: [...card.querySelectorAll(".ledger__head span")].map((s) => s.textContent.replace(/\s+/g, " ").trim())[1] || "",
+      pastCols: cols.length,
+      loadFits: load ? load.scrollWidth <= load.clientWidth + 1 : false,
+      loadWide: loadBox.width,
+    };
+  });
+  assert(pastLayout.inset >= 18,
+    "the set number sits in from the card edge", JSON.stringify(pastLayout));
+  assert(/load/i.test(pastLayout.loadLab) && /kg|lb/i.test(pastLayout.loadLab),
+    "the unit sits on the Load label", pastLayout.loadLab);
+  assert(!pastLayout.unitInValue,
+    "the load figure is not followed by a unit", JSON.stringify(pastLayout));
+  assert(!/kg|lb/i.test(pastLayout.pastLoad),
+    "previous-session load cells are the number only", pastLayout.pastLoad);
+  assert(/load/i.test(pastLayout.headLoad) && /kg|lb/i.test(pastLayout.headLoad),
+    "the ledger load header carries the unit", pastLayout.headLoad);
+  assert(pastLayout.pastCols === 4 && pastLayout.loadFits,
+    "previous-session columns use the card width without cropping load", JSON.stringify(pastLayout));
 
   // ---- 03 — mid-exercise with numeric RIR ------------------------------------
   phase("State 03: mid-exercise logging with numeric RIR");
@@ -236,6 +278,14 @@ async function main() {
     "the well keeps its height as sets accumulate", `${wellBefore} -> ${st.wellHeight}`);
   assert(st.lastRowBottom <= st.ledgerBottom + 1,
     "the newest row is fully in view", JSON.stringify(st));
+  const loggedInset = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const n = card.querySelector(".ledger__row[data-editn] .ledger__n");
+    if (!card || !n) return null;
+    return Math.round(n.getBoundingClientRect().left - card.getBoundingClientRect().left);
+  });
+  assert(loggedInset != null && loggedInset >= 18,
+    "logged set numbers also sit in from the card edge", String(loggedInset));
   const rirCell = await page.evaluate(
     () => !!document.querySelector('.focus-well [data-k$="_rir"]')
   );
