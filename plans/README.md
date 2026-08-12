@@ -262,13 +262,17 @@ bars; mic emoji → SVG; one-time coach marks / first-run tips (needs a
 
 ## Wave 5 — owner-directed direction work
 
-Written against `5023c1c` (2026-08-09) from an interactive product-owner
-decision session (grilled decision-by-decision, all choices recorded in the
-plan's "Product decisions" section and [ADR 0002](../docs/adr/0002-byok-ai-coach.md)).
+Written from interactive product-owner decision sessions (grilled
+decision-by-decision, all choices recorded in each plan's "Product
+decisions" section and an ADR). Plan 038 was written against `5023c1c`
+(2026-08-09, [ADR 0002](../docs/adr/0002-byok-ai-coach.md)); plan 039
+against `5b34d2f` (2026-08-12,
+[ADR 0003](../docs/adr/0003-capacity-as-progression-currency.md)).
 
 | # | Plan | Category | Effort | Risk | Source |
 |---|------|----------|--------|------|--------|
 | 038 | [BYOK AI coach — chat sheet + user-approved program proposals](./038-ai-coach.md) | direction | L | HIGH | Product owner decision; ADR 0002 supersedes the prior AI rejection |
+| 039 | [Capacity-driven load & rep suggestions](./039-capacity-driven-suggestions.md) | direction / correctness | L | MED-HIGH | Product owner grill session 2026-08-12; ADR 0003 |
 
 ## Backlog (not yet planned in detail)
 
@@ -356,3 +360,4 @@ Consensus across ≥5 personas that these betray the product:
 | 035 | DONE |
 | 036 | DONE |
 | 038 | READY — execute per plan; STOP conditions guard the amended guardrails |
+| 039 | READY — execute per plan; product decisions are locked (ADR 0003) |
