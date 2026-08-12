@@ -3287,7 +3287,7 @@ async function main() {
     const row = document.querySelector(".ledger__row[data-editn]");
     return {
       cells: row ? [...row.querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
-      head: [...document.querySelectorAll(".ledger__head span")].map((s) => s.textContent.trim()),
+      head: [...document.querySelectorAll("#workout .exercise.is-current .ledger__head > span")].map((s) => s.textContent.trim()),
     };
   });
   assert(
@@ -3835,6 +3835,7 @@ async function main() {
       label: card.querySelector(".ledger__lab")?.textContent?.trim() || "",
       rows: past.length,
       firstRow: past[0] ? [...past[0].querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
+      head: [...card.querySelectorAll(".ledger__head > span")].map((s) => s.textContent.replace(/\s+/g, " ").trim()),
       tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
       skip: !!card.querySelector(".focus-ex__tools [data-skip]"),
       note: !!card.querySelector(".focus-ex__tools [data-exnote-open]"),
@@ -3842,7 +3843,8 @@ async function main() {
     };
   });
   assert(
-    lastSession.rows > 0 && /kg|lb/.test(lastSession.firstRow[1] || "") && lastSession.label,
+    lastSession.rows > 0 && lastSession.label &&
+      /^\d/.test(lastSession.firstRow[1] || "") && /kg|lb/i.test(lastSession.head[1] || ""),
     "the focus card shows last session's load, reps and RIR",
     JSON.stringify(lastSession),
     "Focus → an exercise with history lists what was lifted last time"
@@ -4358,6 +4360,51 @@ async function main() {
     programMeta: { ...state.programMeta, started: blockStarted, mesocycleLengthWeeks: 6 },
   });
   await reloadApp(page);
+  await nav(page, "program");
+  const blockBanner = await page.evaluate(() => {
+    const el = document.querySelector("#programBlockBanner");
+    return {
+      hidden: el?.classList.contains("hidden"),
+      text: el?.textContent?.trim() || "",
+      dismiss: !!el?.querySelector(".blockprompt__dismiss"),
+      cta: !!el?.querySelector(".blockprompt__act"),
+    };
+  });
+  assert(
+    !blockBanner.hidden && blockBanner.dismiss && blockBanner.cta,
+    "P8: block-ending prompt is visible and dismissible",
+    JSON.stringify(blockBanner),
+    "Final week → #programBlockBanner with Review block and dismiss"
+  );
+  await page.click("#programBlockBanner .blockprompt__dismiss");
+  await page.waitForTimeout(120);
+  const afterDismiss = await page.evaluate(() => {
+    const el = document.querySelector("#programBlockBanner");
+    const st = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    return {
+      hidden: el?.classList.contains("hidden"),
+      dismissedId: st.programMeta?.blockPromptDismissedId || null,
+      id: st.programMeta?.id || null,
+    };
+  });
+  assert(
+    afterDismiss.hidden && afterDismiss.dismissedId && afterDismiss.dismissedId === afterDismiss.id,
+    "P8: dismissing the block prompt hides it for this mesocycle",
+    JSON.stringify(afterDismiss),
+    "Tap dismiss on #programBlockBanner → hidden, blockPromptDismissedId = program id"
+  );
+  await reloadApp(page);
+  await nav(page, "program");
+  const afterReloadBanner = await page.evaluate(() =>
+    document.querySelector("#programBlockBanner")?.classList.contains("hidden")
+  );
+  assert(
+    afterReloadBanner,
+    "P8: dismissed block prompt stays gone after reload",
+    `hidden=${afterReloadBanner}`,
+    "Reload → #programBlockBanner still hidden"
+  );
+  state = await getState(page);
   const blockReview = await page.evaluate(() =>
     window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
   );
