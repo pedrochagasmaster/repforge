@@ -780,6 +780,40 @@ async function main() {
     "Serve app over HTTP → manifest.webmanifest returns 200"
   );
 
+  // Nudging load or reps is a burst of taps on one target; none of it may zoom
+  await nav(page, "log");
+  const zoomPolicy = await page.evaluate(() => {
+    const step = document.querySelector("#workout .stepbtn");
+    const field = document.querySelector("#workout input[data-k]");
+    return {
+      meta: document.querySelector('meta[name="viewport"]')?.content || "",
+      root: getComputedStyle(document.documentElement).touchAction,
+      step: step ? getComputedStyle(step).touchAction : null,
+      field: field ? getComputedStyle(field).touchAction : null,
+      fieldFont: field ? parseFloat(getComputedStyle(field).fontSize) : null,
+    };
+  });
+  assert(
+    /\bmaximum-scale=1\b/.test(zoomPolicy.meta) && /\buser-scalable=no\b/.test(zoomPolicy.meta),
+    "Viewport meta pins the scale, so the page cannot be zoomed",
+    JSON.stringify(zoomPolicy),
+    "Inspect <meta name=viewport> → maximum-scale=1, user-scalable=no"
+  );
+  assert(
+    zoomPolicy.root === "manipulation" &&
+      zoomPolicy.step === "manipulation" &&
+      zoomPolicy.field === "manipulation",
+    "Controls drop the double-tap gesture, so repeated ± taps cannot zoom",
+    JSON.stringify(zoomPolicy),
+    "Log tab → computed touch-action on a ± step button and a set field"
+  );
+  assert(
+    zoomPolicy.fieldFont >= 16,
+    "Set fields are at least 16px, so focusing one does not zoom iOS Safari",
+    JSON.stringify(zoomPolicy),
+    "Log tab → computed font-size on a set input"
+  );
+
   // Nav accessibility: each tab exposes aria-current when active
   for (const view of ["log", "stats", "history", "program"]) {
     await nav(page, view);
