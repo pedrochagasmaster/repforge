@@ -262,7 +262,7 @@ async function main() {
   await page.mouse.move(card.x + card.width - 20, card.y + 120);
   await page.mouse.down();
   await page.mouse.move(card.x + card.width - 120, card.y + 122, { steps: 6 });
-  await page.mouse.move(card.x + 40, card.y + 124, { steps: 10 });
+  await page.mouse.move(card.x + 60, card.y + 124, { steps: 10 });
   await shot(page, "11-card-swipe");
   await page.mouse.up();
 

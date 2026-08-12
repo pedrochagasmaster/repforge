@@ -438,22 +438,25 @@ body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
    neighbour parked just off either side. Dragging moves all three as one. */
 body.is-focus-wo{overflow-x:hidden}
 .deck{position:relative;margin:4px 0 8px;overflow-x:clip;overflow-clip-margin:24px}
-/* Blank cards under the current one. No vertical scale, so their lips below the
-   top card stay put at any card height. */
+/* Each card sits in its own slot with its own share of the stack, so the whole
+   thing travels together when the track moves. */
+.deck__track{position:absolute;inset:0;will-change:transform}
+.deck__track.is-settling,.deck__track.is-jumping{transition:transform .21s cubic-bezier(.2,.7,.2,1)}
+.deck__slot{position:absolute;top:0;bottom:0;width:100%}
+.deck__slot--prev,.deck__slot--next{visibility:hidden;pointer-events:none}
+.deck__slot--prev{right:calc(100% + 14px)}
+.deck__slot--next{left:calc(100% + 14px)}
+.deck.is-swiping .deck__slot,
+.deck__track.is-settling .deck__slot,
+.deck__track.is-jumping .deck__slot{visibility:visible}
+/* Blank cards under each one. No vertical scale, so their lips below the top
+   card stay put at any card height. */
 .deck__layer{
   position:absolute;inset:0;pointer-events:none;border-radius:18px;
   background:#EDEAE4;border:1px solid var(--rule-strong);
 }
 .deck__layer--1{transform:scaleX(.97) translateY(10px)}
 .deck__layer--2{background:#E6E2DB;transform:scaleX(.93) translateY(20px)}
-.deck__track{position:absolute;inset:0;will-change:transform}
-.deck__track.is-settling,.deck__track.is-jumping{transition:transform .21s cubic-bezier(.2,.7,.2,1)}
-.deck__peek{position:absolute;top:0;bottom:0;width:100%;visibility:hidden;pointer-events:none}
-.deck__peek--prev{right:calc(100% + 14px)}
-.deck__peek--next{left:calc(100% + 14px)}
-.deck.is-swiping .deck__peek,
-.deck__track.is-settling .deck__peek,
-.deck__track.is-jumping .deck__peek{visibility:visible}
 @media (prefers-reduced-motion:reduce){
   .deck__track.is-settling,.deck__track.is-jumping{transition:none}
 }
@@ -499,9 +502,11 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 /* ---- Ledger: the only scrolling region of the card ---- */
 .fcard__ledger{
   flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  touch-action:none;
   padding:0 16px 6px;margin-top:18px;
   scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
 }
+.fcard__ledger.is-scrollable{touch-action:pan-y}
 .fcard__ledger::-webkit-scrollbar{width:4px}
 .fcard__ledger::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:4px}
 .fcard__ledger::-webkit-scrollbar-track{background:transparent}

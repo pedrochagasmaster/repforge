@@ -509,25 +509,72 @@ async function main() {
     await page.waitForTimeout(20);
   }
   const midSwipe = await page.evaluate(() => {
-    const peek = document.querySelector(".deck__peek--next");
+    const peek = document.querySelector(".deck__slot--next");
     const track = document.querySelector("#focusTrack");
+    const card = document.querySelector("#workout .exercise.is-current");
+    const slot = card.closest(".deck__slot");
+    const layer = slot.querySelector(".deck__layer");
     return {
       peekVisible: getComputedStyle(peek).visibility === "visible",
       peekName: peek.querySelector(".focus-ex__name")?.textContent?.trim() || "",
       peekHasWell: !!peek.querySelector(".focus-well"),
       peekInert: !peek.querySelector("input, button"),
       trackMoved: getComputedStyle(track).transform !== "none",
+      // The stack under the card is part of the card's slot, so it moves with it.
+      stackTravels: !!layer &&
+        Math.abs(layer.getBoundingClientRect().x - card.getBoundingClientRect().x) < 14,
+      cardUpright: getComputedStyle(card).transform === "none",
+      peekHasStack: !!peek.querySelector(".deck__layer"),
       pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
   });
   assert(midSwipe.trackMoved && midSwipe.peekVisible && midSwipe.peekName && midSwipe.peekHasWell,
     "the neighbouring card rides in fully composed", JSON.stringify(midSwipe));
+  assert(midSwipe.stackTravels && midSwipe.cardUpright && midSwipe.peekHasStack,
+    "each card travels on its own stack, upright", JSON.stringify(midSwipe));
   assert(midSwipe.peekInert && !midSwipe.pageScrollsX,
     "the peek holds no controls and the page never scrolls sideways", JSON.stringify(midSwipe));
   await page.mouse.up();
   await page.waitForTimeout(450);
   assert((await page.evaluate(() => window.__repforgeFocus.at())) === 1,
     "a swipe past the threshold advances the deck");
+  // The whole card is a handle, not just its header. A scroll container that
+  // has nothing to scroll must not claim the touch and cancel the gesture.
+  const grip = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const ledger = card.querySelector(".fcard__ledger");
+    return {
+      card: getComputedStyle(card).touchAction,
+      ledger: getComputedStyle(ledger).touchAction,
+      scrolls: ledger.scrollHeight > ledger.clientHeight + 1,
+      marked: ledger.classList.contains("is-scrollable"),
+    };
+  });
+  assert(grip.card === "pan-y" && grip.ledger === (grip.scrolls ? "pan-y" : "none") &&
+    grip.scrolls === grip.marked,
+    "the ledger only takes vertical gestures when it has something to scroll",
+    JSON.stringify(grip));
+  // Drag from three heights: header, middle of the ledger, and the well.
+  for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["well", 0.86]]) {
+    const at = await page.evaluate(() => window.__repforgeFocus.at());
+    const b = await page.locator("#workout .exercise.is-current").boundingBox();
+    const gy = Math.round(b.y + b.height * frac);
+    const gx = Math.round(b.x + b.width - 24);
+    await page.mouse.move(gx, gy);
+    await page.mouse.down();
+    for (const step of [-40, -110, -200, -250]) {
+      await page.mouse.move(gx + step, gy);
+      await page.waitForTimeout(16);
+    }
+    await page.mouse.up();
+    await page.waitForTimeout(450);
+    const moved = (await page.evaluate(() => window.__repforgeFocus.at())) === at + 1;
+    assert(moved, `a swipe started over the ${where} advances the deck`, `at ${at} -> ${await page.evaluate(() => window.__repforgeFocus.at())}`);
+    if (moved) {
+      await page.click("#woPrev");
+      await page.waitForTimeout(300);
+    }
+  }
   // Swiping is never the only way through.
   await page.click("#woPrev");
   await page.waitForTimeout(300);

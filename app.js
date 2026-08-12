@@ -1137,20 +1137,17 @@ const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").
 /** Slide the freshly rendered card in from the side it came from. */
 function playFocusCardEnter(){
   const track=focusTrack();if(!track)return;
-  focusSetTrack(track,0,0);
+  focusSetTrack(track,0);
   if(!focusEnterFrom)return;
   const from=focusEnterFrom;focusEnterFrom=0;
   if(reducedMotion())return;
   track.classList.add("is-jumping");
-  focusSetTrack(track,from*focusStep(),0);
+  focusSetTrack(track,from*focusStep());
   requestAnimationFrame(()=>requestAnimationFrame(()=>{
-    track.classList.remove("is-jumping");focusSetTrack(track,0,0)}))}
+    track.classList.remove("is-jumping");focusSetTrack(track,0)}))}
 /** One place that writes the track's transform, so drag, fling and reset agree. */
-function focusSetTrack(track,dx,rot){
-  if(!track)return;
-  track.style.transform=`translate3d(${dx}px,0,0)`;
-  const card=track.querySelector(".exercise.is-current");
-  if(card)card.style.transform=rot?`rotate(${rot}deg)`:"";}
+function focusSetTrack(track,dx){
+  if(track)track.style.transform=`translate3d(${dx}px,0,0)`}
 function focusDragStart(e){
   if(focusFlinging||!workoutActive||logMode!=="focus")return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
@@ -1185,9 +1182,9 @@ function focusDragMove(e){
   const dx=e.clientX-focusDrag.x;
   const blocked=(dx>0&&!focusCanGo(-1))||(dx<0&&!focusCanGo(1));
   focusDrag.dx=blocked?dx*.28:dx;
-  // The whole track moves as one, the way a paged view does; the card being
-  // pushed tilts a touch so the gesture reads as picking it up off the stack.
-  focusSetTrack(focusDrag.track,focusDrag.dx,reducedMotion()?0:Math.max(-2,Math.min(2,focusDrag.dx/90)))}
+  // The whole track moves as one, the way a paged view does — card and the
+  // stack it sits on together.
+  focusSetTrack(focusDrag.track,focusDrag.dx)}
 function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
   document.addEventListener("click",stop,{capture:true,once:true});
@@ -1195,7 +1192,7 @@ function swallowNextClick(){
 function focusSettle(track,card,deck){
   card?.classList.remove("is-dragging");
   track?.classList.add("is-settling");
-  focusSetTrack(track,0,0);
+  focusSetTrack(track,0);
   setTimeout(()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")},220)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
@@ -1213,7 +1210,7 @@ function focusDragEnd(e){
   focusFlinging=true;
   card.classList.remove("is-dragging");
   track.classList.add("is-settling");
-  focusSetTrack(track,-dir*focusStep(),0);
+  focusSetTrack(track,-dir*focusStep());
   setTimeout(()=>{
     focusFlinging=false;track.classList.remove("is-settling");
     deck?.classList.remove("is-swiping");
@@ -1552,21 +1549,24 @@ function focusCardHtml(ex,r,draft,prev,opts){
     carriers+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
- *  screen. Dragging moves all three together, the way a paged view does. */
+ *  screen. Each card sits in its own slot, on its own share of the stack, so
+ *  dragging carries card and stack together instead of sliding one over the
+ *  other. */
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
-  // Blank cards under the current one. The stack thins as the session goes, so
-  // the last exercise sits on a bare card.
-  const layers=Array.from({length:Math.max(0,Math.min(2,fl.length-1-at))},(_,i)=>
-    `<div class="deck__layer deck__layer--${2-i}" aria-hidden="true"></div>`).join("");
-  const peek=(e,side)=>e
-    ?`<div class="deck__peek deck__peek--${side}" aria-hidden="true">`+
-      focusCardHtml(e,recommendation(e),draft,last(e),{peek:true,hasNext:true,allDone:false})+`</div>`
-    :"";
-  return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}">${layers}<div class="deck__track" id="focusTrack">`+
-    peek(fl[at-1],"prev")+
-    focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,showSkip:at<fl.length-1})+
-    peek(fl[at+1],"next")+
+  // Blank cards under each one. The stack thins as the session goes, so the
+  // last exercise sits on a bare card.
+  const layers=i=>Array.from({length:Math.max(0,Math.min(2,fl.length-1-i))},(_,k)=>
+    `<div class="deck__layer deck__layer--${2-k}" aria-hidden="true"></div>`).join("");
+  const slot=(inner,i,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>`+
+    layers(i)+inner+`</div>`;
+  const peek=(i,side)=>fl[i]
+    ? slot(focusCardHtml(fl[i],recommendation(fl[i]),draft,last(fl[i]),{peek:true,hasNext:true,allDone:false}),i,side)
+    : "";
+  return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}"><div class="deck__track" id="focusTrack">`+
+    peek(at-1,"prev")+
+    slot(focusCardHtml(ex,r,draft,prev,{hasNext:at<fl.length-1,allDone,showSkip:at<fl.length-1}),at)+
+    peek(at+1,"next")+
     `</div></div>`}
 function renderWorkout(){
   if(!workoutActive){updateGauge();updateSessionBanner();return}
