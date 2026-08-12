@@ -1414,10 +1414,12 @@ function sizeFocusDeck(){
   const scrolls=!!body&&body.scrollHeight>body.clientHeight+1;
   // A short card shows the end of the session, not its beginning: park the set
   // just logged against the bottom of the scroller instead of half-cutting it.
+  // Before the first set lands there is no end of the session to show, and the
+  // top of the scroller is where last session and the recommendation read from.
   if(scrolls){const last=body.querySelector(".settable__row:last-of-type");
     body.scrollTop=last
       ?Math.max(0,body.scrollTop+last.getBoundingClientRect().bottom-body.getBoundingClientRect().bottom)
-      :body.scrollHeight}
+      :0}
   card?.classList.toggle("is-scrollable",scrolls)}
 let deckWatch=null,deckWatched=null;
 /** Sizing the deck is the layout's business; refitting the card to it is ours,

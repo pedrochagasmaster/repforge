@@ -3229,6 +3229,26 @@ async function main() {
     JSON.stringify(focusEffort),
     "Log → Focus in effort mode → card text contains no literal <button>"
   );
+  // The effort band is taller than the RIR cell it replaces, so the scroller it
+  // shares the card with can start out overflowing: it must still open at the
+  // top, where last session and the recommendation read from, not half-cut.
+  const restingScroll = await page.evaluate(() => {
+    const body = document.querySelector(".exercise.is-current .focus-body");
+    const lastSess = body?.querySelector(".lastsess");
+    return {
+      scrollTop: Math.round(body?.scrollTop ?? -1),
+      overflow: (body?.scrollHeight ?? 0) - (body?.clientHeight ?? 0),
+      firstFullyVisible: lastSess
+        ? lastSess.getBoundingClientRect().top >= body.getBoundingClientRect().top - 1
+        : null,
+    };
+  });
+  assert(
+    restingScroll.scrollTop === 0 && restingScroll.firstFullyVisible === true,
+    "Focus mode opens the card at the top of the scroller before the first set",
+    JSON.stringify(restingScroll),
+    "Log → Focus in effort mode → last session is not scrolled half out of view"
+  );
   await page.fill(`.curset [data-k="${effEx.id}_1_load"]`, "97");
   await page.fill(`.curset [data-k="${effEx.id}_1_reps"]`, "5");
   await page.click(`.curset .effort__btn[data-e="hard"]`);
@@ -3247,6 +3267,21 @@ async function main() {
     "A logged set reads back as its effort word in Focus mode",
     JSON.stringify(loggedRow),
     "Log → Focus → tap Hard → Log set → logged row shows Hard"
+  );
+  // Once a set is logged the scroller does have an end worth showing.
+  const parkedRow = await page.evaluate(() => {
+    const body = document.querySelector(".exercise.is-current .focus-body");
+    const rows = body?.querySelectorAll(".settable__row") || [];
+    const last = rows[rows.length - 1];
+    return last
+      ? { fullyVisible: last.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1 }
+      : { fullyVisible: null };
+  });
+  assert(
+    parkedRow.fullyVisible === true,
+    "The set just logged stays fully in view in the Focus scroller",
+    JSON.stringify(parkedRow),
+    "Log → Focus → Log set → the logged row is not cut off by the scroller"
   );
   effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
