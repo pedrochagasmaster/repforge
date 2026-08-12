@@ -5,7 +5,9 @@
   "scripts": {
     "simulate": "node simulation.mjs",
     "simulate:quick": "REPFORGE_SIM_WEEKS=12 node simulation.mjs",
-    "simulate:profile": "REPFORGE_PROFILE=1 node simulation.mjs"
+    "simulate:profile": "REPFORGE_PROFILE=1 node simulation.mjs",
+    "test:focus": "node focus-mode.mjs",
+    "shots:focus": "node focus-shots.mjs"
   },
   "devDependencies": {
     "playwright": "^1.61.1"

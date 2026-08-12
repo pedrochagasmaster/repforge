@@ -17,7 +17,7 @@
  *   - Fatigue trim, heat gauge, session notes, effort RIR mapping, attention board
  */
 
-import { chromium } from "playwright";
+import { launchChromium } from "./browser.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -496,7 +496,7 @@ async function main() {
   console.log("RepForge year-of-usage simulation");
   console.log(`Target: ${BASE}\n`);
 
-  const browser = await chromium.launch({ headless: true });
+  const browser = await launchChromium();
   const context = await browser.newContext({
     acceptDownloads: true,
     viewport: { width: 390, height: 844 },
@@ -3199,29 +3199,34 @@ async function main() {
     "Log (List) → Copy after a Max session → picker shows Max"
   );
 
-  // ---- Focus mode: the current set gets a band of its own, and a logged set
-  // ---- reads back as the word that was tapped.
+  // ---- Focus mode: effort takes the third column of the well as a spinner, and
+  // ---- a logged set reads back as the word that was tapped.
   await clickLogMode(page, "focus");
   await page.waitForTimeout(200);
   const focusEffort = await page.evaluate(() => {
-    const band = document.querySelector(".curset .curset__effort");
-    const btns = band ? [...band.querySelectorAll(".effort__btn")] : [];
+    const cell = document.querySelector(".focus-well .curset__cell.is-effort");
+    const spin = cell?.querySelector("[data-effspin]");
+    const steps = [...(cell?.querySelectorAll("[data-effstep]") || [])];
     return {
-      hasBand: !!band,
-      stacked: !!band?.querySelector(".effort--stack"),
-      headingTerm: !!band?.querySelector('.term[data-term="Effort"]'),
-      hints: btns.map((b) => b.querySelector(".effort__hint")?.textContent || ""),
-      tall: btns.every((b) => b.getBoundingClientRect().height >= 44),
-      clipped: btns.some((b) => b.scrollWidth > b.clientWidth + 1),
+      hasCell: !!cell,
+      role: spin?.getAttribute("role") || "",
+      named: !!spin?.getAttribute("aria-label"),
+      valueText: spin?.getAttribute("aria-valuetext") || "",
+      hint: cell?.querySelector(".curset__hint")?.textContent?.trim() || "",
+      steps: steps.length,
+      tall: steps.every((b) => b.getBoundingClientRect().height >= 44),
+      clipped: !!spin && spin.scrollWidth > spin.clientWidth + 1,
+      radioLeak: !!cell?.querySelector(".effort__btn"),
       markupLeak: /<button|<span/.test(document.querySelector("#workout")?.textContent || ""),
     };
   });
   assert(
-    focusEffort.hasBand && focusEffort.stacked && focusEffort.headingTerm &&
-      focusEffort.tall && !focusEffort.clipped && focusEffort.hints.every(Boolean),
-    "Focus mode shows a full-width effort band with hints under the current set",
+    focusEffort.hasCell && focusEffort.role === "spinbutton" && focusEffort.named &&
+      focusEffort.valueText && focusEffort.hint && focusEffort.steps === 2 &&
+      focusEffort.tall && !focusEffort.clipped && !focusEffort.radioLeak,
+    "Focus mode logs effort with a labelled spinner and two 44px nudge buttons",
     JSON.stringify(focusEffort),
-    "Settings effort mode → Log → Focus → current set shows the effort band"
+    "Settings effort mode → Log → Focus → the well's third column steps through the effort words"
   );
   assert(
     !focusEffort.markupLeak,
@@ -3229,59 +3234,82 @@ async function main() {
     JSON.stringify(focusEffort),
     "Log → Focus in effort mode → card text contains no literal <button>"
   );
-  // The effort band is taller than the RIR cell it replaces, so the scroller it
-  // shares the card with can start out overflowing: it must still open at the
-  // top, where last session and the recommendation read from, not half-cut.
+  // Before the first set lands the ledger reads from the top: last session is
+  // what the lifter is aiming at, and it must not open half-scrolled.
   const restingScroll = await page.evaluate(() => {
-    const body = document.querySelector(".exercise.is-current .focus-body");
-    const lastSess = body?.querySelector(".lastsess");
+    const ledger = document.querySelector(".exercise.is-current .fcard__ledger");
+    const first = ledger?.querySelector(".ledger__top");
     return {
-      scrollTop: Math.round(body?.scrollTop ?? -1),
-      overflow: (body?.scrollHeight ?? 0) - (body?.clientHeight ?? 0),
-      firstFullyVisible: lastSess
-        ? lastSess.getBoundingClientRect().top >= body.getBoundingClientRect().top - 1
+      scrollTop: Math.round(ledger?.scrollTop ?? -1),
+      firstFullyVisible: first
+        ? first.getBoundingClientRect().top >= ledger.getBoundingClientRect().top - 1
         : null,
     };
   });
   assert(
     restingScroll.scrollTop === 0 && restingScroll.firstFullyVisible === true,
-    "Focus mode opens the card at the top of the scroller before the first set",
+    "Focus mode opens the ledger at the top before the first set",
     JSON.stringify(restingScroll),
     "Log → Focus in effort mode → last session is not scrolled half out of view"
   );
-  await page.fill(`.curset [data-k="${effEx.id}_1_load"]`, "97");
-  await page.fill(`.curset [data-k="${effEx.id}_1_reps"]`, "5");
-  await page.click(`.curset .effort__btn[data-e="hard"]`);
-  await page.waitForTimeout(120);
-  await page.click(".curset__save");
+  await page.fill(`.focus-well [data-k="${effEx.id}_1_load"]`, "97");
+  await page.fill(`.focus-well [data-k="${effEx.id}_1_reps"]`, "5");
+  // The spinner walks the three words in order, and each step is announced.
+  const STEPS = ["easy", "hard", "max"];
+  const effAt = () => page.evaluate((k) => {
+    const el = document.querySelector(`[data-effspin="${k}"]`);
+    return { e: el?.dataset.e, now: el?.getAttribute("aria-valuenow"), text: el?.getAttribute("aria-valuetext") };
+  }, `${effEx.id}_1`);
+  const effStart = await effAt();
+  await page.click(`.focus-well [data-effstep="${effEx.id}_1"][data-dir="-1"]`);
+  await page.waitForTimeout(80);
+  const effDown = await effAt();
+  await page.click(`.focus-well [data-effstep="${effEx.id}_1"][data-dir="1"]`);
+  await page.waitForTimeout(80);
+  const effUp = await effAt();
+  assert(
+    effDown.e === STEPS[Math.max(0, STEPS.indexOf(effStart.e) - 1)] &&
+      effUp.e === effStart.e &&
+      effUp.now === String(STEPS.indexOf(effUp.e) + 1) && !!effUp.text,
+    "The effort spinner steps down and back up through the effort words",
+    JSON.stringify({ effStart, effDown, effUp }),
+    "Focus → effort column → − then + → one step back, one step forward"
+  );
+  // Land on Hard, whatever the card was showing, so the saved RIR is checkable.
+  while ((await effAt()).e !== "hard") {
+    const dir = STEPS.indexOf((await effAt()).e) > STEPS.indexOf("hard") ? -1 : 1;
+    await page.click(`.focus-well [data-effstep="${effEx.id}_1"][data-dir="${dir}"]`);
+    await page.waitForTimeout(80);
+  }
+  await page.click(".focus-well .saveset");
   await page.waitForTimeout(300);
   const loggedRow = await page.evaluate(() => {
-    const row = document.querySelector(".settable__row");
+    const row = document.querySelector(".ledger__row[data-editn]");
     return {
       cells: row ? [...row.querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
-      headTerm: !!document.querySelector('.settable__head .term[data-term="Effort"]'),
+      head: [...document.querySelectorAll(".ledger__head span")].map((s) => s.textContent.trim()),
     };
   });
   assert(
-    loggedRow.headTerm && /^(easy|hard|max)$/i.test(loggedRow.cells[3] || ""),
+    /effort|esforço/i.test(loggedRow.head[3] || "") && /^(easy|hard|max|fácil|difícil|máx)$/i.test(loggedRow.cells[3] || ""),
     "A logged set reads back as its effort word in Focus mode",
     JSON.stringify(loggedRow),
-    "Log → Focus → tap Hard → Log set → logged row shows Hard"
+    "Log → Focus → step to Hard → Registrar série → logged row shows Hard"
   );
-  // Once a set is logged the scroller does have an end worth showing.
+  // Once a set is logged the ledger does have an end worth showing.
   const parkedRow = await page.evaluate(() => {
-    const body = document.querySelector(".exercise.is-current .focus-body");
-    const rows = body?.querySelectorAll(".settable__row") || [];
+    const ledger = document.querySelector(".exercise.is-current .fcard__ledger");
+    const rows = ledger?.querySelectorAll(".ledger__row[data-editn]") || [];
     const last = rows[rows.length - 1];
     return last
-      ? { fullyVisible: last.getBoundingClientRect().bottom <= body.getBoundingClientRect().bottom + 1 }
+      ? { fullyVisible: last.getBoundingClientRect().bottom <= ledger.getBoundingClientRect().bottom + 1 }
       : { fullyVisible: null };
   });
   assert(
     parkedRow.fullyVisible === true,
-    "The set just logged stays fully in view in the Focus scroller",
+    "The set just logged stays fully in view in the Focus ledger",
     JSON.stringify(parkedRow),
-    "Log → Focus → Log set → the logged row is not cut off by the scroller"
+    "Log → Focus → Registrar série → the logged row is not cut off by the ledger"
   );
   effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
@@ -3292,7 +3320,7 @@ async function main() {
     effortRow && effortRow.rir === 1 && effortRow.reps === 5,
     "Focus-mode effort pick saves through the RIR mapping",
     `row=${JSON.stringify(effortRow)}`,
-    "Log → Focus → Hard → Log set → Save workout → stored rir is 1"
+    "Log → Focus → Hard → Registrar série → Save workout → stored rir is 1"
   );
   await clickLogMode(page, "full");
   await page.waitForTimeout(150);
@@ -3387,7 +3415,9 @@ async function main() {
   await selectDay(page, "Day 1");
   await clickLogMode(page, "focus");
   await page.waitForTimeout(80);
-  const visible = await page.locator("#workout .exercise:not(.is-current)").evaluateAll((els) =>
+  // Only the deck's card shows; the List markup that carries the other
+  // exercises' fields is display:none, and the peeks are parked out of sight.
+  const visible = await page.locator("#workout > .exercise").evaluateAll((els) =>
     els.every((e) => getComputedStyle(e).display === "none")
   );
   assert(
@@ -3406,40 +3436,45 @@ async function main() {
     JSON.stringify(overflowClosed),
     "Log → ⋯ → Focus → menu collapses on its own"
   );
-  await page.click("#workout .exercise.is-current .ex__rest");
+  // Rest lives in the workout header in Focus: one control, never over the card.
+  await page.click("#woRest");
   await page.waitForTimeout(200);
   const restSurfaces = await page.evaluate(() => {
+    const chip = document.querySelector("#woRest");
     const bar = document.querySelector("#restBar");
-    const b = bar.getBoundingClientRect();
-    const navTop = document.querySelector("nav").getBoundingClientRect().top;
+    const card = document.querySelector("#workout .exercise.is-current");
+    const chipBox = chip.getBoundingClientRect();
+    const cardBox = card.getBoundingClientRect();
     return {
-      floating: !bar.classList.contains("hidden") && getComputedStyle(bar).display !== "none",
-      inCard: document.querySelectorAll("#workout .focus-rest").length,
-      gapToNav: Math.round(navTop - b.bottom),
-      counting: /^\d+:\d\d$/.test(bar.querySelector(".restbar__time")?.textContent?.trim() || ""),
+      chipVisible: !chip.classList.contains("hidden") && getComputedStyle(chip).display !== "none",
+      running: chip.classList.contains("is-running"),
+      counting: /^\d+:\d\d$/.test(chip.querySelector(".wo-rest__time")?.textContent?.trim() || ""),
+      labelled: /\d+:\d\d/.test(chip.getAttribute("aria-label") || ""),
+      floatingHidden: getComputedStyle(bar).display === "none",
+      inCard: card.querySelectorAll("[data-rest], .ex__rest").length,
+      overlapsCard: chipBox.bottom > cardBox.top,
+      tapTarget: Math.round(Math.min(chipBox.width, chipBox.height)),
     };
   });
   assert(
-    restSurfaces.floating &&
-      restSurfaces.inCard === 0 &&
-      restSurfaces.counting &&
-      restSurfaces.gapToNav >= 0 &&
-      restSurfaces.gapToNav <= 32,
-    "the focus rest timer floats just above the tab bar",
+    restSurfaces.chipVisible && restSurfaces.running && restSurfaces.counting &&
+      restSurfaces.labelled && restSurfaces.floatingHidden && restSurfaces.inCard === 0 &&
+      !restSurfaces.overlapsCard && restSurfaces.tapTarget >= 44,
+    "Focus rest counts down in the workout header, clear of the card's controls",
     JSON.stringify(restSurfaces),
-    "Focus → tap ⏱ → the same floating clock as list mode, parked at the bottom instead of mid-page"
+    "Log → Focus → tap the header timer → it becomes a counting pill above the card"
   );
-  await page.click("#restBar");
-  await page.waitForTimeout(120);
+  await page.click("#woRest");
+  await page.waitForTimeout(150);
   assert(
-    await page.evaluate(() => document.querySelector("#restBar").classList.contains("hidden")),
-    "tapping the floating rest timer clears it",
-    `bar=${await page.evaluate(() => document.querySelector("#restBar").className)}`,
-    "Focus → tap the rest clock → it goes away"
+    await page.evaluate(() => !document.querySelector("#woRest").classList.contains("is-running")),
+    "tapping the running rest chip stops it",
+    `running=${await page.evaluate(() => document.querySelector("#woRest").classList.contains("is-running"))}`,
+    "Focus → tap the counting pill → rest stops and the stopwatch returns"
   );
 
-  // Focus mode is a swipeable card deck: no fixed dock, and page content must
-  // scroll clear of the tab bar rather than sliding under it.
+  // Focus mode is a swipeable card deck: no fixed dock, and the card owns the
+  // whole screen rather than sharing it with the tab bar.
   assert(
     (await page.locator("#workoutDock").count()) === 0,
     "focus mode has no fixed bottom dock",
@@ -3448,25 +3483,31 @@ async function main() {
   );
   const deck = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const wrap = card?.parentElement;
+    const wrap = card?.closest(".deck");
     const cardBox = card.getBoundingClientRect();
     const layers = [...(wrap?.querySelectorAll(".deck__layer") || [])].map((l) => ({
       lip: Math.round(l.getBoundingClientRect().bottom - cardBox.bottom),
       text: l.textContent.trim(),
     }));
     return {
-      wrapped: wrap?.classList.contains("deck") === true,
+      wrapped: !!wrap,
+      tracked: card.parentElement?.classList.contains("deck__track") === true,
       surface: getComputedStyle(card).backgroundColor,
       pageBg: getComputedStyle(document.body).backgroundColor,
       radius: parseFloat(getComputedStyle(card).borderTopLeftRadius),
       layers,
       upNext: document.querySelectorAll(".focus-next").length,
-      recInsideCard: !!card.querySelector(".recblock"),
+      cueInsideCard: !!card.querySelector(".focus-well .focus-cue"),
+      navHidden: getComputedStyle(document.querySelector("nav")).display === "none",
+      peeksHidden: [...wrap.querySelectorAll(".deck__peek")].every(
+        (p) => getComputedStyle(p).visibility === "hidden"
+      ),
+      peekHasFields: !!wrap.querySelector(".deck__peek [data-k]"),
     };
   });
   assert(
-    deck.wrapped && deck.radius >= 12 && deck.surface !== deck.pageBg,
-    "the current exercise renders as a raised card",
+    deck.wrapped && deck.tracked && deck.radius >= 12 && deck.surface !== deck.pageBg,
+    "the current exercise renders as a raised card on a paged track",
     JSON.stringify(deck),
     "Focus mode → the exercise sits on its own rounded surface, not flat on the page"
   );
@@ -3485,36 +3526,36 @@ async function main() {
     "Focus mode → navigation is the deck itself, no 'Up next' row"
   );
   assert(
-    deck.recInsideCard,
-    "the recommendation block sits inside the focus card",
+    deck.cueInsideCard,
+    "the recommendation cue sits in the card's attached well",
     JSON.stringify(deck),
-    "Focus mode → everything below the set table is nested in the card, not spilled after it"
+    "Focus mode → the guidance line rides with the inputs, not above the fold"
   );
-  await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
-  await page.waitForTimeout(150);
-  const bottomClearance = await page.evaluate(() => {
-    const navRect = document.querySelector("nav").getBoundingClientRect();
-    const card = document.querySelector("#workout .exercise.is-current");
-    const last = card.lastElementChild || card;
-    return { lastBottom: Math.round(last.getBoundingClientRect().bottom), navTop: Math.round(navRect.top) };
+  assert(
+    deck.navHidden,
+    "focus mode gives the card the whole screen",
+    JSON.stringify(deck),
+    "Focus mode → the tab bar steps aside so the card is full height"
+  );
+  assert(
+    deck.peeksHidden && !deck.peekHasFields,
+    "the neighbouring cards stay parked and carry no duplicate fields",
+    JSON.stringify(deck),
+    "Focus mode → the peek copies are invisible at rest and hold no data-k inputs"
+  );
+  const pageFit = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
+    return {
+      pageScrollsY: document.documentElement.scrollHeight > window.innerHeight + 2,
+      pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+      gapToBottom: Math.round(window.innerHeight - card.bottom),
+    };
   });
   assert(
-    bottomClearance.lastBottom <= bottomClearance.navTop,
-    "focus content scrolls clear of the tab bar",
-    JSON.stringify(bottomClearance),
-    "Focus → scroll to the bottom → last card content stays above the tab bar"
-  );
-  const deadSpace = await page.evaluate(() => {
-    const deck = document.querySelector(".deck").getBoundingClientRect();
-    const navH = document.querySelector("nav").getBoundingClientRect().height;
-    // Everything below the deck other than the room reserved for the fixed tab bar.
-    return Math.round(document.body.scrollHeight - (deck.bottom + window.scrollY) - navH);
-  });
-  assert(
-    deadSpace <= 48,
-    "the page stops just below the deck",
-    `dead space below deck=${deadSpace}px`,
-    "Focus → nothing but a small margin between the deck and the tab bar's reserved space"
+    !pageFit.pageScrollsY && !pageFit.pageScrollsX && pageFit.gapToBottom >= 0 && pageFit.gapToBottom <= 48,
+    "the focus screen neither scrolls nor spills sideways",
+    JSON.stringify(pageFit),
+    "Focus → the card runs to just above the bottom edge and the page holds still"
   );
   await page.evaluate(() => window.scrollTo(0, 0));
 
@@ -3532,18 +3573,21 @@ async function main() {
   }
   const lifted = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const layer = document.querySelector(".deck__layer--1");
+    const track = document.querySelector("#focusTrack");
+    const peek = document.querySelector(".deck__peek--next");
     return {
-      moved: Math.round(card.getBoundingClientRect().x),
-      tilted: /matrix/.test(getComputedStyle(card).transform) && getComputedStyle(card).transform !== "none",
-      layerVisible: !!layer && layer.getBoundingClientRect().width > 100,
+      trackMoved: getComputedStyle(track).transform !== "none",
+      tilted: getComputedStyle(card).transform !== "none",
+      peekShown: !!peek && getComputedStyle(peek).visibility === "visible",
+      peekNamed: peek?.querySelector(".focus-ex__name")?.textContent?.trim() || "",
+      peekX: peek ? Math.round(peek.getBoundingClientRect().x) : null,
     };
   });
   assert(
-    lifted.tilted && lifted.layerVisible,
-    "dragging lifts the card off the stack and shows the blank card under it",
+    lifted.trackMoved && lifted.tilted && lifted.peekShown && lifted.peekNamed,
+    "dragging carries the whole track and brings the next exercise's card in",
     JSON.stringify(lifted),
-    "Focus → hold a drag halfway → the card is transformed and the deck layer is exposed"
+    "Focus → hold a drag halfway → the next card rides in beside the one being pushed"
   );
   await page.mouse.up();
   await page.waitForTimeout(450);
@@ -3604,16 +3648,22 @@ async function main() {
   );
   const scrollPolicy = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
-    const body = card.querySelector(".focus-body");
-    const overflows = body.scrollHeight > body.clientHeight + 1;
-    return { overflows, marked: card.classList.contains("is-scrollable"), touch: getComputedStyle(card).touchAction };
+    const ledger = card.querySelector(".fcard__ledger");
+    const overflows = ledger.scrollHeight > ledger.clientHeight + 1;
+    return {
+      overflows,
+      marked: ledger.classList.contains("is-scrollable"),
+      touch: getComputedStyle(card).touchAction,
+      wellScrolls: (() => { const w = card.querySelector(".focus-well");
+        return w.scrollHeight > w.clientHeight + 1 })(),
+    };
   });
   assert(
     scrollPolicy.overflows === scrollPolicy.marked &&
-      scrollPolicy.touch === (scrollPolicy.overflows ? "pan-y" : "none"),
-    "the card only hands vertical gestures to the browser when it can scroll",
+      scrollPolicy.touch === "pan-y" && !scrollPolicy.wellScrolls,
+    "the ledger is the only scrolling region of the card",
     JSON.stringify(scrollPolicy),
-    "Focus → a card whose content fits keeps every gesture for the deck"
+    "Focus → vertical gestures scroll the ledger; the well never scrolls"
   );
   while ((await page.evaluate(() => document.querySelector("#woPrev")?.disabled)) === false) {
     await page.click("#woPrev");
@@ -3626,19 +3676,18 @@ async function main() {
     "Focus → first exercise → ‹ cannot be tapped"
   );
   // The card is screen-height: same box on every exercise, with the page itself
-  // never scrolling and the set controls pinned in view.
+  // never scrolling and the well pinned in view.
   const cardMetrics = () =>
     page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-      const nav = document.querySelector("nav").getBoundingClientRect();
-      const foot = document.querySelector(".focus-foot")?.getBoundingClientRect();
+      const well = document.querySelector(".focus-well")?.getBoundingClientRect();
       return {
         h: Math.round(card.height),
         top: Math.round(card.top),
         inlineH: document.querySelector("#workout.is-focus .deck")?.style.height || "",
-        gapToNav: Math.round(nav.top - card.bottom),
-        pageScrolls: document.body.scrollHeight > window.innerHeight + 2,
-        footVisible: !!foot && foot.bottom <= card.bottom + 1 && foot.top >= card.top,
+        gapToBottom: Math.round(window.innerHeight - card.bottom),
+        pageScrolls: document.documentElement.scrollHeight > window.innerHeight + 2,
+        wellVisible: !!well && well.bottom <= card.bottom + 1 && well.top >= card.top,
       };
     });
   const sizeFirst = await cardMetrics();
@@ -3654,10 +3703,10 @@ async function main() {
     "Focus → swipe between exercises → the card box never changes"
   );
   assert(
-    !sizeFirst.pageScrolls && sizeFirst.gapToNav >= 0 && sizeFirst.gapToNav <= 44,
-    "the card fills the screen down to the tab bar without scrolling the page",
+    !sizeFirst.pageScrolls && sizeFirst.gapToBottom >= 0 && sizeFirst.gapToBottom <= 44,
+    "the card fills the screen without scrolling the page",
     JSON.stringify(sizeFirst),
-    "Focus → the card runs from the progress header to just above the tab bar"
+    "Focus → the card runs from the progress header to just above the bottom edge"
   );
   // Both sizes are read on the frame the viewport changes, before any debounced
   // handler could run: a card sized by the layout is never briefly — or, if the
@@ -3667,7 +3716,8 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
   const sizeRestored = await cardMetrics();
   assert(
-    sizeShrunk.gapToNav >= 0 && sizeShrunk.gapToNav <= 44 && sizeRestored.gapToNav >= 0 && sizeRestored.gapToNav <= 44,
+    sizeShrunk.gapToBottom >= 0 && sizeShrunk.gapToBottom <= 44 &&
+      sizeRestored.gapToBottom >= 0 && sizeRestored.gapToBottom <= 44,
     "the card follows the viewport with no measurement to catch up",
     JSON.stringify({ sizeShrunk, sizeRestored }),
     "Focus → shrink the viewport and give it back → the card fills the screen on the very next frame"
@@ -3680,56 +3730,50 @@ async function main() {
   );
   await page.waitForTimeout(200);
   assert(
-    sizeFirst.footVisible,
+    sizeFirst.wellVisible,
     "the current set stays pinned inside the card",
     JSON.stringify(sizeFirst),
-    "Focus → the set controls and Log set sit at the bottom of the card, not below the fold"
+    "Focus → the set controls and the commit button sit at the bottom of the card, not below the fold"
   );
   const split = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-    const body = document.querySelector("#workout .focus-body").getBoundingClientRect();
-    const save = document.querySelector("#workout .curset__save").getBoundingClientRect();
+    const ledger = document.querySelector("#workout .fcard__ledger").getBoundingClientRect();
+    const save = document.querySelector("#workout .focus-well .saveset").getBoundingClientRect();
     return {
-      bodyShare: Math.round((body.height / card.height) * 100),
+      ledgerShare: Math.round((ledger.height / card.height) * 100),
       slackUnderSave: Math.round(card.bottom - save.bottom),
     };
   });
   assert(
-    split.bodyShare >= 30 && split.slackUnderSave <= 20,
-    "the logged sets get the space, not the gap under Log set",
+    split.ledgerShare >= 30 && split.slackUnderSave <= 24,
+    "the logged sets get the space, not the gap under the commit button",
     JSON.stringify(split),
-    "Focus → the scrolling list keeps a third of the card and nothing pads the bottom of it"
+    "Focus → the ledger keeps a third of the card and nothing pads the bottom of it"
   );
 
-  // A short screen must not cost the card its Log set button: the set entry is
+  // A short screen must not cost the card its commit button: the set entry is
   // the last thing to give, and the first logged set must not push it out.
   await page.setViewportSize({ width: 360, height: 640 });
   await page.waitForTimeout(260);
   const fitMetrics = () =>
     page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
-      const bodyBox = card.querySelector(".focus-body").getBoundingClientRect();
+      const ledgerBox = card.querySelector(".fcard__ledger").getBoundingClientRect();
       const cardBox = card.getBoundingClientRect();
-      const save = card.querySelector(".curset__save");
+      const save = card.querySelector(".focus-well .saveset");
       const saveBox = save?.getBoundingClientRect();
       return {
-        density: [...card.classList].filter((c) => c === "is-tight" || c === "is-tighter").join("+") || "full",
-        guidance: card.querySelector(".focus-foot .insession")
-          ? "foot"
-          : card.querySelector(".focus-body .insession")
-            ? "body"
-            : "none",
-        footH: Math.round(card.querySelector(".focus-foot").getBoundingClientRect().height),
+        wellH: card.querySelector(".focus-well").offsetHeight,
+        cueLines: card.querySelector(".focus-cue") ? 1 : 0,
         spill: card.scrollHeight - card.clientHeight,
         saveWhole: !!saveBox && saveBox.bottom <= cardBox.bottom + 1 && saveBox.height >= 44,
-        rowsWhole: [...card.querySelectorAll(".settable__row")].filter((r) => {
+        rowsWhole: [...card.querySelectorAll(".ledger__row")].filter((r) => {
           const b = r.getBoundingClientRect();
-          return b.top >= bodyBox.top - 1 && b.bottom <= bodyBox.bottom + 1;
+          return b.top >= ledgerBox.top - 1 && b.bottom <= ledgerBox.bottom + 1;
         }).length,
       };
     });
-  // Drop the harness's own prefills so the card behaves like a fresh session:
-  // the in-session guidance only shows up when the next set is untouched.
+  // Drop the harness's own prefills so the card behaves like a fresh session.
   await page.evaluate((d) => {
     const draft = JSON.parse(localStorage.getItem(d) || "{}");
     draft.__touched = [];
@@ -3740,28 +3784,28 @@ async function main() {
   const fitBefore = await fitMetrics();
   await page.evaluate(() => {
     const cur = document.querySelector("#workout .exercise.is-current");
-    const key = cur.querySelector(".curset").dataset.set;
+    const key = cur.querySelector(".focus-well .curset").dataset.set;
     for (const [suffix, val] of [["load", 90], ["reps", 6], ["rir", 1]]) {
-      const el = cur.querySelector(`[data-k="${key}_${suffix}"]`);
+      const el = cur.querySelector(`.focus-well [data-k="${key}_${suffix}"]`);
       if (!el) continue;
       el.value = String(val);
       el.dispatchEvent(new Event("input", { bubbles: true }));
     }
-    cur.querySelector(".curset__save").click();
+    cur.querySelector(".focus-well .saveset").click();
   });
   await page.waitForTimeout(300);
   const fitAfter = await fitMetrics();
   assert(
     fitAfter.saveWhole && fitAfter.spill <= 1,
-    "Log set survives the first logged set on a short screen",
+    "the commit button survives the first logged set on a short screen",
     `before=${JSON.stringify(fitBefore)} after=${JSON.stringify(fitAfter)}`,
     "360×640 → Focus → log set 1 → the button for set 2 is still whole inside the card"
   );
   assert(
-    fitAfter.footH === fitBefore.footH,
-    "the pinned footer keeps its height when a set lands",
+    fitAfter.wellH === fitBefore.wellH,
+    "the attached well keeps its height when a set lands",
     `before=${JSON.stringify(fitBefore)} after=${JSON.stringify(fitAfter)}`,
-    "Focus → log a set → only the scrolling half of the card changes"
+    "Focus → log a set → only the ledger changes"
   );
   assert(
     fitAfter.rowsWhole >= 1,
@@ -3769,46 +3813,49 @@ async function main() {
     JSON.stringify(fitAfter),
     "360×640 → Focus → log set 1 → the logged row is in view, not scrolled off the top"
   );
-  assert(
-    fitAfter.guidance === "body",
-    "session guidance scrolls with the session instead of growing the footer",
-    JSON.stringify(fitAfter),
-    "Focus → log a set → the 'this session' line lands in the scrolling half of the card"
-  );
   // A window short enough that the set entry cannot fit at full size still has
-  // to hand over a whole Log set button.
-  await page.setViewportSize({ width: 360, height: 520 });
+  // to hand over a whole commit button.
+  await page.setViewportSize({ width: 320, height: 568 });
   await page.waitForTimeout(300);
   const fitCramped = await fitMetrics();
   assert(
     fitCramped.saveWhole && fitCramped.spill <= 1,
     "a cramped card thins the set entry rather than clipping it",
     JSON.stringify(fitCramped),
-    "360×520 → Focus → the card sheds ornament and Log set stays whole inside it"
+    "320×568 → Focus → the card sheds ornament and the commit button stays whole inside it"
   );
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(260);
 
   // Focus carries List's per-exercise controls: last session's numbers and skip.
+  // A fresh card for an exercise with history: last session is what it leads on.
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.waitForTimeout(300);
   const lastSession = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
+    const past = [...card.querySelectorAll(".ledger__row.is-past")];
     return {
-      text: card.querySelector(".lastsess__sets")?.textContent?.trim() || "",
+      label: card.querySelector(".ledger__lab")?.textContent?.trim() || "",
+      rows: past.length,
+      firstRow: past[0] ? [...past[0].querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
       tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
       skip: !!card.querySelector(".focus-ex__tools [data-skip]"),
+      note: !!card.querySelector(".focus-ex__tools [data-exnote-open]"),
+      restInCard: card.querySelectorAll("[data-rest]").length,
     };
   });
   assert(
-    /\d+.*×\s*\d+.*@/.test(lastSession.text),
+    lastSession.rows > 0 && /kg|lb/.test(lastSession.firstRow[1] || "") && lastSession.label,
     "the focus card shows last session's load, reps and RIR",
     JSON.stringify(lastSession),
     "Focus → an exercise with history lists what was lifted last time"
   );
   assert(
-    lastSession.tools === 3 && lastSession.skip,
-    "the focus card carries timer, note and skip tools",
+    lastSession.tools === 2 && lastSession.skip && lastSession.note && lastSession.restInCard === 0,
+    "the focus card carries note and skip; rest stays in the workout chrome",
     JSON.stringify(lastSession),
-    "Focus → the card header holds the rest timer, the note and Skip"
+    "Focus → the card header holds the note and Skip, and no timer of its own"
   );
   const beforeSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
@@ -3850,10 +3897,10 @@ async function main() {
   const fillCurrentFocusSet = () =>
     page.evaluate(() => {
       const cur = document.querySelector("#workout .exercise.is-current");
-      const key = cur?.querySelector(".curset")?.dataset.set;
+      const key = cur?.querySelector(".focus-well .curset")?.dataset.set;
       if (!key) return false;
       for (const [suffix, val] of [["load", 90], ["reps", 6], ["rir", 1]]) {
-        const el = cur.querySelector(`[data-k="${key}_${suffix}"]`);
+        const el = cur.querySelector(`.focus-well [data-k="${key}_${suffix}"]`);
         if (!el || el.value === String(val)) continue;
         el.value = String(val);
         el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -3870,14 +3917,17 @@ async function main() {
     if (recAfterLog === null) {
       recAfterLog = await page.evaluate(() => {
         const card = document.querySelector("#workout .exercise.is-current");
-        const logged = card?.querySelectorAll(".settable__row").length || 0;
-        return logged ? { logged, rec: card.querySelectorAll(".recblock").length } : null;
+        const logged = card?.querySelectorAll(".ledger__row[data-editn]").length || 0;
+        return logged
+          ? { logged, rec: card.querySelectorAll(".recblock").length,
+              cue: card.querySelector(".focus-cue__text")?.textContent?.trim() || "" }
+          : null;
       });
     }
     let acted = false;
     if (await fillCurrentFocusSet()) {
       acted = await page.evaluate(() => {
-        const b = document.querySelector("#workout .exercise.is-current .curset__save");
+        const b = document.querySelector("#workout .exercise.is-current .focus-well .saveset");
         if (b) { b.click(); return true; }
         return false;
       });
@@ -3893,10 +3943,10 @@ async function main() {
     await page.waitForTimeout(60);
   }
   assert(
-    recAfterLog && recAfterLog.logged > 0 && recAfterLog.rec === 0,
-    "the recommendation makes way once a set is logged",
+    recAfterLog && recAfterLog.logged > 0 && recAfterLog.rec === 0 && !!recAfterLog.cue,
+    "the recommendation stays as the well's one-line cue once a set is logged",
     JSON.stringify(recAfterLog),
-    "Focus → log a set → the recommendation block drops out of the card"
+    "Focus → log a set → List's recommendation block is gone and the cue names the next set"
   );
   await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
   await page.waitForTimeout(120);

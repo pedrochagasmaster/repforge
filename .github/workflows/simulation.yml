@@ -54,3 +54,9 @@ jobs:
         env:
           REPFORGE_URL: http://localhost:8000/
         run: npm run simulate
+
+      - name: Run Focus mode state checks
+        working-directory: test
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: npm run test:focus

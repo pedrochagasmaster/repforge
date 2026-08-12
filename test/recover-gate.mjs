@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /** Focused Hold · recover gate checks. Requires http://localhost:8000/ */
-import { chromium } from "playwright";
+import { launchChromium } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -77,7 +77,7 @@ function setRows(ex, day, date, load, setSpecs) {
   }));
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await launchChromium();
 const page = await browser.newPage();
 await page.goto(BASE, { waitUntil: "domcontentloaded" });
 await waitForApp(page);

@@ -22,6 +22,7 @@
   --accent-deep:#B8410E;
   --positive:#2F7D33;
   --cta:#161513;
+  --well:#FAF8F5;
   --cta-ink:#FFFFFF;
   --danger:#C93A2B;
   --radius:14px;
@@ -33,6 +34,8 @@
   --mono:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
   --r:var(--radius);
   --shadow:none;
+  --check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12.5 9.5 18 20 6.5'/%3E%3C/svg%3E");
+  --bolt:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M13.6 2 4 13.4h6.1L9.4 22 20 10.2h-6.6z'/%3E%3C/svg%3E");
 }
 
 *{box-sizing:border-box}
@@ -119,11 +122,6 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
 
 /* ---- Segmented progress ---- */
 .segbar{display:flex;gap:6px;margin:8px 0}
-.segbar__tick{flex:1;height:4px;border-radius:2px;background:var(--rule-strong)}
-.segbar__tick.is-done,.segbar__tick.is-current{background:var(--accent)}
-.segbar__tick.is-done-dark{background:var(--cta)}
-.segbar--ex .segbar__tick.is-done{background:var(--ink)}
-.segbar--ex .segbar__tick.is-current{background:var(--accent)}
 
 /* ---- Primary CTA ---- */
 .btn{
@@ -144,6 +142,8 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
   content:"→";position:absolute;right:18px;top:50%;transform:translateY(-50%);
   color:var(--accent);font-size:20px;font-weight:500;
 }
+.btn--noarrow{padding:0 20px}
+.btn--noarrow::after{content:none;display:none}
 .btn--danger{background:transparent;color:var(--danger);border-color:transparent}
 .btn--save{margin-top:6px;flex-direction:column;gap:2px;height:auto;min-height:54px;padding:12px 48px}
 .btn--save.is-stamped{animation:stamp .5s ease}
@@ -375,26 +375,52 @@ div.settings-row{cursor:default}
 .wo-head__center{text-align:center;min-width:0;flex:1}
 .wo-head__title{font-size:17px;font-weight:600}
 .wo-head__sub{font-size:13px;color:var(--ink-soft);margin-top:2px}
-.wo-progress{margin-bottom:18px}
-.wo-progress__top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
-.wo-progress__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
-.focusnav{
-  flex:none;width:36px;height:36px;padding:0;border:0;background:none;cursor:pointer;
-  color:var(--ink-soft);font-size:22px;line-height:1;border-radius:50%;
+.wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
+/* Rest lives in the workout chrome, never over the card's controls: a square
+   with the stopwatch while idle, a counting pill once it is running. */
+.wo-rest{
+  display:inline-flex;align-items:center;justify-content:center;gap:6px;
+  width:44px;height:44px;padding:0;flex:none;cursor:pointer;
+  border:1px solid var(--rule-strong);border-radius:12px;
+  background:var(--surface);color:var(--ink);
+  font-family:var(--mono);font-size:15px;line-height:1;
+  transition:border-radius .2s ease,width .2s ease,color .2s ease,border-color .2s ease;
 }
-.focusnav:disabled{color:var(--rule);cursor:default}
+.wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.wo-rest__time{display:none;font-variant-numeric:tabular-nums}
+.wo-rest.is-running{width:auto;min-width:88px;padding:0 14px;border-radius:999px}
+.wo-rest.is-running .wo-rest__dot,.wo-rest.is-running .wo-rest__time{display:block}
+.wo-rest.is-running .wo-rest__icon{display:none}
+.wo-rest.is-done{color:var(--accent);border-color:var(--accent)}
+@media (prefers-reduced-motion:reduce){.wo-rest{transition:none}}
+/* The floating bar is the List-mode surface; Focus reads it from the header. */
+body.is-focus-wo .restbar{display:none!important}
+
+.wo-progress{margin:2px 0 12px}
+.wo-progress__top{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.wo-progress__lab{font-size:11px;font-weight:600;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+.focusnav{
+  flex:none;width:44px;height:44px;padding:0;border:0;background:none;cursor:pointer;
+  color:var(--ink);font-size:24px;line-height:1;border-radius:50%;
+}
+.focusnav:disabled{color:var(--rule-strong);cursor:default}
+.segbar--ex{gap:8px;margin:0}
 body.is-workout #logWorkspace{padding-bottom:72px}
 body.is-workout #logForm{padding-bottom:24px}
-/* Focus mode ends at the deck: the save button and set list that the padding in
-   List mode clears both live inside the card. */
+/* Focus mode ends at the deck: the log-set button and the set list that the
+   padding in List mode clears both live inside the card. */
 body.is-workout.is-focus-wo #logWorkspace,
 body.is-workout.is-focus-wo #logForm{padding-bottom:0}
 /* Focus fills the screen by layout, not by arithmetic: every box between the
    viewport and the deck hands its height down, so the card cannot be left short
    by a measurement taken while the viewport was something else. */
+/* The card is the session: Focus gives it the whole screen and puts the way
+   back in the header, where the mockups put it. */
+body.is-focus-wo nav{display:none}
+body.is-focus-wo{padding-bottom:0}
 body.is-workout.is-focus-wo main{
   display:flex;flex-direction:column;
-  height:calc(100dvh - var(--nav) - env(safe-area-inset-bottom));
+  height:calc(100dvh - env(safe-area-inset-bottom));
   /* The stack's lips sit below the deck box; this is their room. */
   padding-bottom:20px;
 }
@@ -406,11 +432,12 @@ body.is-workout.is-focus-wo .deck{flex:1;min-height:0}
 body.is-workout.is-focus-wo #dayTabs,
 body.is-workout.is-focus-wo #logForm > .field,
 body.is-workout.is-focus-wo #logForm > .btn--save{display:none!important}
-.segbar--ex{margin-top:4px}
 
-/* Focus card: a real card you drag sideways (vertical scroll stays native). */
+/* ---- Focus deck ----
+   A paged track: the live card at rest position, an inert copy of each
+   neighbour parked just off either side. Dragging moves all three as one. */
 body.is-focus-wo{overflow-x:hidden}
-.deck{position:relative;margin:4px 0 8px}
+.deck{position:relative;margin:4px 0 8px;overflow-x:clip;overflow-clip-margin:24px}
 /* Blank cards under the current one. No vertical scale, so their lips below the
    top card stay put at any card height. */
 .deck__layer{
@@ -419,122 +446,157 @@ body.is-focus-wo{overflow-x:hidden}
 }
 .deck__layer--1{transform:scaleX(.97) translateY(10px)}
 .deck__layer--2{background:#E6E2DB;transform:scaleX(.93) translateY(20px)}
-#workout.is-focus .exercise.is-current.is-dragging{
-  box-shadow:0 18px 44px rgba(0,0,0,.20);
-}
-#workout.is-focus .exercise.is-current{
-  position:relative;z-index:1;height:100%;
-  display:flex;flex-direction:column;overflow:hidden;
-  background:var(--surface);border:1px solid var(--rule);border-radius:18px;
-  padding:18px 16px 0;box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.10);
-  touch-action:none;transform-origin:50% 120%;will-change:transform;
-  transition:transform .26s cubic-bezier(.2,.7,.2,1),opacity .26s ease;
-  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
-}
-#workout.is-focus .exercise.is-current input,
-#workout.is-focus .exercise.is-current textarea{-webkit-user-select:text;user-select:text}
-#workout.is-focus .exercise.is-current.is-scrollable{touch-action:pan-y}
-#workout.is-focus .exercise.is-current.is-dragging{transition:none}
-#workout.is-focus .exercise.is-current.is-entering{transition:none}
+.deck__track{position:absolute;inset:0;will-change:transform}
+.deck__track.is-settling,.deck__track.is-jumping{transition:transform .21s cubic-bezier(.2,.7,.2,1)}
+.deck__peek{position:absolute;top:0;bottom:0;width:100%;visibility:hidden;pointer-events:none}
+.deck__peek--prev{right:calc(100% + 14px)}
+.deck__peek--next{left:calc(100% + 14px)}
+.deck.is-swiping .deck__peek,
+.deck__track.is-settling .deck__peek,
+.deck__track.is-jumping .deck__peek{visibility:visible}
 @media (prefers-reduced-motion:reduce){
-  #workout.is-focus .exercise.is-current{transition:none}
+  .deck__track.is-settling,.deck__track.is-jumping{transition:none}
 }
 
-#workout.is-focus .heat,
-#workout.is-focus .ex__topend,
-#workout.is-focus .setup,
-#workout.is-focus .subst,
-#workout.is-focus .prev,
-#workout.is-focus .delta-prev,
-#workout.is-focus .sets__head,
-#workout.is-focus .exnote{display:none}
-#workout.is-focus .exercise.is-current .exnote.is-open{display:block}
-#workout.is-focus .exercise.is-current .exnote.is-open .exnote__toggle{display:none}
-#workout.is-focus .exercise.is-current .setrow{display:none}
-#workout.is-focus .exercise.is-current .settable,
-#workout.is-focus .exercise.is-current .curset{display:block}
-.settable{margin:12px 0 4px}
-.settable__head,.settable__row{
-  display:grid;grid-template-columns:1.2fr 1fr 1fr 1fr 1.2rem;gap:8px;
-  align-items:center;padding:8px 0;font-variant-numeric:tabular-nums;
+/* ---- Focus card ---- */
+article.exercise--focus{
+  position:absolute;inset:0;margin:0;
+  display:flex;flex-direction:column;overflow:hidden;
+  background:var(--surface);border:1px solid var(--rule);border-radius:18px;
+  padding:0;box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.10);
+  touch-action:pan-y;
+  -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
-.settable__head{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);border-bottom:1px solid var(--rule)}
-.settable__row{
-  font-size:15px;font-weight:500;border:0;border-bottom:1px solid var(--rule);color:var(--ink);
-  width:100%;background:none;cursor:pointer;text-align:left;min-height:44px;font-family:inherit;
-}
-.settable__row .is-check{color:var(--ink);text-align:right}
-/* A logged effort reads as its word, which needs more room than a RIR digit. */
-.settable__eff{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);
+article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
+article.exercise--focus.is-dragging{box-shadow:0 18px 44px rgba(0,0,0,.20)}
+article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.08)}
+#workout.is-focus > .exercise{display:none}
+
+.fcard__head{flex:none;padding:18px 16px 0}
+.focus-ex__eyebrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+.focus-ex__muscle{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.focus-ex__muscle{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 4px}
-.focus-ex__row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap}
-.focus-ex__name{font-size:26px;font-weight:650;letter-spacing:-0.02em;margin:0;line-height:1.15;min-width:0;flex:1}
-.focus-ex__setof{flex:none;font-size:13px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.04em;white-space:nowrap}
+.focus-ex__setof{flex:none;font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 .focus-ex__setof b{color:var(--accent);font-weight:700}
-.focus-ex__target-row{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:0 0 12px;min-height:32px}
-.focus-ex__tools{display:flex;align-items:center;gap:8px;flex:none}
-/* One shape for every card tool: timer, note, skip. */
+.focus-ex__title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:5px}
+.focus-ex__titletext{min-width:0;flex:1}
+.focus-ex__name{font-size:27px;font-weight:650;letter-spacing:-0.02em;margin:0;line-height:1.14}
+.focus-ex__target{font-size:13px;color:var(--ink-soft);margin:6px 0 0}
+.focus-ex__alvo{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-right:6px}
+.focus-ex__tools{display:flex;align-items:center;gap:8px;flex:none;margin-top:2px}
+/* One shape for every card tool. */
 .focus-ex__tools .focus-tool{
-  flex:none;width:36px;height:36px;padding:0;display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid var(--rule);border-radius:10px;background:var(--surface);color:var(--ink-soft);cursor:pointer;
-  font-size:inherit;text-transform:none;letter-spacing:0;
+  position:relative;flex:none;width:44px;height:44px;min-height:44px;padding:0;
+  display:inline-flex;align-items:center;justify-content:center;
+  border:1px solid var(--rule-strong);border-radius:12px;background:var(--surface);color:var(--ink);
+  cursor:pointer;font-size:inherit;text-transform:none;letter-spacing:0;
 }
 .focus-ex__tools .focus-tool:active{background:var(--bg)}
-.lastsess{margin:0 0 10px}
-.lastsess__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
-.lastsess__sets{display:flex;flex-wrap:wrap;gap:6px 10px;font-size:14px;color:var(--ink-soft);font-variant-numeric:tabular-nums}
-.lastsess__set{white-space:nowrap}
-.lastsess__set+.lastsess__set::before{content:"·";margin-right:10px;color:var(--rule-strong)}
-.lastsess__unit{font-size:11px;margin-left:1px}
-.lastsess small{color:var(--ink-faint)}
-.focus-ex__target{font-size:13px;color:var(--ink-soft);margin:0;flex:1;min-width:0}
-.focus-ex__alvo{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-right:6px}
-/* The logged sets scroll between a fixed header and the pinned current set. */
-.focus-body{
-  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;padding-bottom:4px;
+.focus-ex__tools .focus-tool.has-note::after{
+  content:"";position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--accent);
+}
+
+/* ---- Ledger: the only scrolling region of the card ---- */
+.fcard__ledger{
+  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  padding:0 16px 6px;margin-top:18px;
   scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
 }
-.focus-body::-webkit-scrollbar{width:4px}
-.focus-body::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:4px}
-.focus-body::-webkit-scrollbar-track{background:transparent}
-/* The footer only claims what the set entry needs; the rest is the list's. */
-.focus-foot{flex:none;padding:8px 0 10px;border-top:1px solid var(--rule)}
-.focus-foot .curset{margin:2px 0 0}
-.focus-foot .curset__lab{margin-bottom:4px}
-.focus-foot .curset__cell{padding:6px 4px 2px}
-.focus-foot .curset__cell-lab{margin-bottom:4px}
-.focus-foot .curset__save{margin-top:8px}
-/* Logged rows stay tappable but pack tighter, so more of the session shows. */
-#workout.is-focus .settable{margin:6px 0 0}
-#workout.is-focus .settable__row{min-height:42px;padding:5px 0}
-#workout.is-focus .settable__head{padding:4px 0}
-/* Short screens: the card sheds ornament, never controls. Each step lands only
-   if the card still cannot fit what it has to show. */
-.exercise.is-current.is-terse .insession{display:none}
-.exercise.is-current.is-tight .focus-foot{padding:4px 0 6px}
-.exercise.is-current.is-tight .curset__lab{display:none}
-.exercise.is-current.is-tight .focus-foot .curset__cell{padding:4px 4px 0}
-.exercise.is-current.is-tight .curset__underline{margin-top:3px}
-.exercise.is-current.is-tight .curset__steps .stepbtn{height:40px;min-height:40px}
-.exercise.is-current.is-tight .focus-foot .curset__save{margin-top:4px}
-.exercise.is-current.is-tighter .focus-ex__muscle{display:none}
-.exercise.is-current.is-tighter .focus-ex__name{font-size:21px}
-.exercise.is-current.is-tighter .focus-ex__target-row{min-height:28px;margin-bottom:6px}
-.exercise.is-current.is-tighter .curset__cell-lab{margin-bottom:2px}
-.exercise.is-current.is-tighter .curset__val,
-.exercise.is-current.is-tighter .curset__cell input.curset__val{font-size:24px}
-.exercise.is-current.is-tighter .curset__steps .stepbtn{height:36px;min-height:36px}
-.exercise.is-current.is-tighter .curset__save{height:46px;font-size:16px}
-.exercise.is-current.is-tight .curset__effort{padding-top:6px}
-.exercise.is-current.is-tight .curset__effort .curset__cell-lab{margin-bottom:4px}
-.exercise.is-current.is-tighter .curset__effort .effort--stack .effort__btn{min-height:46px}
-.exercise.is-current.is-tighter .curset__effort .effort__hint{display:none}
-.focus-sets-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
-.curset__save{width:100%;margin-top:16px}
-.focus-exdone{margin:6px 0 0;font-size:14px;color:var(--ink-soft);text-align:center}
-.focus-done{margin-top:16px}
-.focus-done__msg{font-size:14px;color:var(--ink-soft);margin:0 0 12px}
+.fcard__ledger::-webkit-scrollbar{width:4px}
+.fcard__ledger::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:4px}
+.fcard__ledger::-webkit-scrollbar-track{background:transparent}
+.ledger__top{position:sticky;top:0;z-index:1;background:var(--surface)}
+.ledger__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 10px}
+.ledger__count{font-size:15px;color:var(--ink-soft);margin:0 0 10px}
+.ledger__ticks{display:flex;flex-wrap:wrap;gap:7px;margin:0 0 16px}
+.ledger__tick{
+  width:24px;height:24px;border-radius:50%;border:1px solid var(--rule-strong);
+  display:inline-block;position:relative;
+}
+.ledger__tick::after{
+  content:"";position:absolute;inset:0;background:var(--ink-faint);
+  -webkit-mask:var(--check) no-repeat center/12px;mask:var(--check) no-repeat center/12px;
+}
+.ledger__head,.ledger__row{
+  display:grid;grid-template-columns:.75fr 1.25fr .9fr 1.1fr 24px;gap:8px;
+  align-items:center;font-variant-numeric:tabular-nums;
+}
+.ledger__head{
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
+  padding:0 0 10px;border-bottom:1px solid var(--rule-strong);
+}
+.ledger__row{
+  position:relative;width:100%;min-height:52px;padding:6px 0;margin:0;
+  border:0;border-bottom:1px solid var(--rule);border-radius:0;
+  background:none;color:var(--ink);font:inherit;font-size:16px;font-weight:450;
+  text-align:left;cursor:pointer;
+}
+.ledger__row .ledger__n{color:var(--ink)}
+.ledger__check{
+  width:20px;height:20px;justify-self:end;background:var(--ink);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+.ledger__row.is-past,.ledger__row.is-empty{cursor:default}
+.ledger__row.is-past .ledger__check,.ledger__row.is-empty .ledger__check{display:none}
+.ledger__row.is-empty{grid-template-columns:1fr auto 24px;color:var(--ink-soft)}
+.ledger__empty{color:var(--ink-soft)}
+.ledger__dash{color:var(--rule-strong)}
+/* A logged effort reads as its word, which needs more room than a RIR digit. */
+.ledger__eff{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The set being re-opened is marked in place: it stays where it was logged. */
+.ledger__row.is-editing{background:rgba(224,78,20,.07)}
+.ledger__row.is-editing::before{
+  content:"";position:absolute;left:-16px;top:0;bottom:0;width:3px;background:var(--accent);
+}
+.ledger__row.is-editing .ledger__check{background:var(--accent)}
+.ledger__more{
+  display:flex;align-items:center;justify-content:space-between;gap:10px;
+  width:100%;min-height:52px;padding:8px 0;margin:0;
+  border:0;border-bottom:1px solid var(--rule);border-radius:0;
+  background:none;color:var(--ink-soft);font:inherit;font-size:16px;text-align:left;cursor:pointer;
+}
+.ledger__more .icon-mask{transition:transform .2s ease}
+.ledger__more[aria-expanded="true"] .icon-mask{transform:rotate(180deg)}
+@media (prefers-reduced-motion:reduce){.ledger__more .icon-mask{transition:none}}
+/* Every set that is not in the well still needs a field to hold its value. */
+.focus-inputs{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
+/* ---- Well: attached, and the same height whatever the ledger is doing ---- */
+.focus-well{
+  flex:none;padding:14px 16px 16px;background:var(--well);border-top:1px solid var(--rule);
+}
+.focus-cue{display:flex;align-items:center;flex-wrap:wrap;gap:0 6px;font-size:14px;line-height:1.35;margin:0}
+.focus-cue__bolt{
+  flex:none;width:19px;height:19px;background:var(--accent);
+  -webkit-mask:var(--bolt) no-repeat center/contain;mask:var(--bolt) no-repeat center/contain;
+}
+.focus-cue__lab{color:var(--accent);font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase}
+.focus-cue__sep{color:var(--ink-faint)}
+.focus-cue__text{color:var(--ink-soft);min-width:0}
+.focus-well__cancel{
+  display:block;width:100%;min-height:44px;margin:8px 0 0;padding:8px;
+  border:0;background:none;cursor:pointer;color:var(--ink-soft);font-size:16px;text-align:center;
+}
+.focus-well .btn--cta{margin-top:12px}
+.focus-well .btn--cta.saveset{
+  border:0;background:var(--cta);color:var(--cta-ink);
+  text-transform:none;letter-spacing:normal;font-size:17px;font-weight:600;
+  min-height:54px;min-width:0;padding:0 20px;border-radius:var(--radius);
+}
+.focus-well .btn--cta.saveset:hover{color:var(--cta-ink);border-color:transparent}
+/* Exercise and workout completion are the same shape, one step apart. */
+.focus-well.is-done{padding-top:18px}
+.focus-done{display:flex;align-items:center;gap:14px}
+.focus-done__mark{
+  flex:none;width:46px;height:46px;border-radius:50%;border:2px solid var(--accent);position:relative;
+}
+.focus-done__mark::after{
+  content:"";position:absolute;inset:0;background:var(--accent);
+  -webkit-mask:var(--check) no-repeat center/22px;mask:var(--check) no-repeat center/22px;
+}
+.focus-done__text{min-width:0}
+.focus-done__title{font-size:18px;font-weight:650;letter-spacing:-.01em}
+.focus-done__sub{font-size:14px;color:var(--ink-soft);margin-top:3px}
 
 /* Rest bar — one floating clock, parked just above the tab bar in every mode */
 .restbar{
@@ -593,16 +655,12 @@ body.is-focus-wo{overflow-x:hidden}
   transition:background .15s ease,color .15s ease}
 .effort__btn+.effort__btn{border-left:1px solid var(--rule)}
 .effort__word{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.effort__hint{font-size:10px;font-weight:500;letter-spacing:.01em;text-transform:none;color:var(--ink-faint)}
 .effort__btn:not(.active):hover{color:var(--ink);background:var(--bg)}
 .effort__btn:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
 .effort__btn.active{color:#fff;background:var(--accent-deep)}
-.effort__btn.active .effort__hint{color:rgba(255,255,255,.85)}
 /* Until the lifter picks, the highlighted word is RepForge's guess from the
    last session: it reads as a tint, so a confirmed set never looks the same. */
 .effort--suggested .effort__btn.active{color:var(--accent-deep);background:rgba(224,78,20,.09)}
-.effort--suggested .effort__btn.active .effort__hint{color:var(--accent-deep)}
-.effort--stack .effort__btn{min-height:54px;font-size:12.5px;gap:3px}
 .rirmode{border:0;padding:0;margin:0 0 14px}
 .rirmode legend{font-size:11px;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;font-weight:600}
 .rirmode__opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
@@ -679,36 +737,147 @@ body.is-focus-wo{overflow-x:hidden}
   border-radius:8px;padding:8px 11px;cursor:pointer}
 .copylast:hover{color:var(--accent);border-color:var(--ink-soft)}
 
-/* Current-set steppers (Focus / mock 01) — bare −/+ glyphs, no circular chrome */
-.curset{margin:16px 0 8px}
-.curset__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
-.curset__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--rule);border-bottom:0}
-/* Effort mode: load and reps split the steppers, effort gets the band below. */
-.curset__grid--pair{grid-template-columns:repeat(2,minmax(0,1fr))}
-.curset__effort{padding:10px 0 0;border-top:1px solid var(--rule)}
-.curset__effort .curset__cell-lab{margin-bottom:7px}
-.curset__cell{min-width:0;padding:12px 4px 8px;text-align:center;position:relative;overflow:hidden}
+/* Current-set cells — bare numbers over a hairline, with the −/+ underneath */
+.curset{margin:10px 0 0}
+.curset__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
+.curset__cell{min-width:0;padding:8px 2px 0;text-align:center;position:relative}
 .curset__cell:not(:last-child)::after{
-  content:"";position:absolute;right:0;top:18%;bottom:12%;width:1px;background:var(--rule);
+  content:"";position:absolute;right:0;top:12%;bottom:8%;width:1px;background:var(--rule);
 }
-.curset__cell-lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:6px}
+.curset__cell-lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px}
 .curset__cell-lab.is-accent{color:var(--accent)}
+.curset__line{display:flex;align-items:baseline;justify-content:center;gap:3px;min-width:0}
 .curset__val,.curset__cell input.curset__val{
   width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;border-radius:0;
-  font-size:32px;font-weight:620;line-height:1.1;color:var(--ink);text-align:center;
-  font-variant-numeric:tabular-nums;min-height:0;box-shadow:none;
+  font-size:34px;font-weight:650;line-height:1.06;color:var(--ink);text-align:center;
+  font-variant-numeric:tabular-nums;height:1.06em;min-height:0;box-shadow:none;
 }
-.curset__underline{display:block;height:2px;margin:6px auto 0;width:42%;background:var(--rule);border-radius:1px}
-.curset__cell.is-active .curset__underline,.curset__cell.is-load .curset__underline{background:var(--accent)}
-.curset__cell.is-load .curset__val{display:inline-block;width:auto;max-width:100%;padding-bottom:0;border-bottom:0}
+.curset__line .curset__val,.curset__line input.curset__val{width:auto;min-width:1.4ch;flex:0 1 auto;text-align:right;field-sizing:content}
+.curset__val::placeholder{color:var(--rule-strong);opacity:1}
 .curset__cell input.curset__val:focus{outline:none;box-shadow:none;border-color:transparent}
-.curset__unit{font-size:12px;color:var(--ink-soft);margin-top:2px}
-.curset__steps{display:flex;justify-content:center;align-items:center;gap:4px;margin-top:4px;border-top:1px solid var(--rule);padding-top:2px}
+.curset__cell input.curset__val:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
+/* An effort is a word: same slot, a size that keeps three of them on one line. */
+.curset__val--word{font-size:26px;font-weight:650;letter-spacing:-.01em}
+.curset__val--word:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
+.curset__unit{flex:none;font-size:14px;font-weight:500;color:var(--ink-soft)}
+.curset__hint{font-size:13px;color:var(--ink-faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.curset__underline{display:block;height:2px;margin:8px auto 0;width:56%;background:var(--rule-strong);border-radius:1px}
+.curset__cell.is-active .curset__underline,.curset__cell.is-load .curset__underline{background:var(--accent)}
+.curset__steps{display:flex;justify-content:space-evenly;align-items:center;margin-top:2px}
 .curset__steps .stepbtn{
-  width:44px;height:44px;min-width:44px;min-height:44px;border-radius:0;border:0;background:transparent;
-  color:var(--ink);font-size:20px;font-weight:400;line-height:1;padding:0;
+  width:44px;height:44px;min-width:44px;min-height:44px;border-radius:8px;border:0;background:transparent;
+  color:var(--ink);font-size:22px;font-weight:400;line-height:1;padding:0;
 }
 .curset__steps .stepbtn:hover{color:var(--ink);background:transparent}
+
+/* ---- Exercise note sheet ---- */
+body.is-sheet-open{overflow:hidden}
+.sheet-scrim{
+  position:fixed;inset:0;z-index:40;background:rgba(27,26,23,.42);
+  opacity:0;transition:opacity .22s ease;
+}
+.sheet-scrim.is-open{opacity:1}
+.sheet{
+  position:fixed;left:0;right:0;bottom:var(--kb,0px);z-index:41;
+  display:flex;flex-direction:column;
+  height:min(74dvh,660px);max-height:calc(100dvh - var(--kb,0px) - 56px);
+  background:var(--surface);border-radius:20px 20px 0 0;
+  box-shadow:0 -8px 40px rgba(0,0,0,.18);
+  padding-bottom:env(safe-area-inset-bottom);
+  transform:translateY(101%);transition:transform .26s cubic-bezier(.2,.7,.2,1);
+}
+.sheet.is-open{transform:none}
+@media (prefers-reduced-motion:reduce){
+  .sheet,.sheet-scrim{transition:none}
+}
+.sheet__grab{display:block;flex:none;width:38px;height:5px;border-radius:3px;background:var(--rule-strong);margin:8px auto 0}
+.sheet__head{
+  flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;
+  padding:4px 10px 12px;border-bottom:1px solid var(--rule);
+}
+.sheet__act{
+  justify-self:start;min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;
+  color:var(--ink-soft);font-size:16px;
+}
+.sheet__act--accent{justify-self:end;color:var(--accent);font-weight:650}
+.sheet__titles{text-align:center;min-width:0}
+.sheet__title{font-size:17px;font-weight:650}
+.sheet__sub{font-size:14px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet__body{flex:1;min-height:0;display:flex;padding:16px 16px 0}
+.sheet__text{
+  flex:1;width:100%;margin:0;padding:0;border:0;background:transparent;border-radius:0;resize:none;
+  font-size:17px;line-height:1.5;letter-spacing:normal;text-transform:none;color:var(--ink);
+}
+.sheet__text:focus{outline:none;box-shadow:none;border-color:transparent}
+.sheet__foot{flex:none;padding:12px 16px 16px;font-size:13px;color:var(--ink-faint)}
+
+/* Narrow phones: tighter gutters and a set column the ledger can still line up. */
+@media (max-width:360px){
+  .fcard__head,.fcard__ledger{padding-left:14px;padding-right:14px}
+  .focus-well{padding-left:14px;padding-right:14px}
+  .ledger__head,.ledger__row{grid-template-columns:.6fr 1.3fr .8fr 1.05fr 20px;gap:6px}
+  .ledger__row.is-editing::before{left:-14px}
+}
+/* Short screens trade padding and type scale, never a control: the ledger may
+   shrink to a row or two, but the well keeps its inputs and its action. */
+@media (max-height:740px){
+  body.is-workout.is-focus-wo main{padding-bottom:14px}
+  .wo-head{margin-bottom:10px}
+  .wo-progress{margin:0 0 8px}
+  .wo-progress__top{margin-bottom:8px}
+  .fcard__head{padding-top:15px}
+  .fcard__ledger{margin-top:12px}
+  .exercise--focus .focus-ex__name{font-size:24px}
+  .focus-well{padding:12px 14px 14px}
+  .curset{margin-top:8px}
+  .curset__cell-lab{margin-bottom:6px}
+  .curset__val,.curset__cell input.curset__val{font-size:30px}
+  .curset__val--word{font-size:24px}
+}
+@media (max-height:660px){
+  body.is-workout.is-focus-wo main{padding-bottom:10px}
+  .wo-head{margin-bottom:6px}
+  .wo-progress__top{margin-bottom:6px}
+  .fcard__head{padding-top:12px}
+  .fcard__ledger{margin-top:8px}
+  .focus-ex__muscle{display:none}
+  .exercise--focus .focus-ex__name{font-size:21px}
+  .focus-ex__target{margin-top:4px}
+  .focus-well{padding:10px 14px 12px}
+  .focus-cue{font-size:13px}
+  .curset{margin-top:4px}
+  .curset__cell{padding-top:2px}
+  .curset__cell-lab{margin-bottom:4px}
+  .curset__val,.curset__cell input.curset__val{font-size:26px}
+  .curset__val--word{font-size:21px}
+  .curset__underline{margin-top:5px}
+  .focus-well .btn--cta,.focus-well .btn--cta.saveset{height:48px;min-height:48px;font-size:16px;margin-top:8px}
+  .focus-well__cancel{margin-top:2px;padding:4px}
+  .ledger__row,.ledger__more{min-height:46px}
+  .ledger__ticks{display:none}
+  .focus-done__mark{width:40px;height:40px}
+  .focus-done__mark::after{-webkit-mask-size:19px;mask-size:19px}
+  .focus-done__title{font-size:16px}
+}
+@media (max-height:600px){
+  .exercise--focus .focus-ex__name{font-size:19px;line-height:1.2}
+  /* Two lines of title at most; the rest of the card needs the room more. */
+  .exercise--focus .focus-ex__name,
+  .exercise--focus .focus-ex__name .ex__namebtn{
+    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
+  }
+  .focus-ex__target{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .focus-cue{flex-wrap:nowrap;font-size:12.5px}
+  .focus-cue__text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .curset__val,.curset__cell input.curset__val{font-size:24px}
+  .curset__val--word{font-size:18px}
+  .curset__hint{display:none}
+  .curset__underline{margin-top:4px}
+  .ledger__head{padding-bottom:8px}
+  .ledger__row,.ledger__more{min-height:44px}
+  .focus-well .btn--cta,.focus-well .btn--cta.saveset{height:46px;min-height:46px;margin-top:6px}
+}
+
 
 /* ---- Metrics (aliased to unified stat-band above) ---- */
 .trend{font-size:12px;color:var(--ink-soft);margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:6px 16px}
@@ -936,7 +1105,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .term:hover{text-decoration-color:var(--accent);color:var(--accent)}
 /* Form controls drop inherited casing and tracking (HTML's UA sheet), so a term
    used as a column heading has to be told to look like one. */
-.sets__head .term,.settable__head .term,.curset__cell-lab .term{text-transform:uppercase;letter-spacing:.08em}
+.sets__head .term,.curset__cell-lab .term{text-transform:uppercase;letter-spacing:.08em}
 .glossary{
   position:absolute;z-index:60;max-width:280px;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
@@ -1001,7 +1170,6 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .modeswitch{display:flex;gap:6px;margin-bottom:12px}
 .modeswitch button{flex:1;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);cursor:pointer;border-radius:10px;padding:9px 8px;font-weight:600;font-size:13px}
 .modeswitch button.active{color:var(--ink);border-color:var(--accent)}
-#workout.is-focus .exercise:not(.is-current){display:none}
 /* Onboarding */
 .onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
@@ -1115,7 +1283,10 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 
 .ex__namebtn{display:flex;align-items:baseline;gap:6px;width:100%;margin:0;padding:0;border:0;background:none;color:var(--ink);text-align:left;cursor:pointer}
 .ex__namebtn::after{content:"›";flex:none;color:var(--ink-faint);font-size:.8em}
-#workout.is-focus .exercise.is-current .ex__namebtn::after{content:none;display:none}
+.focus-ex__name .ex__namebtn::after{content:none;display:none}
+/* The name opens the exercise page: give it a tap target without
+   moving the baseline the title sits on. */
+.focus-ex__name .ex__namebtn{font:inherit;color:inherit;display:block;padding:7px 0;margin:-7px 0;min-height:44px}
 .ex__namebtn:hover{color:var(--accent)}
 
 .exnote{margin-top:10px}
@@ -1240,10 +1411,10 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .today-session:has(.today-exlist) + #startWorkout{margin-top:4px}
 .segbar__seg{flex:1;height:4px;border-radius:2px;background:var(--rule-strong)}
 .segbar__seg.is-done,.segbar__seg.is-current{background:var(--accent)}
+/* Exercise progress: done is near-black, the current one orange, the rest gray. */
+.segbar--ex .segbar__seg{height:5px;border-radius:3px}
 .segbar--ex .segbar__seg.is-done{background:var(--ink)}
 .segbar--ex .segbar__seg.is-current{background:var(--accent)}
-.segbar--ex .segbar__tick.is-done{background:var(--ink)}
-.segbar--ex .segbar__tick.is-current{background:var(--accent)}
 .text-link{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:8px 0;font-size:15px}
 .text-link--center{display:block;width:100%;text-align:center;color:var(--ink);margin-top:10px}
 .link-accent{background:none;border:0;color:var(--accent);cursor:pointer;font:inherit;padding:8px 4px;font-size:15px}
