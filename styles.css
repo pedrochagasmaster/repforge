@@ -464,6 +464,9 @@ body.is-focus-wo{overflow-x:hidden}
   width:100%;background:none;cursor:pointer;text-align:left;min-height:44px;font-family:inherit;
 }
 .settable__row .is-check{color:var(--ink);text-align:right}
+/* A logged effort reads as its word, which needs more room than a RIR digit. */
+.settable__eff{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-soft);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .focus-ex__muscle{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin:0 0 4px}
 .focus-ex__row{display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-bottom:4px;flex-wrap:wrap}
 .focus-ex__name{font-size:26px;font-weight:650;letter-spacing:-0.02em;margin:0;line-height:1.15;min-width:0;flex:1}
@@ -523,6 +526,10 @@ body.is-focus-wo{overflow-x:hidden}
 .exercise.is-current.is-tighter .curset__cell input.curset__val{font-size:24px}
 .exercise.is-current.is-tighter .curset__steps .stepbtn{height:36px;min-height:36px}
 .exercise.is-current.is-tighter .curset__save{height:46px;font-size:16px}
+.exercise.is-current.is-tight .curset__effort{padding-top:6px}
+.exercise.is-current.is-tight .curset__effort .curset__cell-lab{margin-bottom:4px}
+.exercise.is-current.is-tighter .curset__effort .effort--stack .effort__btn{min-height:46px}
+.exercise.is-current.is-tighter .curset__effort .effort__hint{display:none}
 .focus-sets-sr{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
 .curset__save{width:100%;margin-top:16px}
 .focus-exdone{margin:6px 0 0;font-size:14px;color:var(--ink-soft);text-align:center}
@@ -575,10 +582,27 @@ body.is-focus-wo{overflow-x:hidden}
 .subst__lab{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;font-size:10px;flex:none}
 .subst__pick{flex:1;margin:0;padding:6px 9px;font-size:12px;background:var(--surface);border:1px solid var(--rule);border-radius:8px}
 
-.effort{display:flex;gap:3px}
-.effort__btn{flex:1;margin:0;padding:0 2px;min-height:46px;font-size:11.5px;font-weight:700;text-transform:uppercase;
-  letter-spacing:.03em;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:9px;cursor:pointer;line-height:1}
-.effort__btn.active{color:var(--accent);border-color:var(--accent);background:rgba(224,78,20,.06)}
+/* Effort picker — the Easy / Hard / Max face of RIR. One control in two shapes:
+   a compact line under a set row, a stacked band under the current set. Three
+   words never fit a column beside the numbers, so it is never asked to. */
+.effort{display:flex;background:var(--surface);border:1px solid var(--rule);border-radius:11px;overflow:hidden}
+.effort__btn{flex:1 1 0;min-width:0;margin:0;padding:0 4px;min-height:46px;border:0;border-radius:0;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
+  background:transparent;color:var(--ink-soft);cursor:pointer;
+  font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;
+  transition:background .15s ease,color .15s ease}
+.effort__btn+.effort__btn{border-left:1px solid var(--rule)}
+.effort__word{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.effort__hint{font-size:10px;font-weight:500;letter-spacing:.01em;text-transform:none;color:var(--ink-faint)}
+.effort__btn:not(.active):hover{color:var(--ink);background:var(--bg)}
+.effort__btn:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
+.effort__btn.active{color:#fff;background:var(--accent-deep)}
+.effort__btn.active .effort__hint{color:rgba(255,255,255,.85)}
+/* Until the lifter picks, the highlighted word is RepForge's guess from the
+   last session: it reads as a tint, so a confirmed set never looks the same. */
+.effort--suggested .effort__btn.active{color:var(--accent-deep);background:rgba(224,78,20,.09)}
+.effort--suggested .effort__btn.active .effort__hint{color:var(--accent-deep)}
+.effort--stack .effort__btn{min-height:54px;font-size:12.5px;gap:3px}
 .rirmode{border:0;padding:0;margin:0 0 14px}
 .rirmode legend{font-size:11px;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;font-weight:600}
 .rirmode__opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
@@ -600,8 +624,13 @@ body.is-focus-wo{overflow-x:hidden}
   border-left:2px solid var(--accent);border-radius:0 6px 6px 0;background:rgba(224,78,20,.04)}
 
 .sets__head,.setrow{display:grid;grid-template-columns:1.4rem 2.3fr 1fr .8fr auto;gap:6px;align-items:center}
-.sets__head:has(~ .setrow .effort),.setrow:has(.effort){grid-template-columns:1.4rem 2.2fr .7fr 1.9fr auto}
-.setrow:has(.effort) .stepbtn{width:44px;min-width:44px}
+/* Effort mode drops the RIR column; the picker spans a second line, and the
+   header's caption for it spans the same one so the two stay in step. */
+.sets__head.has-effort,.setrow.has-effort{grid-template-columns:1.4rem 2.3fr 1fr auto}
+.setrow.has-effort .effort,.sets__head .sets__head-eff{grid-column:1/-1}
+.sets__head .sets__head-eff{text-align:left;padding-top:6px}
+.setrow.has-effort{row-gap:7px;padding-bottom:11px;border-bottom:1px solid var(--rule)}
+.setrow.has-effort+.setrow.has-effort{margin-top:11px}
 .sets__head{margin-bottom:4px;padding-top:8px;border-top:1px solid var(--rule)}
 .setrow>*{min-width:0}
 .sets__head span{font-size:11px;color:var(--ink-faint);letter-spacing:.08em;text-align:center;text-transform:uppercase;font-weight:600}
@@ -654,6 +683,10 @@ body.is-focus-wo{overflow-x:hidden}
 .curset{margin:16px 0 8px}
 .curset__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--accent);margin-bottom:10px}
 .curset__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid var(--rule);border-bottom:0}
+/* Effort mode: load and reps split the steppers, effort gets the band below. */
+.curset__grid--pair{grid-template-columns:repeat(2,minmax(0,1fr))}
+.curset__effort{padding:10px 0 0;border-top:1px solid var(--rule)}
+.curset__effort .curset__cell-lab{margin-bottom:7px}
 .curset__cell{min-width:0;padding:12px 4px 8px;text-align:center;position:relative;overflow:hidden}
 .curset__cell:not(:last-child)::after{
   content:"";position:absolute;right:0;top:18%;bottom:12%;width:1px;background:var(--rule);
@@ -901,6 +934,9 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .term{display:inline;border:0;background:transparent;color:inherit;padding:2px 0;margin:0;
   text-decoration:underline dotted;text-decoration-color:var(--ink-faint);cursor:pointer;font:inherit;line-height:1.4}
 .term:hover{text-decoration-color:var(--accent);color:var(--accent)}
+/* Form controls drop inherited casing and tracking (HTML's UA sheet), so a term
+   used as a column heading has to be told to look like one. */
+.sets__head .term,.settable__head .term,.curset__cell-lab .term{text-transform:uppercase;letter-spacing:.08em}
 .glossary{
   position:absolute;z-index:60;max-width:280px;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
@@ -1141,7 +1177,8 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 }
 @media (max-width:360px){
   .sets__head,.setrow{grid-template-columns:1.1rem 2.1fr .9fr .7fr auto;gap:4px}
-  .sets__head:has(~ .setrow .effort),.setrow:has(.effort){grid-template-columns:1.1rem 2.4fr .7fr 1.8fr auto}
+  .sets__head.has-effort,.setrow.has-effort{grid-template-columns:1.1rem 2.1fr .9fr auto;row-gap:6px}
+  .effort__btn{font-size:11px;letter-spacing:.02em}
   .vrow{grid-template-columns:1fr auto}
   .setrow input{font-size:15px;padding:12px 2px}
   .stepbtn{width:44px;min-width:44px;font-size:17px}

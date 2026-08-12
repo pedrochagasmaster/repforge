@@ -358,6 +358,7 @@
   "block_rec.repeat_with_small_swaps.why": "A aderência foi sólida e o progresso foi misto, mas aceitável.",
   "rec.new.label": "Novo exercício",
   "rec.new.text": "Sem histórico ainda. Escolha uma carga que consiga manter por {min}-{max} reps com 0-{rirHigh} RIR.",
+  "rec.new.text_effort": "Sem histórico ainda. Escolha uma carga que consiga manter por {min}-{max} reps com esforço {effort}.",
   "rec.add2.label": "Aumentar carga ++",
   "rec.add2.text": "Você bateu o topo da faixa com reps de sobra. Suba com confiança.",
   "rec.add.label": "Aumentar carga",
@@ -373,6 +374,7 @@
   "rec.push_reps.text": "Você deixou reps sobrando. Chegue mais perto da falha antes de aumentar a carga.",
   "rec.hold_add_reps.label": "Manter · somar reps",
   "rec.hold_add_reps.text": "Mantenha a carga e busque mais reps dentro do alvo de RIR.",
+  "rec.hold_add_reps.text_effort": "Mantenha a carga e busque mais reps com o mesmo esforço.",
   "rec.block.rising": "Tendência do bloco: força subindo ao longo de {sessions} sessões — continue avançando.",
   "rec.block.falling": "Tendência do bloco: força caindo ao longo de {sessions} sessões — priorize a recuperação antes de avançar.",
   "rec.block.flat": "Tendência do bloco: força estável ao longo de {sessions} sessões.",
@@ -423,6 +425,9 @@
   "effort.easy": "Fácil",
   "effort.hard": "Difícil",
   "effort.max": "Máx",
+  "effort.hint.easy": "sobram ≈3",
+  "effort.hint.hard": "sobra ≈1",
+  "effort.hint.max": "falha",
   "onb.aria": "Criar programa",
   "onb.eyebrow": "Novo programa",
   "onb.title.default": "Crie seu programa",
@@ -742,5 +747,6 @@
   "attention.title": "Atenção",
   "stats.ready_see_all": "Ver todos ({n})",
   "today.target_label": "Alvo",
-  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}"
+  "today.target_rest": "{min}–{max} reps · RIR 0–{rir}",
+  "today.target_rest_effort": "{min}–{max} reps · esforço {effort}"
 }

@@ -3102,6 +3102,189 @@ async function main() {
     JSON.stringify(effortState.settings),
     "Toggle effort mode in Settings"
   );
+
+  // ---- The picker itself: it has to fit, read as a single choice, and be
+  // ---- reachable from the keyboard. Three words never fit a table column.
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const pickerUi = await page.evaluate((exId) => {
+    const row = document.querySelector(`.setrow[data-set="${exId}_1"]`);
+    const group = row?.querySelector(".effort");
+    const btns = group ? [...group.querySelectorAll(".effort__btn")] : [];
+    const rowBox = row?.getBoundingClientRect();
+    return {
+      hasGroup: !!group,
+      role: group?.getAttribute("role"),
+      groupClipped: group ? group.scrollWidth > group.clientWidth + 1 : null,
+      wordsClipped: btns.some((b) => {
+        const w = b.querySelector(".effort__word");
+        return !w || w.scrollWidth > w.clientWidth + 1;
+      }),
+      insideRow: btns.every((b) => {
+        const r = b.getBoundingClientRect();
+        return r.left >= rowBox.left - 1 && r.right <= rowBox.right + 1 && r.height >= 44;
+      }),
+      checked: btns.filter((b) => b.getAttribute("aria-checked") === "true").map((b) => b.dataset.e),
+      roles: btns.map((b) => b.getAttribute("role")),
+      suggestedUntouched: !!document
+        .querySelector(`.setrow[data-set="${exId}_2"] .effort`)
+        ?.classList.contains("effort--suggested"),
+    };
+  }, effEx.id);
+  assert(
+    pickerUi.hasGroup && pickerUi.groupClipped === false && !pickerUi.wordsClipped && pickerUi.insideRow,
+    "Effort picker fits its set row with all three words readable",
+    JSON.stringify(pickerUi),
+    "Settings effort mode → Log (List) → set row picker is not clipped"
+  );
+  assert(
+    pickerUi.role === "radiogroup" &&
+      pickerUi.roles.every((r) => r === "radio") &&
+      pickerUi.checked.length === 1,
+    "Effort picker exposes one checked radio in a radiogroup",
+    JSON.stringify(pickerUi),
+    "Log (List) → inspect .effort roles / aria-checked"
+  );
+  assert(
+    pickerUi.suggestedUntouched,
+    "An untouched set's effort reads as a suggestion",
+    JSON.stringify(pickerUi),
+    "Log (List) → set 2 picker carries .effort--suggested until tapped"
+  );
+  await page.focus(`.setrow[data-set="${effEx.id}_1"] .effort__btn[aria-checked="true"]`);
+  const beforeArrow = await page.evaluate(
+    (exId) =>
+      document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`)?.dataset.e,
+    effEx.id
+  );
+  await page.keyboard.press("ArrowRight");
+  await page.waitForTimeout(120);
+  const afterArrow = await page.evaluate(
+    ({ exId, d }) => {
+      const btns = [
+        ...document.querySelectorAll(`.setrow[data-set="${exId}_1"] .effort__btn`),
+      ];
+      const checked = btns.find((b) => b.getAttribute("aria-checked") === "true");
+      return {
+        checked: checked?.dataset.e,
+        focused: document.activeElement === checked,
+        draft: JSON.parse(localStorage.getItem(d) || "{}")[`${exId}_1_effort`],
+        suggested: checked?.closest(".effort")?.classList.contains("effort--suggested"),
+      };
+    },
+    { exId: effEx.id, d: DRAFT }
+  );
+  assert(
+    afterArrow.checked && afterArrow.checked !== beforeArrow && afterArrow.focused &&
+      afterArrow.draft === afterArrow.checked && afterArrow.suggested === false,
+    "Arrow keys move the effort pick and write it to the draft",
+    `before=${beforeArrow} after=${JSON.stringify(afterArrow)}`,
+    "Log (List) → focus the checked effort button → ArrowRight"
+  );
+  // Copy carries the effort of the last session, not just its numbers.
+  await page.click(`.copylast[data-copy="${effEx.id}"]`);
+  await page.waitForTimeout(160);
+  const copied = await page.evaluate(
+    ({ exId, d }) => ({
+      checked: document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`)
+        ?.dataset.e,
+      draft: JSON.parse(localStorage.getItem(d) || "{}")[`${exId}_1_effort`],
+    }),
+    { exId: effEx.id, d: DRAFT }
+  );
+  assert(
+    copied.checked === "max" && copied.draft === "max",
+    "Copy last fills the effort picker from the last session",
+    JSON.stringify(copied),
+    "Log (List) → Copy after a Max session → picker shows Max"
+  );
+
+  // ---- Focus mode: the current set gets a band of its own, and a logged set
+  // ---- reads back as the word that was tapped.
+  await clickLogMode(page, "focus");
+  await page.waitForTimeout(200);
+  const focusEffort = await page.evaluate(() => {
+    const band = document.querySelector(".curset .curset__effort");
+    const btns = band ? [...band.querySelectorAll(".effort__btn")] : [];
+    return {
+      hasBand: !!band,
+      stacked: !!band?.querySelector(".effort--stack"),
+      headingTerm: !!band?.querySelector('.term[data-term="Effort"]'),
+      hints: btns.map((b) => b.querySelector(".effort__hint")?.textContent || ""),
+      tall: btns.every((b) => b.getBoundingClientRect().height >= 44),
+      clipped: btns.some((b) => b.scrollWidth > b.clientWidth + 1),
+      markupLeak: /<button|<span/.test(document.querySelector("#workout")?.textContent || ""),
+    };
+  });
+  assert(
+    focusEffort.hasBand && focusEffort.stacked && focusEffort.headingTerm &&
+      focusEffort.tall && !focusEffort.clipped && focusEffort.hints.every(Boolean),
+    "Focus mode shows a full-width effort band with hints under the current set",
+    JSON.stringify(focusEffort),
+    "Settings effort mode → Log → Focus → current set shows the effort band"
+  );
+  assert(
+    !focusEffort.markupLeak,
+    "Focus mode renders the Effort heading as an element, not escaped markup",
+    JSON.stringify(focusEffort),
+    "Log → Focus in effort mode → card text contains no literal <button>"
+  );
+  await page.fill(`.curset [data-k="${effEx.id}_1_load"]`, "97");
+  await page.fill(`.curset [data-k="${effEx.id}_1_reps"]`, "5");
+  await page.click(`.curset .effort__btn[data-e="hard"]`);
+  await page.waitForTimeout(120);
+  await page.click(".curset__save");
+  await page.waitForTimeout(300);
+  const loggedRow = await page.evaluate(() => {
+    const row = document.querySelector(".settable__row");
+    return {
+      cells: row ? [...row.querySelectorAll("span")].map((s) => s.textContent.trim()) : [],
+      headTerm: !!document.querySelector('.settable__head .term[data-term="Effort"]'),
+    };
+  });
+  assert(
+    loggedRow.headTerm && /^(easy|hard|max)$/i.test(loggedRow.cells[3] || ""),
+    "A logged set reads back as its effort word in Focus mode",
+    JSON.stringify(loggedRow),
+    "Log → Focus → tap Hard → Log set → logged row shows Hard"
+  );
+  effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  effortState = await getState(page);
+  effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
+  effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  assert(
+    effortRow && effortRow.rir === 1 && effortRow.reps === 5,
+    "Focus-mode effort pick saves through the RIR mapping",
+    `row=${JSON.stringify(effortRow)}`,
+    "Log → Focus → Hard → Log set → Save workout → stored rir is 1"
+  );
+  await clickLogMode(page, "full");
+  await page.waitForTimeout(150);
+
+  // Spoken / typed effort works in either language, and only on whole words.
+  const parsedMax = await page.evaluate(() => window.__repforgeParseCommand("80 x 8 Max."));
+  const parsedMaximum = await page.evaluate(() => window.__repforgeParseCommand("80 x 8 maximum"));
+  assert(
+    parsedMax.effort === "max" && parsedMaximum.effort == null,
+    "Command parser reads a whole effort word only",
+    `max=${parsedMax.effort} maximum=${parsedMaximum.effort}`,
+    '__repforgeParseCommand("80 x 8 Max.") vs ("80 x 8 maximum")'
+  );
+  const beforeEffortPt = await getState(page);
+  await persistState(page, { ...beforeEffortPt, settings: { ...beforeEffortPt.settings, lang: "pt" } });
+  await reloadApp(page);
+  const parsedPt = await page.evaluate(() => window.__repforgeParseCommand("80 x 8 difícil"));
+  assert(
+    parsedPt.effort === "hard",
+    "Command parser reads the Portuguese effort word",
+    JSON.stringify(parsedPt),
+    'Portuguese UI → __repforgeParseCommand("80 x 8 difícil")'
+  );
+  const afterEffortPt = await getState(page);
+  await persistState(page, { ...afterEffortPt, settings: { ...afterEffortPt.settings, lang: "en" } });
+  await reloadApp(page);
+
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
   await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
