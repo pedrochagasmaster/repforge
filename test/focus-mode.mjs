@@ -454,7 +454,24 @@ async function main() {
     "the next action is a navigation, and may carry an arrow", JSON.stringify(st));
   const atBefore = await page.evaluate(() => window.__repforgeFocus.at());
   await page.click("[data-fnext]");
-  await page.waitForTimeout(320);
+  // Tapping through runs the same transition a swipe does, rather than cutting.
+  await page.waitForTimeout(60);
+  const tapSlide = await page.evaluate(() => {
+    const track = document.querySelector("#focusTrack");
+    const peek = document.querySelector(".deck__slot--next");
+    return {
+      moving: getComputedStyle(track).transform !== "none",
+      settling: track.classList.contains("is-settling"),
+      swiping: document.querySelector("#focusDeck").classList.contains("is-swiping"),
+      peekVisible: peek ? getComputedStyle(peek).visibility === "visible" : null,
+      at: window.__repforgeFocus.at(),
+    };
+  });
+  assert(tapSlide.moving && tapSlide.settling && tapSlide.swiping &&
+    tapSlide.peekVisible === true && tapSlide.at === atBefore,
+    "Next exercise slides the deck across instead of cutting to it",
+    JSON.stringify(tapSlide));
+  await page.waitForTimeout(400);
   assert((await page.evaluate(() => window.__repforgeFocus.at())) === atBefore + 1,
     "the next-exercise action advances the deck");
 
@@ -512,26 +529,21 @@ async function main() {
     const peek = document.querySelector(".deck__slot--next");
     const track = document.querySelector("#focusTrack");
     const card = document.querySelector("#workout .exercise.is-current");
-    const slot = card.closest(".deck__slot");
-    const layer = slot.querySelector(".deck__layer");
     return {
       peekVisible: getComputedStyle(peek).visibility === "visible",
       peekName: peek.querySelector(".focus-ex__name")?.textContent?.trim() || "",
       peekHasWell: !!peek.querySelector(".focus-well"),
       peekInert: !peek.querySelector("input, button"),
       trackMoved: getComputedStyle(track).transform !== "none",
-      // The stack under the card is part of the card's slot, so it moves with it.
-      stackTravels: !!layer &&
-        Math.abs(layer.getBoundingClientRect().x - card.getBoundingClientRect().x) < 14,
       cardUpright: getComputedStyle(card).transform === "none",
-      peekHasStack: !!peek.querySelector(".deck__layer"),
+      stacked: document.querySelectorAll(".deck__layer").length,
       pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
   });
   assert(midSwipe.trackMoved && midSwipe.peekVisible && midSwipe.peekName && midSwipe.peekHasWell,
     "the neighbouring card rides in fully composed", JSON.stringify(midSwipe));
-  assert(midSwipe.stackTravels && midSwipe.cardUpright && midSwipe.peekHasStack,
-    "each card travels on its own stack, upright", JSON.stringify(midSwipe));
+  assert(midSwipe.cardUpright && midSwipe.stacked === 0,
+    "the cards travel flat and upright, with no stack behind them", JSON.stringify(midSwipe));
   assert(midSwipe.peekInert && !midSwipe.pageScrollsX,
     "the peek holds no controls and the page never scrolls sideways", JSON.stringify(midSwipe));
   await page.mouse.up();
@@ -575,14 +587,21 @@ async function main() {
       await page.waitForTimeout(300);
     }
   }
-  // Swiping is never the only way through.
+  // Swiping is never the only way through, and every way runs the same slide.
   await page.click("#woPrev");
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(60);
+  const chevSlide = await page.evaluate(() => ({
+    settling: document.querySelector("#focusTrack").classList.contains("is-settling"),
+    swiping: document.querySelector("#focusDeck").classList.contains("is-swiping"),
+  }));
+  assert(chevSlide.settling && chevSlide.swiping,
+    "the header chevron slides the deck too", JSON.stringify(chevSlide));
+  await page.waitForTimeout(400);
   assert((await page.evaluate(() => window.__repforgeFocus.at())) === 0,
     "the header chevron walks back");
   await page.evaluate(() => document.body.focus());
   await page.keyboard.press("ArrowRight");
-  await page.waitForTimeout(300);
+  await page.waitForTimeout(400);
   assert((await page.evaluate(() => window.__repforgeFocus.at())) === 1,
     "the arrow keys move between exercises");
 
