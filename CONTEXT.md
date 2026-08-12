@@ -32,6 +32,18 @@ _Avoid_: Workout (acceptable in casual copy; session is the domain term)
 One recorded set — load, reps, RIR — linked to an exercise template via exercise id.
 _Avoid_: Set entry, record
 
+**Capacity**:
+What a set demonstrated the lifter could have done: performed reps plus trusted reps in reserve (RIR credited at most up to the hard-set ceiling, `hardRir`). Expressed as capacity reps at a load, or normalized across loads as capacity-e1RM via Epley. The deterministic engine's single currency (ADR 0003) — a measurement, never a judgment of how close to failure the lifter chooses to train.
+_Avoid_: Potential, true max, e1RM (that is the RIR-blind variant), theoretical reps
+
+**Capacity baseline**:
+A lift's recent typical capacity-e1RM (median over its last few sessions), used to read today's performance as fresh or run-down. A reference for detecting off-days — never a target the lifter is steered toward.
+_Avoid_: Target, goal, expected performance
+
+**Session freshness**:
+The weak, temper-only cross-exercise signal: how the lifts already completed in the current session are running against their capacity baselines, weighted by muscle overlap with a systemic floor. It can only lower a not-yet-started exercise's first-set suggestion, never raise it, and it goes silent once that lift has its own sets logged today.
+_Avoid_: Readiness score, fatigue score, CNS fatigue
+
 **Exercise session note**:
 A free-text note attached to one exercise within one session — machine settings, seat height, grip. Stored on that session's log rows and carried forward as the default for the next session of that lift.
 _Avoid_: Setup notes (that is the program template field), comment, log note (the session-wide note field)
