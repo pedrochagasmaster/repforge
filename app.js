@@ -1510,6 +1510,11 @@ function setRowHtml(ex,n,r,draft,prev,nextSet){
    recommendation, the set being worked on, and the one action that commits it.
    ============================================================ */
 
+/** What a control on a peek copy gets instead of its hooks: the same element,
+ *  the same box, no action to fire and no place in the tab order. The peek card
+ *  is `inert` as a whole, so this is belt and braces — but it also keeps the
+ *  handlers in bindWorkout from ever seeing a neighbour's id. */
+const dead=()=>` tabindex="-1"`;
 /** Set numbers already committed on this exercise, in order. */
 function focusDoneSets(ex){const out=[];
   for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
@@ -1553,9 +1558,9 @@ function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false}){
   const cells=`<span class="ledger__n">${n}</span><span class="ledger__load">${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
     `<span class="${effortMode?"ledger__eff":""}">${esc(vals.eff)}</span>`+
     `<span class="ledger__check" aria-hidden="true"></span>`;
-  if(peek)return `<div class="ledger__row">${cells}</div>`;
-  return `<button type="button" class="ledger__row${editing?" is-editing":""}" data-editex="${esc(ex.id)}" data-editn="${n}"`+
-    ` aria-label="${esc(t("focus.edit_set_aria",{n}))}"${editing?' aria-current="true"':""}>${cells}</button>`}
+  return `<button type="button" class="ledger__row${editing?" is-editing":""}"${peek?dead()
+    :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}`+
+    `${editing?' aria-current="true"':""}>${cells}</button>`}
 
 /** The upper ledger: last session before the first set lands, the session's own
  *  rows after that, with older rows folded away once the list gets long. */
@@ -1578,7 +1583,7 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     return top(head())+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
       `<span class="ledger__dash" aria-hidden="true">—</span><span></span></div>`}
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
-  const open=peek?false:focusUnfolded.has(ex.id);
+  const open=focusUnfolded.has(ex.id);
   const folds=done.length>=FOCUS_FOLD_MIN&&!open;
   const hidden=folds?done.slice(0,done.length-FOCUS_FOLD_KEEP):[];
   const shown=folds?done.slice(done.length-FOCUS_FOLD_KEEP):done;
@@ -1591,10 +1596,11 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
       `<div class="ledger__ticks" aria-hidden="true">${done.map(()=>`<span class="ledger__tick"></span>`).join("")}</div>`
     :"";
   let disclosure="";
-  if(done.length>=FOCUS_FOLD_MIN&&!peek){
+  if(done.length>=FOCUS_FOLD_MIN){
     const span=open?done.slice(0,done.length-FOCUS_FOLD_KEEP):hidden;
     const from=span[0],to=span.at(-1);
-    disclosure=`<button type="button" class="ledger__more" data-fold="${esc(ex.id)}" aria-expanded="${open?"true":"false"}" aria-controls="ledger_${esc(ex.id)}">`+
+    disclosure=`<button type="button" class="ledger__more"${peek?dead()
+      :` data-fold="${esc(ex.id)}" aria-controls="ledger_${esc(ex.id)}"`} aria-expanded="${open?"true":"false"}">`+
       `<span>${esc(t(open?"focus.ledger.hide":"focus.ledger.show",{from,to}))}</span>`+
       `<span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`}
   return top(summary+head())+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
@@ -1608,8 +1614,8 @@ function focusCell(label,inner,{accent=false,steps="",hint="",cls=""}={}){
     `<span class="curset__underline" aria-hidden="true"></span>`+
     (steps?`<div class="curset__steps">${steps}</div>`:"")+
     (hint?`<div class="curset__hint">${hint}</div>`:"")+`</div>`}
-const stepBtn=(target,dir,label,attr="data-step")=>
-  `<button type="button" class="stepbtn" ${attr}="${esc(target)}" data-dir="${dir}" tabindex="-1" aria-label="${esc(label)}">${dir>0?"+":"−"}</button>`;
+const stepBtn=(target,dir,label,attr="data-step",peek=false)=>
+  `<button type="button" class="stepbtn"${peek?"":` ${attr}="${esc(target)}" data-dir="${dir}" aria-label="${esc(label)}"`} tabindex="-1">${dir>0?"+":"−"}</button>`;
 
 /** The set being worked on — three columns of numbers (or two plus effort). */
 function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
@@ -1624,10 +1630,10 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
   // The unit sits on the Load label so three-digit loads still fit the figure.
   const loadCell=focusCell(loadHeadHtml(),
     val(kgVal||"—",`data-k="${ex.id}_${n}_load" size="4" type="text" inputmode="decimal" enterkeyhint="next" placeholder="—" aria-label="${esc(t("log.set_unit_aria",{n,unit}))}"`,kgVal),
-    {accent:true,steps:peek?"":stepBtn(`${ex.id}_${n}_load`,-1,t("log.set_decrease_aria",{n,unit}))+stepBtn(`${ex.id}_${n}_load`,1,t("log.set_increase_aria",{n,unit}))});
+    {accent:true,steps:stepBtn(`${ex.id}_${n}_load`,-1,t("log.set_decrease_aria",{n,unit}),"data-step",peek)+stepBtn(`${ex.id}_${n}_load`,1,t("log.set_increase_aria",{n,unit}),"data-step",peek)});
   const repsCell=focusCell(repsLab,
     val(repsVal,`data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}"`),
-    {steps:peek?"":stepBtn(`${ex.id}_${n}_reps`,-1,t("log.set_decrease_aria",{n,unit:repsLab}))+stepBtn(`${ex.id}_${n}_reps`,1,t("log.set_increase_aria",{n,unit:repsLab}))});
+    {steps:stepBtn(`${ex.id}_${n}_reps`,-1,t("log.set_decrease_aria",{n,unit:repsLab}),"data-step",peek)+stepBtn(`${ex.id}_${n}_reps`,1,t("log.set_increase_aria",{n,unit:repsLab}),"data-step",peek)});
   // Effort is a word, so its column is a spinner over the three steps rather
   // than a free number — same geometry as RIR, same two nudge buttons.
   const effCell=(()=>{
@@ -1638,10 +1644,10 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
         ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
         ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
     return focusCell(esc(t("log.effort")),body,{cls:"is-effort",hint:esc(effortHint(effortVal)),
-      steps:peek?"":stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep")+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep")})})();
+      steps:stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep",peek)+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep",peek)})})();
   const rirCell=focusCell("RIR",
     val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
-    {steps:peek?"":stepBtn(`${ex.id}_${n}_rir`,-1,t("log.set_decrease_aria",{n,unit:"RIR"}))+stepBtn(`${ex.id}_${n}_rir`,1,t("log.set_increase_aria",{n,unit:"RIR"}))});
+    {steps:stepBtn(`${ex.id}_${n}_rir`,-1,t("log.set_decrease_aria",{n,unit:"RIR"}),"data-step",peek)+stepBtn(`${ex.id}_${n}_rir`,1,t("log.set_increase_aria",{n,unit:"RIR"}),"data-step",peek)});
   return `<div class="curset" data-set="${esc(key)}"><div class="curset__grid">`+
     loadCell+repsCell+(effortMode?effCell:rirCell)+`</div></div>`}
 
@@ -1656,20 +1662,20 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
       ?t("focus.wo_done_sub",{n:focusList().length,lifts:tp(focusList().length,"lift")})
       :t("focus.ex_done_sets",{n:done,sets:tp(done,"logged set")});
     const cta=allDone||!hasNext
-      ?`<button type="button" class="btn btn--cta btn--noarrow" data-ffinish>${esc(t("log.finish"))}</button>`
-      :`<button type="button" class="btn btn--cta" data-fnext>${esc(t("focus.next_ex"))}</button>`;
+      ?`<button type="button" class="btn btn--cta btn--noarrow"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
+      :`<button type="button" class="btn btn--cta"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
     return `<div class="focus-well is-done">`+
       `<div class="focus-done"><span class="focus-done__mark" aria-hidden="true"></span>`+
       `<div class="focus-done__text"><p class="focus-done__title">${esc(title)}</p>`+
       `<p class="focus-done__sub">${esc(sub)}</p></div></div>`+
-      (peek?"":cta)+`</div>`}
+      cta+`</div>`}
   const cue=focusCue(ex,n,r,draft,prev,editing);
   const key=`${ex.id}_${n}`;
-  const action=peek?""
-    :(editing
-      ?`<button type="button" class="focus-well__cancel" data-fcancel>${esc(t("focus.cancel_edit"))}</button>`+
-        `<button type="button" class="btn btn--cta btn--noarrow saveset" data-save="${esc(key)}">${esc(t("focus.save_edit"))}</button>`
-      :`<button type="button" class="btn btn--cta btn--noarrow saveset" data-save="${esc(key)}">${esc(t("today.log_set"))}</button>`);
+  const commit=(label)=>`<button type="button" class="btn btn--cta btn--noarrow saveset"${peek?dead():` data-save="${esc(key)}"`}>${esc(label)}</button>`;
+  const action=editing
+    ?`<button type="button" class="focus-well__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`+
+      commit(t("focus.save_edit"))
+    :commit(t("today.log_set"));
   return `<div class="focus-well${editing?" is-editing":""}">`+
     `<p class="focus-cue is-${cue.kind}"><span class="focus-cue__bolt" aria-hidden="true"></span>`+
     `<b class="focus-cue__lab">${esc(cue.label)}</b><span class="focus-cue__sep" aria-hidden="true">·</span>`+
@@ -1677,22 +1683,27 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     cursetHtml(ex,n,r,draft,prev,{peek})+action+`</div>`}
 
 /** A whole focus card. `peek` renders the inert copy that rides in from the
- *  side during a swipe: same composition, no inputs, no duplicate field keys. */
+ *  side during a swipe: the same card, down to every control and the space it
+ *  takes, so nothing pops in or reflows when the copy becomes the live one.
+ *  What a peek does not carry is behaviour — its controls hold no hooks and no
+ *  tab stop — and no `data-k` field, which would duplicate the draft keys the
+ *  live card owns. */
 function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,showSkip=true}=opts;
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
   const perf=substituted.get(ex.id);
   const name=perf||ex.name;
-  const nameHtml=peek
-    ?`<h3 class="focus-ex__name">${esc(name)}</h3>`
-    :`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}">${esc(name)}</button></h3>`;
+  const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
+    `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
   const setNo=n||ex.sets;
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
-  const tools=peek?"":`<div class="focus-ex__tools">`+
-    `<button type="button" class="focus-tool${noteVal?" has-note":""}" data-exnote-open="${esc(ex.id)}" aria-label="${esc(t("focus.note_aria",{name}))}">`+
+  const tools=`<div class="focus-ex__tools">`+
+    `<button type="button" class="focus-tool${noteVal?" has-note":""}"`+
+    `${peek?dead():` data-exnote-open="${esc(ex.id)}" aria-label="${esc(t("focus.note_aria",{name}))}"`}>`+
     `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
-    (showSkip?`<button type="button" class="focus-tool ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}">`+
+    (showSkip?`<button type="button" class="focus-tool ex__skip"`+
+      `${peek?dead():` data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}"`}>`+
       `<span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`:"")+
     `</div>`;
   // Every set that is not in the well still needs a field to hold its value:
@@ -1702,7 +1713,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
       .map(m=>setRowHtml(ex,m,r,draft,prev,0)).join("")+
     `<textarea class="exnote__input" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" tabindex="-1">${esc(noteVal)}</textarea></div>`;
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
-    (peek?` aria-hidden="true" data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
+    (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
     `<span class="focus-ex__muscle">${esc(ex.primary)}</span>`+
     `<span class="focus-ex__setof">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
@@ -1719,8 +1730,11 @@ function focusCardHtml(ex,r,draft,prev,opts){
 function focusDeckHtml(ex,r,draft,prev,{fl,at}){
   const allDone=fl.every(e=>{for(let n=1;n<=e.sets;n++)if(!committed.has(`${e.id}_${n}`))return false;return true});
   const slot=(inner,side)=>`<div class="deck__slot${side?` deck__slot--${side}`:""}"${side?' aria-hidden="true"':""}>${inner}</div>`;
+  // A neighbour is rendered exactly as it will be once it lands: same well,
+  // same tools, same skip — the swipe is a move, not a rebuild.
   const peek=(i,side)=>fl[i]
-    ? slot(focusCardHtml(fl[i],recommendation(fl[i]),draft,last(fl[i]),{peek:true,hasNext:true,allDone:false}),side)
+    ? slot(focusCardHtml(fl[i],recommendation(fl[i]),draft,last(fl[i]),
+        {peek:true,hasNext:i<fl.length-1,allDone,showSkip:i<fl.length-1}),side)
     : "";
   return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}"><div class="deck__track" id="focusTrack">`+
     peek(at-1,"prev")+
@@ -1803,10 +1817,16 @@ function renderWorkout(){
   updateFocusChrome();
   sizeFocusDeck();
 }
-/** After a render, bring the ledger to the row that matters. The card's own
- *  height comes from the layout, so nothing is measured into a stale number. */
+/** After a render, bring every card in the deck to the row that matters — the
+ *  peeks included, so a neighbour rides in already showing what it will show
+ *  once it lands. The card's own height comes from the layout, so nothing is
+ *  measured into a stale number. */
 function sizeFocusDeck(){
-  const card=focusCard();if(!card)return;
+  const cards=$$("#focusDeck .exercise--focus");
+  if(cards.length)cards.forEach(sizeFocusCard);
+  else sizeFocusCard(focusCard())}
+function sizeFocusCard(card){
+  if(!card)return;
   const ledger=card.querySelector(".fcard__ledger");if(!ledger)return;
   const scrolls=ledger.scrollHeight>ledger.clientHeight+1;
   ledger.classList.toggle("is-scrollable",scrolls);
@@ -1857,15 +1877,19 @@ function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x
   if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
   localStorage.setItem(DRAFT,JSON.stringify(d))}
 
+/** Controls of the live workout. The deck also holds a full copy of each
+ *  neighbouring card, so every focus control exists three times over; only the
+ *  live one takes a handler. */
+const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
-  $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow, .curset");
+  $w("input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow, .curset");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();
     const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1]);
     refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
-  $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
-  $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
+  $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
+  $w(".saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
     const load=parseDec($(`[data-k="${key}_load"]`)?.value)||0;
     if(load<=0){toast(t("toast.enter_weight_before_save_set"));return}
     const row=b.closest(".setrow, .curset");
@@ -1886,9 +1910,9 @@ function bindWorkout(){
     if(editing)toast(t("toast.set_updated"));
     if(logMode==="focus")renderWorkout();
     else updateFocusChrome()});
-  $$("#workout [data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
+  $w("[data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
     warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
-  $$("#workout .stepbtn").forEach(b=>b.onclick=()=>{if(!b.dataset.step)return;
+  $w(".stepbtn").forEach(b=>b.onclick=()=>{if(!b.dataset.step)return;
     const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const key=b.dataset.step||"",dir=+b.dataset.dir||0;
     if(/_reps$|_rir$/.test(key)){
@@ -1901,7 +1925,7 @@ function bindWorkout(){
     const row=inp.closest(".setrow, .curset");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
-  $$("#workout .copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
+  $w(".copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
     for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
       for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmtPlain(toDisplay(s.load)):fmtPlain(s[f])}
       // The pickers carry the copied effort: saveDraft reads the DOM back, so
@@ -1909,19 +1933,19 @@ function bindWorkout(){
       if(isEffortMode())setEffortPick(key,effortForRir(s.rir));
       else{const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
     saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
-  $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
-  $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
+  $w(".ex__rest").forEach(b=>b.onclick=()=>startRest());
+  $w(".ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
     skipped.has(id)?skipped.delete(id):skipped.add(id);
     if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
     renderWorkout()});
-  $$("#workout .subst__pick").forEach(sel=>{sel.onchange=()=>{const id=sel.dataset.sub;
+  $w(".subst__pick").forEach(sel=>{sel.onchange=()=>{const id=sel.dataset.sub;
     if(sel.value==="__other__"){const v=prompt(t("prompt.alternate_exercise_name"),substituted.get(id)||"");
       if(v==null){renderWorkout();return}
       const t=String(v).trim().slice(0,80);
       if(!t||t===prog.find(id)?.name){substituted.delete(id)}else{substituted.set(id,t)}
     }else if(!sel.value){substituted.delete(id)}else{substituted.set(id,sel.value)}
     renderWorkout()}});
-  $$("#workout .effort__btn").forEach(b=>{
+  $w(".effort__btn").forEach(b=>{
     b.onclick=()=>{const key=b.dataset.eff;
       setEffortPick(key,b.dataset.e);touched.add(key);
       const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
@@ -1942,26 +1966,26 @@ function bindWorkout(){
     if(next===el.dataset.e)return;
     setEffortPick(key,next);touched.add(key);
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
-  $$("#workout [data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
-  $$("#workout [data-effspin]").forEach(el=>{el.onkeydown=e=>{
+  $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
+  $w("[data-effspin]").forEach(el=>{el.onkeydown=e=>{
     const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
     const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
     if(!step&&jump==null)return;
     e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
-  $$("#workout [data-exnote-toggle]").forEach(b=>b.onclick=()=>{
+  $w("[data-exnote-toggle]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
     if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
     const ta=wrap?.querySelector(".exnote__input");if(!ta)return;
     const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
     wrap.classList.toggle("is-open",open);
     if(open){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}});
-  $$("#workout .exnote__input").forEach(t=>{t.oninput=()=>{saveDraft();
+  $w(".exnote__input").forEach(t=>{t.oninput=()=>{saveDraft();
     const prev=t.closest(".exnote")?.querySelector(".exnote__preview");
     if(prev)prev.textContent=t.value.trim()||t("log.note.empty");
     t.closest(".exnote")?.classList.toggle("has-note",!!t.value.trim())}});
-  $$("#workout .ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
+  $w(".ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
-  $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
+  $w(".ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
   if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
@@ -1973,14 +1997,14 @@ function bindWorkout(){
         `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
       $("#woPrev").onclick=()=>focusAnimateTo(-1);
       $("#woNext").onclick=()=>focusAnimateTo(1)}
-    const f=$("[data-ffinish]");if(f)f.onclick=()=>$("#logForm").requestSubmit();
-    $$("#workout [data-fnext]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
+    const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
+    $w("[data-fnext]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     // Tap a logged row to reopen that set in the well, with a way back out.
-    $$("#workout [data-editn]").forEach(b=>b.onclick=()=>{
+    $w("[data-editn]").forEach(b=>b.onclick=()=>{
       const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft();
       focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`]}};
       renderWorkout()});
-    $$("#workout [data-fcancel]").forEach(b=>b.onclick=()=>{
+    $w("[data-fcancel]").forEach(b=>b.onclick=()=>{
       if(!focusEdit)return;
       const{exId,n,snap}=focusEdit,key=`${exId}_${n}`;
       for(const f2 of ["load","reps","rir"]){
@@ -1988,11 +2012,11 @@ function bindWorkout(){
         const inp=$(`[data-k="${key}_${f2}"]`);if(inp)inp.value=snap[f2]}
       if(snap.effort)setEffortPick(key,snap.effort);
       focusEdit=null;saveDraft();renderWorkout()});
-    $$("#workout [data-fold]").forEach(b=>b.onclick=()=>{
+    $w("[data-fold]").forEach(b=>b.onclick=()=>{
       const id=b.dataset.fold;
       focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
       renderWorkout()});
-    $$("#workout [data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen))}
+    $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen))}
   else{$("#woProgress")?.classList.add("hidden")}
   updateFocusChrome();
 }
