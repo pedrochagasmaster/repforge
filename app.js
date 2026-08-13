@@ -2083,12 +2083,18 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
   el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:r.latest,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
     [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
 
+// The week reads as a headline: the verdict first, the arithmetic under it, and a
+// session bar so "3 of 4" is legible without reading. The attention tally counts the
+// same lifts the Attention list below shows, so the two numbers never disagree.
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
-  const attnN=(attentionGroups().find(g=>g.key==="reduce")?.items.length||0)+(attentionGroups().find(g=>g.key==="stale")?.items.length||0);
+  const attnN=attentionCount();
   const withHist=prog.exercises.filter(e=>sessionsFor(e).length).length;
   const flatGuess=Math.max(0,withHist-w.improvedLifts-(attnN||0)-(w.readyToAdd||0));
-  el.innerHTML=`<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
-    `<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
+  const segs=Math.max(w.plannedDays,w.completedDays,1),done=Math.min(w.completedDays,segs);
+  el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
+    `<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
+    `<div class="ov-week-bar" aria-hidden="true">`+
+    Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
     `<div class="statrow">`+
     `<div class="statrow__cell"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${flatGuess}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
@@ -2114,7 +2120,7 @@ function renderReadyList(){const el=$("#readyList");if(!el)return;
       const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
       return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
         `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}<span class="chevron" aria-hidden="true"></span></span></button>`};
-  el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}</p>`+shown.map(row).join("")+
+  el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}<span class="section-label__count">${esc(t("stats.section_count",{n:items.length}))}</span></p>`+shown.map(row).join("")+
     (more>0&&!readyExpanded?`<button type="button" class="link-row-cta" id="readySeeAll"><span>${esc(t("stats.ready_see_all",{n:items.length}))}</span><span class="chevron" aria-hidden="true"></span></button>`:"");
   $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"));
   const see=$("#readySeeAll");if(see)see.onclick=()=>{readyExpanded=true;renderReadyList()}}
@@ -2362,10 +2368,14 @@ window.__repforgeRecommendation=recommendation;
 window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir,capacityBaseline,
   sessionsFor,expectedSetDrop,sessionFreshness,baseSetReps,setSuggestion};
 window.__repforgeAttention=attentionGroups;
+// Lifts on the Attention board — everything the board lists, so the "attention" cell in
+// the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
+function attentionCount(groups){return(groups||attentionGroups().filter(g=>g.key!=="add")).reduce((n,g)=>n+g.items.length,0)}
 function renderAttention(){const el=$("#attention");if(!el)return;
   const groups=attentionGroups().filter(g=>g.key!=="add");
   if(!groups.length){el.innerHTML="";return}
-  const html=`<p class="section-label">${esc(t("attention.title"))}</p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
+  const n=attentionCount(groups);
+  const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
     `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
     items.map(({ex,why})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("");
   el.innerHTML=html;

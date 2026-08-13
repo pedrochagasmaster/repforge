@@ -263,11 +263,20 @@ four; ruling: keep Review reachable here AND from Program's "Revisar bloco").
 
 - Header: "Progresso" title; right side "4 semanas ›" period affordance may be static
   text bound to the existing 7/28-day window toggle (relabel: "7 dias"/"28 dias").
-- Tabs: Visão geral / Força / Volume / PRs / Revisão (in-page tab component).
+- Tabs: Visão geral / Força / Volume / PRs / Revisão (in-page tab component). All five
+  sit on one line at every phone width — the tabs trim their padding rather than let
+  the last one hang off the edge.
 - Overview, top to bottom:
-  - "ESTA SEMANA" label; line "2 de 4 sessões · 28 séries efetivas"; stat row
+  - "ESTA SEMANA" label; the week's verdict as a headline at page-title scale
+    ("Semana produtiva"); under it the arithmetic in `--ink-soft`
+    ("2 de 4 sessões · 28 séries efetivas"); under that a session bar — one segment per
+    planned session, filled for the ones already logged, decorative to assistive tech
+    because the line above says the same thing. Then the stat row
     3 melhoraram / 8 estáveis / 1 atenção (existing weekly snapshot + attention data;
-    "atenção" cell gets the orange dot).
+    "atenção" cell gets the orange dot, and counts exactly the lifts the Attention board
+    below lists, so the two numbers cannot disagree).
+  - "PRONTOS PARA PROGREDIR · n" / "ATENÇÃO · n": section labels carry the count of rows
+    under them, in `--ink-faint`.
   - "PRONTOS PARA PROGREDIR": rows per ready exercise — name, reason line
     (`--ink-soft`), right-aligned orange "+2,5 kg" delta + chevron → exercise page.
     From the attention/recommendation engine's increase list.

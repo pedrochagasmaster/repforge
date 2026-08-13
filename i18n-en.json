@@ -679,6 +679,7 @@
   "stats.this_week.stable": "stable",
   "stats.this_week.attention": "attention",
   "stats.ready_to_progress": "Ready to progress",
+  "stats.section_count": " · {n}",
   "stats.volume_on_target": "On target",
   "stats.volume_below": "Below",
   "stats.strength_trend": "Strength trend",
