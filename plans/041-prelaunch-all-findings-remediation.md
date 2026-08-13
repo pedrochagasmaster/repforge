@@ -12,7 +12,7 @@
 > into pre-launch scope. Nothing in the coverage matrix below may be deferred.
 >
 > **Drift check (run first)**:
-> `git diff --stat a909933..HEAD -- app.js index.html styles.css i18n.js i18n-en.json i18n-pt.json notify.js manifest.webmanifest sw.js README.md test .github/workflows/simulation.yml`
+> `git diff --stat a909933..HEAD -- AGENTS.md app.js index.html styles.css i18n.js i18n-en.json i18n-pt.json notify.js manifest.webmanifest sw.js README.md plans/README.md test .github/workflows/simulation.yml`
 >
 > If an in-scope file changed after `a909933`, compare the current code against
 > the anchors in this plan. If storage, draft, onboarding, dialog, History, or
@@ -25,7 +25,8 @@
 - **Effort**: L
 - **Risk**: HIGH (persistence, draft recovery, lifecycle, and broad interaction
   semantics change in one release train)
-- **Depends on**: `plans/040-launch-readiness-ui-ux-audit.md`
+- **Depends on**: none (`plans/040-launch-readiness-ui-ux-audit.md` is
+  provenance only; this plan is executable without reading it)
 - **Category**: correctness / accessibility / performance / docs / UX
 - **Planned at**: commit `a909933`, 2026-08-13
 - **Implementation status**: TODO
@@ -87,8 +88,10 @@ Count check: 1 DATA + 20 UX + 2 A11Y + 1 PERF = **24 findings**.
 - RepForge is a static PWA. Runtime files are `index.html`, `styles.css`,
   `app.js`, `schedule.js`, `notify.js`, `i18n.js`,
   `manifest.webmanifest`, and `sw.js`.
-- There is no application build, framework, backend, account, or cloud sync.
-  Do not introduce one.
+- There is no application build, framework, backend, account, cloud sync, or
+  application dependency. Do not introduce one. The existing browser harness
+  is different: it has test-only npm metadata under `test/` and requires its
+  pinned Playwright dependency in a fresh checkout.
 - Serve the repository root over HTTP. Opening `index.html` as a file is not a
   valid test because service workers, manifest loading, and browser storage are
   origin-bound.
@@ -174,6 +177,139 @@ Count check: 1 DATA + 20 UX + 2 A11Y + 1 PERF = **24 findings**.
   only the broad simulation and Focus suite. Step 11 adds every release suite.
 - Service-worker shell edits are cache-sensitive. Change `sw.js` only in the
   final integration step and increment `CACHE` exactly once.
+- `AGENTS.md` currently describes the application as localStorage-only and says
+  there is no test package, while the live app uses localStorage + IndexedDB and
+  the browser harness has test-only npm dependencies. Step 11 corrects those
+  setup facts without changing the dependency-free application architecture.
+
+### Load-bearing current excerpts (drift tripwires)
+
+These excerpts inline the seams the executor must still find before editing.
+Line movement alone is harmless; changed behavior is a STOP condition.
+
+`app.js:767-774` currently makes persistence fire-and-forget and does not return
+an accepted-write result:
+
+```js
+function save(){persist()}
+function persist(){
+  dropMemo.clear();baselineMemo.clear();
+  let lsOk=true;
+  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){lsOk=false;console.warn("localStorage mirror failed",e)}
+  idbSet(KEY,state).catch(e=>{console.warn("idb persist failed",e);
+    // Only alarm the user when neither store took the write — data is genuinely at risk.
+    if(!lsOk&&!persist.warned){persist.warned=true;toast(t("toast.storage_full"))}})}
+```
+
+`app.js:3239-3251` currently prefers IndexedDB and then persists immediately:
+
+```js
+async function boot(){
+  let raw=null;
+  try{raw=await idbGet(KEY)}catch(e){console.warn("idb read failed",e)}
+  if(raw==null){try{const ls=localStorage.getItem(KEY);
+    if(ls){raw=JSON.parse(ls);try{await idbSet(KEY,raw)}catch(e){console.warn("idb migration failed",e)}}}
+  catch(e){console.warn("localStorage read failed",e)}}
+  state=normalizeLoaded(raw);
+  prog=new Program(state.program);state.program=prog.toJSON();
+  state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
+  day=days()[0]||"Day 1";
+  applyGotoParam();
+  migrateLog();
+  persist();
+}
+```
+
+`app.js:1850-1858` currently serializes only DOM fields plus three set-state
+collections, omitting session context and skip/substitution state:
+
+```js
+function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
+  $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
+  $$("#workout [data-effspin]").forEach(e=>d[`${e.dataset.effspin}_effort`]=e.dataset.e);
+  // Store every note field, empty included — an empty value is the lifter clearing a carried-forward note.
+  const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
+  if(Object.keys(notes).length)d.__exnotes=notes;
+  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];
+  if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
+  localStorage.setItem(DRAFT,JSON.stringify(d))}
+```
+
+`app.js:703-733` currently archives before starting the successor and opens
+modals by toggling `.hidden`:
+
+```js
+function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
+  completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
+function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview}
+function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
+  d.classList.remove("hidden");
+  $("#endBlockGo").onclick=()=>{d.classList.add("hidden");openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))};
+  $("#endBlockCancel").onclick=()=>d.classList.add("hidden")}
+```
+
+`app.js:2447-2491` currently re-scans the full log per session and again for
+calendar PRs:
+
+```js
+function renderHistory(){
+  if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
+  renderHistoryCalendar();
+  let sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
+    const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
+  const q=histQuery.trim().toLowerCase();
+  if(q)sessions=sessions.filter(s=>{
+    const sets=state.log.filter(r=>r.session===s.session);
+    return String(s.day).toLowerCase().includes(q)||sets.some(r=>displayName(r).toLowerCase().includes(q))});
+}
+```
+
+Inside the session mapping, `app.js:2458` scans again:
+
+```js
+const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
+```
+
+`app.js:2489-2491` independently re-scans for calendar data:
+
+```js
+const monthSessions=state.log.filter(r=>String(r.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`));
+const byDay=new Map();for(const r of monthSessions){const d=+String(r.date).slice(8,10);if(!byDay.has(d))byDay.set(d,{sets:0,pr:false});byDay.get(d).sets++}
+for(const ev of detectPRs(state.log)){if(String(ev.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`)){const d=+String(ev.date).slice(8,10);const o=byDay.get(d)||{sets:0,pr:false};o.pr=true;byDay.set(d,o)}}
+```
+
+`i18n.js:1645-1653` supports placeholder, ARIA, and title attributes; all three
+belong in parity checks:
+
+```js
+document.querySelectorAll("[data-i18n-placeholder]").forEach(el => {
+  el.setAttribute("placeholder", t(el.getAttribute("data-i18n-placeholder")));
+});
+document.querySelectorAll("[data-i18n-aria]").forEach(el => {
+  el.setAttribute("aria-label", t(el.getAttribute("data-i18n-aria")));
+});
+document.querySelectorAll("[data-i18n-title]").forEach(el => {
+  el.setAttribute("title", t(el.getAttribute("data-i18n-title")));
+});
+```
+
+`sw.js:1-9,22` currently uses cache `repforge-v53`; `ASSETS` is broader than
+`SHELL`, and both lists are release invariants:
+
+```js
+const CACHE = "repforge-v53";
+const ASSETS = [
+  "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
+  "./schedule.js", "./notify.js", "./i18n.js",
+  "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
+  "./icons/icon-512.png", "./icons/icon-1024.png",
+  "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
+  "./fonts/plexsans.woff2",
+  "./fonts/plexmono-400.woff2", "./fonts/plexmono-500.woff2", "./fonts/plexmono-600.woff2"
+];
+const SHELL = new Set(["/","/index.html","/app.js","/styles.css","/i18n.js","/manifest.webmanifest"]);
+```
 
 ## Commands you will need
 
@@ -181,6 +317,7 @@ Run commands from the repository root unless the command says otherwise.
 
 | Purpose | Command | Expected on success |
 |---|---|---|
+| Test-only bootstrap (fresh checkout) | `(cd test && npm ci && npx playwright install chromium --with-deps)` | exit 0; installs only the pinned browser-harness dependency/browser, not an application dependency |
 | Syntax | `for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs; do node --check "$f" || exit 1; done` | exit 0 |
 | Static server | `python3 -m http.server 8000` | serves repository on `:8000`; leave it running |
 | Pure schedule | `node test/schedule.mjs` | `schedule tests: 8 passed, 0 failed` |
@@ -196,12 +333,12 @@ Run commands from the repository root unless the command says otherwise.
 | HTTPS release-candidate identity | `REPFORGE_RC_ORIGIN=https://…; export REPFORGE_RC_ORIGIN; commit=$(git rev-parse HEAD); evidence="/opt/cursor/artifacts/repforge_rc_identity_${commit}.log"; printf 'origin=%s\ncommit=%s\n' "$REPFORGE_RC_ORIGIN" "$commit" \| tee "$evidence"; for f in index.html styles.css app.js schedule.js notify.js i18n.js i18n-en.json i18n-pt.json manifest.webmanifest sw.js icons/icon.svg; do local_sha=$(sha256sum "$f" \| awk '{print $1}'); remote_sha=$(curl -fsS -H 'Cache-Control: no-cache' "$REPFORGE_RC_ORIGIN/${f}?commit=$commit" \| sha256sum \| awk '{print $1}'); test "$local_sha" = "$remote_sha" \|\| exit 1; printf '%s local=%s remote=%s\n' "$f" "$local_sha" "$remote_sha" \| tee -a "$evidence"; done` | exit 0; evidence log prints origin, full commit, filename, local SHA, and matching remote SHA for every shell asset |
 | Patch hygiene | `git diff --check` | exit 0, no output |
 
-The focused browser scripts import the repository's existing Playwright test
-dependency through `test/browser.mjs`. Do not add application dependencies or
-a root build system. If the current environment cannot resolve that existing
-test dependency, use the existing CI environment; if neither local execution
-nor CI is available, that is a STOP condition—not permission to mark browser
-verification as passed.
+Run the test-only bootstrap once in every fresh checkout before a browser gate;
+CI must run the equivalent pinned install. The focused browser scripts import
+Playwright through `test/browser.mjs`. Do not move it to the root, add
+application dependencies, or introduce an application build. A failed
+`npm ci`/browser install after one clean retry is a STOP condition—not
+permission to mark browser verification as passed.
 
 ## Suggested executor toolkit
 
@@ -226,6 +363,7 @@ verification as passed.
 - `manifest.webmanifest`
 - `sw.js`
 - `README.md`
+- `AGENTS.md` (factual test/bootstrap, dual-store, and cache guidance only)
 - `test/simulation.mjs`
 - `test/notifications.mjs`
 - `test/focus-mode.mjs`
@@ -234,7 +372,7 @@ verification as passed.
 - `test/i18n.mjs` (new)
 - `test/manual-matrix.mjs` (new; deterministic fixture/reset helper only)
 - `.github/workflows/simulation.yml`
-- `plans/README.md` (status only when implementation completes)
+- `plans/README.md` (status plus factual verification/setup corrections only)
 
 **Out of scope**:
 
@@ -340,11 +478,16 @@ Implement a storage-only revision without wrapping the existing state shape:
    adapter and make the shared `writeSnapshot(snapshot, io)` function accept an
    adapter. `persist()` always supplies the real adapter; tests supply
    deterministic failing/delayed fakes. Serialize real IndexedDB writes through
-   one promise queue. Clone each snapshot before queueing so later `state`
-   mutations cannot alter an earlier write. Increment the revision once per
-   logical `persist()` call. Make `save()`/`persist()` return a result promise
-   containing `{ revision, localOk, idbOk }` so transactional callers can
-   distinguish one accepted replica from total failure.
+   one rejection-absorbing promise queue. Each logical write gets its own
+   result promise, while the internal queue tail is reset to a fulfilled
+   sentinel on both resolution and rejection (equivalent to
+   `tail = operation.then(()=>undefined,()=>undefined)`); never assign a
+   potentially rejected operation directly as the next queue tail. `flush()`
+   awaits that absorbing tail. Clone each snapshot before queueing so later
+   `state` mutations cannot alter an earlier write. Increment the revision once
+   per logical `persist()` call. Make `save()`/`persist()` return the individual
+   result promise containing `{ revision, localOk, idbOk }` so transactional
+   callers can distinguish one accepted replica from total failure.
 7. Add `commitProposedState(proposal, io=storageIO)` at this persistence seam.
    It deep-clones the proposal, assigns the next local revision, writes that
    snapshot, and updates live `state`/`prog`/memoized derivatives only when
@@ -387,6 +530,10 @@ Create `test/persistence.mjs`, following the result/`assert` style of
   persistence, preserve raw data, and expose Retry/recovery;
 - injected IndexedDB failure/localStorage success → degraded status, then
   reload from the newer local snapshot and heal IndexedDB;
+- injected IndexedDB failure/localStorage success followed, without reload, by
+  an allowed write: the second operation runs despite the first rejection,
+  `flush()` resolves, both replicas contain the second operation's highest
+  revision, and degraded health clears;
 - injected localStorage failure/IndexedDB success → degraded status, then
   reload from the newer IndexedDB snapshot and heal localStorage;
 - injected failure of both stores → destructive-failure alert and no false
@@ -1022,7 +1169,9 @@ Use the launch-safe treatments already chosen in the audit:
    overload product with machines, cables, dumbbells, barbells, and bodyweight.
    Do not promise account sync or cross-device recovery.
 6. Add `test/i18n.mjs`:
-   - parse both locale JSON files;
+   - scan each locale's raw JSON token stream before `JSON.parse()` and fail on
+     any duplicate object key at any nesting level (plain parsing silently keeps
+     only the last duplicate), then parse both locale JSON files;
    - evaluate/extract the two runtime dictionaries from `i18n.js` in an isolated
      VM context;
    - assert exact key/value parity between each JSON and runtime dictionary;
@@ -1099,8 +1248,9 @@ Expected: exit 0 and `FAILED: 0`.
 
 **Findings**: all 24 integrated.
 
-1. Update `.github/workflows/simulation.yml` so CI runs, after the existing
-   server setup:
+1. Update `.github/workflows/simulation.yml` so CI runs the pinned test-only
+   bootstrap `(cd test && npm ci && npx playwright install chromium --with-deps)`
+   before the existing server setup, then:
    - syntax for all runtime/test JS, including `sw.js`;
    - `test/schedule.mjs`;
    - `test/i18n.mjs`;
@@ -1141,12 +1291,19 @@ Expected: exit 0 and `FAILED: 0`.
    keeping a per-cell evidence ledger, two concise successful physical-device
    videos (iOS/VoiceOver and Android/TalkBack), and one final-state screenshot
    per cell. Do not attach failed attempts.
-6. Update `plans/README.md`: mark Plan 041 DONE only after automated and manual
-   gates both pass. Plan 040 remains an audit record, not “fixed” documentation.
+6. Correct setup guidance in `AGENTS.md` and the verification preamble in
+   `plans/README.md`: the application remains build-free/dependency-free and
+   local-only, durable state is mirrored in localStorage + IndexedDB, draft
+   state is localStorage-only, browser suites use pinned test-only dependencies
+   under `test/`, and the documented service-worker shell matches `sw.js`.
+   Do not add generic npm/build instructions for running the application.
+7. Mark Plan 041 DONE in `plans/README.md` only after automated and manual gates
+   both pass. Plan 040 remains an audit record, not “fixed” documentation.
 
 **Verify**:
 
 ```bash
+(cd test && npm ci && npx playwright install chromium --with-deps)
 for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs; do node --check "$f" || exit 1; done
 node test/schedule.mjs
 node test/i18n.mjs
@@ -1300,7 +1457,11 @@ All items are mandatory:
 - [ ] PERF-01: History source rows are indexed linearly once per render and the
       large fixture remains correct/responsive.
 - [ ] EN/PT dictionaries, DOM/JavaScript key families, and placeholders have
-      exact parity; no raw-key fallback appears.
+      exact parity; raw locale files contain no duplicate keys; no raw-key
+      fallback appears.
+- [ ] A fresh checkout completes the test-only bootstrap, and `AGENTS.md` /
+      `plans/README.md` accurately distinguish the dependency-free application
+      from the pinned browser-test harness and document both durable replicas.
 - [ ] `node test/schedule.mjs` reports 8/8.
 - [ ] Every focused browser suite exits 0 with zero failures.
 - [ ] Full simulation exits 0 with `FAILED: 0`.
@@ -1332,6 +1493,9 @@ Stop and report; do not improvise, defer, or silently change product behavior if
 - Browser permission cannot be deterministically controlled in the focused
   suite; add a narrow notification adapter/test seam rather than deleting the
   denied/revoked cases.
+- The pinned test-only `npm ci` or Chromium install fails after one clean retry,
+  or would require adding a root/application dependency. Preserve the existing
+  `test/` boundary and report the bootstrap failure.
 - No branch-addressable HTTPS release-candidate origin serves byte-identical
   shell assets for the implementation commit. Do not substitute production,
   another commit's preview, or phone loopback; provision/identify the exact
