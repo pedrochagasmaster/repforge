@@ -5572,7 +5572,12 @@ async function main() {
 
   beginPhase("Phase: F4/F5 equipment fidelity and day-type rotation");
   await page.waitForFunction(
-    () => typeof window.__repforgeGenerateProgram === "function" && window.__repforgeExerciseCatalog
+    () =>
+      typeof window.__repforgeGenerateProgram === "function" &&
+      window.__repforgeExerciseCatalog &&
+      typeof window.__repforgeEquipmentSupportsSplit === "function" &&
+      window.__repforgeOnboarding?.eqUi &&
+      typeof window.__repforgeResolveSplit === "function"
   );
   const f45 = await page.evaluate(() => {
     const generate = window.__repforgeGenerateProgram;
@@ -5601,6 +5606,8 @@ async function main() {
       { daysPerWeek: 5, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower", "upper"] },
       { daysPerWeek: 6, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull", "legs"] },
     ];
+    const FILLER_SLOTS = ["curl", "triceps", "lateral_raise", "chest_iso", "calves", "leg_curl"];
+    const SESSION_BOUNDS = { short: [4, 5], normal: [5, 7], long: [7, 9] };
     const MUSCLES = ["Chest", "Back", "Quads", "Hamstrings", "Glutes", "Side delts", "Arms", "Calves"];
     const visible = (rows) =>
       rows.map((e) => ({
@@ -5631,23 +5638,48 @@ async function main() {
             e.equipment.some((x) => equipment.includes(String(x).toLowerCase()))
         )
         .sort((a, b) => a.id.localeCompare(b.id));
+    const pickFromSlot = (slot, equipment, used, occ) => {
+      const pool = slotPool(slot, equipment);
+      if (!pool.length) return null;
+      const n = pool.length;
+      const i = ((occ % n) + n) % n;
+      const rotated = pool.slice(i).concat(pool.slice(0, i)).filter((e) => !used.has(e.id));
+      return rotated[0] || null;
+    };
     const dayHasPrimary = (dayType, equipment) =>
       (DAY_SLOTS[dayType] || []).some((slot) => slotPool(slot, equipment).length > 0);
     const splitSupported = (dayTypes, equipment) =>
       dayTypes.every((dt) => dayHasPrimary(dt, equipment));
-    const expectedPrimaries = (dayType, equipment, occ) => {
+    const expectedFullDay = (dayType, equipment, occ, sessionLength) => {
+      const picks = [];
       const used = new Set();
-      const ids = [];
       for (const slot of DAY_SLOTS[dayType] || []) {
-        const pool = slotPool(slot, equipment);
-        if (!pool.length) continue;
-        const i = ((occ % pool.length) + pool.length) % pool.length;
-        const rotated = pool.slice(i).concat(pool.slice(0, i)).filter((e) => !used.has(e.id));
-        if (!rotated.length) continue;
-        used.add(rotated[0].id);
-        ids.push(rotated[0].id);
+        const entry = pickFromSlot(slot, equipment, used, occ);
+        if (!entry) continue;
+        used.add(entry.id);
+        picks.push({ slot, id: entry.id, phase: "primary" });
       }
-      return ids;
+      let ids = picks.map((p) => p.id);
+      const [lo, hi] = SESSION_BOUNDS[sessionLength] || SESSION_BOUNDS.normal;
+      if (ids.length > hi) {
+        ids = ids.slice(0, hi);
+        picks.length = ids.length;
+      }
+      const have = new Set(ids);
+      while (ids.length < lo) {
+        let extra = null;
+        for (const slot of FILLER_SLOTS) {
+          const entry = pickFromSlot(slot, equipment, have, occ);
+          if (!entry) continue;
+          extra = { slot, id: entry.id, phase: "filler" };
+          break;
+        }
+        if (!extra) break;
+        have.add(extra.id);
+        ids.push(extra.id);
+        picks.push(extra);
+      }
+      return { ids, picks };
     };
     const matchesEq = (ex, equipment) => {
       const entry = catalogById.get(ex.libraryId);
@@ -5661,15 +5693,36 @@ async function main() {
       }
       return out;
     };
+    const onb = window.__repforgeOnboarding;
+    const optionParity = {
+      eqUi: JSON.stringify(onb.eqUi) === JSON.stringify(EQ_UI),
+      eqGen: EQ_UI.every((k) => onb.eqGen?.[k] === EQ_GEN[k]),
+      splits:
+        JSON.stringify(
+          Object.entries(onb.splits || {}).flatMap(([n, opts]) => opts.map((st) => `${+n}|${st}`))
+        ) === JSON.stringify(EXPECTED_SPLITS.map((p) => `${p.daysPerWeek}|${p.splitType}`)),
+    };
     const failures = [];
+    if (!optionParity.eqUi) failures.push(`eqUi drift: ${JSON.stringify(onb.eqUi)} want ${JSON.stringify(EQ_UI)}`);
+    if (!optionParity.eqGen) failures.push(`eqGen drift: ${JSON.stringify(onb.eqGen)}`);
+    if (!optionParity.splits) {
+      failures.push(
+        `split option drift: ${JSON.stringify(onb.splits)} want ${EXPECTED_SPLITS.map((p) => `${p.daysPerWeek}|${p.splitType}`).join(",")}`
+      );
+    }
     const eqSubsets = subsets(EQ_UI);
     let checked = 0;
     let blocked = 0;
     let generated = 0;
+    let supportParity = 0;
+    let seqParity = 0;
+    let completeOk = 0;
     let rotated = 0;
     let reused = 0;
     let stable = 0;
     let priorityOk = 0;
+    const prodSupports = window.__repforgeEquipmentSupportsSplit;
+    const prodResolve = window.__repforgeResolveSplit;
     for (const uiEq of eqSubsets) {
       const equipment = uiEq.map((k) => EQ_GEN[k]);
       for (const pair of EXPECTED_SPLITS) {
@@ -5677,6 +5730,13 @@ async function main() {
         const { daysPerWeek, splitType, dayTypes } = pair;
         const label = `${uiEq.join("+")}|${daysPerWeek}|${splitType}`;
         const ok = splitSupported(dayTypes, equipment);
+        const prodOk = prodSupports(daysPerWeek, splitType, equipment, "intermediate");
+        if (prodOk !== ok) {
+          failures.push(`${label}: production support ${prodOk} independent ${ok}`);
+        } else supportParity++;
+        if (JSON.stringify(prodResolve(daysPerWeek, splitType)) !== JSON.stringify(dayTypes)) {
+          failures.push(`${label}: resolveSplit ${JSON.stringify(prodResolve(daysPerWeek, splitType))} want ${JSON.stringify(dayTypes)}`);
+        } else seqParity++;
         const answers = {
           goal: "hypertrophy",
           experience: "intermediate",
@@ -5709,45 +5769,56 @@ async function main() {
             break;
           }
         }
+        const expectedDays = dayTypes.map((dt, di) =>
+          expectedFullDay(dt, equipment, dayTypes.slice(0, di).filter((x) => x === dt).length, "normal")
+        );
+        let daysMatch = true;
         dayTypes.forEach((dt, di) => {
           const ids = days[di].map((e) => e.libraryId);
-          if (new Set(ids).size !== ids.length) failures.push(`${label}: within-day duplicate on ${expectedNames[di]}`);
-          const expected = expectedPrimaries(dt, equipment, dayTypes.slice(0, di).filter((x) => x === dt).length);
-          const actualPrimary = ids.slice(0, expected.length);
-          if (actualPrimary.join("|") !== expected.join("|")) {
-            failures.push(`${label}: ${expectedNames[di]} primaries ${actualPrimary.join("|")} want ${expected.join("|")}`);
+          if (new Set(ids).size !== ids.length) {
+            failures.push(`${label}: within-day duplicate on ${expectedNames[di]}`);
+            daysMatch = false;
+          }
+          const expected = expectedDays[di].ids;
+          if (ids.join("|") !== expected.join("|")) {
+            failures.push(`${label}: ${expectedNames[di]} [${ids.join("|")}] want [${expected.join("|")}]`);
+            daysMatch = false;
           }
         });
+        if (daysMatch) completeOk++;
         const occ = {};
         dayTypes.forEach((dt, i) => {
           (occ[dt] ||= []).push(i);
         });
         for (const [dt, idxs] of Object.entries(occ)) {
           if (idxs.length < 2) continue;
-          for (const slot of DAY_SLOTS[dt] || []) {
+          const slots = [...new Set([...(DAY_SLOTS[dt] || []), ...FILLER_SLOTS])];
+          for (const slot of slots) {
             const pool = slotPool(slot, equipment);
             if (!pool.length) continue;
-            const picks = idxs.map((di) => {
-              const hit = days[di].find((ex) => catalogById.get(ex.libraryId)?.pattern === slot);
-              return hit?.libraryId ?? null;
-            });
+            const modeled = idxs.map((di) => expectedDays[di].picks.filter((p) => p.slot === slot).map((p) => p.id));
+            const actual = idxs.map((di) =>
+              days[di]
+                .map((e) => e.libraryId)
+                .filter((id) => catalogById.get(id)?.pattern === slot)
+            );
             for (let k = 0; k < idxs.length; k++) {
-              const want = pool[k % pool.length].id;
-              if (picks[k] !== want) {
-                failures.push(`${label}: ${dt} occ ${k} slot ${slot} got ${picks[k]} want ${want}`);
+              if (modeled[k].join("|") !== actual[k].join("|")) {
+                failures.push(
+                  `${label}: ${dt} occ ${k} slot ${slot} got ${actual[k].join("|") || "∅"} want ${modeled[k].join("|") || "∅"}`
+                );
               }
             }
-            if (pool.length > 1) {
-              const distinct = new Set(picks.filter(Boolean)).size;
-              if (distinct < Math.min(pool.length, idxs.length)) {
-                failures.push(`${label}: ${dt} slot ${slot} did not rotate across ${idxs.length} occurrences`);
-              } else rotated++;
-              if (idxs.length > pool.length) {
-                const wrap = picks[pool.length];
-                if (wrap !== picks[0]) failures.push(`${label}: ${dt} slot ${slot} did not reuse after exhaustion`);
-                else reused++;
-              }
-            } else if (picks.every((id) => id === pool[0].id)) reused++;
+            const firsts = modeled.map((xs) => xs[0] || null);
+            const present = firsts.filter(Boolean);
+            if (pool.length > 1 && present.length >= 2) {
+              if (new Set(present).size > 1) rotated++;
+            }
+            if (idxs.length > pool.length) {
+              const wrap = firsts[pool.length];
+              const zero = firsts[0];
+              if (zero && wrap === zero) reused++;
+            } else if (pool.length === 1 && present.length && present.every((id) => id === pool[0].id)) reused++;
           }
         }
         const vis1 = JSON.stringify(visible(raw));
@@ -5795,6 +5866,10 @@ async function main() {
       checked,
       blocked,
       generated,
+      supportParity,
+      seqParity,
+      completeOk,
+      optionParity,
       rotated,
       reused,
       stable,
@@ -5825,10 +5900,28 @@ async function main() {
     "4 equipment choices → 15 subsets × 11 fixtured split/day sequences"
   );
   assert(
+    f45.optionParity.eqUi && f45.optionParity.eqGen && f45.optionParity.splits,
+    "F4: fixtures match exported selectable equipment and split options",
+    JSON.stringify(f45.optionParity),
+    "eqUi, eqGen mappings, and flattened ONB_SPLITS pairs must equal the independent fixtures"
+  );
+  assert(
+    f45.supportParity === f45.checked && f45.seqParity === f45.checked,
+    "F4: production support and resolveSplit equal independently derived expectations for every combo",
+    `supportParity=${f45.supportParity} seqParity=${f45.seqParity} checked=${f45.checked} ${f45.failures.join(" | ")}`,
+    "__repforgeEquipmentSupportsSplit === independent primary-slot support; resolveSplit === fixtured dayTypes"
+  );
+  assert(
     f45.failureCount === 0 && f45.generated + f45.blocked === f45.checked && f45.generated > 0 && f45.blocked > 0,
     "F4: every combo generates the fixtured day sequence or is independently unsupported",
     `generated=${f45.generated} blocked=${f45.blocked} failures=${f45.failureCount} ${f45.failures.join(" | ")}`,
     "Catalogue-derived support; allowed cases keep Day 1..N with equipment-valid libraryIds"
+  );
+  assert(
+    f45.completeOk === f45.generated,
+    "F5: every generated day's complete ordered libraryId sequence matches independent primary+filler filling",
+    `completeOk=${f45.completeOk} generated=${f45.generated} ${f45.failures.join(" | ")}`,
+    "FILLER_SLOTS + session bounds modeled independently; includes filler rotation, within-day exhaustion, wrap reuse"
   );
   assert(
     f45.stable === f45.generated && f45.priorityOk === f45.generated,
