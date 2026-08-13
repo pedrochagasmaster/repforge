@@ -204,12 +204,13 @@
           <h2 class="page-title" data-i18n="history.title">History</h2>
         </div>
         <div class="pagehead__actions">
-          <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search">⌕</button>
+          <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search" aria-expanded="false" aria-controls="historySearchWrap">⌕</button>
           <button type="button" class="icon-btn icon-btn--ghost" id="historyExportBtn" data-i18n-aria="history.export_aria" aria-label="Export CSV">▤</button>
         </div>
       </div>
       <div id="historySearchWrap" class="hist-search hidden">
-        <input id="historySearch" type="search" data-i18n-placeholder="history.search_placeholder" placeholder="Filter sessions…" autocomplete="off">
+        <input id="historySearch" type="search" data-i18n-placeholder="history.search_placeholder" data-i18n-aria="history.search_input_aria" placeholder="Filter sessions…" aria-label="Filter sessions by day or exercise" autocomplete="off">
+        <button type="button" id="historySearchClear" class="link-accent" data-i18n="history.search_clear">Clear</button>
       </div>
       <div id="historyCalendar" class="cal"></div>
       <p class="section-label" data-i18n="history.recent">Recent</p>

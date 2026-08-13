@@ -2578,21 +2578,114 @@ function redrawChart(){
   if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
+const historyDiagnostics={builds:0,sourceRowVisits:0,last:null,sourceRestored:false,onBuilt:null,
+  reset(){this.builds=0;this.sourceRowVisits=0;this.last=null;this.sourceRestored=false}};
+function copyHistoryRow(raw,rowId){const row=Object.assign({},raw);row.__rowId=rowId;row.__sessionId=raw&&raw.session!=null?String(raw.session):"";return row}
+function historyPanelId(session){return`hist-sess-${String(session??"").replace(/[^A-Za-z0-9_-]/g,"_")}`}
+function buildHistoryIndex(log){
+  const source=log||[];
+  const rows=[];
+  const n=source.length;
+  for(let i=0;i<n;i++)rows.push(copyHistoryRow(source[i],i));
+  const sessionMap=new Map();
+  for(const row of rows){
+    const sid=row.__sessionId;
+    if(!sessionMap.has(sid))sessionMap.set(sid,{session:row.session,date:row.date,day:row.day,created:row.created,rows:[]});
+    sessionMap.get(sid).rows.push(row)}
+  for(const sess of sessionMap.values()){
+    sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
+  const sessions=[...sessionMap.values()].sort((a,b)=>{
+    const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
+  const liftChrono=new Map();
+  for(const row of rows){
+    if(!isWork(row)||!(+row.load>0)||!(+row.reps>0))continue;
+    const k=liftKey(row);
+    if(!liftChrono.has(k))liftChrono.set(k,new Map());
+    const sm=liftChrono.get(k);
+    if(!sm.has(row.session))sm.set(row.session,{session:row.session,date:row.date,created:row.created,rows:[]});
+    sm.get(row.session).rows.push(row)}
+  const liftPred=new Map(),liftMetrics=new Map();
+  for(const[k,sm]of liftChrono){
+    const ordered=[...sm.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+    for(let i=0;i<ordered.length;i++){
+      const cur=ordered[i],pred=i>0?ordered[i-1].rows:[];
+      liftPred.set(`${cur.session}|${k}`,pred);
+      liftMetrics.set(`${cur.session}|${k}`,{current:exerciseSessionMetrics(cur.rows),previous:pred.length?exerciseSessionMetrics(pred):null,predecessorSession:i>0?ordered[i-1].session:null})}}
+  for(const sess of sessions){
+    const byLift=new Map();
+    for(const r of sess.rows){
+      if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
+      const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
+    const counts={improved:0,flat:0,regressed:0,new:0};
+    for(const[k,liftRows]of byLift){
+      const pred=liftPred.get(`${sess.session}|${k}`)||[];
+      if(!pred.length){counts.new++;continue}
+      const d=buildSessionDelta(pred,liftRows);if(d.status in counts)counts[d.status]++}
+    sess.delta=counts;
+    const names=[...new Set(sess.rows.map(r=>String(displayName(r)||"")))];
+    sess.searchText=`${String(sess.day||"")} ${names.join(" ")}`.toLowerCase();
+    sess.panelId=historyPanelId(sess.session)}
+  const prEvents=detectPRs(rows);
+  const prDates=new Set(prEvents.map(ev=>String(ev.date)));
+  const months=new Map();
+  for(const row of rows){
+    const date=String(row.date||""),ym=date.slice(0,7);
+    if(!/^\d{4}-\d{2}$/.test(ym))continue;
+    if(!months.has(ym))months.set(ym,{sessions:new Set(),sets:0,byDay:new Map()});
+    const bucket=months.get(ym);bucket.sessions.add(row.session);bucket.sets++;
+    const dayNum=+date.slice(8,10);
+    if(!bucket.byDay.has(dayNum))bucket.byDay.set(dayNum,{sets:0,pr:false});
+    bucket.byDay.get(dayNum).sets++;
+    if(prDates.has(date))bucket.byDay.get(dayNum).pr=true}
+  const tableRows=[...rows].sort((a,b)=>String(b.date).localeCompare(String(a.date))||displayName(a).localeCompare(displayName(b))||a.set-b.set);
+  const index={rows,sessions,months,prEvents,tableRows,liftPred,liftMetrics};
+  historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
+  if(typeof historyDiagnostics.onBuilt==="function")historyDiagnostics.onBuilt(index);
+  return index}
+function searchHistoryIndex(index,query){
+  const q=String(query||"").trim().toLowerCase(),sessions=index?.sessions||[];
+  if(!q)return sessions.slice();
+  return sessions.filter(s=>String(s.searchText||"").includes(q))}
+function renderHistoryWithSource(source){
+  const prev=state.log;historyDiagnostics.sourceRestored=false;
+  try{state.log=source;renderHistory()}
+  finally{state.log=prev;historyDiagnostics.sourceRestored=true}}
+window.__repforgeHistory={
+  buildIndex:buildHistoryIndex,
+  searchIndex:searchHistoryIndex,
+  renderWithSource:renderHistoryWithSource,
+  diagnostics:historyDiagnostics};
+
+function isHistorySearchOpen(){return!$("#historySearchWrap")?.classList.contains("hidden")}
+function setHistorySearchOpen(open){
+  if(!open&&histQuery.trim())return;
+  $("#historySearchWrap")?.classList.toggle("hidden",!open);
+  $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
+  if(open)$("#historySearch")?.focus()}
+function clearHistorySearch(){
+  histQuery="";
+  const inp=$("#historySearch");if(inp)inp.value="";
+  renderHistory();
+  setHistorySearchOpen(false)}
+function syncHistorySearchChrome(){
+  const open=isHistorySearchOpen()||!!histQuery.trim();
+  if(histQuery.trim())$("#historySearchWrap")?.classList.remove("hidden");
+  $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
+  const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
+
 function renderHistory(){
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
-  renderHistoryCalendar();
-  let sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
-    const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
-  const q=histQuery.trim().toLowerCase();
-  if(q)sessions=sessions.filter(s=>{
-    const sets=state.log.filter(r=>r.session===s.session);
-    return String(s.day).toLowerCase().includes(q)||sets.some(r=>displayName(r).toLowerCase().includes(q))});
+  const index=buildHistoryIndex(state.log);
+  renderHistoryCalendar(index);
+  const q=histQuery.trim();
+  const sessions=searchHistoryIndex(index,q);
+  syncHistorySearchChrome();
   let lastMonth="";
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
-    const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
+    const sets=s.rows;
     if(s.session===editSession)return sessionEditor(s,sets);
     const work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
-    const delta=sessionDeltaCounts(sets),deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
+    const delta=s.delta||{improved:0,flat:0,regressed:0,new:0},deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
     const mus=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3);
     const d=new Date(`${s.date}T12:00:00`);
     const monthKey=`${d.getFullYear()}-${d.getMonth()}`;
@@ -2600,30 +2693,34 @@ function renderHistory(){
     if(monthKey!==lastMonth){lastMonth=monthKey;monthHdr=`<p class="section-label">${esc(t("month."+d.getMonth()).toUpperCase())}</p>`}
     const eyebrow=esc(t("history.session_eyebrow",{weekday:t("weekday."+d.getDay()),day:d.getDate(),month:t("month_short."+d.getMonth())}));
     const open=expandedSession===s.session;
-    return monthHdr+`<div class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
+    const panelId=s.panelId||historyPanelId(s.session);
+    return monthHdr+`<article class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
+      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:s.day}))}">`+
       `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(s.day)}</div>`+
       (mus.length?`<div class="session__sub">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
-      (open?`<div class="hist-row__actions" style="margin-top:8px"><button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
-        `<button class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div>`:"")+
-      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div>`;
-  }).join(""):`<div class="table"><div class="empty">${esc(t("history.empty.sessions"))}</div></div>`;
-  $$("#sessions .hist-row[data-sess]").forEach(row=>row.onclick=e=>{if(e.target.closest("[data-edit],[data-del]"))return;
-    expandedSession=expandedSession===row.dataset.sess?null:row.dataset.sess;renderHistory()});
-  $$("[data-del]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(confirm(t("confirm.delete_session"))){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast(t("toast.session_deleted"))}});
-  $$("[data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
+      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
+      `<div class="hist-row__actions" id="${esc(panelId)}"${open?"":" hidden"}>`+
+      `<button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
+      `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`;
+  }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
+  $$("#sessions .session__toggle").forEach(btn=>btn.onclick=()=>{
+    const art=btn.closest("[data-sess]");if(!art)return;
+    expandedSession=expandedSession===art.dataset.sess?null:art.dataset.sess;renderHistory()});
+  $$("#sessions [data-del]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(confirm(t("confirm.delete_session"))){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast(t("toast.session_deleted"))}});
+  $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
+  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
-function renderHistoryCalendar(){const el=$("#historyCalendar");if(!el)return;
+function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
   const {y,m}=histMonth,first=new Date(y,m,1),startDow=(first.getDay()+6)%7;
   const daysInMonth=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();
-  const monthSessions=state.log.filter(r=>String(r.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`));
-  const byDay=new Map();for(const r of monthSessions){const d=+String(r.date).slice(8,10);if(!byDay.has(d))byDay.set(d,{sets:0,pr:false});byDay.get(d).sets++}
-  for(const ev of detectPRs(state.log)){if(String(ev.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`)){const d=+String(ev.date).slice(8,10);const o=byDay.get(d)||{sets:0,pr:false};o.pr=true;byDay.set(d,o)}}
-  const sessCount=new Set(monthSessions.map(r=>r.session)).size,setCount=monthSessions.length;
+  const ym=`${y}-${String(m+1).padStart(2,"0")}`;
+  const month=index?.months?.get(ym)||{sessions:new Set(),sets:0,byDay:new Map()};
+  const byDay=month.byDay;
+  const sessCount=month.sessions.size,setCount=month.sets;
   const letters=state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"];
   // Monday-start letters already match weekdayLetters
   let cells=letters.map(l=>`<div class="cal-grid__dow">${esc(l)}</div>`).join("");
@@ -3292,8 +3389,9 @@ function init(){
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
   const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>closeWorkoutOverflow());
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
-  const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};
+  const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>setHistorySearchOpen(!isHistorySearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
+  const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>clearHistorySearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
   const statsPeriod=$("#statsPeriod");if(statsPeriod)statsPeriod.onclick=()=>{volWindow=volWindow===7?28:7;$$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});renderStats();renderCompleted()};
