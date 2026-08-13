@@ -6145,6 +6145,59 @@ async function main() {
     JSON.stringify(biceps),
     "__repforgeOverviewVolume.pct for Biceps with no plan"
   );
+
+  await page.waitForFunction(() => Array.isArray(window.__repforgeChartPaint?.fillText), { timeout: 5000 });
+  const chartPaint = await page.evaluate(() => {
+    const norm = (c) => {
+      const raw = String(c).trim().toLowerCase().replace(/\s+/g, "");
+      if (raw.startsWith("#") && raw.length === 7) return raw;
+      const m = raw.match(/^rgba?\((\d+),(\d+),(\d+)/);
+      if (!m) return raw;
+      return "#" + [+m[1], +m[2], +m[3]].map((n) => n.toString(16).padStart(2, "0")).join("");
+    };
+    const paint = window.__repforgeChartPaint || { fillText: [], stroke: [], fill: [] };
+    return {
+      fillText: paint.fillText.map((x) => ({
+        text: x.text,
+        fillStyle: norm(x.fillStyle),
+        font: String(x.font || ""),
+      })),
+      stroke: paint.stroke.map((x) => ({ strokeStyle: norm(x.strokeStyle) })),
+      fill: paint.fill.map((x) => ({ fillStyle: norm(x.fillStyle) })),
+    };
+  });
+  const latestValueText = chartPaint.fillText.find(
+    (x) => /\b(kg|lb)\b/i.test(x.text) && /600/.test(x.font)
+  );
+  const unitTexts = chartPaint.fillText.filter((x) => /\b(kg|lb)\b/i.test(x.text));
+  assert(
+    latestValueText && latestValueText.fillStyle === "#b8410e",
+    "C1: latest-value canvas text uses accent-text, not brand orange",
+    JSON.stringify(latestValueText || { fillText: chartPaint.fillText }),
+    "Stats → Overview chart → latest-value fillText"
+  );
+  assert(
+    unitTexts.length > 0 && unitTexts.every((x) => x.fillStyle !== "#e04e14") &&
+      chartPaint.fillText.every((x) => x.fillStyle !== "#e04e14"),
+    "C1: no canvas fillText uses brand orange",
+    JSON.stringify(chartPaint.fillText.map((x) => ({ text: x.text, fillStyle: x.fillStyle }))),
+    "Inspect __repforgeChartPaint.fillText colors"
+  );
+  assert(
+    chartPaint.stroke.some((x) => x.strokeStyle === "#e04e14") &&
+      chartPaint.stroke.some((x) => x.strokeStyle === "#e4e1da"),
+    "C1: chart data stroke stays brand orange; grid stays rule",
+    JSON.stringify(chartPaint.stroke),
+    "Inspect __repforgeChartPaint.stroke colors"
+  );
+  assert(
+    chartPaint.fill.some((x) => x.fillStyle === "#e04e14") &&
+      chartPaint.fill.every((x) => x.fillStyle === "#e04e14"),
+    "C1: chart points stay brand orange",
+    JSON.stringify(chartPaint.fill),
+    "Inspect __repforgeChartPaint.fill colors"
+  );
+
   assert(
     enVol.more === "+5 more" && enVol.hook.length - enVol.rows.length === 5,
     "F10: English +{n} more matches hidden row count",
