@@ -3608,18 +3608,22 @@ async function editorAction(act,ds){
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
       const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
   else if(act==="addEx"){prog.addExercise(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast(t("toast.exercise_added"))}
-  else if(act==="delEx"){if(confirm(t("confirm.remove_exercise"))){
+  else if(act==="delEx"){const draftActive=draftHasProgress();
+    const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
+    if(confirm(t(key))){
     const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
     nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
     const result=await commitProposedState(proposal,storageIO);
-    if(result.localOk||result.idbOk){render();toast(t("toast.exercise_removed"))}}}
+    if(result.localOk||result.idbOk){if(draftActive)clearDraft();render();toast(t("toast.exercise_removed"))}}}
   else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
   else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
-  else if(act==="delDay"){if(confirm(t("confirm.delete_day",{day:ds.day}))){
+  else if(act==="delDay"){const draftActive=draftHasProgress();
+    const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
+    if(confirm(t(key,{day:ds.day}))){
     const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
     nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
     const result=await commitProposedState(proposal,storageIO);
-    if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
+    if(result.localOk||result.idbOk){if(draftActive)clearDraft();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
 function renderVolume(){
