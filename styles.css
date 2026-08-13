@@ -789,7 +789,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .curset__steps .stepbtn:hover{color:var(--ink);background:transparent}
 
 /* ---- Exercise note sheet ---- */
-body.is-sheet-open{overflow:hidden}
+body.is-sheet-open,body.is-modal-open{overflow:hidden}
 .sheet-scrim{
   position:fixed;inset:0;z-index:40;background:rgba(27,26,23,.42);
   opacity:0;transition:opacity .22s ease;
@@ -1157,6 +1157,9 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .blockprogress__title{font-weight:600;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
 .review__summary{margin:0;font-size:14px;line-height:1.55;color:var(--ink)}
 
+.dialog-scrim{
+  position:fixed;inset:0;z-index:69;background:rgba(27,26,23,.42);
+}
 .importchoice{
   position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);

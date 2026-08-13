@@ -389,6 +389,20 @@ async function main() {
     "the note sheet is a named modal dialog", JSON.stringify(sheet));
   assert(sheet.onScreen && sheet.scrim && sheet.focused && sheet.forName,
     "it rises from the bottom, dims the card and takes the caret", JSON.stringify(sheet));
+  const sheetModal = await page.evaluate(() => ({
+    main: !!document.querySelector("main")?.inert,
+    nav: !!document.querySelector("nav")?.inert,
+    sheet: !!document.querySelector("#exNoteSheet")?.inert,
+    scrim: !!document.querySelector("#exNoteScrim")?.inert,
+  }));
+  assert(sheetModal.main && sheetModal.nav && !sheetModal.sheet && !sheetModal.scrim,
+    "the note sheet leaves the card inert and keeps its own surface live", JSON.stringify(sheetModal));
+  await page.keyboard.press("Tab");
+  assert(await page.evaluate(() => document.activeElement?.id === "exNoteCancel"),
+    "Tab from the note field wraps to Cancel");
+  await page.keyboard.press("Shift+Tab");
+  assert(await page.evaluate(() => document.activeElement?.id === "exNoteText"),
+    "Shift+Tab from Cancel wraps back to the note field");
   await page.fill("#exNoteText", "Seat 4, feet high.");
   await page.click("#exNoteSave");
   await page.waitForTimeout(250);
@@ -406,6 +420,8 @@ async function main() {
   await page.waitForTimeout(250);
   assert(await page.evaluate(() => document.querySelector("#exNoteSheet").hidden),
     "Escape closes the note sheet");
+  assert(await page.evaluate(() => document.activeElement?.matches?.("[data-exnote-open]")),
+    "Escape returns focus to the note tool");
 
   // ---- 04 — effort mode -------------------------------------------------------
   phase("State 04: mid-exercise logging with Easy / Hard / Max");
