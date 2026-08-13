@@ -950,6 +950,8 @@ function recoverSignal(ex,sess,rirCeiling=0.5){sess=sess||sessionsFor(ex);if(ses
   if(+last.med-+prior.med>=0.01)return false;
   return +last.maxReps<=+prior.maxReps&&+last.medReps<=+prior.medReps}
 function round(v){const raw=+state.settings.minJump;const inc=Number.isFinite(raw)&&raw>0?raw:2.5;return Math.round(v/inc)*inc}
+const LOAD_EPS=1e-6;
+const sameLoad=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<=LOAD_EPS;
 function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
   if(!rows.length)return "";const latest=rows.sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
@@ -1039,7 +1041,8 @@ function recommendation(ex){
   if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
     rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1))}
   rec.block=trend;rec.blockNote=blockTrendNote(trend);
-  rec.cap=medCap;rec.typRir=typicalRir(ex,sess);rec.rawMed=load;
+  rec.cap=medCap;rec.typRir=typicalRir(ex,sess);
+  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,load);
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -1047,11 +1050,10 @@ function recommendation(ex){
 // reset to ex.min — which survives only as the clamp on big percentage jumps.
 const reentryReps=(ex,cap,load,typRir)=>clamp(Math.round(repsAtLoad(cap,load)-(+typRir||0)),ex.min,ex.max);
 // Base reps target from the previous-session recommendation (no in-session data yet).
-// Load-up / back-off re-enters on predicted capacity; a hold whose load was
-// snapped off the raw median does the same. Exact-load holds chase one more
-// rep (double progression). Hold · recover keeps the prior target.
+// rec.reenterReps is the policy: load-change and snapped-hold recs re-enter on
+// capacity; exact-load holds chase one more rep. Hold · recover keeps the prior target.
 function baseSetReps(ex,rec,old){
-  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||(rec.rawMed!=null&&Math.abs(rec.load-rec.rawMed)>1e-6))
+  if(rec.reenterReps)
     return rec.cap>0&&rec.load>0?reentryReps(ex,rec.cap,rec.load,rec.typRir):ex.min;
   const prev=old&&+old.reps>0?+old.reps:null;
   if(prev==null)return ex.min;

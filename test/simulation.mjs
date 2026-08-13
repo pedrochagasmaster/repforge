@@ -3051,20 +3051,16 @@ async function main() {
         load, reps, rir, notes: "", created, primary: ex.primary, secondary: ex.secondary,
       }));
     };
-    const f1Plan = (id) => page.evaluate((id) => {
+    const recOf = (id) => page.evaluate((id) => {
       const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
       const ex = (raw.program || []).find((e) => e.id === id);
-      const rec = window.__repforgeRecommendation?.(ex);
-      const C = window.__repforgeCapacity;
-      const last = C.sessionsFor(ex).at(-1);
-      const prev = last.reps[0];
-      const snapped = rec.rawMed != null && Math.abs(rec.load - rec.rawMed) > 1e-6;
-      const reentry = Math.min(ex.max, Math.max(ex.min, Math.round(C.repsAtLoad(rec.cap, rec.load) - (+rec.typRir || 0))));
-      const hold = rec.pushReps ? Math.min(ex.max, prev + 1) : Math.min(ex.max, Math.max(ex.min, prev));
-      const expected = rec.status === "add" || rec.status === "add2" || rec.status === "reduce" || snapped ? reentry : hold;
-      return {
-        load: rec.load, cap: rec.cap, typRir: rec.typRir, rawMed: rec.rawMed,
-        med: last.med, medCap: last.medCap, prev, snapped, reentry, hold, expected,
+      const r = window.__repforgeRecommendation?.(ex);
+      const last = window.__repforgeCapacity.sessionsFor(ex).at(-1);
+      const loads = (raw.log || []).filter((x) => x.exerciseId === id).map((x) => +x.load);
+      return r && {
+        status: r.status, load: r.load, stalled: !!r.stalled, label: r.label,
+        reenterReps: !!r.reenterReps, med: last.med, cap: r.cap, medCap: last.medCap,
+        historyLoads: loads,
       };
     }, id);
     const f1Cases = [
@@ -3072,6 +3068,8 @@ async function main() {
         key: "stalled",
         status: "reduce",
         stalled: true,
+        reenter: true,
+        firstReps: 6,
         label: /stalled/i,
         dates: ["2025-05-01", "2025-05-08", "2025-05-15"],
         session: (ex, date, i) => mixedRows(ex, date, 7, 1, `stall_${i}`),
@@ -3080,6 +3078,8 @@ async function main() {
         key: "recover",
         status: "hold",
         stalled: false,
+        reenter: true,
+        firstReps: 6,
         label: /recover/i,
         dates: ["2025-05-01", "2025-05-08"],
         session: (ex, date, i) => mixedRows(ex, date, 7, i === 1 ? 0 : 1, `rec_${i}`),
@@ -3088,6 +3088,8 @@ async function main() {
         key: "push_reps",
         status: "hold",
         stalled: false,
+        reenter: true,
+        firstReps: 6,
         label: /push reps/i,
         dates: ["2025-05-15"],
         session: (ex, date, i) => mixedRows(ex, date, 6, 2, `push_${i}`),
@@ -3096,6 +3098,8 @@ async function main() {
         key: "hold",
         status: "hold",
         stalled: false,
+        reenter: true,
+        firstReps: 6,
         label: /hold\s*·\s*add reps/i,
         dates: ["2025-05-15"],
         session: (ex, date, i) => mixedRows(ex, date, 7, 1, `hold_${i}`),
@@ -3127,12 +3131,7 @@ async function main() {
     await reloadApp(page);
 
     for (const c of f1Cases) {
-      const rec = await page.evaluate((id) => {
-        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-        const ex = (raw.program || []).find((e) => e.id === id);
-        const r = window.__repforgeRecommendation?.(ex);
-        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label };
-      }, c.ex.id);
+      const rec = await recOf(c.ex.id);
       assert(
         rec?.status === c.status && rec?.stalled === c.stalled && c.label.test(rec?.label || ""),
         `F1: ${c.key} branch fires on mixed previous-set loads`,
@@ -3145,13 +3144,11 @@ async function main() {
         `load=${rec?.load} rawMedian=${RAW_MED}`,
         `${c.key} mixed loads 52.5+55 → round(median) = 55, not 53.75`
       );
-      const plan = await f1Plan(c.ex.id);
       assert(
-        plan.med === RAW_MED && plan.rawMed === RAW_MED && plan.cap === plan.medCap && plan.snapped
-          && plan.expected === plan.reentry && plan.expected !== plan.hold,
-        `F1: ${c.key} snapped load re-enters on capacity, not double-progression`,
-        JSON.stringify(plan),
-        `${c.key} 53.75 → 55 uses reentryReps; l.med stays the capacity reference`
+        rec.reenterReps === c.reenter && rec.med === RAW_MED && rec.cap === rec.medCap,
+        `F1: ${c.key} snapped hold re-enters; capacity stays at the raw median`,
+        JSON.stringify(rec),
+        `${c.key} 53.75 → 55 sets reenterReps; l.med stays the ADR 0003 reference`
       );
 
       await nav(page, "log");
@@ -3159,9 +3156,9 @@ async function main() {
       await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
       const logReps = +(await page.inputValue(`[data-k="${c.ex.id}_1_reps"]`));
       assert(
-        logReps === plan.expected,
+        logReps === c.firstReps,
         `F1: ${c.key} first-set Log reps follow capacity re-entry`,
-        `reps=${logReps} expected=${plan.expected} hold=${plan.hold}`,
+        `reps=${logReps} expected=${c.firstReps}`,
         `Log → ${c.key} set 1 reps`
       );
       const cardHead = await page.locator(`.exercise[data-ex="${c.ex.id}"] .recblock__head`).textContent();
@@ -3202,9 +3199,9 @@ async function main() {
         `Focus → first set of ${c.key} lift`
       );
       assert(
-        cueReps === plan.expected && new RegExp(`aim for ${plan.expected} reps`).test(cue || ""),
+        cueReps === c.firstReps && new RegExp(`aim for ${c.firstReps} reps`).test(cue || ""),
         `F1: ${c.key} Focus first-set reps re-enter at the snapped load`,
-        `cue="${cue}" reps=${cueReps} expected=${plan.expected}`,
+        `cue="${cue}" reps=${cueReps} expected=${c.firstReps}`,
         `Focus → first set of ${c.key} lift reps`
       );
       await page.evaluate(() => window.__repforgeLeaveWorkout?.());
@@ -3272,13 +3269,7 @@ async function main() {
     await reloadApp(page);
 
     for (const c of f1Cases) {
-      const rec = await page.evaluate((id) => {
-        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-        const ex = (raw.program || []).find((e) => e.id === id);
-        const r = window.__repforgeRecommendation?.(ex);
-        const loads = (raw.log || []).filter((x) => x.exerciseId === id).map((x) => +x.load);
-        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label, historyLoads: loads };
-      }, c.ex.id);
+      const rec = await recOf(c.ex.id);
       assert(
         rec?.status === c.status && rec?.stalled === c.stalled && c.label.test(rec?.label || ""),
         `F1: 1 kg ${c.key} branch still fires`,
@@ -3291,13 +3282,11 @@ async function main() {
         `load=${rec?.load} history=${JSON.stringify(rec?.historyLoads)}`,
         `${c.key} 1 kg median → round would be 0; clamp to 2.5`
       );
-      const plan1 = await f1Plan(c.ex.id);
       assert(
-        plan1.med === 1 && plan1.rawMed === 1 && plan1.cap === plan1.medCap && plan1.snapped
-          && plan1.expected === plan1.reentry && plan1.expected !== plan1.hold,
-        `F1: 1 kg ${c.key} snapped load re-enters on capacity, not double-progression`,
-        JSON.stringify(plan1),
-        `${c.key} 1 → 2.5 uses reentryReps; l.med stays the capacity reference`
+        rec.reenterReps === c.reenter && rec.med === 1 && rec.cap === rec.medCap,
+        `F1: 1 kg ${c.key} snapped hold re-enters; capacity stays at the raw median`,
+        JSON.stringify(rec),
+        `${c.key} 1 → 2.5 sets reenterReps; l.med stays the ADR 0003 reference`
       );
 
       await nav(page, "log");
@@ -3305,9 +3294,9 @@ async function main() {
       await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
       const logReps1 = +(await page.inputValue(`[data-k="${c.ex.id}_1_reps"]`));
       assert(
-        logReps1 === plan1.expected,
+        logReps1 === c.firstReps,
         `F1: 1 kg ${c.key} first-set Log reps follow capacity re-entry`,
-        `reps=${logReps1} expected=${plan1.expected} hold=${plan1.hold}`,
+        `reps=${logReps1} expected=${c.firstReps}`,
         `Log → 1 kg ${c.key} set 1 reps`
       );
 
@@ -3329,9 +3318,9 @@ async function main() {
         `Focus → first set of 1 kg ${c.key} lift`
       );
       assert(
-        cueReps === plan1.expected && new RegExp(`aim for ${plan1.expected} reps`).test(cue || ""),
+        cueReps === c.firstReps && new RegExp(`aim for ${c.firstReps} reps`).test(cue || ""),
         `F1: 1 kg ${c.key} Focus first-set reps re-enter at the snapped load`,
-        `cue="${cue}" reps=${cueReps} expected=${plan1.expected}`,
+        `cue="${cue}" reps=${cueReps} expected=${c.firstReps}`,
         `Focus → first set of 1 kg ${c.key} lift reps`
       );
       await page.evaluate(() => window.__repforgeLeaveWorkout?.());
@@ -3375,13 +3364,12 @@ async function main() {
     });
     await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
     await reloadApp(page);
-    const gridPlan = await f1Plan(gridHold.id);
+    const gridRec = await recOf(gridHold.id);
     assert(
-      gridPlan.med === 55 && gridPlan.rawMed === 55 && !gridPlan.snapped
-        && gridPlan.expected === gridPlan.hold && gridPlan.expected === 8 && gridPlan.reentry === 7,
-      "F1: exact on-grid hold keeps double-progression reps",
-      JSON.stringify(gridPlan),
-      "55/55 @ 7 → hold 55 kg and add a rep (8), not capacity re-entry (7)"
+      gridRec.med === 55 && gridRec.load === 55 && gridRec.reenterReps === false,
+      "F1: exact on-grid hold does not re-enter",
+      JSON.stringify(gridRec),
+      "55/55 @ 7 → reenterReps is false"
     );
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -3427,14 +3415,12 @@ async function main() {
     });
     await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
     await reloadApp(page);
-    const driftPlan = await f1Plan(gridHold.id);
+    const driftRec = await recOf(gridHold.id);
     assert(
-      driftPlan.rawMed === driftLoad && driftPlan.load !== driftLoad
-        && Math.abs(driftPlan.load - driftLoad) < 1e-6 && !driftPlan.snapped
-        && driftPlan.expected === driftPlan.hold && driftPlan.expected === 8 && driftPlan.reentry === 7,
-      "F1: fractional-grid hold ignores float drift and keeps double-progression",
-      JSON.stringify(driftPlan),
-      "minJump 0.1, 1.2/1.2 @ 7 → round() drifts but reps still add one (8)"
+      driftRec.med === driftLoad && driftRec.reenterReps === false && driftRec.load > 0,
+      "F1: fractional-grid hold does not re-enter",
+      JSON.stringify(driftRec),
+      "minJump 0.1, 1.2/1.2 @ 7 → reenterReps stays false"
     );
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -3442,7 +3428,7 @@ async function main() {
     assert(
       driftLogReps === 8,
       "F1: fractional-grid hold first-set Log reps add one",
-      `reps=${driftLogReps} load=${driftPlan.load}`,
+      `reps=${driftLogReps}`,
       "Log → 0.1 kg grid hold set 1 reps"
     );
     await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
