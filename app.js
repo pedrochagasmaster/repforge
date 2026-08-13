@@ -2997,7 +2997,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
       opts.map(s=>onbOpt("","splitType",s,t("split."+s)||ONB_SPLIT_LABEL[s]||s,"",false)).join("")+`</div>`}
   else if(onbStep===4){html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
     ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e)||ONB_EQ_LABEL[e],"",true)).join("")+`</div>`;
-    if((onbAnswers.equipment||[]).length&&!onbEquipmentSupportsDays(onbAnswers))
+    if(!onbEquipmentSupportsDays(onbAnswers))
       html+=`<p class="lede" id="onbEquipUnsupported" role="status">${esc(t("onb.equipment.unsupported"))}</p>`}
   else if(onbStep===5)html+=`<p class="onb__explain">${esc(t("onb.priority.lede"))}</p><div class="onb__opts">`+
     ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,t("muscle."+m)||m,"",true)).join("")+`</div>`;
