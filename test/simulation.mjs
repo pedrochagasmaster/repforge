@@ -5055,151 +5055,164 @@ async function main() {
 
   beginPhase("Phase: F2 rolling-7 program adherence");
   {
-    const f2Restore = await getState(page);
-    await clearState(page);
-    await reloadApp(page);
-    const f2State = await getState(page);
-    const days = [...new Set((f2State.program || []).map((e) => e.day))];
-    assert(days.length >= 3, "F2: program has at least three training days", `days=${days.join(",")}`, "Default program days");
-    const asOf = "2026-08-13";
-    const prevSunday = "2026-08-09";
-    const monday = "2026-08-10";
-    const wednesday = "2026-08-12";
-    const nextMonday = "2026-08-17";
-    const dayA = days[0], dayB = days[1], dayC = days[2];
-    const dayD = days.includes("Day 4") ? "F2 Day 4" : "Day 4";
-    const src = f2State.program.find((e) => e.day === dayA);
-    const program = [
-      ...f2State.program,
-      {
-        ...src, id: `${src.id}_f2_d4`, day: dayD, name: `${src.name} F2`, order: 1,
-      },
-    ];
-    const row = (day, date, tag) => {
-      const ex = program.find((e) => e.day === day);
-      return {
-        session: `${date}_${day}_f2_${tag}`, date, day, name: ex.name, exerciseId: ex.id, set: 1,
-        load: 100, reps: 8, rir: 1, notes: "", created: `${date}T12:00:00.000Z`,
-        primary: ex.primary, secondary: ex.secondary,
+    const f2Ctx = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const f2Page = await f2Ctx.newPage();
+    const f2PageErrors = [];
+    f2Page.on("pageerror", (err) => f2PageErrors.push(String(err)));
+    f2Page.on("dialog", async (dialog) => { await dialog.accept(); });
+    try {
+      const asOfNoon = new Date(2026, 7, 13, 12, 0, 0);
+      await f2Page.clock.install({ time: asOfNoon });
+      await loadApp(f2Page);
+      await waitForApp(f2Page);
+      const f2State = await getState(f2Page);
+      const src = f2State.program?.[0] || {
+        id: "f2-src", day: "Day 1", name: "F2 lift", order: 1, sets: 2, min: 4, max: 8,
+        primary: "Quads", secondary: "",
       };
-    };
-    const log = [
-      row(dayA, prevSunday, "prevSun"),
-      row(dayB, monday, "mon"),
-      row(dayC, wednesday, "wed"),
-      row(dayC, wednesday, "dupDay"),
-      row(dayD, nextMonday, "nextMon"),
-    ];
-    await persistState(page, {
-      ...f2State,
-      settings: { ...f2State.settings, lang: "en" },
-      programMeta: { ...f2State.programMeta, name: "F2 Split" },
-      program,
-      log,
-    });
-    await reloadApp(page);
-    await page.waitForFunction(() => typeof window.__repforgeProgramAdherence === "function" && typeof window.__repforgeWeeklySnapshot === "function");
-    const asOfAd = await page.evaluate((d) => window.__repforgeProgramAdherence(d), asOf);
-    const asOfWeek = await page.evaluate((d) => window.__repforgeWeeklySnapshot(d), asOf);
-    assert(
-      asOfAd.logged === 3 && asOfAd.total === 4,
-      "F2: programAdherence(asOf) counts three distinct planned days in [asOf-6, asOf]",
-      `ad=${JSON.stringify(asOfAd)} asOf=${asOf}`,
-      "Seed Sun A + Mon B + Wed C + Wed B dup + next-Mon D → rolling 3 / 4"
-    );
-    assert(
-      asOfWeek.completedDays === 2,
-      "F2: weeklySnapshot(asOf).completedDays is the Monday–Sunday count",
-      `completedDays=${asOfWeek?.completedDays} planned=${asOfWeek?.plannedDays} week=${asOfWeek?.weekStart}..${asOfWeek?.weekEnd}`,
-      "Same seed → calendar week 2 (Mon B + Wed C); prev Sunday and next Monday excluded"
-    );
-    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-    await page.evaluate(() => {
-      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
-      document.querySelector('nav button[data-view="log"]')?.click();
-    });
-    await page.waitForSelector("#todayWeek", { timeout: 5000 });
-    const liveAd = await page.evaluate(() => window.__repforgeProgramAdherence());
-    const liveWeek = await page.evaluate(() => window.__repforgeWeeklySnapshot());
-    const todayText = await page.evaluate(() =>
-      `${document.querySelector("#todayProgram")?.textContent || ""}\n${document.querySelector("#todayWeek")?.textContent || ""}`
-    );
-    assert(
-      todayText.includes(`${liveWeek.completedDays} of ${liveWeek.plannedDays} sessions`),
-      "F2: Today matches no-arg weeklySnapshot",
-      `today="${todayText.replace(/\s+/g, " ").slice(0, 180)}" snap=${liveWeek.completedDays}/${liveWeek.plannedDays}`,
-      "Today → #todayWeek"
-    );
-    await nav(page, "stats");
-    const progressText = await page.locator("#thisWeek").textContent();
-    assert(
-      progressText.includes(`${liveWeek.completedDays} of ${liveWeek.plannedDays} sessions`),
-      "F2: Progress This week matches no-arg weeklySnapshot",
-      `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
-      "Stats → Overview → #thisWeek"
-    );
-    await page.evaluate(() => {
-      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
-      document.querySelector('nav button[data-view="program"]')?.click();
-    });
-    await page.waitForSelector("#programOverview", { timeout: 5000 });
-    const overviewCell = page.locator("#programOverview .statrow__cell").first();
-    const overviewVal = await overviewCell.locator(".statrow__val").textContent();
-    const overviewCap = await overviewCell.locator(".statrow__cap").textContent();
-    assert(
-      overviewVal.trim() === `${liveAd.logged} / ${liveAd.total}`,
-      "F2: Program days stat matches no-arg programAdherence",
-      `val="${overviewVal}" ad=${liveAd.logged}/${liveAd.total}`,
-      "Program overview → days (7d)"
-    );
-    assert(
-      overviewCap.trim() === "days (7d)" && !/this week/i.test(overviewCap),
-      "F2: Program overview names a rolling 7-day window",
-      `cap="${overviewCap}"`,
-      "Program overview → days (7d) caption"
-    );
-    const editHidden = await page.locator("#programEditorWrap.is-hidden").count();
-    if (editHidden) {
-      await page.click("#programEditToggle");
-      await page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
+      const labels = ["F2 A", "F2 B", "F2 C", "F2 D", "F2 E"];
+      const program = labels.map((day, i) => ({
+        ...src, id: `f2-day-${i}`, day, name: `F2 lift ${day}`, order: 1,
+      }));
+      const asOf = "2026-08-13";
+      const row = (day, date, tag) => {
+        const ex = program.find((e) => e.day === day);
+        return {
+          session: `${date}_${day}_f2_${tag}`, date, day, name: ex.name, exerciseId: ex.id, set: 1,
+          load: 100, reps: 8, rir: 1, notes: "", created: `${date}T12:00:00.000Z`,
+          primary: ex.primary, secondary: ex.secondary,
+        };
+      };
+      const log = [
+        row(labels[0], "2026-08-07", "asOfMinus6"),
+        row(labels[1], "2026-08-09", "prevSun"),
+        row(labels[2], "2026-08-10", "mon"),
+        row(labels[3], "2026-08-13", "asOf"),
+        row(labels[3], "2026-08-13", "asOfDup"),
+        row(labels[4], "2026-08-17", "nextMon"),
+      ];
+      await persistState(f2Page, {
+        ...f2State,
+        settings: { ...f2State.settings, lang: "en" },
+        programMeta: { ...f2State.programMeta, name: "F2 Split" },
+        program,
+        log,
+      });
+      await reloadApp(f2Page);
+      await f2Page.waitForFunction(() => typeof window.__repforgeProgramAdherence === "function" && typeof window.__repforgeWeeklySnapshot === "function");
+      const asOfAd = await f2Page.evaluate((d) => window.__repforgeProgramAdherence(d), asOf);
+      const asOfWeek = await f2Page.evaluate((d) => window.__repforgeWeeklySnapshot(d), asOf);
+      const liveAd = await f2Page.evaluate(() => window.__repforgeProgramAdherence());
+      const liveWeek = await f2Page.evaluate(() => window.__repforgeWeeklySnapshot());
+      assert(
+        asOfAd.logged === 4 && asOfAd.total === 5,
+        "F2: programAdherence(asOf) is 4/5 on the rolling window",
+        `ad=${JSON.stringify(asOfAd)} asOf=${asOf}`,
+        "asOf-6 A + prevSun B + Mon C + asOf D(+dup) + nextMon E → rolling 4 / 5"
+      );
+      assert(
+        asOfWeek.completedDays === 2 && asOfWeek.plannedDays === 5,
+        "F2: weeklySnapshot(asOf).completedDays is 2 on the calendar week",
+        `completedDays=${asOfWeek?.completedDays} planned=${asOfWeek?.plannedDays} week=${asOfWeek?.weekStart}..${asOfWeek?.weekEnd}`,
+        "Same seed → calendar week 2 (Mon C + asOf D); asOf-6, prev Sunday and next Monday excluded"
+      );
+      assert(
+        liveAd.logged === 4 && liveAd.total === 5 && liveWeek.completedDays === 2,
+        "F2: frozen clock makes no-arg seams match the asOf fixture",
+        `liveAd=${JSON.stringify(liveAd)} liveWeekDays=${liveWeek?.completedDays}`,
+        "clock at 2026-08-13 noon → no-arg programAdherence/weeklySnapshot"
+      );
+      await f2Page.evaluate(() => window.__repforgeLeaveWorkout?.());
+      await f2Page.evaluate(() => {
+        document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
+        document.querySelector('nav button[data-view="log"]')?.click();
+      });
+      await f2Page.waitForSelector("#todayWeek", { timeout: 5000 });
+      const todayText = await f2Page.evaluate(() =>
+        `${document.querySelector("#todayProgram")?.textContent || ""}\n${document.querySelector("#todayWeek")?.textContent || ""}`
+      );
+      assert(
+        todayText.includes("2 of 5 sessions") && !todayText.includes("3 of 5") && !todayText.includes("4 of 5"),
+        "F2: Today shows calendar-week 2 of 5",
+        `today="${todayText.replace(/\s+/g, " ").slice(0, 180)}"`,
+        "Today → #todayWeek"
+      );
+      await nav(f2Page, "stats");
+      const progressText = await f2Page.locator("#thisWeek").textContent();
+      assert(
+        progressText.includes("2 of 5 sessions"),
+        "F2: Progress This week shows calendar-week 2 of 5",
+        `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
+        "Stats → Overview → #thisWeek"
+      );
+      await f2Page.evaluate(() => {
+        document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
+        document.querySelector('nav button[data-view="program"]')?.click();
+      });
+      await f2Page.waitForSelector("#programOverview", { timeout: 5000 });
+      const overviewCell = f2Page.locator("#programOverview .statrow__cell").first();
+      const overviewVal = await overviewCell.locator(".statrow__val").textContent();
+      const overviewCap = await overviewCell.locator(".statrow__cap").textContent();
+      assert(
+        overviewVal.trim() === "4 / 5",
+        "F2: Program days stat shows rolling 4 / 5",
+        `val="${overviewVal}"`,
+        "Program overview → days (7d)"
+      );
+      assert(
+        overviewCap.trim() === "days (7d)" && !/this week/i.test(overviewCap),
+        "F2: Program overview names a rolling 7-day window",
+        `cap="${overviewCap}"`,
+        "Program overview → days (7d) caption"
+      );
+      const editHidden = await f2Page.locator("#programEditorWrap.is-hidden").count();
+      if (editHidden) {
+        await f2Page.click("#programEditToggle");
+        await f2Page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
+      }
+      const chip = await f2Page.locator("#pmetaChipsBottom").textContent();
+      assert(
+        chip.includes("4 / 5 days in the last 7 days") && !/days this week/i.test(chip),
+        "F2: Program chip shows rolling 4 / 5 and copy",
+        `chip="${chip}"`,
+        "Program → days in the last 7 days chip"
+      );
+      const afterEn = await getState(f2Page);
+      await persistState(f2Page, { ...afterEn, settings: { ...afterEn.settings, lang: "pt" } });
+      await reloadApp(f2Page);
+      await f2Page.evaluate(() => {
+        document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
+        document.querySelector('nav button[data-view="program"]')?.click();
+      });
+      await f2Page.waitForSelector("#programOverview", { timeout: 5000 });
+      const ptCap = await f2Page.locator("#programOverview .statrow__cell").first().locator(".statrow__cap").textContent();
+      assert(
+        ptCap.trim() === "dias (7d)",
+        "F2: Program overview rolling label is Portuguese",
+        `cap="${ptCap}"`,
+        "lang=pt → Program overview → dias (7d)"
+      );
+      const ptEditHidden = await f2Page.locator("#programEditorWrap.is-hidden").count();
+      if (ptEditHidden) {
+        await f2Page.click("#programEditToggle");
+        await f2Page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
+      }
+      const ptChip = await f2Page.locator("#pmetaChipsBottom").textContent();
+      assert(
+        ptChip.includes("4 / 5 dias nos últimos 7 dias"),
+        "F2: Program chip rolling copy is Portuguese",
+        `chip="${ptChip}"`,
+        "lang=pt → Program chip"
+      );
+      assert(
+        f2PageErrors.length === 0,
+        "F2: dedicated clocked context has no page errors",
+        f2PageErrors.join(" | ") || "none",
+        "f2Page pageerror listener"
+      );
+    } finally {
+      await f2Ctx.close();
     }
-    const chip = await page.locator("#pmetaChipsBottom").textContent();
-    assert(
-      chip.includes(`${liveAd.logged} / ${liveAd.total} days in the last 7 days`) && !/days this week/i.test(chip),
-      "F2: Program chip shows no-arg rolling count and copy",
-      `chip="${chip}"`,
-      "Program → days in the last 7 days chip"
-    );
-    const afterEn = await getState(page);
-    await persistState(page, { ...afterEn, settings: { ...afterEn.settings, lang: "pt" } });
-    await reloadApp(page);
-    await page.evaluate(() => {
-      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
-      document.querySelector('nav button[data-view="program"]')?.click();
-    });
-    await page.waitForSelector("#programOverview", { timeout: 5000 });
-    const ptCap = await page.locator("#programOverview .statrow__cell").first().locator(".statrow__cap").textContent();
-    assert(
-      ptCap.trim() === "dias (7d)",
-      "F2: Program overview rolling label is Portuguese",
-      `cap="${ptCap}"`,
-      "lang=pt → Program overview → dias (7d)"
-    );
-    const ptEditHidden = await page.locator("#programEditorWrap.is-hidden").count();
-    if (ptEditHidden) {
-      await page.click("#programEditToggle");
-      await page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
-    }
-    const ptChip = await page.locator("#pmetaChipsBottom").textContent();
-    const ptAd = await page.evaluate(() => window.__repforgeProgramAdherence());
-    assert(
-      ptChip.includes(`${ptAd.logged} / ${ptAd.total} dias nos últimos 7 dias`),
-      "F2: Program chip rolling copy is Portuguese",
-      `chip="${ptChip}"`,
-      "lang=pt → Program chip"
-    );
-    await persistState(page, f2Restore);
-    await reloadApp(page);
   }
 
   beginPhase("\nPhase: session deltas");
