@@ -7,9 +7,9 @@
 ## Status
 
 - **Priority**: P0 launch-readiness
-- **Effort**: M across the launch gate; L for the full follow-up
-- **Risk**: MED (the highest-priority fixes touch draft persistence, first-run
-  state, and log validation)
+- **Effort**: L across the launch gate and full follow-up
+- **Risk**: HIGH (the highest-priority fixes touch dual-store persistence,
+  draft recovery, first-run state, and log validation)
 - **Depends on**: none
 - **Audited at**: commit `7b6ad58`, 2026-08-13
 - **Product shape**: static, local-only mobile PWA; no backend or account system
@@ -26,15 +26,20 @@ credible post-workout loop.
 The current build is **not ready to ship unchanged**, however. The remaining
 problems are not broad visual polish. They cluster at trust boundaries:
 
-1. changing RIR mode can silently destroy an in-progress workout;
-2. two legitimate first-run paths install a program without completing
+1. a one-sided storage failure can make a newer local copy lose to stale
+   IndexedDB data on the next boot;
+2. changing RIR mode can silently destroy an in-progress workout;
+3. reloading an in-progress workout forgets skipped and substituted exercises;
+4. two legitimate first-run paths install a program without completing
    onboarding, so onboarding returns after reload;
-3. invalid set values are silently coerced into believable-looking bad data;
-4. notification controls can claim to be on when the browser has denied them;
-5. Portuguese workout UI contains a duplicated English bodyweight label; and
-6. page zoom is intentionally disabled, excluding low-vision users.
+5. invalid set values are silently coerced into believable-looking bad data;
+6. notification controls can claim to be on when the browser has denied them;
+7. Portuguese workout UI contains a duplicated English bodyweight label;
+8. page zoom is intentionally disabled, excluding low-vision users; and
+9. meaningful labels use text colors that fail the app's own 4.5:1 contrast
+   requirement.
 
-These six issues are small enough to address without redesigning the product.
+These nine issues are addressable without redesigning the product.
 They should be the launch gate. If they cannot all land, disable or guard the
 affected options rather than shipping silent data loss or false status.
 
@@ -65,7 +70,7 @@ origin-scoped.
 |---|---|---|
 | First run / onboarding | all eight steps; disabled/valid Continue states; Back, Cancel, Restart, Save, Edit before saving, program import, reload | Main save path passes; edit/import completion paths fail |
 | Today | fresh program, populated history, day choice, exercise disclosure, ready-to-progress cue, Start vs Continue | Strong hierarchy and clear primary action |
-| Active workout — List | suggested/touched/committed/warmup sets; steppers; copy last; collapse; substitution; skip/restore; notes; bodyweight; timer; voice option; finish | Fast and coherent; validation and draft-safety defects remain |
+| Active workout — List | suggested/touched/committed/warmup sets; steppers; copy last; collapse; substitution; skip/restore; notes; bodyweight; timer; voice option; finish | Fast and coherent; validation and resume-state defects remain |
 | Active workout — Focus | card deck, swipe, previous/next, short viewport, long ledger, edit committed set, rest, note sheet, completion | Best part of the redesign; core behavior is sound |
 | Progress — Overview | empty and populated; weekly verdict; ready list; attention groups; chart; volume; deep section | Useful, but period scope and destinations are inconsistent |
 | Progress — Strength / Volume / PRs / Review | empty/populated tables, PR filters, 7/28-day controls, block snapshot | Data is readable; drill-down/action semantics are uneven |
@@ -74,7 +79,7 @@ origin-scoped.
 | Program | overview, day disclosures, edit mode, add/reorder/delete, raw JSON, program import/export, volume audit | Capable editor; template replacement can leave false identity |
 | Block lifecycle | end-block confirmation, review, all next-block strategies, decide later, onboarding strategy | Review is clear; modal accessibility and cancel semantics need work |
 | Settings | units, language, RIR mode, voice, timer, progression, notifications, tour, install, backup/import/reset | Well grouped; several switches overstate their effective state |
-| PWA | manifest/assets, install affordances, service worker, reload, offline shell | Core offline behavior passes; installed-app description is stale |
+| PWA | manifest/assets, install affordances, service worker, reload, offline shell; dual-store failure path code-vetted | Offline shell passes; persistence conflict handling and installed-app copy do not |
 
 ### What was not treated as a defect
 
@@ -92,14 +97,49 @@ origin-scoped.
 
 | ID | Finding | Impact | Effort | Fix risk | Confidence |
 |---|---|---:|---:|---:|---:|
+| DATA-01 | Reconcile IndexedDB and localStorage without rolling back newer state | Critical | M | HIGH | HIGH |
 | UX-01 | Preserve an in-progress workout when RIR mode changes | Critical | S | MED | HIGH |
+| UX-19 | Persist skips and substitutions as part of the workout draft | High | M | MED | HIGH |
 | UX-02 | Complete onboarding through Save, Edit, and Import | High | S–M | MED | HIGH |
 | UX-03 | Reject invalid set data instead of coercing it to zero | High | M | MED | HIGH |
 | UX-04 | Reconcile notification UI with browser permission | High | S–M | LOW | HIGH |
 | UX-05 | Render one translated bodyweight label | High polish / low effort | S | LOW | HIGH |
 | UX-06 | Restore pinch zoom while retaining safe repeated taps | High accessibility | S | LOW | HIGH |
+| A11Y-01 | Raise meaningful text to at least 4.5:1 contrast | High accessibility | S–M | LOW | HIGH |
 
 ## Detailed findings
+
+### DATA-01 — Reconcile IndexedDB and localStorage without rolling back newer state
+
+- **Evidence**: `persist()` at `app.js:768-774` writes the localStorage mirror
+  synchronously, starts an unawaited IndexedDB write, and only warns when both
+  stores fail. `boot()` at `app.js:3239-3252` always prefers any non-null
+  IndexedDB value and consults localStorage only when IndexedDB has no value.
+- **Failure mechanism**: if localStorage accepts a workout but the corresponding
+  IndexedDB transaction fails, IndexedDB remains an older yet valid snapshot.
+  The next boot selects that older snapshot, then `persist()` writes it back
+  over the newer localStorage mirror. The successful save appears to be
+  silently rolled back. Fire-and-forget writes also provide no ordering or
+  recovery contract for rapid consecutive saves.
+- **Impact**: completed workouts, settings, or program edits can disappear after
+  reload—the most serious possible failure for a local-only tracker.
+- **Effort**: M.
+- **Risk**: HIGH because migration, import, and every save path share this layer.
+- **Confidence**: HIGH in the code path; inject one-store failures to determine
+  browser-specific frequency.
+- **Fix sketch**: persist a monotonically increasing revision in a versioned
+  envelope in both stores. On boot, read and validate both snapshots, choose
+  the newest revision, and repair the stale store. Serialize writes so an older
+  transaction cannot finish last. Show a persistent degraded-storage warning
+  when only one store accepts a write; a toast only when both fail is too late.
+- **Done criteria**:
+  - injected IndexedDB failure plus successful localStorage write reloads the
+    newer state and heals IndexedDB;
+  - injected localStorage failure plus successful IndexedDB write reloads the
+    newer state and heals localStorage;
+  - delayed/out-of-order transactions cannot replace a higher revision;
+  - malformed data in one store falls back to the other without resetting;
+  - migration and replace/merge import preserve revision ordering.
 
 ### UX-01 — Preserve an in-progress workout when RIR mode changes
 
@@ -127,6 +167,36 @@ origin-scoped.
   - changing it with a filled, touched, warmup, or committed set preserves the
     draft and visibly explains why the mode did not change;
   - reload still shows **Continue workout** with the original values.
+
+### UX-19 — Persist skips and substitutions as part of the workout draft
+
+- **Evidence**: `skipped` and `substituted` are module-only collections at
+  `app.js:470-471`. Their handlers at `app.js:1913-1923` only mutate memory and
+  re-render. `saveDraft()` at `app.js:1850-1858` persists fields, effort, notes,
+  committed/touched/warmup state, and a timestamp, but neither collection.
+  `saveWorkout()` at `app.js:2027-2040` relies on those collections to exclude
+  skipped exercises and record `performedName`.
+- **Result**: after leave/close/reload/continue, skipped exercises return and
+  substitutions display as the original exercise. Finishing after that reload
+  can attribute an alternate exercise's surviving set values to the original
+  program exercise.
+- **Impact**: the app promises a resumable workout but only restores part of the
+  session. This is both interaction drift and potentially incorrect history.
+- **Effort**: M.
+- **Risk**: MED because old drafts must remain compatible and substitutions
+  need validation against the current program.
+- **Confidence**: HIGH.
+- **Fix sketch**: add `__skipped` exercise IDs and a
+  `__substituted` ID-to-name map to the draft schema; rehydrate both before the
+  first workout render. Remove unknown IDs, cap custom names, and clear this
+  state only on explicit discard or successful finish.
+- **Done criteria**:
+  - skip/restore and predefined/custom substitutions survive leave, reload,
+    List/Focus switching, and **Continue workout**;
+  - a resumed substituted set saves the correct `performedName`;
+  - a resumed skipped exercise stays excluded from save;
+  - old drafts without the new keys still load, and changed programs discard
+    only orphaned skip/substitution entries.
 
 ### UX-02 — Complete onboarding through Save, Edit, and Import
 
@@ -258,6 +328,30 @@ origin-scoped.
   assertion with one that verifies pinch zoom is not prohibited.
 - **Done criteria**: pinch zoom works; repeated stepper taps do not trigger
   double-tap zoom; focused fields do not force iOS text zoom.
+
+### A11Y-01 — Raise meaningful text to at least 4.5:1 contrast
+
+- **Evidence**: `styles.css:18` defines `--ink-faint:#98948C`. It computes to
+  3.02:1 on white and 2.70:1 on the page background, yet it is used for
+  meaningful 10–13px section labels, set headers, unit hints, chart labels,
+  exercise metadata, and session dates throughout `styles.css`. The text accent
+  `#E04E14` is 3.99:1 on white and 3.57:1 on the page background. The overhaul
+  specification at `docs/design/ui-overhaul-spec.md:419-420` explicitly
+  requires all text to reach 4.5:1.
+- **Impact**: low-vision users can zoom only after UX-06, but magnification does
+  not repair low contrast. Tiny tertiary labels carry operational meaning in
+  the workout and History flows.
+- **Effort**: S–M.
+- **Risk**: LOW; this is a token/usage correction, not a layout redesign.
+- **Confidence**: HIGH.
+- **Fix sketch**: reserve `--ink-faint` for non-text decoration or darken it to
+  a compliant token. Use `--ink-soft` for tertiary text and `--accent-deep` for
+  normal-size orange links/labels; retain the brighter accent for large text,
+  icons, borders, dots, and chart graphics where the applicable threshold is
+  met.
+- **Done criteria**: an automated computed-style audit finds no meaningful
+  normal text below 4.5:1 in EN/PT, disabled text remains distinguishable, and
+  the editorial hierarchy still reads clearly on all three launch viewports.
 
 ## P1 — fix immediately after the launch gate
 
@@ -413,6 +507,44 @@ origin-scoped.
   If a true factory reset is needed later, add it as a separate action with a
   detailed summary and fresh-backup gate.
 
+### A11Y-02 — Announce status and expose selection/activation semantics
+
+- **Evidence**: `#toast` at `index.html:519` has no `role` or `aria-live`, so
+  save, validation, timer, and error feedback is visual-only. The session
+  reminder is a `role="status"` `<div>` whose whole surface receives an
+  `onclick` at `app.js:1223-1232`, but it is not keyboard-focusable or announced
+  as an action. List/Focus buttons update only an `.active` class at
+  `app.js:895`; the notification toggle at `index.html:323` has no accessible
+  name; and flat Settings selects suppress both custom and default focus
+  treatment at `styles.css:343`.
+- **Impact**: assistive-technology users can miss whether data saved, cannot
+  activate a reminder, and cannot reliably discover selected layout or focus.
+- **Effort**: M.
+- **Risk**: LOW.
+- **Confidence**: HIGH.
+- **Fix sketch**: make toasts a polite status region (use assertive only for
+  destructive failure), render the banner's primary action as a button, expose
+  List/Focus as pressed buttons or tabs, label every switch, and preserve a
+  visible `:focus-visible` style on selects. Audit compact controls—including
+  the 40×40 banner close button—against the 44px target contract.
+
+### UX-20 — Stop labeling residual exercises as “stable”
+
+- **Evidence**: `weeklySnapshot()` at `app.js:542-563` already computes an exact
+  `flatLifts` count from exercises compared this week. `renderThisWeek()` at
+  `app.js:2089-2101` ignores it and derives `flatGuess` from every exercise with
+  any history minus current improved, ready, and whole-program attention
+  counts.
+- **Impact**: exercises not trained or not comparable this week can appear
+  “stable.” The headline dashboard presents an inferred remainder as measured
+  progress, weakening confidence in the coaching layer.
+- **Effort**: S.
+- **Risk**: LOW.
+- **Confidence**: HIGH.
+- **Fix sketch**: display `w.flatLifts` or rename/redefine the cell if the
+  product intentionally wants a whole-program residual. Add a fixture with an
+  old but untrained lift and a one-session lift so neither is counted stable.
+
 ## P2 — post-launch coherence
 
 ### UX-16 — Standardize disclosure semantics
@@ -439,9 +571,26 @@ offer the next action there.
 cables, dumbbells, barbells, and bodyweight. Update the install description so
 the installed product matches the current audience.
 
+### PERF-01 — Index History once per render
+
+History filtering and rendering repeatedly scans the full log for each session
+at `app.js:2452-2484`, producing quadratic work as a personal ledger grows.
+Build one session map and normalized search index per render, then reuse it for
+filtering, counts, expansion, and month grouping. Add a realistic long-history
+fixture and a render/search budget so this remains a post-launch optimization,
+not a speculative rewrite.
+
 ## Holistic recommendations
 
-### 1. Protect state transitions centrally
+### 1. Make persistence recoverable and draft state complete
+
+Treat IndexedDB and localStorage as replicas of one versioned snapshot, not
+“primary plus fallback” without conflict resolution. Treat the workout draft
+as the complete resumable session—including skip/substitution state—not merely
+the current inputs. Every reload test should prove semantic equivalence before
+and after boot.
+
+### 2. Protect state transitions centrally
 
 Draft loss, onboarding loops, stale program identity, and premature block
 completion are four expressions of one architectural UX problem: several
@@ -455,14 +604,14 @@ Create explicit transition helpers:
 
 This is a deeper and safer fix than adding one-off booleans in click handlers.
 
-### 2. Separate preference from effective capability
+### 3. Separate preference from effective capability
 
 Notifications demonstrate why persisted preference and browser capability are
 different. Apply the same pattern to voice input and installation: show
 unsupported, permission-blocked, available, and enabled as distinct states.
 Never paint an “on” switch when the platform cannot perform the action.
 
-### 3. Use native semantics before custom styling
+### 4. Use native semantics before custom styling
 
 RepForge already uses buttons well in many places. Finish the job: expandable
 rows should be buttons, modal dialogs need focus management, clickable period
@@ -470,7 +619,7 @@ text must be a button, and static labels must not look like buttons. This one
 rule resolves most of the keyboard issues and dead-affordance roughness without
 changing the visual system.
 
-### 4. Keep insight-to-action destinations predictable
+### 5. Keep insight-to-action destinations predictable
 
 Today and Progress now contain several coaching surfaces. Give every row a
 visible destination verb. A user should know before tapping whether RepForge
@@ -478,17 +627,21 @@ will show evidence, open the exercise, or start logging.
 
 ## Recommended execution order
 
-1. **Trust patch**: UX-01, UX-02, UX-03, UX-05.
-   These share workout/program persistence and need focused regression tests
+1. **Storage trust patch**: DATA-01 first, in an isolated change with
+   fault-injection coverage.
+2. **Workout/program trust patch**: UX-01, UX-19, UX-02, UX-03, UX-05.
+   These share draft/program persistence and need focused regression tests
    before any copy polish.
-2. **Capability/accessibility patch**: UX-04, UX-06, UX-07.
+3. **Capability/accessibility patch**: UX-04, UX-06, A11Y-01, UX-07,
+   A11Y-02.
    Notification truth and browser interaction semantics are independent of the
    program model.
-3. **Lifecycle patch**: UX-08, UX-09.
+4. **Lifecycle patch**: UX-08, UX-09.
    Land together so every new-program route follows one identity rule.
-4. **Affordance patch**: UX-10 through UX-16.
+5. **Accuracy/affordance patch**: UX-10 through UX-16 and UX-20.
    Mostly low-risk markup, copy, and event-state corrections.
-5. **Post-launch navigation pass**: UX-17 and the richer version of UX-12/13.
+6. **Post-launch pass**: UX-17, UX-18, PERF-01, and the richer version of
+   UX-12/13.
 
 Do not bundle a visual redesign, new analytics, or AI work into these patches.
 The launch problem is trust and interaction truth, not missing scope.
@@ -501,8 +654,12 @@ zoom restriction.
 
 ### New automated checks
 
+- Fault-inject each persistence store independently, delay writes out of order,
+  and verify boot chooses/heals the highest valid revision.
 - RIR mode with empty draft changes; with each draft-progress shape it refuses
   without data loss.
+- Skip and predefined/custom substitution state survives leave/reload/continue
+  and produces the same saved rows as an uninterrupted workout.
 - Onboarding Save/Edit/Import each persist `onboarded:true` and stay complete
   after reload.
 - Negative, blank, decimal, and non-numeric set values never mutate stored
@@ -511,13 +668,18 @@ zoom restriction.
   revoked after enable.
 - EN/PT and kg/lb bodyweight labels contain exactly one localized label.
 - Viewport permits zoom while steppers retain `touch-action:manipulation`.
+- Computed text colors meet 4.5:1 in all primary UI states.
 - Every modal: initial focus, Tab containment, Escape, and trigger focus return.
+- Toasts are announced; session reminder, layout selection, switches, and
+  Settings selects expose keyboard and accessible state.
 - Block-review onboarding cancel leaves the previous block active and
   unarchived; save archives it exactly once.
 - Beginner template gets new, coherent metadata while preserving log rows.
 - History session rows open with Enter/Space and expose expanded state.
 - No-match search copy differs from the zero-history empty state.
 - Every element rendered as a button on Exercise detail has a working handler.
+- Weekly “stable” equals actual flat comparisons, excluding untrained and
+  non-comparable lifts.
 
 ### Manual launch smoke
 
@@ -526,7 +688,8 @@ At 320×568, 390×844, and 430×932:
 1. clean first run in EN: Save path, Edit path, and Import path, each followed
    by reload;
 2. one complete List workout and one Focus workout, including an invalid entry,
-   warmup, set edit, timer, note, leave/continue, and finish;
+   warmup, set edit, timer, note, skip, substitution, reload/continue, and
+   finish;
 3. Progress and History populated from that workout, including keyboard-only
    navigation;
 4. switch to PT and lb, inspect every primary flow and bodyweight copy;
@@ -575,11 +738,12 @@ observations:
 
 The launch gate is complete only when:
 
-- all six P0 findings have automated regression coverage;
+- all nine launch-gate findings have automated regression coverage;
 - the manual launch smoke passes in EN/PT and at all three phone sizes;
-- no user action silently deletes a draft or silently writes coerced set data;
+- no user action silently deletes or partially restores a draft, rolls back
+  newer durable state, or silently writes coerced set data;
 - every visible notification state matches effective browser permission;
-- pinch zoom works;
+- pinch zoom works and meaningful normal text meets 4.5:1 contrast;
 - `node --check` is clean and every focused/browser suite reports zero
   failures; and
 - service-worker cache/version and asset coverage are correct for every changed

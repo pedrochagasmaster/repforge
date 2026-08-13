@@ -282,11 +282,12 @@ re-vetted against the current code and UI-overhaul specification.
 
 | # | Plan | Category | Effort | Risk | Source |
 |---|------|----------|--------|------|--------|
-| 040 | [Launch-readiness UI/UX audit](./040-launch-readiness-ui-ux-audit.md) | correctness / UX / accessibility | M launch gate; L full pass | MED | Clean-origin browser audit + code/spec vetting |
+| 040 | [Launch-readiness UI/UX audit](./040-launch-readiness-ui-ux-audit.md) | correctness / UX / accessibility | L | HIGH | Clean-origin browser audit + code/spec vetting |
 
-Plan 040 is an audit and remediation brief, not an implementation. Its six-item
-launch gate is ordered first; lifecycle, affordance, and navigation follow-ups
-are sequenced separately so launch fixes do not become another visual redesign.
+Plan 040 is an audit and remediation brief, not an implementation. Its
+nine-item launch gate starts with storage/draft trust; lifecycle, affordance,
+and navigation follow-ups are sequenced separately so launch fixes do not
+become another visual redesign.
 
 ## Backlog (not yet planned in detail)
 
