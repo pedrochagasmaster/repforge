@@ -19,9 +19,12 @@
 
 import { launchChromium } from "./browser.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { tmpdir } from "os";
 import { runHistoryIndexChecks, runHistoryOperabilityChecks } from "./accessibility.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -113,6 +116,92 @@ async function persistState(page, state) {
     },
     { k: KEY, blob: state }
   );
+}
+
+function readServiceWorkerMeta() {
+  const src = readFileSync(join(ROOT, "sw.js"), "utf8");
+  const cache = src.match(/const CACHE\s*=\s*"([^"]+)"/)?.[1];
+  if (!cache) throw new Error("sw.js CACHE string not found");
+  const shellRaw = src.match(/const SHELL\s*=\s*new Set\(\[([^\]]*)\]\)/)?.[1] || "";
+  const shell = [...shellRaw.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  if (!shell.length) throw new Error("sw.js SHELL set not found");
+  return { cache, shell };
+}
+
+function pwaOriginFromBase() {
+  const u = new URL(BASE);
+  return `http://127.0.0.1:${u.port || "80"}/`;
+}
+
+function stableStringify(v) {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(",")}]`;
+  const keys = Object.keys(v).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(v[k])}`).join(",")}}`;
+}
+
+function canonicalDomain(snapshot) {
+  if (snapshot == null) return { revision: null, domain: null };
+  const copy = JSON.parse(JSON.stringify(snapshot));
+  const revision = Object.prototype.hasOwnProperty.call(copy, "_storageRevision") ? copy._storageRevision : 0;
+  delete copy._storageRevision;
+  delete copy._storageFollowUp;
+  return { revision, domain: stableStringify(copy) };
+}
+
+async function readReplicasAndDraft(page) {
+  return page.evaluate(async ({ k, d }) => {
+    const localRaw = localStorage.getItem(k);
+    let local = null;
+    try {
+      local = localRaw ? JSON.parse(localRaw) : null;
+    } catch {
+      local = { __parseError: true, raw: localRaw };
+    }
+    const draft = localStorage.getItem(d);
+    let idb = null;
+    try {
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      idb = await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readonly").objectStore("kv").get(k);
+        tx.onsuccess = () => res(tx.result === undefined ? null : tx.result);
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    } catch {
+      idb = { __readError: true };
+    }
+    return { local, idb, draft };
+  }, { k: KEY, d: DRAFT });
+}
+
+function replicasAgree(bundle) {
+  const a = canonicalDomain(bundle.local);
+  const b = canonicalDomain(bundle.idb);
+  return a.domain === b.domain && a.domain != null;
+}
+
+async function wipePwaOrigin(page, context) {
+  await page.evaluate(async ({ k, d }) => {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((r) => r.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((c) => caches.delete(c)));
+    localStorage.removeItem(k);
+    localStorage.removeItem(d);
+    sessionStorage.clear();
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    });
+  }, { k: KEY, d: DRAFT });
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Network.clearBrowserCache");
 }
 
 /** Bulk-inject a year of training history (fast path for stats/history coverage). */
@@ -7323,6 +7412,163 @@ async function main() {
   await runHistoryIndexChecks(page, (cond, name, detail) =>
     assert(cond, name, detail, "History index large fixture + renderWithSource")
   );
+
+  beginPhase("Phase: PWA cache, offline shell, replica agreement");
+  {
+    const swMeta = readServiceWorkerMeta();
+    const origin = pwaOriginFromBase();
+    const pwaContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      serviceWorkers: "allow",
+    });
+    const pwaPage = await pwaContext.newPage();
+    await pwaPage.goto(origin, { waitUntil: "domcontentloaded" });
+    await wipePwaOrigin(pwaPage, pwaContext);
+    const seedState = await getState(page);
+    if (!seedState) throw new Error("PWA phase needs canonical state from the main simulation page");
+    await persistState(pwaPage, seedState);
+    const draftRaw = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
+    if (draftRaw) {
+      await pwaPage.evaluate(({ d, raw }) => localStorage.setItem(d, raw), { d: DRAFT, raw: draftRaw });
+    }
+    await pwaPage.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(pwaPage);
+    await pwaPage.waitForFunction(
+      async (cacheName) => {
+        if (!("serviceWorker" in navigator)) return false;
+        await navigator.serviceWorker.ready;
+        const keys = await caches.keys();
+        return keys.includes(cacheName) && !!navigator.serviceWorker.controller;
+      },
+      swMeta.cache,
+      { timeout: 20000 }
+    );
+
+    const beforeStores = await readReplicasAndDraft(pwaPage);
+    assert(
+      replicasAgree(beforeStores),
+      "Before offline, both durable replicas agree on canonical domain state",
+      `localRev=${canonicalDomain(beforeStores.local).revision} idbRev=${canonicalDomain(beforeStores.idb).revision}`,
+      "PWA origin → seed both stores → boot → compare localStorage vs IndexedDB"
+    );
+
+    const shellChecks = await pwaPage.evaluate(
+      async ({ origin, cacheName, shell }) => {
+        const cache = await caches.open(cacheName);
+        const reqs = await cache.keys();
+        const cacheUrls = reqs.map((r) => r.url);
+        const results = [];
+        for (const path of shell) {
+          const url = new URL(path, origin).href;
+          const net = await fetch(url, { cache: "reload" });
+          const netBuf = new Uint8Array(await net.arrayBuffer());
+          let cached = await cache.match(url);
+          if (!cached) {
+            for (const req of reqs) {
+              const u = new URL(req.url);
+              const target = new URL(url);
+              if (u.pathname === target.pathname || (path === "/" && /\/index\.html$/.test(u.pathname))) {
+                cached = await cache.match(req);
+                if (cached) break;
+              }
+            }
+          }
+          if (!cached) {
+            results.push({ path, ok: false, reason: "cache-miss", cacheUrls });
+            continue;
+          }
+          const cachedBuf = new Uint8Array(await cached.arrayBuffer());
+          const netType = net.headers.get("content-type") || "";
+          const cachedType = cached.headers.get("content-type") || "";
+          const bytesEqual = netBuf.length === cachedBuf.length && netBuf.every((b, i) => b === cachedBuf[i]);
+          results.push({
+            path,
+            ok: net.ok && bytesEqual && netType === cachedType,
+            netOk: net.ok,
+            bytesEqual,
+            netType,
+            cachedType,
+            netBytes: netBuf.length,
+            cachedBytes: cachedBuf.length,
+          });
+        }
+        return { cacheNamePresent: (await caches.keys()).includes(cacheName), results };
+      },
+      { origin, cacheName: swMeta.cache, shell: swMeta.shell }
+    );
+    assert(
+      shellChecks.cacheNamePresent,
+      `CacheStorage contains the live sw.js cache (${swMeta.cache})`,
+      JSON.stringify({ cache: swMeta.cache, present: shellChecks.cacheNamePresent }),
+      "Register service worker → caches.keys() includes CACHE from sw.js"
+    );
+    const shellFail = shellChecks.results.filter((r) => !r.ok);
+    assert(
+      shellFail.length === 0,
+      "Each SHELL asset matches CacheStorage bytes and content-type after cache-bypass fetch",
+      JSON.stringify(shellFail.slice(0, 3)),
+      "Online fetch({cache:'reload'}) vs caches.open(CACHE).match"
+    );
+
+    const cdp = await pwaContext.newCDPSession(pwaPage);
+    await cdp.send("Network.clearBrowserCache");
+    await pwaContext.setOffline(true);
+
+    const offlineNav = await pwaPage.goto(origin, { waitUntil: "domcontentloaded" });
+    assert(
+      !!offlineNav && offlineNav.fromServiceWorker(),
+      "Offline navigation is served from the service worker",
+      `fromSW=${offlineNav?.fromServiceWorker?.()} status=${offlineNav?.status()}`,
+      "Clear HTTP cache, stay offline, reload /"
+    );
+
+    const offlineShell = [];
+    for (const path of swMeta.shell.filter((p) => p !== "/")) {
+      const url = new URL(path, origin).href;
+      const [resp] = await Promise.all([
+        pwaPage.waitForResponse((r) => r.url() === url, { timeout: 8000 }).catch(() => null),
+        pwaPage.evaluate((u) => fetch(u), url),
+      ]);
+      offlineShell.push({ path, fromSW: resp?.fromServiceWorker?.() === true, status: resp?.status() });
+    }
+    assert(
+      offlineShell.every((r) => r.fromSW),
+      "Offline SHELL fetches report fromServiceWorker()",
+      JSON.stringify(offlineShell),
+      "While offline, fetch each SHELL path"
+    );
+
+    for (const view of ["log", "stats", "history", "program"]) {
+      await nav(pwaPage, view);
+      const active = await pwaPage.locator(`#${view}.view.active`).count();
+      assert(active === 1, `Offline navigation opens the ${view} tab`, `active=${active}`, `Offline → nav ${view}`);
+    }
+
+    const offlineStores = await readReplicasAndDraft(pwaPage);
+    assert(
+      replicasAgree(offlineStores) &&
+        canonicalDomain(offlineStores.local).domain === canonicalDomain(beforeStores.local).domain &&
+        offlineStores.draft === beforeStores.draft,
+      "While offline, both replicas and the draft stay byte-equivalent to the pre-offline snapshot",
+      `draftEqual=${offlineStores.draft === beforeStores.draft}`,
+      "Read localStorage + IndexedDB + draft while offline"
+    );
+
+    await pwaContext.setOffline(false);
+    await pwaPage.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(pwaPage);
+    const afterStores = await readReplicasAndDraft(pwaPage);
+    assert(
+      replicasAgree(afterStores) &&
+        canonicalDomain(afterStores.local).domain === canonicalDomain(beforeStores.local).domain &&
+        afterStores.draft === beforeStores.draft,
+      "After reconnect, both replicas and the draft remain canonically identical",
+      `rev local=${canonicalDomain(afterStores.local).revision} idb=${canonicalDomain(afterStores.idb).revision}`,
+      "Go online → reload → compare both stores and draft"
+    );
+
+    await pwaContext.close();
+  }
 
   // Console errors
   assert(
