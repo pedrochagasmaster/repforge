@@ -590,6 +590,7 @@
   "notify.title": "RepForge",
   "notify.unfinished.body": "Still training? Finish or save your session.",
   "notify.rest.body": "Rest done — next set.",
+  "rest.complete": "Rest done.",
   "notify.permission.unsupported": "unsupported",
   "toast.enter_weight_before_save_set": "Enter a weight before saving the set.",
   "toast.enter_weight_before_save": "Enter weight on at least one set before saving.",

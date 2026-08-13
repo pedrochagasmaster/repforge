@@ -166,7 +166,7 @@ console.log("\nNotification surfaces");
   await waitNotifyIdle(page);
   await page.waitForFunction(() => document.querySelector("#notifyMissed") && !document.querySelector("#notifyMissed").disabled);
 
-  await page.evaluate(() => document.querySelector("#notifyTypes")?.classList.add("is-open"));
+  await page.locator("#notifyConfigRow").click();
   await page.waitForSelector("#notifyTypes.is-open", { timeout: 3000 });
   await page.uncheck("#notifyMissed");
   await page.waitForFunction(async () => {
