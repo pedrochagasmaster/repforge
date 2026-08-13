@@ -2835,6 +2835,180 @@ async function main() {
     }
   }
 
+
+  beginPhase("Phase: F1 history-derived recommendation rounding");
+  {
+    const MIXED = [52.5, 55];
+    const RAW_MED = (MIXED[0] + MIXED[1]) / 2; // 53.75 — off the 2.5 kg grid
+    const GRID = 2.5;
+    const onGrid = (kg) => Number.isFinite(kg) && Math.abs(kg / GRID - Math.round(kg / GRID)) < 1e-9;
+    const mixedRows = (ex, date, reps, rir, tag) => {
+      const session = `${date}_${ex.day}_f1_${ex.id}_${tag}`;
+      const created = new Date(`${date}T12:00:00Z`).toISOString();
+      return MIXED.map((load, i) => ({
+        session, date, day: ex.day, name: ex.name, exerciseId: ex.id, set: i + 1,
+        load, reps, rir, notes: "", created, primary: ex.primary, secondary: ex.secondary,
+      }));
+    };
+    const f1Cases = [
+      {
+        key: "stalled",
+        status: "reduce",
+        stalled: true,
+        label: /stalled/i,
+        dates: ["2025-05-01", "2025-05-08", "2025-05-15"],
+        session: (ex, date, i) => mixedRows(ex, date, 7, 1, `stall_${i}`),
+      },
+      {
+        key: "recover",
+        status: "hold",
+        stalled: false,
+        label: /recover/i,
+        dates: ["2025-05-01", "2025-05-08"],
+        session: (ex, date, i) => mixedRows(ex, date, 7, i === 1 ? 0 : 1, `rec_${i}`),
+      },
+      {
+        key: "push_reps",
+        status: "hold",
+        stalled: false,
+        label: /push reps/i,
+        dates: ["2025-05-15"],
+        session: (ex, date, i) => mixedRows(ex, date, 6, 2, `push_${i}`),
+      },
+      {
+        key: "hold",
+        status: "hold",
+        stalled: false,
+        label: /hold\s*·\s*add reps/i,
+        dates: ["2025-05-15"],
+        session: (ex, date, i) => mixedRows(ex, date, 7, 1, `hold_${i}`),
+      },
+    ];
+
+    await clearState(page);
+    await reloadApp(page);
+    const f1State = await getState(page);
+    const day1Exs = f1State.program
+      .filter((e) => e.day === "Day 1")
+      .sort((a, b) => a.order - b.order);
+    assert(day1Exs.length >= 4, "F1: Day 1 has four exercises for the raw-load branches", `count=${day1Exs.length}`, "Default program → Day 1");
+    const patchedIds = new Set();
+    const f1Log = [];
+    f1Cases.forEach((c, idx) => {
+      const ex = { ...day1Exs[idx], sets: 2, min: 6, max: 8 };
+      patchedIds.add(ex.id);
+      c.ex = ex;
+      c.dates.forEach((date, i) => f1Log.push(...c.session(ex, date, i)));
+    });
+    await persistState(page, {
+      ...f1State,
+      settings: { ...f1State.settings, minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" },
+      program: f1State.program.map((e) => (patchedIds.has(e.id) ? { ...e, sets: 2, min: 6, max: 8 } : e)),
+      log: f1Log,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+
+    for (const c of f1Cases) {
+      const rec = await page.evaluate((id) => {
+        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+        const ex = (raw.program || []).find((e) => e.id === id);
+        const r = window.__repforgeRecommendation?.(ex);
+        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label };
+      }, c.ex.id);
+      assert(
+        rec?.status === c.status && rec?.stalled === c.stalled && c.label.test(rec?.label || ""),
+        `F1: ${c.key} branch fires on mixed previous-set loads`,
+        JSON.stringify(rec),
+        `Seed even-set 52.5/55 history → recommendation() ${c.key}`
+      );
+      assert(
+        rec?.load === 55 && onGrid(rec.load) && RAW_MED === 53.75 && !onGrid(RAW_MED),
+        `F1: ${c.key} load snaps to the 2.5 kg grid`,
+        `load=${rec?.load} rawMedian=${RAW_MED}`,
+        `${c.key} mixed loads 52.5+55 → round(median) = 55, not 53.75`
+      );
+
+      await nav(page, "log");
+      await selectDay(page, "Day 1");
+      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      const cardHead = await page.locator(`.exercise[data-ex="${c.ex.id}"] .recblock__head`).textContent();
+      assert(
+        /55/.test(cardHead || "") && !/53\.75/.test(cardHead || ""),
+        `F1: ${c.key} kg card shows the grid load`,
+        `head="${cardHead}"`,
+        `Log list → ${c.key} recblock headline`
+      );
+
+      await page.click(`.exercise[data-ex="${c.ex.id}"] [data-exopen="${c.ex.id}"]`);
+      await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+      const pageHead = await page.locator("#exDetail .recblock__head").textContent();
+      assert(
+        /55/.test(pageHead || "") && !/53\.75/.test(pageHead || ""),
+        `F1: ${c.key} exercise-page headline shows the grid load`,
+        `head="${pageHead}"`,
+        `Tap exercise name → #exDetail recblock headline`
+      );
+      await page.click("#exBack");
+      await page.waitForSelector("#log.view.active", { timeout: 5000 });
+
+      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await page.evaluate(({ id, day }) => {
+        window.__repforgeEnterWorkout?.({ focus: true, day });
+        const fl = window.__repforgeFocus?.list?.() || [];
+        const i = fl.findIndex((e) => e.id === id);
+        if (i >= 0) window.__repforgeFocus.to(i);
+      }, { id: c.ex.id, day: "Day 1" });
+      await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
+      const cue = await page.locator(".exercise.is-current .focus-cue__text").textContent();
+      const cueLoad = await page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
+      assert(
+        /55/.test(cue || "") && !/53\.75/.test(cue || "") && cueLoad === "55",
+        `F1: ${c.key} untouched Focus first-set cue is on-grid`,
+        `cue="${cue}" input=${cueLoad}`,
+        `Focus → first set of ${c.key} lift`
+      );
+      await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    }
+
+    const holdEx = f1Cases.find((c) => c.key === "hold").ex;
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await page.fill(`[data-k="${holdEx.id}_1_load"]`, "53.75");
+    await page.fill(`[data-k="${holdEx.id}_1_reps"]`, "7");
+    await page.fill(`[data-k="${holdEx.id}_1_rir"]`, "1");
+    await page.click(`.saveset[data-save="${holdEx.id}_1"]`);
+    await page.waitForTimeout(120);
+    const echoed = +(await page.inputValue(`[data-k="${holdEx.id}_2_load"]`));
+    assert(
+      echoed === 53.75,
+      "F1: in-session hold still echoes an off-grid committed load",
+      `set2=${echoed}`,
+      "Commit 53.75 kg on set 1 → set 2 suggestion stays 53.75 (not F3)"
+    );
+
+    const lbState = await getState(page);
+    await persistState(page, { ...lbState, settings: { ...lbState.settings, unit: "lb" } });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    const lbLoad = await page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      return window.__repforgeRecommendation?.(ex)?.load;
+    }, holdEx.id);
+    assert(
+      lbLoad === 55 && onGrid(lbLoad),
+      "F1: lb mode keeps the internal kilogram grid (no F3 display snap)",
+      `load=${lbLoad}`,
+      "Switch unit to lb → recommendation().load remains 55 kg"
+    );
+  }
+
   await clearState(page);
   await reloadApp(page);
 
@@ -4593,6 +4767,98 @@ async function main() {
     "__repforgeWeeklySnapshot() lift tallies"
   );
 
+  beginPhase("Phase: F2 calendar-week adherence");
+  {
+    const f2Restore = await getState(page);
+    await clearState(page);
+    await reloadApp(page);
+    const f2State = await getState(page);
+    const days = [...new Set((f2State.program || []).map((e) => e.day))];
+    assert(days.length >= 3, "F2: program has at least three training days", `days=${days.join(",")}`, "Default program days");
+    const bounds = await page.evaluate(() => {
+      const d = new Date();
+      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const r = window.__repforgeWeek.weekRange(iso);
+      const shift = (isoDate, n) => {
+        const x = new Date(`${isoDate}T12:00:00`);
+        x.setDate(x.getDate() + n);
+        return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
+      };
+      return { ...r, today: iso, prevSunday: shift(r.start, -1), nextMonday: shift(r.end, 1), mid: shift(r.start, 2) };
+    });
+    const row = (day, date, tag) => {
+      const ex = f2State.program.find((e) => e.day === day);
+      return {
+        session: `${date}_${day}_f2_${tag}`, date, day, name: ex.name, exerciseId: ex.id, set: 1,
+        load: 100, reps: 8, rir: 1, notes: "", created: `${date}T12:00:00.000Z`,
+        primary: ex.primary, secondary: ex.secondary,
+      };
+    };
+    await persistState(page, {
+      ...f2State,
+      programMeta: { ...f2State.programMeta, name: "F2 Split" },
+      log: [
+        row(days[0], bounds.prevSunday, "prevSun"),
+        row(days[0], bounds.start, "mon"),
+        row(days[1], bounds.mid, "mid"),
+        row(days[0], bounds.mid, "dupDay"),
+        row(days[2], bounds.nextMonday, "nextMon"),
+      ],
+    });
+    await reloadApp(page);
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    await page.evaluate(() => {
+      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
+      document.querySelector('nav button[data-view="log"]')?.click();
+    });
+    await page.waitForSelector("#todayWeek", { timeout: 5000 });
+    const planned = days.length;
+    const expected = 2;
+    const todayText = await page.evaluate(() =>
+      `${document.querySelector("#todayProgram")?.textContent || ""}\n${document.querySelector("#todayWeek")?.textContent || ""}`
+    );
+    assert(
+      todayText.includes(`${expected} of ${planned} sessions`) && !todayText.includes(`${expected + 1} of ${planned}`),
+      "F2: Today counts only Monday–Sunday planned days",
+      `today="${todayText.replace(/\s+/g, " ").slice(0, 180)}" bounds=${JSON.stringify(bounds)}`,
+      "Seed prev Sunday + Mon + midweek duplicate + next Monday → Today shows 2 of N"
+    );
+    await nav(page, "stats");
+    const progressText = await page.locator("#thisWeek").textContent();
+    assert(
+      progressText.includes(`${expected} of ${planned} sessions`),
+      "F2: Progress This week matches Today",
+      `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
+      "Stats → Overview → #thisWeek"
+    );
+    await page.evaluate(() => {
+      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
+      document.querySelector('nav button[data-view="program"]')?.click();
+    });
+    await page.waitForSelector("#programOverview", { timeout: 5000 });
+    const overviewVal = await page.locator("#programOverview .statrow__cell").first().locator(".statrow__val").textContent();
+    assert(
+      overviewVal.trim() === `${expected} / ${planned}`,
+      "F2: Program sessions stat matches the calendar week",
+      `val="${overviewVal}"`,
+      "Program overview → sessions this week"
+    );
+    const editHidden = await page.locator("#programEditorWrap.is-hidden").count();
+    if (editHidden) {
+      await page.click("#programEditToggle");
+      await page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
+    }
+    const chip = await page.locator("#pmetaChipsBottom").textContent();
+    assert(
+      chip.includes(`${expected} / ${planned} days this week`),
+      "F2: Program days-this-week chip matches the calendar week",
+      `chip="${chip}"`,
+      "Program → days this week chip"
+    );
+    await persistState(page, f2Restore);
+    await reloadApp(page);
+  }
+
   beginPhase("\nPhase: session deltas");
   await page.waitForFunction(() => typeof window.__repforgeTestDeltas === "function");
   const deltaFix = (session, set, load, reps, rir = 2, warmup = false) => ({
@@ -4779,6 +5045,185 @@ async function main() {
     "endBlock missing from Program tab",
     "Program tab → End block button near program meta"
   );
+
+  beginPhase("Phase: F8 mesocycle lifecycle display");
+  {
+    const f8Restore = await getState(page);
+    const overrunText = (s) => {
+      const m = String(s || "").match(/(?:Week|Semana)\s+(\d+)\s+(?:of|de)\s+(\d+)/i);
+      return m && +m[1] > +m[2] ? `${m[1]} of ${m[2]}` : null;
+    };
+    const localDaysAgo = (n) => page.evaluate((days) => {
+      const d = new Date();
+      d.setDate(d.getDate() - days);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    }, n);
+
+    await clearState(page);
+    await reloadApp(page);
+    let f8 = await getState(page);
+    await persistState(page, {
+      ...f8,
+      settings: { ...f8.settings, lang: "en" },
+      programMeta: { ...f8.programMeta, started: null, mesocycleLengthWeeks: 6, mesocycleStatus: "active" },
+    });
+    await reloadApp(page);
+    const noStart = await page.evaluate(() => window.__repforgeMesocycleWeek());
+    assert(
+      noStart.current === null && noStart.elapsedWeek == null && noStart.overrunWeeks === 0 && !noStart.isFinalWeek && !noStart.isComplete,
+      "F8: no start date stays null (never Week 0)",
+      JSON.stringify(noStart),
+      "programMeta.started = null → mesocycleWeek()"
+    );
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    const noStartUi = `${await page.locator("#todayProgram").textContent()}\n${await page.locator("#woDaySub").textContent()}`;
+    assert(
+      !/Week\s*0/i.test(noStartUi) && !overrunText(noStartUi),
+      "F8: Today does not render Week 0 without a start date",
+      `ui="${noStartUi.replace(/\s+/g, " ").slice(0, 160)}"`,
+      "Today program strip / workout subtitle"
+    );
+
+    const startedW8 = await localDaysAgo(7 * 7);
+    f8 = await getState(page);
+    await persistState(page, {
+      ...f8,
+      settings: { ...f8.settings, lang: "en" },
+      programMeta: { ...f8.programMeta, started: startedW8, mesocycleLengthWeeks: 6, mesocycleStatus: "active" },
+    });
+    await reloadApp(page);
+    const w8 = await page.evaluate(() => window.__repforgeMesocycleWeek());
+    const snap8 = await page.evaluate(() => window.__repforgeBlockSnapshot(state.programMeta, state.log));
+    assert(
+      w8.elapsedWeek === 8 && w8.current === 6 && w8.overrunWeeks === 2 && w8.isFinalWeek === true && w8.isComplete === false,
+      "F8: week 8 of 6 clamps display week and keeps stored-completed false",
+      JSON.stringify(w8),
+      "started 7 weeks ago, status active → current 6, overrun 2"
+    );
+    assert(
+      snap8.weekCurrent === 6 && snap8.elapsedWeek === 8 && snap8.overrunWeeks === 2 && snap8.isFinalWeek === true && snap8.isComplete === false,
+      "F8: blockSnapshot consumes the same clamped lifecycle",
+      JSON.stringify({ weekCurrent: snap8.weekCurrent, elapsedWeek: snap8.elapsedWeek, overrunWeeks: snap8.overrunWeeks, isFinalWeek: snap8.isFinalWeek, isComplete: snap8.isComplete }),
+      "__repforgeBlockSnapshot after week 8 of 6"
+    );
+    const statusStillActive = (await getState(page)).programMeta.mesocycleStatus;
+    assert(
+      statusStillActive === "active",
+      "F8: passing the target date does not mutate mesocycleStatus to completed",
+      `status=${statusStillActive}`,
+      "elapsed >= total, still active"
+    );
+
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
+    const todayW8 = await page.locator("#todayProgram").textContent();
+    assert(
+      /Week 6 of 6/.test(todayW8) && /ready for review/i.test(todayW8) && !overrunText(todayW8),
+      "F8: Today shows clamped ready-for-review copy",
+      `today="${todayW8.replace(/\s+/g, " ").slice(0, 180)}"`,
+      "Today program strip at week 8 of 6"
+    );
+    const logBanner = await page.locator("#logBlockBanner").textContent();
+    assert(
+      /Week 6 of 6/.test(logBanner) && /ready for review/i.test(logBanner) && !overrunText(logBanner),
+      "F8: workout block banner uses clamped ready-for-review copy",
+      `banner="${(logBanner || "").replace(/\s+/g, " ").slice(0, 180)}"`,
+      "#logBlockBanner at week 8 of 6"
+    );
+    await nav(page, "log");
+    const woSub = await page.locator("#woDaySub").textContent();
+    assert(
+      /Week 6/.test(woSub) && !/Week 8/.test(woSub),
+      "F8: workout subtitle uses the clamped week",
+      `woSub="${woSub}"`,
+      "#woDaySub at week 8 of 6"
+    );
+    await page.evaluate(() => {
+      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
+      document.querySelector('nav button[data-view="program"]')?.click();
+    });
+    await page.waitForSelector("#programOverview", { timeout: 5000 });
+    const progWeek = await page.locator("#programOverview .prog-overview__week").textContent();
+    const progBanner = await page.locator("#programBlockBanner").textContent();
+    assert(
+      /Week 6 of 6/.test(progWeek) && /ready for review/i.test(progWeek) && !overrunText(progWeek),
+      "F8: Program overview week is clamped",
+      `week="${progWeek}"`,
+      "Program overview at week 8 of 6"
+    );
+    assert(
+      /Week 6 of 6/.test(progBanner) && /ready for review/i.test(progBanner) && !overrunText(progBanner),
+      "F8: Program block banner is clamped",
+      `banner="${(progBanner || "").replace(/\s+/g, " ").slice(0, 180)}"`,
+      "#programBlockBanner at week 8 of 6"
+    );
+    const editHidden = await page.locator("#programEditorWrap.is-hidden").count();
+    if (editHidden) {
+      await page.click("#programEditToggle");
+      await page.waitForSelector("#pmetaChipsTop", { timeout: 5000 });
+    }
+    const chipW8 = await page.locator("#pmetaChipsTop").textContent();
+    assert(
+      /Week 6 of 6/.test(chipW8) && /ready for review/i.test(chipW8) && !overrunText(chipW8),
+      "F8: Program week chip is clamped",
+      `chip="${chipW8}"`,
+      "#pmetaChipsTop at week 8 of 6"
+    );
+    await nav(page, "stats");
+    await page.click('#statsSeg button[data-seg="review"]');
+    await page.waitForTimeout(80);
+    const reviewText = await page.locator("#reviewPanel").textContent();
+    const summary = await page.evaluate(() => window.__repforgeBuildPlainSummary(window.__repforgeBlockSnapshot(state.programMeta, state.log)));
+    assert(
+      /Week 6 of 6/.test(reviewText) && /ready for review/i.test(reviewText) && !overrunText(reviewText),
+      "F8: Review panel uses clamped ready-for-review copy",
+      `review="${(reviewText || "").replace(/\s+/g, " ").slice(0, 200)}"`,
+      "Stats → Review at week 8 of 6"
+    );
+    assert(
+      /week 6 of 6/i.test(summary) && /ready for review/i.test(summary) && !overrunText(summary),
+      "F8: review summary uses clamped ready-for-review copy",
+      `summary="${summary}"`,
+      "buildPlainSummary at week 8 of 6"
+    );
+
+    f8 = await getState(page);
+    await persistState(page, {
+      ...f8,
+      programMeta: { ...f8.programMeta, started: startedW8, mesocycleLengthWeeks: 6, mesocycleStatus: "completed" },
+    });
+    await reloadApp(page);
+    const done = await page.evaluate(() => window.__repforgeMesocycleWeek());
+    const snapDone = await page.evaluate(() => window.__repforgeBlockSnapshot(state.programMeta, state.log));
+    assert(
+      done.isComplete === true && done.current === 6 && done.overrunWeeks === 2 && done.elapsedWeek === 8,
+      "F8: stored completed status is distinct from overrun",
+      JSON.stringify(done),
+      "mesocycleStatus=completed at week 8 of 6"
+    );
+    assert(snapDone.isComplete === true && snapDone.weekCurrent === 6, "F8: blockSnapshot completed flag follows stored status", JSON.stringify({ isComplete: snapDone.isComplete, weekCurrent: snapDone.weekCurrent }), "blockSnapshot isComplete");
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    const todayDone = await page.locator("#todayProgram").textContent();
+    const reviewDoneSummary = await page.evaluate(() => window.__repforgeBuildPlainSummary(window.__repforgeBlockSnapshot(state.programMeta, state.log)));
+    await nav(page, "stats");
+    await page.click('#statsSeg button[data-seg="review"]');
+    await page.waitForTimeout(80);
+    const reviewDone = await page.locator("#reviewPanel").textContent();
+    assert(
+      /Block complete/i.test(todayDone) && !overrunText(todayDone) && !/Week 8 of 6/.test(todayDone),
+      "F8: completed-state copy on Today, no N>M week fraction",
+      `today="${todayDone.replace(/\s+/g, " ").slice(0, 180)}"`,
+      "Today after mesocycleStatus=completed"
+    );
+    assert(
+      /This block is complete/i.test(reviewDoneSummary) && /Block complete/i.test(reviewDone) && !overrunText(reviewDone),
+      "F8: completed-state copy on review surfaces",
+      `summary="${reviewDoneSummary}" review="${(reviewDone || "").replace(/\s+/g, " ").slice(0, 160)}"`,
+      "Review panel + plain summary when completed"
+    );
+    await persistState(page, f8Restore);
+    await reloadApp(page);
+  }
 
   beginPhase("Phase: P8 block review");
   const blockStarted = isoDateFromWeeksAgo(5);

@@ -536,8 +536,9 @@ function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=
   if(partial.onboarded!==undefined)state.programMeta.onboarded=partial.onboarded;
   state.programMeta.updated=new Date().toISOString();save()}
 function programAdherence(){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
-  const cutoff=daysAgo(6),programDaySet=new Set(prog.days()),loggedDays=new Set();
-  for(const x of state.log){if(String(x.date)<cutoff)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
+  // Same Monday–Sunday window as weeklySnapshot — a rolling 7-day cutoff disagrees on "this week".
+  const{start,end}=weekRange(today()),programDaySet=new Set(prog.days()),loggedDays=new Set();
+  for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
   const logged=loggedDays.size;return{logged,total:totalDays,ratio:totalDays?logged/totalDays:0}}
 function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart=start,weekEnd=end;
   const completedSessions=sessionsInRange(start,end).length,plannedDays=prog.days().length,programDaySet=new Set(prog.days()),loggedDays=new Set();
@@ -562,14 +563,28 @@ function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart
   else status=t("status.rebuilding");
   return{weekStart,weekEnd,plannedDays,completedDays,completedSessions,totalWorkingSets,totalHardSets,prs,improvedLifts,flatLifts,regressedLifts,readyToAdd,status}}
 window.__repforgeWeeklySnapshot=weeklySnapshot;
-function programWeek(){const s=state.programMeta?.started;if(!s)return null;
-  const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
-  const days=Math.floor((now-start)/86400000);return days<0?1:Math.floor(days/7)+1}
-function mesocycleWeek(){const wk=programWeek(),total=state.programMeta?.mesocycleLengthWeeks||6;
-  const current=wk!=null?Math.max(1,wk):null;
-  const isFinalWeek=current!=null&&current>=total;
-  const isComplete=state.programMeta?.mesocycleStatus==="completed"||(current!=null&&current>total);
-  return{current,total,isFinalWeek,isComplete}}
+function mesocycleLifecycle(programMeta){
+  const meta=programMeta||{},total=+meta.mesocycleLengthWeeks||6,s=meta.started;
+  let elapsedWeek=null;
+  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
+    const days=Math.floor((now-start)/86400000);elapsedWeek=days<0?1:Math.floor(days/7)+1}
+  const current=elapsedWeek==null?null:Math.min(elapsedWeek,total);
+  const overrunWeeks=elapsedWeek==null?0:Math.max(0,elapsedWeek-total);
+  const isFinalWeek=elapsedWeek!=null&&elapsedWeek>=total;
+  const isComplete=meta.mesocycleStatus==="completed";
+  return{elapsedWeek,current,total,overrunWeeks,isFinalWeek,isComplete}}
+function programWeek(){return mesocycleLifecycle(state.programMeta).elapsedWeek}
+function mesocycleWeek(){return mesocycleLifecycle(state.programMeta)}
+function mesocycleWeekCopy(mc,ofKey="today.week_of"){
+  if(mc.isComplete)return t("meso.complete");
+  if(mc.current==null)return"";
+  return mc.isFinalWeek?t("meso.week_ready",{n:mc.current,total:mc.total}):t(ofKey,{n:mc.current,total:mc.total})}
+function programWeekContext(name,mc){
+  const nm=name||t("untitled_program");
+  if(mc.isComplete)return t("log.context.program_complete",{name:nm});
+  if(mc.isFinalWeek)return t("log.context.program_week_ready",{name:nm,n:mc.current,total:mc.total});
+  if(mc.current!=null)return t("log.context.program_week",{name:nm,n:mc.current,total:mc.total});
+  return nm}
 function rowMusclesPure(row,program){if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=(program||[]).find(e=>e.id===row.exerciseId)||(program||[]).find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
@@ -631,14 +646,14 @@ function buildBlockReview(programMeta,program,log){const p=new Program(program||
     volumeCompliance,recommendation,created:new Date().toISOString()}}
 const REC_STRATEGY={repeat_or_progress:"repeat",repeat_with_small_swaps:"repeat_swaps",reduce_volume_or_deload:"reduce_volume",keep_program_improve_completion:"repeat",repeat_with_simpler_schedule:"reduce_volume"};
 function blockRecommendationCopy(key){const k=key||"repeat_with_small_swaps";return{line:t(`block_rec.${k}.line`),why:t(`block_rec.${k}.why`)}}
-function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),total=programMeta?.mesocycleLengthWeeks||6;
-  let weekCurrent=null;const s=programMeta?.started;
-  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
-    const days=Math.floor((now-start)/86400000);weekCurrent=days<0?1:Math.floor(days/7)+1}
-  return{...review,weekCurrent,weekTotal:total}}
+function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),life=mesocycleLifecycle(programMeta);
+  return{...review,weekCurrent:life.current,weekTotal:life.total,elapsedWeek:life.elapsedWeek,
+    overrunWeeks:life.overrunWeeks,isFinalWeek:life.isFinalWeek,isComplete:life.isComplete}}
 function buildPlainSummary(snapshot){if(!snapshot)return"";
   const parts=[];
-  if(snapshot.weekCurrent!=null&&snapshot.weekTotal)parts.push(t("review.summary.week",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
+  if(snapshot.isComplete)parts.push(t("review.summary.week_complete"));
+  else if(snapshot.isFinalWeek&&snapshot.weekCurrent!=null)parts.push(t("review.summary.week_ready",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
+  else if(snapshot.weekCurrent!=null&&snapshot.weekTotal)parts.push(t("review.summary.week",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
   const ad=snapshot.adherenceRatio??0,adKey=ad>=.8?"solid":ad>=.5?"mixed":"low";
   if(snapshot.plannedSessions)parts.push(t("review.summary.adherence",{status:t(`review.summary.adherence.${adKey}`),done:snapshot.completedSessions,planned:snapshot.plannedSessions}));
   const imp=snapshot.improvedLifts??0,flat=snapshot.flatLifts??0;
@@ -651,8 +666,9 @@ function buildPlainSummary(snapshot){if(!snapshot)return"";
 function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
   const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
+  const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
   el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
-    `<p><b>${esc(t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal}))}</b></p>`+
+    `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:snap.completedSessions,planned:snap.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p></div>`+
@@ -741,7 +757,8 @@ function renderBlockPrompt(){const mc=mesocycleWeek();
   const id=state.programMeta?.id;
   const dismissed=!!(id&&state.programMeta?.blockPromptDismissedId===id);
   const show=(mc.isComplete||mc.isFinalWeek)&&!dismissed;
-  const html=show?`<p><b>${esc(t("review.block_ending"))}</b> ${esc(t("review.block_ending.body",{n:mc.current,total:mc.total}))} <button type="button" class="blockprompt__act">${esc(t("review.block_ending.cta"))}</button></p>`+
+  const body=mc.isComplete?t("meso.complete"):t("meso.week_ready",{n:mc.current,total:mc.total});
+  const html=show?`<p><b>${esc(t("review.block_ending"))}</b> ${esc(body)} <button type="button" class="blockprompt__act">${esc(t("review.block_ending.cta"))}</button></p>`+
     `<button type="button" class="blockprompt__dismiss" aria-label="${esc(t("review.block_ending.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`:"";
   for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
     el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;
@@ -952,12 +969,13 @@ function recommendation(ex){
     if(allTop||nearTop||cr>=ex.max+CAPACITY.jumpMargin)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false};
     // Back off only when capacity itself falls short of the range — stopping early is not failing.
     if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
-    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load,stalled:true,pushReps:false};
-    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load,stalled:false,pushReps:false};
+    // Hold-family loads keep the session median as the capacity reference (ADR 0003) but snap onto minJump.
+    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:round(load),stalled:true,pushReps:false};
+    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:round(load),stalled:false,pushReps:false};
     // Room left inside the range: chase reps before load.
-    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load,stalled:false,pushReps:true};
+    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:round(load),stalled:false,pushReps:true};
     return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
-      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load,stalled:false,pushReps:true};
+      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:round(load),stalled:false,pushReps:true};
   })();
   const trend=blockTrendFor(sess);
   // Weak block tempering: a block that is losing strength should not double-jump.
@@ -1411,10 +1429,10 @@ function todayExListHtml(exs){if(!exs.length)return"";
 function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
-  if(progEl){if(nm||mc.current!=null){progEl.classList.remove("hidden");
-    const segs=mc.total||6,cur=mc.current||0;
+  if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
+    const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
-      (mc.current!=null?`<div class="today-prog__week">${esc(t("today.week_of",{n:mc.current,total:mc.total}))}</div>`:"")+
+      (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
       `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`+
       (week.plannedDays?`<div class="today-prog__done">${esc(t("today.sessions_done",{done:week.completedDays,planned:week.plannedDays}))}</div>`:"")}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
@@ -1452,15 +1470,16 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       lastEl.innerHTML=`<span class="today-footer__icon" aria-hidden="true">⏱</span>${esc(n===0?t("today.last_trained_today"):n===1?t("today.last_trained_one"):t("today.last_trained",{n}))}`}
     else lastEl.innerHTML=""}
   const lc=$("#logContext");if(lc){const nm2=state.programMeta?.name,mc2=mesocycleWeek();
-    const hasCtx=!!(nm2||mc2.current!=null);
-    lc.textContent=hasCtx?(mc2.current!=null?t("log.context.program_week",{name:nm2||t("untitled_program"),n:mc2.current,total:mc2.total}):(nm2||t("untitled_program"))):t("log.context.today");
+    const hasCtx=!!(nm2||mc2.current!=null||mc2.isComplete);
+    lc.textContent=hasCtx?programWeekContext(nm2,mc2):t("log.context.today");
     // Kept as a hidden deep-link hook; Today shows the program strip instead.
     lc.classList.add("hidden")}
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
   const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=day;
-  const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();woSub.textContent=mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
+  const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
+    woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
 
 function render(){applyI18n();
@@ -1730,7 +1749,7 @@ function focusDeckHtml(ex,r,draft,prev,{fl,at}){
 function renderWorkout(){
   if(!workoutActive){updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
-    lc.textContent=nm||mc.current!=null?(mc.current!=null?t("log.context.program_week",{name:nm||t("untitled_program"),n:mc.current,total:mc.total}):(nm||t("untitled_program"))):t("log.context.today")}
+    lc.textContent=nm||mc.current!=null||mc.isComplete?programWeekContext(nm,mc):t("log.context.today")}
   const draft=loadDraft();
   committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
   touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
@@ -2637,7 +2656,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
     `<div class="prog-overview__meta">${[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ")}</div>`+
-    (mc.current!=null?`<div class="prog-overview__week">${esc(t("today.week_of",{n:mc.current,total:mc.total}))}</div>`+
+    (mc.current!=null||mc.isComplete?`<div class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</div>`+
       `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
     (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
     `<div class="statrow">`+
@@ -2666,7 +2685,7 @@ function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
   const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
-  const weekChip=mc.current!=null?`<span class="pmeta__chip">${esc(t("program.week_chip",{n:mc.current,total:mc.total}))}</span>`:"";
+  const weekChip=(mc.current!=null||mc.isComplete)?`<span class="pmeta__chip">${esc(mesocycleWeekCopy(mc,"program.week_chip"))}</span>`:"";
   const healthChip=health?`<span class="pmeta__chip">${esc(t("program.ready_chip",{done:health.hot,total:health.total}))}</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${esc(t("program.volume_chip",{pct:Math.round(vol.ratio*100)}))}</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;

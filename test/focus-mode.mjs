@@ -766,6 +766,75 @@ async function main() {
     await vpCtx.close();
   }
 
+
+  phase("F1: history-derived hold loads snap to the kg grid");
+  {
+    const MIXED = [52.5, 55];
+    const onGrid = (kg) => Number.isFinite(kg) && Math.abs(kg / 2.5 - Math.round(kg / 2.5)) < 1e-9;
+    const mixedRows = (ex, date, reps, rir, tag) => {
+      const session = `${date}_${ex.day}_f1_${tag}`;
+      const created = new Date(`${date}T12:00:00.000Z`).toISOString();
+      return MIXED.map((load, i) => ({
+        session, date, day: ex.day, name: ex.name, exerciseId: ex.id, set: i + 1,
+        load, reps, rir, notes: "", created, primary: ex.primary, secondary: ex.secondary,
+      }));
+    };
+    const cases = [
+      {
+        key: "stalled",
+        dates: ["2025-05-01", "2025-05-08", "2025-05-15"],
+        row: (ex, date, i) => mixedRows(ex, date, 7, 1, `stall_${i}`),
+      },
+      {
+        key: "recover",
+        dates: ["2025-05-01", "2025-05-08"],
+        row: (ex, date, i) => mixedRows(ex, date, 7, i === 1 ? 0 : 1, `rec_${i}`),
+      },
+      {
+        key: "push_reps",
+        dates: ["2025-05-15"],
+        row: (ex, date) => mixedRows(ex, date, 6, 2, "push"),
+      },
+      {
+        key: "hold",
+        dates: ["2025-05-15"],
+        row: (ex, date) => mixedRows(ex, date, 7, 1, "hold"),
+      },
+    ];
+    const f1Ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const f1Page = await f1Ctx.newPage();
+    for (const c of cases) {
+      await boot(f1Page);
+      await enterFocus(f1Page, 0);
+      const seed = await f1Page.evaluate(() => {
+        const ex = window.__repforgeFocus.list()[0];
+        return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
+      });
+      const rows = c.dates.flatMap((date, i) => c.row(seed, date, i));
+      await persist(f1Page, `
+        const exId = ${JSON.stringify(seed.id)};
+        s.settings = { ...(s.settings || {}), minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" };
+        s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
+        s.log = ${JSON.stringify(rows)};
+      `);
+      await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await reload(f1Page);
+      await enterFocus(f1Page, 0);
+      const rec = await f1Page.evaluate((id) => {
+        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+        const ex = (raw.program || []).find((e) => e.id === id);
+        const r = window.__repforgeRecommendation?.(ex);
+        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label };
+      }, seed.id);
+      const cue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
+      const loadVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
+      assert(rec?.load === 55 && onGrid(rec.load), `F1 ${c.key}: recommendation load is on the 2.5 kg grid`, JSON.stringify(rec));
+      assert(/55/.test(cue || "") && !/53\.75/.test(cue || "") && loadVal === "55",
+        `F1 ${c.key}: untouched first-set Focus cue is on-grid`, `cue="${cue}" input=${loadVal} rec=${JSON.stringify(rec)}`);
+    }
+    await f1Ctx.close();
+  }
+
   phase("Console");
   assert(errors.length === 0, "no page errors during the focus run", errors.join(" | "));
 
