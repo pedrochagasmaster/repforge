@@ -831,12 +831,12 @@ async function main() {
       const C = window.__repforgeCapacity;
       const last = C.sessionsFor(ex).at(-1);
       const prev = last.reps[0];
-      const snapped = rec.load !== last.med;
+      const snapped = rec.rawMed != null && Math.abs(rec.load - rec.rawMed) > 1e-6;
       const reentry = Math.min(ex.max, Math.max(ex.min, Math.round(C.repsAtLoad(rec.cap, rec.load) - (+rec.typRir || 0))));
       const hold = rec.pushReps ? Math.min(ex.max, prev + 1) : Math.min(ex.max, Math.max(ex.min, prev));
       const expected = rec.status === "add" || rec.status === "add2" || rec.status === "reduce" || snapped ? reentry : hold;
       return {
-        load: rec.load, cap: rec.cap, typRir: rec.typRir, ref: rec.ref,
+        load: rec.load, cap: rec.cap, typRir: rec.typRir, rawMed: rec.rawMed,
         med: last.med, medCap: last.medCap, prev, snapped, reentry, hold, expected,
       };
     }, id);
@@ -895,7 +895,7 @@ async function main() {
       assert(/55/.test(cue || "") && !/53\.75/.test(cue || "") && loadVal === "55",
         `F1 ${c.key}: untouched first-set Focus cue is on-grid`, `cue="${cue}" input=${loadVal} rec=${JSON.stringify(rec)}`);
       assert(
-        plan.med === 53.75 && plan.ref === 53.75 && plan.cap === plan.medCap && plan.snapped
+        plan.med === 53.75 && plan.rawMed === 53.75 && plan.cap === plan.medCap && plan.snapped
           && plan.expected === plan.reentry && plan.expected !== plan.hold
           && repsVal === plan.expected && new RegExp(`aim for ${plan.expected} reps`).test(cue || ""),
         `F1 ${c.key}: snapped load re-enters reps on capacity`,
@@ -940,7 +940,7 @@ async function main() {
         `F1 1 kg ${c.key}: untouched first-set Focus cue is a positive grid load`,
         `cue="${cue}" input=${loadVal} rec=${JSON.stringify(rec)}`);
       assert(
-        plan.med === 1 && plan.ref === 1 && plan.cap === plan.medCap && plan.snapped
+        plan.med === 1 && plan.rawMed === 1 && plan.cap === plan.medCap && plan.snapped
           && plan.expected === plan.reentry && plan.expected !== plan.hold
           && repsVal === plan.expected && new RegExp(`aim for ${plan.expected} reps`).test(cue || ""),
         `F1 1 kg ${c.key}: snapped load re-enters reps on capacity`,
@@ -973,11 +973,44 @@ async function main() {
     const gridCue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
     const gridReps = +(await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
     assert(
-      gridPlan.med === 55 && gridPlan.ref === 55 && !gridPlan.snapped
+      gridPlan.med === 55 && gridPlan.rawMed === 55 && !gridPlan.snapped
         && gridPlan.expected === gridPlan.hold && gridPlan.expected === 8 && gridPlan.reentry === 7
         && gridReps === 8 && /aim for 8 reps/.test(gridCue || ""),
       "F1 on-grid hold: double-progression reps, not capacity re-entry",
       `cue="${gridCue}" reps=${gridReps} plan=${JSON.stringify(gridPlan)}`
+    );
+
+    await boot(f1Page);
+    await enterFocus(f1Page, 0);
+    const driftSeed = await f1Page.evaluate(() => {
+      const ex = window.__repforgeFocus.list()[0];
+      return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
+    });
+    const driftRows = [1.2, 1.2].map((load, i) => ({
+      session: `2025-05-15_${driftSeed.day}_f1_drift`,
+      date: "2025-05-15", day: driftSeed.day, name: driftSeed.name, exerciseId: driftSeed.id, set: i + 1,
+      load, reps: 7, rir: 1, notes: "", created: "2025-05-15T12:00:00.000Z",
+      primary: driftSeed.primary, secondary: driftSeed.secondary,
+    }));
+    await persist(f1Page, `
+      const exId = ${JSON.stringify(driftSeed.id)};
+      s.settings = { ...(s.settings || {}), minJump: 0.1, unit: "kg", lang: "en", rirMode: "numeric" };
+      s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
+      s.log = ${JSON.stringify(driftRows)};
+    `);
+    await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reload(f1Page);
+    await enterFocus(f1Page, 0);
+    const driftPlan = await f1Plan(driftSeed.id);
+    const driftCue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
+    const driftReps = +(await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
+    assert(
+      driftPlan.rawMed === 1.2 && driftPlan.load !== 1.2
+        && Math.abs(driftPlan.load - 1.2) < 1e-6 && !driftPlan.snapped
+        && driftPlan.expected === driftPlan.hold && driftPlan.expected === 8 && driftPlan.reentry === 7
+        && driftReps === 8 && /aim for 8 reps/.test(driftCue || ""),
+      "F1 fractional-grid hold: float drift does not steal double-progression reps",
+      `cue="${driftCue}" reps=${driftReps} plan=${JSON.stringify(driftPlan)}`
     );
     await f1Ctx.close();
   }

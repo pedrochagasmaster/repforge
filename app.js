@@ -1039,7 +1039,7 @@ function recommendation(ex){
   if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
     rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1))}
   rec.block=trend;rec.blockNote=blockTrendNote(trend);
-  rec.cap=medCap;rec.typRir=typicalRir(ex,sess);rec.ref=load;
+  rec.cap=medCap;rec.typRir=typicalRir(ex,sess);rec.rawMed=load;
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -1051,7 +1051,7 @@ const reentryReps=(ex,cap,load,typRir)=>clamp(Math.round(repsAtLoad(cap,load)-(+
 // snapped off the raw median does the same. Exact-load holds chase one more
 // rep (double progression). Hold · recover keeps the prior target.
 function baseSetReps(ex,rec,old){
-  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||(rec.ref!=null&&rec.load!=rec.ref))
+  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||(rec.rawMed!=null&&Math.abs(rec.load-rec.rawMed)>1e-6))
     return rec.cap>0&&rec.load>0?reentryReps(ex,rec.cap,rec.load,rec.typRir):ex.min;
   const prev=old&&+old.reps>0?+old.reps:null;
   if(prev==null)return ex.min;
