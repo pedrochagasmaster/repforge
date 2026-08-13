@@ -1,16 +1,33 @@
 (function (root) {
   const TYPES = ["timer", "session", "unfinished", "missed"];
 
+  function adapter() {
+    try { return (typeof globalThis !== "undefined" && globalThis.__repforgeNotifyAdapter) || null; }
+    catch { return null; }
+  }
+
   function canUse() {
+    const a = adapter();
+    if (a && typeof a.canUse === "function") return !!a.canUse();
     return typeof Notification !== "undefined";
   }
 
   function permission() {
+    const a = adapter();
+    if (a && typeof a.permission === "function") {
+      const p = a.permission();
+      return p || "unsupported";
+    }
     if (!canUse()) return "unsupported";
     return Notification.permission;
   }
 
   async function request() {
+    const a = adapter();
+    if (a && typeof a.request === "function") {
+      try { return await a.request(); }
+      catch { return permission(); }
+    }
     if (!canUse()) return "unsupported";
     try { return await Notification.requestPermission(); }
     catch { return permission(); }
