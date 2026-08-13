@@ -250,6 +250,7 @@
   "program.planned_volume.lede": "Séries por músculo deste modelo de programa, assumindo que cada dia é treinado uma vez por semana. Veja <b>Stats → Séries efetivas concluídas</b> para o que você realmente registrou.",
   "program.name": "Nome do programa",
   "program.name.placeholder": "Programa sem título",
+  "program.beginner_name": "Programa iniciante",
   "program.name_aria": "Nome do programa",
   "program.started": "Iniciado em",
   "program.started_aria": "Data de início do programa",

@@ -250,6 +250,7 @@
   "program.planned_volume.lede": "Sets per muscle from this program template, assuming each day is trained once per week. See <b>Stats → Completed hard sets</b> for what you actually logged.",
   "program.name": "Program name",
   "program.name.placeholder": "Untitled program",
+  "program.beginner_name": "Beginner program",
   "program.name_aria": "Program name",
   "program.started": "Started",
   "program.started_aria": "Program start date",

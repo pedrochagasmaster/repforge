@@ -3872,6 +3872,7 @@ async function main() {
 
   beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
+  const metaBeforeBeginner = (await getState(page)).programMeta;
   await page.click("#beginnerProgram");
   await page.waitForTimeout(200);
   await nav(page, "log");
@@ -3882,6 +3883,20 @@ async function main() {
     "Beginner program shows plain exercise names",
     `name="${begName}"`,
     "Settings → Use beginner-friendly program → Log Day 1"
+  );
+  const begAfter = await getState(page);
+  assert(
+    begAfter.programMeta?.onboarded === true &&
+      begAfter.programMeta?.id !== metaBeforeBeginner.id &&
+      begAfter.programMeta?.name === "Beginner program" &&
+      begAfter.programMeta?.mesocycleStatus === "active",
+    "Beginner replacement mints a localized identity and start",
+    JSON.stringify({
+      id: begAfter.programMeta?.id,
+      name: begAfter.programMeta?.name,
+      onboarded: begAfter.programMeta?.onboarded,
+    }),
+    "Settings → beginner template → new programMeta id/name/onboarded"
   );
   const begSetup = await cardInfo(page, 0);
   assert(
@@ -4774,7 +4789,7 @@ async function main() {
   assert(
     state.programMeta.mesocycleLengthWeeks === 6 &&
       state.programMeta.mesocycleStatus === "active" &&
-      state.programMeta.onboarded === false,
+      state.programMeta.onboarded === true,
     "P4: programMeta phase-2 defaults",
     JSON.stringify({
       mesocycleLengthWeeks: state.programMeta.mesocycleLengthWeeks,
@@ -6607,6 +6622,183 @@ async function main() {
     "Legacy 90.5 rest seconds normalize once and display as M:SS",
     `display=${restShown} input=${restInput}`,
     "Seed settings.restSec=90.5 → reload → Settings rest display"
+  );
+
+  beginPhase("Phase: transactional onboarding and block succession (UX-02, UX-08, UX-09)");
+  await page.evaluate(() => localStorage.removeItem("repforge_ui_v1"));
+  const beforeCreate = await getState(page);
+  await nav(page, "settings");
+  await page.click("#createProgram");
+  await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  await page.click("#onbCancel");
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
+  const afterCreateCancel = await getState(page);
+  assert(
+    afterCreateCancel.programMeta?.id === beforeCreate.programMeta?.id &&
+      afterCreateCancel.programHistory?.length === beforeCreate.programHistory?.length,
+    "Settings → Create program → Cancel is a lifecycle no-op",
+    JSON.stringify({ before: beforeCreate.programMeta?.id, after: afterCreateCancel.programMeta?.id }),
+    "Settings → Create new program → Cancel"
+  );
+
+  const histBeforeBlock = (await getState(page)).programHistory?.length || 0;
+  const idBeforeBlock = (await getState(page)).programMeta?.id;
+  await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  assert(
+    (await getState(page)).programMeta?.id === idBeforeBlock &&
+      ((await getState(page)).programHistory?.length || 0) === histBeforeBlock,
+    "Block-review onboarding does not archive before Save",
+    "id or history changed while onboarding is open",
+    "commitNextBlock(onboarding) → pending only"
+  );
+  await page.click("#onbCancel");
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
+  assert(
+    (await getState(page)).programMeta?.id === idBeforeBlock &&
+      ((await getState(page)).programHistory?.length || 0) === histBeforeBlock &&
+      (await page.evaluate(() => window.__repforgePendingBlock())) == null,
+    "Block onboarding Cancel leaves the old block active",
+    "pending leftover or history changed",
+    "Block onboarding → Cancel"
+  );
+
+  await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  const blockSave = await page.evaluate(async () => {
+    const cur = JSON.parse(localStorage.getItem("repforge_v1"));
+    return window.__repforgeFinalizeProgramSetup({
+      exercises: cur.program,
+      name: "Block successor",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "block",
+    });
+  });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const afterBlockSave = await getState(page);
+  assert(
+    blockSave.localOk && afterBlockSave.programMeta?.id !== idBeforeBlock &&
+      afterBlockSave.programMeta?.onboarded === true &&
+      (afterBlockSave.programHistory || []).some((h) => h.id === idBeforeBlock) &&
+      (afterBlockSave.programHistory || []).filter((h) => h.id === idBeforeBlock).length === 1,
+    "Block onboarding Save archives the captured block once",
+    JSON.stringify({
+      result: blockSave,
+      newId: afterBlockSave.programMeta?.id,
+      hist: (afterBlockSave.programHistory || []).map((h) => h.id),
+    }),
+    "pending block → finalizeProgramSetup origin=block"
+  );
+
+  const idForDup = afterBlockSave.programMeta.id;
+  const histForDup = afterBlockSave.programHistory.length;
+  await page.evaluate(async () => {
+    await Promise.all([window.__repforgeCommitNextBlock("repeat"), window.__repforgeCommitNextBlock("repeat")]);
+  });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const afterDup = await getState(page);
+  assert(
+    afterDup.programMeta.id !== idForDup &&
+      afterDup.programHistory.length === histForDup + 1 &&
+      afterDup.programHistory.filter((h) => h.id === idForDup).length === 1,
+    "Double next-block commit archives the old id once",
+    `hist ${histForDup} → ${afterDup.programHistory.length} id=${afterDup.programMeta.id}`,
+    "Promise.all commitNextBlock(repeat) ×2"
+  );
+
+  const adapterOutcomes4 = [[true, true], [true, false], [false, true], [false, false]];
+  for (const [localOk, idbOk] of adapterOutcomes4) {
+    const beforeTpl = await getState(page);
+    const draftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const result = await page.evaluate(async ({ localOk, idbOk }) => {
+      const io = {
+        async writeLocal(data) {
+          if (!localOk) throw new Error("ls fail");
+          localStorage.setItem("repforge_v1", JSON.stringify(data));
+        },
+        async writeIdb(data) {
+          if (!idbOk) throw new Error("idb fail");
+          const db = await new Promise((res, rej) => {
+            const r = indexedDB.open("repforge", 1);
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+          });
+          await new Promise((res, rej) => {
+            const tx = db.transaction("kv", "readwrite");
+            tx.objectStore("kv").put(data, "repforge_v1");
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+          });
+          db.close();
+        },
+      };
+      return window.__repforgeApplyProgramTemplate(io);
+    }, { localOk, idbOk });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    if (localOk || idbOk) {
+      await reloadApp(page);
+      const after = await getState(page);
+      assert(
+        after.programMeta?.name === "Beginner program" &&
+          after.programMeta?.id !== beforeTpl.programMeta.id &&
+          after.log.length === beforeTpl.log.length &&
+          result.localOk === localOk,
+        `Beginner template (${localOk},${idbOk}) commits a new identity and preserves the log`,
+        JSON.stringify({ result, name: after.programMeta?.name, logs: after.log.length }),
+        `applyProgramTemplate adapter ${localOk}/${idbOk}`
+      );
+    } else {
+      const after = await getState(page);
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      assert(
+        after.programMeta?.id === beforeTpl.programMeta.id &&
+          after.log.length === beforeTpl.log.length &&
+          draftNow === draftRaw,
+        "Beginner template total failure rolls back and keeps the draft",
+        JSON.stringify({ result, id: after.programMeta?.id }),
+        "applyProgramTemplate false/false"
+      );
+    }
+  }
+
+  await page.evaluate(() => localStorage.removeItem("repforge_ui_v1"));
+  await clearState(page);
+  await reloadApp(page, { dismissOnboarding: false });
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
+  await page.click("#onbNext");
+  await page.waitForSelector("#onbEdit", { timeout: 5000 });
+  await page.click("#onbEdit");
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 8000 });
+  const editState = await getState(page);
+  assert(
+    editState.programMeta?.onboarded === true &&
+      Object.prototype.hasOwnProperty.call(editState, "_storageFollowUp") &&
+      !(await page.locator("#tour:not(.hidden)").count()),
+    "Onboarding Edit finalizes metadata and stores a one-shot follow-up marker",
+    JSON.stringify({ onboarded: editState.programMeta?.onboarded, follow: editState._storageFollowUp }),
+    "First-run onboarding → Edit before saving"
+  );
+  await nav(page, "program");
+  const tog = page.locator("#programEditToggle");
+  await tog.click();
+  await page.waitForTimeout(120);
+  const afterDone = await getState(page);
+  assert(
+    !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
+    "Program Done clears the onboarding follow-up marker once",
+    JSON.stringify({ follow: afterDone._storageFollowUp }),
+    "Edit onboarding → Program Done"
   );
 
   // Console errors

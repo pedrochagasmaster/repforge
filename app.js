@@ -699,6 +699,13 @@ function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
+function buildProgramMeta({name, answers}={}){
+  const a=answers||{},now=new Date().toISOString();
+  return{id:uid(),name:name!=null?String(name).trim():(t("untitled_program")||""),started:today(),created:now,updated:now,
+    goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
+    equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
+    sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
+    blockPromptDismissedId:null}}
 function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
@@ -924,31 +931,67 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
   $("#blockDecideLater").onclick=closeBlockReview;
   const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{closeBlockReview();navTo("stats");setStatsSeg("review")}}
 let blockReviewCurrent=null;
+let pendingBlockTransition=null;
+let onboardingOrigin=null;
+let blockCommitInFlight=null;
 function closeBlockReview(){const d=$("#blockReview");if(d)d.classList.add("hidden")}
+function successorProgramList(strategy,list){
+  const src=cloneSnapshot(list||[]);
+  if(strategy==="repeat_swaps")return src.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
+  if(strategy==="increase_volume")return src.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
+  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
+  return src}
+function capturePendingBlock(strategy,review){
+  return{oldProgramId:state.programMeta?.id,oldMeta:cloneSnapshot(state.programMeta),oldProgram:cloneSnapshot(prog.toJSON()),
+    review:cloneSnapshot(review||blockReviewCurrent),strategy}}
+function archiveCapturedBlock(proposal,cap){
+  if(!cap?.oldProgramId)return proposal;
+  const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
+  history.push({id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
+    completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)});
+  proposal.programHistory=history;return proposal}
 function completeCurrentProgram(review){
   if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   if(!Array.isArray(state.programHistory))state.programHistory=[];
-  state.programHistory.push({id:state.programMeta.id,meta:{...state.programMeta},program:prog.toJSON(),
-    completedAt:new Date().toISOString(),review});
+  if(!state.programHistory.some(h=>h.id===state.programMeta.id)){
+    state.programHistory.push({id:state.programMeta.id,meta:{...state.programMeta},program:prog.toJSON(),
+      completedAt:new Date().toISOString(),review})}
   state.programMeta.mesocycleStatus="completed";
   state.programMeta.completedAt=new Date().toISOString();
   state.programMeta.updated=new Date().toISOString();
   save()}
-function startNextMesocycle(strategy){
-  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  if(strategy==="onboarding"&&typeof window.startOnboarding==="function"){window.startOnboarding();return}
-  let list=prog.toJSON();
-  if(strategy==="repeat_swaps")list=list.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
-  else if(strategy==="increase_volume")list=list.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
-  else if(strategy==="reduce_volume")list=list.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
-  state.programMeta={...state.programMeta,id:uid(),started:today(),mesocycleStatus:"active",completedAt:null,onboarded:true,
-    blockPromptDismissedId:null,updated:new Date().toISOString()};
-  prog=new Program(list);persistProgram();render();
+function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
   toast(t(msg[strategy]||"toast.new_block_started"))}
-function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
-  completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
+async function commitNextBlock(strategy,io=storageIO){
+  requireAdapter(io,"commitNextBlock");
+  const liveId=state.programMeta?.id;
+  if(!liveId)return{revision:readRevision(state),localOk:false,idbOk:false};
+  if(blockCommitInFlight===liveId)return{revision:readRevision(state),localOk:true,idbOk:true,duplicate:true};
+  const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
+    ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
+  if(state.programMeta.id!==cap.oldProgramId)return{revision:readRevision(state),localOk:false,idbOk:false};
+  if(strategy==="onboarding"){
+    pendingBlockTransition=cap;
+    closeBlockReview();
+    startOnboarding("block");
+    return{revision:readRevision(state),localOk:true,idbOk:true,deferred:true}}
+  blockCommitInFlight=liveId;
+  try{
+    const proposal=cloneSnapshot(state);
+    archiveCapturedBlock(proposal,cap);
+    const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
+    proposal.programMeta=nextMeta;
+    proposal.program=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
+    const result=await commitProposedState(proposal,io);
+    if(result.localOk||result.idbOk){
+      pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
+    return result}
+  finally{blockCommitInFlight=null}}
+async function startNextMesocycle(strategy,io=storageIO){return commitNextBlock(strategy,io)}
+function finishBlockAndStart(strategy){return commitNextBlock(strategy,storageIO)}
 function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
   d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview}
 function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
@@ -2547,6 +2590,11 @@ window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCompleteProgram=completeCurrentProgram;
 window.__repforgeStartNextMeso=startNextMesocycle;
+window.__repforgeCommitNextBlock=commitNextBlock;
+window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
+window.__repforgeApplyProgramTemplate=applyProgramTemplate;
+window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
+window.__repforgePendingBlock=()=>pendingBlockTransition;
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
 window.__repforgeParseDec=parseDec;
@@ -3198,14 +3246,26 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`repforge_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
-async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
+async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
     const list=imp.exercises;
     if(!confirm(t("confirm.import_program_replace",{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
-    if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())persistProgramMeta({name:imp.meta.name});
-    $("#programJson").value=JSON.stringify(list,null,2);saveProgram()}
-  catch{toast(t("toast.program_import_invalid"))}
+    const adapter=io||storageIO;
+    if($("#onboarding")?.classList.contains("active")){
+      const name=typeof imp.meta?.name==="string"?imp.meta.name.trim():"";
+      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",io:adapter})}
+    else{
+      const proposal=cloneSnapshot(state);
+      const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
+      if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())meta.name=imp.meta.name.trim();
+      meta.updated=new Date().toISOString();
+      proposal.programMeta=meta;proposal.program=new Program(list).toJSON();
+      const result=await commitProposedState(proposal,adapter);
+      if(result.localOk||result.idbOk){
+        $("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
+        if(migrateLog())save();render();toast(t("toast.program_saved"))}}
+  }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();
@@ -3235,7 +3295,15 @@ function openImportChoice(ctx){const d=$("#importChoice");
     finally{importBusy=false}}}
 function mergeLog(s){return mergeImportedLog(s)}
 
-function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
+function switchToBeginnerProgram(){return applyProgramTemplate(storageIO)}
+async function applyProgramTemplate(io=storageIO){
+  requireAdapter(io,"applyProgramTemplate");
+  const proposal=cloneSnapshot(state);
+  proposal.program=new Program(cloneSnapshot(programBeginner)).toJSON();
+  proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
+  const result=await commitProposedState(proposal,io);
+  if(result.localOk||result.idbOk){clearDraft();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
+  return result}
 
 const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
   5:["ppl","bro","upper_lower"],6:["ppl"]};
@@ -3259,8 +3327,13 @@ function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboa
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
   render()}
-function startOnboarding(){onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
-function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding()}
+function startOnboarding(origin){
+  onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
+  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
+function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run")}
+function cancelOnboarding(){
+  if(onboardingOrigin==="block")pendingBlockTransition=null;
+  onboardingOrigin=null;closeOnboarding()}
 function onbCanNext(){const a=onbAnswers;
   if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
   if(onbStep===3)return!!a.splitType;if(onbStep===4)return a.equipment?.length>0;if(onbStep===6)return!!a.sessionLength;return true}
@@ -3312,20 +3385,44 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   body.innerHTML=html;
   $$("[data-onb-pick]").forEach(b=>b.onclick=()=>{const k=b.dataset.onbPick,v=b.dataset.onbVal;
     const multi=b.dataset.onbMulti==="1",num=k==="daysPerWeek"?+v:v;onbPick(k,num,multi)});
-  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=saveOnboardingProgram;
-  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=editOnboardingProgram;
+  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=()=>saveOnboardingProgram();
+  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=()=>editOnboardingProgram();
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-function saveOnboardingProgram(){const a=onbAnswers;prog=new Program(generateProgramFromOnboarding(onbGenAnswers(a)));
-  persistProgramMeta({goal:a.goal,experience:a.experience,daysPerWeek:a.daysPerWeek,splitType:a.splitType,equipment:a.equipment,
-    priorityMuscles:a.priorityMuscles,sessionLength:a.sessionLength,started:today(),mesocycleStatus:"active",onboarded:true});
-  persistProgram();day=prog.days()[0]||"Day 1";closeOnboarding();toast(t("toast.onboarding_saved"));
-  if(!maybeStartTour())maybeShowInstallBanner()}
-function editOnboardingProgram(){prog=new Program(generateProgramFromOnboarding(onbGenAnswers(onbAnswers)));persistProgram();
-  day=prog.days()[0]||"Day 1";closeOnboarding();
-  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));render();toast(t("toast.tweak_program"))}
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io}={}){
+  const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
+  const originEff=origin||onboardingOrigin||"first-run";
+  const proposal=cloneSnapshot(state);
+  if(originEff==="block"){
+    const cap=pendingBlockTransition;
+    if(!cap)return{revision:readRevision(state),localOk:false,idbOk:false};
+    if(proposal.programMeta?.id!==cap.oldProgramId)return{revision:readRevision(state),localOk:false,idbOk:false};
+    archiveCapturedBlock(proposal,cap)}
+  const meta=buildProgramMeta({name,answers:answers||onbAnswers});
+  proposal.programMeta=meta;
+  proposal.program=new Program(exercises).toJSON();
+  if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
+  else delete proposal[STORAGE_FOLLOWUP];
+  const result=await commitProposedState(proposal,adapter);
+  if(!(result.localOk||result.idbOk))return result;
+  if(originEff==="block")pendingBlockTransition=null;
+  onboardingOrigin=null;day=days()[0]||"Day 1";closeOnboarding();
+  if(destination==="program-edit"){
+    programEditMode=true;
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+    document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding");
+    render();toast(t("toast.tweak_program"));return result}
+  render();toast(t("toast.onboarding_saved"));
+  if(!maybeStartTour())maybeShowInstallBanner();
+  return result}
+function saveOnboardingProgram(io){
+  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
+  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"log",origin:onboardingOrigin||"first-run",io:io||storageIO})}
+function editOnboardingProgram(io){
+  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
+  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"program-edit",origin:onboardingOrigin||"first-run",io:io||storageIO})}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
@@ -3491,7 +3588,15 @@ function init(){
   const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>{contextTouched.date=true;saveDraft();closeWorkoutOverflow()});
   const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",()=>{contextTouched.sessionNotes=true;saveDraft()});
   const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",()=>{contextTouched.bodyweight=true;saveDraft()});
-  const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
+  const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
+    if(programEditMode&&state[STORAGE_FOLLOWUP]?.kind==="onboarding-edit"){
+      const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
+      const result=await commitProposedState(proposal,storageIO);
+      if(!(result.localOk||result.idbOk))return;
+      programEditMode=false;renderProgram();
+      if(!maybeStartTour())maybeShowInstallBanner();
+      return}
+    programEditMode=!programEditMode;renderProgram()};
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
@@ -3505,7 +3610,7 @@ function init(){
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>$("#dataImportPanel")?.classList.toggle("is-open");
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitSettings(true)}};
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{const c=$("#notifyEnabled");if(c){c.checked=!c.checked;c.dispatchEvent(new Event("change"))}};
-  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else closeOnboarding()};
+  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else cancelOnboarding()};
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
@@ -3536,7 +3641,7 @@ function init(){
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{if(confirm(t("confirm.replace_program_template")))switchToBeginnerProgram()};
-  $("#createProgram").onclick=()=>startOnboarding();
+  $("#createProgram").onclick=()=>startOnboarding("settings");
   $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
   $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
