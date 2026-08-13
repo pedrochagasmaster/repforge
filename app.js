@@ -1699,7 +1699,7 @@ function focusCue(ex,n,r,draft,prev,editing){
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
   if(sg.load==null)return{kind:"start",label:t("focus.cue.start"),text:t("focus.cue.pick_load",{min:ex.min,max:ex.max})};
   const ref=focusRefLoad(ex,n,draft,prev);
-  const move=ref==null?"hold":sg.load>ref+1e-6?"up":sg.load<ref-1e-6?"down":"hold";
+  const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
   const reps=sg.reps!=null?sg.reps:ex.min;
   return{kind:"now",label:t("focus.cue.now"),
     text:`${t(`focus.cue.${move}`,{load:fmtLoad(sg.load),unit:unitLabel()})} · ${t("focus.cue.reps",{reps})}`}}
