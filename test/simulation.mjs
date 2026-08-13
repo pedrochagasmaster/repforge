@@ -368,6 +368,120 @@ async function getExerciseMeta(page, day) {
   );
 }
 
+
+const LOAD_TOAST = {
+  en: {
+    empty: "Enter a weight before saving the set.",
+    invalid: "That isn't a valid weight.",
+  },
+  pt: {
+    empty: "Insira uma carga antes de salvar a série.",
+    invalid: "Essa carga não é válida.",
+  },
+};
+const LB_CONV = 2.2046226218;
+
+function loadCases(unit) {
+  return [
+    { name: "empty", raw: "", reject: true, empty: true },
+    { name: "malformed", raw: "abc", reject: true },
+    { name: "malformed-dots", raw: "12.5.5", reject: true },
+    { name: "non-positive", raw: "0", reject: true },
+    { name: "non-positive-neg", raw: "-50", reject: true },
+    { name: "exponent", raw: "1e5", reject: true },
+    { name: "comma-decimal", raw: "12,5", reject: false, kg: unit === "lb" ? 12.5 / LB_CONV : 12.5 },
+    { name: "exact-limit", raw: unit === "lb" ? String(1000 * LB_CONV) : "1000", reject: false, kg: 1000 },
+    { name: "over-limit", raw: unit === "lb" ? "2205" : "1000.01", reject: true },
+  ];
+}
+
+async function hideToast(page) {
+  await page.evaluate(() => {
+    const el = document.querySelector("#toast");
+    if (el) {
+      el.classList.add("hidden");
+      el.textContent = "";
+    }
+  });
+}
+
+async function readToast(page) {
+  await page.waitForFunction(() => {
+    const el = document.querySelector("#toast");
+    return el && !el.classList.contains("hidden") && (el.textContent || "").trim();
+  }, { timeout: 2500 }).catch(() => {});
+  return page.evaluate(() => document.querySelector("#toast:not(.hidden)")?.textContent?.trim() || "");
+}
+
+async function logJson(page) {
+  return page.evaluate((k) => {
+    try {
+      return JSON.stringify(JSON.parse(localStorage.getItem(k) || "{}").log || []);
+    } catch {
+      return "[]";
+    }
+  }, KEY);
+}
+
+async function resetWorkoutDraft(page) {
+  await page.evaluate((d) => {
+    localStorage.removeItem(d);
+    window.__repforgeEnterWorkout?.({ focus: false });
+  }, DRAFT);
+}
+
+async function setLangUnit(page, lang, unit) {
+  const state = await getState(page);
+  state.settings = { ...(state.settings || {}), lang, unit };
+  await persistState(page, state);
+  await reloadApp(page);
+}
+
+async function fillNamed(page, selector, raw) {
+  await page.evaluate(({ selector, raw }) => {
+    const el = document.querySelector(selector);
+    if (!el) throw new Error("missing " + selector);
+    el.value = raw;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, { selector, raw });
+}
+
+async function seedF7History(page, loadKg = 80) {
+  const state = await getState(page);
+  const ex = state.program[0];
+  const row = {
+    session: "f7-edit-seed",
+    date: "2026-08-01",
+    day: ex.day,
+    name: ex.name,
+    exerciseId: ex.id,
+    set: 1,
+    load: loadKg,
+    reps: 5,
+    rir: 1,
+    notes: "",
+    created: "2026-08-01T12:00:00.000Z",
+    primary: ex.primary,
+    secondary: ex.secondary,
+  };
+  state.log = (state.log || []).filter((r) => r.session !== "f7-edit-seed").concat(row);
+  await persistState(page, state);
+  await reloadApp(page);
+}
+
+async function openF7HistoryEdit(page) {
+  await nav(page, "history");
+  const editor = page.locator('.session--edit[data-editing="f7-edit-seed"]');
+  if (await editor.count()) return;
+  const row = page.locator('#sessions .hist-row[data-sess="f7-edit-seed"]');
+  await row.waitFor({ state: "visible", timeout: 5000 });
+  await row.click();
+  const editBtn = page.locator('[data-edit="f7-edit-seed"]');
+  await editBtn.waitFor({ state: "visible", timeout: 5000 });
+  await editBtn.click();
+  await editor.waitFor({ state: "visible", timeout: 5000 });
+}
+
 async function cardInfo(page, idx) {
   return page.evaluate((i) => {
     const a = document.querySelectorAll("#workout .exercise")[i];
@@ -578,25 +692,37 @@ async function main() {
     "Log tab → fill one set → Save workout"
   );
 
-  // Zero-load set is skipped on save (week-10 regression)
+  // A touched 0 kg row is invalid (F7): abort the whole save instead of
+  // dropping that set and persisting the sibling 100 kg rows.
   await setLogDate(page, isoDateFromWeeksAgo(1));
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
   await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
-  await saveWorkout(page);
-  sessionCount++;
-  uiSaveCount++;
+  const logLenBeforeZero = (await getState(page)).log.length;
+  await hideToast(page);
+  await saveWorkout(page, { expectNewRows: false });
+  const zeroToast = await readToast(page);
+  assert(
+    (await getState(page)).log.length === logLenBeforeZero &&
+      zeroToast === LOAD_TOAST.en.invalid,
+    "Touched zero load aborts save atomically",
+    `len ${logLenBeforeZero}→${(await getState(page)).log.length} toast="${zeroToast}"`,
+    "Log tab → fill sets → set one load to 0 → Save workout"
+  );
 
-  // Empty kg field is skipped (week-20 regression)
+  // Empty kg on a touched set aborts (F7 empty toast); log stays unchanged.
   await setLogDate(page, isoDateFromWeeksAgo(2));
   await fillExerciseSets(page, d1Exs[0].id, 1, 100, 8, 1);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "");
   const logLenBeforeEmpty = (await getState(page)).log.length;
+  await hideToast(page);
   await saveWorkout(page, { expectNewRows: false });
+  const emptyKgToast = await readToast(page);
   assert(
-    (await getState(page)).log.length === logLenBeforeEmpty,
+    (await getState(page)).log.length === logLenBeforeEmpty &&
+      emptyKgToast === LOAD_TOAST.en.empty,
     "Empty kg field blocks save (no new rows)",
-    `Log grew from ${logLenBeforeEmpty}`,
+    `Log grew from ${logLenBeforeEmpty}; toast="${emptyKgToast}"`,
     "Log tab → clear kg on only filled set → Save workout"
   );
 
@@ -6694,6 +6820,268 @@ async function main() {
     "NOTE_TEXT missing from CSV body",
     "Log a note → Settings → Export log CSV"
   );
+
+
+  beginPhase("Phase: F7 load validation");
+  await clearState(page);
+  await reloadApp(page);
+
+  const parserKinds = await page.evaluate(() => {
+    const p = window.__repforgeParseLoad;
+    if (typeof p !== "function") return null;
+    const LB = 2.2046226218;
+    const rows = [];
+    for (const unit of ["kg", "lb"]) {
+      const cases = [
+        ["empty", "", "empty"],
+        ["whitespace", "  ", "empty"],
+        ["malformed", "abc", "invalid"],
+        ["malformed-dots", "12.5.5", "invalid"],
+        ["non-positive-zero", "0", "invalid"],
+        ["non-positive-neg", "-50", "invalid"],
+        ["exponent", "1e5", "invalid"],
+        ["comma-decimal", "12,5", "valid"],
+        ["exact-limit", unit === "lb" ? String(1000 * LB) : "1000", "valid"],
+        ["over-limit", unit === "lb" ? "2205" : "1000.01", "invalid"],
+      ];
+      for (const [name, raw, kind] of cases) rows.push({ unit, name, raw, got: p(raw, unit), kind });
+    }
+    return rows;
+  });
+  assert(!!parserKinds, "parseLoadInput is exposed for harness checks", "window.__repforgeParseLoad missing");
+  if (parserKinds) {
+    for (const row of parserKinds) {
+      const okKind = row.got?.kind === row.kind;
+      const kgOk = row.kind !== "valid" || Number.isFinite(row.got.kg);
+      assert(okKind && kgOk, `parser ${row.unit} ${row.name} → ${row.kind}`, JSON.stringify(row.got));
+      if (row.name === "comma-decimal" && row.kind === "valid") {
+        const expect = row.unit === "lb" ? 12.5 / LB_CONV : 12.5;
+        assert(Math.abs(row.got.kg - expect) < 1e-9, `parser ${row.unit} comma-decimal kg`, `kg=${row.got.kg}`);
+      }
+      if (row.name === "exact-limit" && row.kind === "valid") {
+        assert(row.got.kg > 0 && row.got.kg <= 1000 + 1e-9, `parser ${row.unit} exact-limit ≤1000 kg`, `kg=${row.got.kg}`);
+      }
+    }
+  }
+
+  for (const lang of ["en", "pt"]) {
+    for (const unit of ["kg", "lb"]) {
+      await setLangUnit(page, lang, unit);
+      await nav(page, "log");
+      await selectDay(page, "Day 1");
+      const meta = await getExerciseMeta(page, "Day 1");
+      const exId = meta[0].id;
+      const setKey = `${exId}_1`;
+      const toasts = LOAD_TOAST[lang];
+      const cases = loadCases(unit);
+      const rejects = cases.filter((x) => x.reject);
+
+      await seedF7History(page, 80);
+      await openF7HistoryEdit(page);
+
+      for (const c of rejects) {
+        const expectToast = c.empty ? toasts.empty : toasts.invalid;
+
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_load"]`, c.raw);
+        await hideToast(page);
+        const beforeSet = await logJson(page);
+        await page.click(`.saveset[data-save="${setKey}"]`);
+        const toastSet = await readToast(page);
+        const doneCls = await page.getAttribute(`.setrow[data-set="${setKey}"]`, "class");
+        assert(
+          toastSet === expectToast && !(doneCls || "").includes("is-done") && (await logJson(page)) === beforeSet,
+          `per-set ${lang}/${unit} ${c.name} rejects`,
+          `toast="${toastSet}" class="${doneCls}"`,
+          `Log → type ${c.raw || "(empty)"} → Save set`
+        );
+
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_load"]`, c.raw);
+        await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
+        await hideToast(page);
+        const beforeSave = await logJson(page);
+        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        const toastSave = await readToast(page);
+        assert(
+          toastSave === expectToast && (await logJson(page)) === beforeSave,
+          `final-save ${lang}/${unit} ${c.name} aborts`,
+          `toast="${toastSave}"`,
+          `Log → type ${c.raw || "(empty)"} on a touched set → Save workout`
+        );
+
+        await openF7HistoryEdit(page);
+        await fillNamed(page, '.session--edit [data-ek^="load|"]', c.raw);
+        await hideToast(page);
+        const beforeEdit = await logJson(page);
+        await page.locator("[data-edsave]").first().click();
+        const toastEdit = await readToast(page);
+        const stillSeed = (await getState(page)).log.find((r) => r.session === "f7-edit-seed");
+        assert(
+          toastEdit === expectToast && (await logJson(page)) === beforeEdit && stillSeed && +stillSeed.load === 80,
+          `history-edit ${lang}/${unit} ${c.name} aborts`,
+          `toast="${toastEdit}" load=${stillSeed?.load}`,
+          `History → Edit → type ${c.raw || "(empty)"} → Save`
+        );
+      }
+
+      for (const c of cases.filter((x) => !x.reject)) {
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_load"]`, c.raw);
+        await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
+        await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
+        await hideToast(page);
+        await page.click(`.saveset[data-save="${setKey}"]`);
+        const doneOk = (await page.getAttribute(`.setrow[data-set="${setKey}"]`, "class") || "").includes("is-done");
+        const beforePerLen = ((await getState(page)).log || []).length;
+        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        await page.waitForFunction(({ k, n }) => {
+          try { return (JSON.parse(localStorage.getItem(k) || "{}").log || []).length > n; }
+          catch { return false; }
+        }, { k: KEY, n: beforePerLen }, { timeout: 5000 }).catch(() => {});
+        const afterPer = (await getState(page)).log || [];
+        const savedPer = afterPer.filter((r) => r.exerciseId === exId).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+        assert(
+          doneOk && afterPer.length > beforePerLen && savedPer && Math.abs(+savedPer.load - c.kg) < 1e-6,
+          `per-set ${lang}/${unit} ${c.name} persists`,
+          `done=${doneOk} load=${savedPer?.load} len ${beforePerLen}→${afterPer.length}`,
+          `Log → type ${c.raw} → Save set → Save workout`
+        );
+
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        const beforeFinalLen = ((await getState(page)).log || []).length;
+        await fillNamed(page, `[data-k="${setKey}_load"]`, c.raw);
+        await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
+        await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
+        await hideToast(page);
+        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        await page.waitForFunction(({ k, n }) => {
+          try { return (JSON.parse(localStorage.getItem(k) || "{}").log || []).length > n; }
+          catch { return false; }
+        }, { k: KEY, n: beforeFinalLen }, { timeout: 5000 }).catch(() => {});
+        const afterFinal = (await getState(page)).log || [];
+        const savedFinal = afterFinal.filter((r) => r.exerciseId === exId).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
+        assert(
+          afterFinal.length > beforeFinalLen && savedFinal && Math.abs(+savedFinal.load - c.kg) < 1e-6,
+          `final-save ${lang}/${unit} ${c.name} persists`,
+          `load=${savedFinal?.load} len ${beforeFinalLen}→${afterFinal.length}`,
+          `Log → type ${c.raw} on a touched set → Save workout`
+        );
+
+        await seedF7History(page, 80);
+        await openF7HistoryEdit(page);
+        await fillNamed(page, '.session--edit [data-ek^="load|"]', c.raw);
+        await hideToast(page);
+        await page.locator("[data-edsave]").first().click();
+        await page.waitForFunction(() => {
+          const el = document.querySelector("#toast");
+          return el && !el.classList.contains("hidden") && /updated|atualizada/i.test(el.textContent || "");
+        }, { timeout: 4000 }).catch(() => {});
+        const edited = (await getState(page)).log.find((r) => r.session === "f7-edit-seed");
+        assert(
+          edited && Math.abs(+edited.load - c.kg) < 1e-6,
+          `history-edit ${lang}/${unit} ${c.name} persists`,
+          `load=${edited?.load}`,
+          `History → Edit → type ${c.raw} → Save`
+        );
+      }
+
+      if (lang === "en" && unit === "kg") {
+        const wiped = await getState(page);
+        wiped.log = [];
+        await persistState(page, wiped);
+        await reloadApp(page);
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
+        await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
+        await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
+        await page.click(`.saveset[data-save="${setKey}"]`);
+        const beforeAtomic = await logJson(page);
+        await fillNamed(page, `[data-k="${exId}_2_load"]`, "1e5");
+        await fillNamed(page, `[data-k="${exId}_2_reps"]`, "5");
+        await hideToast(page);
+        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        const toastAtomic = await readToast(page);
+        assert(
+          toastAtomic === toasts.invalid && (await logJson(page)) === beforeAtomic,
+          "final-save aborts atomically when a touched row is invalid",
+          `toast="${toastAtomic}"`,
+          "Commit set 1 at 80 kg, type 1e5 on set 2, Save workout"
+        );
+
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
+        await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
+        await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
+        await page.click(`.saveset[data-save="${setKey}"]`);
+        await fillNamed(page, `[data-k="${exId}_2_load"]`, "");
+        await hideToast(page);
+        const beforeEmpty = await logJson(page);
+        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        const toastEmptyTouched = await readToast(page);
+        assert(
+          toastEmptyTouched === toasts.empty && (await logJson(page)) === beforeEmpty,
+          "final-save empty touched row uses the empty-weight toast",
+          `toast="${toastEmptyTouched}"`,
+          "Commit set 1, clear set 2 (touched), Save workout"
+        );
+
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
+        await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
+        await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
+        await page.click(`.saveset[data-save="${setKey}"]`);
+        await page.click(`[data-warm="${exId}_2"]`);
+        await fillNamed(page, `[data-k="${exId}_2_load"]`, "abc");
+        await hideToast(page);
+        const beforeWarm = await logJson(page);
+        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        const toastWarm = await readToast(page);
+        assert(
+          toastWarm === toasts.invalid && (await logJson(page)) === beforeWarm,
+          "final-save aborts atomically when a warm-up row is invalid",
+          `toast="${toastWarm}"`,
+          "Commit set 1, mark set 2 warm-up with abc, Save workout"
+        );
+
+        await resetWorkoutDraft(page);
+        await nav(page, "log");
+        await selectDay(page, "Day 1");
+        await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
+        await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
+        await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
+        await page.click(`.saveset[data-save="${setKey}"]`);
+        const beforeBlank = ((await getState(page)).log || []).length;
+        await hideToast(page);
+        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        await page.waitForFunction(({ k, n }) => {
+          try { return (JSON.parse(localStorage.getItem(k) || "{}").log || []).length > n; }
+          catch { return false; }
+        }, { k: KEY, n: beforeBlank }, { timeout: 5000 }).catch(() => {});
+        const afterBlank = ((await getState(page)).log || []).filter((r) => r.exerciseId === exId);
+        assert(
+          afterBlank.length === 1 && +afterBlank[0].load === 80,
+          "untouched blank workout rows stay ignorable on final save",
+          `rows=${JSON.stringify(afterBlank.map((r) => ({ set: r.set, load: r.load })))}`,
+          "Commit set 1, leave set 2 untouched, Save workout"
+        );
+      }
+    }
+  }
 
   // Console errors
   assert(
