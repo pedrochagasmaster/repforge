@@ -738,8 +738,10 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   border-radius:8px;padding:8px 11px;cursor:pointer}
 .copylast:hover{color:var(--accent);border-color:var(--ink-soft)}
 
-/* Current-set cells — bare numbers over a hairline, with the −/+ underneath */
-.curset{margin:10px 0 0}
+/* Current-set cells — bare numbers over a hairline, with the −/+ underneath.
+   The figure size is a variable because the effort word has to know it: that
+   column reads as a word, but it holds the same slot as the numbers beside it. */
+.curset{--curset-val:34px;margin:10px 0 0}
 .curset__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
 .curset__cell{min-width:0;padding:8px 2px 0;text-align:center;position:relative}
 .curset__cell:not(:last-child)::after{
@@ -750,14 +752,19 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .curset__cell-lab.is-accent{color:var(--accent)}
 .curset__val,.curset__cell input.curset__val{
   width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;border-radius:0;
-  font-size:34px;font-weight:650;line-height:1.06;color:var(--ink);text-align:center;
+  font-size:var(--curset-val);font-weight:650;line-height:1.06;color:var(--ink);text-align:center;
   font-variant-numeric:tabular-nums;height:1.06em;min-height:0;box-shadow:none;
 }
 .curset__val::placeholder{color:var(--rule-strong);opacity:1}
 .curset__cell input.curset__val:focus{outline:none;box-shadow:none;border-color:transparent}
 .curset__cell input.curset__val:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-/* An effort is a word: same slot, a size that keeps three of them on one line. */
-.curset__val--word{font-size:26px;font-weight:650;letter-spacing:-.01em}
+/* An effort is a word: a size that keeps three of them on one line, in the same
+   slot height as the figures, so this column's hairline sits on their line. */
+.curset__val--word{
+  font-size:26px;font-weight:650;letter-spacing:-.01em;
+  display:flex;align-items:center;justify-content:center;
+  height:calc(var(--curset-val)*1.06);
+}
 .curset__val--word:focus-visible{outline:2px solid var(--accent);outline-offset:3px;border-radius:6px}
 .unit-hint{
   font-size:10px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink-faint);
@@ -765,7 +772,10 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .curset__cell-lab .unit-hint{font-size:10px;color:var(--ink-faint)}
 .curset__cell-lab.is-accent .unit-hint{color:var(--ink-soft)}
 .sets__head .unit-hint,.ledger__head .unit-hint{margin-left:4px;font-size:10px;letter-spacing:0;text-transform:none;font-weight:500}
-.curset__hint{font-size:13px;color:var(--ink-faint);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Only effort carries a caption, and it hangs below that column's steppers:
+   between the word and the hairline it would push both out of line. It is sized
+   like the unit gloss on the Load label, which keeps the well its own height. */
+.curset__hint{font-size:11px;line-height:1.1;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .curset__underline{display:block;height:2px;margin:8px auto 0;width:56%;background:var(--rule-strong);border-radius:1px}
 .curset__cell.is-active .curset__underline,.curset__cell.is-load .curset__underline{background:var(--accent)}
 .curset__steps{display:flex;justify-content:space-evenly;align-items:center;margin-top:2px}
@@ -838,9 +848,8 @@ body.is-sheet-open{overflow:hidden}
   .fcard__ledger{margin-top:12px}
   .exercise--focus .focus-ex__name{font-size:24px}
   .focus-well{padding:12px 14px 14px}
-  .curset{margin-top:8px}
+  .curset{--curset-val:30px;margin-top:8px}
   .curset__cell-lab{margin-bottom:6px}
-  .curset__val,.curset__cell input.curset__val{font-size:30px}
   .curset__val--word{font-size:24px}
 }
 @media (max-height:660px){
@@ -854,10 +863,9 @@ body.is-sheet-open{overflow:hidden}
   .focus-ex__target{margin-top:4px}
   .focus-well{padding:10px 14px 12px}
   .focus-cue{font-size:13px}
-  .curset{margin-top:4px}
+  .curset{--curset-val:26px;margin-top:4px}
   .curset__cell{padding-top:2px}
   .curset__cell-lab{margin-bottom:4px}
-  .curset__val,.curset__cell input.curset__val{font-size:26px}
   .curset__val--word{font-size:21px}
   .curset__underline{margin-top:5px}
   .focus-well .btn--cta,.focus-well .btn--cta.saveset{height:48px;min-height:48px;font-size:16px;margin-top:8px}
@@ -878,7 +886,7 @@ body.is-sheet-open{overflow:hidden}
   .focus-ex__target{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .focus-cue{flex-wrap:nowrap;font-size:12.5px}
   .focus-cue__text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-  .curset__val,.curset__cell input.curset__val{font-size:24px}
+  .curset{--curset-val:24px}
   .curset__val--word{font-size:18px}
   .curset__hint{display:none}
   .curset__underline{margin-top:4px}

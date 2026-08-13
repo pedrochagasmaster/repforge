@@ -3625,6 +3625,36 @@ async function main() {
     JSON.stringify(focusEffort),
     "Settings effort mode → Log → Focus → the well's third column steps through the effort words"
   );
+  const focusAlign = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll(".exercise.is-current .focus-well .curset__cell")];
+    const band = (sel) => cells.map((c) => {
+      const el = c.querySelector(sel);
+      return el ? Math.round(el.getBoundingClientRect().top) : null;
+    });
+    const lines = band(".curset__underline");
+    const steps = band(".curset__steps");
+    return {
+      n: cells.length,
+      labs: band(".curset__cell-lab"),
+      vals: band(".curset__val"),
+      lines,
+      steps,
+      // The steppers hang off the hairline; a caption may not wedge in between.
+      gap: Math.max(...steps.map((s, i) => s - lines[i])),
+    };
+  });
+  const alignSpread = (arr) => Math.max(...arr) - Math.min(...arr);
+  assert(
+    focusAlign.n === 3 &&
+      alignSpread(focusAlign.labs) <= 1 &&
+      alignSpread(focusAlign.vals) <= 1 &&
+      alignSpread(focusAlign.lines) <= 1 &&
+      alignSpread(focusAlign.steps) <= 1 &&
+      focusAlign.gap <= 6,
+    "Focus effort column lines up with load and reps",
+    JSON.stringify(focusAlign),
+    "Log → Focus in effort mode → the three well cells share one baseline"
+  );
   assert(
     !focusEffort.markupLeak,
     "Focus mode renders the Effort heading as an element, not escaped markup",
