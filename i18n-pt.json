@@ -558,6 +558,7 @@
   "notify.permission.unsupported": "sem suporte",
   "toast.enter_weight_before_save_set": "Insira uma carga antes de salvar a série.",
   "toast.enter_weight_before_save": "Insira uma carga em pelo menos uma série antes de salvar.",
+  "toast.invalid_weight": "Essa carga não é válida.",
   "toast.filled_from_last": "Preenchido a partir da última sessão.",
   "toast.trimmed_priority": "Reduzido aos exercícios prioritários. Pule individualmente para ajustar.",
   "toast.workout_forged": "Treino forjado — {n} {sets} registradas.",

@@ -141,6 +141,20 @@ const isLb=()=>state.settings.unit==="lb";
 const toDisplay=kg=>toDisplayUnit(kg,state.settings.unit);
 const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
 const unitLabel=()=>isLb()?"lb":"kg";
+/* Typed loads reject exponent notation and anything over 1000 kg after
+   one display-unit conversion — a 1e5 commit poisons every derived metric.
+   1000 kg is inclusive; lb round-trips can land 1 ulp over, so a tiny slack. */
+const LOAD_RAW=/^\d+(?:[.,]\d+)?$/,MAX_LOAD_KG=1000,MAX_LOAD_KG_SLACK=1e-9;
+function parseLoadInput(raw,unit=state.settings.unit){
+  const s=String(raw??"").trim();
+  if(!s)return{kind:"empty"};
+  if(!LOAD_RAW.test(s))return{kind:"invalid"};
+  const display=+s.replace(",",".");
+  if(!Number.isFinite(display))return{kind:"invalid"};
+  const kg=unit==="lb"?display/LB:display;
+  if(!(kg>0)||kg>MAX_LOAD_KG+MAX_LOAD_KG_SLACK)return{kind:"invalid"};
+  return{kind:"valid",kg}}
+const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight");
 const unitHintHtml=()=>`<span class="unit-hint">${esc(unitLabel())}</span>`;
 const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
@@ -1866,8 +1880,8 @@ function bindWorkout(){
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
-    const load=parseDec($(`[data-k="${key}_load"]`)?.value)||0;
-    if(load<=0){toast(t("toast.enter_weight_before_save_set"));return}
+    const parsed=parseLoadInput($(`[data-k="${key}_load"]`)?.value);
+    if(parsed.kind!=="valid"){toast(loadInputToast(parsed));return}
     const row=b.closest(".setrow, .curset");
     // Saving an edit updates the set that is already there; it never toggles it
     // off, and it never re-arms the rest clock for a set that finished long ago.
@@ -2028,13 +2042,14 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     const exNote=currentExerciseNote(ex.id);
     for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
-    const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
+    if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
+    const parsed=parseLoadInput($(`[data-k="${ex.id}_${n}_load"]`)?.value);
+    if(parsed.kind!=="valid"){toast(loadInputToast(parsed));return}
+    const load=parsed.kg,reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
     let rir;
     if(isEffortMode()){
       const draft=loadDraft(),eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"hard";
       rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
-    if(load<=0)continue;
-    if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
     if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
     if(exNote)row.exNote=exNote;
@@ -2251,6 +2266,7 @@ window.__repforgeStartNextMeso=startNextMesocycle;
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
 window.__repforgeParseDec=parseDec;
+window.__repforgeParseLoad=parseLoadInput;
 
 function resolveExerciseFromCommand(parsed,currentExercises){
   if(parsed.exerciseName){
@@ -2527,8 +2543,14 @@ function sessionEditor(s,sets){
 function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
   const newDate=card.querySelector('[data-ed="date"]').value||"",vals={};
   card.querySelectorAll("[data-ek]").forEach(inp=>vals[inp.dataset.ek]=inp.value);
+  const loads=new Map();
   for(const r of state.log){if(r.session!==sid)continue;const key=`${liftKey(r)}|${r.set}`;
-    if(`load|${key}`in vals)r.load=posNum(fromDisplay(vals[`load|${key}`]));
+    if(!(`load|${key}`in vals))continue;
+    const parsed=parseLoadInput(vals[`load|${key}`]);
+    if(parsed.kind!=="valid"){toast(loadInputToast(parsed));return}
+    loads.set(r,parsed.kg)}
+  for(const r of state.log){if(r.session!==sid)continue;const key=`${liftKey(r)}|${r.set}`;
+    if(loads.has(r))r.load=loads.get(r);
     if(`reps|${key}`in vals)r.reps=posNum(vals[`reps|${key}`]);
     if(`rir|${key}`in vals)r.rir=posNum(vals[`rir|${key}`]);
     if(newDate)r.date=newDate}
