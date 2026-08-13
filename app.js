@@ -766,7 +766,7 @@ function parseProgramImport(parsed){
   return null}
 function save(){persist()}
 function persist(){
-  dropMemo.clear();
+  dropMemo.clear();baselineMemo.clear();
   let lsOk=true;
   try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){lsOk=false;console.warn("localStorage mirror failed",e)}
   idbSet(KEY,state).catch(e=>{console.warn("idb persist failed",e);
@@ -795,10 +795,21 @@ function sessionsFor(ex){const match=matchLift(ex),m=new Map();
 function typicalRir(ex,sess){sess=sess||sessionsFor(ex);
   const recent=sess.slice(-CAPACITY.baselineSessions);
   return recent.length?median(recent.map(s=>s.medCappedRir)):1}
+// Memo key for the capacity helpers that walk the whole log: identity plus a cheap
+// stamp of the log's shape. persist() clears both memos whenever the log can change.
+const capMemoKey=ex=>`${ex?.id||ex?.name}|${state.log.length}|${state.log.at(-1)?.created||""}`;
 // Recent typical capacity for off-day detection. null until 2 sessions exist.
-function capacityBaseline(ex,sess){sess=sess||sessionsFor(ex);
-  if(sess.length<2)return null;
-  return median(sess.slice(-CAPACITY.baselineSessions).map(s=>s.bestCap))}
+// Memoized: session freshness asks for every other lift on the day, on every
+// keystroke in a committed row — Log-tab speed comes first.
+const baselineMemo=new Map();
+function capacityBaseline(ex,sess){
+  // Only the no-argument form is memoizable; a caller-supplied sess is its own input.
+  if(sess)return sess.length<2?null:median(sess.slice(-CAPACITY.baselineSessions).map(s=>s.bestCap));
+  const memoKey=capMemoKey(ex);
+  if(baselineMemo.has(memoKey))return baselineMemo.get(memoKey);
+  const rows=sessionsFor(ex);
+  const value=rows.length<2?null:median(rows.slice(-CAPACITY.baselineSessions).map(s=>s.bestCap));
+  baselineMemo.set(memoKey,value);return value}
 const DELTA_THRESHOLDS={e1rmPct:.01,volumePct:.025,rir:.75};
 function workingRows(rows){return(rows||[]).filter(r=>isWork(r)&&+r.load>0&&+r.reps>0)}
 function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)return null;let topLoad=0,topLoadReps=0,totalReps=0,totalVolume=0,bestE1rm=0;const rirs=[];
@@ -974,7 +985,7 @@ function baseSetReps(ex,rec,old){
 // the whole log and setSuggestion runs per set per render — Log-tab speed comes first.
 const dropMemo=new Map();
 function historicalSetDrop(ex){
-  const memoKey=`${ex.id||ex.name}|${state.log.length}|${state.log.at(-1)?.created||""}`;
+  const memoKey=capMemoKey(ex);
   if(dropMemo.has(memoKey))return dropMemo.get(memoKey);
   const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!(+x.reps>0)||!isWork(x))continue;
@@ -1068,14 +1079,17 @@ function setSuggestion(ex,n,rec,draft,old){
   if(!sets.length)return baseSuggestion(ex,rec,draft,old);
   const typRir=rec.typRir!=null?rec.typRir:typicalRir(ex);
   const lastSet=sets.at(-1),L=lastSet.load;
-  const predCap=lastSet.cap*(1-expectedSetDrop(ex,sets.map(s=>s.cap)));
+  const setDrop=expectedSetDrop(ex,sets.map(s=>s.cap));
+  const predCap=lastSet.cap*(1-setDrop);
   const predPerf=repsAtLoad(predCap,L)-typRir;
   if(predPerf>=ex.max+CAPACITY.jumpMargin){const L2=round(L+jump(L,1));
     return{load:L2,reps:reentryReps(ex,predCap,L2,typRir),src:"session-up"}}
   if(predPerf<ex.min){const L2=Math.max(round(L-jump(L,1)),minJ);
     return{load:L2,reps:reentryReps(ex,predCap,L2,typRir),src:"session-down"}}
   const reps=clamp(Math.round(predPerf),ex.min,ex.max);
-  return{load:L,reps,src:"session-hold",drop:reps<lastSet.reps}}
+  // Only call it a downward trend when an anticipated drop actually caused it —
+  // a target lowered purely by the typical-RIR subtraction is not a fade.
+  return{load:L,reps,src:"session-hold",drop:setDrop>0&&reps<lastSet.reps}}
 // One-line summary of how the current session is steering the next unlogged set.
 function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);

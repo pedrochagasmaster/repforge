@@ -2581,6 +2581,40 @@ async function main() {
       "Declining sets → log.insession.drop renders"
     );
 
+    // Only an anticipated drop makes it a trend. A target eased purely by the
+    // lifter's own typical RIR is steady state, and must not claim otherwise.
+    const steadyState = await getState(page);
+    const steadyEx = steadyState.program.find((e) => e.id === exReentry.id);
+    steadyEx.min = 6; steadyEx.max = 8; steadyEx.sets = 3;
+    await persistState(page, {
+      ...steadyState,
+      // Identical sets within each session → zero historical drop; RIR 2 → typical RIR 2.
+      log: [
+        ...capRows(steadyEx, capDay, "2025-04-22", 100, 7, 2, "s1"),
+        ...capRows(steadyEx, capDay, "2025-04-29", 100, 7, 2, "s2"),
+      ],
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, capDay);
+    await page.fill(`[data-k="${steadyEx.id}_1_load"]`, "100");
+    await page.fill(`[data-k="${steadyEx.id}_1_reps"]`, "8");
+    await page.fill(`[data-k="${steadyEx.id}_1_rir"]`, "1");
+    await page.click(`.saveset[data-save="${steadyEx.id}_1"]`);
+    await page.waitForTimeout(150);
+    const steadySet2 = +(await page.inputValue(`[data-k="${steadyEx.id}_2_reps"]`));
+    const steadyNote = await page
+      .locator(`.exercise[data-ex="${steadyEx.id}"] .insession`)
+      .textContent()
+      .catch(() => "");
+    assert(
+      steadySet2 < 8 && /holding/i.test(steadyNote || "") && !/trending down/i.test(steadyNote || ""),
+      "A target eased only by the lifter's typical RIR is not reported as a downward trend",
+      `set2 reps=${steadySet2} note="${steadyNote}"`,
+      "One completed set of 8 @ RIR 1, typical RIR 2, no drop history → set 2 targets 7 reps with log.insession.hold, NOT log.insession.drop"
+    );
+
     // ── Session freshness: temper-only cross-exercise signal ──────
     await clearState(page);
     await reloadApp(page);
