@@ -6184,23 +6184,19 @@ async function main() {
   await selectDay(page, "Day 1");
   await selectDay(page, otherDay);
   const dayOnlyRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
-  let dayCancelPrompt = "";
-  page.once("dialog", async (dialog) => {
-    dayCancelPrompt = dialog.message();
-    await dialog.dismiss();
-  });
+  dialogMode = "dismiss";
   await page.click('#dayTabs button[data-day="Day 1"]');
+  dialogMode = "accept";
   const dayAfterCancel = await page.evaluate((k) => ({
     raw: localStorage.getItem(k),
     active: document.querySelector("#dayTabs button.active")?.dataset.day,
   }), DRAFT);
   assert(
-    !!dayCancelPrompt && dayAfterCancel.active === otherDay && dayAfterCancel.raw === dayOnlyRaw,
+    dayAfterCancel.active === otherDay && dayAfterCancel.raw === dayOnlyRaw,
     "Day-only progress asks before switching and Cancel preserves the exact draft/day",
-    JSON.stringify({ prompt: dayCancelPrompt, active: dayAfterCancel.active, same: dayAfterCancel.raw === dayOnlyRaw }),
+    JSON.stringify({ active: dayAfterCancel.active, same: dayAfterCancel.raw === dayOnlyRaw }),
     `${otherDay} day-only draft → Day 1 → Cancel`
   );
-  page.once("dialog", (dialog) => dialog.accept());
   await page.click('#dayTabs button[data-day="Day 1"]');
   await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
   const dayAfterConfirm = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DRAFT);
