@@ -4,7 +4,7 @@ RepForge is a local-only mobile PWA for tracking load progression and progressiv
 
 ## Features
 
-- Machine-only 3-day split included by default
+- Progressive overload for machines, cables, dumbbells, barbells, and bodyweight
 - Mobile-first workout logging
 - Load, reps, and RIR per working set
 - Double-progression recommendations
@@ -19,7 +19,7 @@ RepForge is a local-only mobile PWA for tracking load progression and progressiv
 
 ## Local-only data model
 
-The app files can be hosted on GitHub Pages, but training data stays in the device browser through `localStorage`.
+The app files can be hosted on GitHub Pages, but training data stays on this device. There is no account sync or cross-device recovery.
 
 Nothing is sent to GitHub or any backend by the app.
 

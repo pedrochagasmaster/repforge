@@ -130,9 +130,7 @@
         <div class="pagehead__titles">
           <h2 class="page-title" data-i18n="stats.title">Progress</h2>
         </div>
-        <div class="pagehead__actions">
-          <span class="text-link" id="statsPeriod" data-i18n="stats.window.28_days">28 days</span>
-        </div>
+        <div class="pagehead__actions"></div>
       </div>
       <div id="statsSeg" class="seg seg--stats" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true" data-i18n="stats.overview">Overview</button>
@@ -415,9 +413,9 @@
       </div>
 
       <button type="button" class="settings-row is-danger" id="reset">
-        <span class="settings-row__label" data-i18n="settings.delete_all">Delete all data</span>
+        <span class="settings-row__label" data-i18n="settings.delete_all">Delete workout history</span>
       </button>
-      <p class="visually-hidden" data-i18n="settings.danger_lede">This clears every logged set on this device. Export a backup first.</p>
+      <p class="visually-hidden" data-i18n="settings.danger_lede">Removes the saved log and any unfinished workout draft. Program and Settings stay. Export a backup first.</p>
       <p class="settings-footer" data-i18n="settings.footer">RepForge · Made for training, not distraction.</p>
     </section>
 
@@ -477,7 +475,7 @@
       <button type="button" id="endBlockCancel" class="btn btn--steel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </div>
-  <div id="tour" class="tour hidden" role="dialog" aria-modal="false" data-i18n-aria="tour.aria" aria-label="Feature tour">
+  <div id="tour" class="tour hidden" role="dialog" aria-modal="true" data-i18n-aria="tour.aria" aria-label="Feature tour">
     <div class="tour__card">
       <div class="tour__head">
         <p class="tour__eyebrow" id="tourEyebrow" data-i18n="tour.eyebrow">Tour</p>
