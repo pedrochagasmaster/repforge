@@ -883,23 +883,17 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  const noteBtn = page.locator("#workout [data-exnote], #workout .focus-tool, #workout button").filter({ hasText: /note/i }).first();
-  const hasNote = await page.locator("#workout [data-exnotebtn], #workout button[data-note], #workout .focus-tool").count();
-  await page.evaluate(() => {
-    const btn = document.querySelector("[data-exnotebtn], .focus-tool[aria-label], button[data-note]");
-    const first = document.querySelector("#workout button.focus-tool, #workout .icon-btn--note, #workout [data-exnote]");
-    const opener = [...document.querySelectorAll("#workout button")].find((b) => /note/i.test(b.getAttribute("aria-label") || b.textContent || ""));
-    (opener || first)?.click();
-  });
+  const noteBtn = page.locator("#workout [data-exnote-open]").first();
+  const noteId = await noteBtn.getAttribute("data-exnote-open");
+  await noteBtn.click();
   await page.waitForFunction(() => {
     const s = document.querySelector("#exNoteSheet");
     return s && !s.hidden && !s.classList.contains("hidden");
   }, { timeout: 8000 });
   const info = await modalInfo(page, "#exNoteSheet");
-  assert(info.open && info.active === "exNoteText", "Exercise Note: initial focus is #exNoteText", JSON.stringify({ ...info, hasNote }));
+  assert(info.open && info.active === "exNoteText", "Exercise Note: initial focus is #exNoteText", JSON.stringify({ ...info, noteId }));
   const wrap = await tabWrap(page, "#exNoteSheet");
   assert(wrap.forward.inside && wrap.back.inside, "Exercise Note: Tab wraps inside", JSON.stringify(wrap));
-  const trigger = await page.evaluate(() => document.activeElement?.id);
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => {
     const s = document.querySelector("#exNoteSheet");
@@ -908,9 +902,28 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const after = await page.evaluate(() => ({
     hidden: document.querySelector("#exNoteSheet")?.hidden || document.querySelector("#exNoteSheet")?.classList.contains("hidden"),
     leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    focusNote: document.activeElement?.getAttribute("data-exnote-open"),
   }));
-  assert(after.hidden, "Exercise Note: Escape is Cancel and hides the sheet", JSON.stringify({ after, trigger }));
+  assert(after.hidden, "Exercise Note: Escape is Cancel and hides the sheet", JSON.stringify(after));
   assert(after.leaked.length === 0, "Exercise Note: close restores inertness", JSON.stringify(after.leaked));
+  assert(after.focusNote === noteId, "Exercise Note: Cancel returns focus to the exact note trigger", JSON.stringify({ noteId, after }));
+
+  await page.evaluate((id) => {
+    [...document.querySelectorAll("#workout [data-exnote-open]")].find((b) => b.dataset.exnoteOpen === id)?.click();
+  }, noteId);
+  await page.waitForSelector("#exNoteSheet:not([hidden])", { timeout: 8000 });
+  await page.locator("#exNoteText").fill("Saved focus note");
+  await page.locator("#exNoteSave").click();
+  await page.waitForFunction((id) => {
+    const sheet = document.querySelector("#exNoteSheet");
+    return !!(sheet?.hidden && document.activeElement?.getAttribute("data-exnote-open") === id);
+  }, noteId, { timeout: 8000 });
+  const saved = await page.evaluate(() => ({
+    focusNote: document.activeElement?.getAttribute("data-exnote-open"),
+    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+  }));
+  assert(saved.focusNote === noteId, "Exercise Note: Save returns focus after the rerender", JSON.stringify({ noteId, saved }));
+  assert(saved.leaked.length === 0, "Exercise Note: Save restores inertness", JSON.stringify(saved.leaked));
   await context.close();
 }
 

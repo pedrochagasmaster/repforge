@@ -236,24 +236,29 @@ function openModal(el,opts={}){
   return true}
 function closeModal(el){
   const rec=activeModal;
-  if(!rec||(el&&rec.el!==el)||rec.closing)return;
+  if(!rec||(el&&rec.el!==el)||rec.closing)return Promise.resolve(false);
   rec.closing=true;
-  detachModalListeners(rec);
-  const finish=()=>{
-    if(rec.done)return;rec.done=true;
-    hideModalElement(rec);
-    restoreBodyInert(rec.prevInert);
-    if(activeModal===rec)activeModal=null;
-    const target=resolveReturnFocus(rec.returnFocus);
-    if(target){
-      try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
-  };
-  if(rec.delayHide>0){
-    rec.el.classList.remove("is-open");
-    rec.scrim?.classList.remove("is-open");
-    const fallback=setTimeout(finish,rec.delayHide);
-    rec.el.addEventListener("transitionend",()=>{clearTimeout(fallback);finish()},{once:true})}
-  else finish()}
+  return new Promise(resolve=>{
+    let fallback=null,onEnd=null;
+    const finish=()=>{
+      if(rec.done)return;rec.done=true;
+      if(fallback)clearTimeout(fallback);
+      if(onEnd)rec.el.removeEventListener("transitionend",onEnd);
+      detachModalListeners(rec);
+      hideModalElement(rec);
+      restoreBodyInert(rec.prevInert);
+      if(activeModal===rec)activeModal=null;
+      const target=resolveReturnFocus(rec.returnFocus);
+      if(target){
+        try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
+      resolve(true)};
+    if(rec.delayHide>0){
+      rec.el.classList.remove("is-open");
+      rec.scrim?.classList.remove("is-open");
+      fallback=setTimeout(finish,rec.delayHide);
+      onEnd=e=>{if(e.target===rec.el)finish()};
+      rec.el.addEventListener("transitionend",onEnd)}
+    else finish()})}
 function setDisclosure(button,panel,open){
   if(!button||!panel)return;
   const on=!!open;
@@ -1757,15 +1762,18 @@ function openExNoteSheet(exId){
     if(ta===document.activeElement)ta.setSelectionRange(ta.value.length,ta.value.length)})}
 function closeExNoteSheet(){
   const sheet=$("#exNoteSheet");
-  if(!sheet)return;
-  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return;
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   exNoteFor=null;exNoteReturn=null;
-  closeModal(sheet)}
-function saveExNoteSheet(){
+  return closeModal(sheet)}
+async function saveExNoteSheet(){
   const id=exNoteFor,val=$("#exNoteText")?.value??"";
   if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;saveDraft()}
-  closeExNoteSheet();
-  if(id)renderWorkout()}
+  await closeExNoteSheet();
+  if(id){
+    renderWorkout();
+    const trigger=$$("#workout [data-exnote-open]").find(b=>b.dataset.exnoteOpen===id);
+    if(trigger){try{trigger.focus({preventScroll:true})}catch{try{trigger.focus()}catch{}}}}}
 /** Keep the sheet above the software keyboard rather than behind it. */
 function trackSheetViewport(){
   const vv=window.visualViewport;if(!vv)return;
