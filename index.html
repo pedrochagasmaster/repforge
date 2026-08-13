@@ -404,7 +404,7 @@
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
         <div id="dataImportPanel" class="settings-panel">
-          <label class="btn btn--steel file"><span data-i18n-text data-i18n="settings.import_backup_json">Import backup JSON</span><input id="importJson" type="file" accept=".json,application/json"></label>
+          <label class="btn btn--steel file" tabindex="-1"><span data-i18n-text data-i18n="settings.import_backup_json">Import backup JSON</span><input id="importJson" type="file" accept=".json,application/json"></label>
         </div>
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.storage">Storage</span>
@@ -458,6 +458,7 @@
     </div>
     <div id="blockReviewBody" class="blockreview__body"></div>
   </div>
+  <div id="dialogScrim" class="dialog-scrim hidden" hidden aria-hidden="true"></div>
   <div id="importChoice" class="importchoice hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
     <p class="importchoice__title" data-i18n="dialog.import.title">Import backup</p>
     <p class="importchoice__body" id="importChoiceBody"></p>

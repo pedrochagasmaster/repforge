@@ -700,7 +700,7 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
   $("#blockDecideLater").onclick=closeBlockReview;
   const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{closeBlockReview();navTo("stats");setStatsSeg("review")}}
 let blockReviewCurrent=null;
-function closeBlockReview(){const d=$("#blockReview");if(d)d.classList.add("hidden")}
+function closeBlockReview(){closeOverlay($("#blockReview"))}
 function completeCurrentProgram(review){
   if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   if(!Array.isArray(state.programHistory))state.programHistory=[];
@@ -725,12 +725,17 @@ function startNextMesocycle(strategy){
   toast(t(msg[strategy]||"toast.new_block_started"))}
 function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
   completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
-function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview}
+function openBlockReview(review,opts={}){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  openOverlay(d,{opener:opts.opener,onDismiss:closeBlockReview});
+  $("#blockReviewClose").onclick=closeBlockReview}
 function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
-  d.classList.remove("hidden");
-  $("#endBlockGo").onclick=()=>{d.classList.add("hidden");openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))};
-  $("#endBlockCancel").onclick=()=>d.classList.add("hidden")}
+  const dismiss=()=>closeOverlay(d);
+  openOverlay(d,{scrim:true,onDismiss:dismiss});
+  $("#endBlockCancel").onclick=dismiss;
+  $("#endBlockGo").onclick=()=>{
+    const opener=modal?.el===d?modal.opener:null;
+    closeOverlay(d,{restore:false});
+    openBlockReview(buildBlockReview(state.programMeta,state.program,state.log),{opener})}}
 function dismissBlockPrompt(){
   if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   state.programMeta.blockPromptDismissedId=state.programMeta.id;
@@ -1252,29 +1257,92 @@ function playPanelAnimation(el,cls){if(!el)return;
 function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive&&logMode==="focus");
   updateRestChrome()}
 
+/* Shared modal controller: one opener, one inert background, one Tab/Escape
+ * handler. Compact dialogs share a scrim; the full-screen block review already
+ * covers the viewport, so it does not get a second visible one. */
+let modal=null;
+const MODAL_STOPS="button,[href],input:not([type=hidden]),select,textarea,[tabindex]:not([tabindex='-1'])";
+function modalStops(root){
+  return Array.from(root.querySelectorAll(MODAL_STOPS)).filter(el=>{
+    if(el.disabled||el.tabIndex<0)return false;
+    const cs=getComputedStyle(el);
+    return cs.display!=="none"&&cs.visibility!=="hidden"})}
+function visibleOpener(hint){
+  let el=hint instanceof Element?hint:document.activeElement;
+  if(!(el instanceof HTMLElement)||el===document.body||el===document.documentElement)return null;
+  if(el.closest("#dialogScrim,#exNoteScrim"))return null;
+  if(el.matches("input[type=file]"))el=el.closest("label")||el;
+  if(!el.isConnected||el.closest(".hidden"))return null;
+  const r=el.getBoundingClientRect();
+  return(r.width>0||r.height>0)?el:null}
+function setModalInert(root,keep){
+  const hold=new Set([root,...keep]);
+  for(const el of document.body.children){
+    if(el.tagName==="SCRIPT")continue;
+    el.inert=!hold.has(el)}}
+function clearModalInert(){for(const el of document.body.children)el.inert=false}
+function showDialogScrim(on){const s=$("#dialogScrim");if(!s)return;
+  s.classList.toggle("hidden",!on);s.hidden=!on}
+function bindModal(el,opts={}){
+  if(modal)unbindModal({restore:false});
+  const opener="opener" in opts?opts.opener:visibleOpener();
+  const extra=[...(opts.keep||[]),opts.scrim?$("#dialogScrim"):null].filter(Boolean);
+  modal={el,opener,onDismiss:opts.onDismiss,scrim:!!opts.scrim};
+  document.body.classList.add("is-modal-open");
+  showDialogScrim(!!opts.scrim);
+  setModalInert(el,extra);
+  requestAnimationFrame(()=>{
+    if(modal?.el!==el)return;
+    const target=opts.focusEl&&el.contains(opts.focusEl)?opts.focusEl:modalStops(el)[0];
+    target?.focus()})}
+function unbindModal({restore=true}={}){
+  if(!modal)return;
+  const opener=modal.opener;
+  modal=null;
+  document.body.classList.remove("is-modal-open");
+  showDialogScrim(false);
+  clearModalInert();
+  if(restore&&opener?.isConnected)opener.focus()}
+function onModalKey(e){
+  if(!modal)return;
+  if(e.key==="Escape"){e.preventDefault();modal.onDismiss?.();return}
+  if(e.key!=="Tab")return;
+  const stops=modalStops(modal.el);if(!stops.length)return;
+  const first=stops[0],last=stops[stops.length-1];
+  const inside=modal.el.contains(document.activeElement);
+  if(e.shiftKey&&(document.activeElement===first||!inside)){e.preventDefault();last.focus()}
+  else if(!e.shiftKey&&(document.activeElement===last||!inside)){e.preventDefault();first.focus()}}
+function openOverlay(el,opts={}){if(!el)return;el.classList.remove("hidden");bindModal(el,opts)}
+function closeOverlay(el,{restore=true}={}){
+  if(!el)return;
+  if(modal?.el===el)unbindModal({restore});
+  el.classList.add("hidden")}
+document.addEventListener("keydown",onModalKey);
+$("#dialogScrim")?.addEventListener("click",()=>{if(modal?.scrim)modal.onDismiss?.()});
+
 /* ---- Exercise note sheet ---- */
-let exNoteFor=null,exNoteReturn=null;
+let exNoteFor=null;
 function openExNoteSheet(exId){
   const ex=prog.find(exId);if(!ex)return;
   const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim"),ta=$("#exNoteText");
   if(!sheet||!ta)return;
-  exNoteFor=exId;exNoteReturn=document.activeElement;
+  exNoteFor=exId;
   $("#exNoteFor").textContent=substituted.get(exId)||ex.name;
   ta.value=$(`[data-exnote="${exId}"]`)?.value??(loadDraft().__exnotes?.[exId]??lastExerciseNote(ex));
   sheet.hidden=false;sheet.classList.remove("hidden");scrim?.classList.remove("hidden");
   document.body.classList.add("is-sheet-open");
+  bindModal(sheet,{onDismiss:closeExNoteSheet,keep:scrim?[scrim]:[],focusEl:ta});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");
-    ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)})}
+    if(document.activeElement===ta)ta.setSelectionRange(ta.value.length,ta.value.length)})}
 function closeExNoteSheet(){
   const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim");
   if(!sheet||sheet.hidden)return;
+  if(modal?.el===sheet)unbindModal({restore:true});
   sheet.classList.remove("is-open");scrim?.classList.remove("is-open");
   document.body.classList.remove("is-sheet-open");
   const finish=()=>{sheet.classList.add("hidden");sheet.hidden=true;scrim?.classList.add("hidden")};
   reducedMotion()?finish():setTimeout(finish,220);
-  exNoteFor=null;
-  if(exNoteReturn?.isConnected)exNoteReturn.focus();
-  exNoteReturn=null}
+  exNoteFor=null}
 function saveExNoteSheet(){
   const id=exNoteFor,val=$("#exNoteText")?.value??"";
   if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;saveDraft()}
@@ -2881,16 +2949,16 @@ async function importJson(e){const f=e.target.files?.[0];if(!f)return;
     const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
     const have=new Set(state.log.map(r=>r.session));
     const newSessions=new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size;
-    openImportChoice({s,inSessions,inSets,curSessions,curSets,newSessions})}
+    openImportChoice({s,inSessions,inSets,curSessions,curSets,newSessions,opener:e.target})}
   catch{toast(t("toast.import_invalid"))}
   e.target.value=""}
 function openImportChoice(ctx){const d=$("#importChoice");
   $("#importChoiceBody").textContent=t("dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
-  d.classList.remove("hidden");
-  const close=()=>{d.classList.add("hidden")};
-  $("#importCancel").onclick=()=>{close();toast(t("toast.import_cancelled"))};
-  $("#importReplace").onclick=()=>{close();applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))};
-  $("#importMerge").onclick=()=>{close();mergeLog(ctx.s)};}
+  const dismiss=()=>{closeOverlay(d);toast(t("toast.import_cancelled"))};
+  openOverlay(d,{scrim:true,onDismiss:dismiss,opener:visibleOpener(ctx.opener)});
+  $("#importCancel").onclick=dismiss;
+  $("#importReplace").onclick=()=>{closeOverlay(d);applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))};
+  $("#importMerge").onclick=()=>{closeOverlay(d);mergeLog(ctx.s)};}
 function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
   const rows=s.log.filter(r=>r&&r.session&&!have.has(r.session));
   const added=new Set(rows.map(r=>r.session)).size;
@@ -3108,16 +3176,6 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
-  // The sheet is modal: Escape leaves it and Tab stays inside it.
-  document.addEventListener("keydown",e=>{
-    const sheet=$("#exNoteSheet");if(!sheet||sheet.hidden)return;
-    if(e.key==="Escape"){e.preventDefault();closeExNoteSheet();return}
-    if(e.key!=="Tab")return;
-    const stops=$$("#exNoteSheet button, #exNoteSheet textarea").filter(el=>!el.disabled);
-    if(!stops.length)return;
-    const first=stops[0],lastStop=stops[stops.length-1];
-    if(e.shiftKey&&document.activeElement===first){e.preventDefault();lastStop.focus()}
-    else if(!e.shiftKey&&document.activeElement===lastStop){e.preventDefault();first.focus()}});
   trackSheetViewport();
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");

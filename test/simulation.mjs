@@ -114,6 +114,38 @@ async function persistState(page, state) {
   );
 }
 
+/** Focus/inert/scrim snapshot for a `role=dialog` overlay. */
+async function probeModal(page, sel) {
+  return page.evaluate((sel) => {
+    const root = document.querySelector(sel);
+    if (!root) return null;
+    const stops = [...root.querySelectorAll("button, [href], input:not([type=hidden]), select, textarea")]
+      .filter((el) => !el.disabled && el.tabIndex >= 0 && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden");
+    const i = stops.indexOf(document.activeElement);
+    const scrim = document.getElementById("dialogScrim");
+    return {
+      hidden: root.classList.contains("hidden") || !!root.hidden,
+      activeId: document.activeElement?.id || "",
+      firstId: stops[0]?.id || "",
+      lastId: stops[stops.length - 1]?.id || "",
+      i,
+      n: stops.length,
+      inertMain: !!document.querySelector("main")?.inert,
+      inertNav: !!document.querySelector("nav")?.inert,
+      dialogInert: !!root.inert,
+      scrimHidden: !scrim || scrim.classList.contains("hidden") || !!scrim.hidden,
+      scrimInert: !!scrim?.inert,
+    };
+  }, sel);
+}
+
+async function waitFocusedIn(page, sel) {
+  await page.waitForFunction((sel) => {
+    const root = document.querySelector(sel);
+    return !!root && !root.classList.contains("hidden") && !root.hidden && root.contains(document.activeElement);
+  }, sel, { timeout: 5000 });
+}
+
 /** Bulk-inject a year of training history (fast path for stats/history coverage). */
 async function seedHistoricalLog(page, { weeks = SIM_WEEKS, days = ["Day 1", "Day 2", "Day 3"] } = {}) {
   const state = await getState(page);
@@ -4948,6 +4980,198 @@ async function main() {
   );
   await page.click("#blockReviewClose");
   await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+
+  beginPhase("Phase: F11 dialog modality");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await nav(page, "program");
+
+  const assertTrap = async (sel, label) => {
+    await page.keyboard.press("Shift+Tab");
+    let info = await probeModal(page, sel);
+    assert(
+      info && info.n > 1 && info.i === info.n - 1,
+      `F11: ${label} reverse-Tab wraps to the last control`,
+      JSON.stringify(info),
+      `Open ${sel} → Shift+Tab`
+    );
+    await page.keyboard.press("Tab");
+    info = await probeModal(page, sel);
+    assert(
+      info && info.i === 0,
+      `F11: ${label} Tab wraps to the first control`,
+      JSON.stringify(info),
+      `Open ${sel} → Shift+Tab → Tab`
+    );
+    return info;
+  };
+
+  await page.locator("#endBlock").focus();
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await waitFocusedIn(page, "#endBlockConfirm");
+  let f11 = await probeModal(page, "#endBlockConfirm");
+  assert(
+    f11 && f11.i === 0 && f11.firstId === "endBlockGo",
+    "F11: #endBlockConfirm focuses the first enabled control",
+    JSON.stringify(f11),
+    "Program → End block"
+  );
+  assert(
+    f11.inertMain && f11.inertNav && !f11.dialogInert,
+    "F11: #endBlockConfirm makes the background inert",
+    JSON.stringify(f11),
+    "Program → End block → main/nav inert"
+  );
+  assert(
+    !f11.scrimHidden && !f11.scrimInert,
+    "F11: #endBlockConfirm shows the shared scrim",
+    JSON.stringify(f11),
+    "Program → End block → #dialogScrim visible"
+  );
+  await assertTrap("#endBlockConfirm", "#endBlockConfirm");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  assert(
+    await page.evaluate(() => document.activeElement?.id === "endBlock"),
+    "F11: Escape on #endBlockConfirm restores the End block opener",
+    `active=${await page.evaluate(() => document.activeElement?.id)}`,
+    "End block → Escape"
+  );
+  assert(
+    await page.evaluate(() => !document.querySelector("main")?.inert && !document.querySelector("nav")?.inert),
+    "F11: closing #endBlockConfirm clears background inert",
+    "main/nav still inert",
+    "End block → Escape → inert removed"
+  );
+
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await waitFocusedIn(page, "#endBlockConfirm");
+  await page.locator("#dialogScrim").click({ position: { x: 4, y: 4 } });
+  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  assert(
+    await page.evaluate(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden")),
+    "F11: #endBlockConfirm closes on backdrop tap",
+    "confirm still visible",
+    "End block → tap #dialogScrim"
+  );
+  assert(
+    await page.evaluate(() => document.activeElement?.id === "endBlock"),
+    "F11: backdrop close restores the End block opener",
+    `active=${await page.evaluate(() => document.activeElement?.id)}`,
+    "End block → tap scrim"
+  );
+
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.click("#endBlockGo");
+  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  await waitFocusedIn(page, "#blockReview");
+  f11 = await probeModal(page, "#blockReview");
+  assert(
+    f11 && f11.i === 0 && f11.firstId === "blockReviewClose",
+    "F11: #blockReview focuses the first enabled control",
+    JSON.stringify(f11),
+    "End block → Review block"
+  );
+  assert(
+    f11.inertMain && f11.inertNav && !f11.dialogInert,
+    "F11: #blockReview makes the background inert",
+    JSON.stringify(f11),
+    "Review block → main/nav inert"
+  );
+  assert(
+    f11.scrimHidden,
+    "F11: #blockReview has no second visible scrim",
+    JSON.stringify(f11),
+    "Review block → #dialogScrim stays hidden"
+  );
+  assert(
+    await page.evaluate(() => document.activeElement?.id !== "endBlockGo"),
+    "F11: chained review does not leave focus on hidden #endBlockGo",
+    `active=${await page.evaluate(() => document.activeElement?.id)}`,
+    "End block → Review block → focus inside #blockReview"
+  );
+  await assertTrap("#blockReview", "#blockReview");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+  assert(
+    await page.evaluate(() => document.activeElement?.id === "endBlock"),
+    "F11: Escape on chained #blockReview restores the Program End block opener",
+    `active=${await page.evaluate(() => document.activeElement?.id)}`,
+    "End block → Review block → Escape"
+  );
+
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.click("#endBlockGo");
+  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  await page.click("#blockDecideLater");
+  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+  assert(
+    await page.evaluate(() => document.activeElement?.id === "endBlock"),
+    "F11: Decide later restores the original Program-page opener",
+    `active=${await page.evaluate(() => document.activeElement?.id)}`,
+    "End block → Review block → Decide later"
+  );
+
+  await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#dataImportPanel")?.classList.add("is-open"));
+  const f11BackupPath = join(tmpDir, "f11-import.json");
+  writeFileSync(f11BackupPath, JSON.stringify(await getState(page)));
+  await page.locator("#dataImportRow").focus();
+  await page.setInputFiles("#importJson", f11BackupPath);
+  await page.waitForSelector("#importChoice:not(.hidden)", { timeout: 5000 });
+  await waitFocusedIn(page, "#importChoice");
+  f11 = await probeModal(page, "#importChoice");
+  assert(
+    f11 && f11.i === 0 && f11.firstId === "importMerge",
+    "F11: #importChoice focuses the first enabled control",
+    JSON.stringify(f11),
+    "Settings → Import backup"
+  );
+  assert(
+    f11.inertMain && f11.inertNav && !f11.dialogInert,
+    "F11: #importChoice makes the background inert",
+    JSON.stringify(f11),
+    "Import backup → main/nav inert"
+  );
+  assert(
+    !f11.scrimHidden && !f11.scrimInert,
+    "F11: #importChoice shows the shared scrim",
+    JSON.stringify(f11),
+    "Import backup → #dialogScrim visible"
+  );
+  await assertTrap("#importChoice", "#importChoice");
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelector("#importChoice")?.classList.contains("hidden"));
+  const importOpener = await page.evaluate(() => {
+    const el = document.activeElement;
+    return {
+      id: el?.id || "",
+      isRow: el?.id === "dataImportRow",
+      isLabel: !!el?.closest?.("label.file"),
+    };
+  });
+  assert(
+    importOpener.isRow || importOpener.isLabel,
+    "F11: Escape on #importChoice restores the visible import opener",
+    JSON.stringify(importOpener),
+    "Import backup → Escape"
+  );
+
+  await page.locator("#dataImportRow").focus();
+  await page.setInputFiles("#importJson", f11BackupPath);
+  await page.waitForSelector("#importChoice:not(.hidden)", { timeout: 5000 });
+  await waitFocusedIn(page, "#importChoice");
+  await page.locator("#dialogScrim").click({ position: { x: 4, y: 4 } });
+  await page.waitForFunction(() => document.querySelector("#importChoice")?.classList.contains("hidden"));
+  assert(
+    await page.evaluate(() => document.querySelector("#importChoice")?.classList.contains("hidden")),
+    "F11: #importChoice closes on backdrop tap",
+    "import dialog still visible",
+    "Import backup → tap #dialogScrim"
+  );
 
   beginPhase("Phase: P9 next-block flow");
   await page.waitForFunction(() => typeof window.__repforgeCompleteProgram === "function");
