@@ -775,13 +775,21 @@ function startNextMesocycle(strategy){
   toast(t(msg[strategy]||"toast.new_block_started"))}
 function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
   completeCurrentProgram(review);startNextMesocycle(strategy);
-  if(strategy==="onboarding"){
-    closeOverlay($("#blockReview"),{restore:false});
-    restoreModalFocus(null,()=>visibleOpener($("#onbCancel")));
-    return}
-  closeBlockReview()}
-function programReviewControl(){
-  return visibleOpener($("#endBlock"))||visibleOpener($("#reviewBlockLink"))||visibleOpener($("#programEditToggle"))}
+  closeOverlay($("#blockReview"),{restore:false});
+  restoreModalFocus(null,()=>blockReviewDestination(strategy))}
+/** Visible control to land on after block-review closes. Program controls first
+ *  when that page is showing; otherwise the Log/workout surface the banner lived
+ *  on, or onboarding after that strategy replaces the app. */
+function blockReviewDestination(strategy){
+  if(strategy==="onboarding")return visibleOpener($("#onbCancel"));
+  return visibleOpener($("#endBlock"))||visibleOpener($("#reviewBlockLink"))||visibleOpener($("#programEditToggle"))
+    ||visibleOpener($("#onbCancel"))
+    ||visibleOpener($("#logBlockBanner .blockprompt__act"))
+    ||visibleOpener($("#programBlockBanner .blockprompt__act"))
+    ||visibleOpener($("#startWorkout"))
+    ||visibleOpener($("#leaveWorkout"))
+    ||visibleOpener($("#dayTabs button.active"))}
+function programReviewControl(){return blockReviewDestination()}
 function openBlockReview(review,opts={}){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
   openOverlay(d,{opener:opts.opener,onDismiss:closeBlockReview,fallback:programReviewControl});
   $("#blockReviewClose").onclick=closeBlockReview}

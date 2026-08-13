@@ -5804,6 +5804,44 @@ async function main() {
   await reloadApp(page);
   await nav(page, "program");
 
+  const f11BeforeBanner = await getState(page);
+  await persistState(page, {
+    ...f11BeforeBanner,
+    programMeta: { ...f11BeforeBanner.programMeta, blockPromptDismissedId: null },
+  });
+  await reloadApp(page);
+  await nav(page, "log");
+  await page.waitForSelector("#logBlockBanner:not(.hidden) .blockprompt__act", { timeout: 5000 });
+  await page.click("#logBlockBanner .blockprompt__act");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.click("#endBlockGo");
+  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  await page.click("#blockStartNext");
+  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+  const bannerStartFocus = await page.evaluate(() => {
+    const el = document.activeElement;
+    const r = el?.getBoundingClientRect?.();
+    return {
+      id: el?.id || "",
+      isBody: el === document.body || el === document.documentElement,
+      connected: !!el?.isConnected,
+      visible: !!(r && (r.width > 0 || r.height > 0)),
+      inDayTabs: !!el?.closest?.("#dayTabs"),
+      inOnboarding: !!el?.closest?.("#onboarding.active"),
+    };
+  });
+  assert(
+    !bannerStartFocus.isBody && bannerStartFocus.connected && bannerStartFocus.visible &&
+      (bannerStartFocus.id === "leaveWorkout" || bannerStartFocus.id === "startWorkout" ||
+        bannerStartFocus.inDayTabs || bannerStartFocus.id === "onbCancel" || bannerStartFocus.inOnboarding),
+    "F11: Start next from workout banner restores a visible destination",
+    JSON.stringify(bannerStartFocus),
+    "Workout banner → Review block → Start next"
+  );
+  await persistState(page, f11BeforeBanner);
+  await reloadApp(page);
+  await nav(page, "program");
+
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#dataImportPanel")?.classList.add("is-open"));
   const f11BackupPath = join(tmpDir, "f11-import.json");
