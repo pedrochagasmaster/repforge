@@ -491,6 +491,7 @@
   "onb.days.sub": "days",
   "onb.split.lede": "Splits that fit {n} days per week.",
   "onb.equipment.lede": "Pick everything you can use. We'll only program what you have.",
+  "onb.equipment.unsupported": "Choose equipment that supports every training day.",
   "onb.priority.lede": "Optional — we'll add a little extra volume where you want it.",
   "onb.session.short.label": "Short",
   "onb.session.short.sub": "4–5 exercises",

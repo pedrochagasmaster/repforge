@@ -343,13 +343,20 @@ function catalogForSlot(slot,equipment,experience){
   const eq=new Set((equipment||[]).map(s=>String(s).toLowerCase()));
   let pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
   if(eq.size)pool=pool.filter(e=>e.equipment.some(x=>eq.has(String(x).toLowerCase())));
-  if(!pool.length)pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
   if(experience==="beginner"){const bf=pool.filter(e=>e.beginnerFriendly);if(bf.length)pool=bf}
   return pool.sort((a,b)=>a.id.localeCompare(b.id))}
-function chooseExercise(slot,equipment,experience,usedIds){
-  const pool=catalogForSlot(slot,equipment,experience).filter(e=>!usedIds.has(e.id));
-  if(pool.length)return pool[0];
-  return catalogForSlot(slot,equipment,experience)[0]||null}
+function rotateCatalog(pool,occurrence){
+  if(!pool.length)return pool;
+  const n=pool.length,i=((occurrence%n)+n)%n;
+  return i?pool.slice(i).concat(pool.slice(0,i)):pool}
+function chooseExercise(slot,equipment,experience,usedIds,occurrence){
+  // Rotate the equipment-filtered pool across repeated day types; never reuse a within-day id.
+  const pool=rotateCatalog(catalogForSlot(slot,equipment,experience),occurrence||0).filter(e=>!usedIds.has(e.id));
+  return pool[0]||null}
+function dayTypeHasPrimary(dayType,equipment,experience){
+  return exerciseSlotsForDay(dayType).some(slot=>catalogForSlot(slot,equipment,experience).length>0)}
+function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
+  return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
 function repScheme(experience,goal,slot){
   let sets=experience==="beginner"?2:3,min=experience==="beginner"?8:6,max=experience==="beginner"?12:10;
   if(goal==="strength"){min=4;max=6;sets=experience==="beginner"?3:4}
@@ -358,7 +365,7 @@ function repScheme(experience,goal,slot){
   return{sets,min,max}}
 function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
-function applyPriorityMuscles(program,priorityMuscles){
+function applyPriorityMuscles(program,priorityMuscles,equipment,experience){
   if(!priorityMuscles?.length)return;
   for(const ex of program){
     if(priorityMuscles.some(m=>muscleHit(ex,m)))ex.sets=Math.min(ex.sets+1,5)}
@@ -368,43 +375,46 @@ function applyPriorityMuscles(program,priorityMuscles){
     const slot=muscle.includes("Quad")?"leg_extension":muscle.includes("Chest")?"chest_iso":muscle.includes("Bicep")?"curl":
       muscle.includes("Tricep")?"triceps":muscle.includes("Ham")?"leg_curl":muscle.includes("Glute")?"hinge":
       muscle.includes("Lat")||muscle.includes("Back")?"row":muscle.includes("delt")?"lateral_raise":"curl";
-    const entry=chooseExercise(slot,[],null,new Set(program.map(e=>e.libraryId)));
+    const entry=chooseExercise(slot,equipment,experience,new Set(program.map(e=>e.libraryId)));
     if(!entry)continue;
     const rs=repScheme("intermediate","hypertrophy",slot);
     program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
-function pickFillerForDay(dayExs,usedIds,equipment,experience){
+function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
   const have=new Set(dayExs.map(e=>e.libraryId));
   for(const slot of FILLER_SLOTS){
-    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]));
+    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]),occurrence);
     if(!entry||have.has(entry.id))continue;
     const rs=repScheme(experience,"hypertrophy",slot);
     return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
   return null}
-function applySessionLength(program,sessionLength,equipment,experience){
+function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
   const [lo,hi]=SESSION_BOUNDS[sessionLength]||SESSION_BOUNDS.normal,out=[];
   const days=[...new Set(program.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   for(const day of days){
     let list=program.filter(e=>e.day===day).sort((a,b)=>a.order-b.order);
     if(list.length>hi)list=list.slice(0,hi);
     const used=new Set(list.map(e=>e.libraryId));
-    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
+    const occ=dayOcc?.[day]||0;
+    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
 function generateProgramFromOnboarding(answers){
   const a=answers||{},equipment=a.equipment||[],experience=a.experience||"intermediate",goal=a.goal||"hypertrophy";
-  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[];
+  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[],dayOcc={},seen={};
   dayTypes.forEach((dayType,di)=>{
-    const dayName=`Day ${di+1}`,slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
+    const occ=seen[dayType]|0;seen[dayType]=occ+1;
+    const dayName=`Day ${di+1}`;dayOcc[dayName]=occ;
+    const slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
     for(const slot of slots){
-      const entry=chooseExercise(slot,equipment,experience,usedIds);if(!entry)continue;
+      const entry=chooseExercise(slot,equipment,experience,usedIds,occ);if(!entry)continue;
       usedIds.add(entry.id);order++;
       const rs=repScheme(experience,goal,slot);
       program.push({id:uid(),day:dayName,order,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
         primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
-  applyPriorityMuscles(program,a.priorityMuscles||[]);
-  applySessionLength(program,a.sessionLength||"normal",equipment,experience);
+  applyPriorityMuscles(program,a.priorityMuscles||[],equipment,experience);
+  applySessionLength(program,a.sessionLength||"normal",equipment,experience,dayOcc);
   return program}
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
@@ -2261,6 +2271,11 @@ function parseSetCommand(text){
   return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
 window.__repforgeGenerateProgram=generateProgramFromOnboarding;
+window.__repforgeCatalogForSlot=catalogForSlot;
+window.__repforgeChooseExercise=chooseExercise;
+window.__repforgeResolveSplit=resolveSplit;
+window.__repforgeExerciseCatalog=EXERCISE_CATALOG;
+window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
 window.__repforgeMesocycleWeek=mesocycleWeek;
@@ -2923,7 +2938,7 @@ function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProg
 const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
   5:["ppl","bro","upper_lower"],6:["ppl"]};
 const ONB_SPLIT_LABEL={full_body:"Full body",upper_lower:"Upper / lower",machine_only:"Machine only",ppl:"Push / pull / legs",bro:"Bro split"};
-const ONB_EQ_UI=["machines","cables","dumbbells","barbells","bodyweight"];
+const ONB_EQ_UI=["machines","cables","dumbbells","barbells"];
 const ONB_EQ_LABEL={machines:"Machines",cables:"Cables",dumbbells:"Dumbbells",barbells:"Barbells",bodyweight:"Bodyweight"};
 const ONB_EQ_GEN={machines:"machine",cables:"cable",dumbbells:"dumbbell",barbells:"barbell",bodyweight:"bodyweight"};
 const ONB_MUSCLES=["Chest","Back","Quads","Hamstrings","Glutes","Side delts","Arms","Calves"];
@@ -2944,9 +2959,13 @@ function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboa
   render()}
 function startOnboarding(){onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
 function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding()}
+function onbEquipmentSupportsDays(a){
+  if(!a?.equipment?.length||a.daysPerWeek==null||!a.splitType)return false;
+  const gen=onbGenAnswers(a);
+  return equipmentSupportsSplit(gen.daysPerWeek,gen.splitType,gen.equipment,gen.experience)}
 function onbCanNext(){const a=onbAnswers;
   if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
-  if(onbStep===3)return!!a.splitType;if(onbStep===4)return a.equipment?.length>0;if(onbStep===6)return!!a.sessionLength;return true}
+  if(onbStep===3)return!!a.splitType;if(onbStep===4)return onbEquipmentSupportsDays(a);if(onbStep===6)return!!a.sessionLength;return true}
 function onbPick(key,val,multi){if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
   if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
   if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
@@ -2976,8 +2995,10 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
     html+=`<p class="onb__explain">${esc(t("onb.split.lede",{n:onbAnswers.daysPerWeek}))}</p><div class="onb__opts">`+
       opts.map(s=>onbOpt("","splitType",s,t("split."+s)||ONB_SPLIT_LABEL[s]||s,"",false)).join("")+`</div>`}
-  else if(onbStep===4)html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
+  else if(onbStep===4){html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
     ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e)||ONB_EQ_LABEL[e],"",true)).join("")+`</div>`;
+    if((onbAnswers.equipment||[]).length&&!onbEquipmentSupportsDays(onbAnswers))
+      html+=`<p class="lede" id="onbEquipUnsupported" role="status">${esc(t("onb.equipment.unsupported"))}</p>`}
   else if(onbStep===5)html+=`<p class="onb__explain">${esc(t("onb.priority.lede"))}</p><div class="onb__opts">`+
     ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,t("muscle."+m)||m,"",true)).join("")+`</div>`;
   else if(onbStep===6)html+=`<div class="onb__opts">`+
@@ -3105,6 +3126,7 @@ function endTour(completed){tourActive=false;$("#tour").classList.add("hidden");
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour();return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
 window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
+window.__repforgeOnboarding={eqUi:ONB_EQ_UI,eqGen:ONB_EQ_GEN,splits:ONB_SPLITS,muscles:ONB_MUSCLES};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
