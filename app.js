@@ -727,7 +727,12 @@ function startNextMesocycle(strategy){
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
   toast(t(msg[strategy]||"toast.new_block_started"))}
 function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
-  completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
+  completeCurrentProgram(review);startNextMesocycle(strategy);
+  if(strategy==="onboarding"){
+    closeOverlay($("#blockReview"),{restore:false});
+    restoreModalFocus(null,()=>visibleOpener($("#onbCancel")));
+    return}
+  closeBlockReview()}
 function programReviewControl(){
   return visibleOpener($("#endBlock"))||visibleOpener($("#reviewBlockLink"))||visibleOpener($("#programEditToggle"))}
 function openBlockReview(review,opts={}){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
