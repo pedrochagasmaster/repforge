@@ -213,10 +213,11 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
+const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
 function normalizeNotify(n){
   return{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false}}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)}};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)}};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -227,6 +228,12 @@ const parseDec=v=>{
   if(v==null||v==="")return NaN;
   const n=Number(String(v).trim().replace(/(\d),(\d)/g,"$1.$2"));
   return Number.isFinite(n)?n:NaN};
+const parseLoadDisplay=raw=>{const n=parseDec(raw);if(!Number.isFinite(n)||n<=0)return{field:"load",key:"validation.load"};return{value:n}};
+const parseRepsValue=raw=>{const n=parseDec(raw);if(!Number.isFinite(n)||n<=0||!Number.isInteger(n))return{field:"reps",key:"validation.reps"};return{value:n}};
+const parseRirValue=raw=>{const n=parseDec(raw);if(!Number.isFinite(n)||n<0)return{field:"rir",key:"validation.rir"};return{value:n}};
+const parseEffortValue=raw=>{const v=String(raw||"");if(!Object.prototype.hasOwnProperty.call(EFFORT_RIR,v))return{field:"effort",key:"validation.effort"};return{value:v}};
+const parseOptionalBodyweightDisplay=raw=>{if(raw==null||String(raw).trim()==="")return{value:0};const n=parseDec(raw);if(!Number.isFinite(n)||n<=0)return{field:"bodyweight",key:"validation.bodyweight"};return{value:n}};
+const parseCalendarDate=raw=>{const s=String(raw??"").trim();if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return{field:"date",key:"validation.date"};const y=+s.slice(0,4),m=+s.slice(5,7),d=+s.slice(8,10);const dt=new Date(y,m-1,d);if(dt.getFullYear()!==y||dt.getMonth()!==m-1||dt.getDate()!==d)return{field:"date",key:"validation.date"};return{value:s}};
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>{const n=parseDec(v),x=Number.isFinite(n)?n:0;return unit==="lb"?x/LB:x};
 const isLb=()=>state.settings.unit==="lb";
@@ -1370,7 +1377,7 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   const anchor=art.querySelector(".delta-prev")||art.querySelector(".prev");
   if(anchor)anchor.insertAdjacentElement("afterend",el);
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
-function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
+function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar for List, and the chip in the
  *  workout header for Focus — where it must never sit over a control. */
 function paintRest(text,done){
@@ -2113,6 +2120,42 @@ function saveDraft(opts){
   d.__contextTouched={day:!!contextTouched.day,date:!!contextTouched.date,sessionNotes:!!contextTouched.sessionNotes,bodyweight:!!contextTouched.bodyweight};
   try{localStorage.setItem(DRAFT,JSON.stringify(d))}catch{}}
 
+function clearFieldInvalid(root){
+  (root||document).querySelectorAll("[aria-invalid='true']").forEach(el=>el.removeAttribute("aria-invalid"))}
+function applyFieldError(res){
+  if(!res||res.ok)return false;
+  const el=res.el;
+  if(el){el.setAttribute("aria-invalid","true");try{el.focus()}catch{}}
+  toast(t(res.error?.key||"validation.load"));
+  return true}
+function workoutCandidateKeys(){
+  const keys=[];
+  for(const ex of exercises()){if(skipped.has(ex.id))continue;
+    for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+      if(committed.has(key)||touched.has(key)||warmups.has(key))keys.push(key)}}
+  return keys}
+function readSetCandidate(key){
+  const loadEl=$(`[data-k="${key}_load"]`),repsEl=$(`[data-k="${key}_reps"]`),rirEl=$(`[data-k="${key}_rir"]`);
+  const loadP=parseLoadDisplay(loadEl?.value);if(loadP.field)return{ok:false,error:loadP,el:loadEl};
+  const repsP=parseRepsValue(repsEl?.value);if(repsP.field)return{ok:false,error:repsP,el:repsEl};
+  let rir;
+  if(isEffortMode()){
+    const draft=loadDraft();
+    const eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||$(`[data-effspin="${key}"]`)?.dataset.e||"hard";
+    const ep=parseEffortValue(eff);
+    if(ep.field)return{ok:false,error:ep,el:$(`.effort__btn[data-eff="${key}"]`)||$(`[data-effspin="${key}"]`)};
+    rir=EFFORT_RIR[ep.value]}
+  else{const rirP=parseRirValue(rirEl?.value);if(rirP.field)return{ok:false,error:rirP,el:rirEl};rir=rirP.value}
+  return{ok:true,values:{load:fromDisplay(loadEl.value),reps:repsP.value,rir}}}
+function firstWorkoutValidationError(keys){
+  clearFieldInvalid(document);
+  const dateEl=$("#date"),dateP=parseCalendarDate(dateEl?.value);
+  if(dateP.field)return{ok:false,error:dateP,el:dateEl};
+  for(const key of keys){const r=readSetCandidate(key);if(!r.ok)return r}
+  const bwEl=$("#bodyweight"),bwP=parseOptionalBodyweightDisplay(bwEl?.value);
+  if(bwP.field)return{ok:false,error:bwP,el:bwEl};
+  return{ok:true,values:{date:dateP.value,bodyweight:bwP.value===0?0:fromDisplay(bwEl.value)}}}
+
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow, .curset");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
@@ -2122,8 +2165,7 @@ function bindWorkout(){
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
-    const load=parseDec($(`[data-k="${key}_load"]`)?.value)||0;
-    if(load<=0){toast(t("toast.enter_weight_before_save_set"));return}
+    if(applyFieldError(firstWorkoutValidationError([key])))return;
     const row=b.closest(".setrow, .curset");
     // Saving an edit updates the set that is already there; it never toggles it
     // off, and it never re-arms the rest clock for a set that finished long ago.
@@ -2271,19 +2313,17 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day,done,planned}):(entered?t("log.save_meta.entered",{day,entered,planned}):t("log.save_meta.planned",{day,planned}));}
 
 async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;saving=true;
-  try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
-  const bwRaw=$("#bodyweight").value,bw=bwRaw===""||bwRaw==null?0:posNum(fromDisplay(bwRaw));
+  try{const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
+  if(applyFieldError(check))return;
+  if(!keys.length){toast(t("toast.enter_weight_before_save"));return}
+  const date=check.values.date,bw=check.values.bodyweight,session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
   for(const ex of exercises()){if(skipped.has(ex.id))continue;
     const exNote=currentExerciseNote(ex.id);
     for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
-    const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
-    let rir;
-    if(isEffortMode()){
-      const draft=loadDraft(),eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"hard";
-      rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
-    if(load<=0)continue;
     if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
+    const got=readSetCandidate(key);if(!got.ok){applyFieldError(got);return}
+    const{load,reps,rir}=got.values;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
     if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
     if(exNote)row.exNote=exNote;
@@ -2739,6 +2779,16 @@ function renderHistory(){
   $$("[data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
+  $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const row=b.closest(".edrow"),card=b.closest(".session--edit");if(!row||!card)return;
+    const removing=!row.classList.contains("is-removed");
+    if(removing){
+      const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
+      if(left.length<=1){toast(t("history.edit.keep_one"));return}
+      row.classList.add("is-removed");b.textContent=t("history.edit.undo_remove");
+      row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
+    else{row.classList.remove("is-removed");b.textContent=t("history.edit.remove_set");
+      row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
   const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
@@ -2770,29 +2820,45 @@ function renderHistoryCalendar(){const el=$("#historyCalendar");if(!el)return;
 
 
 function sessionEditor(s,sets){
-  const rows=sets.map(r=>{const key=`${liftKey(r)}|${r.set}`;
-    return `<div class="edrow"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
-      `<input class="edrow__in" data-ek="reps|${esc(key)}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
-      `<input class="edrow__in" data-ek="rir|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}"></div>`}).join("");
+  const rows=sets.map((r,i)=>{
+    return `<div class="edrow" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
+      `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
+      `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
+      `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
+      `<button type="button" class="link-accent edrow__rm" data-edrm="${i}">${esc(t("history.edit.remove_set"))}</button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
     `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
-    `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span></div>`+rows+
+    `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
     `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
 }
 
+function sessionSetsForEdit(sid){
+  return state.log.filter(r=>r.session===sid).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
+
 function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
-  const newDate=card.querySelector('[data-ed="date"]').value||"",vals={};
-  card.querySelectorAll("[data-ek]").forEach(inp=>vals[inp.dataset.ek]=inp.value);
-  for(const r of state.log){if(r.session!==sid)continue;const key=`${liftKey(r)}|${r.set}`;
-    if(`load|${key}`in vals)r.load=posNum(fromDisplay(vals[`load|${key}`]));
-    if(`reps|${key}`in vals)r.reps=posNum(vals[`reps|${key}`]);
-    if(`rir|${key}`in vals)r.rir=posNum(vals[`rir|${key}`]);
-    if(newDate)r.date=newDate}
-  state.log=state.log.filter(r=>r.session!==sid||+r.load>0);
-  editSession=null;save();render();toast(t("toast.session_updated"));}
+  clearFieldInvalid(card);
+  const dateEl=card.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
+  if(dateP.field){if(dateEl){dateEl.setAttribute("aria-invalid","true");try{dateEl.focus()}catch{}}toast(t(dateP.key));return}
+  const orig=sessionSetsForEdit(sid),proposed=[];
+  for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
+    if(rowEl.classList.contains("is-removed"))continue;
+    const i=+rowEl.dataset.edidx,src=orig[i];if(!src)continue;
+    const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]'),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
+    const loadP=parseLoadDisplay(loadEl?.value);
+    if(loadP.field){if(loadEl){loadEl.setAttribute("aria-invalid","true");try{loadEl.focus()}catch{}}toast(t(loadP.key));return}
+    const repsP=parseRepsValue(repsEl?.value);
+    if(repsP.field){if(repsEl){repsEl.setAttribute("aria-invalid","true");try{repsEl.focus()}catch{}}toast(t(repsP.key));return}
+    const rirP=parseRirValue(rirEl?.value);
+    if(rirP.field){if(rirEl){rirEl.setAttribute("aria-invalid","true");try{rirEl.focus()}catch{}}toast(t(rirP.key));return}
+    const next=cloneSnapshot(src);
+    next.load=fromDisplay(loadEl.value);next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;
+    proposed.push(next)}
+  if(!proposed.length){toast(t("history.edit.keep_one"));return}
+  state.log=state.log.filter(r=>r.session!==sid).concat(proposed);
+  editSession=null;save();render();toast(t("toast.session_updated"))}
+window.__repforgeSaveSessionEdit=saveSessionEdit;
 
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
@@ -3077,8 +3143,8 @@ function renderSettings(){
   const ps=$("#notifyPermStatus");if(ps)ps.textContent=t("settings.notifications.permission",{status:window.RepForgeNotify?RepForgeNotify.permission():t("notify.permission.unsupported")});
   updateVoiceBtn();
   const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",isStandalone());
-  const sec=+state.settings.restSec||0,disp=$("#restSecDisplay");
-  if(disp)disp.textContent=sec?`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`:t("settings.rest_off");
+  const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
+  if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   const sn=$("#storageNote");if(sn)sn.textContent=`${ago} ${t("settings.storage.note",{key:KEY})}`;
@@ -3093,7 +3159,13 @@ function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel
   if(!changeRirMode(newRirMode)) return;
   if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!$("#notifyEnabled")?.checked,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  const rsEl=$("#restSec");let restSec;
+  const restN=parseDec(rsEl?.value);
+  if(Number.isFinite(restN)&&restN>=0&&!Number.isInteger(restN)){
+    if(rsEl){rsEl.value=String(state.settings.restSec);rsEl.setAttribute("aria-invalid","true");try{rsEl.focus()}catch{}}
+    toast(t("validation.rest_frac"));restSec=state.settings.restSec}
+  else{rsEl?.removeAttribute("aria-invalid");restSec=rsEl?num("#restSec",120,0):state.settings.restSec}
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!$("#notifyEnabled")?.checked,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
   save();render();if(!silent)toast(t("toast.settings_saved"));}
 

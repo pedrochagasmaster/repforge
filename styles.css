@@ -1295,12 +1295,16 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .edhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
 .edate{display:flex;flex-direction:column;align-items:flex-end;color:var(--ink-soft);font-size:11px;gap:0;text-transform:uppercase;letter-spacing:.08em}
 .edate input{width:auto;margin-top:5px;padding:9px 11px;font-size:13px}
-.edrow{display:grid;grid-template-columns:1fr 4.2rem 3.4rem 3.4rem;gap:8px;align-items:center;margin-top:8px}
+.edrow{display:grid;grid-template-columns:1fr 4.2rem 3.4rem 3.4rem auto;gap:8px;align-items:center;margin-top:8px}
 .edrow--head span{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--ink-faint);text-align:center;font-weight:600}
 .edrow--head span:first-child{text-align:left}
 .edrow__name{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .edrow__name small{color:var(--ink-faint)}
 .edrow__in{margin-top:0;text-align:center;font-size:15px;padding:9px 4px;background:var(--surface)}
+.edrow__rm{justify-self:end;font-size:12px;padding:4px 0;white-space:nowrap}
+.edrow.is-removed{opacity:.5}
+.edrow.is-removed .edrow__in{visibility:hidden}
+input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
 .edbtns{display:flex;gap:10px;margin-top:14px}
 .edbtns .btn{flex:1;padding:12px}
 
@@ -1398,7 +1402,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
   .setrow input{font-size:15px;padding:12px 2px}
   .stepbtn{width:44px;min-width:44px;font-size:17px}
   .saveset,.sets__head .sets__head-save{min-width:38px;padding:0 4px}
-  .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem;gap:6px}
+  .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem auto;gap:6px}
   .curset__val{font-size:26px}
 }
 

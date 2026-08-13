@@ -330,6 +330,64 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
   );
 }
 
+async function flushStorage(page) {
+  await page.evaluate(async () => {
+    if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
+  });
+}
+
+async function saveSettingsAndFlush(page) {
+  await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#saveSettings")?.click());
+  await flushStorage(page);
+}
+
+async function stopRestIfRunning(page) {
+  await page.evaluate(() => {
+    const bar = document.querySelector("#restBar");
+    if (bar && !bar.classList.contains("hidden")) bar.click();
+  });
+}
+
+async function setWorkoutField(page, selector, value) {
+  await page.evaluate(
+    ({ selector, value }) => {
+      const el = document.querySelector(selector);
+      if (!el) throw new Error(`missing ${selector}`);
+      el.value = String(value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    { selector, value }
+  );
+}
+
+async function setLogDateRaw(page, value) {
+  await page.evaluate((v) => {
+    const el = document.querySelector("#date");
+    if (!el) throw new Error("#date missing");
+    el.setAttribute("type", "text");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+}
+
+async function openSessionEditor(page, sid) {
+  await nav(page, "history");
+  if (await page.locator(`.session--edit[data-editing="${sid}"]`).count()) return;
+  const editBtn = page.locator(`[data-edit="${sid}"]`);
+  if (await editBtn.count()) {
+    await editBtn.click();
+    await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
+    return;
+  }
+  await page.locator(`#sessions .hist-row[data-sess="${sid}"]`).click();
+  await page.locator(`[data-edit="${sid}"]`).waitFor({ state: "visible", timeout: 5000 });
+  await page.click(`[data-edit="${sid}"]`);
+  await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
+}
+
 async function waitForSetting(page, path, value) {
   await page.waitForFunction(
     ({ k, path: p, value: v }) => {
@@ -591,14 +649,26 @@ async function main() {
     "Log tab → fill one set → Save workout"
   );
 
-  // Zero-load set is skipped on save (week-10 regression)
+  // Zero-load set on a touched row rejects the whole Finish (UX-03)
   await setLogDate(page, isoDateFromWeeksAgo(1));
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
   await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
-  await saveWorkout(page);
-  sessionCount++;
-  uiSaveCount++;
+  const logLenBeforeZero = (await getState(page)).log.length;
+  const draftBeforeZero = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await saveWorkout(page, { expectNewRows: false });
+  assert(
+    (await getState(page)).log.length === logLenBeforeZero,
+    "Zero-load touched set rejects Finish (no new rows)",
+    `Log grew from ${logLenBeforeZero}`,
+    "Log tab → enter 0 kg/reps on a touched set → Save workout"
+  );
+  assert(
+    (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === draftBeforeZero,
+    "Rejected zero-load Finish keeps the exact draft",
+    "Draft string changed after rejected Finish",
+    "Log tab → 0 kg set → Save workout → draft unchanged"
+  );
 
   // Empty kg field is skipped (week-20 regression)
   await setLogDate(page, isoDateFromWeeksAgo(2));
@@ -6223,6 +6293,320 @@ async function main() {
     "A legacy draft finishes successfully",
     "no new rows",
     "Inject legacy draft → Finish"
+  );
+
+  beginPhase("Phase: atomic set validation and rest seconds (UX-03, UX-10)");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const valMeta = await getExerciseMeta(page, "Day 1");
+  const valEx = valMeta[0];
+  const valExB = valMeta[1] || valMeta[0];
+  const valKey = `${valEx.id}_1`;
+  const fillValidCandidate = async () => {
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await setLogDate(page, "2024-02-29");
+    await fillExerciseSets(page, valEx.id, 1, 80, 8, 1);
+    await setWorkoutField(page, "#bodyweight", "");
+  };
+  const assertRejectedFinish = async (name, mutate, fieldSel) => {
+    await fillValidCandidate();
+    await mutate();
+    const logBefore = JSON.stringify((await getState(page)).log);
+    const draftBefore = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    await stopRestIfRunning(page);
+    await saveWorkout(page, { expectNewRows: false });
+    assert(
+      JSON.stringify((await getState(page)).log) === logBefore,
+      `${name} adds zero log rows`,
+      "log changed after rejected Finish",
+      `Fill a valid set → ${name} → Finish workout`
+    );
+    assert(
+      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === draftBefore,
+      `${name} keeps the exact draft`,
+      "draft string changed",
+      `Fill a valid set → ${name} → Finish workout`
+    );
+    if (fieldSel) {
+      const marked = await page.evaluate((s) => document.querySelector(s)?.getAttribute("aria-invalid") === "true", fieldSel);
+      assert(marked, `${name} marks the first bad field`, `aria-invalid missing on ${fieldSel}`, name);
+    }
+  };
+
+  await assertRejectedFinish("negative load", () => setWorkoutField(page, `[data-k="${valKey}_load"]`, "-5"), `[data-k="${valKey}_load"]`);
+  await assertRejectedFinish("blank load", () => setWorkoutField(page, `[data-k="${valKey}_load"]`, ""), `[data-k="${valKey}_load"]`);
+  await assertRejectedFinish("non-numeric load", () => setWorkoutField(page, `[data-k="${valKey}_load"]`, "abc"), `[data-k="${valKey}_load"]`);
+  await assertRejectedFinish("zero reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, "0"), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("negative reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, "-1"), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("fractional reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, "8.5"), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("blank reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, ""), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("negative RIR", () => setWorkoutField(page, `[data-k="${valKey}_rir"]`, "-0.5"), `[data-k="${valKey}_rir"]`);
+  await assertRejectedFinish("blank RIR", () => setWorkoutField(page, `[data-k="${valKey}_rir"]`, ""), `[data-k="${valKey}_rir"]`);
+  await assertRejectedFinish("invalid bodyweight", () => setWorkoutField(page, "#bodyweight", "0"), "#bodyweight");
+  await assertRejectedFinish("blank date", () => setLogDateRaw(page, ""), "#date");
+  await assertRejectedFinish("malformed date", () => setLogDateRaw(page, "not-a-date"), "#date");
+  await assertRejectedFinish("impossible date", () => setLogDateRaw(page, "2024-02-30"), "#date");
+  await assertRejectedFinish("invalid leap-day date", () => setLogDateRaw(page, "2023-02-29"), "#date");
+
+  await fillValidCandidate();
+  await setWorkoutField(page, `[data-k="${valKey}_load"]`, "-9");
+  const surviveLog = JSON.stringify((await getState(page)).log);
+  const surviveDraft = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await stopRestIfRunning(page);
+  await saveWorkout(page, { expectNewRows: false });
+  await saveSettingsAndFlush(page);
+  await reloadApp(page);
+  assert(
+    JSON.stringify((await getState(page)).log) === surviveLog,
+    "Failed Finish log is unchanged after Settings save, flush, and reload",
+    "log drifted after unrelated Settings save",
+    "Invalid Finish → Settings save → flush → reload"
+  );
+  const surviveDraftAfter = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  assert(
+    !!surviveDraftAfter && JSON.parse(surviveDraftAfter)[`${valKey}_load`] === "-9",
+    "Failed Finish draft survives Settings save, flush, and reload",
+    `draft=${surviveDraftAfter}`,
+    "Invalid Finish → Settings save → flush → reload → draft still has -9 load"
+  );
+  void surviveDraft;
+
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await fillValidCandidate();
+  await stopRestIfRunning(page);
+  await setWorkoutField(page, `[data-k="${valKey}_load"]`, "");
+  const restHiddenBefore = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
+  const doneBefore = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
+  await page.click(`[data-save="${valKey}"]`);
+  await page.waitForTimeout(80);
+  const restHiddenAfter = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
+  const doneAfter = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
+  const draftDone = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}").__done || [], DRAFT);
+  assert(
+    restHiddenAfter && restHiddenBefore && doneAfter === doneBefore && !draftDone.includes(valKey),
+    "Failed Save set does not commit, start rest, or arm unfinished",
+    `restHidden=${restHiddenAfter} done=${doneAfter} __done=${JSON.stringify(draftDone)}`,
+    "Clear kg → Save set → rest stays off and set is not committed"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#lang", "en");
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-02-29");
+  await fillExerciseSets(page, valEx.id, 1, "90.5", 8, "1.5");
+  const beforeEn = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const enRow = (await getState(page)).log.find((r) => !beforeEn.has(r.session) && r.exerciseId === valEx.id);
+  assert(
+    enRow && Math.abs(+enRow.load - 90.5) < 0.001 && Math.abs(+enRow.rir - 1.5) < 0.001,
+    "EN decimal load and RIR finish",
+    JSON.stringify(enRow && { load: enRow.load, rir: enRow.rir }),
+    "Log 90.5 kg @ 1.5 RIR → Finish"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#lang", "pt");
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-02-29");
+  await setWorkoutField(page, `[data-k="${valKey}_load"]`, "90,5");
+  await setWorkoutField(page, `[data-k="${valKey}_reps"]`, "7");
+  await setWorkoutField(page, `[data-k="${valKey}_rir"]`, "2,5");
+  const beforePt = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const ptRow = (await getState(page)).log.find((r) => !beforePt.has(r.session) && r.exerciseId === valEx.id);
+  assert(
+    ptRow && Math.abs(+ptRow.load - 90.5) < 0.001 && Math.abs(+ptRow.rir - 2.5) < 0.001,
+    "PT decimal load and RIR finish",
+    JSON.stringify(ptRow && { load: ptRow.load, rir: ptRow.rir }),
+    "Log 90,5 kg @ 2,5 RIR in PT → Finish"
+  );
+  await nav(page, "settings");
+  await page.selectOption("#lang", "en");
+
+  const beforeHist = new Set((await getState(page)).log.map((r) => r.session));
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-03-01");
+  if (valEx.sets >= 2) await fillExerciseSets(page, valEx.id, 2, 70, 6, 1);
+  else {
+    await fillExerciseSets(page, valEx.id, 1, 70, 6, 1);
+    await fillExerciseSets(page, valExB.id, 1, 40, 10, 1);
+  }
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const histSid = (await getState(page)).log.find((r) => !beforeHist.has(r.session)).session;
+  const histSnap = () => getState(page).then((s) => s.log.filter((r) => r.session === histSid));
+
+  await openSessionEditor(page, histSid);
+  await page.evaluate((v) => {
+    const el = document.querySelector('.session--edit [data-ed="date"]');
+    el.setAttribute("type", "text");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, "");
+  const histBeforeBlank = JSON.stringify(await histSnap());
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histBeforeBlank,
+    "History Save rejects a blank date",
+    "session rows changed",
+    "History editor → clear date → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.evaluate((v) => {
+    const el = document.querySelector('.session--edit [data-ed="date"]');
+    el.setAttribute("type", "text");
+    el.value = v;
+  }, "2024-02-30");
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histBeforeBlank,
+    "History Save rejects an impossible date",
+    "session rows changed",
+    "History editor → 2024-02-30 → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.evaluate((v) => {
+    const el = document.querySelector('.session--edit [data-ed="date"]');
+    el.setAttribute("type", "text");
+    el.value = v;
+  }, "2023-02-29");
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histBeforeBlank,
+    "History Save rejects an invalid leap-day",
+    "session rows changed",
+    "History editor → 2023-02-29 → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.fill('.session--edit [data-ek="load|0"]', "-3");
+  const histInvalid = JSON.stringify(await histSnap());
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histInvalid,
+    "History invalid load leaves the session unchanged",
+    "session rows changed",
+    "History editor → negative load → Save changes"
+  );
+  await saveSettingsAndFlush(page);
+  await reloadApp(page);
+  assert(
+    JSON.stringify(await histSnap()) === histInvalid,
+    "History invalid edit stays deep-equal after Settings save, flush, and reload",
+    "session drifted",
+    "Invalid History save → Settings save → flush → reload"
+  );
+
+  await openSessionEditor(page, histSid);
+  const histCount = (await histSnap()).length;
+  await page.click('[data-edrm="1"]');
+  assert(
+    await page.evaluate(() => document.querySelector('.edrow[data-edidx="1"]')?.classList.contains("is-removed")),
+    "History Remove set stages a row without writing",
+    "row not marked is-removed",
+    "History editor → Remove set on row 2"
+  );
+  await page.click('[data-edrm="1"]');
+  assert(
+    !(await page.evaluate(() => document.querySelector('.edrow[data-edidx="1"]')?.classList.contains("is-removed"))),
+    "History Undo remove restores the staged row",
+    "row still removed",
+    "History editor → Remove set → Undo remove"
+  );
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    (await histSnap()).length === histCount,
+    "History remove + undo + save keeps every row",
+    `count=${(await histSnap()).length}`,
+    "History editor → remove → undo → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.click('[data-edrm="1"]');
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    (await histSnap()).length === histCount - 1,
+    "History remove + save drops the staged row",
+    `count=${(await histSnap()).length} expected ${histCount - 1}`,
+    "History editor → Remove set → Save changes"
+  );
+
+  const beforeSibling = new Set((await getState(page)).log.map((r) => r.session));
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-03-02");
+  if (valEx.sets >= 2) await fillExerciseSets(page, valEx.id, 2, 65, 5, 1);
+  else {
+    await fillExerciseSets(page, valEx.id, 1, 65, 5, 1);
+    await fillExerciseSets(page, valExB.id, 1, 35, 8, 1);
+  }
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const sibSid = (await getState(page)).log.find((r) => !beforeSibling.has(r.session)).session;
+  const sibSnap = () => getState(page).then((s) => s.log.filter((r) => r.session === sibSid));
+  const sibBefore = JSON.stringify(await sibSnap());
+  await openSessionEditor(page, sibSid);
+  await page.fill('.session--edit [data-ek="load|0"]', "nope");
+  await page.click('[data-edrm="1"]');
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await sibSnap()) === sibBefore,
+    "History invalid sibling + remove commits nothing",
+    "session changed despite invalid remaining row",
+    "History editor → invalidate row 1 → remove row 2 → Save changes"
+  );
+
+  await nav(page, "settings");
+  const priorRest = (await getState(page)).settings.restSec;
+  await page.evaluate(() => {
+    const el = document.querySelector("#restSec");
+    el.value = "90.5";
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(80);
+  const restUser = await getState(page);
+  const restInvalid = await page.evaluate(() => document.querySelector("#restSec")?.getAttribute("aria-invalid") === "true");
+  assert(
+    restUser.settings.restSec === priorRest && restInvalid,
+    "Fractional rest user input is rejected and announced",
+    `stored=${restUser.settings.restSec} aria-invalid=${restInvalid}`,
+    "Settings → restSec 90.5 → change"
+  );
+
+  const st = await getState(page);
+  st.settings.restSec = 90.5;
+  await persistState(page, st);
+  await reloadApp(page);
+  await nav(page, "settings");
+  const restShown = (await page.textContent("#restSecDisplay"))?.trim();
+  const restInput = await page.inputValue("#restSec");
+  assert(
+    /^\d+:\d{2}$/.test(restShown) && restShown === "1:31" && restInput === "91",
+    "Legacy 90.5 rest seconds normalize once and display as M:SS",
+    `display=${restShown} input=${restInput}`,
+    "Seed settings.restSec=90.5 → reload → Settings rest display"
   );
 
   // Console errors
