@@ -51,6 +51,7 @@ function sessionsInRange(start,end){const ids=new Set();for(const x of state.log
 window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+const muscleLabel=name=>{const k="muscle."+name,s=t(k);return s===k?name:s};
 // Capacity: what a set demonstrated the lifter COULD have done (ADR 0003).
 // RIR credit is capped at hardRir — trustworthy near failure, fantasy far from it.
 // TUNABLE: every constant the capacity engine reads lives here. Never inline them.
@@ -2150,17 +2151,26 @@ function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySn
     `<div class="statrow__cell"><div class="statrow__val">${flatGuess}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
     `<div class="statrow__cell${attnN?" is-attn":""}"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
     `</div>`}
+function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
+function overviewVolumeSorted(){return volumeDashboard(7).slice().sort((a,b)=>{
+  const da=Math.max(a.planned-a.completed7,0),db=Math.max(b.planned-b.completed7,0);
+  if(db!==da)return db-da;
+  const ra=a.planned>0?a.completed7/a.planned:Infinity,rb=b.planned>0?b.completed7/b.planned:Infinity;
+  if(ra!==rb)return ra-rb;
+  return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
 function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
-  const rows=volumeDashboard(7),planned=prog.volume(),max=Math.max(...rows.map(r=>Math.max(r.planned,r.completed7)),1);
-  el.innerHTML=rows.length?rows.slice(0,8).map(r=>{
+  const rows=overviewVolumeSorted(),shown=rows.slice(0,8),more=rows.length-shown.length;
+  el.innerHTML=rows.length?shown.map(r=>{
     const on=r.planned>0&&r.completed7>=r.planned*0.6&&r.completed7<=r.planned*1.3;
     const below=r.planned>0&&r.completed7<r.planned*0.6;
-    const pct=Math.max(4,Math.round((r.completed7/max)*100));
-    return `<div class="vrow"><span class="vrow__name">${esc(r.muscle)}</span>`+
+    const pct=overviewBarPct(r.planned,r.completed7);
+    return `<div class="vrow" data-muscle="${esc(r.muscle)}"><span class="vrow__name">${esc(muscleLabel(r.muscle))}</span>`+
       `<span class="vrow__bar"><span class="vrow__fill${on?" is-on":""}" style="width:${pct}%"></span></span>`+
       `<span class="vrow__num">${fmt(r.completed7)} / ${fmt(r.planned)}</span>`+
-      `<span class="vrow__status${on?" is-on":""}">${esc(below?t("stats.volume_below"):t("stats.volume_on_target"))}</span></div>`}).join("")
-    :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`}
+      `<span class="vrow__status${on?" is-on":""}">${esc(below?t("stats.volume_below"):t("stats.volume_on_target"))}</span></div>`}).join("")+
+      (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
+    :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;
+  const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
 function renderReadyList(){const el=$("#readyList");if(!el)return;
   const add=attentionGroups().find(g=>g.key==="add");
   if(!add?.items.length){el.innerHTML="";readyExpanded=false;return}
@@ -2456,6 +2466,7 @@ function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHar
     const p=volEff(planned,muscle),c7v=volEff(c7,muscle),c28v=volEff(c28,muscle);
     return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
 window.__repforgeVolumeDashboard=volumeDashboard;
+window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
 function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:r.muscle,[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
   el.innerHTML=table(rows)}
@@ -2472,7 +2483,7 @@ function draw(rows,sel="#chart"){
   const c=$(sel);if(!c)return;
   const ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={accent:"#E04E14",steel:"#98948C",dim:"#98948C",rule:"#E4E1DA",mist:"#1B1A17"};
+  const C={accent:"#E04E14",steel:"#6E6A62",dim:"#6E6A62",rule:"#E4E1DA",mist:"#1B1A17"};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="middle";
   if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText(t("stats.chart.empty"),w/2,h/2);return}

@@ -693,6 +693,7 @@
   "stats.strength_trend": "Tendência de força",
   "stats.volume_7d": "Volume · 7 dias",
   "stats.see_volume": "Ver volume ›",
+  "stats.volume_more": "+{n} mais",
   "stats.e1rm_estimated": "e1RM estimado",
   "history.recent": "Recentes",
   "history.search_aria": "Buscar sessões",
