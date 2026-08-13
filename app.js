@@ -1471,6 +1471,8 @@ function onAppVisible(){
     paintRest("0:00",true);
     if(restTick){clearInterval(restTick);restTick=null}
   }
+  reconcileNotifyPermission();
+  paintNotifyControls();
   updateSessionBanner();
 }
 
@@ -3172,6 +3174,80 @@ function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!
   prog=new Program(parsed);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast(t("toast.program_saved"))}
   catch{toast(t("toast.program_json_invalid"))}}
 
+let notifyIntentGen=0,notifyWanted=false,notifyPending=false,notifyRequestInFlight=null;
+function notifyPermission(){return window.RepForgeNotify?RepForgeNotify.permission():"unsupported"}
+function notifyEffective(){return!!state.settings.notify?.enabled&&notifyPermission()==="granted"}
+function persistNotifyEnabled(enabled){
+  if(!state.settings.notify)state.settings.notify=normalizeNotify();
+  state.settings.notify=normalizeNotify({...state.settings.notify,enabled:!!enabled});
+  return persist()}
+function notifyStatusText(){
+  const perm=notifyPermission();
+  if(notifyPending)return t("settings.notifications.status.pending");
+  if(perm==="unsupported")return t("settings.notifications.next.unsupported");
+  if(perm==="denied")return t("settings.notifications.next.denied");
+  if(perm==="default")return t("settings.notifications.next.prompt");
+  if(perm==="granted")return t("settings.notifications.permission",{status:t("settings.notifications.status.granted")});
+  return t("settings.notifications.permission",{status:perm})}
+function paintNotifyControls(){
+  const n=state.settings.notify||normalizeNotify();
+  const effective=notifyEffective();
+  const ne=$("#notifyEnabled");if(ne)ne.checked=effective||notifyPending;
+  const ntog=$("#notifyToggle");
+  if(ntog){
+    ntog.classList.toggle("is-on",effective||notifyPending);
+    ntog.setAttribute("aria-pressed",effective?"true":"false");
+    ntog.setAttribute("aria-busy",notifyPending?"true":"false");
+    const name=t("settings.notifications.toggle_aria");
+    if(name)ntog.setAttribute("aria-label",name)}
+  const nt=$("#notifyTimer");if(nt)nt.checked=n.timer!==false;
+  const ns=$("#notifySession");if(ns)ns.checked=n.session!==false;
+  const nu=$("#notifyUnfinished");if(nu)nu.checked=n.unfinished!==false;
+  const nm=$("#notifyMissed");if(nm)nm.checked=n.missed!==false;
+  $$("#notifyTypes input").forEach(i=>{i.disabled=!effective});
+  const ps=$("#notifyPermStatus");if(ps)ps.textContent=notifyStatusText()}
+function reconcileNotifyPermission(){
+  const perm=notifyPermission();
+  if(perm==="granted"){
+    if(state.settings.notify?.enabled)notifyWanted=true;
+    return}
+  const wasEnabled=!!state.settings.notify?.enabled;
+  if(wasEnabled){
+    notifyIntentGen++;
+    notifyWanted=false;
+    notifyPending=false;
+    persistNotifyEnabled(false);
+    return}
+  if(notifyPending&&(perm==="denied"||perm==="unsupported")){
+    notifyIntentGen++;
+    notifyWanted=false;
+    notifyPending=false}}
+async function setNotificationsEnabled(wanted){
+  wanted=!!wanted;
+  notifyWanted=wanted;
+  if(!wanted){
+    notifyIntentGen++;
+    notifyPending=false;
+    persistNotifyEnabled(false);
+    paintNotifyControls();
+    return}
+  if(notifyPending&&notifyRequestInFlight)return notifyRequestInFlight;
+  const gen=notifyIntentGen;
+  notifyPending=true;
+  paintNotifyControls();
+  notifyRequestInFlight=(async()=>{
+    let result="unsupported";
+    try{result=window.RepForgeNotify?await RepForgeNotify.request():"unsupported"}
+    catch{result=notifyPermission()}
+    if(gen!==notifyIntentGen||!notifyWanted){notifyPending=false;paintNotifyControls();return}
+    const perm=notifyPermission();
+    const granted=result==="granted"&&perm==="granted";
+    notifyPending=false;
+    persistNotifyEnabled(granted);
+    if(!granted)notifyWanted=false;
+    paintNotifyControls()})();
+  try{await notifyRequestInFlight}finally{notifyRequestInFlight=null}}
+
 function renderSettings(){
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
   if(jp)jp.value=state.settings.jumpPct;if(mj)mj.value=state.settings.minJump;if(rh)rh.value=state.settings.rirHigh;if(hr)hr.value=state.settings.hardRir;
@@ -3180,15 +3256,8 @@ function renderSettings(){
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
-  const n=state.settings.notify||normalizeNotify();
-  const ne=$("#notifyEnabled");if(ne)ne.checked=!!n.enabled;
-  const ntog=$("#notifyToggle");if(ntog){ntog.classList.toggle("is-on",!!n.enabled);ntog.setAttribute("aria-pressed",n.enabled?"true":"false")}
-  const nt=$("#notifyTimer");if(nt)nt.checked=n.timer!==false;
-  const ns=$("#notifySession");if(ns)ns.checked=n.session!==false;
-  const nu=$("#notifyUnfinished");if(nu)nu.checked=n.unfinished!==false;
-  const nm=$("#notifyMissed");if(nm)nm.checked=n.missed!==false;
-  $$("#notifyTypes input").forEach(i=>{i.disabled=!n.enabled});
-  const ps=$("#notifyPermStatus");if(ps)ps.textContent=t("settings.notifications.permission",{status:window.RepForgeNotify?RepForgeNotify.permission():t("notify.permission.unsupported")});
+  reconcileNotifyPermission();
+  paintNotifyControls();
   updateVoiceBtn();
   const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",isStandalone());
   const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
@@ -3213,7 +3282,7 @@ function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel
     if(rsEl){rsEl.value=String(state.settings.restSec);rsEl.setAttribute("aria-invalid","true");try{rsEl.focus()}catch{}}
     toast(t("validation.rest_frac"));restSec=state.settings.restSec}
   else{rsEl?.removeAttribute("aria-invalid");restSec=rsEl?num("#restSec",120,0):state.settings.restSec}
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!$("#notifyEnabled")?.checked,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
   save();render();if(!silent)toast(t("toast.settings_saved"));}
 
@@ -3609,7 +3678,9 @@ function init(){
   const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>$("#dataBackupPanel")?.classList.toggle("is-open");
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>$("#dataImportPanel")?.classList.toggle("is-open");
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitSettings(true)}};
-  const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{const c=$("#notifyEnabled");if(c){c.checked=!c.checked;c.dispatchEvent(new Event("change"))}};
+  const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
+    const on=notifyPending||notifyEffective();
+    setNotificationsEnabled(!on)};
   const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else cancelOnboarding()};
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
@@ -3648,9 +3719,7 @@ function init(){
   $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
   const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
   const ne=$("#notifyEnabled");
-  if(ne)ne.onchange=()=>{const turningOn=!state.settings.notify?.enabled&&ne.checked;
-    let req=null;if(turningOn&&window.RepForgeNotify)req=RepForgeNotify.request();
-    commitSettings(true);if(req)Promise.resolve(req).then(()=>renderSettings())};
+  if(ne)ne.onchange=()=>setNotificationsEnabled(!!ne.checked);
   ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=()=>commitSettings(true)});
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
