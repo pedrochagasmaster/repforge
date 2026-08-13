@@ -6,8 +6,8 @@
 
 ## Status
 
-- **Priority**: P0 launch-readiness
-- **Effort**: L across the launch gate and full follow-up
+- **Priority**: P0 pre-launch for all retained findings (owner override)
+- **Effort**: L across the complete remediation
 - **Risk**: HIGH (the highest-priority fixes touch dual-store persistence,
   draft recovery, first-run state, and log validation)
 - **Depends on**: none
@@ -15,6 +15,12 @@
 - **Product shape**: static, local-only mobile PWA; no backend or account system
 - **Primary files**: `index.html`, `styles.css`, `app.js`, `i18n-en.json`,
   `i18n-pt.json`, `notify.js`, `sw.js`
+
+> **Scheduling override (2026-08-13)**: the owner requires all 24 retained
+> findings to land before launch. The original launch-gate/P1/P2 headings below
+> remain as audit severity groupings only; they no longer imply deferral. Use
+> [`plans/041-prelaunch-all-findings-remediation.md`](./041-prelaunch-all-findings-remediation.md)
+> as the executable implementation and release plan.
 
 ## Executive verdict
 
@@ -353,7 +359,7 @@ origin-scoped.
   normal text below 4.5:1 in EN/PT, disabled text remains distinguishable, and
   the editorial hierarchy still reads clearly on all three launch viewports.
 
-## P1 — fix immediately after the launch gate
+## Former P1 — now pre-launch by owner decision
 
 ### UX-07 — Give every modal a real keyboard lifecycle
 
@@ -545,7 +551,7 @@ origin-scoped.
   product intentionally wants a whole-program residual. Add a fixture with an
   old but untrained lift and a one-session lift so neither is counted stable.
 
-## P2 — post-launch coherence
+## Former P2 — now pre-launch by owner decision
 
 ### UX-16 — Standardize disclosure semantics
 
@@ -577,8 +583,8 @@ History filtering and rendering repeatedly scans the full log for each session
 at `app.js:2452-2484`, producing quadratic work as a personal ledger grows.
 Build one session map and normalized search index per render, then reuse it for
 filtering, counts, expansion, and month grouping. Add a realistic long-history
-fixture and a render/search budget so this remains a post-launch optimization,
-not a speculative rewrite.
+fixture and a deterministic render/search budget so this remains a bounded
+optimization, not a speculative rewrite.
 
 ## Holistic recommendations
 
@@ -640,8 +646,8 @@ will show evidence, open the exercise, or start logging.
    Land together so every new-program route follows one identity rule.
 5. **Accuracy/affordance patch**: UX-10 through UX-16 and UX-20.
    Mostly low-risk markup, copy, and event-state corrections.
-6. **Post-launch pass**: UX-17, UX-18, PERF-01, and the richer version of
-   UX-12/13.
+6. **Final pre-launch coherence pass**: UX-17, UX-18, PERF-01, and the
+   launch-safe static/scoped versions of UX-12/13.
 
 Do not bundle a visual redesign, new analytics, or AI work into these patches.
 The launch problem is trust and interaction truth, not missing scope.
@@ -736,9 +742,10 @@ observations:
 
 ## Definition of done
 
-The launch gate is complete only when:
+The pre-launch remediation is complete only when:
 
-- all nine launch-gate findings have automated regression coverage;
+- all 24 retained findings have automated regression coverage or a
+  deterministic static assertion where browser automation is not applicable;
 - the manual launch smoke passes in EN/PT and at all three phone sizes;
 - no user action silently deletes or partially restores a draft, rolls back
   newer durable state, or silently writes coerced set data;

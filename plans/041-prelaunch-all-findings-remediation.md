@@ -309,18 +309,24 @@ Implement a storage-only revision without wrapping the existing state shape:
 4. Change `boot()` to read **both** stores independently. One parse/read failure
    must not hide the other store. Choose the highest valid revision, normalize
    it, then heal the missing/stale replica.
-5. Serialize IndexedDB writes through one promise queue. Clone each snapshot
-   before queueing so later `state` mutations cannot alter an earlier write.
-   Increment the revision once per logical `persist()` call and return/retain a
-   promise that tests can await.
-6. Keep the localStorage write synchronous. Track each store's latest write
-   result separately. When only one store accepts a write, keep the data but
-   expose a persistent degraded-storage line in Settings and one localized
-   toast; when both fail, use the existing storage-full/error treatment.
+5. Put real localStorage/IndexedDB calls behind a tiny internal `storageIO`
+   adapter and make the shared `writeSnapshot(snapshot, io)` function accept an
+   adapter. `persist()` always supplies the real adapter; tests supply
+   deterministic failing/delayed fakes. Serialize real IndexedDB writes through
+   one promise queue. Clone each snapshot before queueing so later `state`
+   mutations cannot alter an earlier write. Increment the revision once per
+   logical `persist()` call and return/retain a promise that tests can await.
+6. Keep the real localStorage write synchronous. Track each store's latest
+   write result separately. When only one store accepts a write, keep the data
+   but expose a persistent degraded-storage line in Settings and one localized
+   toast; when both fail, use the existing storage-full/error treatment. A
+   later successful write to both stores clears the degraded warning.
 7. Export a copy of `state` with `_storageRevision` removed. Import/merge and
    program-only export formats remain unchanged.
 8. Expose only a narrow test hook:
-   `window.__repforgeStorage = { flush, chooseSnapshot }`. Do not expose state
+   `window.__repforgeStorage = { flush, chooseSnapshot, writeWithAdapter,
+   health }`. `writeWithAdapter` must require an explicit fake adapter and may
+   not default to real browser storage; do not expose arbitrary app-state
    mutation through the hook.
 
 Create `test/persistence.mjs`, following the result/`assert` style of
@@ -331,14 +337,21 @@ Create `test/persistence.mjs`, following the result/`assert` style of
 - IndexedDB revision 3 vs localStorage revision 2 → revision 3 boots and heals;
 - malformed JSON/object in either store → valid peer wins;
 - equal legacy revisions → IndexedDB wins;
+- injected IndexedDB failure/localStorage success → degraded status, then
+  reload from the newer local snapshot and heal IndexedDB;
+- injected localStorage failure/IndexedDB success → degraded status, then
+  reload from the newer IndexedDB snapshot and heal localStorage;
+- injected failure of both stores → destructive-failure alert and no false
+  “saved” health state;
+- delayed writes resolved in adversarial order cannot leave a lower revision;
 - 20 rapid Settings mutations followed by `flush()` leave both stores byte-
   equivalent at the highest revision;
 - a downloaded JSON backup omits `_storageRevision`;
 - replace and merge import still persist to both stores.
 
-Do not rely on a flaky browser-quota failure to test reconciliation. Seed
-intentional mismatched snapshots; the one-sided failure is the mechanism, and
-newest-valid selection/healing is the required result.
+Do not rely on a flaky browser-quota failure. Use the fake adapter for write
+outcomes/delays, then seed the resulting one-sided snapshots into real browser
+stores to verify boot selection and healing.
 
 **Verify**:
 
@@ -441,7 +454,9 @@ Create one input contract used by per-set commit, workout finish, and History:
    - replace durable rows only when all proposed rows are valid.
 5. Add a localized **Remove set** / **Undo remove** control per History editor
    row. Removal is staged in the editor and applied only with a fully valid
-   **Save changes**. Blank load is no longer a deletion gesture.
+   **Save changes**. Blank load is no longer a deletion gesture. Do not allow
+   the final row to be removed through this control; direct the user to the
+   existing explicit session deletion action instead.
 6. Normalize `restSec` in both `normalizeSettings()` and `commitSettings()` as a
    non-negative integer. Choose one rule and test it consistently: reject
    fractional user input while rounding legacy stored decimals to the nearest
@@ -596,8 +611,10 @@ Add two small shared interaction helpers, not a UI framework:
    independent dismiss button; do not nest buttons.
 5. Make `#toast` a persistent `role="status"`, `aria-live="polite"`,
    `aria-atomic="true"` region. Update `toast()` in an order that reliably
-   announces new text after the live region is visible. Do not repeatedly
-   announce rest-timer ticks through this region.
+   announces new text after the live region is visible. Support an explicit
+   assertive/`role="alert"` path only for destructive persistence failures such
+   as both stores rejecting a save; routine validation remains polite. Do not
+   repeatedly announce rest-timer ticks through either path.
 6. Add `aria-pressed` to List/Focus layout buttons and synchronize it in
    `setLogMode()` and `enterWorkout()`.
 
@@ -629,12 +646,12 @@ Expected: both browser suites exit 0 with zero failures.
 1. Add a pure `buildHistoryIndex(log)` helper that performs one pass and returns:
    - sorted session records with their row arrays;
    - normalized searchable day/exercise text;
-   - date/month groupings needed by the calendar and recent list.
+   - date/month groupings needed by the calendar and recent list;
+   - the flattened rows needed by the “Every set” table.
 2. `renderHistory()` builds the index once and passes it to
-   `renderHistoryCalendar(index)`. Filtering, summaries, editor rows, and month
-   grouping reuse indexed session rows. The “Every set” table may make one
-   additional linear pass; no code inside a per-session loop may scan
-   `state.log`.
+   `renderHistoryCalendar(index)`. Filtering, summaries, editor rows, month
+   grouping, and the “Every set” table reuse the model; no code inside a
+   per-session loop may scan `state.log`.
 3. Expose a read-only `window.__repforgeHistory = { buildIndex }` hook for a
    deterministic complexity test.
 4. Render each session as an article containing a dedicated expansion button
@@ -656,8 +673,10 @@ History phase:
 
 - seed at least 5,000 sessions / 20,000 rows;
 - wrap the input iterable so row iteration is counted;
-- assert `buildHistoryIndex` consumes each source row once and returns correct
-  session/search/month counts;
+- assert `buildHistoryIndex` consumes exactly 20,000 source rows (one visit per
+  row) and returns correct session/search/month/table counts;
+- assert filtering five different queries touches indexed session search text,
+  not the original row iterable (its count must remain 20,000);
 - render and search the large fixture while collecting elapsed time as
   diagnostic output, but make the non-quadratic iteration bound the CI gate.
 
@@ -703,7 +722,12 @@ Expected: zero failures; History fixture reports a linear iteration count.
    - viewport does not prohibit zoom;
    - root/controls retain `touch-action:manipulation`;
    - input computed font size prevents forced mobile text zoom;
-   - token ratios and representative meaningful text in every view meet 4.5:1;
+   - build an explicit selector inventory from every CSS rule that uses
+     `--ink-faint`, `--ink-soft`, `--accent`, or `--accent-deep`; visit the
+     populated states in every view in EN/PT and assert every visible,
+     normal-size meaningful text instance reaches 4.5:1 against its resolved
+     opaque background. Keep any large-text/disabled exemption explicit and
+     justified in the test; do not use a broad selector allowlist;
    - every visible non-inline action in the three launch viewports has a 44px
      hit dimension;
    - Settings selects show a non-zero focus outline/ring;
@@ -738,8 +762,13 @@ Use the launch-safe treatments already chosen in the audit:
    Retain `#volWindow` inside **Completed hard sets** as the sole 7/28-day
    control; its existing tab semantics must stay synchronized.
 3. Update tour step 3 in EN/PT to teach swipe plus header chevrons in Focus.
-   Review all tour steps against current labels while there; change only stale
-   statements, not the number or structure of steps.
+   Make workout-specific tour entries render the actual non-mutating List or
+   Focus surface behind the coach card (use `enterWorkout()`/`setLogMode()`;
+   never synthesize or save set data), so the controls named by steps 1–5 are
+   visible. Capture the pre-tour view/workout mode when replaying and restore it
+   on Skip; successful first-run completion still ends on Today. Review all
+   tour steps against current labels while there; change only stale statements,
+   not the number of steps.
 4. Rename **Delete all data** to **Delete workout history** (localized).
    Confirmation and supporting copy must state that saved log rows plus the
    active draft/unfinished reminder are removed, while program and Settings
@@ -758,7 +787,9 @@ Use the launch-safe treatments already chosen in the audit:
 7. Extend simulation assertions: no unbound button exists in the exercise
    detail target region, `#statsPeriod` is absent, tour copy names current
    controls in both languages, deletion copy and retained state agree, and
-   manifest/README-facing description no longer says machine-only.
+   manifest/README-facing description no longer says machine-only; each
+   workout-specific tour step shows the List/Focus surface and current control
+   it describes without changing draft or log state.
 
 **Verify**:
 
