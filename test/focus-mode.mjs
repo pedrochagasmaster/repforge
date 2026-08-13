@@ -766,6 +766,58 @@ async function main() {
     await vpCtx.close();
   }
 
+  phase("Complete draft resume (UX-19)");
+  const draftCtx = await browser.newContext({
+    viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true,
+    serviceWorkers: "block",
+  });
+  const draftPage = await draftCtx.newPage();
+  await draftPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(draftPage);
+  const focusIds = await draftPage.evaluate(() => window.__repforgeFocus.list().map((e) => ({ id: e.id, name: e.name, day: e.day })));
+  const skipEx = focusIds[1] || focusIds[0];
+  const keepEx = focusIds[0];
+  const alt = await draftPage.evaluate((id) => {
+    const ex = (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.id === id);
+    return (ex?.alternates && ex.alternates[0]) || "Leg press";
+  }, keepEx.id);
+  await draftPage.evaluate(({ keep, skip, alt, d }) => {
+    const draft = { __done: [], __touched: [], __skipped: [skip.id], __substituted: { [keep.id]: alt } };
+    const sets = (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.id === keep.id)?.sets || 2;
+    for (let n = 1; n <= sets; n++) {
+      const key = `${keep.id}_${n}`;
+      draft[`${key}_load`] = "70";
+      draft[`${key}_reps`] = "8";
+      draft[`${key}_rir`] = "1";
+      draft.__done.push(key);
+      draft.__touched.push(key);
+    }
+    localStorage.setItem(d, JSON.stringify(draft));
+  }, { keep: keepEx, skip: skipEx, alt, d: DRAFT });
+  await reload(draftPage);
+  await enterFocus(draftPage, 0);
+  const deck = await draftPage.evaluate(() => {
+    const list = window.__repforgeFocus.list();
+    const name = document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim();
+    return { count: list.length, name, ids: list.map((e) => e.id) };
+  });
+  assert(
+    !deck.ids.includes(skipEx.id) && deck.count === focusIds.length - 1,
+    "Focus reload drops a skipped exercise from the deck",
+    JSON.stringify(deck),
+  );
+  assert(
+    deck.name.includes(alt),
+    "Focus reload shows the substitution name on the deck",
+    JSON.stringify({ deck, alt }),
+  );
+  await draftPage.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+  await draftPage.evaluate(() => window.__repforgeStorage?.flush?.());
+  await draftPage.waitForFunction((k) => (JSON.parse(localStorage.getItem(k) || "{}").log || []).some((r) => r.performedName), KEY, { timeout: 8000 });
+  const performed = await draftPage.evaluate((k) => (JSON.parse(localStorage.getItem(k) || "{}").log || []).filter((r) => r.performedName).map((r) => r.performedName), KEY);
+  assert(performed.includes(alt), "Focus finish keeps performedName from the resumed substitution", JSON.stringify(performed));
+  await draftCtx.close();
+
   phase("Console");
   assert(errors.length === 0, "no page errors during the focus run", errors.join(" | "));
 

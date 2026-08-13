@@ -302,8 +302,14 @@ async function fillExerciseSets(page, exId, sets, load, reps, rir) {
 
 async function saveWorkout(page, { expectNewRows = true } = {}) {
   const beforeLen = (await getState(page))?.log?.length ?? 0;
-  // Submit via DOM — Focus mode docks may cover / restyle .btn--save.
-  await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+  await page.evaluate(async () => {
+    if (typeof window.__repforgeSaveWorkout === "function") {
+      await window.__repforgeSaveWorkout();
+      return;
+    }
+    document.querySelector("#logForm")?.requestSubmit();
+    if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
+  });
   if (!expectNewRows) {
     await page.waitForTimeout(120);
     return;
@@ -500,11 +506,18 @@ async function main() {
   const context = await browser.newContext({
     acceptDownloads: true,
     viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
   });
   const page = await context.newPage();
 
+  let dialogMode = "accept";
   page.on("dialog", async (dialog) => {
-    await dialog.accept();
+    try {
+      if (dialogMode === "dismiss") await dialog.dismiss();
+      else await dialog.accept();
+    } catch {
+      /* already handled */
+    }
   });
 
   const consoleErrors = [];
@@ -5796,6 +5809,420 @@ async function main() {
     "CSV export carries the exercise note value",
     "NOTE_TEXT missing from CSV body",
     "Log a note → Settings → Export log CSV"
+  );
+
+  beginPhase("Phase: complete workout draft persistence (UX-01, UX-19)");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const draftMeta = await getExerciseMeta(page, "Day 1");
+  const draftExA = draftMeta[0];
+  const draftExSkip = draftMeta[1];
+  const subIds = await page.evaluate(() => [...document.querySelectorAll(".subst__pick")].map((s) => s.dataset.sub));
+  const draftExB = draftMeta.find((ex) => ex.id !== draftExA.id && ex.id !== draftExSkip.id && subIds.includes(ex.id)) || draftMeta.find((ex) => subIds.includes(ex.id) && ex.id !== draftExA.id) || draftMeta[2];
+  const otherDay = await page.evaluate(() =>
+    [...document.querySelectorAll("#dayTabs button")].map((b) => b.dataset.day).find((d) => d !== "Day 1")
+  );
+  const sessionNote = "Draft session note";
+  const nonToday = "2024-02-29";
+  await page.evaluate((v) => {
+    const el = document.querySelector("#notes");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, sessionNote);
+  await page.evaluate((v) => {
+    const el = document.querySelector("#bodyweight");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, "82.5");
+  await setLogDate(page, nonToday);
+  await fillExerciseSets(page, draftExA.id, 1, 77, 6, 1);
+  await fillExerciseSets(page, draftExB.id, 1, 40, 8, 1);
+  await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
+  const altName = await page.evaluate((id) => {
+    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
+    if (!sel) return "";
+    const opt = [...sel.options].find((o) => o.value && o.value !== "__other__");
+    if (!opt) return "";
+    sel.value = opt.value;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    return opt.value;
+  }, draftExA.id);
+  const customName = "Custom swap 80 cap check";
+  await page.evaluate(({ id, name }) => {
+    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
+    if (!sel) return;
+    sel.value = "__other__";
+    const orig = window.prompt;
+    window.prompt = () => name;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    window.prompt = orig;
+  }, { id: draftExB.id, name: customName });
+  await page.waitForTimeout(80);
+  const draftBeforeLeave = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await reloadApp(page);
+  await page.waitForSelector("#workoutShell:not(.hidden), #workout .exercise", { timeout: 5000 });
+  const autoResumed = await page.evaluate(() => !document.querySelector("#workoutShell")?.classList.contains("hidden"));
+  if (!autoResumed) {
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  }
+  const resumed = await page.evaluate(({ a, skip, b, k }) => {
+    const d = JSON.parse(localStorage.getItem(k) || "{}");
+    return {
+      load: document.querySelector(`[data-k="${a}_1_load"]`)?.value,
+      note: document.querySelector("#notes")?.value,
+      bw: document.querySelector("#bodyweight")?.value,
+      date: document.querySelector("#date")?.value,
+      skipped: d.__skipped?.includes(skip) || document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+      subA: d.__substituted?.[a],
+      subB: d.__substituted?.[b],
+      day: d.__day,
+    };
+  }, { a: draftExA.id, skip: draftExSkip.id, b: draftExB.id, k: DRAFT });
+  assert(
+    resumed.load === "77" && resumed.note === sessionNote && resumed.bw === "82.5" && resumed.date === nonToday,
+    "Resumed list draft keeps set, note, bodyweight, and date",
+    JSON.stringify(resumed),
+    "Log values + leave + reload + Continue"
+  );
+  assert(
+    resumed.skipped && resumed.subA === altName && resumed.subB === customName && resumed.day === "Day 1",
+    "Resumed list draft keeps skip and substitutions",
+    JSON.stringify(resumed),
+    "Skip + sub + reload + Continue"
+  );
+
+  const beforeFinish = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const afterFinish = await getState(page);
+  const newSess = [...new Set(afterFinish.log.map((r) => r.session))].filter((s) => !beforeFinish.has(s));
+  const newRows = afterFinish.log.filter((r) => newSess.includes(r.session));
+  assert(
+    !newRows.some((r) => r.exerciseId === draftExSkip.id),
+    "Finished resumed workout omits skipped exercise rows",
+    newRows.map((r) => r.exerciseId).join(","),
+    "Resume skipped draft → Finish"
+  );
+  assert(
+    newRows.some((r) => r.exerciseId === draftExA.id && r.performedName === altName) &&
+      newRows.some((r) => r.exerciseId === draftExB.id && r.performedName === customName),
+    "Finished resumed workout keeps performedName on substitutions",
+    JSON.stringify(newRows.filter((r) => r.performedName)),
+    "Resume substituted draft → Finish"
+  );
+
+  const afterFinishDraft = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  const fresh = await page.evaluate(({ a, b, skip }) => ({
+    subA: document.querySelector(`.subst__pick[data-sub="${a}"]`)?.value || "",
+    skipped: document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+    note: document.querySelector("#notes")?.value,
+    date: document.querySelector("#date")?.value,
+    draft: localStorage.getItem("repforge_draft_v1"),
+  }), { a: draftExA.id, b: draftExB.id, skip: draftExSkip.id });
+  assert(
+    !afterFinishDraft && !fresh.skipped && !fresh.subA && !fresh.note && fresh.date === (await page.evaluate(() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })),
+    "Accepted finish clears substitution/date/note context for the next workout",
+    JSON.stringify(fresh),
+    "Finish → stay on Log → next workout is clean"
+  );
+
+  async function clickRir(mode) {
+    await nav(page, "settings");
+    await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
+    await page.evaluate((m) => {
+      const el = document.querySelector(`input[name="rirMode"][value="${m}"]`);
+      el.checked = true;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    }, mode);
+  }
+  async function rirState() {
+    return page.evaluate((k) => ({
+      mode: JSON.parse(localStorage.getItem(k) || "{}")?.settings?.rirMode,
+      radio: document.querySelector('input[name="rirMode"]:checked')?.value,
+      draft: localStorage.getItem("repforge_draft_v1"),
+    }), KEY);
+  }
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await clickRir("effort");
+  let rs = await rirState();
+  assert(rs.mode === "effort" && rs.radio === "effort", "RIR change with no draft succeeds", JSON.stringify(rs), "Settings → effort with empty draft");
+  await clickRir("numeric");
+
+  const rirCases = [
+    ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await page.click(`[data-save="${draftExA.id}_1"]`); }],
+    ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`[data-warm="${draftExA.id}_1"]`); }],
+    ["substitution-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate((id) => { const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`); if (!sel) return; const opt = [...sel.options].find((o) => o.value && o.value !== "__other__"); if (!opt) return; sel.value = opt.value; sel.dispatchEvent(new Event("change", { bubbles: true })); }, draftExA.id); }],
+    ["note-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "only"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+    ["bodyweight-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#bodyweight"); el.value = "70"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+    ["date-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await setLogDate(page, "2026-01-15"); }],
+    ["day-only", async () => { await nav(page, "log"); await selectDay(page, otherDay); }],
+    ["skip-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`); }],
+    ["cleared-context", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "x"; el.dispatchEvent(new Event("input", { bubbles: true })); el.value = ""; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+  ];
+  for (const [name, setup] of rirCases) {
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await setup();
+    const raw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    await clickRir("effort");
+    rs = await rirState();
+    assert(
+      rs.mode !== "effort" && rs.radio === "numeric" && rs.draft === raw,
+      `RIR change with ${name} progress is refused and preserves the raw draft`,
+      JSON.stringify({ name, mode: rs.mode, radio: rs.radio, same: rs.draft === raw, rawLen: raw?.length }),
+      `Seed ${name} progress → Settings → effort`
+    );
+  }
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  assert(
+    await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id),
+    "Direct skip survives reload",
+    "skip class missing",
+    "Skip → reload"
+  );
+  if (await page.locator(".skipbar__show").count()) await page.click(".skipbar__show");
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  assert(
+    !(await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id)),
+    "Show all survives reload as unskipped",
+    "still skipped",
+    "Show all → reload"
+  );
+
+  if (otherDay) {
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 55, 5, 1);
+    const rawDay = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const currentDay = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
+    dialogMode = "dismiss";
+    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await page.waitForTimeout(80);
+    dialogMode = "accept";
+    const cancelled = await page.evaluate((k) => ({
+      draft: localStorage.getItem(k),
+      day: document.querySelector("#dayTabs button.active")?.dataset.day,
+    }), DRAFT);
+    assert(
+      cancelled.draft === rawDay && cancelled.day === currentDay,
+      "Day-tab Cancel keeps the raw draft and current day",
+      JSON.stringify(cancelled),
+      "Fill Day 1 → other day tab → Cancel"
+    );
+    dialogMode = "accept";
+    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
+    const confirmed = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DRAFT);
+    await reloadApp(page);
+    const after = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
+    assert(
+      confirmed.__day === otherDay && !Object.keys(confirmed).some((k) => /_load$/.test(k) && +confirmed[k] === 55) && after === otherDay,
+      "Day-tab Confirm clears the old draft, selects the new day, and survives reload",
+      JSON.stringify({ confirmed, after }),
+      "Fill Day 1 → other day tab → Confirm → reload"
+    );
+
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 56, 5, 1);
+    const rawUp = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    dialogMode = "dismiss";
+    await page.click("#upNextBtn");
+    const upCancel = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    assert(upCancel === rawUp, "Up next Cancel preserves the raw draft", "draft changed", "Up next → Cancel");
+    dialogMode = "accept";
+    await page.click("#upNextBtn");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    assert(
+      (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
+      "Up next Confirm selects the next day",
+      "day unchanged",
+      "Up next → Confirm"
+    );
+
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 57, 5, 1);
+    const rawEnter = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    dialogMode = "dismiss";
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    assert(
+      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === rawEnter,
+      "enterWorkout({day}) Cancel preserves the raw draft",
+      "draft changed",
+      "enterWorkout other day → Cancel"
+    );
+    dialogMode = "accept";
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    assert(
+      (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
+      "enterWorkout({day}) Confirm selects the new day",
+      "day unchanged",
+      "enterWorkout other day → Confirm"
+    );
+
+    const otherEx = await page.evaluate((d) => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.day === d)?.id, otherDay);
+    if (otherEx) {
+      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await reloadApp(page);
+      await nav(page, "log");
+      await selectDay(page, "Day 1");
+      await fillExerciseSets(page, draftExA.id, 1, 58, 5, 1);
+      const rawGo = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      dialogMode = "dismiss";
+      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      assert(
+        (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === rawGo,
+        "Deep-link Cancel preserves the raw draft",
+        "draft changed",
+        "goToLogExercise → Cancel"
+      );
+      dialogMode = "accept";
+      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      assert(
+        (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
+        "Deep-link Confirm selects the destination day",
+        "day unchanged",
+        "goToLogExercise → Confirm"
+      );
+    }
+  }
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.evaluate(() => {
+    const el = document.querySelector("#bodyweight");
+    el.value = "80";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await fillExerciseSets(page, draftExA.id, 1, 60, 5, 1);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(80);
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  const bwDisp = await page.evaluate(() => document.querySelector("#bodyweight")?.value);
+  const beforeBw = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const bwRow = (await getState(page)).log.find((r) => !beforeBw.has(r.session) && r.bodyweight);
+  assert(
+    bwRow && Math.abs(+bwRow.bodyweight - 80) < 0.05,
+    "kg → lb → reload → finish preserves canonical stored bodyweight",
+    `display=${bwDisp} stored=${bwRow?.bodyweight}`,
+    "Bodyweight 80kg → unit lb → reload → Finish"
+  );
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+
+  const adapterOutcomes = [[true, true], [true, false], [false, true], [false, false]];
+  for (const [localOk, idbOk] of adapterOutcomes) {
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 61, 5, 1);
+    const raw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const beforeLen = (await getState(page)).log.length;
+    const result = await page.evaluate(async ({ localOk, idbOk }) => {
+      const io = {
+        async writeLocal(data) {
+          if (!localOk) throw new Error("ls fail");
+          localStorage.setItem("repforge_v1", JSON.stringify(data));
+        },
+        async writeIdb(data) {
+          if (!idbOk) throw new Error("idb fail");
+          const db = await new Promise((res, rej) => {
+            const r = indexedDB.open("repforge", 1);
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+          });
+          await new Promise((res, rej) => {
+            const tx = db.transaction("kv", "readwrite");
+            tx.objectStore("kv").put(data, "repforge_v1");
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+          });
+          db.close();
+        },
+      };
+      return window.__repforgeSaveWorkout(io);
+    }, { localOk, idbOk });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    if (localOk || idbOk) {
+      await reloadApp(page);
+      const afterLen = (await getState(page)).log.length;
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      assert(
+        afterLen > beforeLen && !draftNow && result.localOk === localOk && result.idbOk === idbOk,
+        `Finish (${localOk},${idbOk}) commits one session and clears the draft`,
+        JSON.stringify({ result, beforeLen, afterLen, draftNow }),
+        `Adapter ${localOk}/${idbOk} finish`
+      );
+    } else {
+      const afterLen = (await getState(page)).log.length;
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      assert(
+        afterLen === beforeLen && draftNow === raw,
+        "Finish total failure keeps zero new rows and the exact draft",
+        JSON.stringify({ result, beforeLen, afterLen, same: draftNow === raw }),
+        "Adapter false/false finish"
+      );
+      await saveWorkout(page);
+      const retried = (await getState(page)).log.length;
+      assert(retried === beforeLen + 1 || retried > beforeLen, "Total failure retry does not duplicate after a later accepted save", `len ${retried} vs ${beforeLen}`, "Retry finish after total failure");
+    }
+  }
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const legacyEx = (await getExerciseMeta(page, "Day 1"))[0];
+  await page.evaluate(({ id, k }) => {
+    const d = {};
+    d[`${id}_1_load`] = "66";
+    d[`${id}_1_reps`] = "6";
+    d[`${id}_1_rir`] = "1";
+    d.__done = [`${id}_1`];
+    d.__touched = [`${id}_1`];
+    d.__warm = [];
+    localStorage.setItem(k, JSON.stringify(d));
+  }, { id: legacyEx.id, k: DRAFT });
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  const beforeLegacy = (await getState(page)).log.length;
+  await saveWorkout(page);
+  assert(
+    (await getState(page)).log.length > beforeLegacy,
+    "A legacy draft finishes successfully",
+    "no new rows",
+    "Inject legacy draft → Finish"
   );
 
   // Console errors
