@@ -12,7 +12,7 @@ concurrency:
 jobs:
   simulation:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -25,14 +25,17 @@ jobs:
           cache: npm
           cache-dependency-path: test/package-lock.json
 
-      - name: Install simulation dependencies
+      - name: Install pinned test-only browser harness
         working-directory: test
         run: |
           npm ci
           npx playwright install chromium --with-deps
 
-      - name: Syntax check app.js
-        run: node --check app.js
+      - name: Syntax check runtime and test JS
+        run: |
+          for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs; do
+            node --check "$f" || exit 1
+          done
 
       - name: Start static server
         run: python3 -m http.server 8000 &
@@ -49,14 +52,43 @@ jobs:
           echo "Server did not start in time"
           exit 1
 
-      - name: Run Playwright simulation
-        working-directory: test
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: npm run simulate
+      - name: Schedule tests
+        run: node test/schedule.mjs
 
-      - name: Run Focus mode state checks
-        working-directory: test
+      - name: i18n parity
+        run: node test/i18n.mjs
+
+      - name: Persistence
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: npm run test:focus
+        run: node test/persistence.mjs
+
+      - name: Notifications
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/notifications.mjs
+
+      - name: Recovery gate
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/recover-gate.mjs
+
+      - name: Accessibility
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/accessibility.mjs
+
+      - name: Focus mode
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/focus-mode.mjs
+
+      - name: Manual-matrix helper
+        run: node test/manual-matrix.mjs --self-test
+
+      - name: Full 52-week profiled simulation
+        env:
+          REPFORGE_URL: http://localhost:8000/
+          REPFORGE_SIM_WEEKS: "52"
+          REPFORGE_PROFILE: "1"
+        run: node test/simulation.mjs
