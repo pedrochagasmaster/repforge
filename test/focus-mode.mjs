@@ -403,7 +403,10 @@ async function main() {
   await page.locator("[data-exnote-open]").first().click();
   await page.waitForTimeout(250);
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#exNoteSheet");
+    return !s || s.hidden || s.classList.contains("hidden");
+  }, { timeout: 2000 });
   assert(await page.evaluate(() => document.querySelector("#exNoteSheet").hidden),
     "Escape closes the note sheet");
 
@@ -634,9 +637,9 @@ async function main() {
       marked: ledger.classList.contains("is-scrollable"),
     };
   });
-  assert(grip.card === "pan-y" && grip.ledger === (grip.scrolls ? "pan-y" : "none") &&
+  assert(grip.card === "pan-y pinch-zoom" && grip.ledger === (grip.scrolls ? "pan-y pinch-zoom" : "pinch-zoom") &&
     grip.scrolls === grip.marked,
-    "the ledger only takes vertical gestures when it has something to scroll",
+    "the ledger only takes vertical gestures when it has something to scroll, and pinch zoom stays available",
     JSON.stringify(grip));
   // Drag from three heights: header, middle of the ledger, and the well.
   for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["well", 0.86]]) {
