@@ -685,6 +685,7 @@
   "stats.strength_trend": "Strength trend",
   "stats.volume_7d": "Volume · 7 days",
   "stats.see_volume": "See volume ›",
+  "stats.volume_more": "+{n} more",
   "stats.e1rm_estimated": "Estimated e1RM",
   "history.recent": "Recent",
   "history.search_aria": "Search sessions",

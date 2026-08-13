@@ -5798,6 +5798,446 @@ async function main() {
     "Log a note → Settings → Export log CSV"
   );
 
+  beginPhase("Phase: presentation audit (F6/F9/F10/C1)");
+  await page.setViewportSize({ width: 390, height: 844 });
+
+  const contrastAudit = await page.evaluate(() => {
+    const lin = (c) => {
+      const s = c / 255;
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    const hexToRgb = (hex) => {
+      const n = parseInt(String(hex).replace("#", ""), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const contrastHex = (a, b) => {
+      const [r1, g1, b1] = hexToRgb(a);
+      const [r2, g2, b2] = hexToRgb(b);
+      const L1 = lum(r1, g1, b1);
+      const L2 = lum(r2, g2, b2);
+      const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
+      return (hi + 0.05) / (lo + 0.05);
+    };
+    const root = getComputedStyle(document.documentElement);
+    const token = (n) => root.getPropertyValue(n).trim();
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      let cssRules;
+      try {
+        cssRules = [...sheet.cssRules];
+      } catch {
+        continue;
+      }
+      for (const r of cssRules) {
+        if (!r.selectorText || !r.style) continue;
+        rules.push({
+          sel: r.selectorText,
+          color: r.style.getPropertyValue("color"),
+          bg: r.style.getPropertyValue("background-color") || r.style.getPropertyValue("background"),
+          outline: r.style.getPropertyValue("outline") || r.style.getPropertyValue("outline-color"),
+          opacity: r.style.getPropertyValue("opacity"),
+          cursor: r.style.getPropertyValue("cursor"),
+          minWidth: r.style.getPropertyValue("min-width"),
+        });
+      }
+    }
+    const hasSel = (sel) =>
+      rules.filter((r) => r.sel.split(",").map((s) => s.trim()).includes(sel));
+    return {
+      accent: token("--accent"),
+      accentText: token("--accent-text"),
+      inkFaint: token("--ink-faint"),
+      bg: token("--bg"),
+      surface: token("--surface"),
+      contrastFaintBg: contrastHex(token("--ink-faint"), token("--bg")),
+      contrastFaintWhite: contrastHex(token("--ink-faint"), token("--surface")),
+      contrastAccentTextBg: contrastHex(token("--accent-text"), token("--bg")),
+      contrastAccentTextWhite: contrastHex(token("--accent-text"), token("--surface")),
+      ctaAfter: hasSel(".btn--cta::after").map((r) => r.color),
+      backLink: rules.filter((r) => r.sel.includes(".back-link") || r.sel.includes(".pagehead__back")).map((r) => r.color),
+      linkAccent: hasSel(".link-accent").map((r) => r.color),
+      textBtnAccent: hasSel(".text-btn--accent").map((r) => r.color),
+      vrowStatus: hasSel(".vrow__status").map((r) => r.color),
+      vrowFill: hasSel(".vrow__fill").map((r) => ({ bg: r.bg, minWidth: r.minWidth })),
+      focusVisible: rules.filter((r) => r.sel.includes(":focus-visible")).map((r) => r.outline),
+      navIcon: hasSel("nav button.active .nav__icon").map((r) => r.bg),
+      btnDisabled: hasSel(".btn:disabled").map((r) => ({ opacity: r.opacity, cursor: r.cursor })),
+      iconbtnDisabled: hasSel(".iconbtn:disabled").map((r) => ({ opacity: r.opacity, cursor: r.cursor })),
+      focusnavDisabled: hasSel(".focusnav:disabled").map((r) => r.color),
+      accentTextSels: rules.filter((r) => r.color.includes("--accent-text")).map((r) => r.sel),
+    };
+  });
+  assert(
+    contrastAudit.accent === "#E04E14" && contrastAudit.accentText === "#B8410E" && contrastAudit.inkFaint === "#6E6A62",
+    "C1: contrast tokens keep brand orange and add accent-text / ink-faint",
+    JSON.stringify({
+      accent: contrastAudit.accent,
+      accentText: contrastAudit.accentText,
+      inkFaint: contrastAudit.inkFaint,
+    }),
+    "Inspect :root --accent, --accent-text, --ink-faint"
+  );
+  assert(
+    contrastAudit.contrastFaintBg >= 4.5 &&
+      contrastAudit.contrastFaintWhite >= 4.5 &&
+      contrastAudit.contrastAccentTextBg >= 4.5 &&
+      contrastAudit.contrastAccentTextWhite >= 4.5,
+    "C1: ink-faint and accent-text meet 4.5:1 on cream and white",
+    JSON.stringify({
+      faintBg: contrastAudit.contrastFaintBg,
+      faintWhite: contrastAudit.contrastFaintWhite,
+      accentBg: contrastAudit.contrastAccentTextBg,
+      accentWhite: contrastAudit.contrastAccentTextWhite,
+    }),
+    "Compute WCAG contrast for --ink-faint and --accent-text against --bg and --surface"
+  );
+  assert(
+    contrastAudit.ctaAfter.includes("var(--accent)") &&
+      contrastAudit.navIcon.some((b) => b.includes("var(--accent)")) &&
+      contrastAudit.vrowFill.some((v) => v.bg.includes("var(--accent)")) &&
+      contrastAudit.focusVisible.some((o) => o.includes("var(--accent)")),
+    "C1: brand-orange fills, CTA arrow and focus rings still use --accent",
+    JSON.stringify({
+      ctaAfter: contrastAudit.ctaAfter,
+      navIcon: contrastAudit.navIcon,
+      vrowFill: contrastAudit.vrowFill,
+      focusVisible: contrastAudit.focusVisible,
+    }),
+    "Inspect .btn--cta::after, nav icon, .vrow__fill, :focus-visible"
+  );
+  assert(
+    contrastAudit.backLink.filter(Boolean).every((c) => c.includes("var(--accent-text)")) &&
+      contrastAudit.backLink.some((c) => c.includes("var(--accent-text)")) &&
+      contrastAudit.linkAccent.every((c) => c.includes("var(--accent-text)")) &&
+      contrastAudit.textBtnAccent.every((c) => c.includes("var(--accent-text)")) &&
+      contrastAudit.vrowStatus.every((c) => c.includes("var(--accent-text)")) &&
+      contrastAudit.accentTextSels.length >= 8,
+    "C1: accent foreground text on light surfaces uses --accent-text",
+    JSON.stringify({
+      backLink: contrastAudit.backLink,
+      linkAccent: contrastAudit.linkAccent,
+      textBtnAccent: contrastAudit.textBtnAccent,
+      vrowStatus: contrastAudit.vrowStatus,
+      n: contrastAudit.accentTextSels.length,
+    }),
+    "Inspect .back-link, .link-accent, .text-btn--accent, .vrow__status"
+  );
+  assert(
+    contrastAudit.vrowFill.every((v) => !v.minWidth || v.minWidth === "0px" || v.minWidth === "0"),
+    "F9: .vrow__fill has no CSS min-width nub",
+    JSON.stringify(contrastAudit.vrowFill),
+    "Inspect .vrow__fill min-width"
+  );
+  assert(
+    contrastAudit.btnDisabled.some((r) => r.opacity === "0.4" && r.cursor === "default") &&
+      contrastAudit.iconbtnDisabled.some((r) => r.opacity === "0.3" && r.cursor === "default"),
+    "F6: .btn:disabled is dimmed; .iconbtn:disabled is unchanged",
+    JSON.stringify({ btn: contrastAudit.btnDisabled, icon: contrastAudit.iconbtnDisabled }),
+    "Inspect .btn:disabled vs .iconbtn:disabled"
+  );
+  assert(
+    contrastAudit.focusnavDisabled.every((c) => c.includes("var(--ink-faint)")),
+    "C1: disabled Focus navigation uses the passing faint token",
+    JSON.stringify(contrastAudit.focusnavDisabled),
+    "Inspect .focusnav:disabled color"
+  );
+
+  await page.evaluate(() => window.startOnboarding());
+  await page.waitForSelector("#onboarding.active #onbNext", { timeout: 5000 });
+  const onbDisabled = await page.evaluate(() => {
+    const b = document.querySelector("#onbNext");
+    const cs = getComputedStyle(b);
+    const step = document.querySelector("#onbStepLabel")?.textContent;
+    b.click();
+    return {
+      disabled: b.disabled,
+      opacity: cs.opacity,
+      cursor: cs.cursor,
+      bg: cs.backgroundColor,
+      step,
+      stepAfter: document.querySelector("#onbStepLabel")?.textContent,
+    };
+  });
+  assert(
+    onbDisabled.disabled === true &&
+      onbDisabled.opacity === "0.4" &&
+      onbDisabled.cursor === "default" &&
+      onbDisabled.step === onbDisabled.stepAfter,
+    "F6: disabled onboarding Continue cannot advance and is visually dimmed",
+    JSON.stringify(onbDisabled),
+    "Onboarding step 1 → Continue with no goal selected"
+  );
+  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  const onbEnabled = await page.evaluate(() => {
+    const b = document.querySelector("#onbNext");
+    const cs = getComputedStyle(b);
+    return { disabled: b.disabled, opacity: cs.opacity, cursor: cs.cursor, bg: cs.backgroundColor };
+  });
+  assert(
+    onbEnabled.disabled === false &&
+      onbEnabled.opacity === "1" &&
+      onbEnabled.cursor === "pointer" &&
+      (onbEnabled.opacity !== onbDisabled.opacity || onbEnabled.cursor !== onbDisabled.cursor),
+    "F6: enabled Continue is visually distinct from the disabled state",
+    JSON.stringify({ onbEnabled, onbDisabled }),
+    "Onboarding step 1 → pick a goal → Continue"
+  );
+  await page.evaluate(() => window.closeOnboarding());
+
+  const isoToday = () => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  const volumeAuditState = (base, lang) => {
+    const specs = [
+      { id: "va-quads", muscle: "Quads", sets: 10, done: 0 },
+      { id: "va-rear", muscle: "Rear delts", sets: 8, done: 0 },
+      { id: "va-add", muscle: "Adductors", sets: 4, done: 0 },
+      { id: "va-side", muscle: "Side delts", sets: 4, done: 0 },
+      { id: "va-chest", muscle: "Chest", sets: 3, done: 0 },
+      { id: "va-glutes", muscle: "Glutes", sets: 3, done: 0 },
+      { id: "va-spine", muscle: "Spinal erectors", sets: 2, done: 0 },
+      { id: "va-front", muscle: "Front delts", sets: 4, done: 4 },
+      { id: "va-lats", muscle: "Lats", sets: 5, done: 5 },
+      { id: "va-calves", muscle: "Calves", sets: 4, done: 12 },
+      { id: "va-hams", muscle: "Hamstrings", sets: 4, done: 4 },
+      { id: "va-tri", muscle: "Triceps", sets: 2, done: 2 },
+    ];
+    const date = isoToday();
+    const program = specs.map((s, i) => ({
+      id: s.id,
+      day: "Day 1",
+      order: i + 1,
+      name: `${s.muscle} raise`,
+      sets: s.sets,
+      min: 6,
+      max: 10,
+      primary: s.muscle,
+      secondary: "",
+      notes: "",
+      alternates: [],
+    }));
+    const created = `${date}T12:00:00.000Z`;
+    const log = [];
+    for (const s of specs) {
+      for (let n = 1; n <= s.done; n++) {
+        log.push({
+          session: `${date}_Day 1_vol`,
+          date,
+          day: "Day 1",
+          name: `${s.muscle} raise`,
+          exerciseId: s.id,
+          set: n,
+          load: 40,
+          reps: 8,
+          rir: 1,
+          notes: "",
+          created,
+          primary: s.muscle,
+          secondary: "",
+        });
+      }
+    }
+    for (let n = 1; n <= 3; n++) {
+      log.push({
+        session: `${date}_Day 1_vol`,
+        date,
+        day: "Day 1",
+        name: "Curl",
+        exerciseId: "va-biceps-log",
+        set: n,
+        load: 15,
+        reps: 10,
+        rir: 1,
+        notes: "",
+        created,
+        primary: "Biceps",
+        secondary: "",
+      });
+    }
+    return {
+      ...base,
+      program,
+      log,
+      programMeta: { ...(base.programMeta || {}), onboarded: true, started: date, mesocycleStatus: "active" },
+      settings: { ...base.settings, lang, unit: "kg", hardRir: 4 },
+    };
+  };
+
+  const readOverview = async () =>
+    page.evaluate(() => {
+      const rows = [...document.querySelectorAll("#overviewVolume .vrow")].map((row) => {
+        const fill = row.querySelector(".vrow__fill");
+        const bar = row.querySelector(".vrow__bar");
+        return {
+          muscle: row.getAttribute("data-muscle"),
+          name: row.querySelector(".vrow__name")?.textContent,
+          num: row.querySelector(".vrow__num")?.textContent.trim(),
+          status: row.querySelector(".vrow__status")?.textContent.trim(),
+          on: fill?.classList.contains("is-on") || false,
+          width: fill?.style.width,
+          fillBox: fill?.getBoundingClientRect().width || 0,
+          barBox: bar?.getBoundingClientRect().width || 0,
+        };
+      });
+      return {
+        rows,
+        more: document.querySelector("#overviewVolumeMore")?.textContent.trim() || "",
+        hook: window.__repforgeOverviewVolume
+          ? window.__repforgeOverviewVolume.sorted().map((r) => ({
+              muscle: r.muscle,
+              planned: r.planned,
+              completed7: r.completed7,
+              pct: window.__repforgeOverviewVolume.pct(r.planned, r.completed7),
+              label: window.__repforgeOverviewVolume.label(r.muscle),
+            }))
+          : [],
+      };
+    });
+
+  const baseVol = await getState(page);
+  await persistState(page, volumeAuditState(baseVol, "en"));
+  await reloadApp(page);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  const enVol = await readOverview();
+  assert(
+    enVol.rows.map((r) => r.muscle).join("|") ===
+      "Quads|Rear delts|Adductors|Side delts|Chest|Glutes|Spinal erectors|Front delts",
+    "F10: English overview sorts by deficit, then ratio, then localized name",
+    enVol.rows.map((r) => r.muscle).join("|"),
+    "Stats → Overview volume rows"
+  );
+  const addEn = enVol.rows.find((r) => r.muscle === "Adductors");
+  const frontEn = enVol.rows.find((r) => r.muscle === "Front delts");
+  assert(
+    addEn?.width === "0%" && addEn.fillBox < 1 && addEn.num.includes("0") && /below/i.test(addEn.status),
+    "F9: 0/4 is an empty bar and keeps Below",
+    JSON.stringify(addEn),
+    "Overview → Adductors 0/4"
+  );
+  assert(
+    frontEn?.width === "100%" && frontEn.num.includes("4") && /on target/i.test(frontEn.status) && frontEn.on,
+    "F9: 4/4 is a full On target bar",
+    JSON.stringify(frontEn),
+    "Overview → Front delts 4/4"
+  );
+  const lats = enVol.hook.find((r) => r.muscle === "Lats");
+  const calves = enVol.hook.find((r) => r.muscle === "Calves");
+  const biceps = enVol.hook.find((r) => r.muscle === "Biceps");
+  assert(
+    lats?.pct === 100 && lats.planned === 5 && lats.completed7 === 5,
+    "F9: 5/5 width computes to 100%",
+    JSON.stringify(lats),
+    "__repforgeOverviewVolume.pct(5,5)"
+  );
+  assert(
+    calves?.pct === 100 && calves.completed7 > calves.planned,
+    "F9: over-target width is capped at 100%",
+    JSON.stringify(calves),
+    "__repforgeOverviewVolume.pct for Calves 12/4"
+  );
+  assert(
+    biceps?.planned === 0 && biceps.pct === 0 && biceps.completed7 > 0,
+    "F9: unplanned rows use 0% width",
+    JSON.stringify(biceps),
+    "__repforgeOverviewVolume.pct for Biceps with no plan"
+  );
+  assert(
+    enVol.more === "+5 more" && enVol.hook.length - enVol.rows.length === 5,
+    "F10: English +{n} more matches hidden row count",
+    `more="${enVol.more}" hidden=${enVol.hook.length - enVol.rows.length} total=${enVol.hook.length}`,
+    "Overview volume truncation"
+  );
+  await page.click("#overviewVolumeMore");
+  await page.waitForSelector("#segVolume.active", { timeout: 5000 });
+  const volTableCount = await page.locator("#volumeDash tbody tr").count();
+  const volActive = await page.evaluate(
+    () =>
+      document.querySelector('#statsSeg button[data-seg="volume"]')?.classList.contains("active") &&
+      document.querySelector("#segVolume")?.classList.contains("active")
+  );
+  assert(
+    volActive && volTableCount === enVol.hook.length,
+    "F10: +more opens the complete Volume segment",
+    `active=${volActive} rows=${volTableCount} expected=${enVol.hook.length}`,
+    "Overview → +n more → Volume"
+  );
+
+  await persistState(page, volumeAuditState(await getState(page), "pt"));
+  await reloadApp(page);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  const ptVol = await readOverview();
+  assert(
+    ptVol.rows.map((r) => r.muscle).join("|") ===
+      "Quads|Rear delts|Adductors|Side delts|Glutes|Chest|Spinal erectors|Front delts",
+    "F10: Portuguese overview applies localized name ties (Glúteos before Peito)",
+    ptVol.rows.map((r) => `${r.muscle}:${r.name}`).join("|"),
+    "Stats → Overview volume rows in PT"
+  );
+  assert(
+    ptVol.rows[4]?.name === "Glúteos" && ptVol.rows[5]?.name === "Peito",
+    "F10: Portuguese labels follow the localized sort",
+    ptVol.rows.map((r) => r.name).join("|"),
+    "Overview volume names in PT"
+  );
+  assert(
+    ptVol.more === "+5 mais",
+    "F10: Portuguese +{n} more copy",
+    `more="${ptVol.more}"`,
+    "Overview volume truncation in PT"
+  );
+  await page.click("#overviewVolumeMore");
+  await page.waitForSelector("#segVolume.active", { timeout: 5000 });
+  assert(
+    await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active")),
+    "F10: Portuguese +more still opens Volume",
+    "segVolume not active",
+    "PT Overview → +n mais → Volume"
+  );
+
+  const focusState = volumeAuditState(await getState(page), "en");
+  focusState.program = focusState.program.slice(0, 2);
+  await persistState(page, focusState);
+  await reloadApp(page);
+  await nav(page, "log");
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.waitForSelector("#woPrev", { timeout: 5000 });
+  const focusNavContrast = await page.evaluate(() => {
+    const lin = (c) => {
+      const s = c / 255;
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    const hexToRgb = (hex) => {
+      const n = parseInt(String(hex).replace("#", ""), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const parseRgb = (c) => {
+      const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      return m ? [+m[1], +m[2], +m[3]] : null;
+    };
+    const prev = document.querySelector("#woPrev");
+    const color = getComputedStyle(prev).color;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    const rgb = parseRgb(color);
+    const [br, bgc, bb] = hexToRgb(bg);
+    const L1 = lum(...rgb);
+    const L2 = lum(br, bgc, bb);
+    const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
+    return { disabled: prev.disabled, color, bg, contrast: (hi + 0.05) / (lo + 0.05) };
+  });
+  assert(
+    focusNavContrast.disabled === true && focusNavContrast.contrast >= 3,
+    "C1: disabled Focus navigation reaches the 3:1 usability target",
+    JSON.stringify(focusNavContrast),
+    "Focus → first exercise → #woPrev contrast against --bg"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

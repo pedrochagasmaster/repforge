@@ -724,6 +724,33 @@ async function main() {
   const rmPage = await rmCtx.newPage();
   await boot(rmPage);
   await enterFocus(rmPage, 0);
+  phase("C1: disabled Focus navigation contrast");
+  const navContrast = await rmPage.evaluate(() => {
+    const lin = (c) => {
+      const s = c / 255;
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    const hexToRgb = (hex) => {
+      const n = parseInt(String(hex).replace("#", ""), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const parseRgb = (c) => {
+      const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      return m ? [+m[1], +m[2], +m[3]] : null;
+    };
+    const prev = document.querySelector("#woPrev");
+    const color = getComputedStyle(prev).color;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    const rgb = parseRgb(color);
+    const [br, bgc, bb] = hexToRgb(bg);
+    const L1 = lum(...rgb);
+    const L2 = lum(br, bgc, bb);
+    const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
+    return { disabled: prev.disabled, color, contrast: (hi + 0.05) / (lo + 0.05) };
+  });
+  assert(navContrast.disabled === true, "previous chevron is disabled on the first exercise", JSON.stringify(navContrast));
+  assert(navContrast.contrast >= 3, "disabled Focus navigation reaches the 3:1 usability target", JSON.stringify(navContrast));
   const motion = await rmPage.evaluate(() => {
     const track = document.querySelector("#focusTrack");
     return {
@@ -767,6 +794,7 @@ async function main() {
   }
 
   phase("Console");
+
   assert(errors.length === 0, "no page errors during the focus run", errors.join(" | "));
 
   await browser.close();
