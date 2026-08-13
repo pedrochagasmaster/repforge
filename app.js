@@ -2111,13 +2111,13 @@ function overviewVolumeSorted(){return volumeDashboard(7).slice().sort((a,b)=>{
 function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
   const rows=overviewVolumeSorted(),shown=rows.slice(0,8),more=rows.length-shown.length;
   el.innerHTML=rows.length?shown.map(r=>{
-    const on=r.planned>0&&r.completed7>=r.planned*0.6&&r.completed7<=r.planned*1.3;
-    const below=r.planned>0&&r.completed7<r.planned*0.6;
+    const high=r.status===t("status.high"),on=r.status===t("status.on_target"),below=r.status===t("status.low");
     const pct=overviewBarPct(r.planned,r.completed7);
+    const label=high?t("status.high"):below?t("stats.volume_below"):t("stats.volume_on_target");
     return `<div class="vrow" data-muscle="${esc(r.muscle)}"><span class="vrow__name">${esc(muscleLabel(r.muscle))}</span>`+
-      `<span class="vrow__bar"><span class="vrow__fill${on?" is-on":""}" style="width:${pct}%"></span></span>`+
+      `<span class="vrow__bar"><span class="vrow__fill${high?" is-high":on?" is-on":""}" style="width:${pct}%"></span></span>`+
       `<span class="vrow__num">${fmt(r.completed7)} / ${fmt(r.planned)}</span>`+
-      `<span class="vrow__status${on?" is-on":""}">${esc(below?t("stats.volume_below"):t("stats.volume_on_target"))}</span></div>`}).join("")+
+      `<span class="vrow__status${on?" is-on":""}">${esc(label)}</span></div>`}).join("")+
       (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
     :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;
   const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
@@ -2428,31 +2428,26 @@ function draw(rows,sel="#chart"){
   const ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
   const C={accent:"#E04E14",accentText:"#B8410E",steel:"#6E6A62",dim:"#6E6A62",rule:"#E4E1DA",mist:"#1B1A17"};
-  const paint={fillText:[],stroke:[],fill:[]};
-  const recFillText=(text,x,y)=>{paint.fillText.push({text:String(text),fillStyle:String(ctx.fillStyle),font:String(ctx.font)});ctx.fillText(text,x,y)};
-  const recStroke=()=>{paint.stroke.push({strokeStyle:String(ctx.strokeStyle)});ctx.stroke()};
-  const recFill=()=>{paint.fill.push({fillStyle:String(ctx.fillStyle)});ctx.fill()};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="middle";
-  if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";recFillText(t("stats.chart.empty"),w/2,h/2);window.__repforgeChartPaint=paint;return}
+  if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText(t("stats.chart.empty"),w/2,h/2);return}
   const vals=rows.map(r=>r.e1rm??r.top),max=Math.max(...vals),min=Math.min(...vals),span=max-min||1,pad=span*0.25;
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
   const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
   const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?fmt(+d.toFixed(1)):fmt(Math.round(d))};
   const accent=C.accent;
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
-  for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);recStroke();recFillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
+  for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
   ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.lineJoin="round";ctx.lineCap="round";
-  ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});recStroke();
+  ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();
   rows.forEach((r,i)=>{const v=r.e1rm??r.top,last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(v),last?4:3.5,0,7);
-    ctx.fillStyle=accent;recFill()});
+    ctx.fillStyle=accent;ctx.fill()});
   const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV);ctx.fillStyle=C.accentText;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Sans",sans-serif';
-  recFillText(`${fmt(Math.round(toDisplay(lastV)))} ${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
+  ctx.fillText(`${fmt(Math.round(toDisplay(lastV)))} ${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
   ctx.fillStyle=C.dim;ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="alphabetic";
-  ctx.textAlign="left";recFillText(shortDate(rows[0].date),padL,h-8);
-  if(rows.length>2){ctx.textAlign="center";recFillText(shortDate(rows[Math.floor(rows.length/2)].date),padL+iw/2,h-8)}
-  ctx.textAlign="right";recFillText(shortDate(rows.at(-1).date),w-padR,h-8);
-  window.__repforgeChartPaint=paint;
+  ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
+  if(rows.length>2){ctx.textAlign="center";ctx.fillText(shortDate(rows[Math.floor(rows.length/2)].date),padL+iw/2,h-8)}
+  ctx.textAlign="right";ctx.fillText(shortDate(rows.at(-1).date),w-padR,h-8);
 }
 
 function redrawChart(){
