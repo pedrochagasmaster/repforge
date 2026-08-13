@@ -1287,8 +1287,8 @@ async function main() {
   );
   const metaBefore = await page.locator("#programMeta").textContent();
   assert(
-    metaBefore.includes("days this week"),
-    "Program tab shows adherence chip",
+    metaBefore.includes("days in the last 7 days"),
+    "Program tab shows rolling-7 adherence chip",
     `Meta card: ${metaBefore?.slice(0, 120)}`,
     "Program tab → check summary card"
   );
@@ -5222,7 +5222,7 @@ async function main() {
     "__repforgeWeeklySnapshot() lift tallies"
   );
 
-  beginPhase("Phase: F2 calendar-week adherence");
+  beginPhase("Phase: F2 rolling-7 program adherence");
   {
     const f2Restore = await getState(page);
     await clearState(page);
@@ -5239,7 +5239,10 @@ async function main() {
         x.setDate(x.getDate() + n);
         return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
       };
-      return { ...r, today: iso, prevSunday: shift(r.start, -1), nextMonday: shift(r.end, 1), mid: shift(r.start, 2) };
+      return {
+        ...r, today: iso, prevSunday: shift(r.start, -1), nextMonday: shift(r.end, 1),
+        mid: shift(r.start, 2), rollingStart: shift(iso, -6),
+      };
     });
     const row = (day, date, tag) => {
       const ex = f2State.program.find((e) => e.day === day);
@@ -5249,16 +5252,28 @@ async function main() {
         primary: ex.primary, secondary: ex.secondary,
       };
     };
+    const log = [
+      row(days[0], bounds.prevSunday, "prevSun"),
+      row(days[1], bounds.start, "mon"),
+      row(days[2], bounds.mid, "mid"),
+      row(days[1], bounds.mid, "dupDay"),
+      row(days[0], bounds.nextMonday, "nextMon"),
+    ];
+    const uniqueDays = (start, end) => {
+      const seen = new Set();
+      for (const r of log) {
+        if (r.date < start || r.date > end) continue;
+        seen.add(r.day);
+      }
+      return seen.size;
+    };
+    const calendarExpected = uniqueDays(bounds.start, bounds.end);
+    const rollingExpected = uniqueDays(bounds.rollingStart, bounds.today);
     await persistState(page, {
       ...f2State,
+      settings: { ...f2State.settings, lang: "en" },
       programMeta: { ...f2State.programMeta, name: "F2 Split" },
-      log: [
-        row(days[0], bounds.prevSunday, "prevSun"),
-        row(days[0], bounds.start, "mon"),
-        row(days[1], bounds.mid, "mid"),
-        row(days[0], bounds.mid, "dupDay"),
-        row(days[2], bounds.nextMonday, "nextMon"),
-      ],
+      log,
     });
     await reloadApp(page);
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
@@ -5268,21 +5283,20 @@ async function main() {
     });
     await page.waitForSelector("#todayWeek", { timeout: 5000 });
     const planned = days.length;
-    const expected = 2;
     const todayText = await page.evaluate(() =>
       `${document.querySelector("#todayProgram")?.textContent || ""}\n${document.querySelector("#todayWeek")?.textContent || ""}`
     );
     assert(
-      todayText.includes(`${expected} of ${planned} sessions`) && !todayText.includes(`${expected + 1} of ${planned}`),
+      todayText.includes(`${calendarExpected} of ${planned} sessions`) && !todayText.includes(`${calendarExpected + 1} of ${planned}`),
       "F2: Today counts only Monday–Sunday planned days",
-      `today="${todayText.replace(/\s+/g, " ").slice(0, 180)}" bounds=${JSON.stringify(bounds)}`,
-      "Seed prev Sunday + Mon + midweek duplicate + next Monday → Today shows 2 of N"
+      `today="${todayText.replace(/\s+/g, " ").slice(0, 180)}" calendar=${calendarExpected} rolling=${rollingExpected} bounds=${JSON.stringify(bounds)}`,
+      "Seed prev Sunday + Mon + midweek duplicate + next Monday → Today shows calendar-week count"
     );
     await nav(page, "stats");
     const progressText = await page.locator("#thisWeek").textContent();
     assert(
-      progressText.includes(`${expected} of ${planned} sessions`),
-      "F2: Progress This week matches Today",
+      progressText.includes(`${calendarExpected} of ${planned} sessions`),
+      "F2: Progress This week matches Today calendar-week count",
       `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
       "Stats → Overview → #thisWeek"
     );
@@ -5291,12 +5305,20 @@ async function main() {
       document.querySelector('nav button[data-view="program"]')?.click();
     });
     await page.waitForSelector("#programOverview", { timeout: 5000 });
-    const overviewVal = await page.locator("#programOverview .statrow__cell").first().locator(".statrow__val").textContent();
+    const overviewCell = page.locator("#programOverview .statrow__cell").first();
+    const overviewVal = await overviewCell.locator(".statrow__val").textContent();
+    const overviewCap = await overviewCell.locator(".statrow__cap").textContent();
     assert(
-      overviewVal.trim() === `${expected} / ${planned}`,
-      "F2: Program sessions stat matches the calendar week",
-      `val="${overviewVal}"`,
-      "Program overview → sessions this week"
+      overviewVal.trim() === `${rollingExpected} / ${planned}`,
+      "F2: Program days stat matches the rolling 7-day window",
+      `val="${overviewVal}" rolling=${rollingExpected} calendar=${calendarExpected}`,
+      "Program overview → days (7d)"
+    );
+    assert(
+      overviewCap.trim() === "days (7d)" && !/this week/i.test(overviewCap),
+      "F2: Program overview names a rolling 7-day window",
+      `cap="${overviewCap}"`,
+      "Program overview → days (7d) caption"
     );
     const editHidden = await page.locator("#programEditorWrap.is-hidden").count();
     if (editHidden) {
@@ -5305,10 +5327,37 @@ async function main() {
     }
     const chip = await page.locator("#pmetaChipsBottom").textContent();
     assert(
-      chip.includes(`${expected} / ${planned} days this week`),
-      "F2: Program days-this-week chip matches the calendar week",
+      chip.includes(`${rollingExpected} / ${planned} days in the last 7 days`) && !/days this week/i.test(chip),
+      "F2: Program chip shows rolling-7 count and copy",
       `chip="${chip}"`,
-      "Program → days this week chip"
+      "Program → days in the last 7 days chip"
+    );
+    const afterEn = await getState(page);
+    await persistState(page, { ...afterEn, settings: { ...afterEn.settings, lang: "pt" } });
+    await reloadApp(page);
+    await page.evaluate(() => {
+      document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
+      document.querySelector('nav button[data-view="program"]')?.click();
+    });
+    await page.waitForSelector("#programOverview", { timeout: 5000 });
+    const ptCap = await page.locator("#programOverview .statrow__cell").first().locator(".statrow__cap").textContent();
+    assert(
+      ptCap.trim() === "dias (7d)",
+      "F2: Program overview rolling label is Portuguese",
+      `cap="${ptCap}"`,
+      "lang=pt → Program overview → dias (7d)"
+    );
+    const ptEditHidden = await page.locator("#programEditorWrap.is-hidden").count();
+    if (ptEditHidden) {
+      await page.click("#programEditToggle");
+      await page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
+    }
+    const ptChip = await page.locator("#pmetaChipsBottom").textContent();
+    assert(
+      ptChip.includes(`${rollingExpected} / ${planned} dias nos últimos 7 dias`),
+      "F2: Program chip rolling copy is Portuguese",
+      `chip="${ptChip}"`,
+      "lang=pt → Program chip"
     );
     await persistState(page, f2Restore);
     await reloadApp(page);

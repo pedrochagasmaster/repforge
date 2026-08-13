@@ -567,8 +567,8 @@ function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=
   if(partial.onboarded!==undefined)state.programMeta.onboarded=partial.onboarded;
   state.programMeta.updated=new Date().toISOString();save()}
 function programAdherence(){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
-  // Same Monday–Sunday window as weeklySnapshot — a rolling 7-day cutoff disagrees on "this week".
-  const{start,end}=weekRange(today()),programDaySet=new Set(prog.days()),loggedDays=new Set();
+  // Inclusive rolling [today-6, today] — distinct planned days; future rows excluded.
+  const start=daysAgo(6),end=today(),programDaySet=new Set(prog.days()),loggedDays=new Set();
   for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
   const logged=loggedDays.size;return{logged,total:totalDays,ratio:totalDays?logged/totalDays:0}}
 function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart=start,weekEnd=end;
