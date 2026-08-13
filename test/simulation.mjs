@@ -5222,14 +5222,12 @@ async function main() {
     const wednesday = "2026-08-12";
     const nextMonday = "2026-08-17";
     const dayA = days[0], dayB = days[1], dayC = days[2];
-    const dayD = days.includes("Day 4") ? "F2 Day 4" : "Day 4";
-    const src = f2State.program.find((e) => e.day === dayA);
-    const program = [
-      ...f2State.program,
-      {
-        ...src, id: `${src.id}_f2_d4`, day: dayD, name: `${src.name} F2`, order: 1,
-      },
-    ];
+    const dayD = "F2 Day 4";
+    const program = [dayA, dayB, dayC].map((day, i) => {
+      const src = f2State.program.find((e) => e.day === day);
+      return { ...src, id: `${src.id}_f2_${i}`, order: 1 };
+    });
+    program.push({ ...program[0], id: `${program[0].id}_d4`, day: dayD, name: `${program[0].name} F2` });
     const row = (day, date, tag) => {
       const ex = program.find((e) => e.day === day);
       return {
@@ -5260,7 +5258,7 @@ async function main() {
       asOfAd.logged === 3 && asOfAd.total === 4,
       "F2: programAdherence(asOf) counts three distinct planned days in [asOf-6, asOf]",
       `ad=${JSON.stringify(asOfAd)} asOf=${asOf}`,
-      "Seed Sun A + Mon B + Wed C + Wed B dup + next-Mon D → rolling 3 / 4"
+      "Seed Sun A + Mon B + Wed C twice + next-Mon D → rolling 3 / 4"
     );
     assert(
       asOfWeek.completedDays === 2,
