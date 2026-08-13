@@ -27,7 +27,14 @@ function isValidStateShape(s){return!!(s&&typeof s==="object"&&Array.isArray(s.p
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
 function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];return o}
 function exportableState(s){return stripStorageMeta(s)}
-function canonicalPayload(s){return JSON.stringify(stripStorageMeta(s))}
+function canonicalize(value){
+  if(Array.isArray(value))return value.map(canonicalize);
+  if(value&&typeof value==="object"){
+    const out={};
+    for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);
+    return out}
+  return value}
+function canonicalPayload(s){return JSON.stringify(canonicalize(stripStorageMeta(s)))}
 function snapshotsEqual(a,b){return canonicalPayload(a)===canonicalPayload(b)}
 function snapshotSummary(s){
   const log=Array.isArray(s?.log)?s.log:[];
@@ -62,10 +69,12 @@ function chooseSnapshot(localRead,idbRead){
   const equal=snapshotsEqual(localRead.parsed,idbRead.parsed);
   const lr=readRevision(localRead.parsed),ir=readRevision(idbRead.parsed);
   if(equal){
-    if(!localHas&&!idbHas)return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",migrate:true};
     if(lr!==ir){
       if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
       return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"}}
+    if(!localHas||!idbHas){
+      const chosen=localHas?localRead:idbRead;
+      return{kind:"chosen",snapshot:chosen.parsed,source:chosen===localRead?"local":"idb",migrate:true}}
     return{kind:"chosen",snapshot:idbRead.parsed,source:"idb"}}
   if(lr!==ir){
     if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
@@ -4208,7 +4217,8 @@ async function applyBootDecision(decision){
   applyGotoParam();
   const migrated=migrateLog();
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
-  if(decision.kind==="first-run"||decision.migrate||migrated||metaDrift)await persist();
+  const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
   else if(decision.heal)await enqueueWrite(()=>writeSnapshot(cloneSnapshot(state),storageIO));
   if(I18N)I18N.setLang(state.settings.lang)}
 async function boot(){

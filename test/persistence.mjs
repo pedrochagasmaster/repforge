@@ -431,6 +431,7 @@ try {
     await waitForApp(page);
     let both = await readBoth(page);
     assert(both.local?.programMeta?.name === "CopyA" && both.idb?.programMeta?.name === "CopyA", "Use Copy A heals both stores to A", JSON.stringify({ l: both.local?.programMeta?.name, i: both.idb?.programMeta?.name }));
+    assert(both.local?._storageRevision >= 1 && both.local?._storageRevision === both.idb?._storageRevision, "Use Copy A assigns one positive revision to both legacy replicas", JSON.stringify({ l: both.local?._storageRevision, i: both.idb?._storageRevision }));
 
     await clearStores(page);
     await page.evaluate(({ k, blob }) => localStorage.setItem(k, JSON.stringify(blob)), { k: KEY, blob: a });
@@ -440,6 +441,7 @@ try {
     await waitForApp(page);
     both = await readBoth(page);
     assert(both.local?.programMeta?.name === "Beta" && both.idb?.programMeta?.name === "Beta", "Use Copy B heals both stores to B", JSON.stringify({ l: both.local?.programMeta?.name, i: both.idb?.programMeta?.name }));
+    assert(both.local?._storageRevision >= 1 && both.local?._storageRevision === both.idb?._storageRevision, "Use Copy B assigns one positive revision to both legacy replicas", JSON.stringify({ l: both.local?._storageRevision, i: both.idb?._storageRevision }));
     await context.close();
   }
 
@@ -997,9 +999,14 @@ try {
         raw: "{}",
         parsed: { program: [], log: [], programMeta: { name }, ...(rev != null ? { _storageRevision: rev } : {}) },
       });
+      const reordered = choose(
+        { status: "valid", raw: "{}", parsed: { program: [{ id: "x", name: "Press" }], log: [], settings: { unit: "kg", lang: "en" } } },
+        { status: "valid", raw: "{}", parsed: { settings: { lang: "en", unit: "kg" }, log: [], program: [{ name: "Press", id: "x" }] } }
+      );
       return {
         first: choose({ status: "absent" }, { status: "absent" }).kind,
         equalLegacy: choose(valid("A"), valid("A")).migrate,
+        reorderedLegacy: reordered.kind === "chosen" && reordered.migrate === true,
         higher: choose(valid("L", 2), valid("I", 1)).source,
         divergent: choose(valid("A", 0), valid("B", 0)).kind,
         invalid: choose(valid("A", 1), { status: "invalid", raw: "x" }).kind,
@@ -1007,6 +1014,7 @@ try {
     });
     assert(table.first === "first-run", "chooseSnapshot: two absents are first-run", JSON.stringify(table));
     assert(table.equalLegacy === true, "chooseSnapshot: equal revisionless snapshots migrate", JSON.stringify(table));
+    assert(table.reorderedLegacy === true, "chooseSnapshot: object key order does not create false divergence", JSON.stringify(table));
     assert(table.higher === "local", "chooseSnapshot: higher local revision wins", JSON.stringify(table));
     assert(table.divergent === "unresolved", "chooseSnapshot: equal-revision divergence is unresolved", JSON.stringify(table));
     assert(table.invalid === "unresolved", "chooseSnapshot: valid+invalid is unresolved", JSON.stringify(table));
