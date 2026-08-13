@@ -435,6 +435,24 @@ async function main() {
     "effort mode replaces the RIR column everywhere", JSON.stringify(effort));
   assert(/^(easy|hard|max)$/i.test(effort.rowEffort) && effort.hint,
     "a logged set reads back as the word that was tapped", JSON.stringify(effort));
+  const wellAlign = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll(".focus-well .curset__cell")];
+    const band = (sel) => cells.map((c) => {
+      const el = c.querySelector(sel);
+      return el ? Math.round(el.getBoundingClientRect().top) : null;
+    });
+    const spread = (arr) => Math.max(...arr) - Math.min(...arr);
+    return {
+      n: cells.length,
+      labs: spread(band(".curset__cell-lab")),
+      vals: spread(band(".curset__val")),
+      lines: spread(band(".curset__underline")),
+      steps: spread(band(".curset__steps")),
+    };
+  });
+  assert(wellAlign.n === 3 && wellAlign.labs <= 1 && wellAlign.vals <= 1 &&
+    wellAlign.lines <= 1 && wellAlign.steps <= 1,
+    "effort, load and reps share one baseline in the well", JSON.stringify(wellAlign));
   assert(st.ledgerRows === 4 && !st.fold,
     "four logged sets still show in full", JSON.stringify(st));
   // Keyboard operation of the spinner.

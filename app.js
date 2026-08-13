@@ -112,7 +112,7 @@ function setEffortPick(key,eff){
     el.dataset.e=eff;el.textContent=effortLabel(eff);
     el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
     el.setAttribute("aria-valuetext",effortLabel(eff));
-    const hint=el.parentElement?.querySelector(".curset__hint");
+    const hint=el.closest(".curset__cell")?.querySelector(".curset__hint");
     if(hint)hint.textContent=effortHint(eff)})}
 function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
@@ -1599,12 +1599,15 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
       `<span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`}
   return top(summary+head())+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
 
-/** One value cell of the well: label, big value, hairline, and its steppers. */
+/** One value cell of the well: label, big value, hairline, and its steppers.
+ *  The hint slot is always present so effort's caption cannot push this column
+ *  out of line with load and reps — empty slots collapse unless the grid is in
+ *  effort mode, where every column reserves the same caption row. */
 function focusCell(label,inner,{accent=false,steps="",hint="",cls=""}={}){
   return `<div class="curset__cell${accent?" is-load is-active":""}${cls?` ${cls}`:""}">`+
     `<div class="curset__cell-lab${accent?" is-accent":""}">${label}</div>${inner}`+
-    (hint?`<div class="curset__hint">${hint}</div>`:"")+
     `<span class="curset__underline" aria-hidden="true"></span>`+
+    `<div class="curset__slot">${hint?`<div class="curset__hint">${hint}</div>`:""}</div>`+
     (steps?`<div class="curset__steps">${steps}</div>`:"")+`</div>`}
 const stepBtn=(target,dir,label,attr="data-step")=>
   `<button type="button" class="stepbtn" ${attr}="${esc(target)}" data-dir="${dir}" tabindex="-1" aria-label="${esc(label)}">${dir>0?"+":"−"}</button>`;
