@@ -274,20 +274,25 @@ against `5b34d2f` (2026-08-12,
 | 038 | [BYOK AI coach — chat sheet + user-approved program proposals](./038-ai-coach.md) | direction | L | HIGH | Product owner decision; ADR 0002 supersedes the prior AI rejection |
 | 039 | [Capacity-driven load & rep suggestions](./039-capacity-driven-suggestions.md) | direction / correctness | L | MED-HIGH | Product owner grill session 2026-08-12; ADR 0003 |
 
-## Wave 6 — launch-readiness UI/UX audit
+## Wave 6 — launch-readiness UI/UX audit and remediation
 
 Written against `main` @ `7b6ad58` on 2026-08-13 after a clean-origin,
 phone-sized audit of every user-facing view and state, with retained findings
-re-vetted against the current code and UI-overhaul specification.
+re-vetted against the current code and UI-overhaul specification. The
+implementation plan was written against audit branch commit `a909933` after the
+owner promoted every retained finding into pre-launch scope.
 
 | # | Plan | Category | Effort | Risk | Source |
 |---|------|----------|--------|------|--------|
 | 040 | [Launch-readiness UI/UX audit](./040-launch-readiness-ui-ux-audit.md) | correctness / UX / accessibility | L | HIGH | Clean-origin browser audit + code/spec vetting |
+| 041 | [Fix all launch-readiness findings](./041-prelaunch-all-findings-remediation.md) | correctness / UX / accessibility / performance | L | HIGH | Owner-directed implementation plan for all 24 findings |
 
 Plan 040 is an audit and remediation brief, not an implementation. Its
-nine-item launch gate starts with storage/draft trust; lifecycle, affordance,
-and navigation follow-ups are sequenced separately so launch fixes do not
-become another visual redesign.
+nine-item launch gate starts with storage/draft trust. Plan 041 supersedes the
+audit's P0/P1/P2 scheduling distinction: its ordered commits cover the true
+blocker, accessibility cluster, lifecycle cluster, and former backlog before
+release. Execute **040 (read) → 041 (implement)**; do not cherry-pick only the
+original nine-item gate.
 
 ## Backlog (not yet planned in detail)
 
@@ -377,3 +382,4 @@ Consensus across ≥5 personas that these betray the product:
 | 038 | READY — execute per plan; STOP conditions guard the amended guardrails |
 | 039 | DONE |
 | 040 | AUDIT — launch remediation not yet implemented |
+| 041 | TODO — all 24 retained findings are pre-launch |
