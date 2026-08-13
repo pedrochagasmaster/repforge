@@ -3631,12 +3631,16 @@ async function main() {
       const el = c.querySelector(sel);
       return el ? Math.round(el.getBoundingClientRect().top) : null;
     });
+    const lines = band(".curset__underline");
+    const steps = band(".curset__steps");
     return {
       n: cells.length,
       labs: band(".curset__cell-lab"),
       vals: band(".curset__val"),
-      lines: band(".curset__underline"),
-      steps: band(".curset__steps"),
+      lines,
+      steps,
+      // The steppers hang off the hairline; a caption may not wedge in between.
+      gap: Math.max(...steps.map((s, i) => s - lines[i])),
     };
   });
   const alignSpread = (arr) => Math.max(...arr) - Math.min(...arr);
@@ -3645,7 +3649,8 @@ async function main() {
       alignSpread(focusAlign.labs) <= 1 &&
       alignSpread(focusAlign.vals) <= 1 &&
       alignSpread(focusAlign.lines) <= 1 &&
-      alignSpread(focusAlign.steps) <= 1,
+      alignSpread(focusAlign.steps) <= 1 &&
+      focusAlign.gap <= 6,
     "Focus effort column lines up with load and reps",
     JSON.stringify(focusAlign),
     "Log → Focus in effort mode → the three well cells share one baseline"

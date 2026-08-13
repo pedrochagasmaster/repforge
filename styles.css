@@ -739,14 +739,11 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .copylast:hover{color:var(--accent);border-color:var(--ink-soft)}
 
 /* Current-set cells — bare numbers over a hairline, with the −/+ underneath.
-   Each cell is the same stack (label, value, hairline, caption, steppers) so
-   effort's extra hint cannot drop its column relative to load and reps. */
+   The figure size is a variable because the effort word has to know it: that
+   column reads as a word, but it holds the same slot as the numbers beside it. */
 .curset{--curset-val:34px;margin:10px 0 0}
 .curset__grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr))}
-.curset__cell{
-  min-width:0;padding:8px 2px 0;text-align:center;position:relative;
-  display:flex;flex-direction:column;align-items:stretch;
-}
+.curset__cell{min-width:0;padding:8px 2px 0;text-align:center;position:relative}
 .curset__cell:not(:last-child)::after{
   content:"";position:absolute;right:0;top:12%;bottom:8%;width:1px;background:var(--rule);
 }
@@ -761,8 +758,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .curset__val::placeholder{color:var(--rule-strong);opacity:1}
 .curset__cell input.curset__val:focus{outline:none;box-shadow:none;border-color:transparent}
 .curset__cell input.curset__val:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
-/* An effort is a word: same slot height as the figures beside it, sized so
-   three of them still fit on one line. */
+/* An effort is a word: a size that keeps three of them on one line, in the same
+   slot height as the figures, so this column's hairline sits on their line. */
 .curset__val--word{
   font-size:26px;font-weight:650;letter-spacing:-.01em;
   display:flex;align-items:center;justify-content:center;
@@ -775,12 +772,13 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .curset__cell-lab .unit-hint{font-size:10px;color:var(--ink-faint)}
 .curset__cell-lab.is-accent .unit-hint{color:var(--ink-soft)}
 .sets__head .unit-hint,.ledger__head .unit-hint{margin-left:4px;font-size:10px;letter-spacing:0;text-transform:none;font-weight:500}
-.curset__slot{display:flex;align-items:center;justify-content:center;min-height:0}
-.curset:has(.is-effort) .curset__slot{min-height:1.25em;margin-top:2px}
-.curset__hint{font-size:13px;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;width:100%}
-.curset__underline{display:block;height:2px;margin:8px auto 0;width:56%;background:var(--rule-strong);border-radius:1px;flex:none}
+/* Only effort carries a caption, and it hangs below that column's steppers:
+   between the word and the hairline it would push both out of line. It is sized
+   like the unit gloss on the Load label, which keeps the well its own height. */
+.curset__hint{font-size:11px;line-height:1.1;color:var(--ink-faint);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.curset__underline{display:block;height:2px;margin:8px auto 0;width:56%;background:var(--rule-strong);border-radius:1px}
 .curset__cell.is-active .curset__underline,.curset__cell.is-load .curset__underline{background:var(--accent)}
-.curset__steps{display:flex;justify-content:space-evenly;align-items:center;margin-top:auto;padding-top:2px}
+.curset__steps{display:flex;justify-content:space-evenly;align-items:center;margin-top:2px}
 .curset__steps .stepbtn{
   width:44px;height:44px;min-width:44px;min-height:44px;border-radius:8px;border:0;background:transparent;
   color:var(--ink);font-size:22px;font-weight:400;line-height:1;padding:0;
@@ -891,7 +889,6 @@ body.is-sheet-open{overflow:hidden}
   .curset{--curset-val:24px}
   .curset__val--word{font-size:18px}
   .curset__hint{display:none}
-  .curset:has(.is-effort) .curset__slot{min-height:0;margin-top:0}
   .curset__underline{margin-top:4px}
   .ledger__head{padding-bottom:8px}
   .ledger__row,.ledger__more{min-height:44px}
@@ -1380,7 +1377,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
   .stepbtn{width:44px;min-width:44px;font-size:17px}
   .saveset,.sets__head .sets__head-save{min-width:38px;padding:0 4px}
   .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem;gap:6px}
-  .curset{--curset-val:26px}
+  .curset__val{font-size:26px}
 }
 
 /* ---- Shell class aliases (HTML / renderToday) ---- */

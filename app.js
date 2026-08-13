@@ -1600,15 +1600,14 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
   return top(summary+head())+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
 
 /** One value cell of the well: label, big value, hairline, and its steppers.
- *  The hint slot is always present so effort's caption cannot push this column
- *  out of line with load and reps — empty slots collapse unless the grid is in
- *  effort mode, where every column reserves the same caption row. */
+ *  A caption comes last, under the steppers: only effort has one, and between
+ *  the word and the hairline it drags that column below load and reps. */
 function focusCell(label,inner,{accent=false,steps="",hint="",cls=""}={}){
   return `<div class="curset__cell${accent?" is-load is-active":""}${cls?` ${cls}`:""}">`+
     `<div class="curset__cell-lab${accent?" is-accent":""}">${label}</div>${inner}`+
     `<span class="curset__underline" aria-hidden="true"></span>`+
-    `<div class="curset__slot">${hint?`<div class="curset__hint">${hint}</div>`:""}</div>`+
-    (steps?`<div class="curset__steps">${steps}</div>`:"")+`</div>`}
+    (steps?`<div class="curset__steps">${steps}</div>`:"")+
+    (hint?`<div class="curset__hint">${hint}</div>`:"")+`</div>`}
 const stepBtn=(target,dir,label,attr="data-step")=>
   `<button type="button" class="stepbtn" ${attr}="${esc(target)}" data-dir="${dir}" tabindex="-1" aria-label="${esc(label)}">${dir>0?"+":"−"}</button>`;
 

@@ -442,16 +442,20 @@ async function main() {
       return el ? Math.round(el.getBoundingClientRect().top) : null;
     });
     const spread = (arr) => Math.max(...arr) - Math.min(...arr);
+    const lines = band(".curset__underline");
+    const steps = band(".curset__steps");
     return {
       n: cells.length,
       labs: spread(band(".curset__cell-lab")),
       vals: spread(band(".curset__val")),
-      lines: spread(band(".curset__underline")),
-      steps: spread(band(".curset__steps")),
+      lines: spread(lines),
+      steps: spread(steps),
+      // The steppers hang off the hairline; a caption may not wedge in between.
+      gap: Math.max(...steps.map((s, i) => s - lines[i])),
     };
   });
   assert(wellAlign.n === 3 && wellAlign.labs <= 1 && wellAlign.vals <= 1 &&
-    wellAlign.lines <= 1 && wellAlign.steps <= 1,
+    wellAlign.lines <= 1 && wellAlign.steps <= 1 && wellAlign.gap <= 6,
     "effort, load and reps share one baseline in the well", JSON.stringify(wellAlign));
   assert(st.ledgerRows === 4 && !st.fold,
     "four logged sets still show in full", JSON.stringify(st));
