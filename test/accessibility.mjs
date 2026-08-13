@@ -1192,6 +1192,538 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
 
 }
 
+/* ---- Visual accessibility (UX-05, UX-06, A11Y-01, A11Y-02 focus/touch) ---- */
+
+const VIEWPORTS = [
+  { w: 320, h: 568, name: "320×568" },
+  { w: 390, h: 844, name: "390×844" },
+  { w: 430, h: 932, name: "430×932" },
+];
+
+const AUDIT_JS = `(() => {
+  const parse = (str) => {
+    if (!str || str === "transparent" || str === "rgba(0, 0, 0, 0)") return [0, 0, 0, 0];
+    const m = String(str).match(/rgba?\\((\\d+(?:\\.\\d+)?)[,\\s]+(\\d+(?:\\.\\d+)?)[,\\s]+(\\d+(?:\\.\\d+)?)(?:[,\\s\\/]+(\\d+(?:\\.\\d+)?))?\\)/i);
+    if (m) return [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]];
+    const h = String(str).trim();
+    if (h[0] === "#") {
+      const x = h.slice(1);
+      if (x.length === 3) return [parseInt(x[0] + x[0], 16), parseInt(x[1] + x[1], 16), parseInt(x[2] + x[2], 16), 1];
+      if (x.length === 6 || x.length === 8) return [parseInt(x.slice(0, 2), 16), parseInt(x.slice(2, 4), 16), parseInt(x.slice(4, 6), 16), x.length === 8 ? parseInt(x.slice(6, 8), 16) / 255 : 1];
+    }
+    return null;
+  };
+  const lum = (rgb) => {
+    const c = rgb.slice(0, 3).map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    });
+    return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+  };
+  const ratio = (a, b) => {
+    const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x);
+    return (l1 + 0.05) / (l2 + 0.05);
+  };
+  const mix = (fg, bg) => {
+    const a = Math.max(0, Math.min(1, fg[3]));
+    if (a >= 0.999) return [fg[0], fg[1], fg[2], 1];
+    return [fg[0] * a + bg[0] * (1 - a), fg[1] * a + bg[1] * (1 - a), fg[2] * a + bg[2] * (1 - a), 1];
+  };
+  const stackedBg = (el) => {
+    let bg = [244, 242, 239, 1];
+    const chain = [];
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) chain.push(n);
+    chain.push(document.body, document.documentElement);
+    for (const n of chain.reverse()) {
+      const st = getComputedStyle(n);
+      const col = parse(st.backgroundColor);
+      if (!col) continue;
+      const op = Number(st.opacity);
+      const withOp = [col[0], col[1], col[2], col[3] * (Number.isFinite(op) ? op : 1)];
+      if (withOp[3] > 0.01) bg = mix(withOp, bg);
+    }
+    return bg;
+  };
+  const effectiveFg = (el, colorStr) => {
+    let col = parse(colorStr) || [27, 26, 23, 1];
+    for (let n = el; n && n !== document.documentElement; n = n.parentElement) {
+      const op = Number(getComputedStyle(n).opacity);
+      if (Number.isFinite(op) && op < 1) col = [col[0], col[1], col[2], col[3] * op];
+    }
+    return col;
+  };
+  const hidden = (el) => {
+    if (!el || !(el instanceof Element)) return true;
+    if (el.closest(".visually-hidden,[hidden]")) return true;
+    if (el.classList.contains("hidden") || el.classList.contains("is-hidden")) return true;
+    const st = getComputedStyle(el);
+    if (st.display === "none" || st.visibility === "hidden" || Number(st.opacity) === 0) return true;
+    const r = el.getBoundingClientRect();
+    return r.width < 0.5 || r.height < 0.5;
+  };
+  const largeText = (st) => {
+    const px = parseFloat(st.fontSize) || 0;
+    const weight = parseInt(st.fontWeight, 10) || 400;
+    return px >= 24 || (px >= 18.66 && weight >= 700);
+  };
+  const contrastIssues = [];
+  const exemptions = [];
+  const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
+  let node;
+  while ((node = walker.nextNode())) {
+    const text = node.textContent.replace(/\\s+/g, " ").trim();
+    if (!text) continue;
+    const el = node.parentElement;
+    if (!el || hidden(el) || el.closest("script,style,noscript")) continue;
+    const st = getComputedStyle(el);
+    const fg = effectiveFg(el, st.color);
+    const bg = stackedBg(el);
+    const composed = mix(fg, bg);
+    const r = ratio(composed, bg);
+    const min = largeText(st) ? 3 : 4.5;
+    const disabled = !!(el.closest("[disabled], [aria-disabled='true']"));
+    if (disabled) {
+      exemptions.push({ text: text.slice(0, 48), why: "disabled control text", ratio: +r.toFixed(2) });
+      continue;
+    }
+    if (largeText(st) && r >= 3 && r < 4.5) {
+      exemptions.push({ text: text.slice(0, 48), why: "large text (≥18pt or ≥14pt bold) uses 3:1", ratio: +r.toFixed(2), px: parseFloat(st.fontSize) });
+      continue;
+    }
+    if (r + 1e-6 < min) {
+      contrastIssues.push({
+        text: text.slice(0, 64),
+        ratio: +r.toFixed(2),
+        min,
+        color: st.color,
+        bg: st.backgroundColor,
+        px: parseFloat(st.fontSize),
+        tag: el.tagName.toLowerCase() + (el.id ? "#" + el.id : "") + (el.className ? "." + String(el.className).trim().split(/\\s+/).slice(0, 2).join(".") : ""),
+      });
+    }
+  }
+  for (const el of document.querySelectorAll("*")) {
+    if (hidden(el)) continue;
+    for (const pseudo of ["::before", "::after"]) {
+      const st = getComputedStyle(el, pseudo);
+      const raw = st.content;
+      if (!raw || raw === "none" || raw === "normal" || raw === '""' || raw === "''") continue;
+      const text = raw.replace(/^["']|["']$/g, "").trim();
+      if (!text || !/[\\p{L}\\p{N}]/u.test(text)) continue;
+      const fg = effectiveFg(el, st.color);
+      const bg = stackedBg(el);
+      const r = ratio(mix(fg, bg), bg);
+      const min = largeText(st) ? 3 : 4.5;
+      if (r + 1e-6 < min) contrastIssues.push({ text: text.slice(0, 64), ratio: +r.toFixed(2), min, pseudo, tag: el.tagName.toLowerCase() });
+    }
+  }
+  const sel = [
+    "button", "a[href]", "summary", "input:not([type=hidden])", "select", "textarea",
+    "[role=button]", "[role=tab]", "[role=switch]", "[role=checkbox]",
+    "[tabindex]:not([tabindex='-1'])", ".term[data-term]",
+  ].join(",");
+  const seen = new Set();
+  const targets = [];
+  for (const el of document.querySelectorAll(sel)) {
+    if (seen.has(el) || hidden(el)) continue;
+    seen.add(el);
+    const box = el.getBoundingClientRect();
+    targets.push({
+      id: el.id, tag: el.tagName.toLowerCase(), cls: String(el.className || "").split(/\\s+/).slice(0, 2).join("."),
+      role: el.getAttribute("role"), w: +box.width.toFixed(2), h: +box.height.toFixed(2),
+      ok: box.width + 0.01 >= 44 && box.height + 0.01 >= 44,
+    });
+  }
+  if (window.__repforgeHeard instanceof Set) {
+    for (const el of window.__repforgeHeard) {
+      if (!(el instanceof Element) || seen.has(el) || hidden(el)) continue;
+      seen.add(el);
+      const box = el.getBoundingClientRect();
+      targets.push({
+        id: el.id, tag: el.tagName.toLowerCase(), cls: "heard",
+        w: +box.width.toFixed(2), h: +box.height.toFixed(2),
+        ok: box.width + 0.01 >= 44 && box.height + 0.01 >= 44,
+      });
+    }
+  }
+  const fields = [...document.querySelectorAll("input:not([type=hidden]):not([type=checkbox]):not([type=radio]),select,textarea")]
+    .filter((el) => !hidden(el))
+    .map((el) => ({ id: el.id, px: parseFloat(getComputedStyle(el).fontSize) }));
+  return {
+    contrastIssues,
+    exemptions,
+    smallTargets: targets.filter((t) => !t.ok),
+    targetCount: targets.length,
+    smallFields: fields.filter((f) => f.px + 1e-6 < 16),
+  };
+})()`;
+
+async function installVisualHooks(context) {
+  await context.addInitScript(() => {
+    window.__repforgeHeard = new Set();
+    const orig = EventTarget.prototype.addEventListener;
+    EventTarget.prototype.addEventListener = function (type, fn, opts) {
+      if (this instanceof Element && (type === "click" || type === "keydown" || type === "keyup" || type === "pointerup")) {
+        window.__repforgeHeard.add(this);
+      }
+      return orig.call(this, type, fn, opts);
+    };
+    const proto = CanvasRenderingContext2D.prototype;
+    const origFillText = proto.fillText;
+    proto.fillText = function (text, x, y, ...rest) {
+      const c = this.canvas;
+      c.__fillTexts = c.__fillTexts || [];
+      c.__fillTexts.push({ text: String(text), fillStyle: String(this.fillStyle), font: String(this.font) });
+      return origFillText.call(this, text, x, y, ...rest);
+    };
+  });
+}
+
+async function seedLangUnit(page, lang, unit, populated) {
+  const blob = sampleState({
+    log: populated
+      ? sampleState().log.concat([
+          {
+            session: "s2",
+            date: "2026-01-09",
+            day: "Day 1",
+            name: "Press",
+            exerciseId: "ex1",
+            set: 1,
+            load: 65,
+            reps: 9,
+            rir: 1,
+            notes: "",
+            created: "2026-01-09T00:00:00.000Z",
+            primary: "Chest",
+            secondary: "",
+          },
+        ])
+      : [],
+  });
+  blob.settings.lang = lang;
+  blob.settings.unit = unit;
+  await page.evaluate(
+    async ({ k, blob }) => {
+      localStorage.setItem(k, JSON.stringify(blob));
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(blob, k);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    },
+    { k: KEY, blob }
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+}
+
+async function showView(page, view) {
+  await page.evaluate((v) => {
+    document.body.classList.remove("is-settings", "is-exercise", "is-onboarding");
+    const settings = document.querySelector("#settings");
+    if (settings) settings.classList.remove("active");
+    const btn = document.querySelector(`nav button[data-view="${v}"]`);
+    if (btn) btn.click();
+    else if (v === "settings") document.querySelector("#openSettings")?.click();
+  }, view);
+  if (view !== "settings") await page.waitForSelector(`#${view}.view.active`);
+}
+
+async function visitSurfaces(page) {
+  await showView(page, "log");
+  await page.evaluate(() => toast("audit toast"));
+  await showView(page, "stats");
+  await page.evaluate(() => {
+    if (typeof setStatsSeg === "function") {
+      setStatsSeg("overview");
+      setStatsSeg("strength");
+      setStatsSeg("volume");
+      setStatsSeg("prs");
+      setStatsSeg("overview");
+    }
+  });
+  await showView(page, "history");
+  await showView(page, "program");
+  await showView(page, "log");
+  await page.click("#openSettings");
+  await page.waitForSelector("#settings.view.active");
+  await showView(page, "log");
+  const start = page.locator("#startWorkout");
+  if (await start.isVisible()) {
+    await start.click();
+    await page.waitForSelector("#workoutShell:not(.hidden)");
+    await page.evaluate(() => {
+      if (typeof setLogMode === "function") setLogMode("full");
+    });
+    const term = page.locator(".term[data-term]").first();
+    if (await term.count()) await term.click().catch(() => {});
+  }
+}
+
+function canvasContrast(page, sel) {
+  return page.evaluate((selector) => {
+    const parse = (str) => {
+      if (!str || str === "transparent") return [0, 0, 0, 0];
+      const m = String(str).match(/rgba?\((\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)(?:[,\s/]+(\d+(?:\.\d+)?))?\)/i);
+      if (m) return [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]];
+      const h = String(str).trim();
+      if (h[0] === "#" && (h.length === 7 || h.length === 9)) {
+        return [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16), h.length === 9 ? parseInt(h.slice(7, 9), 16) / 255 : 1];
+      }
+      if (h[0] === "#" && h.length === 4) {
+        return [parseInt(h[1] + h[1], 16), parseInt(h[2] + h[2], 16), parseInt(h[3] + h[3], 16), 1];
+      }
+      return null;
+    };
+    const lum = (rgb) => {
+      const c = rgb.slice(0, 3).map((v) => {
+        const s = v / 255;
+        return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const ratio = (a, b) => {
+      const [l1, l2] = [lum(a), lum(b)].sort((x, y) => y - x);
+      return (l1 + 0.05) / (l2 + 0.05);
+    };
+    const css = getComputedStyle(document.documentElement);
+    const bgHex = css.getPropertyValue("--bg").trim() || "#F4F2EF";
+    const bg = parse(bgHex) || parse("rgb(244, 242, 239)");
+    const c = document.querySelector(selector);
+    const texts = c?.__fillTexts || [];
+    const palette = window.__repforgeChartPalette?.() || null;
+    const fails = [];
+    for (const t of texts) {
+      const fg = parse(t.fillStyle);
+      if (!fg) {
+        fails.push({ text: t.text, fillStyle: t.fillStyle, reason: "unparsed" });
+        continue;
+      }
+      const r = ratio(fg, bg);
+      if (r + 1e-6 < 4.5) fails.push({ text: t.text, fillStyle: t.fillStyle, ratio: +r.toFixed(2) });
+    }
+    return { count: texts.length, fails, palette, bg: bgHex };
+  }, sel);
+}
+
+async function runVisualAccessibility(browser) {
+console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
+
+{
+  const { context, page } = await freshPage(browser);
+  const meta = await page.evaluate(() => {
+    const content = document.querySelector('meta[name="viewport"]')?.content || "";
+    return {
+      content,
+      blocks: /\bmaximum-scale\b/.test(content) || /\buser-scalable\s*=\s*no\b/i.test(content),
+      root: getComputedStyle(document.documentElement).touchAction,
+    };
+  });
+  assert(!meta.blocks && /width=device-width/.test(meta.content) && /initial-scale=1/.test(meta.content), "viewport does not prohibit zoom", JSON.stringify(meta));
+  assert(meta.root === "manipulation", "root retains touch-action:manipulation", meta.root);
+  await page.click("#startWorkout");
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+  const fonts = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll("#workout input:not([type=hidden]):not([type=checkbox]):not([type=radio]), #workout select, #workout textarea, #notes, #bodyweight, #date")];
+    return nodes.filter((el) => getComputedStyle(el).display !== "none").map((el) => ({ id: el.id, px: parseFloat(getComputedStyle(el).fontSize) }));
+  });
+  assert(fonts.every((f) => f.px >= 16), "visible editable fields are at least 16px", JSON.stringify(fonts));
+  const touch = await page.evaluate(() => {
+    const step = document.querySelector(".stepbtn, .curset__step");
+    const field = document.querySelector("#workout input, #workout .curset__val");
+    return {
+      step: step ? getComputedStyle(step).touchAction : null,
+      field: field ? getComputedStyle(field).touchAction : null,
+    };
+  });
+  assert(touch.step === "manipulation" && touch.field === "manipulation", "controls retain touch-action:manipulation", JSON.stringify(touch));
+  await page.evaluate(() => setLogMode("focus"));
+  await page.waitForSelector("#workout .exercise.is-current");
+  const grip = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const ledger = card?.querySelector(".fcard__ledger");
+    return {
+      card: card ? getComputedStyle(card).touchAction : null,
+      ledger: ledger ? getComputedStyle(ledger).touchAction : null,
+      scrolls: ledger ? ledger.scrollHeight > ledger.clientHeight + 1 : false,
+    };
+  });
+  const wantLedger = grip.scrolls ? "pan-y pinch-zoom" : "pinch-zoom";
+  assert(grip.card === "pan-y pinch-zoom" && grip.ledger === wantLedger, "Focus card/ledger allow pinch zoom", JSON.stringify(grip));
+  await context.close();
+}
+
+{
+  const context = await browser.newContext();
+  await installVisualHooks(context);
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await clearState(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.click("#openSettings");
+  await page.waitForSelector("#settings.view.active");
+  const settingsRing = await page.evaluate(() => {
+    const el = document.querySelector("#unit, .settings-row select");
+    el?.focus();
+    const st = getComputedStyle(el);
+    return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow };
+  });
+  assert(
+    (settingsRing.outline !== "none" && settingsRing.outlineW > 0) || (settingsRing.shadow && settingsRing.shadow !== "none"),
+    "Settings select shows a non-zero focus outline/ring",
+    JSON.stringify(settingsRing)
+  );
+  await page.evaluate(() => {
+    document.body.classList.remove("is-settings", "is-exercise", "is-onboarding");
+    document.querySelector("#settings")?.classList.remove("active");
+    document.querySelector('nav button[data-view="stats"]')?.click();
+  });
+  await page.waitForSelector("#stats.view.active");
+  await page.evaluate(() => typeof setStatsSeg === "function" && setStatsSeg("overview"));
+  await page.waitForSelector("#statExercise", { state: "visible" });
+  const strengthRing = await page.evaluate(() => {
+    const el = document.querySelector("#statExercise");
+    if (!el) return { missing: true };
+    el.focus();
+    const st = getComputedStyle(el);
+    return { outline: st.outlineStyle, outlineW: parseFloat(st.outlineWidth) || 0, shadow: st.boxShadow, outlineColor: st.outlineColor };
+  });
+  assert(
+    !strengthRing.missing && ((strengthRing.outline !== "none" && strengthRing.outlineW > 0) || (strengthRing.shadow && strengthRing.shadow !== "none")),
+    "Strength select shows a non-zero focus outline/ring",
+    JSON.stringify(strengthRing)
+  );
+  await context.close();
+}
+
+{
+  const { context, page } = await freshPage(browser);
+  const states = [
+    ["en", "kg", "Bodyweight (kg, optional)"],
+    ["en", "lb", "Bodyweight (lb, optional)"],
+    ["pt", "kg", "Peso corporal (kg, opcional)"],
+    ["pt", "lb", "Peso corporal (lb, opcional)"],
+  ];
+  for (const [lang, unit, expected] of states) {
+    await page.evaluate(
+      ({ lang, unit }) => {
+        state.settings.lang = lang;
+        state.settings.unit = unit;
+        if (window.RepForgeI18n) window.RepForgeI18n.setLang(lang);
+        syncLang();
+        updateBodyweightField();
+      },
+      { lang, unit }
+    );
+    await page.click("#startWorkout").catch(() => {});
+    const info = await page.evaluate((expected) => {
+      const lbl = document.querySelector("#bodyweightLabel");
+      const span = lbl?.querySelector("span");
+      const extras = [...(lbl?.childNodes || [])].filter((n) => n.nodeType === 3 && n.textContent.trim()).map((n) => n.textContent);
+      const hits = (lbl?.textContent || "").match(/Bodyweight|Peso corporal/g) || [];
+      return { span: (span?.textContent || "").replace(/\s+/g, " ").trim(), extras, hits: hits.length, expected };
+    }, expected);
+    assert(
+      info.span === expected && info.extras.length === 0 && info.hits === 1,
+      `bodyweight label is singular and translated (${lang}/${unit})`,
+      JSON.stringify(info)
+    );
+  }
+  await context.close();
+}
+
+{
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  await installVisualHooks(context);
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await clearState(page);
+  for (const populated of [false, true]) {
+    for (const lang of ["en", "pt"]) {
+      await seedLangUnit(page, lang, "kg", populated);
+      await visitSurfaces(page);
+      const audit = await page.evaluate(AUDIT_JS);
+      assert(
+        audit.contrastIssues.length === 0,
+        `visible text contrast ≥4.5:1 (${lang}, ${populated ? "populated" : "empty"})`,
+        JSON.stringify({ issues: audit.contrastIssues.slice(0, 8), exemptions: audit.exemptions.slice(0, 6) })
+      );
+      await page.evaluate(() => {
+        document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-focus-wo");
+        if (typeof leaveWorkout === "function") leaveWorkout();
+        document.querySelector('nav button[data-view="stats"]')?.click();
+      });
+      await page.waitForSelector("#stats.view.active");
+      await page.evaluate(() => {
+        if (typeof redrawChart === "function") redrawChart();
+        const canvas = document.querySelector("#chart");
+        if (canvas) canvas.__fillTexts = [];
+        if (typeof draw === "function") {
+          const rows = (state.log || []).filter((r) => r.exerciseId === (state.program?.[0]?.id)).map((r) => ({ date: r.date, e1rm: r.load * (1 + r.reps / 30), top: r.load }));
+          draw(rows.length ? rows : [], "#chart");
+        }
+      });
+      const chart = await canvasContrast(page, "#chart");
+      assert(chart.fails.length === 0, `#chart canvas text contrast (${lang}, ${populated ? "populated" : "empty"})`, JSON.stringify(chart));
+      assert(!!chart.palette && !!chart.palette.text, "window.__repforgeChartPalette exposes tokenized chart text color", JSON.stringify(chart.palette));
+      await page.evaluate(() => {
+        const key = state.program?.[0]?.id;
+        if (key && typeof openExerciseView === "function") openExerciseView(key, "stats");
+      });
+      await page.waitForSelector("#exChart", { timeout: 8000 });
+      await page.evaluate((populated) => {
+        const ex = document.querySelector("#exChart");
+        if (ex) ex.__fillTexts = [];
+        if (typeof draw === "function") {
+          const rows = (state.log || []).filter((r) => r.exerciseId === (state.program?.[0]?.id)).map((r) => ({ date: r.date, e1rm: r.load * (1 + r.reps / 30), top: r.load }));
+          draw(populated ? rows : [], "#exChart");
+        }
+      }, populated);
+      const exChart = await canvasContrast(page, "#exChart");
+      assert(exChart.fails.length === 0, `#exChart canvas text contrast (${lang}, ${populated ? "populated" : "empty"})`, JSON.stringify(exChart));
+      await page.evaluate(() => {
+        document.body.classList.remove("is-exercise");
+        if (typeof closeExerciseView === "function") closeExerciseView();
+      });
+    }
+  }
+  await context.close();
+}
+
+{
+  for (const vp of VIEWPORTS) {
+    const context = await browser.newContext({ viewport: { width: vp.w, height: vp.h } });
+    await installVisualHooks(context);
+    const page = await context.newPage();
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await clearState(page);
+    await seedLangUnit(page, "en", "kg", true);
+    await visitSurfaces(page);
+    const audit = await page.evaluate(AUDIT_JS);
+    assert(
+      audit.smallTargets.length === 0,
+      `visible actions are at least 44×44 CSS px (${vp.name})`,
+      JSON.stringify({ count: audit.targetCount, small: audit.smallTargets.slice(0, 12) })
+    );
+    await context.close();
+  }
+}
+
+}
+
 async function main() {
   const browser = await launchChromium();
   await runAccessibleInteractions(browser);
@@ -1205,6 +1737,7 @@ async function main() {
   await waitForApp(page);
   await runHistoryIndexChecks(page, assert);
   await runHistoryOperabilityChecks(page, assert);
+  await runVisualAccessibility(browser);
   await browser.close();
   console.log(`\n${results.passed} passed, ${results.failed} failed`);
   process.exit(results.failed > 0 ? 1 : 0);

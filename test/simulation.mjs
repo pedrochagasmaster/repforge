@@ -878,10 +878,10 @@ async function main() {
     };
   });
   assert(
-    /\bmaximum-scale=1\b/.test(zoomPolicy.meta) && /\buser-scalable=no\b/.test(zoomPolicy.meta),
-    "Viewport meta pins the scale, so the page cannot be zoomed",
+    !/\bmaximum-scale\b/.test(zoomPolicy.meta) && !/\buser-scalable\s*=\s*no\b/i.test(zoomPolicy.meta),
+    "Viewport meta allows pinch zoom",
     JSON.stringify(zoomPolicy),
-    "Inspect <meta name=viewport> → maximum-scale=1, user-scalable=no"
+    "Inspect <meta name=viewport> → no maximum-scale or user-scalable=no"
   );
   assert(
     zoomPolicy.root === "manipulation" &&
@@ -4182,10 +4182,10 @@ async function main() {
   });
   assert(
     scrollPolicy.overflows === scrollPolicy.marked &&
-      scrollPolicy.touch === "pan-y" && !scrollPolicy.wellScrolls,
+      scrollPolicy.touch === "pan-y pinch-zoom" && !scrollPolicy.wellScrolls,
     "the ledger is the only scrolling region of the card",
     JSON.stringify(scrollPolicy),
-    "Focus → vertical gestures scroll the ledger; the well never scrolls"
+    "Focus → vertical gestures scroll the ledger; pinch zoom remains available"
   );
   while ((await page.evaluate(() => document.querySelector("#woPrev")?.disabled)) === false) {
     await page.click("#woPrev");
