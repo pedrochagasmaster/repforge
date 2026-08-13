@@ -6801,6 +6801,317 @@ async function main() {
     JSON.stringify({ follow: afterDone._storageFollowUp }),
     "Edit onboarding → Program Done"
   );
+  await page.evaluate(() => {
+    if (typeof window.closeTour === "function") window.closeTour();
+  });
+
+  beginPhase("Honest affordances, tour, and deletion copy");
+  await nav(page, "log");
+  const firstExId = await page.evaluate(() => {
+    const b = document.querySelector("#todayExList [data-exopen], #workout [data-exopen]");
+    return b?.getAttribute("data-exopen") || "";
+  });
+  if (!firstExId) {
+    await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  }
+  const exId = firstExId || (await page.evaluate(() => document.querySelector("#workout [data-exopen]")?.getAttribute("data-exopen") || ""));
+  if (exId) {
+    await page.evaluate((id) => {
+      const b = document.querySelector(`[data-exopen="${id}"]`);
+      if (b) b.click();
+      else window.openExerciseView?.(id, "log");
+    }, exId);
+    await page.waitForSelector("#exercise.view.active, body.is-exercise", { timeout: 5000 });
+    const residue = await page.evaluate(() => {
+      const range = document.querySelector("#exDetail .range-static, #exDetail .range-quiet");
+      const records = [...document.querySelectorAll("#exDetail .listrow")].filter((el) => !el.id && !el.closest("#exSeePrs"));
+      const actionable = (el) => {
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return {
+          tag: el.tagName,
+          role: el.getAttribute("role"),
+          tabindex: el.getAttribute("tabindex"),
+          cursor: cs.cursor,
+          cls: el.className,
+          hasOnclick: typeof el.onclick === "function",
+          caret: !!el.querySelector(".caret, .chevron"),
+        };
+      };
+      return { range: actionable(range), records: records.map(actionable), seePrs: !!document.querySelector("#exSeePrs") };
+    });
+    assert(
+      residue.range &&
+        residue.range.tag !== "BUTTON" &&
+        residue.range.role !== "button" &&
+        residue.range.cursor !== "pointer" &&
+        !residue.range.caret &&
+        !/\bbtn\b|\brange-quiet\b|\blink-/.test(residue.range.cls),
+      "Exercise 12-week range is static text without action residue",
+      JSON.stringify(residue.range)
+    );
+    assert(
+      residue.records.every(
+        (r) => r.tag !== "BUTTON" && r.role !== "button" && r.cursor !== "pointer" && !r.caret && !r.hasOnclick
+      ),
+      "Exercise record rows are static without chevrons or handlers",
+      JSON.stringify(residue.records)
+    );
+    const before = await page.evaluate((d) => ({
+      view: document.querySelector(".view.active")?.id,
+      draft: localStorage.getItem(d),
+      log: JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.length,
+    }), DRAFT);
+    await page.evaluate(() => {
+      const els = [...document.querySelectorAll("#exDetail .range-static, #exDetail .listrow--static")];
+      for (const el of els) {
+        el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+      }
+    });
+    const after = await page.evaluate((d) => ({
+      view: document.querySelector(".view.active")?.id,
+      draft: localStorage.getItem(d),
+      log: JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.length,
+    }), DRAFT);
+    assert(
+      before.view === after.view && before.draft === after.draft && before.log === after.log,
+      "Clicking static range/records does not change route, draft, or log",
+      JSON.stringify({ before, after })
+    );
+    await page.click("#exBack");
+  } else {
+    assert(false, "Exercise detail opened for static-affordance checks", "no exercise id");
+  }
+
+  const statsPeriodGone = await page.evaluate(() => !document.querySelector("#statsPeriod"));
+  assert(statsPeriodGone, "#statsPeriod is absent; volume window stays on #volWindow", "statsPeriod still in DOM");
+  await nav(page, "stats");
+  const volWindow = await page.locator("#volWindow").count();
+  assert(volWindow === 1, "Completed hard sets still has the 7/28-day control", `volWindow=${volWindow}`);
+
+  const positioning = await page.evaluate(async () => {
+    const manifest = await (await fetch("./manifest.webmanifest")).json();
+    const readme = await (await fetch("./README.md")).text();
+    const blob = `${manifest.description}\n${readme}`;
+    return {
+      description: manifest.description,
+      machine: /machine-only/i.test(blob),
+      localOnlyStorage: /localStorage-only/i.test(blob),
+      equipment: /machines/i.test(blob) && /cables/i.test(blob) && /dumbbells/i.test(blob) && /barbells/i.test(blob) && /bodyweight/i.test(blob),
+    };
+  });
+  assert(
+    positioning.equipment && !positioning.machine && !positioning.localOnlyStorage,
+    "Manifest and README name broad equipment and drop machine-only/localStorage-only claims",
+    JSON.stringify(positioning)
+  );
+
+  const deleteCopy = await page.evaluate(() => ({
+    label: window.RepForgeI18n.t("settings.delete_all"),
+    confirm: window.RepForgeI18n.t("confirm.delete_log"),
+    lede: window.RepForgeI18n.t("settings.danger_lede"),
+  }));
+  assert(
+    /workout history/i.test(deleteCopy.label) &&
+      /draft/i.test(deleteCopy.confirm) &&
+      /program/i.test(deleteCopy.confirm) &&
+      /settings/i.test(deleteCopy.confirm),
+    "Deletion copy names workout history and retained program/Settings",
+    JSON.stringify(deleteCopy)
+  );
+
+  const stateBeforeDelete = await getState(page);
+  await page.evaluate((d) => localStorage.setItem(d, JSON.stringify({ note: "keep-me-not" })), DRAFT);
+  await nav(page, "settings");
+  const progLen = stateBeforeDelete.program.length;
+  const settingsUnit = stateBeforeDelete.settings.unit;
+  await page.click("#reset");
+  await page.waitForTimeout(100);
+  const afterDelete = await getState(page);
+  const draftGone = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
+  assert(
+    afterDelete.log.length === 0 &&
+      !draftGone &&
+      afterDelete.program.length === progLen &&
+      afterDelete.settings.unit === settingsUnit,
+    "Delete workout history clears log and draft but keeps program and Settings",
+    `log=${afterDelete.log.length} draft=${draftGone} program=${afterDelete.program.length}`
+  );
+
+  const tourCopy = await page.evaluate(() => {
+    const en = window.RepForgeI18n.STRINGS.en;
+    const pt = window.RepForgeI18n.STRINGS.pt;
+    return {
+      en3: en["tour.3.body"],
+      pt3: pt["tour.3.body"],
+      en4: en["tour.4.body"],
+      pt4: pt["tour.4.body"],
+    };
+  });
+  assert(
+    /header arrows|swipe/i.test(tourCopy.en3) &&
+      /setas do cabeçalho|deslize/i.test(tourCopy.pt3) &&
+      !/bottom/i.test(tourCopy.en3) &&
+      /header rest/i.test(tourCopy.en4),
+    "Tour step 3/4 copy teaches swipe, header chevrons, and header rest in both languages",
+    JSON.stringify(tourCopy)
+  );
+
+  await page.evaluate(() => window.startTour("first-run"));
+  await page.waitForSelector("#tour:not(.hidden)", { timeout: 3000 });
+  const tourModal = await page.evaluate(() => {
+    const tour = document.querySelector("#tour");
+    const focused = document.activeElement?.id;
+    const inertMain = document.querySelector("main")?.inert;
+    return { modal: tour?.getAttribute("aria-modal"), focused, inertMain, hidden: tour?.classList.contains("hidden") };
+  });
+  assert(
+    tourModal.modal === "true" && tourModal.focused === "tourSkip" && tourModal.inertMain === true,
+    "Tour is aria-modal with Skip focused and the preview surface inert",
+    JSON.stringify(tourModal)
+  );
+
+  const stepAt = async (n) => {
+    await page.evaluate((i) => {
+      while (window.__repforgeUi && document.querySelector("#tour:not(.hidden)")) {
+        const eyebrow = document.querySelector("#tourEyebrow")?.textContent || "";
+        const cur = +(eyebrow.match(/(\d+)/) || [])[1] || 1;
+        if (cur - 1 === i) break;
+        if (cur - 1 < i) document.querySelector("#tourNext")?.click();
+        else document.querySelector("#tourBack")?.click();
+        break;
+      }
+    }, n);
+    for (let i = 0; i < 12; i++) {
+      const cur = await page.evaluate(() => {
+        const t = document.querySelector("#tourEyebrow")?.textContent || "";
+        return +(t.match(/(\d+)/) || [])[1] || 1;
+      });
+      if (cur - 1 === n) break;
+      if (cur - 1 < n) await page.click("#tourNext");
+      else await page.click("#tourBack");
+    }
+    return page.evaluate(() => ({
+      view: document.querySelector(".view.active")?.id,
+      workout: document.body.classList.contains("is-workout"),
+      focus: document.body.classList.contains("is-focus-wo"),
+      overflow: !document.querySelector("#woOverflow")?.classList.contains("hidden"),
+      arrows: !!document.querySelector("#woPrev"),
+      rest: !document.querySelector("#woRest")?.classList.contains("hidden"),
+      finishInView: !!document.querySelector("#logForm .btn--save"),
+    }));
+  };
+  const s0 = await stepAt(0);
+  assert(s0.view === "log" && !s0.workout, "Tour step 0 shows the Today dashboard", JSON.stringify(s0));
+  const s1 = await stepAt(1);
+  assert(s1.workout && !s1.focus && s1.overflow, "Tour step 1 is List with overflow open", JSON.stringify(s1));
+  const s2 = await stepAt(2);
+  assert(s2.workout && !s2.focus && s2.overflow, "Tour step 2 keeps List overflow open for layout controls", JSON.stringify(s2));
+  const s3 = await stepAt(3);
+  assert(s3.workout && s3.focus && !s3.overflow && s3.arrows, "Tour step 3 is Focus with header arrows and overflow closed", JSON.stringify(s3));
+  const s4 = await stepAt(4);
+  assert(s4.workout && s4.focus && s4.rest, "Tour step 4 shows the header rest control", JSON.stringify(s4));
+  const s5 = await stepAt(5);
+  assert(s5.workout && !s5.focus && s5.finishInView, "Tour step 5 is List with Finish workout in view", JSON.stringify(s5));
+  const s6 = await stepAt(6);
+  assert(s6.view === "stats", "Tour step 6 opens Progress", JSON.stringify(s6));
+
+  const draftDuring = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
+  const logDuring = (await getState(page)).log.length;
+  await page.click("#tourSkip");
+  const firstRunExit = await page.evaluate(() => ({
+    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
+    view: document.querySelector(".view.active")?.id,
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.activeElement?.id,
+    tourDone: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").tourDone,
+  }));
+  assert(
+    firstRunExit.hidden && firstRunExit.view === "log" && !firstRunExit.workout && firstRunExit.focus === "startWorkout" && firstRunExit.tourDone,
+    "First-run Skip ends on Today with focus on Start workout",
+    JSON.stringify(firstRunExit)
+  );
+  assert(draftDuring == null || draftDuring === (await page.evaluate((d) => localStorage.getItem(d), DRAFT)), "Tour preview does not write a draft", draftDuring);
+
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.waitForTimeout(80);
+  const replaySnap = await page.evaluate(() => ({
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.body.classList.contains("is-focus-wo"),
+    day: document.querySelector("#woDayTitle")?.textContent || "",
+  }));
+  await page.evaluate(() => window.startTour("replay"));
+  await page.waitForSelector("#tour:not(.hidden)");
+  await page.click("#tourNext");
+  await page.click("#tourSkip");
+  const replaySkip = await page.evaluate(() => ({
+    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.body.classList.contains("is-focus-wo"),
+    focused: document.activeElement?.id,
+  }));
+  assert(
+    replaySkip.hidden && replaySkip.workout === replaySnap.workout && replaySkip.focus === replaySnap.focus,
+    "Replay Skip restores the pre-tour workout snapshot",
+    JSON.stringify({ replaySnap, replaySkip })
+  );
+
+  await page.evaluate(() => window.startTour("replay"));
+  await page.waitForSelector("#tour:not(.hidden)");
+  for (let i = 0; i < 12; i++) {
+    const last = await page.evaluate(() => document.querySelector("#tourNext")?.textContent || "");
+    await page.click("#tourNext");
+    if (/done|concluir|pronto/i.test(last)) break;
+  }
+  const replayDone = await page.evaluate(() => ({
+    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.body.classList.contains("is-focus-wo"),
+  }));
+  assert(
+    replayDone.hidden && replayDone.workout === replaySnap.workout && replayDone.focus === replaySnap.focus,
+    "Replay Done restores the pre-tour snapshot",
+    JSON.stringify(replayDone)
+  );
+
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => {
+    document.querySelectorAll("#workout [data-skip]").forEach((b) => b.click());
+  });
+  const skippedBefore = await page.evaluate(() => document.querySelectorAll("#workout .exercise.is-skipped, #workout .skipbar").length);
+  const logBeforeSkipTour = (await getState(page)).log.length;
+  await page.evaluate(() => window.startTour("replay"));
+  await stepAt(3);
+  const previewName = await page.evaluate(() => document.querySelector("#workout .focus-ex__name")?.textContent || "");
+  const skippedUnchanged = await page.evaluate(() => {
+    window.closeTour();
+    return document.querySelectorAll("#workout [data-skip]").length;
+  });
+  assert(!!previewName, "All-skipped Focus preview still shows the first program exercise", `name=${previewName}`);
+  assert((await getState(page)).log.length === logBeforeSkipTour, "All-skipped tour preview does not mutate the log", "");
+
+  await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#restSecPanel")?.classList.add("is-open"));
+  await page.fill("#restSec", "0");
+  await page.evaluate(() => document.querySelector("#restSec")?.dispatchEvent(new Event("change", { bubbles: true })));
+  await page.waitForTimeout(50);
+  await page.evaluate(() => window.startTour("replay"));
+  await stepAt(4);
+  const restPreview = await page.evaluate(() => ({
+    visible: !document.querySelector("#woRest")?.classList.contains("hidden"),
+    disabled: !!document.querySelector("#woRest")?.disabled,
+    hint: document.querySelector("#woRestPreviewHint")?.textContent || "",
+    running: document.querySelector("#woRest")?.classList.contains("is-running"),
+  }));
+  await page.click("#tourSkip");
+  assert(
+    restPreview.visible && restPreview.disabled && restPreview.hint && !restPreview.running,
+    "Disabled-rest tour preview shows the header control without starting a timer",
+    JSON.stringify(restPreview)
+  );
 
   beginPhase("History index and operability");
   await runHistoryOperabilityChecks(page, (cond, name, detail) =>

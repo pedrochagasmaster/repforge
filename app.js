@@ -1332,7 +1332,12 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   el.placeholder=unitLabel();
   const lbl=$("#bodyweightLabel")?.querySelector("span");
   if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
-function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
+function focusList(){
+  const exs=exercises();
+  if(tourActive&&tourPreview?.ignoreSkipped){
+    const first=exs[0];
+    return first?[first]:[]}
+  return exs.filter(e=>!skipped.has(e.id))}
 function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   menu.classList.toggle("hidden",!open);
   $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
@@ -1597,12 +1602,23 @@ function paintRest(text,done){
 function updateRestChrome(){
   const focus=workoutActive&&logMode==="focus";
   const chip=$("#woRest");
+  const preview=tourActive&&tourPreview?.showRest;
+  const restOn=+state.settings.restSec>0;
   if(chip){
-    const on=focus&&+state.settings.restSec>0;
+    const on=focus&&(restOn||preview);
     chip.classList.toggle("hidden",!on);
     chip.classList.toggle("is-running",!!restEnd);
-    if(!restEnd){chip.classList.remove("is-done");
-      chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
+    chip.disabled=!!(preview&&!restOn);
+    if(preview&&!restOn){
+      chip.setAttribute("aria-label",t("tour.rest_preview_aria"));
+      let hint=$("#woRestPreviewHint");
+      if(!hint){hint=document.createElement("p");hint.id="woRestPreviewHint";hint.className="tour-rest-hint";chip.insertAdjacentElement("afterend",hint)}
+      hint.textContent=t("tour.rest_preview_hint");hint.hidden=false}
+    else{
+      const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
+      if(!restEnd){chip.classList.remove("is-done");
+        chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
+    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restAnnounced=false;
@@ -2711,7 +2727,6 @@ function renderStats(){
   if(statsSeg==="strength")renderStrengthDash();
   if(statsSeg==="volume")renderVolumeDash();
   if(statsSeg==="prs")renderPRTimeline();
-  const period=$("#statsPeriod");if(period)period.textContent=volWindow===7?t("stats.window.7_days"):t("stats.window.28_days");
 }
 
 function detectPRs(log,opts={}){
@@ -3258,12 +3273,12 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<p class="exdet__meta">${tmpl?`${esc(tmpl.day)} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
     recHtml+
     `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
-    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><button type="button" class="range-quiet">${esc(t("exercise.range_12w"))}<span class="caret" aria-hidden="true"></span></button></p>`+
+    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
     `<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
     `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
     `<p class="section-label">${esc(t("exercise.records"))}</p>`+
-    (loadPr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
-    (e1Pr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
+    (loadPr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}</span></div>`:"")+
+    (e1Pr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}</span></div>`:"")+
     `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   draw(sums,"#exChart");
@@ -3827,8 +3842,61 @@ const TOUR=[
   {view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},
   {view:"stats"},{view:"history"},{view:"program"},{view:"settings"},{view:"settings",install:true}
 ];
-let tourStep=0,tourActive=false;
+let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourInertPrev=null;
 function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
+function tourFocusables(){return $$("#tour button, #tour [href], #tour input, #tour select, #tour textarea").filter(el=>!el.disabled&&el.offsetParent!==null)}
+function snapshotTourUi(){
+  const scrolls={};
+  for(const id of["log","stats","history","program","settings"]){const el=$("#"+id);if(el)scrolls[id]=el.scrollTop}
+  return{view:currentViewId(),settings:document.body.classList.contains("is-settings"),exercise:!!exView,
+    exView:exView?{key:exView.key,from:exView.from}:null,statsSeg,programEditMode,workoutActive,workoutLeft,logMode,focusIndex,
+    focusEdit:focusEdit?Object.assign({},focusEdit):null,overflow:!$("#woOverflow")?.classList.contains("hidden"),day,
+    date:$("#date")?.value||"",scrolls,windowScroll:window.scrollY}}
+function restoreTourUi(snap){
+  if(!snap)return;
+  tourPreview=null;day=snap.day;if($("#date")&&snap.date!=null)$("#date").value=snap.date;
+  logMode=snap.logMode;focusIndex=snap.focusIndex;focusEdit=snap.focusEdit;programEditMode=snap.programEditMode;
+  workoutLeft=snap.workoutLeft;
+  if(snap.statsSeg)setStatsSeg(snap.statsSeg);
+  document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+  if(snap.settings){showSettings()}
+  else if(snap.exercise&&snap.exView){openExerciseView(snap.exView.key,snap.exView.from)}
+  else{
+    $$("nav button").forEach(x=>{const on=x.dataset.view===snap.view;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id===snap.view))}
+  setWorkoutActive(!!snap.workoutActive);
+  document.body.classList.toggle("is-focus-wo",!!snap.workoutActive&&snap.logMode==="focus");
+  if(snap.workoutActive){renderTabs();renderWorkout()}
+  render();
+  setWorkoutOverflow(!!snap.overflow);
+  for(const[id,top]of Object.entries(snap.scrolls||{})){const el=$("#"+id);if(el)el.scrollTop=top}
+  window.scrollTo(0,snap.windowScroll||0)}
+function applyTourChoreography(step){
+  const focus=step===3||step===4,list=step===1||step===2||step===5,overflow=step===1||step===2;
+  tourPreview={step,ignoreSkipped:list||focus,showRest:step===4};
+  if(step===0){
+    setWorkoutActive(false);document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));renderToday();window.scrollTo({top:0});return}
+  if(step>=1&&step<=5){
+    document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
+    logMode=focus?"focus":"full";
+    $("#modeFull")?.classList.toggle("active",!focus);$("#modeFocus")?.classList.toggle("active",focus);
+    setWorkoutActive(true);renderTabs();renderWorkout();renderToday();setWorkoutOverflow(overflow);
+    if(step===5)$("#logForm .btn--save")?.scrollIntoView({block:"center"});return}
+  setWorkoutActive(false);
+  const s=tourSteps()[step];if(s?.view)navTo(s.view)}
+function openTourOverlay(){
+  const tour=$("#tour");if(!tour)return;
+  openModal(tour,{
+    initialFocus:$("#tourSkip"),
+    returnFocus:document.activeElement,
+    onEscape:()=>endTour(false)
+  })}
+function closeTourOverlay(){
+  closeModal($("#tour"))}
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
@@ -3851,11 +3919,14 @@ window.__repforgeFocus={
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
-function startTour(){tourStep=0;tourActive=true;hideInstallBanner(false);$("#tour").classList.remove("hidden");renderTour()}
+function startTour(origin){
+  tourOrigin=origin==="replay"?"replay":"first-run";
+  tourSnapshot=tourOrigin==="replay"?snapshotTourUi():null;
+  tourStep=0;tourActive=true;hideInstallBanner(false);openTourOverlay();renderTour()}
 function renderTour(){
   const steps=tourSteps(),s=steps[tourStep];
   if(!s){endTour(true);return}
-  if(s.view)navTo(s.view);
+  applyTourChoreography(tourStep);
   $("#tourEyebrow").textContent=t("tour.eyebrow_progress",{n:tourStep+1,total:steps.length});
   $("#tourTitle").textContent=t(`tour.${tourStep}.title`);
   const extra=$("#tourExtra");
@@ -3867,12 +3938,16 @@ function renderTour(){
   $("#tourDots").innerHTML=steps.map((_,i)=>`<span class="tour__dot${i===tourStep?" is-on":""}"></span>`).join("");
   $("#tourBack").classList.toggle("hidden",tourStep===0);
   $("#tourNext").textContent=tourStep===steps.length-1?t("tour.done"):t("tour.next");
-  window.scrollTo({top:0});
+  if(tourStep!==5)window.scrollTo({top:0});
 }
-function endTour(completed){tourActive=false;$("#tour").classList.add("hidden");setUiPref("tourDone",true);
-  if(completed)navTo("log");
-  maybeShowInstallBanner();}
-function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour();return true}
+function endTour(completed){
+  const origin=tourOrigin,snap=tourSnapshot;
+  closeTourOverlay();tourActive=false;tourPreview=null;tourOrigin=null;tourSnapshot=null;
+  if(origin==="first-run"){setUiPref("tourDone",true);setWorkoutActive(false);navTo("log");$("#startWorkout")?.focus()}
+  else if(origin==="replay"){restoreTourUi(snap);$("#replayTour")?.focus()}
+  else{setUiPref("tourDone",true);if(completed)navTo("log")}
+  maybeShowInstallBanner()}
+function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
 window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
 
@@ -3889,11 +3964,19 @@ function init(){
   $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
   $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
   $("#tourSkip").onclick=()=>endTour(false);
-  $("#replayTour").onclick=startTour;
+  $("#replayTour").onclick=()=>startTour("replay");
+  document.addEventListener("keydown",e=>{
+    if(!tourActive)return;
+    if(e.key==="Escape"){e.preventDefault();endTour(false);return}
+    if(e.key!=="Tab")return;
+    const stops=tourFocusables();if(!stops.length)return;
+    const first=stops[0],last=stops[stops.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
   $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
   // One rest control in the workout header: start it when idle, stop it when running.
-  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{restEnd?stopRest():startRest()};
+  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?stopRest():startRest()};
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
@@ -3907,6 +3990,7 @@ function init(){
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
   // iOS does not reliably bubble click to document, so touchstart backs it up.
   const dismissOverflow=e=>{
+    if(tourActive)return;
     const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
     const target=e.target instanceof Element?e.target:null;
     if(target&&(menu.contains(target)||target.closest("#woOverflowBtn")))return;
@@ -3946,7 +4030,6 @@ function init(){
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>clearHistorySearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
-  const statsPeriod=$("#statsPeriod");if(statsPeriod)statsPeriod.onclick=()=>{volWindow=volWindow===7?28:7;$$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});renderStats();renderCompleted()};
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));

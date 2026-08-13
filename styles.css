@@ -1484,6 +1484,9 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .ov-week-bar__seg{flex:1 1 0;min-width:0;max-width:56px;height:4px;border-radius:2px;background:var(--rule-strong)}
 .ov-week-bar__seg.is-done{background:var(--ink)}
 .listrow{display:flex;align-items:center;justify-content:space-between;gap:12px;width:100%;min-height:56px;padding:12px 0;background:none;border:0;border-bottom:1px solid var(--rule);cursor:pointer;text-align:left;font:inherit;color:inherit}
+.listrow--static{cursor:default}
+.range-static{font-size:14px;color:var(--ink)}
+.tour-rest-hint{margin:0;font-size:12px;color:var(--ink-soft);max-width:11rem;text-align:right}
 .listrow__main{min-width:0;flex:1}
 .listrow__title{font-size:16px;font-weight:600}
 .listrow__sub{font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
