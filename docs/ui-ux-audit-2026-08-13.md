@@ -270,8 +270,10 @@ when tapped. No toast, no shake, no hint that a goal must be picked first.
 
 This is the very first interaction in the product, and the failure mode is "the app is broken".
 
-**Fix:** add `.btn:disabled{opacity:.4;cursor:default}` (the pattern already exists for `.iconbtn`
-at styles.css:1029), or better, keep the button enabled and reveal the requirement on tap.
+**Validated fix:** give `.btn:disabled` an unmistakable dimmed treatment, default cursor and blocked
+pointer events while retaining the native disabled state. The onboarding step already explains its
+selection requirement, so turning the disabled control into a second validation interaction is not
+part of this pass.
 
 ### 7. Loads are accepted with no upper bound
 
@@ -364,7 +366,8 @@ describe the current Focus layout and must not drive implementation.
 At 844×390 the prior-session ledger nearly collapses and the primary CTA starts below the initial
 viewport, while the content sits in a narrow column with large dead margins. The numeric inputs
 remain reachable, contrary to the original claim. Adapting the layout remains design work; locking
-to portrait is an unvalidated alternative, not a prescribed fix.
+to portrait is not a remedy: `manifest.webmanifest` already requests portrait, and that advisory
+metadata did not prevent the reproduced landscape state.
 
 ### 15. The tour describes a UI that no longer exists
 
@@ -471,8 +474,9 @@ Entering `-5` or `abc` in Load jump % coerces the stored value back to 2.5 with 
 that invalid text remains visible is false. The remaining UX defect is silent correction.
 
 `Target RIR ceiling = 99` is accepted outright, producing `TARGET 4–8 reps · RIR 0–99` in every
-workout. Meanwhile `hardRir = -1` and `restSec = -30` are correctly rejected — so validation exists,
-just inconsistently.
+workout. Negative `hardRir` and `restSec` values are also replaced by defaults without explanation,
+so those are silent resets rather than meaningful rejection. Validation exists, but it neither
+defines a complete set of bounds nor tells the user what failed.
 
 ### 25. An empty program is a dead end
 
@@ -543,7 +547,8 @@ The original grouping is retained for traceability.
   notifications one doesn't.
 - **The install banner can overlay content mid-page** because its fixed position reserves no layout
   space; the exact rows covered depend on scroll and data state. Its dismiss target is 19×21 px.
-  It should sit above the bottom nav or be a settings row.
+  It is already fixed above the bottom nav; reserve layout space, make it inline, or move installation
+  into Settings.
 - **History header icons are raw glyphs** — `⌕` and `▤` in the markup, next to a polished masked-icon
   set everywhere else. They read as missing-font artifacts.
 - **Program editor ▲/▼ are text triangles** while the delete in the same row uses the icon system.
@@ -580,7 +585,8 @@ The History tab builds the full "Every set" table into the DOM on every render w
 mid-range-device performance risk, but this audit did not reproduce it on an identified Android
 device. Also worth noting: localStorage is around 1 MB after two years and browser quotas vary. The
 mirror write is wrapped in try/catch and IndexedDB is primary, so data survives when only the mirror
-fails; the user is not notified, although the failure is logged.
+fails. That mirror-only failure emits a warning without alarming the user while durable IndexedDB
+storage still succeeds; the user-facing error is reserved for failure of both stores.
 
 ---
 
@@ -599,20 +605,22 @@ history-derived recommendation paths bypass the existing `round()` grid. Separat
 converts truthful historical values and `kfmt` abbreviates metrics. One universal formatter would
 conflate recorded facts with actionable suggestions; centralize each contract without merging them.
 
-**3. The generator was built as a demo and shipped as a feature.** Onboarding asks eight questions;
-the answers to equipment, experience (advanced), and split type are partly or wholly discarded, and
-repeated days come out identical. Either invest in it properly or cut it to three questions
-(days per week, equipment, session length) that the generator actually honours — a short honest
-flow beats a long one that ignores you.
+**3. The generator's interface overpromises its contract.** Onboarding asks eight questions; the
+answers to equipment, experience (advanced), and split type are partly or wholly discarded, and
+repeated days come out identical. Honor each exposed answer or explicitly redesign the questionnaire
+after a product decision; the audit does not establish which questions should be removed.
 
-**4. Dialog and disabled-state primitives are missing.** No `.btn:disabled`, no scrim/focus-trap/
-Escape helper. Both are ten-line additions that fix a class of problems rather than instances.
+**4. Shared dialog and disabled-state primitives are missing.** No `.btn:disabled` rule exists, and
+the note sheet's focus/Tab/Escape behavior is not reusable by the other dialogs. The button state is
+a small shared style. Accessible dialog handling is a larger interaction primitive covering focus
+entry, forward/reverse trapping, inert background, Escape/backdrop close and focus return.
 
 ## Validated implementation pass
 
 This is the corrected PR 107 scope, ordered by user impact and dependency risk:
 
-1. **F1:** Round the four history-derived raw recommendation paths, preserving ADR 0003's median.
+1. **F1:** Round the four history-derived raw recommendation paths, re-entering reps when the target
+   changes and preserving ADR 0003's median.
 2. **F2/F8:** Clarify calendar-versus-rolling labels and separate elapsed from clamped mesocycle
    display weeks.
 3. **F7:** Reject malformed or implausible loads in every interactive persistence path.
