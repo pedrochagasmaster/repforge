@@ -594,6 +594,7 @@
   "notify.title": "RepForge",
   "notify.unfinished.body": "Ainda treinando? Finalize ou salve sua sessão.",
   "notify.rest.body": "Descanso concluído — próxima série.",
+  "rest.complete": "Descanso concluído.",
   "notify.permission.unsupported": "sem suporte",
   "toast.enter_weight_before_save_set": "Insira uma carga antes de salvar a série.",
   "toast.enter_weight_before_save": "Insira uma carga em pelo menos uma série antes de salvar.",

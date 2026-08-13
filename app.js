@@ -99,7 +99,7 @@ async function writeSnapshot(snapshot,io){
 function noteWriteHealth(result){
   const both=!!(result.localOk&&result.idbOk),none=!result.localOk&&!result.idbOk,degraded=!both&&!none;
   storageHealth={revision:result.revision,localOk:!!result.localOk,idbOk:!!result.idbOk,degraded,lastResult:result};
-  if(none){storageDegradedToast=false;toast(t("toast.storage_full"))}
+  if(none){storageDegradedToast=false;toast(t("toast.storage_full"),{assertive:true})}
   else if(degraded){if(!storageDegradedToast){storageDegradedToast=true;toast(t("toast.storage_degraded"))}}
   else storageDegradedToast=false;
   const el=$("#storageDegraded");
@@ -118,6 +118,144 @@ const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=t(`glossary.term.${key}`)||key;if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
 };
 function syncLang(){if(!I18N)return;I18N.setLang(state?.settings?.lang||I18N.detectLang());applyI18n()}
+function announce(msg,{assertive=false}={}){
+  const live=$("#toast");if(!live)return;
+  live.setAttribute("role",assertive?"alert":"status");
+  live.setAttribute("aria-live",assertive?"assertive":"polite");
+  live.setAttribute("aria-atomic","true");
+  live.classList.remove("hidden");
+  const write=()=>{live.textContent=msg;
+    clearTimeout(announce._t);announce._t=setTimeout(()=>live.classList.add("hidden"),2400)};
+  if(live.textContent===msg){
+    live.textContent="";
+    requestAnimationFrame(()=>requestAnimationFrame(write))}
+  else write()}
+const toast=(m,opts)=>announce(m,opts||{});
+let activeModal=null;
+function modalFocusables(root){
+  if(!root)return[];
+  const sel='a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  return [...root.querySelectorAll(sel)].filter(el=>{
+    if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
+    const st=getComputedStyle(el);
+    return st.display!=="none"&&st.visibility!=="hidden";
+  })}
+function snapshotBodyInert(){
+  return [...document.body.children].map(el=>({el,inert:!!el.inert}))}
+function applyModalInert(keep){
+  const allow=new Set(keep.filter(Boolean));
+  allow.add($("#announcementHost"));
+  for(const child of document.body.children){
+    if(allow.has(child)){child.inert=false;continue}
+    child.inert=true}}
+function restoreBodyInert(snap){
+  if(!snap)return;
+  for(const {el,inert} of snap){if(el.isConnected)el.inert=inert}}
+function detachModalListeners(rec){
+  if(!rec)return;
+  if(rec.onKey)document.removeEventListener("keydown",rec.onKey,true);
+  if(rec.onPointer)document.removeEventListener("pointerdown",rec.onPointer,true)}
+function hideModalElement(rec){
+  if(!rec?.el)return;
+  const el=rec.el;
+  if(el.tagName==="DIALOG"){if(typeof el.close==="function"&&el.open)el.close()}
+  else{el.classList.add("hidden");el.hidden=true}
+  rec.scrim?.classList.add("hidden");rec.scrim?.classList.remove("is-open");
+  el.classList.remove("is-open");
+  document.body.classList.remove("is-sheet-open")}
+function canTakeFocus(el){
+  if(!(el instanceof Element)||!el.isConnected)return false;
+  if(el.hasAttribute("disabled")||el.closest("[disabled]"))return false;
+  for(let n=el;n;n=n.parentElement){
+    if(n.inert)return false;
+    if(n.hidden===true)return false;
+    const st=getComputedStyle(n);
+    if(st.display==="none"||st.visibility==="hidden")return false}
+  return true}
+function resolveReturnFocus(target){
+  if(typeof target==="string")target=$(target);
+  if(!(target instanceof Element)||!target.isConnected)return null;
+  if(canTakeFocus(target))return target;
+  const lab=target.closest?.("label")||target.labels?.[0];
+  if(lab&&canTakeFocus(lab))return lab;
+  return null}
+function openModal(el,opts={}){
+  if(!el)return false;
+  const extras=opts.extras||[];
+  if(activeModal&&activeModal.el!==el){
+    if(!opts.handoff)return false;
+    const opener=opts.returnFocus||activeModal.returnFocus;
+    const prevInert=activeModal.prevInert;
+    const prev=activeModal;
+    detachModalListeners(prev);
+    hideModalElement(prev);
+    activeModal=null;
+    return openModal(el,{...opts,handoff:false,returnFocus:opener,prevInert})}
+  if(activeModal&&activeModal.el===el)return true;
+  const rec={
+    el,scrim:opts.scrim||null,returnFocus:opts.returnFocus||document.activeElement,
+    onEscape:opts.onEscape,delayHide:opts.delayHide||0,prevInert:opts.prevInert||snapshotBodyInert(),closing:false
+  };
+  if(el.tagName==="DIALOG"){if(typeof el.showModal==="function"&&!el.open)el.showModal()}
+  else{el.hidden=false;el.classList.remove("hidden")}
+  rec.scrim?.classList.remove("hidden");
+  applyModalInert([el,rec.scrim,...extras]);
+  rec.onKey=e=>{
+    if(!activeModal||activeModal.el!==el)return;
+    if(e.key==="Escape"){
+      e.preventDefault();e.stopPropagation();
+      if(typeof rec.onEscape==="function")rec.onEscape();
+      return}
+    if(e.key!=="Tab")return;
+    const stops=modalFocusables(el);
+    if(!stops.length){e.preventDefault();return}
+    const first=stops[0],last=stops[stops.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+    else if(!el.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
+  rec.onPointer=e=>{
+    if(!activeModal||activeModal.el!==el)return;
+    const t=e.target instanceof Element?e.target:null;
+    if(t&&(el.contains(t)||rec.scrim?.contains(t)))return;
+    e.preventDefault();e.stopPropagation()};
+  document.addEventListener("keydown",rec.onKey,true);
+  document.addEventListener("pointerdown",rec.onPointer,true);
+  activeModal=rec;
+  const focusEl=typeof opts.initialFocus==="function"?opts.initialFocus():opts.initialFocus;
+  const toFocus=focusEl||modalFocusables(el)[0];
+  if(toFocus)toFocus.focus();
+  return true}
+function closeModal(el){
+  const rec=activeModal;
+  if(!rec||(el&&rec.el!==el)||rec.closing)return;
+  rec.closing=true;
+  detachModalListeners(rec);
+  const finish=()=>{
+    if(rec.done)return;rec.done=true;
+    hideModalElement(rec);
+    restoreBodyInert(rec.prevInert);
+    if(activeModal===rec)activeModal=null;
+    const target=resolveReturnFocus(rec.returnFocus);
+    if(target){
+      try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
+  };
+  if(rec.delayHide>0){
+    rec.el.classList.remove("is-open");
+    rec.scrim?.classList.remove("is-open");
+    const fallback=setTimeout(finish,rec.delayHide);
+    rec.el.addEventListener("transitionend",()=>{clearTimeout(fallback);finish()},{once:true})}
+  else finish()}
+function setDisclosure(button,panel,open){
+  if(!button||!panel)return;
+  const on=!!open;
+  button.setAttribute("aria-expanded",on?"true":"false");
+  if(panel.id)button.setAttribute("aria-controls",panel.id);
+  panel.classList.toggle("is-open",on);
+  panel.setAttribute("aria-hidden",on?"false":"true");
+  const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on)}
+function syncLogModePressed(){
+  $("#modeFull")?.setAttribute("aria-pressed",logMode==="full"?"true":"false");
+  $("#modeFocus")?.setAttribute("aria-pressed",logMode==="focus"?"true":"false")}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
@@ -162,7 +300,6 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
-const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
@@ -515,7 +652,13 @@ function generateProgramFromOnboarding(answers){
   return program}
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
-let restEnd=0,restTick=null,restNotified=false;
+let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
+function announceRestDone(){
+  if(restAnnounced)return;
+  restAnnounced=true;
+  const el=$("#restAnnounce");if(!el)return;
+  el.textContent="";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.textContent=t("rest.complete")}))}
 let unfinishedTimer=null;
 let lastCommitAt=0;             // module-level; hydrated from draft at boot
 const UNFINISHED_MS=15*60*1000;
@@ -934,7 +1077,8 @@ let blockReviewCurrent=null;
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
-function closeBlockReview(){const d=$("#blockReview");if(d)d.classList.add("hidden")}
+function closeBlockReview(){
+  closeModal($("#blockReview"))}
 function successorProgramList(strategy,list){
   const src=cloneSnapshot(list||[]);
   if(strategy==="repeat_swaps")return src.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
@@ -992,12 +1136,27 @@ async function commitNextBlock(strategy,io=storageIO){
   finally{blockCommitInFlight=null}}
 async function startNextMesocycle(strategy,io=storageIO){return commitNextBlock(strategy,io)}
 function finishBlockAndStart(strategy){return commitNextBlock(strategy,storageIO)}
-function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview}
-function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
-  d.classList.remove("hidden");
-  $("#endBlockGo").onclick=()=>{d.classList.add("hidden");openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))};
-  $("#endBlockCancel").onclick=()=>d.classList.add("hidden")}
+function openBlockReview(review,opts={}){
+  blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  openModal(d,{
+    initialFocus:$("#blockReviewClose"),
+    returnFocus:opts.returnFocus||document.activeElement,
+    onEscape:closeBlockReview,
+    handoff:!!opts.handoff,
+    prevInert:opts.prevInert
+  });
+  $("#blockReviewClose").onclick=closeBlockReview}
+function promptEndBlock(){
+  const d=$("#endBlockConfirm");if(!d)return;
+  const opener=$("#endBlock")||document.activeElement;
+  openModal(d,{
+    initialFocus:$("#endBlockCancel"),
+    returnFocus:opener,
+    onEscape:()=>closeModal(d)
+  });
+  $("#endBlockGo").onclick=()=>{
+    openBlockReview(buildBlockReview(state.programMeta,state.program,state.log),{handoff:true,returnFocus:opener})};
+  $("#endBlockCancel").onclick=()=>closeModal(d)}
 function dismissBlockPrompt(){
   if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   state.programMeta.blockPromptDismissedId=state.programMeta.id;
@@ -1179,7 +1338,7 @@ function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
 function closeWorkoutOverflow(){setWorkoutOverflow(false)}
 function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
-function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");closeWorkoutOverflow();renderWorkout()}
+function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");syncLogModePressed();closeWorkoutOverflow();renderWorkout()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   if(!requestWorkoutDay(ex.day))return;
@@ -1446,13 +1605,15 @@ function updateRestChrome(){
       chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;
+function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restAnnounced=false;
   $("#restBar")?.classList.add("hidden");paintRest("—",false);
   updateRestChrome();
+  const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
     paintRest("0:00",true);clearInterval(restTick);restTick=null;
+    announceRestDone();
     if(restNotified)return;
     restNotified=true;
     if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
@@ -1461,15 +1622,23 @@ function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
     return}
   paintRest(fmtClock(left),false)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
-  restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
   clearInterval(restTick);restTick=setInterval(tickRest,250)}
+window.__repforgeRest={
+  expire(){
+    if(!restEnd)return false;
+    restEnd=Date.now()-1;
+    if(restTick){clearInterval(restTick);restTick=null}
+    return true}};
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
   if(restEnd&&Date.now()>=restEnd){
     paintRest("0:00",true);
     if(restTick){clearInterval(restTick);restTick=null}
+    announceRestDone();
   }
   reconcileNotifyPermission();
   paintNotifyControls();
@@ -1510,10 +1679,11 @@ function updateSessionBanner(){
   }
 
   el.className=`sessionbanner${isMissed?" is-missed":""}`;
-  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
-    `<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
+  el.innerHTML=`<button type="button" class="sessionbanner__act"><p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p></button>`+
+    `<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`;
+  el.onclick=null;
   el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
-  el.onclick=()=>{
+  el.querySelector(".sessionbanner__act").onclick=()=>{
     if(!requestWorkoutDay(due.day)) return;
     dismissForToday();
     renderTabs(); renderWorkout();
@@ -1549,20 +1719,22 @@ function openExNoteSheet(exId){
   exNoteFor=exId;exNoteReturn=document.activeElement;
   $("#exNoteFor").textContent=substituted.get(exId)||ex.name;
   ta.value=$(`[data-exnote="${exId}"]`)?.value??(loadDraft().__exnotes?.[exId]??lastExerciseNote(ex));
-  sheet.hidden=false;sheet.classList.remove("hidden");scrim?.classList.remove("hidden");
   document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:ta,
+    returnFocus:exNoteReturn,
+    onEscape:closeExNoteSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");
-    ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)})}
+    if(ta===document.activeElement)ta.setSelectionRange(ta.value.length,ta.value.length)})}
 function closeExNoteSheet(){
-  const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim");
-  if(!sheet||sheet.hidden)return;
-  sheet.classList.remove("is-open");scrim?.classList.remove("is-open");
-  document.body.classList.remove("is-sheet-open");
-  const finish=()=>{sheet.classList.add("hidden");sheet.hidden=true;scrim?.classList.add("hidden")};
-  reducedMotion()?finish():setTimeout(finish,220);
-  exNoteFor=null;
-  if(exNoteReturn?.isConnected)exNoteReturn.focus();
-  exNoteReturn=null}
+  const sheet=$("#exNoteSheet");
+  if(!sheet)return;
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return;
+  exNoteFor=null;exNoteReturn=null;
+  closeModal(sheet)}
 function saveExNoteSheet(){
   const id=exNoteFor,val=$("#exNoteText")?.value??"";
   if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;saveDraft()}
@@ -1672,6 +1844,7 @@ function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return;
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
   else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active")}
+  syncLogModePressed();
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
 function leaveWorkout(){workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
@@ -3347,8 +3520,10 @@ async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   e.target.value=""}
 function openImportChoice(ctx){const d=$("#importChoice");
   $("#importChoiceBody").textContent=t("dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
-  d.classList.remove("hidden");
-  const close=()=>{d.classList.add("hidden")};
+  const active=document.activeElement;
+  const opener=canTakeFocus(active)?active:($("#importJson")?.closest("label")||$("#dataImportRow"));
+  const close=()=>closeModal(d);
+  openModal(d,{initialFocus:$("#importCancel"),returnFocus:opener,onEscape:close});
   let importBusy=false;
   $("#importCancel").onclick=()=>{if(importBusy)return;close();toast(t("toast.import_cancelled"))};
   $("#importReplace").onclick=async()=>{
@@ -3612,16 +3787,6 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
-  // The sheet is modal: Escape leaves it and Tab stays inside it.
-  document.addEventListener("keydown",e=>{
-    const sheet=$("#exNoteSheet");if(!sheet||sheet.hidden)return;
-    if(e.key==="Escape"){e.preventDefault();closeExNoteSheet();return}
-    if(e.key!=="Tab")return;
-    const stops=$$("#exNoteSheet button, #exNoteSheet textarea").filter(el=>!el.disabled);
-    if(!stops.length)return;
-    const first=stops[0],lastStop=stops[stops.length-1];
-    if(e.shiftKey&&document.activeElement===first){e.preventDefault();lastStop.focus()}
-    else if(!e.shiftKey&&document.activeElement===lastStop){e.preventDefault();first.focus()}});
   trackSheetViewport();
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
@@ -3671,12 +3836,13 @@ function init(){
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
   const statsPeriod=$("#statsPeriod");if(statsPeriod)statsPeriod.onclick=()=>{volWindow=volWindow===7?28:7;$$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});renderStats();renderCompleted()};
-  const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>$("#restSecPanel")?.classList.toggle("is-open");
-  const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>$("#rirModePanel")?.classList.toggle("is-open");
-  const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>{const d=$("#progressionDetails");if(d)d.classList.toggle("is-open")};
-  const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>$("#notifyTypes")?.classList.toggle("is-open");
-  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>$("#dataBackupPanel")?.classList.toggle("is-open");
-  const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>$("#dataImportPanel")?.classList.toggle("is-open");
+  const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
+  const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
+  const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
+  const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>setDisclosure(notifyCfg,$("#notifyTypes"),!$("#notifyTypes")?.classList.contains("is-open"));
+  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>setDisclosure(dataBackup,$("#dataBackupPanel"),!$("#dataBackupPanel")?.classList.contains("is-open"));
+  const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
+  [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitSettings(true)}};
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notifyPending||notifyEffective();
@@ -3701,6 +3867,7 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
+  syncLogModePressed();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
@@ -3760,8 +3927,7 @@ function recoveryStatusText(read){
   if(read.status==="failed")return t("dialog.storage_recovery.unread_copy");
   return t("dialog.storage_recovery.absent_copy")}
 function closeStorageRecovery(){
-  const d=$("#storageRecovery");
-  if(d&&typeof d.close==="function"&&d.open)d.close()}
+  closeModal($("#storageRecovery"))}
 function bindStorageRecoveryGuard(d){
   if(!d||d.dataset.guarded)return;
   d.dataset.guarded="1";
@@ -3828,6 +3994,11 @@ function presentStorageRecovery(decision){
         try{await idbDel(KEY)}catch{}
         finish({kind:"first-run"})};
       if(!d.open)d.showModal();
+      openModal(d,{
+        initialFocus:$("#storageExportA")||$("#storageRetry")||title,
+        returnFocus:$("#todayDash .page-title")||$("#startWorkout"),
+        onEscape:null
+      });
       bump();
       const focusEl=$("#storageExportA")||$("#storageRetry")||title;
       if(focusEl)focusEl.focus()};
