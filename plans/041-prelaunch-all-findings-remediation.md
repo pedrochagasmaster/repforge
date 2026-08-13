@@ -1268,7 +1268,7 @@ Expected: exit 0 and `FAILED: 0`.
 4. Extend PWA assertions from a new browser context and one canonical
    `http://127.0.0.1:8000` origin. Unregister workers, delete CacheStorage,
    clear origin storage and the browser HTTP cache, seed canonical training
-   state, register/wait for `repforge-v54`, then:
+   state, register/wait for `repforge-v55`, then:
    - fetch each shell asset online with cache bypass and compare its bytes and
      content type with the matching CacheStorage response;
    - clear the HTTP cache again without deleting CacheStorage, switch the
@@ -1394,7 +1394,7 @@ Expected results are part of each row:
 | Settings/notifications/delete: assigned permission states and pending races stay truthful; disclosures work; deletion preserves program/Settings | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | Tour: every step matches its preview; focus is contained; disabled-rest/all-skipped cases work; Skip and Done obey origin-specific restoration | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | Accessibility: modal lifecycle, visible focus, zoom/pinch, rapid taps, 44×44 targets, contrast, repeated toast, destructive alert and one rest completion announcement all pass | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| PWA: v54 controls, install copy is current, all four tabs work offline from the worker, and both stores/draft are byte-equivalent after reconnect | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| PWA: v55 controls, install copy is current, all four tabs work offline from the worker, and both stores/draft are byte-equivalent after reconnect | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 
 Use VoiceOver for every C2/C5 live-region cell and TalkBack for every C3/C6
 live-region cell; the Chromium accessibility tree is supplementary in C1/C4.
