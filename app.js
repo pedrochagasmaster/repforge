@@ -84,7 +84,10 @@ const storageIO={
   writeLocal(data){localStorage.setItem(KEY,JSON.stringify(data))},
   async writeIdb(data){await idbSet(KEY,data)}
 };
+const STORAGE_LOCK="repforge:state-write";
 let persistTail=Promise.resolve();
+let persistHead=null,mutationBase=null;
+let stateChangesPending=0;
 let lastLocalRev=-1,lastIdbRev=-1;
 let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
 let storageDegradedToast=false;
@@ -117,6 +120,123 @@ function requireAdapter(io,label){
   if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
     throw new Error(label+" requires an explicit adapter");
   return io}
+const CHANGE_MISSING=Symbol("change-missing");
+function changeValueEqual(a,b){
+  if(a===CHANGE_MISSING||b===CHANGE_MISSING)return a===b;
+  return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+function changeObject(v){return!!(v&&typeof v==="object"&&!Array.isArray(v))}
+function changeEntityKey(root,value,index){
+  if(!value||typeof value!=="object")return`${root}:value:${index}:${JSON.stringify(canonicalize(value))}`;
+  if(root==="log")return value.session?`session:${value.session}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
+  if(root==="program"||root==="programHistory")return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
+  return null}
+function changeGroups(list,root){
+  const order=[],map=new Map();
+  (Array.isArray(list)?list:[]).forEach((value,index)=>{
+    const key=changeEntityKey(root,value,index);
+    if(key==null)return;
+    if(!map.has(key)){order.push(key);map.set(key,[])}
+    map.get(key).push(value)});
+  return{order,map}}
+function mergeChangedArray(base,proposal,target,root,preferProposal){
+  const b=changeGroups(base,root),p=changeGroups(proposal,root),tgt=changeGroups(target,root);
+  const order=[...tgt.order],out=new Map([...tgt.map].map(([key,value])=>[key,cloneSnapshot(value)]));
+  const remove=key=>{out.delete(key);const i=order.indexOf(key);if(i>=0)order.splice(i,1)};
+  for(const key of new Set([...b.order,...p.order])){
+    const bv=b.map.has(key)?b.map.get(key):CHANGE_MISSING;
+    const pv=p.map.has(key)?p.map.get(key):CHANGE_MISSING;
+    const tv=tgt.map.has(key)?tgt.map.get(key):CHANGE_MISSING;
+    if(changeValueEqual(pv,bv))continue;
+    if(pv===CHANGE_MISSING){
+      if(tv!==CHANGE_MISSING&&(changeValueEqual(tv,bv)||preferProposal))remove(key);
+      continue}
+    if(tv===CHANGE_MISSING){
+      if(bv===CHANGE_MISSING||preferProposal){out.set(key,cloneSnapshot(pv));if(!order.includes(key))order.push(key)}
+      continue}
+    if(bv===CHANGE_MISSING){
+      if(preferProposal){out.set(key,cloneSnapshot(pv));if(!order.includes(key))order.push(key)}
+      continue}
+    if(changeValueEqual(tv,bv)||preferProposal)out.set(key,cloneSnapshot(pv))}
+  return order.flatMap(key=>out.get(key)||[])}
+function mergeStateValue(base,proposal,target,path,preferProposal){
+  if(changeValueEqual(proposal,base))return target===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(target);
+  if(changeValueEqual(target,base))return proposal===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(proposal);
+  const root=path[0];
+  if(path.length===1&&Array.isArray(base)&&Array.isArray(proposal)&&Array.isArray(target)&&
+    (root==="log"||root==="program"||root==="programHistory"))
+    return mergeChangedArray(base,proposal,target,root,preferProposal);
+  if(changeObject(base)&&changeObject(proposal)&&changeObject(target)){
+    const out={};
+    for(const key of new Set([...Object.keys(base),...Object.keys(proposal),...Object.keys(target)])){
+      if(path.length===0&&key===STORAGE_REV)continue;
+      const bv=Object.prototype.hasOwnProperty.call(base,key)?base[key]:CHANGE_MISSING;
+      const pv=Object.prototype.hasOwnProperty.call(proposal,key)?proposal[key]:CHANGE_MISSING;
+      const tv=Object.prototype.hasOwnProperty.call(target,key)?target[key]:CHANGE_MISSING;
+      const merged=mergeStateValue(bv,pv,tv,path.concat(key),preferProposal);
+      if(merged!==CHANGE_MISSING)out[key]=merged}
+    return out}
+  const chosen=preferProposal?proposal:target;
+  return chosen===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(chosen)}
+function rebaseStateChange(base,proposal,target,{preferProposal=true}={}){
+  const merged=mergeStateValue(base,proposal,target,[],preferProposal);
+  return merged===CHANGE_MISSING?{}:merged}
+function storageSnapshotsEqual(a,b){return changeValueEqual(a,b)}
+function resetPersistenceBase(snapshot){
+  persistHead=cloneSnapshot(snapshot);
+  mutationBase=cloneSnapshot(snapshot)}
+async function refreshPersistenceHead(){
+  const local=readLocalStatus(),idb=await readIdbStatus();
+  const decision=chooseSnapshot(local,idb);
+  if(decision.kind==="first-run")return{head:cloneSnapshot(persistHead)};
+  if(decision.kind!=="chosen")return{head:cloneSnapshot(persistHead),conflict:true};
+  const disk=cloneSnapshot(decision.snapshot),current=cloneSnapshot(persistHead);
+  const diskRev=readRevision(disk),currentRev=readRevision(current);
+  if(diskRev>currentRev)return{head:disk};
+  if(diskRev<currentRev||storageSnapshotsEqual(disk,current))return{head:current};
+  return{head:current,conflict:true}}
+function withStorageLock(io,op){
+  if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,op);
+  return op()}
+function applyAcceptedSnapshot(base,snapshot){
+  const live=rebaseStateChange(base,snapshot,state,{preferProposal:false});
+  live[STORAGE_REV]=readRevision(snapshot);
+  state=live;
+  prog=new Program(state.program);state.program=prog.toJSON();
+  mutationBase=cloneSnapshot(snapshot);
+  dropMemo.clear();baselineMemo.clear()}
+function prepareLocalMirror(base,proposal){
+  const read=readLocalStatus();
+  if(read.status==="invalid"||read.status==="failed")return null;
+  let head=cloneSnapshot(persistHead||base);
+  if(read.status==="valid"&&readRevision(read.parsed)>=readRevision(head))head=cloneSnapshot(read.parsed);
+  const snapshot=rebaseStateChange(base,proposal,head);
+  snapshot[STORAGE_REV]=Math.max(readRevision(head),readRevision(persistHead))+1;
+  try{storageIO.writeLocal(snapshot);lastLocalRev=readRevision(snapshot);return snapshot}
+  catch(e){console.warn("localStorage mirror failed",e);return null}}
+function enqueueStateChange(base,proposal,io,{replace=false,allowConflict=false,prepared=null,liveBase=base}={}){
+  requireAdapter(io,"enqueueStateChange");
+  const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
+  const frozenProposal=cloneSnapshot(proposal),frozenPrepared=cloneSnapshot(prepared);
+  stateChangesPending++;
+  const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
+    let head=cloneSnapshot(persistHead||frozenBase);
+    if(io===storageIO&&!allowConflict){
+      const refreshed=await refreshPersistenceHead();
+      if(refreshed.conflict){
+        console.warn("storage write blocked by an unresolved concurrent snapshot");
+        return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}
+      head=refreshed.head||head}
+    const preparedCurrent=frozenPrepared&&storageSnapshotsEqual(frozenPrepared,head);
+    const liveHead=replace?head:rebaseStateChange(frozenBase,frozenLiveBase,head);
+    const snapshot=preparedCurrent?cloneSnapshot(frozenPrepared):
+      (replace?cloneSnapshot(frozenProposal):rebaseStateChange(frozenLiveBase,frozenProposal,liveHead));
+    if(!preparedCurrent)snapshot[STORAGE_REV]=readRevision(head)+1;
+    const result=await writeSnapshot(snapshot,io);
+    if(result.localOk||result.idbOk){
+      persistHead=cloneSnapshot(snapshot);
+      applyAcceptedSnapshot(frozenLiveBase,snapshot)}
+    return result}));
+  return operation.finally(()=>{stateChangesPending--})}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
@@ -787,7 +907,7 @@ function draftHasSessionWork(d){
 function requestWorkoutDay(nextDay){
   if(!nextDay||nextDay===day) return true;
   const raw=localStorage.getItem(DRAFT);
-  if(draftHasSessionWork()){
+  if(draftHasProgress()){
     if(!confirm(t("confirm.discard_draft"))){
       if(raw==null){try{localStorage.removeItem(DRAFT)}catch{}}
       else try{localStorage.setItem(DRAFT,raw)}catch{}
@@ -894,7 +1014,7 @@ async function replaceImportedState(incoming,io=storageIO){
   requireAdapter(io,"replaceImportedState");
   const proposal=proposalFromImport(incoming);
   delete proposal[STORAGE_FOLLOWUP];
-  const result=await commitProposedState(proposal,io);
+  const result=await commitProposedState(proposal,io,{replace:true});
   if(result.localOk||result.idbOk)migrateLog();
   return result}
 async function mergeImportedLog(incoming,io=storageIO){
@@ -1048,6 +1168,7 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     `<p class="review__summary">${esc(summary)}</p>`}
 function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
   const meta=state.programMeta||{},started=meta.started?new Date(`${meta.started}T12:00:00`):null;
+  const activationProgramId=review.programId||meta.id||null;
   const end=new Date(`${today()}T12:00:00`);
   const range=started?`${started.getDate()} ${t("month_short."+started.getMonth())} – ${end.getDate()} ${t("month_short."+end.getMonth())}`:"";
   const weeks=meta.mesocycleLengthWeeks||6;
@@ -1085,7 +1206,7 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
   let selected=recStrategy;
   $$("#blockStrategies .blockreview__act").forEach(b=>b.onclick=()=>{selected=b.dataset.strategy;
     $$("#blockStrategies .blockreview__act").forEach(x=>x.classList.toggle("is-selected",x===b))});
-  $("#blockStartNext").onclick=()=>finishBlockAndStart(selected);
+  $("#blockStartNext").onclick=()=>finishBlockAndStart(selected,activationProgramId);
   $("#blockDecideLater").onclick=closeBlockReview;
   const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{closeBlockReview();navTo("stats");setStatsSeg("review")}}
 let blockReviewCurrent=null;
@@ -1124,21 +1245,22 @@ function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
   toast(t(msg[strategy]||"toast.new_block_started"))}
-async function commitNextBlock(strategy,io=storageIO){
+function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   requireAdapter(io,"commitNextBlock");
   const liveId=state.programMeta?.id;
-  if(!liveId)return{revision:readRevision(state),localOk:false,idbOk:false};
-  if(blockCommitInFlight===liveId)return{revision:readRevision(state),localOk:true,idbOk:true,duplicate:true};
+  const oldId=expectedOldId||liveId;
+  if(!liveId||!oldId)return Promise.resolve({revision:readRevision(state),localOk:false,idbOk:false});
+  if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
+  if(liveId!==oldId)return Promise.resolve({revision:readRevision(state),localOk:false,idbOk:false,duplicate:true});
   const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
     ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
-  if(state.programMeta.id!==cap.oldProgramId)return{revision:readRevision(state),localOk:false,idbOk:false};
+  if(state.programMeta.id!==cap.oldProgramId)return Promise.resolve({revision:readRevision(state),localOk:false,idbOk:false});
   if(strategy==="onboarding"){
     pendingBlockTransition=cap;
     closeBlockReview();
     startOnboarding("block");
-    return{revision:readRevision(state),localOk:true,idbOk:true,deferred:true}}
-  blockCommitInFlight=liveId;
-  try{
+    return Promise.resolve({revision:readRevision(state),localOk:true,idbOk:true,deferred:true})}
+  const task=(async()=>{
     const proposal=cloneSnapshot(state);
     archiveCapturedBlock(proposal,cap);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
@@ -1147,10 +1269,13 @@ async function commitNextBlock(strategy,io=storageIO){
     const result=await commitProposedState(proposal,io);
     if(result.localOk||result.idbOk){
       pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
-    return result}
-  finally{blockCommitInFlight=null}}
-async function startNextMesocycle(strategy,io=storageIO){return commitNextBlock(strategy,io)}
-function finishBlockAndStart(strategy){return commitNextBlock(strategy,storageIO)}
+    return result})();
+  blockCommitInFlight={oldProgramId:oldId,promise:task};
+  const clear=()=>{if(blockCommitInFlight?.promise===task)blockCommitInFlight=null};
+  task.then(clear,clear);
+  return task}
+async function startNextMesocycle(strategy,io=storageIO,expectedOldId=null){return commitNextBlock(strategy,io,expectedOldId)}
+function finishBlockAndStart(strategy,expectedOldId){return commitNextBlock(strategy,storageIO,expectedOldId)}
 function openBlockReview(review,opts={}){
   blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
   openModal(d,{
@@ -1206,23 +1331,28 @@ function parseProgramImport(parsed){
   if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null};
   return null}
 function save(){return persist()}
-function persist(){
+function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
-  state[STORAGE_REV]=readRevision(state)+1;
+  const base=cloneSnapshot(mutationBase||state);
   const snapshot=cloneSnapshot(state);
-  try{storageIO.writeLocal(snapshot);lastLocalRev=readRevision(snapshot)}
-  catch(e){console.warn("localStorage mirror failed",e)}
-  return enqueueWrite(()=>writeSnapshot(snapshot,storageIO))}
-async function commitProposedState(proposal,io=storageIO){
+  snapshot[STORAGE_REV]=Math.max(readRevision(base),readRevision(persistHead))+1;
+  const prepared=stateChangesPending===0&&!opts.allowConflict?prepareLocalMirror(base,snapshot):null;
+  return enqueueStateChange(base,snapshot,storageIO,Object.assign({},opts,{prepared}))}
+async function commitProposedState(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProposedState");
+  const base=cloneSnapshot(mutationBase||state);
+  const liveBase=cloneSnapshot(state);
   const next=cloneSnapshot(proposal);
-  next[STORAGE_REV]=readRevision(state)+1;
+  next[STORAGE_REV]=Math.max(readRevision(base),readRevision(persistHead))+1;
   const snapshot=cloneSnapshot(next);
-  const result=await enqueueWrite(()=>writeSnapshot(snapshot,io));
+  const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
+  return result}
+async function deleteTrainingLog(io=storageIO){
+  const proposal=cloneSnapshot(state);
+  proposal.log=[];
+  const result=await commitProposedState(proposal,io);
   if(result.localOk||result.idbOk){
-    state=snapshot;
-    prog=new Program(state.program);state.program=prog.toJSON();
-    dropMemo.clear();baselineMemo.clear()}
+    clearDraft();render();toast(t("toast.log_deleted"))}
   return result}
 window.__repforgeStorage={
   flush:flushStorage,
@@ -3108,6 +3238,14 @@ function syncHistorySearchChrome(){
   if(histQuery.trim())$("#historySearchWrap")?.classList.remove("hidden");
   $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
   const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
+async function deleteSession(sid,io=storageIO){
+  const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.filter(row=>row.session!==sid);
+  const result=await commitProposedState(proposal,io);
+  if(result.localOk||result.idbOk){
+    if(editSession===sid)editSession=null;
+    render();toast(t("toast.session_deleted"))}
+  return result}
 
 function renderHistory(){
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
@@ -3143,7 +3281,7 @@ function renderHistory(){
   $$("#sessions .session__toggle").forEach(btn=>btn.onclick=()=>{
     const art=btn.closest("[data-sess]");if(!art)return;
     expandedSession=expandedSession===art.dataset.sess?null:art.dataset.sess;renderHistory()});
-  $$("#sessions [data-del]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(confirm(t("confirm.delete_session"))){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast(t("toast.session_deleted"))}});
+  $$("#sessions [data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm(t("confirm.delete_session")))await deleteSession(b.dataset.del)});
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
@@ -3205,7 +3343,7 @@ function sessionEditor(s,sets){
 function sessionSetsForEdit(sid){
   return state.log.filter(r=>r.session===sid).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
 
-function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
+async function saveSessionEdit(sid,io=storageIO){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
   clearFieldInvalid(card);
   const dateEl=card.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
   if(dateP.field){if(dateEl){dateEl.setAttribute("aria-invalid","true");try{dateEl.focus()}catch{}}toast(t(dateP.key));return}
@@ -3224,8 +3362,11 @@ function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"
     next.load=fromDisplay(loadEl.value);next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;
     proposed.push(next)}
   if(!proposed.length){toast(t("history.edit.keep_one"));return}
-  state.log=state.log.filter(r=>r.session!==sid).concat(proposed);
-  editSession=null;save();render();toast(t("toast.session_updated"))}
+  const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.filter(r=>r.session!==sid).concat(proposed);
+  const result=await commitProposedState(proposal,io);
+  if(result.localOk||result.idbOk){editSession=null;render();toast(t("toast.session_updated"))}
+  return result}
 window.__repforgeSaveSessionEdit=saveSessionEdit;
 
 // ---- Exercise detail: one lift's stats, session history and session notes ----
@@ -3459,7 +3600,7 @@ function bindEditor(){
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }
 
-function editorAction(act,ds){
+async function editorAction(act,ds){
   if(act==="toggleDay"){const card=$(`#programEditor .pday[data-day="${CSS.escape(ds.day)}"]`);if(!card)return;
     const now=!card.classList.contains("is-collapsed");
     card.classList.toggle("is-collapsed",now);setDayCollapsed(ds.day,now);
@@ -3467,10 +3608,18 @@ function editorAction(act,ds){
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
       const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
   else if(act==="addEx"){prog.addExercise(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast(t("toast.exercise_added"))}
-  else if(act==="delEx"){if(confirm(t("confirm.remove_exercise"))){prog.removeExercise(ds.id);persistProgram();render();toast(t("toast.exercise_removed"))}}
+  else if(act==="delEx"){if(confirm(t("confirm.remove_exercise"))){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal,storageIO);
+    if(result.localOk||result.idbOk){render();toast(t("toast.exercise_removed"))}}}
   else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
   else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
-  else if(act==="delDay"){if(confirm(t("confirm.delete_day",{day:ds.day}))){prog.removeDay(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast(t("toast.day_deleted"))}}
+  else if(act==="delDay"){if(confirm(t("confirm.delete_day",{day:ds.day}))){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal,storageIO);
+    if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
 function renderVolume(){
@@ -3484,12 +3633,18 @@ function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).
 
 function persistProgram(){state.program=prog.toJSON();save()}
 
-function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
+async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
   const byId=new Map(prog.exercises.map(e=>[e.id,e]));
   for(const row of parsed){if(row.id&&byId.has(row.id))continue;
     const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
     if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
-  prog=new Program(parsed);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast(t("toast.program_saved"))}
+  if(draftHasProgress()&&!confirm(t("confirm.replace_program_discard_draft")))return;
+  const proposal=cloneSnapshot(state);
+  proposal.program=new Program(parsed).toJSON();
+  const result=await commitProposedState(proposal,storageIO);
+  if(!(result.localOk||result.idbOk))return result;
+  clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())await save();render();toast(t("toast.program_saved"));
+  return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
 let notifyIntentGen=0,notifyWanted=false,notifyPending=false,notifyRequestInFlight=null;
@@ -3637,11 +3792,13 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
     const list=imp.exercises;
-    if(!confirm(t("confirm.import_program_replace",{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
+    const draftConfirmed=draftHasProgress();
+    const confirmKey=draftConfirmed?"confirm.replace_program_discard_draft":"confirm.import_program_replace";
+    if(!confirm(t(confirmKey,{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
     const adapter=io||storageIO;
     if($("#onboarding")?.classList.contains("active")){
       const name=typeof imp.meta?.name==="string"?imp.meta.name.trim():"";
-      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",io:adapter})}
+      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed})}
     else{
       const proposal=cloneSnapshot(state);
       const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
@@ -3650,7 +3807,7 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
       proposal.programMeta=meta;proposal.program=new Program(list).toJSON();
       const result=await commitProposedState(proposal,adapter);
       if(result.localOk||result.idbOk){
-        $("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
+        clearDraft();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
         if(migrateLog())save();render();toast(t("toast.program_saved"))}}
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
@@ -3779,9 +3936,11 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
+  if(draftHasProgress()&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
+    return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const proposal=cloneSnapshot(state);
   if(originEff==="block"){
     const cap=pendingBlockTransition;
@@ -3795,6 +3954,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   else delete proposal[STORAGE_FOLLOWUP];
   const result=await commitProposedState(proposal,adapter);
   if(!(result.localOk||result.idbOk))return result;
+  clearDraft();
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeOnboarding();
   if(destination==="program-edit"){
@@ -4100,7 +4260,9 @@ function init(){
   $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast(t("toast.day_added"))};
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
-  $("#beginnerProgram").onclick=()=>{if(confirm(t("confirm.replace_program_template")))switchToBeginnerProgram()};
+  $("#beginnerProgram").onclick=()=>{
+    const key=draftHasProgress()?"confirm.replace_program_discard_draft":"confirm.replace_program_template";
+    if(confirm(t(key)))switchToBeginnerProgram()};
   $("#createProgram").onclick=()=>startOnboarding("settings");
   $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
   $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
@@ -4114,7 +4276,7 @@ function init(){
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
-  $("#reset").onclick=()=>{if(confirm(t("confirm.delete_log"))){state.log=[];clearDraft();save();render();toast(t("toast.log_deleted"))}};
+  $("#reset").onclick=async()=>{if(confirm(t("confirm.delete_log")))await deleteTrainingLog()};
   $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;workoutLeft=true;
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
@@ -4211,10 +4373,18 @@ function presentStorageRecovery(decision){
         exportRecoveryRaw(decision.idb?.raw,"repforge_copy_b.json")};
       const fresh=$("#storageStartFresh");
       if(fresh)fresh.onclick=async()=>{
+        if(retryBusy)return;
         if(!confirm(t("dialog.storage_recovery.start_fresh_confirm")))return;
-        try{localStorage.removeItem(KEY)}catch{}
-        try{await idbDel(KEY)}catch{}
-        finish({kind:"first-run"})};
+        retryBusy=true;d.dataset.busy="1";
+        const {localNow,idbNow}=await withStorageLock(storageIO,async()=>{
+          try{localStorage.removeItem(KEY)}catch{}
+          try{await idbDel(KEY)}catch{}
+          return{localNow:readLocalStatus(),idbNow:await readIdbStatus()}});
+        if(localNow.status==="absent"&&idbNow.status==="absent")finish({kind:"first-run"});
+        else{
+          decision={kind:"unresolved",reason:"no-valid",local:localNow,idb:idbNow};
+          retryBusy=false;delete d.dataset.busy;paint()}
+      };
       if(!d.open)d.showModal();
       openModal(d,{
         initialFocus:$("#storageExportA")||$("#storageRetry")||title,
@@ -4225,24 +4395,29 @@ function presentStorageRecovery(decision){
       const focusEl=$("#storageExportA")||$("#storageRetry")||title;
       if(focusEl)focusEl.focus()};
     paint()})}
-async function applyBootDecision(decision){
+async function applyBootDecision(decision,{allowConflict=false}={}){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
   prog=new Program(state.program);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
+  resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   day=days()[0]||"Day 1";
   applyGotoParam();
   const migrated=migrateLog();
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
-  else if(decision.heal)await enqueueWrite(()=>writeSnapshot(cloneSnapshot(state),storageIO));
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist({allowConflict});
+  else if(decision.heal){
+    const snapshot=cloneSnapshot(state);
+    const result=await enqueueWrite(()=>withStorageLock(storageIO,()=>writeSnapshot(snapshot,storageIO)));
+    if(result.localOk||result.idbOk)resetPersistenceBase(snapshot)}
   if(I18N)I18N.setLang(state.settings.lang)}
 async function boot(){
   const local=readLocalStatus(),idb=await readIdbStatus();
   let decision=chooseSnapshot(local,idb);
-  if(decision.kind==="unresolved")decision=await presentStorageRecovery(decision);
-  await applyBootDecision(decision);
+  const recovering=decision.kind==="unresolved";
+  if(recovering)decision=await presentStorageRecovery(decision);
+  await applyBootDecision(decision,{allowConflict:recovering});
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init()}

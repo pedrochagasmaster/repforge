@@ -1900,6 +1900,14 @@ async function main() {
     writeFileSync(progPath, JSON.stringify(progExercises));
   }
   const metaBeforeImport = (await getState(page)).programMeta;
+  const importDraft = await page.evaluate((k) => {
+    const raw = JSON.stringify({
+      __sessionNotes: "unfinished before program import",
+      __contextTouched: { sessionNotes: true },
+    });
+    localStorage.setItem(k, raw);
+    return raw;
+  }, DRAFT);
   await page.setInputFiles("#importProgram", progPath);
   await page.waitForFunction(
     ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
@@ -1931,6 +1939,12 @@ async function main() {
     "Program import leaves the log untouched",
     `log ${logBefore} → ${stAfter.log.length}`,
     "Import program JSON → History unchanged"
+  );
+  assert(
+    importDraft && (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) == null,
+    "Accepted program import clears the confirmed unfinished draft",
+    "draft remained after accepted program replacement",
+    "Seed active draft → Import program JSON → confirm"
   );
 
   // Legacy array-only import still works
@@ -6168,6 +6182,39 @@ async function main() {
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
+  await selectDay(page, otherDay);
+  const dayOnlyRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  let dayCancelPrompt = "";
+  page.once("dialog", async (dialog) => {
+    dayCancelPrompt = dialog.message();
+    await dialog.dismiss();
+  });
+  await page.click('#dayTabs button[data-day="Day 1"]');
+  const dayAfterCancel = await page.evaluate((k) => ({
+    raw: localStorage.getItem(k),
+    active: document.querySelector("#dayTabs button.active")?.dataset.day,
+  }), DRAFT);
+  assert(
+    !!dayCancelPrompt && dayAfterCancel.active === otherDay && dayAfterCancel.raw === dayOnlyRaw,
+    "Day-only progress asks before switching and Cancel preserves the exact draft/day",
+    JSON.stringify({ prompt: dayCancelPrompt, active: dayAfterCancel.active, same: dayAfterCancel.raw === dayOnlyRaw }),
+    `${otherDay} day-only draft → Day 1 → Cancel`
+  );
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.click('#dayTabs button[data-day="Day 1"]');
+  await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
+  const dayAfterConfirm = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DRAFT);
+  assert(
+    dayAfterConfirm.__day === "Day 1" && dayAfterConfirm.__contextTouched?.day === true,
+    "Confirming a day-only transition discards the old context and saves the new day",
+    JSON.stringify(dayAfterConfirm),
+    `${otherDay} day-only draft → Day 1 → Confirm`
+  );
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
   await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
   await reloadApp(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
@@ -6801,11 +6848,34 @@ async function main() {
     `hist ${histForDup} → ${afterDup.programHistory.length} id=${afterDup.programMeta.id}`,
     "Promise.all commitNextBlock(repeat) ×2"
   );
+  const settledId = afterDup.programMeta.id;
+  const settledHistory = afterDup.programHistory.length;
+  const repeatedBlock = await page.evaluate(
+    (oldId) => window.__repforgeCommitNextBlock("repeat", undefined, oldId),
+    idForDup
+  );
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const afterRepeatedBlock = await getState(page);
+  assert(
+    repeatedBlock.duplicate === true &&
+      afterRepeatedBlock.programMeta.id === settledId &&
+      afterRepeatedBlock.programHistory.length === settledHistory,
+    "A settled block-review activation cannot create another successor",
+    JSON.stringify({ repeatedBlock, settledId, afterId: afterRepeatedBlock.programMeta.id }),
+    `commitNextBlock(repeat, expected=${idForDup}) after settlement`
+  );
 
   const adapterOutcomes4 = [[true, true], [true, false], [false, true], [false, false]];
   for (const [localOk, idbOk] of adapterOutcomes4) {
     const beforeTpl = await getState(page);
-    const draftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const draftRaw = await page.evaluate((k) => {
+      const raw = JSON.stringify({
+        __sessionNotes: "template transition draft",
+        __contextTouched: { sessionNotes: true },
+      });
+      localStorage.setItem(k, raw);
+      return raw;
+    }, DRAFT);
     const result = await page.evaluate(async ({ localOk, idbOk }) => {
       const io = {
         async writeLocal(data) {
@@ -6834,13 +6904,15 @@ async function main() {
     if (localOk || idbOk) {
       await reloadApp(page);
       const after = await getState(page);
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
       assert(
         after.programMeta?.name === "Beginner program" &&
           after.programMeta?.id !== beforeTpl.programMeta.id &&
           after.log.length === beforeTpl.log.length &&
-          result.localOk === localOk,
+          result.localOk === localOk &&
+          draftNow == null,
         `Beginner template (${localOk},${idbOk}) commits a new identity and preserves the log`,
-        JSON.stringify({ result, name: after.programMeta?.name, logs: after.log.length }),
+        JSON.stringify({ result, name: after.programMeta?.name, logs: after.log.length, draftNow }),
         `applyProgramTemplate adapter ${localOk}/${idbOk}`
       );
     } else {
@@ -6856,6 +6928,59 @@ async function main() {
       );
     }
   }
+
+  const setupDraftRaw = await page.evaluate((k) => {
+    const raw = JSON.stringify({
+      __sessionNotes: "settings onboarding transition draft",
+      __contextTouched: { sessionNotes: true },
+    });
+    localStorage.setItem(k, raw);
+    return raw;
+  }, DRAFT);
+  const setupBeforeFailure = await getState(page);
+  const setupFailure = await page.evaluate(async (program) => {
+    const io = {
+      async writeLocal() { throw new Error("ls fail"); },
+      async writeIdb() { throw new Error("idb fail"); },
+    };
+    return window.__repforgeFinalizeProgramSetup({
+      exercises: program,
+      name: "Rejected replacement",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "settings",
+      draftConfirmed: true,
+    }, io);
+  }, setupBeforeFailure.program);
+  const setupAfterFailure = await getState(page);
+  const setupDraftAfterFailure = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  assert(
+    !setupFailure.localOk &&
+      !setupFailure.idbOk &&
+      setupAfterFailure.programMeta.id === setupBeforeFailure.programMeta.id &&
+      setupDraftAfterFailure === setupDraftRaw,
+    "Rejected Settings onboarding replacement preserves live state and exact draft",
+    JSON.stringify({ setupFailure, sameId: setupAfterFailure.programMeta.id === setupBeforeFailure.programMeta.id }),
+    "finalizeProgramSetup false/false with active draft"
+  );
+  const setupAccepted = await page.evaluate((program) => window.__repforgeFinalizeProgramSetup({
+    exercises: program,
+    name: "Accepted replacement",
+    answers: { goal: "hypertrophy" },
+    destination: "log",
+    origin: "settings",
+    draftConfirmed: true,
+  }), setupBeforeFailure.program);
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const setupAfterAccepted = await getState(page);
+  assert(
+    (setupAccepted.localOk || setupAccepted.idbOk) &&
+      setupAfterAccepted.programMeta.id !== setupBeforeFailure.programMeta.id &&
+      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) == null,
+    "Accepted Settings onboarding replacement clears the confirmed draft",
+    JSON.stringify({ setupAccepted, newId: setupAfterAccepted.programMeta.id }),
+    "finalizeProgramSetup accepted with active draft"
+  );
 
   await page.evaluate(() => localStorage.removeItem("repforge_ui_v1"));
   await clearState(page);

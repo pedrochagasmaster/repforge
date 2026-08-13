@@ -61,7 +61,9 @@ jobs:
       - name: Persistence
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: node test/persistence.mjs
+        run: |
+          node test/persistence.mjs
+          node test/persistence-race.mjs
 
       - name: Notifications
         env:

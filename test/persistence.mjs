@@ -257,13 +257,21 @@ async function recoveryOpen(page) {
 function patchReadFails() {
   return () => {
     const origGet = Storage.prototype.getItem;
+    const origRemove = Storage.prototype.removeItem;
     Storage.prototype.getItem = function (k) {
       if (k === "repforge_v1" && sessionStorage.getItem("__rf_ls_fail") === "1") {
         throw new Error("forced localStorage read fail");
       }
       return origGet.call(this, k);
     };
+    Storage.prototype.removeItem = function (k) {
+      if (k === "repforge_v1" && sessionStorage.getItem("__rf_ls_delete_fail") === "1") {
+        throw new Error("forced localStorage delete fail");
+      }
+      return origRemove.call(this, k);
+    };
     const origIdbGet = IDBObjectStore.prototype.get;
+    const origIdbDelete = IDBObjectStore.prototype.delete;
     IDBObjectStore.prototype.get = function (key) {
       if (key === "repforge_v1" && sessionStorage.getItem("__rf_idb_fail") === "1") {
         const fake = {};
@@ -274,6 +282,12 @@ function patchReadFails() {
         return fake;
       }
       return origIdbGet.apply(this, arguments);
+    };
+    IDBObjectStore.prototype.delete = function (key) {
+      if (key === "repforge_v1" && sessionStorage.getItem("__rf_idb_delete_fail") === "1") {
+        throw new Error("forced idb delete fail");
+      }
+      return origIdbDelete.apply(this, arguments);
     };
   };
 }
@@ -586,6 +600,50 @@ try {
     assert((await idbGet(page)) === 42, "Malformed IDB replica is preserved");
     assert(await page.locator("#storageStartFresh").count(), "Start fresh is offered when nothing is valid");
     assert((await page.locator("#storageUseA").count()) === 0, "Use Copy is not offered when nothing is valid");
+
+    await page.evaluate(() => sessionStorage.setItem("__rf_idb_delete_fail", "1"));
+    page.once("dialog", (d) => d.accept());
+    await actRecovery(page, "storageStartFresh");
+    assert(await recoveryOpen(page), "Start fresh stays blocked when IndexedDB deletion fails");
+    assert((await idbGet(page)) === 42, "Failed Start fresh preserves the undeleted IndexedDB replica");
+    await page.evaluate(() => sessionStorage.removeItem("__rf_idb_delete_fail"));
+    page.once("dialog", (d) => d.accept());
+    await actRecovery(page, "storageStartFresh");
+    await waitForApp(page);
+
+    await clearStores(page);
+    await page.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: KEY, v: "{still-nope" });
+    await idbRawPut(page, 43);
+    await reloadForRecovery(page);
+    await page.evaluate(() => sessionStorage.setItem("__rf_ls_delete_fail", "1"));
+    page.once("dialog", (d) => d.accept());
+    await actRecovery(page, "storageStartFresh");
+    assert(await recoveryOpen(page), "Start fresh stays blocked when localStorage deletion fails");
+    assert((await page.evaluate((k) => localStorage.getItem(k), KEY)) === "{still-nope", "Failed Start fresh preserves the undeleted localStorage replica");
+    await page.evaluate(() => sessionStorage.removeItem("__rf_ls_delete_fail"));
+    page.once("dialog", (d) => d.accept());
+    await actRecovery(page, "storageStartFresh");
+    await waitForApp(page);
+
+    await clearStores(page);
+    await page.evaluate(({ k, v }) => localStorage.setItem(k, v), { k: KEY, v: "{both-nope" });
+    await idbRawPut(page, 44);
+    await reloadForRecovery(page);
+    await page.evaluate(() => {
+      sessionStorage.setItem("__rf_ls_delete_fail", "1");
+      sessionStorage.setItem("__rf_idb_delete_fail", "1");
+    });
+    page.once("dialog", (d) => d.accept());
+    await actRecovery(page, "storageStartFresh");
+    assert(await recoveryOpen(page), "Start fresh stays blocked when both replica deletions fail");
+    assert(
+      (await page.evaluate((k) => localStorage.getItem(k), KEY)) === "{both-nope" && (await idbGet(page)) === 44,
+      "Dual deletion failure preserves both malformed replicas"
+    );
+    await page.evaluate(() => {
+      sessionStorage.removeItem("__rf_ls_delete_fail");
+      sessionStorage.removeItem("__rf_idb_delete_fail");
+    });
 
     await page.evaluate(() => sessionStorage.setItem("__rf_idb_fail", "1"));
     await clearStores(page);

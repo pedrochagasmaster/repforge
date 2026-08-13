@@ -659,6 +659,7 @@
   "confirm.import_program_replace": "Replace your current program with {n} exercises from this file?\n\nYour training log and settings are not touched. The program name comes from the file; your start date stays.",
   "confirm.delete_log": "Delete workout history? This removes saved log rows and any unfinished workout draft. Your program and Settings stay.",
   "confirm.discard_draft": "This unfinished workout will be discarded if you switch days. Continue?",
+  "confirm.replace_program_discard_draft": "Replacing your program will discard this unfinished workout. Continue?",
   "prompt.alternate_exercise_name": "Alternate exercise name (max 80 chars):",
   "command.error.could_not_read_set": "Could not read a set from that.",
   "command.error.could_not_find_reps": "Could not find reps.",
