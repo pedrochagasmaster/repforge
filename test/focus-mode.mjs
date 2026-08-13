@@ -391,7 +391,10 @@ async function main() {
     "it rises from the bottom, dims the card and takes the caret", JSON.stringify(sheet));
   await page.fill("#exNoteText", "Seat 4, feet high.");
   await page.click("#exNoteSave");
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#exNoteSheet");
+    return !s || s.hidden || s.classList.contains("hidden");
+  }, { timeout: 2000 });
   const noteSaved = await page.evaluate((d) => ({
     draft: JSON.parse(localStorage.getItem(d) || "{}").__exnotes || {},
     marked: !!document.querySelector(".focus-tool.has-note"),
