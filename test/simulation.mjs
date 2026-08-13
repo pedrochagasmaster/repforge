@@ -5115,6 +5115,76 @@ async function main() {
     "End block → Review block → Decide later"
   );
 
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await waitFocusedIn(page, "#endBlockConfirm");
+  await page.evaluate(() => document.querySelector("#endBlock")?.classList.add("hidden"));
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  const hiddenOpener = await page.evaluate(() => {
+    const el = document.activeElement;
+    return {
+      id: el?.id || "",
+      tag: el?.tagName || "",
+      isBody: el === document.body || el === document.documentElement,
+    };
+  });
+  assert(
+    !hiddenOpener.isBody && (hiddenOpener.id === "programEditToggle" || hiddenOpener.id === "reviewBlockLink"),
+    "F11: hidden opener falls back to a visible Program control",
+    JSON.stringify(hiddenOpener),
+    "End block → hide #endBlock → Escape"
+  );
+  await page.evaluate(() => document.querySelector("#endBlock")?.classList.remove("hidden"));
+
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await waitFocusedIn(page, "#endBlockConfirm");
+  await page.evaluate(() => document.querySelector("#endBlock")?.remove());
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  const absentOpener = await page.evaluate(() => {
+    const el = document.activeElement;
+    return {
+      id: el?.id || "",
+      isBody: el === document.body || el === document.documentElement,
+    };
+  });
+  assert(
+    !absentOpener.isBody && (absentOpener.id === "programEditToggle" || absentOpener.id === "reviewBlockLink"),
+    "F11: absent opener falls back to a visible Program control",
+    JSON.stringify(absentOpener),
+    "End block → remove #endBlock → Escape"
+  );
+  await reloadApp(page);
+  await nav(page, "program");
+
+  const f11BeforeStart = await getState(page);
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.click("#endBlockGo");
+  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  await page.click("#blockStartNext");
+  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+  const startNextFocus = await page.evaluate(() => {
+    const el = document.activeElement;
+    return {
+      id: el?.id || "",
+      isBody: el === document.body || el === document.documentElement,
+      connected: !!el?.isConnected,
+    };
+  });
+  assert(
+    !startNextFocus.isBody && startNextFocus.connected &&
+      (startNextFocus.id === "endBlock" || startNextFocus.id === "reviewBlockLink" || startNextFocus.id === "programEditToggle"),
+    "F11: Start next restores a visible Program review control",
+    JSON.stringify(startNextFocus),
+    "End block → Review block → Start next"
+  );
+  await persistState(page, f11BeforeStart);
+  await reloadApp(page);
+  await nav(page, "program");
+
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#dataImportPanel")?.classList.add("is-open"));
   const f11BackupPath = join(tmpDir, "f11-import.json");

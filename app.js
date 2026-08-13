@@ -698,7 +698,10 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
     $$("#blockStrategies .blockreview__act").forEach(x=>x.classList.toggle("is-selected",x===b))});
   $("#blockStartNext").onclick=()=>finishBlockAndStart(selected);
   $("#blockDecideLater").onclick=closeBlockReview;
-  const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{closeBlockReview();navTo("stats");setStatsSeg("review")}}
+  const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{
+    closeOverlay($("#blockReview"),{restore:false});
+    navTo("stats");setStatsSeg("review");
+    restoreModalFocus(null,()=>$(`#statsSeg button[data-seg="review"]`))}}
 let blockReviewCurrent=null;
 function closeBlockReview(){closeOverlay($("#blockReview"))}
 function completeCurrentProgram(review){
@@ -725,12 +728,14 @@ function startNextMesocycle(strategy){
   toast(t(msg[strategy]||"toast.new_block_started"))}
 function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
   completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
+function programReviewControl(){
+  return visibleOpener($("#endBlock"))||visibleOpener($("#reviewBlockLink"))||visibleOpener($("#programEditToggle"))}
 function openBlockReview(review,opts={}){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  openOverlay(d,{opener:opts.opener,onDismiss:closeBlockReview});
+  openOverlay(d,{opener:opts.opener,onDismiss:closeBlockReview,fallback:programReviewControl});
   $("#blockReviewClose").onclick=closeBlockReview}
 function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
   const dismiss=()=>closeOverlay(d);
-  openOverlay(d,{scrim:true,onDismiss:dismiss});
+  openOverlay(d,{scrim:true,onDismiss:dismiss,fallback:programReviewControl});
   $("#endBlockCancel").onclick=dismiss;
   $("#endBlockGo").onclick=()=>{
     const opener=modal?.el===d?modal.opener:null;
@@ -1268,13 +1273,28 @@ function modalStops(root){
     const cs=getComputedStyle(el);
     return cs.display!=="none"&&cs.visibility!=="hidden"})}
 function visibleOpener(hint){
-  let el=hint instanceof Element?hint:document.activeElement;
+  const el=hint===undefined?document.activeElement:hint;
   if(!(el instanceof HTMLElement)||el===document.body||el===document.documentElement)return null;
-  if(el.closest("#dialogScrim,#exNoteScrim"))return null;
-  if(el.matches("input[type=file]"))el=el.closest("label")||el;
-  if(!el.isConnected||el.closest(".hidden"))return null;
+  if(el.closest("#dialogScrim,#exNoteScrim,#endBlockConfirm,#blockReview,#importChoice,#exNoteSheet"))return null;
+  if(el.matches("input[type=file]")){
+    const lab=el.closest("label");
+    return lab?visibleOpener(lab):null}
+  if(!el.isConnected||el.hidden||el.closest(".hidden,.is-hidden"))return null;
   const r=el.getBoundingClientRect();
   return(r.width>0||r.height>0)?el:null}
+/** Prefer the recorded opener; if a close action hid or replaced it, resolve a
+ *  still-visible stand-in (same id, same note control, or a caller fallback). */
+function liveOpener(opener,fallback){
+  if(visibleOpener(opener))return opener;
+  const extra=typeof fallback==="function"?fallback():fallback;
+  if(visibleOpener(extra))return extra;
+  if(opener instanceof Element){
+    if(opener.id){const byId=visibleOpener(document.getElementById(opener.id));if(byId)return byId}
+    const noteId=opener.getAttribute("data-exnote-open");
+    if(noteId){const byNote=visibleOpener($(`[data-exnote-open="${CSS.escape(noteId)}"]`));if(byNote)return byNote}}
+  return null}
+function restoreModalFocus(opener,fallback){
+  const el=liveOpener(opener,fallback);if(el)el.focus();return el}
 function setModalInert(root,keep){
   const hold=new Set([root,...keep]);
   for(const el of document.body.children){
@@ -1287,7 +1307,7 @@ function bindModal(el,opts={}){
   if(modal)unbindModal({restore:false});
   const opener="opener" in opts?opts.opener:visibleOpener();
   const extra=[...(opts.keep||[]),opts.scrim?$("#dialogScrim"):null].filter(Boolean);
-  modal={el,opener,onDismiss:opts.onDismiss,scrim:!!opts.scrim};
+  modal={el,opener,onDismiss:opts.onDismiss,scrim:!!opts.scrim,fallback:opts.fallback};
   document.body.classList.add("is-modal-open");
   showDialogScrim(!!opts.scrim);
   setModalInert(el,extra);
@@ -1295,14 +1315,14 @@ function bindModal(el,opts={}){
     if(modal?.el!==el)return;
     const target=opts.focusEl&&el.contains(opts.focusEl)?opts.focusEl:modalStops(el)[0];
     target?.focus()})}
-function unbindModal({restore=true}={}){
+function unbindModal({restore=true,fallback}={}){
   if(!modal)return;
-  const opener=modal.opener;
+  const opener=modal.opener,fb=fallback!==undefined?fallback:modal.fallback;
   modal=null;
   document.body.classList.remove("is-modal-open");
   showDialogScrim(false);
   clearModalInert();
-  if(restore&&opener?.isConnected)opener.focus()}
+  if(restore)restoreModalFocus(opener,fb)}
 function onModalKey(e){
   if(!modal)return;
   if(e.key==="Escape"){e.preventDefault();modal.onDismiss?.();return}
@@ -1313,10 +1333,13 @@ function onModalKey(e){
   if(e.shiftKey&&(document.activeElement===first||!inside)){e.preventDefault();last.focus()}
   else if(!e.shiftKey&&(document.activeElement===last||!inside)){e.preventDefault();first.focus()}}
 function openOverlay(el,opts={}){if(!el)return;el.classList.remove("hidden");bindModal(el,opts)}
-function closeOverlay(el,{restore=true}={}){
+function closeOverlay(el,{restore=true,fallback}={}){
   if(!el)return;
-  if(modal?.el===el)unbindModal({restore});
-  el.classList.add("hidden")}
+  const opener=modal?.el===el?modal.opener:null;
+  const fb=modal?.el===el?(fallback!==undefined?fallback:modal.fallback):fallback;
+  if(modal?.el===el)unbindModal({restore:false});
+  el.classList.add("hidden");
+  if(restore)restoreModalFocus(opener,fb)}
 document.addEventListener("keydown",onModalKey);
 $("#dialogScrim")?.addEventListener("click",()=>{if(modal?.scrim)modal.onDismiss?.()});
 
@@ -1331,23 +1354,25 @@ function openExNoteSheet(exId){
   ta.value=$(`[data-exnote="${exId}"]`)?.value??(loadDraft().__exnotes?.[exId]??lastExerciseNote(ex));
   sheet.hidden=false;sheet.classList.remove("hidden");scrim?.classList.remove("hidden");
   document.body.classList.add("is-sheet-open");
-  bindModal(sheet,{onDismiss:closeExNoteSheet,keep:scrim?[scrim]:[],focusEl:ta});
+  bindModal(sheet,{onDismiss:closeExNoteSheet,keep:scrim?[scrim]:[],focusEl:ta,
+    fallback:()=>$(`[data-exnote-open="${CSS.escape(exId)}"]`)});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");
     if(document.activeElement===ta)ta.setSelectionRange(ta.value.length,ta.value.length)})}
-function closeExNoteSheet(){
+function closeExNoteSheet(opts){
   const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim");
   if(!sheet||sheet.hidden)return;
-  if(modal?.el===sheet)unbindModal({restore:true});
+  if(modal?.el===sheet)unbindModal({restore:opts?.restore!==false,fallback:opts?.fallback});
   sheet.classList.remove("is-open");scrim?.classList.remove("is-open");
   document.body.classList.remove("is-sheet-open");
   const finish=()=>{sheet.classList.add("hidden");sheet.hidden=true;scrim?.classList.add("hidden")};
   reducedMotion()?finish():setTimeout(finish,220);
   exNoteFor=null}
 function saveExNoteSheet(){
-  const id=exNoteFor,val=$("#exNoteText")?.value??"";
+  const id=exNoteFor,val=$("#exNoteText")?.value??"",opener=modal?.opener;
   if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;saveDraft()}
-  closeExNoteSheet();
-  if(id)renderWorkout()}
+  closeExNoteSheet({restore:false});
+  if(id)renderWorkout();
+  restoreModalFocus(opener,()=>id&&$(`[data-exnote-open="${CSS.escape(id)}"]`))}
 /** Keep the sheet above the software keyboard rather than behind it. */
 function trackSheetViewport(){
   const vv=window.visualViewport;if(!vv)return;
@@ -2954,11 +2979,12 @@ async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   e.target.value=""}
 function openImportChoice(ctx){const d=$("#importChoice");
   $("#importChoiceBody").textContent=t("dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
+  const importOpener=()=>$("#importJson")?.closest("label")||$("#dataImportRow");
   const dismiss=()=>{closeOverlay(d);toast(t("toast.import_cancelled"))};
-  openOverlay(d,{scrim:true,onDismiss:dismiss,opener:visibleOpener(ctx.opener)});
+  openOverlay(d,{scrim:true,onDismiss:dismiss,opener:visibleOpener(ctx.opener),fallback:importOpener});
   $("#importCancel").onclick=dismiss;
-  $("#importReplace").onclick=()=>{closeOverlay(d);applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))};
-  $("#importMerge").onclick=()=>{closeOverlay(d);mergeLog(ctx.s)};}
+  $("#importReplace").onclick=()=>{const opener=modal?.opener;closeOverlay(d,{restore:false});applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}));restoreModalFocus(opener,importOpener)};
+  $("#importMerge").onclick=()=>{const opener=modal?.opener;closeOverlay(d,{restore:false});mergeLog(ctx.s);restoreModalFocus(opener,importOpener)}}
 function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
   const rows=s.log.filter(r=>r&&r.session&&!have.has(r.session));
   const added=new Set(rows.map(r=>r.session)).size;
