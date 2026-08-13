@@ -5775,6 +5775,35 @@ async function main() {
   await reloadApp(page);
   await nav(page, "program");
 
+  const f11BeforeOnb = await getState(page);
+  await page.click("#endBlock");
+  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.click("#endBlockGo");
+  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  await page.click('[data-strategy="onboarding"]');
+  await page.click("#blockStartNext");
+  await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+  const onbStartFocus = await page.evaluate(() => {
+    const el = document.activeElement;
+    return {
+      id: el?.id || "",
+      isBody: el === document.body || el === document.documentElement,
+      connected: !!el?.isConnected,
+      inOnboarding: !!el?.closest?.("#onboarding.active"),
+    };
+  });
+  assert(
+    !onbStartFocus.isBody && onbStartFocus.connected &&
+      (onbStartFocus.id === "onbCancel" || onbStartFocus.inOnboarding),
+    "F11: Start next onboarding restores a visible onboarding control",
+    JSON.stringify(onbStartFocus),
+    "End block → Review block → onboarding → Start next"
+  );
+  await persistState(page, f11BeforeOnb);
+  await reloadApp(page);
+  await nav(page, "program");
+
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#dataImportPanel")?.classList.add("is-open"));
   const f11BackupPath = join(tmpDir, "f11-import.json");
