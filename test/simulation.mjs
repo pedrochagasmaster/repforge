@@ -5350,6 +5350,12 @@ async function main() {
     "Complete onboarding → Save program"
   );
   assert(
+    state.programMeta?.name === "Untitled program",
+    "P6: generated programs receive the localized fallback name",
+    `name=${state.programMeta?.name}`,
+    "Complete onboarding → Save program → inspect program name"
+  );
+  assert(
     onbDays.length === state.programMeta?.daysPerWeek,
     "P6: generated program days match daysPerWeek",
     `days=${onbDays.length} expected=${state.programMeta?.daysPerWeek}`,
@@ -6879,7 +6885,29 @@ async function main() {
     JSON.stringify({ onboarded: editState.programMeta?.onboarded, follow: editState._storageFollowUp }),
     "First-run onboarding → Edit before saving"
   );
-  await nav(page, "program");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
+  const resumedEdit = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    return {
+      marker: state._storageFollowUp,
+      programActive: document.querySelector("#program")?.classList.contains("active"),
+      editorVisible: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      tourVisible: !document.querySelector("#tour")?.classList.contains("hidden"),
+      installVisible: !document.querySelector("#installBanner")?.classList.contains("hidden"),
+    };
+  });
+  assert(
+    resumedEdit.marker?.kind === "onboarding-edit" &&
+      resumedEdit.programActive &&
+      resumedEdit.editorVisible &&
+      !resumedEdit.tourVisible &&
+      !resumedEdit.installVisible,
+    "Reload resumes the pending Program edit without starting follow-up UI",
+    JSON.stringify(resumedEdit),
+    "First-run onboarding → Edit before saving → reload"
+  );
   const tog = page.locator("#programEditToggle");
   await tog.click();
   await page.waitForTimeout(120);

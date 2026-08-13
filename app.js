@@ -853,7 +853,8 @@ function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
 function buildProgramMeta({name, answers}={}){
   const a=answers||{},now=new Date().toISOString();
-  return{id:uid(),name:name!=null?String(name).trim():(t("untitled_program")||""),started:today(),created:now,updated:now,
+  const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
+  return{id:uid(),name:programName,started:today(),created:now,updated:now,
     goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
     equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
     sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
@@ -3830,6 +3831,7 @@ async function triggerInstall(){
 }
 function installBannerEligible(){
   if(isStandalone())return false;
+  if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
   if(tourActive||$("#onboarding")?.classList.contains("active"))return false;
   if(!installPrompt&&!isIOS())return false;
   const dis=+uiPrefs.installDismissedAt||0;
@@ -3961,6 +3963,13 @@ function endTour(completed){
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
 window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
+function resumeProgramEditFollowUp(){
+  if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
+  programEditMode=true;
+  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding");
+  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+  return true}
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -4227,5 +4236,6 @@ async function boot(){
   if(decision.kind==="unresolved")decision=await presentStorageRecovery(decision);
   await applyBootDecision(decision);
   hydrateWorkoutDraft({restoreDay:true});
+  resumeProgramEditFollowUp();
   init()}
 boot();
