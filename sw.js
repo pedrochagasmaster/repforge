@@ -1,4 +1,4 @@
-const CACHE = "repforge-v53";
+const CACHE = "repforge-v54";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./schedule.js", "./notify.js", "./i18n.js",
@@ -10,13 +10,17 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", event => {
-  event.waitUntil(caches.open(CACHE).then(cache => cache.addAll(ASSETS)));
-  self.skipWaiting();
+  event.waitUntil(
+    caches.open(CACHE).then(cache => cache.addAll(ASSETS)).then(() => self.skipWaiting())
+  );
 });
 
 self.addEventListener("activate", event => {
-  event.waitUntil(caches.keys().then(keys => Promise.all(keys.map(key => key === CACHE ? null : caches.delete(key)))));
-  self.clients.claim();
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.map(key => key === CACHE ? null : caches.delete(key))))
+      .then(() => self.clients.claim())
+  );
 });
 
 const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/manifest.webmanifest"]);
@@ -26,22 +30,30 @@ self.addEventListener("fetch", event => {
   const isShell = event.request.mode === "navigate" ||
     SHELL.has(url.pathname) || SHELL.has(url.pathname.replace(/\/$/, "/index.html"));
   if (isShell) {
-    event.respondWith(
-      fetch(event.request).then(response => {
-        const copy = response.clone();
-        caches.open(CACHE).then(cache => cache.put(event.request, copy));
+    event.respondWith((async () => {
+      try {
+        const response = await fetch(event.request);
+        const cache = await caches.open(CACHE);
+        await cache.put(event.request, response.clone());
         return response;
-      }).catch(() => caches.match(event.request).then(c => c || caches.match("./index.html")))
-    );
+      } catch {
+        return (await caches.match(event.request)) || (await caches.match("./index.html"));
+      }
+    })());
     return;
   }
-  event.respondWith(
-    caches.match(event.request).then(cached => cached || fetch(event.request).then(response => {
-      const copy = response.clone();
-      caches.open(CACHE).then(cache => cache.put(event.request, copy));
+  event.respondWith((async () => {
+    const cached = await caches.match(event.request);
+    if (cached) return cached;
+    try {
+      const response = await fetch(event.request);
+      const cache = await caches.open(CACHE);
+      await cache.put(event.request, response.clone());
       return response;
-    }).catch(() => caches.match("./index.html")))
-  );
+    } catch {
+      return await caches.match("./index.html");
+    }
+  })());
 });
 
 self.addEventListener("notificationclick", event => {

@@ -7434,13 +7434,22 @@ async function main() {
     await pwaPage.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(pwaPage);
     await pwaPage.waitForFunction(
-      async (cacheName) => {
+      async ({ cacheName, shell }) => {
         if (!("serviceWorker" in navigator)) return false;
         await navigator.serviceWorker.ready;
-        const keys = await caches.keys();
-        return keys.includes(cacheName) && !!navigator.serviceWorker.controller;
+        if (!navigator.serviceWorker.controller) return false;
+        const names = await caches.keys();
+        if (!names.includes(cacheName)) return false;
+        const cache = await caches.open(cacheName);
+        const reqs = await cache.keys();
+        if (!reqs.length) return false;
+        const paths = new Set(reqs.map((r) => new URL(r.url).pathname));
+        return shell.every((path) => {
+          if (path === "/") return paths.has("/") || paths.has("/index.html");
+          return paths.has(path);
+        });
       },
-      swMeta.cache,
+      { cacheName: swMeta.cache, shell: swMeta.shell },
       { timeout: 20000 }
     );
 
@@ -7474,7 +7483,12 @@ async function main() {
             }
           }
           if (!cached) {
-            results.push({ path, ok: false, reason: "cache-miss", cacheUrls });
+            results.push({
+              path,
+              ok: false,
+              reason: "cache-miss",
+              cacheUrls: cacheUrls.slice(0, 12),
+            });
             continue;
           }
           const cachedBuf = new Uint8Array(await cached.arrayBuffer());
