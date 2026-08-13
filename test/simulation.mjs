@@ -3626,7 +3626,7 @@ async function main() {
     "Settings effort mode → Log → Focus → the well's third column steps through the effort words"
   );
   const focusAlign = await page.evaluate(() => {
-    const cells = [...document.querySelectorAll(".focus-well .curset__cell")];
+    const cells = [...document.querySelectorAll(".exercise.is-current .focus-well .curset__cell")];
     const band = (sel) => cells.map((c) => {
       const el = c.querySelector(sel);
       return el ? Math.round(el.getBoundingClientRect().top) : null;

@@ -436,7 +436,7 @@ async function main() {
   assert(/^(easy|hard|max)$/i.test(effort.rowEffort) && effort.hint,
     "a logged set reads back as the word that was tapped", JSON.stringify(effort));
   const wellAlign = await page.evaluate(() => {
-    const cells = [...document.querySelectorAll(".focus-well .curset__cell")];
+    const cells = [...document.querySelectorAll(".exercise.is-current .focus-well .curset__cell")];
     const band = (sel) => cells.map((c) => {
       const el = c.querySelector(sel);
       return el ? Math.round(el.getBoundingClientRect().top) : null;
