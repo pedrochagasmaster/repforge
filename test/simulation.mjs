@@ -667,6 +667,30 @@ async function main() {
     viewport: { width: 390, height: 844 },
   });
   const page = await context.newPage();
+  await page.addInitScript(() => {
+    const proto = CanvasRenderingContext2D.prototype;
+    const origFillText = proto.fillText;
+    const origStroke = proto.stroke;
+    const origFill = proto.fill;
+    const origGetContext = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (type, ...rest) {
+      if (type === "2d") this.__rfPaint = { fillText: [], stroke: [], fill: [] };
+      return origGetContext.call(this, type, ...rest);
+    };
+    const bucket = (ctx) => (ctx.canvas.__rfPaint ||= { fillText: [], stroke: [], fill: [] });
+    proto.fillText = function (text, x, y, ...rest) {
+      bucket(this).fillText.push({ text: String(text), fillStyle: String(this.fillStyle), font: String(this.font) });
+      return origFillText.call(this, text, x, y, ...rest);
+    };
+    proto.stroke = function (...args) {
+      bucket(this).stroke.push({ strokeStyle: String(this.strokeStyle) });
+      return origStroke.apply(this, args);
+    };
+    proto.fill = function (...args) {
+      bucket(this).fill.push({ fillStyle: String(this.fillStyle) });
+      return origFill.apply(this, args);
+    };
+  });
 
   page.on("dialog", async (dialog) => {
     await dialog.accept();
@@ -7908,6 +7932,50 @@ async function main() {
       settings: { ...base.settings, lang, unit: "kg", hardRir: 4 },
     };
   };
+  const highStatusState = (base, lang) => {
+    const date = isoToday();
+    const created = `${date}T12:00:00.000Z`;
+    const mkEx = (id, muscle, name, sets, order) => ({
+      id,
+      day: "Day 1",
+      order,
+      name,
+      sets,
+      min: 6,
+      max: 10,
+      primary: muscle,
+      secondary: "",
+      notes: "",
+      alternates: [],
+    });
+    const mkSets = (id, name, muscle, n) =>
+      Array.from({ length: n }, (_, i) => ({
+        session: `${date}_Day 1_hs`,
+        date,
+        day: "Day 1",
+        name,
+        exerciseId: id,
+        set: i + 1,
+        load: 40,
+        reps: 8,
+        rir: 1,
+        notes: "",
+        created,
+        primary: muscle,
+        secondary: "",
+      }));
+    return {
+      ...base,
+      program: [
+        mkEx("hs-quads", "Quads", "Squat", 4, 1),
+        mkEx("hs-chest", "Chest", "Bench", 4, 2),
+        mkEx("hs-calves", "Calves", "Calf raise", 4, 3),
+      ],
+      log: [...mkSets("hs-chest", "Bench", "Chest", 4), ...mkSets("hs-calves", "Calf raise", "Calves", 12)],
+      programMeta: { ...(base.programMeta || {}), onboarded: true, started: date, mesocycleStatus: "active" },
+      settings: { ...base.settings, lang, unit: "kg", hardRir: 4 },
+    };
+  };
 
   const readOverview = async () =>
     page.evaluate(() => {
@@ -7920,6 +7988,7 @@ async function main() {
           num: row.querySelector(".vrow__num")?.textContent.trim(),
           status: row.querySelector(".vrow__status")?.textContent.trim(),
           on: fill?.classList.contains("is-on") || false,
+          high: fill?.classList.contains("is-high") || false,
           width: fill?.style.width,
           fillBox: fill?.getBoundingClientRect().width || 0,
           barBox: bar?.getBoundingClientRect().width || 0,
@@ -7933,6 +8002,7 @@ async function main() {
               muscle: r.muscle,
               planned: r.planned,
               completed7: r.completed7,
+              status: r.status,
               pct: window.__repforgeOverviewVolume.pct(r.planned, r.completed7),
               label: window.__repforgeOverviewVolume.label(r.muscle),
             }))
@@ -7978,8 +8048,8 @@ async function main() {
     "__repforgeOverviewVolume.pct(5,5)"
   );
   assert(
-    calves?.pct === 100 && calves.completed7 > calves.planned,
-    "F9: over-target width is capped at 100%",
+    calves?.pct === 100 && calves.completed7 > calves.planned && calves.status === "High",
+    "F9: over-target width is capped at 100% and status is High",
     JSON.stringify(calves),
     "__repforgeOverviewVolume.pct for Calves 12/4"
   );
@@ -7990,7 +8060,10 @@ async function main() {
     "__repforgeOverviewVolume.pct for Biceps with no plan"
   );
 
-  await page.waitForFunction(() => Array.isArray(window.__repforgeChartPaint?.fillText), { timeout: 5000 });
+  await page.waitForFunction(() => {
+    const p = document.querySelector("#chart")?.__rfPaint;
+    return Array.isArray(p?.fillText) && p.fillText.length > 0;
+  }, { timeout: 5000 });
   const chartPaint = await page.evaluate(() => {
     const norm = (c) => {
       const raw = String(c).trim().toLowerCase().replace(/\s+/g, "");
@@ -7999,8 +8072,9 @@ async function main() {
       if (!m) return raw;
       return "#" + [+m[1], +m[2], +m[3]].map((n) => n.toString(16).padStart(2, "0")).join("");
     };
-    const paint = window.__repforgeChartPaint || { fillText: [], stroke: [], fill: [] };
+    const paint = document.querySelector("#chart")?.__rfPaint || { fillText: [], stroke: [], fill: [] };
     return {
+      exposed: "__repforgeChartPaint" in window,
       fillText: paint.fillText.map((x) => ({
         text: x.text,
         fillStyle: norm(x.fillStyle),
@@ -8010,6 +8084,12 @@ async function main() {
       fill: paint.fill.map((x) => ({ fillStyle: norm(x.fillStyle) })),
     };
   });
+  assert(
+    chartPaint.exposed !== true,
+    "C1: app.js does not ship chart paint instrumentation",
+    `window.__repforgeChartPaint in page: ${chartPaint.exposed}`,
+    "Inspect window after Stats → Overview chart draw"
+  );
   const latestValueText = chartPaint.fillText.find(
     (x) => /\b(kg|lb)\b/i.test(x.text) && /600/.test(x.font)
   );
@@ -8025,21 +8105,21 @@ async function main() {
       chartPaint.fillText.every((x) => x.fillStyle !== "#e04e14"),
     "C1: no canvas fillText uses brand orange",
     JSON.stringify(chartPaint.fillText.map((x) => ({ text: x.text, fillStyle: x.fillStyle }))),
-    "Inspect __repforgeChartPaint.fillText colors"
+    "Inspect #chart.__rfPaint.fillText colors"
   );
   assert(
     chartPaint.stroke.some((x) => x.strokeStyle === "#e04e14") &&
       chartPaint.stroke.some((x) => x.strokeStyle === "#e4e1da"),
     "C1: chart data stroke stays brand orange; grid stays rule",
     JSON.stringify(chartPaint.stroke),
-    "Inspect __repforgeChartPaint.stroke colors"
+    "Inspect #chart.__rfPaint.stroke colors"
   );
   assert(
     chartPaint.fill.some((x) => x.fillStyle === "#e04e14") &&
       chartPaint.fill.every((x) => x.fillStyle === "#e04e14"),
     "C1: chart points stay brand orange",
     JSON.stringify(chartPaint.fill),
-    "Inspect __repforgeChartPaint.fill colors"
+    "Inspect #chart.__rfPaint.fill colors"
   );
 
   assert(
@@ -8095,6 +8175,58 @@ async function main() {
     "F10: Portuguese +more still opens Volume",
     "segVolume not active",
     "PT Overview → +n mais → Volume"
+  );
+  const ptCalves = ptVol.hook.find((r) => r.muscle === "Calves");
+  assert(
+    ptCalves?.status === "Alto" && ptCalves.completed7 > ptCalves.planned,
+    "F9: Portuguese volumeDashboard labels over-target High as Alto",
+    JSON.stringify(ptCalves),
+    "PT Stats → Overview hook status for Calves 12/4"
+  );
+
+  await persistState(page, highStatusState(await getState(page), "en"));
+  await reloadApp(page);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  const enHigh = await readOverview();
+  const hsQuads = enHigh.rows.find((r) => r.muscle === "Quads");
+  const hsChest = enHigh.rows.find((r) => r.muscle === "Chest");
+  const hsCalves = enHigh.rows.find((r) => r.muscle === "Calves");
+  assert(
+    hsQuads?.status === "Below" && !hsQuads.on && !hsQuads.high && hsQuads.width === "0%",
+    "F9: Below overview copy is unchanged",
+    JSON.stringify(hsQuads),
+    "Overview → Quads 0/4"
+  );
+  assert(
+    hsChest?.status === "On target" && hsChest.on && !hsChest.high && hsChest.width === "100%",
+    "F9: On target overview copy is unchanged",
+    JSON.stringify(hsChest),
+    "Overview → Chest 4/4"
+  );
+  assert(
+    hsCalves?.status === "High" && hsCalves.high && !hsCalves.on && hsCalves.width === "100%",
+    "F9: over-target overview row renders High, not On target",
+    JSON.stringify(hsCalves),
+    "Overview → Calves 12/4"
+  );
+
+  await persistState(page, highStatusState(await getState(page), "pt"));
+  await reloadApp(page);
+  await nav(page, "stats");
+  await page.click('#statsSeg button[data-seg="overview"]');
+  await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
+  const ptHigh = await readOverview();
+  assert(
+    ptHigh.rows.find((r) => r.muscle === "Quads")?.status === "Abaixo" &&
+      ptHigh.rows.find((r) => r.muscle === "Chest")?.status === "No alvo" &&
+      ptHigh.rows.find((r) => r.muscle === "Calves")?.status === "Alto" &&
+      ptHigh.rows.find((r) => r.muscle === "Calves")?.high &&
+      !ptHigh.rows.find((r) => r.muscle === "Calves")?.on,
+    "F9: Portuguese overview uses Alto for over-target, keeping Abaixo/No alvo",
+    ptHigh.rows.map((r) => `${r.muscle}:${r.status}`).join("|"),
+    "PT Overview → Quads/Chest/Calves status labels"
   );
 
   const focusState = volumeAuditState(await getState(page), "en");
