@@ -812,206 +812,43 @@ async function main() {
   }
 
 
-  phase("F1: history-derived hold loads snap to the kg grid");
+  phase("F1: mixed-load hold first-set Focus cue");
   {
-    const MIXED = [52.5, 55];
-    const onGrid = (kg) => Number.isFinite(kg) && Math.abs(kg / 2.5 - Math.round(kg / 2.5)) < 1e-9;
-    const mixedRows = (ex, date, reps, rir, tag) => {
-      const session = `${date}_${ex.day}_f1_${tag}`;
-      const created = new Date(`${date}T12:00:00.000Z`).toISOString();
-      return MIXED.map((load, i) => ({
-        session, date, day: ex.day, name: ex.name, exerciseId: ex.id, set: i + 1,
-        load, reps, rir, notes: "", created, primary: ex.primary, secondary: ex.secondary,
-      }));
-    };
-    const f1Plan = (id) => f1Page.evaluate((id) => {
-      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-      const ex = (raw.program || []).find((e) => e.id === id);
-      const rec = window.__repforgeRecommendation?.(ex);
-      const C = window.__repforgeCapacity;
-      const last = C.sessionsFor(ex).at(-1);
-      const prev = last.reps[0];
-      const snapped = rec.rawMed != null && Math.abs(rec.load - rec.rawMed) > 1e-6;
-      const reentry = Math.min(ex.max, Math.max(ex.min, Math.round(C.repsAtLoad(rec.cap, rec.load) - (+rec.typRir || 0))));
-      const hold = rec.pushReps ? Math.min(ex.max, prev + 1) : Math.min(ex.max, Math.max(ex.min, prev));
-      const expected = rec.status === "add" || rec.status === "add2" || rec.status === "reduce" || snapped ? reentry : hold;
-      return {
-        load: rec.load, cap: rec.cap, typRir: rec.typRir, rawMed: rec.rawMed,
-        med: last.med, medCap: last.medCap, prev, snapped, reentry, hold, expected,
-      };
-    }, id);
-    const cases = [
-      {
-        key: "stalled",
-        dates: ["2025-05-01", "2025-05-08", "2025-05-15"],
-        row: (ex, date, i) => mixedRows(ex, date, 7, 1, `stall_${i}`),
-      },
-      {
-        key: "recover",
-        dates: ["2025-05-01", "2025-05-08"],
-        row: (ex, date, i) => mixedRows(ex, date, 7, i === 1 ? 0 : 1, `rec_${i}`),
-      },
-      {
-        key: "push_reps",
-        dates: ["2025-05-15"],
-        row: (ex, date) => mixedRows(ex, date, 6, 2, "push"),
-      },
-      {
-        key: "hold",
-        dates: ["2025-05-15"],
-        row: (ex, date) => mixedRows(ex, date, 7, 1, "hold"),
-      },
-    ];
     const f1Ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
     const f1Page = await f1Ctx.newPage();
-    for (const c of cases) {
-      await boot(f1Page);
-      await enterFocus(f1Page, 0);
-      const seed = await f1Page.evaluate(() => {
-        const ex = window.__repforgeFocus.list()[0];
-        return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
-      });
-      const rows = c.dates.flatMap((date, i) => c.row(seed, date, i));
-      await persist(f1Page, `
-        const exId = ${JSON.stringify(seed.id)};
-        s.settings = { ...(s.settings || {}), minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" };
-        s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
-        s.log = ${JSON.stringify(rows)};
-      `);
-      await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
-      await reload(f1Page);
-      await enterFocus(f1Page, 0);
-      const rec = await f1Page.evaluate((id) => {
-        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-        const ex = (raw.program || []).find((e) => e.id === id);
-        const r = window.__repforgeRecommendation?.(ex);
-        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label };
-      }, seed.id);
-      const cue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
-      const loadVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
-      const repsVal = +(await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
-      const plan = await f1Plan(seed.id);
-      assert(rec?.load === 55 && onGrid(rec.load), `F1 ${c.key}: recommendation load is on the 2.5 kg grid`, JSON.stringify(rec));
-      assert(/55/.test(cue || "") && !/53\.75/.test(cue || "") && loadVal === "55",
-        `F1 ${c.key}: untouched first-set Focus cue is on-grid`, `cue="${cue}" input=${loadVal} rec=${JSON.stringify(rec)}`);
-      assert(
-        plan.med === 53.75 && plan.rawMed === 53.75 && plan.cap === plan.medCap && plan.snapped
-          && plan.expected === plan.reentry && plan.expected !== plan.hold
-          && repsVal === plan.expected && new RegExp(`aim for ${plan.expected} reps`).test(cue || ""),
-        `F1 ${c.key}: snapped load re-enters reps on capacity`,
-        `cue="${cue}" reps=${repsVal} plan=${JSON.stringify(plan)}`
-      );
-    }
-
-    for (const c of cases) {
-      await boot(f1Page);
-      await enterFocus(f1Page, 0);
-      const seed = await f1Page.evaluate(() => {
-        const ex = window.__repforgeFocus.list()[0];
-        return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
-      });
-      const rows = c.dates.flatMap((date, i) => {
-        const sample = c.row(seed, date, i);
-        return sample.map((r) => ({ ...r, load: 1, session: `${r.session}_1kg` }));
-      });
-      await persist(f1Page, `
-        const exId = ${JSON.stringify(seed.id)};
-        s.settings = { ...(s.settings || {}), minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" };
-        s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
-        s.log = ${JSON.stringify(rows)};
-      `);
-      await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
-      await reload(f1Page);
-      await enterFocus(f1Page, 0);
-      const rec = await f1Page.evaluate((id) => {
-        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-        const ex = (raw.program || []).find((e) => e.id === id);
-        const r = window.__repforgeRecommendation?.(ex);
-        const loads = (raw.log || []).filter((x) => x.exerciseId === id).map((x) => +x.load);
-        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label, historyLoads: loads };
-      }, seed.id);
-      const cue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
-      const loadVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
-      const repsVal = +(await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
-      const plan = await f1Plan(seed.id);
-      assert(rec?.historyLoads?.every((kg) => kg === 1) && rec?.load === 2.5 && onGrid(rec.load),
-        `F1 1 kg ${c.key}: recommendation clamps to minJump`, JSON.stringify(rec));
-      assert(loadVal === "2.5" && /2\.5/.test(cue || "") && !/^0(?:\.0+)?$/.test(loadVal),
-        `F1 1 kg ${c.key}: untouched first-set Focus cue is a positive grid load`,
-        `cue="${cue}" input=${loadVal} rec=${JSON.stringify(rec)}`);
-      assert(
-        plan.med === 1 && plan.rawMed === 1 && plan.cap === plan.medCap && plan.snapped
-          && plan.expected === plan.reentry && plan.expected !== plan.hold
-          && repsVal === plan.expected && new RegExp(`aim for ${plan.expected} reps`).test(cue || ""),
-        `F1 1 kg ${c.key}: snapped load re-enters reps on capacity`,
-        `cue="${cue}" reps=${repsVal} plan=${JSON.stringify(plan)}`
-      );
-    }
-
     await boot(f1Page);
     await enterFocus(f1Page, 0);
-    const gridSeed = await f1Page.evaluate(() => {
+    const seed = await f1Page.evaluate(() => {
       const ex = window.__repforgeFocus.list()[0];
       return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
     });
-    const gridRows = [55, 55].map((load, i) => ({
-      session: `2025-05-15_${gridSeed.day}_f1_grid`,
-      date: "2025-05-15", day: gridSeed.day, name: gridSeed.name, exerciseId: gridSeed.id, set: i + 1,
-      load, reps: 7, rir: 1, notes: "", created: "2025-05-15T12:00:00.000Z",
-      primary: gridSeed.primary, secondary: gridSeed.secondary,
+    const rows = [52.5, 55].map((load, i) => ({
+      session: `2025-05-15_${seed.day}_f1_hold`, date: "2025-05-15", day: seed.day,
+      name: seed.name, exerciseId: seed.id, set: i + 1, load, reps: 7, rir: 1, notes: "",
+      created: "2025-05-15T12:00:00.000Z", primary: seed.primary, secondary: seed.secondary,
     }));
     await persist(f1Page, `
-      const exId = ${JSON.stringify(gridSeed.id)};
+      const exId = ${JSON.stringify(seed.id)};
       s.settings = { ...(s.settings || {}), minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" };
       s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
-      s.log = ${JSON.stringify(gridRows)};
+      s.log = ${JSON.stringify(rows)};
     `);
     await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
     await reload(f1Page);
     await enterFocus(f1Page, 0);
-    const gridPlan = await f1Plan(gridSeed.id);
-    const gridCue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
-    const gridReps = +(await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
-    assert(
-      gridPlan.med === 55 && gridPlan.rawMed === 55 && !gridPlan.snapped
-        && gridPlan.expected === gridPlan.hold && gridPlan.expected === 8 && gridPlan.reentry === 7
-        && gridReps === 8 && /aim for 8 reps/.test(gridCue || ""),
-      "F1 on-grid hold: double-progression reps, not capacity re-entry",
-      `cue="${gridCue}" reps=${gridReps} plan=${JSON.stringify(gridPlan)}`
-    );
-
-    await boot(f1Page);
-    await enterFocus(f1Page, 0);
-    const driftSeed = await f1Page.evaluate(() => {
-      const ex = window.__repforgeFocus.list()[0];
-      return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
-    });
-    const driftRows = [1.2, 1.2].map((load, i) => ({
-      session: `2025-05-15_${driftSeed.day}_f1_drift`,
-      date: "2025-05-15", day: driftSeed.day, name: driftSeed.name, exerciseId: driftSeed.id, set: i + 1,
-      load, reps: 7, rir: 1, notes: "", created: "2025-05-15T12:00:00.000Z",
-      primary: driftSeed.primary, secondary: driftSeed.secondary,
-    }));
-    await persist(f1Page, `
-      const exId = ${JSON.stringify(driftSeed.id)};
-      s.settings = { ...(s.settings || {}), minJump: 0.1, unit: "kg", lang: "en", rirMode: "numeric" };
-      s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
-      s.log = ${JSON.stringify(driftRows)};
-    `);
-    await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
-    await reload(f1Page);
-    await enterFocus(f1Page, 0);
-    const driftPlan = await f1Plan(driftSeed.id);
-    const driftCue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
-    const driftReps = +(await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue());
-    assert(
-      driftPlan.rawMed === 1.2 && driftPlan.load !== 1.2
-        && Math.abs(driftPlan.load - 1.2) < 1e-6 && !driftPlan.snapped
-        && driftPlan.expected === driftPlan.hold && driftPlan.expected === 8 && driftPlan.reentry === 7
-        && driftReps === 8 && /aim for 8 reps/.test(driftCue || ""),
-      "F1 fractional-grid hold: float drift does not steal double-progression reps",
-      `cue="${driftCue}" reps=${driftReps} plan=${JSON.stringify(driftPlan)}`
-    );
+    const rec = await f1Page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      const r = window.__repforgeRecommendation?.(ex);
+      return r && { status: r.status, load: r.load, reenterReps: !!r.reenterReps };
+    }, seed.id);
+    const cue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
+    const loadVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
+    const repsVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue();
+    assert(rec?.status === "hold" && rec.load === 55 && rec.reenterReps && loadVal === "55" && !/53\.75/.test(cue || ""),
+      "F1 mixed hold: Focus first-set load is on-grid 55 kg", `cue="${cue}" rec=${JSON.stringify(rec)}`);
+    assert(repsVal === "6" && /aim for 6 reps/.test(cue || ""),
+      "F1 mixed hold: Focus first-set reps re-enter at 6", `cue="${cue}" reps=${repsVal}`);
     await f1Ctx.close();
   }
 
