@@ -274,6 +274,20 @@ against `5b34d2f` (2026-08-12,
 | 038 | [BYOK AI coach — chat sheet + user-approved program proposals](./038-ai-coach.md) | direction | L | HIGH | Product owner decision; ADR 0002 supersedes the prior AI rejection |
 | 039 | [Capacity-driven load & rep suggestions](./039-capacity-driven-suggestions.md) | direction / correctness | L | MED-HIGH | Product owner grill session 2026-08-12; ADR 0003 |
 
+## Wave 6 — launch-readiness UI/UX audit
+
+Written against `main` @ `7b6ad58` on 2026-08-13 after a clean-origin,
+phone-sized audit of every user-facing view and state, with retained findings
+re-vetted against the current code and UI-overhaul specification.
+
+| # | Plan | Category | Effort | Risk | Source |
+|---|------|----------|--------|------|--------|
+| 040 | [Launch-readiness UI/UX audit](./040-launch-readiness-ui-ux-audit.md) | correctness / UX / accessibility | M launch gate; L full pass | MED | Clean-origin browser audit + code/spec vetting |
+
+Plan 040 is an audit and remediation brief, not an implementation. Its six-item
+launch gate is ordered first; lifecycle, affordance, and navigation follow-ups
+are sequenced separately so launch fixes do not become another visual redesign.
+
 ## Backlog (not yet planned in detail)
 
 Grounded in the report but deferred — each needs its own plan before execution.
@@ -361,3 +375,4 @@ Consensus across ≥5 personas that these betray the product:
 | 036 | DONE |
 | 038 | READY — execute per plan; STOP conditions guard the amended guardrails |
 | 039 | DONE |
+| 040 | AUDIT — launch remediation not yet implemented |
