@@ -380,6 +380,24 @@ const LOAD_TOAST = {
   },
 };
 const LB_CONV = 2.2046226218;
+/** Next representable float above n. Used so near-over-limit cases cannot
+ *  round back onto the 1000 kg / 1000*LB boundary. */
+function nextAfter(n) {
+  const f64 = new Float64Array(1);
+  const u64 = new BigUint64Array(f64.buffer);
+  f64[0] = n;
+  u64[0] += 1n;
+  return f64[0];
+}
+const EXACT_LIMIT_LB = String(1000 * LB_CONV);
+const NEAR_OVER_KG = String(nextAfter(1000));
+const NEAR_OVER_LB = String(nextAfter(1000 * LB_CONV));
+
+function loadMatches(c, stored) {
+  if (stored == null || !Number.isFinite(+stored)) return false;
+  if (c.name === "exact-limit") return +stored === 1000;
+  return Math.abs(+stored - c.kg) < 1e-6;
+}
 
 function loadCases(unit) {
   return [
@@ -390,7 +408,8 @@ function loadCases(unit) {
     { name: "non-positive-neg", raw: "-50", reject: true },
     { name: "exponent", raw: "1e5", reject: true },
     { name: "comma-decimal", raw: "12,5", reject: false, kg: unit === "lb" ? 12.5 / LB_CONV : 12.5 },
-    { name: "exact-limit", raw: unit === "lb" ? String(1000 * LB_CONV) : "1000", reject: false, kg: 1000 },
+    { name: "exact-limit", raw: unit === "lb" ? EXACT_LIMIT_LB : "1000", reject: false, kg: 1000 },
+    { name: "near-over-limit", raw: unit === "lb" ? NEAR_OVER_LB : NEAR_OVER_KG, reject: true },
     { name: "over-limit", raw: unit === "lb" ? "2205" : "1000.01", reject: true },
   ];
 }
@@ -6826,10 +6845,9 @@ async function main() {
   await clearState(page);
   await reloadApp(page);
 
-  const parserKinds = await page.evaluate(() => {
+  const parserKinds = await page.evaluate(({ nearKg, nearLb, exactLb }) => {
     const p = window.__repforgeParseLoad;
     if (typeof p !== "function") return null;
-    const LB = 2.2046226218;
     const rows = [];
     for (const unit of ["kg", "lb"]) {
       const cases = [
@@ -6841,13 +6859,14 @@ async function main() {
         ["non-positive-neg", "-50", "invalid"],
         ["exponent", "1e5", "invalid"],
         ["comma-decimal", "12,5", "valid"],
-        ["exact-limit", unit === "lb" ? String(1000 * LB) : "1000", "valid"],
+        ["exact-limit", unit === "lb" ? exactLb : "1000", "valid"],
+        ["near-over-limit", unit === "lb" ? nearLb : nearKg, "invalid"],
         ["over-limit", unit === "lb" ? "2205" : "1000.01", "invalid"],
       ];
       for (const [name, raw, kind] of cases) rows.push({ unit, name, raw, got: p(raw, unit), kind });
     }
     return rows;
-  });
+  }, { nearKg: NEAR_OVER_KG, nearLb: NEAR_OVER_LB, exactLb: EXACT_LIMIT_LB });
   assert(!!parserKinds, "parseLoadInput is exposed for harness checks", "window.__repforgeParseLoad missing");
   if (parserKinds) {
     for (const row of parserKinds) {
@@ -6859,7 +6878,7 @@ async function main() {
         assert(Math.abs(row.got.kg - expect) < 1e-9, `parser ${row.unit} comma-decimal kg`, `kg=${row.got.kg}`);
       }
       if (row.name === "exact-limit" && row.kind === "valid") {
-        assert(row.got.kg > 0 && row.got.kg <= 1000 + 1e-9, `parser ${row.unit} exact-limit ≤1000 kg`, `kg=${row.got.kg}`);
+        assert(row.got.kg === 1000, `parser ${row.unit} exact-limit equals 1000 kg`, `kg=${row.got.kg}`);
       }
     }
   }
@@ -6948,7 +6967,7 @@ async function main() {
         const afterPer = (await getState(page)).log || [];
         const savedPer = afterPer.filter((r) => r.exerciseId === exId).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
         assert(
-          doneOk && afterPer.length > beforePerLen && savedPer && Math.abs(+savedPer.load - c.kg) < 1e-6,
+          doneOk && afterPer.length > beforePerLen && loadMatches(c, savedPer?.load),
           `per-set ${lang}/${unit} ${c.name} persists`,
           `done=${doneOk} load=${savedPer?.load} len ${beforePerLen}→${afterPer.length}`,
           `Log → type ${c.raw} → Save set → Save workout`
@@ -6970,7 +6989,7 @@ async function main() {
         const afterFinal = (await getState(page)).log || [];
         const savedFinal = afterFinal.filter((r) => r.exerciseId === exId).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
         assert(
-          afterFinal.length > beforeFinalLen && savedFinal && Math.abs(+savedFinal.load - c.kg) < 1e-6,
+          afterFinal.length > beforeFinalLen && loadMatches(c, savedFinal?.load),
           `final-save ${lang}/${unit} ${c.name} persists`,
           `load=${savedFinal?.load} len ${beforeFinalLen}→${afterFinal.length}`,
           `Log → type ${c.raw} on a touched set → Save workout`
@@ -6987,7 +7006,7 @@ async function main() {
         }, { timeout: 4000 }).catch(() => {});
         const edited = (await getState(page)).log.find((r) => r.session === "f7-edit-seed");
         assert(
-          edited && Math.abs(+edited.load - c.kg) < 1e-6,
+          loadMatches(c, edited?.load),
           `history-edit ${lang}/${unit} ${c.name} persists`,
           `load=${edited?.load}`,
           `History → Edit → type ${c.raw} → Save`
