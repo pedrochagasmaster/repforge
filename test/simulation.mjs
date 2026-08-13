@@ -6107,6 +6107,209 @@ async function main() {
     JSON.stringify(restPreview)
   );
 
+  beginPhase("Coaching counts and destinations");
+  {
+    const dates = await page.evaluate(() => {
+      const iso = (d) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const add = (isoDate, n) => {
+        const d = new Date(`${isoDate}T12:00:00`);
+        d.setDate(d.getDate() + n);
+        return iso(d);
+      };
+      const todayIso = iso(new Date());
+      const wr = window.__repforgeWeek.weekRange(todayIso);
+      return {
+        today: todayIso,
+        thisWeek: wr.start,
+        lastWeek: add(wr.start, -7),
+        stale: add(todayIso, -20),
+        recentOffWeek: add(todayIso, -8),
+      };
+    });
+    const mkEx = (id, day, order, name, extra = {}) => ({
+      id,
+      day,
+      order,
+      name,
+      sets: extra.sets ?? 2,
+      min: extra.min ?? 6,
+      max: extra.max ?? 10,
+      primary: extra.primary,
+      secondary: "",
+    });
+    const mkRows = ({ id, name, day, date, session, load, reps, rir, sets = 2, primary }) =>
+      Array.from({ length: sets }, (_, i) => ({
+        session,
+        date,
+        day,
+        name,
+        exerciseId: id,
+        set: i + 1,
+        load,
+        reps,
+        rir,
+        notes: "",
+        created: `${date}T12:00:0${i}Z`,
+        primary,
+        secondary: "",
+      }));
+    const program = [
+      mkEx("ex-improved", "Day 1", 1, "Coach Improved", { primary: "Chest" }),
+      mkEx("ex-flat", "Day 1", 2, "Coach Flat", { primary: "Quads" }),
+      mkEx("ex-regressed", "Day 1", 3, "Coach Regressed", { primary: "Lats" }),
+      mkEx("ex-oneshot", "Day 1", 4, "Coach Oneshot", { primary: "Hamstrings" }),
+      mkEx("ex-untrained", "Day 1", 5, "Coach Untrained", { primary: "Glutes" }),
+      mkEx("ex-stale", "Day 1", 6, "Coach Stale", { primary: "Side delts" }),
+      mkEx("ex-ready", "Day 1", 7, "Coach Ready", { min: 6, max: 8, primary: "Triceps" }),
+      mkEx("ex-reduce", "Day 1", 8, "Coach Reduce", { min: 8, max: 12, primary: "Biceps" }),
+      mkEx("ex-vol", "Day 1", 9, "Coach Volume", { sets: 4, primary: "Forearms" }),
+      mkEx("ex-fatigue", "Day 1", 10, "Coach Fatigue", { min: 6, max: 12, primary: "Calves" }),
+      mkEx("curl-a", "Day 1", 11, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
+      mkEx("curl-b", "Day 2", 1, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
+    ];
+    const log = [
+      ...mkRows({ id: "ex-improved", name: "Coach Improved", day: "Day 1", date: dates.lastWeek, session: "s-imp-prev", load: 80, reps: 6, rir: 1, primary: "Chest" }),
+      ...mkRows({ id: "ex-improved", name: "Coach Improved", day: "Day 1", date: dates.thisWeek, session: "s-imp-cur", load: 85, reps: 8, rir: 1, primary: "Chest" }),
+      ...mkRows({ id: "ex-flat", name: "Coach Flat", day: "Day 1", date: dates.lastWeek, session: "s-flat-prev", load: 70, reps: 8, rir: 1, primary: "Quads" }),
+      ...mkRows({ id: "ex-flat", name: "Coach Flat", day: "Day 1", date: dates.thisWeek, session: "s-flat-cur", load: 70, reps: 8, rir: 1, primary: "Quads" }),
+      ...mkRows({ id: "ex-regressed", name: "Coach Regressed", day: "Day 1", date: dates.lastWeek, session: "s-reg-prev", load: 100, reps: 8, rir: 1, primary: "Lats" }),
+      ...mkRows({ id: "ex-regressed", name: "Coach Regressed", day: "Day 1", date: dates.thisWeek, session: "s-reg-cur", load: 80, reps: 5, rir: 1, primary: "Lats" }),
+      ...mkRows({ id: "ex-oneshot", name: "Coach Oneshot", day: "Day 1", date: dates.thisWeek, session: "s-one-cur", load: 60, reps: 8, rir: 1, primary: "Hamstrings" }),
+      ...mkRows({ id: "ex-stale", name: "Coach Stale", day: "Day 1", date: dates.stale, session: "s-stale", load: 70, reps: 8, rir: 1, primary: "Side delts" }),
+      ...mkRows({ id: "ex-ready", name: "Coach Ready", day: "Day 1", date: dates.lastWeek, session: "s-rdy-prev", load: 80, reps: 6, rir: 1, primary: "Triceps" }),
+      ...mkRows({ id: "ex-ready", name: "Coach Ready", day: "Day 1", date: dates.thisWeek, session: "s-rdy-cur", load: 80, reps: 8, rir: 1, primary: "Triceps" }),
+      ...mkRows({ id: "ex-reduce", name: "Coach Reduce", day: "Day 1", date: dates.lastWeek, session: "s-red-prev", load: 90, reps: 10, rir: 1, primary: "Biceps" }),
+      ...mkRows({ id: "ex-reduce", name: "Coach Reduce", day: "Day 1", date: dates.thisWeek, session: "s-red-cur", load: 90, reps: 3, rir: 1, primary: "Biceps" }),
+      ...mkRows({ id: "ex-vol", name: "Coach Volume", day: "Day 1", date: dates.recentOffWeek, session: "s-vol", load: 70, reps: 7, rir: 1, sets: 2, primary: "Forearms" }),
+      ...mkRows({ id: "ex-fatigue", name: "Coach Fatigue", day: "Day 1", date: dates.lastWeek, session: "s-fat-prev", load: 80, reps: 8, rir: 0, primary: "Calves" }),
+      ...mkRows({ id: "ex-fatigue", name: "Coach Fatigue", day: "Day 1", date: dates.thisWeek, session: "s-fat-cur", load: 80, reps: 7, rir: 0, primary: "Calves" }),
+    ];
+    const prior = await getState(page);
+    await persistState(page, {
+      ...prior,
+      program,
+      log,
+      programMeta: { ...(prior.programMeta || {}), onboarded: true, name: "Coach fixture" },
+    });
+    await reloadApp(page);
+    await nav(page, "stats");
+
+    const snap = await page.evaluate(() => {
+      const w = window.__repforgeWeeklySnapshot();
+      const groups = window.__repforgeAttention();
+      const stableDom = document.querySelector('#thisWeek [data-week-metric="stable"] .statrow__val')?.textContent?.trim();
+      const dest = {
+        details: window.RepForgeI18n.t("stats.dest.details"),
+        log: window.RepForgeI18n.t("stats.dest.log"),
+        trend: window.RepForgeI18n.t("stats.dest.trend"),
+      };
+      const ready = [...document.querySelectorAll("#readyList [data-ready]")].map((el) => ({
+        id: el.getAttribute("data-ready"),
+        dest: el.getAttribute("data-dest"),
+        text: el.textContent,
+        name: el.getAttribute("aria-label") || el.textContent,
+      }));
+      const chips = [...document.querySelectorAll("#attention [data-attn]")].map((el) => ({
+        id: el.getAttribute("data-attn"),
+        group: el.getAttribute("data-attngo"),
+        dest: el.getAttribute("data-dest"),
+        text: el.textContent,
+      }));
+      return { w, groups: groups.map((g) => ({ key: g.key, ids: g.items.map((i) => i.ex.id) })), stableDom, dest, ready, chips };
+    });
+    assert(
+      snap.w.flatLifts === 1 && snap.stableDom === "1",
+      "Stable count equals exact flat comparisons from this week",
+      JSON.stringify({ flatLifts: snap.w.flatLifts, stableDom: snap.stableDom, improved: snap.w.improvedLifts })
+    );
+    assert(
+      snap.w.improvedLifts >= 1 && snap.w.regressedLifts >= 1,
+      "Fixture includes improved and regressed comparisons this week",
+      JSON.stringify({ improved: snap.w.improvedLifts, regressed: snap.w.regressedLifts })
+    );
+    const readyRow = snap.ready.find((r) => r.id === "ex-ready");
+    assert(
+      readyRow && readyRow.dest === "details" && readyRow.text.includes(snap.dest.details),
+      "Ready to progress shows the Details destination in the accessible name",
+      JSON.stringify(readyRow)
+    );
+    const expectChip = (id, group, destKey) => {
+      const chip = snap.chips.find((c) => c.id === id);
+      const label = snap.dest[destKey];
+      assert(
+        chip && chip.group === group && chip.dest === destKey && chip.text.includes(label),
+        `${id} is a ${group} row labeled ${label}`,
+        JSON.stringify(chip)
+      );
+    };
+    expectChip("ex-untrained", "new", "log");
+    expectChip("ex-stale", "stale", "log");
+    expectChip("ex-reduce", "reduce", "trend");
+    expectChip("ex-vol", "vol", "trend");
+    expectChip("ex-fatigue", "fatigue", "trend");
+    expectChip("curl-a", "new", "log");
+    expectChip("curl-b", "new", "log");
+    assert(
+      snap.chips.every((c) => c.id && !["Coach Curl", "Coach Untrained"].includes(c.id)),
+      "Coaching rows store exercise IDs, not display names",
+      snap.chips.map((c) => c.id).join(",")
+    );
+
+    await page.click('#readyList [data-ready="ex-ready"]');
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    const readyLanded = await page.evaluate(() => ({
+      view: document.querySelector("#exercise")?.classList.contains("active"),
+      title: document.querySelector("#exName, #exercise h2, #exDetail")?.textContent || "",
+    }));
+    assert(
+      readyLanded.view && /Coach Ready/i.test(readyLanded.title),
+      "Details destination opens Exercise detail for the ready lift",
+      JSON.stringify(readyLanded)
+    );
+    await page.click("#exBack");
+    await nav(page, "stats");
+
+    const landLog = async (id, day) => {
+      await page.click(`#attention [data-attn="${id}"]`);
+      await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
+      return page.evaluate(
+        ({ id, day }) => {
+          const card = document.querySelector(`#workout [data-ex="${id}"]`);
+          const tab = document.querySelector("#dayTabs button.active");
+          return {
+            log: document.querySelector("#log")?.classList.contains("active"),
+            card: !!card,
+            day: tab?.dataset.day || "",
+            want: day,
+          };
+        },
+        { id, day }
+      );
+    };
+    const untrainedLand = await landLog("ex-untrained", "Day 1");
+    assert(untrainedLand.log && untrainedLand.card, "New-lift Log destination opens the Log card for that ID", JSON.stringify(untrainedLand));
+    await nav(page, "stats");
+    const curlA = await landLog("curl-a", "Day 1");
+    assert(curlA.card && curlA.day === "Day 1", "Duplicate name on Day 1 routes by exercise ID", JSON.stringify(curlA));
+    await nav(page, "stats");
+    const curlB = await landLog("curl-b", "Day 2");
+    assert(curlB.card && curlB.day === "Day 2", "Duplicate name on Day 2 routes by exercise ID", JSON.stringify(curlB));
+    await nav(page, "stats");
+
+    await page.click('#attention [data-attn="ex-reduce"]');
+    const trendLand = await page.evaluate(() => ({
+      deep: !!document.querySelector("#statsDeep")?.open,
+      sel: document.querySelector("#statExercise")?.value || "",
+      stats: document.querySelector("#stats")?.classList.contains("active"),
+    }));
+    assert(
+      trendLand.deep && trendLand.sel === "ex-reduce" && trendLand.stats,
+      "View trend destination opens the stats chart for that exercise ID",
+      JSON.stringify(trendLand)
+    );
+  }
+
   beginPhase("History index and operability");
   await runHistoryOperabilityChecks(page, (cond, name, detail) =>
     assert(cond, name, detail, "History tab → search / expand / edit / delete")

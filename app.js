@@ -2236,19 +2236,19 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
 // The week reads as a headline: the verdict first, the arithmetic under it, and a
 // session bar so "3 of 4" is legible without reading. The attention tally counts the
 // same lifts the Attention list below shows, so the two numbers never disagree.
+function coachingDestKey(group){if(group==="add")return"details";if(group==="new"||group==="stale")return"log";return"trend"}
+function coachingDestLabel(group){const k=coachingDestKey(group);return k==="details"?t("stats.dest.details"):k==="log"?t("stats.dest.log"):t("stats.dest.trend")}
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
   const attnN=attentionCount();
-  const withHist=prog.exercises.filter(e=>sessionsFor(e).length).length;
-  const flatGuess=Math.max(0,withHist-w.improvedLifts-(attnN||0)-(w.readyToAdd||0));
   const segs=Math.max(w.plannedDays,w.completedDays,1),done=Math.min(w.completedDays,segs);
   el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
     `<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
     `<div class="ov-week-bar" aria-hidden="true">`+
     Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
     `<div class="statrow">`+
-    `<div class="statrow__cell"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${flatGuess}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
-    `<div class="statrow__cell${attnN?" is-attn":""}"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="improved"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="stable"><div class="statrow__val">${w.flatLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
+    `<div class="statrow__cell${attnN?" is-attn":""}" data-week-metric="attention"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
     `</div>`}
 function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
   const rows=volumeDashboard(7),planned=prog.volume(),max=Math.max(...rows.map(r=>Math.max(r.planned,r.completed7)),1);
@@ -2268,8 +2268,9 @@ function renderReadyList(){const el=$("#readyList");if(!el)return;
   const row=({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
       const delta=r.load!=null&&base!=null?r.load-base:null;
       const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
-      return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}<span class="chevron" aria-hidden="true"></span></span></button>`};
+      const dest=coachingDestLabel("add");
+      return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}" data-dest="details"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
+        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}</span><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`};
   el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}<span class="section-label__count">${esc(t("stats.section_count",{n:items.length}))}</span></p>`+shown.map(row).join("")+
     (more>0&&!readyExpanded?`<button type="button" class="link-row-cta" id="readySeeAll"><span>${esc(t("stats.ready_see_all",{n:items.length}))}</span><span class="chevron" aria-hidden="true"></span></button>`:"");
   $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"));
@@ -2526,11 +2527,12 @@ function renderAttention(){const el=$("#attention");if(!el)return;
   const n=attentionCount(groups);
   const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
     `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
-    items.map(({ex,why})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("");
+    items.map(({ex,why})=>{const dest=coachingDestLabel(key),destKey=coachingDestKey(key);
+      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`).join("");
   el.innerHTML=html;
-  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
+  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
     if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
-    else{const has=[...$("#statExercise").options].some(o=>o.value===k);
+    else{const k=ex?.id||id,has=[...$("#statExercise").options].some(o=>o.value===k);
       if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast(t("toast.chart_missing_lift"))}});}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).

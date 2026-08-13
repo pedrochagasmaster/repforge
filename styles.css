@@ -1565,6 +1565,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .hist-row__title{font-size:20px;font-weight:640}
 .hist-row__actions{display:flex;gap:12px;align-items:center;flex:1 1 100%;margin-top:8px}
 .ready-row__delta{color:var(--accent);font-weight:600;flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
+.coach-dest{font-size:13px;font-weight:600;color:var(--ink-soft);flex:none;white-space:nowrap}
 /* Program overview day accordion (mock 05) */
 .prog-day{border-bottom:1px solid var(--rule)}
 .prog-day__head{
