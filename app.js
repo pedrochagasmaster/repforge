@@ -708,7 +708,8 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
   const meta=state.programMeta||{},started=meta.started?new Date(`${meta.started}T12:00:00`):null;
   const end=new Date(`${today()}T12:00:00`);
   const range=started?`${started.getDate()} ${t("month_short."+started.getMonth())} – ${end.getDate()} ${t("month_short."+end.getMonth())}`:"";
-  const weeks=meta.mesocycleLengthWeeks||6;
+  const life=mesocycleLifecycle(meta),weeks=life.total||6;
+  const hero=life.isComplete?t("dialog.block_review.completed"):life.isFinalWeek&&life.current!=null?t("dialog.block_review.ready",{n:life.current,total:life.total}):life.current!=null?t("today.week_of",{n:life.current,total:life.total}):t("dialog.block_review.title");
   const recKey=review.recommendation||"repeat_with_small_swaps";
   const strategies=[
     {id:"repeat_swaps",title:t("dialog.block_review.repeat_swaps"),cap:t("block_strategy.repeat_swaps.cap")},
@@ -720,7 +721,7 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
   const recStrategy=REC_STRATEGY[recKey]||"repeat_swaps";
   $("#blockReviewBody").innerHTML=
     `<p class="blockreview__prog">${esc(meta.name||t("untitled_program"))}</p>`+
-    `<h2 class="blockreview__hero">${esc(t("dialog.block_review.completed"))}</h2>`+
+    `<h2 class="blockreview__hero">${esc(hero)}</h2>`+
     `<p class="blockreview__range">${esc(t("dialog.block_review.range",{weeks,range}))}</p>`+
     `<div class="blockreview__adherence"><span>${esc(t("review.sessions_completed",{done:review.completedSessions,planned:review.plannedSessions}))}</span><span>${pct}%</span></div>`+
     `<div class="blockreview__bar"><span style="width:${pct}%"></span><i class="blockreview__bar-knob" style="left:${pct}%"></i></div>`+
@@ -1024,12 +1025,14 @@ function recommendation(ex){
     // Back off only when capacity itself falls short of the range — stopping early is not failing.
     if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
     // Hold-family loads keep the session median as the capacity reference (ADR 0003) but snap onto minJump.
-    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:round(load),stalled:true,pushReps:false};
-    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:round(load),stalled:false,pushReps:false};
+    // Nearest-grid round of a sub-increment history load (1 kg vs 2.5) can land on 0; same floor as reduce.
+    const holdLoad=Math.max(round(load),+state.settings.minJump||2.5);
+    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:holdLoad,stalled:true,pushReps:false};
+    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:holdLoad,stalled:false,pushReps:false};
     // Room left inside the range: chase reps before load.
-    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:round(load),stalled:false,pushReps:true};
+    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:holdLoad,stalled:false,pushReps:true};
     return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
-      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:round(load),stalled:false,pushReps:true};
+      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:holdLoad,stalled:false,pushReps:true};
   })();
   const trend=blockTrendFor(sess);
   // Weak block tempering: a block that is losing strength should not double-jump.
