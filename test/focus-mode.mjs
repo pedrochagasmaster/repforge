@@ -459,45 +459,49 @@ async function main() {
     "effort, load and reps share one baseline in the well", JSON.stringify(wellAlign));
   assert(st.ledgerRows === 4 && !st.fold,
     "four logged sets still show in full", JSON.stringify(st));
-  // The explainer is a card off the word, not a caption under the steppers.
+  // The reps-left shorthand is a pill off the word, not a caption under the steppers.
   const popClosed = await page.evaluate(() => {
     const pop = document.querySelector(".focus-well .effortpop");
+    const steps = document.querySelector(".focus-well .curset__cell.is-effort .curset__steps");
+    const p = pop?.getBoundingClientRect(), s = steps?.getBoundingClientRect();
     return { present: !!pop, open: !!pop?.classList.contains("is-open"),
-      inCell: !!pop?.closest(".curset__cell.is-effort") };
+      inCell: !!pop?.closest(".curset__cell.is-effort"),
+      // Nothing of it may sit under the ± buttons any more.
+      belowSteps: !!(p && s) && p.top > s.bottom };
   });
-  assert(popClosed.present && popClosed.inCell && !popClosed.open,
-    "the effort explainer starts closed inside the effort column", JSON.stringify(popClosed));
+  assert(popClosed.present && popClosed.inCell && !popClosed.open && !popClosed.belowSteps,
+    "the effort shorthand starts closed and clear of the steppers", JSON.stringify(popClosed));
   await page.locator(".focus-well [data-effspin]").click();
   await page.waitForTimeout(420);
   const popOpen = await page.evaluate(() => {
     const pop = document.querySelector(".focus-well .effortpop");
     const spin = document.querySelector(".focus-well [data-effspin]");
-    const card = pop?.querySelector(".effortpop__card");
-    const c = card.getBoundingClientRect(), s = spin.getBoundingClientRect();
+    const pill = pop?.querySelector(".effortpop__hint");
+    const c = pill.getBoundingClientRect(), s = spin.getBoundingClientRect();
     const well = document.querySelector(".focus-well").getBoundingClientRect();
     return {
       open: pop.classList.contains("is-open"),
-      body: pop.querySelector(".effortpop__body")?.textContent?.trim() || "",
-      word: pop.querySelector(".effortpop__word")?.textContent?.trim() || "",
+      text: pill.textContent.trim(),
       above: Math.round(s.top - c.bottom),
+      // Centred on the word it explains, and inside the well.
+      offCentre: Math.round(Math.abs((c.left + c.right) / 2 - (s.left + s.right) / 2)),
       inside: c.left >= well.left - 1 && c.right <= well.right + 1,
-      opacity: +getComputedStyle(card).opacity,
+      opacity: +getComputedStyle(pill).opacity,
     };
   });
-  assert(popOpen.open && popOpen.body.length > 20 && popOpen.word &&
-    popOpen.above >= 0 && popOpen.above <= 60 && popOpen.inside && popOpen.opacity > .9,
-    "tapping the effort word pops its explainer open just above it", JSON.stringify(popOpen));
-  // Stepping the word under an open card rewrites the card rather than closing it.
+  assert(popOpen.open && popOpen.text && popOpen.above >= 0 && popOpen.above <= 60 &&
+    popOpen.offCentre <= 2 && popOpen.inside && popOpen.opacity > .9,
+    "tapping the effort word pops its shorthand open just above it", JSON.stringify(popOpen));
+  // Stepping the word under an open pill rewrites the pill rather than closing it.
   await page.locator(".exercise.is-current .focus-well [data-effstep]").last().click();
   await page.waitForTimeout(300);
   const popStepped = await page.evaluate(() => {
     const pop = document.querySelector(".focus-well .effortpop");
     return { open: pop.classList.contains("is-open"),
-      word: pop.querySelector(".effortpop__word")?.textContent?.trim() || "",
-      spin: document.querySelector(".focus-well [data-effspin]")?.textContent?.trim() || "" };
+      text: pop.querySelector(".effortpop__hint")?.textContent?.trim() || "" };
   });
-  assert(popStepped.open && popStepped.word === popStepped.spin,
-    "the open explainer follows the effort word as it steps", JSON.stringify(popStepped));
+  assert(popStepped.open && popStepped.text && popStepped.text !== popOpen.text,
+    "the open shorthand follows the effort word as it steps", JSON.stringify(popStepped));
   await page.locator(".exercise.is-current .focus-ex__muscle").click();
   await page.waitForTimeout(400);
   const popDismissed = await page.evaluate(() => {

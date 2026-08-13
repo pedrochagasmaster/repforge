@@ -116,25 +116,21 @@ function setEffortPick(key,eff){
     fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})})}
 
 /* ---- Effort explainer ----
-   What each word means used to sit as a caption under the effort steppers,
-   where it read as chrome and stretched that column. It is a card now: it pops
-   off the word itself, on a tap, and goes away on the next tap anywhere. */
+   How many reps an effort leaves in the tank ("≈1 left") used to sit as a
+   caption under that column's steppers, where it read as permanent chrome and
+   stretched the column. It is a pill now: it pops off the word on a tap, and
+   goes away on the next tap anywhere. */
 const effortPopHtml=(key,eff)=>
   `<div class="effortpop" id="effpop_${esc(key)}" data-effpop="${esc(key)}" role="tooltip">`+
-    `<div class="effortpop__card">`+
-      `<p class="effortpop__head"><b class="effortpop__word">${esc(effortLabel(eff))}</b>`+
-      `<span class="effortpop__hint">${esc(effortHint(eff))}</span></p>`+
-      `<p class="effortpop__body">${esc(t(`glossary.${EFFORT_TERM[eff]}`)||"")}</p></div>`+
+    `<span class="effortpop__hint">${esc(effortHint(eff))}</span>`+
     `<span class="effortpop__arrow" aria-hidden="true"></span></div>`;
-/** Write one effort's explainer into a card: the word, its RIR shorthand, the
- *  gloss. `bump` replays a small pulse — the card is already open and the value
- *  under it just moved, so the new text should announce itself. */
+/** Write one effort's shorthand into the pill. `bump` replays a small pulse —
+ *  the pill is already open and the value under it just moved, so the new
+ *  reading should announce itself rather than swap silently. */
 function fillEffortPop(pop,eff,{bump=false}={}){
   if(!pop)return;
-  const put=(sel,text)=>{const el=pop.querySelector(sel);if(el)el.textContent=text};
-  put(".effortpop__word",effortLabel(eff));
-  put(".effortpop__hint",effortHint(eff));
-  put(".effortpop__body",t(`glossary.${EFFORT_TERM[eff]}`)||"");
+  const hint=pop.querySelector(".effortpop__hint");
+  if(hint)hint.textContent=effortHint(eff);
   if(!bump)return;
   clearTimeout(pop.bumpT);pop.classList.remove("is-bump");void pop.offsetWidth;
   pop.classList.add("is-bump");
