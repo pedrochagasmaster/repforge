@@ -5061,22 +5061,22 @@ async function main() {
     const f2State = await getState(page);
     const days = [...new Set((f2State.program || []).map((e) => e.day))];
     assert(days.length >= 3, "F2: program has at least three training days", `days=${days.join(",")}`, "Default program days");
-    const bounds = await page.evaluate(() => {
-      const d = new Date();
-      const iso = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      const r = window.__repforgeWeek.weekRange(iso);
-      const shift = (isoDate, n) => {
-        const x = new Date(`${isoDate}T12:00:00`);
-        x.setDate(x.getDate() + n);
-        return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, "0")}-${String(x.getDate()).padStart(2, "0")}`;
-      };
-      return {
-        ...r, today: iso, prevSunday: shift(r.start, -1), nextMonday: shift(r.end, 1),
-        mid: shift(r.start, 2), rollingStart: shift(iso, -6),
-      };
-    });
+    const asOf = "2026-08-13";
+    const prevSunday = "2026-08-09";
+    const monday = "2026-08-10";
+    const wednesday = "2026-08-12";
+    const nextMonday = "2026-08-17";
+    const dayA = days[0], dayB = days[1], dayC = days[2];
+    const dayD = days.includes("Day 4") ? "F2 Day 4" : "Day 4";
+    const src = f2State.program.find((e) => e.day === dayA);
+    const program = [
+      ...f2State.program,
+      {
+        ...src, id: `${src.id}_f2_d4`, day: dayD, name: `${src.name} F2`, order: 1,
+      },
+    ];
     const row = (day, date, tag) => {
-      const ex = f2State.program.find((e) => e.day === day);
+      const ex = program.find((e) => e.day === day);
       return {
         session: `${date}_${day}_f2_${tag}`, date, day, name: ex.name, exerciseId: ex.id, set: 1,
         load: 100, reps: 8, rir: 1, notes: "", created: `${date}T12:00:00.000Z`,
@@ -5084,50 +5084,57 @@ async function main() {
       };
     };
     const log = [
-      row(days[0], bounds.prevSunday, "prevSun"),
-      row(days[1], bounds.start, "mon"),
-      row(days[2], bounds.mid, "mid"),
-      row(days[1], bounds.mid, "dupDay"),
-      row(days[0], bounds.nextMonday, "nextMon"),
+      row(dayA, prevSunday, "prevSun"),
+      row(dayB, monday, "mon"),
+      row(dayC, wednesday, "wed"),
+      row(dayC, wednesday, "dupDay"),
+      row(dayD, nextMonday, "nextMon"),
     ];
-    const uniqueDays = (start, end) => {
-      const seen = new Set();
-      for (const r of log) {
-        if (r.date < start || r.date > end) continue;
-        seen.add(r.day);
-      }
-      return seen.size;
-    };
-    const calendarExpected = uniqueDays(bounds.start, bounds.end);
-    const rollingExpected = uniqueDays(bounds.rollingStart, bounds.today);
     await persistState(page, {
       ...f2State,
       settings: { ...f2State.settings, lang: "en" },
       programMeta: { ...f2State.programMeta, name: "F2 Split" },
+      program,
       log,
     });
     await reloadApp(page);
+    await page.waitForFunction(() => typeof window.__repforgeProgramAdherence === "function" && typeof window.__repforgeWeeklySnapshot === "function");
+    const asOfAd = await page.evaluate((d) => window.__repforgeProgramAdherence(d), asOf);
+    const asOfWeek = await page.evaluate((d) => window.__repforgeWeeklySnapshot(d), asOf);
+    assert(
+      asOfAd.logged === 3 && asOfAd.total === 4,
+      "F2: programAdherence(asOf) counts three distinct planned days in [asOf-6, asOf]",
+      `ad=${JSON.stringify(asOfAd)} asOf=${asOf}`,
+      "Seed Sun A + Mon B + Wed C + Wed B dup + next-Mon D → rolling 3 / 4"
+    );
+    assert(
+      asOfWeek.completedDays === 2,
+      "F2: weeklySnapshot(asOf).completedDays is the Monday–Sunday count",
+      `completedDays=${asOfWeek?.completedDays} planned=${asOfWeek?.plannedDays} week=${asOfWeek?.weekStart}..${asOfWeek?.weekEnd}`,
+      "Same seed → calendar week 2 (Mon B + Wed C); prev Sunday and next Monday excluded"
+    );
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
     await page.evaluate(() => {
       document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
       document.querySelector('nav button[data-view="log"]')?.click();
     });
     await page.waitForSelector("#todayWeek", { timeout: 5000 });
-    const planned = days.length;
+    const liveAd = await page.evaluate(() => window.__repforgeProgramAdherence());
+    const liveWeek = await page.evaluate(() => window.__repforgeWeeklySnapshot());
     const todayText = await page.evaluate(() =>
       `${document.querySelector("#todayProgram")?.textContent || ""}\n${document.querySelector("#todayWeek")?.textContent || ""}`
     );
     assert(
-      todayText.includes(`${calendarExpected} of ${planned} sessions`) && !todayText.includes(`${calendarExpected + 1} of ${planned}`),
-      "F2: Today counts only Monday–Sunday planned days",
-      `today="${todayText.replace(/\s+/g, " ").slice(0, 180)}" calendar=${calendarExpected} rolling=${rollingExpected} bounds=${JSON.stringify(bounds)}`,
-      "Seed prev Sunday + Mon + midweek duplicate + next Monday → Today shows calendar-week count"
+      todayText.includes(`${liveWeek.completedDays} of ${liveWeek.plannedDays} sessions`),
+      "F2: Today matches no-arg weeklySnapshot",
+      `today="${todayText.replace(/\s+/g, " ").slice(0, 180)}" snap=${liveWeek.completedDays}/${liveWeek.plannedDays}`,
+      "Today → #todayWeek"
     );
     await nav(page, "stats");
     const progressText = await page.locator("#thisWeek").textContent();
     assert(
-      progressText.includes(`${calendarExpected} of ${planned} sessions`),
-      "F2: Progress This week matches Today calendar-week count",
+      progressText.includes(`${liveWeek.completedDays} of ${liveWeek.plannedDays} sessions`),
+      "F2: Progress This week matches no-arg weeklySnapshot",
       `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
       "Stats → Overview → #thisWeek"
     );
@@ -5140,9 +5147,9 @@ async function main() {
     const overviewVal = await overviewCell.locator(".statrow__val").textContent();
     const overviewCap = await overviewCell.locator(".statrow__cap").textContent();
     assert(
-      overviewVal.trim() === `${rollingExpected} / ${planned}`,
-      "F2: Program days stat matches the rolling 7-day window",
-      `val="${overviewVal}" rolling=${rollingExpected} calendar=${calendarExpected}`,
+      overviewVal.trim() === `${liveAd.logged} / ${liveAd.total}`,
+      "F2: Program days stat matches no-arg programAdherence",
+      `val="${overviewVal}" ad=${liveAd.logged}/${liveAd.total}`,
       "Program overview → days (7d)"
     );
     assert(
@@ -5158,8 +5165,8 @@ async function main() {
     }
     const chip = await page.locator("#pmetaChipsBottom").textContent();
     assert(
-      chip.includes(`${rollingExpected} / ${planned} days in the last 7 days`) && !/days this week/i.test(chip),
-      "F2: Program chip shows rolling-7 count and copy",
+      chip.includes(`${liveAd.logged} / ${liveAd.total} days in the last 7 days`) && !/days this week/i.test(chip),
+      "F2: Program chip shows no-arg rolling count and copy",
       `chip="${chip}"`,
       "Program → days in the last 7 days chip"
     );
@@ -5184,8 +5191,9 @@ async function main() {
       await page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
     }
     const ptChip = await page.locator("#pmetaChipsBottom").textContent();
+    const ptAd = await page.evaluate(() => window.__repforgeProgramAdherence());
     assert(
-      ptChip.includes(`${rollingExpected} / ${planned} dias nos últimos 7 dias`),
+      ptChip.includes(`${ptAd.logged} / ${ptAd.total} dias nos últimos 7 dias`),
       "F2: Program chip rolling copy is Portuguese",
       `chip="${ptChip}"`,
       "lang=pt → Program chip"
