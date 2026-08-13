@@ -16,6 +16,98 @@ async function idbSet(key,val){const db=await idbOpen();
     const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(val,key);
     tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
   finally{db.close()}}
+async function idbDel(key){const db=await idbOpen();
+  try{return await new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);
+    tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+  finally{db.close()}}
+const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp";
+function cloneSnapshot(s){return s==null?s:JSON.parse(JSON.stringify(s))}
+function isValidStateShape(s){return!!(s&&typeof s==="object"&&Array.isArray(s.program)&&Array.isArray(s.log))}
+function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
+function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];return o}
+function exportableState(s){return stripStorageMeta(s)}
+function canonicalPayload(s){return JSON.stringify(stripStorageMeta(s))}
+function snapshotsEqual(a,b){return canonicalPayload(a)===canonicalPayload(b)}
+function snapshotSummary(s){
+  const log=Array.isArray(s?.log)?s.log:[];
+  const sessions=new Set(log.map(r=>r&&r.session).filter(Boolean)).size;
+  const dates=log.map(r=>String(r&&r.date||"")).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  return{name:String(s?.programMeta?.name||"").trim(),sessions,sets:log.length,lastDate:dates.length?dates[dates.length-1]:""}}
+function encodeRawExport(raw){if(raw==null)return"";if(typeof raw==="string")return raw;try{return JSON.stringify(raw,null,2)}catch{return String(raw)}}
+function readLocalStatus(){
+  try{const raw=localStorage.getItem(KEY);
+    if(raw==null)return{status:"absent",raw:null,parsed:null};
+    try{const parsed=JSON.parse(raw);
+      if(isValidStateShape(parsed))return{status:"valid",raw,parsed};
+      return{status:"invalid",raw,parsed}}
+    catch{return{status:"invalid",raw,parsed:null}}}
+  catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
+async function readIdbStatus(){
+  try{const parsed=await idbGet(KEY);
+    if(parsed==null)return{status:"absent",raw:null,parsed:null};
+    if(isValidStateShape(parsed))return{status:"valid",raw:parsed,parsed};
+    return{status:"invalid",raw:parsed,parsed}}
+  catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
+function chooseSnapshot(localRead,idbRead){
+  const l=localRead?.status,i=idbRead?.status,lv=l==="valid",iv=i==="valid";
+  if(l==="absent"&&i==="absent")return{kind:"first-run"};
+  if(!lv&&!iv)return{kind:"unresolved",reason:"no-valid",local:localRead,idb:idbRead};
+  if(lv&&i==="absent")return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
+  if(iv&&l==="absent")return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"};
+  if(lv&&(i==="invalid"||i==="failed"))return{kind:"unresolved",reason:i==="failed"?"valid-plus-failed":"valid-plus-invalid",local:localRead,idb:idbRead};
+  if(iv&&(l==="invalid"||l==="failed"))return{kind:"unresolved",reason:l==="failed"?"valid-plus-failed":"valid-plus-invalid",local:localRead,idb:idbRead};
+  const localHas=Object.prototype.hasOwnProperty.call(localRead.parsed||{},STORAGE_REV);
+  const idbHas=Object.prototype.hasOwnProperty.call(idbRead.parsed||{},STORAGE_REV);
+  const equal=snapshotsEqual(localRead.parsed,idbRead.parsed);
+  const lr=readRevision(localRead.parsed),ir=readRevision(idbRead.parsed);
+  if(equal){
+    if(!localHas&&!idbHas)return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",migrate:true};
+    if(lr!==ir){
+      if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
+      return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"}}
+    return{kind:"chosen",snapshot:idbRead.parsed,source:"idb"}}
+  if(lr!==ir){
+    if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
+    return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"}}
+  return{kind:"unresolved",reason:"divergent",local:localRead,idb:idbRead}}
+const storageIO={
+  writeLocal(data){localStorage.setItem(KEY,JSON.stringify(data))},
+  async writeIdb(data){await idbSet(KEY,data)}
+};
+let persistTail=Promise.resolve();
+let lastLocalRev=-1,lastIdbRev=-1;
+let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
+let storageDegradedToast=false;
+function enqueueWrite(op){
+  const result=persistTail.then(op);
+  persistTail=result.then(()=>undefined,()=>undefined);
+  return result}
+function flushStorage(){return persistTail}
+async function writeSnapshot(snapshot,io){
+  if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
+    throw new Error("writeSnapshot requires an explicit adapter");
+  const data=cloneSnapshot(snapshot),rev=readRevision(data);
+  let localOk=false,idbOk=false;
+  try{if(rev>=lastLocalRev){await io.writeLocal(data);lastLocalRev=rev}localOk=true}
+  catch(e){console.warn("localStorage mirror failed",e)}
+  try{if(rev>=lastIdbRev){await io.writeIdb(data);lastIdbRev=rev}idbOk=true}
+  catch(e){console.warn("idb persist failed",e)}
+  const result={revision:rev,localOk,idbOk};
+  noteWriteHealth(result);
+  return result}
+function noteWriteHealth(result){
+  const both=!!(result.localOk&&result.idbOk),none=!result.localOk&&!result.idbOk,degraded=!both&&!none;
+  storageHealth={revision:result.revision,localOk:!!result.localOk,idbOk:!!result.idbOk,degraded,lastResult:result};
+  if(none){storageDegradedToast=false;toast(t("toast.storage_full"))}
+  else if(degraded){if(!storageDegradedToast){storageDegradedToast=true;toast(t("toast.storage_degraded"))}}
+  else storageDegradedToast=false;
+  const el=$("#storageDegraded");
+  if(el){el.textContent=degraded?t("settings.storage.degraded"):"";el.classList.toggle("hidden",!degraded);el.hidden=!degraded}}
+function requireAdapter(io,label){
+  if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
+    throw new Error(label+" requires an explicit adapter");
+  return io}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
@@ -516,12 +608,34 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     blockPromptDismissedId}}
-function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
-    programHistory:Array.isArray(s.programHistory)?s.programHistory:[]}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[],
-  programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
-  prog=new Program(state.program);state.program=prog.toJSON();state.programMeta=normalizeProgramMeta(state.programMeta,state.log);migrateLog();save()}
+function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log)){
+  const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
+    programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
+  out[STORAGE_REV]=readRevision(s);
+  if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
+  return out}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0}}
+function proposalFromImport(incoming){return normalizeLoaded(stripStorageMeta(incoming))}
+async function replaceImportedState(incoming,io=storageIO){
+  requireAdapter(io,"replaceImportedState");
+  const proposal=proposalFromImport(incoming);
+  delete proposal[STORAGE_FOLLOWUP];
+  const result=await commitProposedState(proposal,io);
+  if(result.localOk||result.idbOk)migrateLog();
+  return result}
+async function mergeImportedLog(incoming,io=storageIO){
+  requireAdapter(io,"mergeImportedLog");
+  const rows=(incoming.log||[]).filter(r=>r&&r.session);
+  const have=new Set(state.log.map(r=>r.session));
+  const add=rows.filter(r=>!have.has(r.session));
+  const added=new Set(add.map(r=>r.session)).size;
+  if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
+  const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.concat(cloneSnapshot(add));
+  const result=await commitProposedState(proposal,io);
+  result.added=added;
+  if(result.localOk||result.idbOk)migrateLog();
+  return result}
+function applyState(s){return replaceImportedState(s)}
 function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
   if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();
   if(partial.started!==undefined){const v=partial.started;state.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
@@ -764,14 +878,34 @@ function parseProgramImport(parsed){
   if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null};
   if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null};
   return null}
-function save(){persist()}
+function save(){return persist()}
 function persist(){
   dropMemo.clear();baselineMemo.clear();
-  let lsOk=true;
-  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){lsOk=false;console.warn("localStorage mirror failed",e)}
-  idbSet(KEY,state).catch(e=>{console.warn("idb persist failed",e);
-    // Only alarm the user when neither store took the write — data is genuinely at risk.
-    if(!lsOk&&!persist.warned){persist.warned=true;toast(t("toast.storage_full"))}})}
+  state[STORAGE_REV]=readRevision(state)+1;
+  const snapshot=cloneSnapshot(state);
+  try{storageIO.writeLocal(snapshot);lastLocalRev=readRevision(snapshot)}
+  catch(e){console.warn("localStorage mirror failed",e)}
+  return enqueueWrite(()=>writeSnapshot(snapshot,storageIO))}
+async function commitProposedState(proposal,io=storageIO){
+  requireAdapter(io,"commitProposedState");
+  const next=cloneSnapshot(proposal);
+  next[STORAGE_REV]=readRevision(state)+1;
+  const snapshot=cloneSnapshot(next);
+  const result=await enqueueWrite(()=>writeSnapshot(snapshot,io));
+  if(result.localOk||result.idbOk){
+    state=snapshot;
+    prog=new Program(state.program);state.program=prog.toJSON();
+    dropMemo.clear();baselineMemo.clear()}
+  return result}
+window.__repforgeStorage={
+  flush:flushStorage,
+  chooseSnapshot,
+  writeWithAdapter(snapshot,io){
+    requireAdapter(io,"writeWithAdapter");
+    return enqueueWrite(()=>writeSnapshot(cloneSnapshot(snapshot),io))},
+  health(){return Object.assign({},storageHealth)},
+  replaceImport(incoming,io){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io)},
+  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
@@ -2823,6 +2957,8 @@ function renderSettings(){
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   const sn=$("#storageNote");if(sn)sn.textContent=`${ago} ${t("settings.storage.note",{key:KEY})}`;
+  const deg=$("#storageDegraded");
+  if(deg){const on=!!storageHealth.degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
 }
 
@@ -2860,7 +2996,7 @@ function exportCsv(){
   download(csv,`repforge_log_${today()}.csv`,"text/csv");
 }
 function exportJson(){state.settings.lastExport=new Date().toISOString();save();
-  const text=JSON.stringify(state,null,2),name=`repforge_backup_${today()}.json`;
+  const text=JSON.stringify(exportableState(state),null,2),name=`repforge_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");renderSettings()}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
@@ -2888,16 +3024,20 @@ function openImportChoice(ctx){const d=$("#importChoice");
   $("#importChoiceBody").textContent=t("dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
   d.classList.remove("hidden");
   const close=()=>{d.classList.add("hidden")};
-  $("#importCancel").onclick=()=>{close();toast(t("toast.import_cancelled"))};
-  $("#importReplace").onclick=()=>{close();applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))};
-  $("#importMerge").onclick=()=>{close();mergeLog(ctx.s)};}
-function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
-  const rows=s.log.filter(r=>r&&r.session&&!have.has(r.session));
-  const added=new Set(rows.map(r=>r.session)).size;
-  if(!added){toast(t("toast.nothing_to_merge"));return}
-  state.log.push(...rows);
-  migrateLog();save();
-  render();toast(t("toast.merged_sessions",{n:added,sessions:tp(added,"session")}))}
+  let importBusy=false;
+  $("#importCancel").onclick=()=>{if(importBusy)return;close();toast(t("toast.import_cancelled"))};
+  $("#importReplace").onclick=async()=>{
+    if(importBusy)return;importBusy=true;
+    try{const result=await replaceImportedState(ctx.s);
+      if(result.localOk||result.idbOk){close();clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
+    finally{importBusy=false}};
+  $("#importMerge").onclick=async()=>{
+    if(importBusy)return;importBusy=true;
+    try{const result=await mergeImportedLog(ctx.s);
+      if(result.added===0){close();toast(t("toast.nothing_to_merge"));return}
+      if(result.localOk||result.idbOk){close();render();toast(t("toast.merged_sessions",{n:result.added,sessions:tp(result.added,"session")}))}}
+    finally{importBusy=false}}}
+function mergeLog(s){return mergeImportedLog(s)}
 
 function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
 
@@ -3236,20 +3376,105 @@ function applyGotoParam(){
   }catch{}
 }
 
-async function boot(){
-  let raw=null;
-  try{raw=await idbGet(KEY)}catch(e){console.warn("idb read failed",e)}
-  if(raw==null){try{const ls=localStorage.getItem(KEY);
-    if(ls){raw=JSON.parse(ls);try{await idbSet(KEY,raw)}catch(e){console.warn("idb migration failed",e)}}}
-  catch(e){console.warn("localStorage read failed",e)}}
-  state=normalizeLoaded(raw);
+function recoveryCopyLabel(side){return t(side==="local"?"dialog.storage_recovery.copy_a":"dialog.storage_recovery.copy_b")}
+function recoverySummaryText(parsed){
+  const sum=snapshotSummary(parsed),name=sum.name||t("dialog.storage_recovery.unnamed");
+  if(sum.lastDate)return t("dialog.storage_recovery.summary",{name,sessions:sum.sessions,sets:sum.sets,date:sum.lastDate});
+  return t("dialog.storage_recovery.summary_empty",{name,sessions:sum.sessions,sets:sum.sets})}
+function recoveryStatusText(read){
+  if(read.status==="valid")return recoverySummaryText(read.parsed);
+  if(read.status==="invalid")return t("dialog.storage_recovery.invalid_copy");
+  if(read.status==="failed")return t("dialog.storage_recovery.unread_copy");
+  return t("dialog.storage_recovery.absent_copy")}
+function closeStorageRecovery(){
+  const d=$("#storageRecovery");
+  if(d&&typeof d.close==="function"&&d.open)d.close()}
+function bindStorageRecoveryGuard(d){
+  if(!d||d.dataset.guarded)return;
+  d.dataset.guarded="1";
+  d.addEventListener("cancel",e=>e.preventDefault());
+  d.addEventListener("click",e=>{if(e.target===d)e.stopPropagation()})}
+function exportRecoveryRaw(raw,name){download(encodeRawExport(raw),name,"application/json")}
+function presentStorageRecovery(decision){
+  return new Promise(resolve=>{
+    const d=$("#storageRecovery");if(!d){resolve({kind:"first-run"});return}
+    bindStorageRecoveryGuard(d);
+    const langHint=decision.local?.parsed?.settings?.lang||decision.idb?.parsed?.settings?.lang;
+    if(I18N&&langHint)I18N.setLang(langHint);
+    let retryBusy=false;
+    const bump=()=>{d.dataset.seq=String((+d.dataset.seq||0)+1)};
+    const finish=choice=>{d.dataset.resolved="1";d.dataset.busy="0";bump();closeStorageRecovery();resolve(choice)};
+    const paint=()=>{
+      const title=$("#storageRecoveryTitle"),lead=$("#storageRecoveryLead"),copies=$("#storageRecoveryCopies"),actions=$("#storageRecoveryActions");
+      const reason=decision.reason;
+      title.textContent=reason==="no-valid"?t("dialog.storage_recovery.title_blocked"):t("dialog.storage_recovery.title");
+      lead.textContent=reason==="divergent"?t("dialog.storage_recovery.divergent"):
+        reason==="valid-plus-failed"?t("dialog.storage_recovery.valid_failed"):
+        reason==="valid-plus-invalid"?t("dialog.storage_recovery.valid_invalid"):
+        t("dialog.storage_recovery.none_valid");
+      copies.innerHTML=`<div class="storage-recovery__copy"><p class="storage-recovery__copy-label">${esc(recoveryCopyLabel("local"))}</p><p>${esc(recoveryStatusText(decision.local))}</p></div>`+
+        `<div class="storage-recovery__copy"><p class="storage-recovery__copy-label">${esc(recoveryCopyLabel("idb"))}</p><p>${esc(recoveryStatusText(decision.idb))}</p></div>`;
+      const btns=[];
+      const add=(id,cls,key)=>btns.push(`<button type="button" class="btn ${cls}" id="${id}">${esc(t(key))}</button>`);
+      add("storageExportA","btn--steel","dialog.storage_recovery.export_a");
+      add("storageExportB","btn--steel","dialog.storage_recovery.export_b");
+      add("storageRetry","btn--steel","dialog.storage_recovery.retry");
+      if(reason==="divergent"){
+        add("storageUseA","btn--cta","dialog.storage_recovery.use_a");
+        add("storageUseB","btn--cta","dialog.storage_recovery.use_b")}
+      else if(reason==="valid-plus-invalid"||reason==="valid-plus-failed"){
+        add("storageOverwrite","btn--cta","dialog.storage_recovery.overwrite")}
+      else{
+        add("storageExportRaw","btn--steel","dialog.storage_recovery.export_raw");
+        add("storageStartFresh","btn--danger","dialog.storage_recovery.start_fresh")}
+      actions.innerHTML=btns.join("");
+      $("#storageExportA").onclick=()=>exportRecoveryRaw(decision.local?.raw,"repforge_copy_a.json");
+      $("#storageExportB").onclick=()=>exportRecoveryRaw(decision.idb?.raw,"repforge_copy_b.json");
+      $("#storageRetry").onclick=async()=>{
+        if(retryBusy)return;retryBusy=true;d.dataset.busy="1";
+        try{const local=readLocalStatus(),idb=await readIdbStatus(),next=chooseSnapshot(local,idb);
+          if(next.kind!=="unresolved"){finish(next);return}
+          decision=next;paint()}
+        finally{retryBusy=false;d.dataset.busy="0"}};
+      const useA=$("#storageUseA");if(useA)useA.onclick=()=>finish({kind:"chosen",snapshot:decision.local.parsed,source:"local",heal:"idb"});
+      const useB=$("#storageUseB");if(useB)useB.onclick=()=>finish({kind:"chosen",snapshot:decision.idb.parsed,source:"idb",heal:"local"});
+      const overwrite=$("#storageOverwrite");
+      if(overwrite)overwrite.onclick=()=>{
+        if(!confirm(t("dialog.storage_recovery.overwrite_confirm")))return;
+        const winner=decision.local?.status==="valid"?decision.local.parsed:decision.idb.parsed;
+        const heal=decision.local?.status==="valid"?"idb":"local";
+        finish({kind:"chosen",snapshot:winner,source:heal==="idb"?"local":"idb",heal})};
+      const exportRaw=$("#storageExportRaw");
+      if(exportRaw)exportRaw.onclick=()=>{
+        exportRecoveryRaw(decision.local?.raw,"repforge_copy_a.json");
+        exportRecoveryRaw(decision.idb?.raw,"repforge_copy_b.json")};
+      const fresh=$("#storageStartFresh");
+      if(fresh)fresh.onclick=async()=>{
+        if(!confirm(t("dialog.storage_recovery.start_fresh_confirm")))return;
+        try{localStorage.removeItem(KEY)}catch{}
+        try{await idbDel(KEY)}catch{}
+        finish({kind:"first-run"})};
+      if(!d.open)d.showModal();
+      bump();
+      const focusEl=$("#storageExportA")||$("#storageRetry")||title;
+      if(focusEl)focusEl.focus()};
+    paint()})}
+async function applyBootDecision(decision){
+  if(decision.kind==="first-run")state=normalizeLoaded(null);
+  else state=normalizeLoaded(decision.snapshot);
   prog=new Program(state.program);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
   day=days()[0]||"Day 1";
   applyGotoParam();
-  migrateLog();
-  persist();
-  if(I18N)I18N.setLang(state.settings.lang);
-  init();
-}
+  const migrated=migrateLog();
+  const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
+  if(decision.kind==="first-run"||decision.migrate||migrated||metaDrift)await persist();
+  else if(decision.heal)await enqueueWrite(()=>writeSnapshot(cloneSnapshot(state),storageIO));
+  if(I18N)I18N.setLang(state.settings.lang)}
+async function boot(){
+  const local=readLocalStatus(),idb=await readIdbStatus();
+  let decision=chooseSnapshot(local,idb);
+  if(decision.kind==="unresolved")decision=await presentStorageRecovery(decision);
+  await applyBootDecision(decision);
+  init()}
 boot();

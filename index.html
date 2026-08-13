@@ -275,6 +275,7 @@
           <div class="settings-identity__name">RepForge</div>
           <div class="settings-identity__cap" data-i18n="settings.local_data">Data saved on this device</div>
           <p class="lede" id="storageNote" style="margin:6px 0 0"></p>
+          <p class="settings-warn hidden" id="storageDegraded" hidden></p>
         </div>
       </div>
 
@@ -516,6 +517,12 @@
     </div>
     <p class="sheet__foot" data-i18n="focus.note.carry">Visible in your next session</p>
   </div>
+  <dialog id="storageRecovery" class="storage-recovery" aria-modal="true" aria-labelledby="storageRecoveryTitle" data-i18n-aria="dialog.storage_recovery.aria">
+    <h2 id="storageRecoveryTitle" class="importchoice__title" tabindex="-1"></h2>
+    <p id="storageRecoveryLead" class="importchoice__body"></p>
+    <div id="storageRecoveryCopies"></div>
+    <div id="storageRecoveryActions" class="btnrow"></div>
+  </dialog>
   <div id="toast" class="toast hidden"></div>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
