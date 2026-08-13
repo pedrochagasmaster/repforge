@@ -5127,20 +5127,36 @@ async function main() {
 
   beginPhase("Phase: F4/F5 equipment fidelity and day-type rotation");
   await page.waitForFunction(
-    () =>
-      typeof window.__repforgeGenerateProgram === "function" &&
-      window.__repforgeOnboarding?.eqUi &&
-      typeof window.__repforgeEquipmentSupportsSplit === "function"
+    () => typeof window.__repforgeGenerateProgram === "function" && window.__repforgeExerciseCatalog
   );
   const f45 = await page.evaluate(() => {
     const generate = window.__repforgeGenerateProgram;
     const catalog = window.__repforgeExerciseCatalog;
-    const catalogForSlot = window.__repforgeCatalogForSlot;
-    const chooseExercise = window.__repforgeChooseExercise;
-    const resolveSplit = window.__repforgeResolveSplit;
-    const supports = window.__repforgeEquipmentSupportsSplit;
-    const { eqUi, eqGen, splits, muscles } = window.__repforgeOnboarding;
     const catalogById = new Map(catalog.map((e) => [e.id, e]));
+    const EQ_UI = ["machines", "cables", "dumbbells", "barbells"];
+    const EQ_GEN = { machines: "machine", cables: "cable", dumbbells: "dumbbell", barbells: "barbell" };
+    const DAY_SLOTS = {
+      full_body: ["squat", "hinge", "press", "pull", "delts", "arms"],
+      upper: ["press", "row", "pulldown", "delts", "chest_iso", "arms"],
+      lower: ["squat", "hinge", "leg_curl", "leg_extension", "calves"],
+      push: ["press", "incline_press", "shoulder_press", "lateral_raise", "triceps"],
+      pull: ["row", "pulldown", "rear_delt", "curl"],
+      legs: ["squat", "hinge", "leg_curl", "leg_extension", "adduction", "calves"],
+    };
+    const EXPECTED_SPLITS = [
+      { daysPerWeek: 2, splitType: "full_body", dayTypes: ["full_body", "full_body"] },
+      { daysPerWeek: 2, splitType: "upper_lower", dayTypes: ["upper", "lower"] },
+      { daysPerWeek: 3, splitType: "full_body", dayTypes: ["full_body", "full_body", "full_body"] },
+      { daysPerWeek: 3, splitType: "machine_only", dayTypes: ["full_body", "full_body", "full_body"] },
+      { daysPerWeek: 3, splitType: "ppl", dayTypes: ["push", "pull", "legs"] },
+      { daysPerWeek: 4, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower"] },
+      { daysPerWeek: 4, splitType: "full_body", dayTypes: ["full_body", "full_body", "full_body", "full_body"] },
+      { daysPerWeek: 5, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull"] },
+      { daysPerWeek: 5, splitType: "bro", dayTypes: ["push", "pull", "legs", "push", "pull"] },
+      { daysPerWeek: 5, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower", "upper"] },
+      { daysPerWeek: 6, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull", "legs"] },
+    ];
+    const MUSCLES = ["Chest", "Back", "Quads", "Hamstrings", "Glutes", "Side delts", "Arms", "Calves"];
     const visible = (rows) =>
       rows.map((e) => ({
         day: e.day,
@@ -5155,18 +5171,43 @@ async function main() {
         libraryId: e.libraryId,
       }));
     const byDay = (rows) => {
-      const days = [...new Set(rows.map((e) => e.day))].sort((a, b) =>
+      const names = [...new Set(rows.map((e) => e.day))].sort((a, b) =>
         a.localeCompare(b, undefined, { numeric: true })
       );
-      return days.map((d) =>
+      return names.map((d) =>
         rows.filter((e) => e.day === d).sort((a, b) => a.order - b.order)
       );
+    };
+    const slotPool = (slot, equipment) =>
+      catalog
+        .filter(
+          (e) =>
+            e.pattern === slot &&
+            e.equipment.some((x) => equipment.includes(String(x).toLowerCase()))
+        )
+        .sort((a, b) => a.id.localeCompare(b.id));
+    const dayHasPrimary = (dayType, equipment) =>
+      (DAY_SLOTS[dayType] || []).some((slot) => slotPool(slot, equipment).length > 0);
+    const splitSupported = (dayTypes, equipment) =>
+      dayTypes.every((dt) => dayHasPrimary(dt, equipment));
+    const expectedPrimaries = (dayType, equipment, occ) => {
+      const used = new Set();
+      const ids = [];
+      for (const slot of DAY_SLOTS[dayType] || []) {
+        const pool = slotPool(slot, equipment);
+        if (!pool.length) continue;
+        const i = ((occ % pool.length) + pool.length) % pool.length;
+        const rotated = pool.slice(i).concat(pool.slice(0, i)).filter((e) => !used.has(e.id));
+        if (!rotated.length) continue;
+        used.add(rotated[0].id);
+        ids.push(rotated[0].id);
+      }
+      return ids;
     };
     const matchesEq = (ex, equipment) => {
       const entry = catalogById.get(ex.libraryId);
       if (!entry) return false;
-      const eq = new Set(equipment.map((s) => String(s).toLowerCase()));
-      return entry.equipment.some((x) => eq.has(String(x).toLowerCase()));
+      return entry.equipment.some((x) => equipment.includes(String(x).toLowerCase()));
     };
     const subsets = (items) => {
       const out = [];
@@ -5176,42 +5217,44 @@ async function main() {
       return out;
     };
     const failures = [];
-    const eqSubsets = subsets(eqUi);
-    const splitPairs = Object.entries(splits).flatMap(([n, opts]) =>
-      opts.map((st) => ({ daysPerWeek: +n, splitType: st }))
-    );
+    const eqSubsets = subsets(EQ_UI);
     let checked = 0;
     let blocked = 0;
     let generated = 0;
-    let varied = 0;
-    let identicalWhenNoAlt = 0;
+    let rotated = 0;
+    let reused = 0;
     let stable = 0;
     let priorityOk = 0;
     for (const uiEq of eqSubsets) {
-      const equipment = uiEq.map((k) => eqGen[k]);
-      for (const pair of splitPairs) {
+      const equipment = uiEq.map((k) => EQ_GEN[k]);
+      for (const pair of EXPECTED_SPLITS) {
         checked++;
+        const { daysPerWeek, splitType, dayTypes } = pair;
+        const label = `${uiEq.join("+")}|${daysPerWeek}|${splitType}`;
+        const ok = splitSupported(dayTypes, equipment);
         const answers = {
           goal: "hypertrophy",
           experience: "intermediate",
-          daysPerWeek: pair.daysPerWeek,
-          splitType: pair.splitType,
+          daysPerWeek,
+          splitType,
           equipment,
           priorityMuscles: [],
           sessionLength: "normal",
         };
-        const ok = supports(pair.daysPerWeek, pair.splitType, equipment, "intermediate");
-        const dayTypes = resolveSplit(pair.daysPerWeek, pair.splitType);
         const raw = generate(answers);
         const days = byDay(raw);
-        const label = `${uiEq.join("+")}|${pair.daysPerWeek}|${pair.splitType}`;
+        const dayNames = days.map((d) => d[0]?.day);
+        const expectedNames = Array.from({ length: daysPerWeek }, (_, i) => `Day ${i + 1}`);
         if (!ok) {
           blocked++;
+          if (days.length === daysPerWeek && days.every((d) => d.length)) {
+            failures.push(`${label}: blocked combo still produced every training day`);
+          }
           continue;
         }
         generated++;
-        if (days.length !== dayTypes.length) {
-          failures.push(`${label}: dropped days got ${days.length} want ${dayTypes.length}`);
+        if (dayNames.join("|") !== expectedNames.join("|")) {
+          failures.push(`${label}: day sequence ${dayNames.join(",")} want ${expectedNames.join(",")}`);
           continue;
         }
         if (days.some((d) => !d.length)) failures.push(`${label}: empty day`);
@@ -5221,33 +5264,55 @@ async function main() {
             break;
           }
         }
-        for (const d of days) {
-          const ids = d.map((e) => e.libraryId);
-          if (new Set(ids).size !== ids.length) failures.push(`${label}: within-day duplicate`);
-        }
+        dayTypes.forEach((dt, di) => {
+          const ids = days[di].map((e) => e.libraryId);
+          if (new Set(ids).size !== ids.length) failures.push(`${label}: within-day duplicate on ${expectedNames[di]}`);
+          const expected = expectedPrimaries(dt, equipment, dayTypes.slice(0, di).filter((x) => x === dt).length);
+          const actualPrimary = ids.slice(0, expected.length);
+          if (actualPrimary.join("|") !== expected.join("|")) {
+            failures.push(`${label}: ${expectedNames[di]} primaries ${actualPrimary.join("|")} want ${expected.join("|")}`);
+          }
+        });
         const occ = {};
         dayTypes.forEach((dt, i) => {
           (occ[dt] ||= []).push(i);
         });
         for (const [dt, idxs] of Object.entries(occ)) {
           if (idxs.length < 2) continue;
-          const sig0 = days[idxs[0]].map((e) => e.libraryId).join("|");
-          const sig1 = days[idxs[1]].map((e) => e.libraryId).join("|");
-          const alt = days[idxs[0]].some((ex) => {
-            const entry = catalogById.get(ex.libraryId);
-            return entry && catalogForSlot(entry.pattern, equipment, "intermediate").length > 1;
-          });
-          if (alt && sig0 === sig1) failures.push(`${label}: repeated ${dt} identical while alternatives remain`);
-          else if (alt) varied++;
-          else if (sig0 === sig1) identicalWhenNoAlt++;
+          for (const slot of DAY_SLOTS[dt] || []) {
+            const pool = slotPool(slot, equipment);
+            if (!pool.length) continue;
+            const picks = idxs.map((di) => {
+              const hit = days[di].find((ex) => catalogById.get(ex.libraryId)?.pattern === slot);
+              return hit?.libraryId ?? null;
+            });
+            for (let k = 0; k < idxs.length; k++) {
+              const want = pool[k % pool.length].id;
+              if (picks[k] !== want) {
+                failures.push(`${label}: ${dt} occ ${k} slot ${slot} got ${picks[k]} want ${want}`);
+              }
+            }
+            if (pool.length > 1) {
+              const distinct = new Set(picks.filter(Boolean)).size;
+              if (distinct < Math.min(pool.length, idxs.length)) {
+                failures.push(`${label}: ${dt} slot ${slot} did not rotate across ${idxs.length} occurrences`);
+              } else rotated++;
+              if (idxs.length > pool.length) {
+                const wrap = picks[pool.length];
+                if (wrap !== picks[0]) failures.push(`${label}: ${dt} slot ${slot} did not reuse after exhaustion`);
+                else reused++;
+              }
+            } else if (picks.every((id) => id === pool[0].id)) reused++;
+          }
         }
         const vis1 = JSON.stringify(visible(raw));
         const vis2 = JSON.stringify(visible(generate(answers)));
         if (vis1 !== vis2) failures.push(`${label}: unstable visible/library fields`);
         else stable++;
-        const withPri = generate({ ...answers, priorityMuscles: muscles });
+        const withPri = generate({ ...answers, priorityMuscles: MUSCLES });
         const priDays = byDay(withPri);
-        if (priDays.length !== dayTypes.length) failures.push(`${label}: priority dropped a day`);
+        const priNames = priDays.map((d) => d[0]?.day);
+        if (priNames.join("|") !== expectedNames.join("|")) failures.push(`${label}: priority dropped a day`);
         let priBad = priDays.some((d) => !d.length);
         for (const ex of withPri) {
           if (!ex.libraryId || !matchesEq(ex, equipment)) {
@@ -5263,17 +5328,12 @@ async function main() {
             priBad = true;
           }
         }
-        if (!priBad && priDays.length === dayTypes.length) priorityOk++;
+        if (!priBad && priNames.join("|") === expectedNames.join("|")) priorityOk++;
       }
     }
-    const squatPool = catalogForSlot("squat", ["machine"], "intermediate");
-    const exhausted = chooseExercise(
-      "squat",
-      ["machine"],
-      "intermediate",
-      new Set(squatPool.map((e) => e.id)),
-      0
-    );
+    const squatPool = slotPool("squat", ["machine"]);
+    const usedAll = new Set(squatPool.map((e) => e.id));
+    const exhausted = window.__repforgeChooseExercise("squat", ["machine"], "intermediate", usedAll, 0);
     const skipPri = generate({
       goal: "hypertrophy",
       experience: "intermediate",
@@ -5283,73 +5343,23 @@ async function main() {
       priorityMuscles: ["Quads"],
       sessionLength: "short",
     });
-    const fb3 = byDay(
-      generate({
-        goal: "hypertrophy",
-        experience: "beginner",
-        daysPerWeek: 3,
-        splitType: "full_body",
-        equipment: ["machine"],
-        priorityMuscles: [],
-        sessionLength: "normal",
-      })
-    ).map((d) => d.map((e) => e.libraryId).join("|"));
-    const ul4 = byDay(
-      generate({
-        goal: "hypertrophy",
-        experience: "intermediate",
-        daysPerWeek: 4,
-        splitType: "upper_lower",
-        equipment: ["barbell", "dumbbell", "machine"],
-        priorityMuscles: [],
-        sessionLength: "short",
-      })
-    ).map((d) => d.map((e) => e.libraryId).join("|"));
-    const ppl6 = byDay(
-      generate({
-        goal: "hypertrophy",
-        experience: "intermediate",
-        daysPerWeek: 6,
-        splitType: "ppl",
-        equipment: ["machine", "cable"],
-        priorityMuscles: [],
-        sessionLength: "normal",
-      })
-    ).map((d) => d.map((e) => e.libraryId).join("|"));
-    const db3 = byDay(
-      generate({
-        goal: "hypertrophy",
-        experience: "intermediate",
-        daysPerWeek: 3,
-        splitType: "full_body",
-        equipment: ["dumbbell"],
-        priorityMuscles: [],
-        sessionLength: "short",
-      })
-    );
     return {
-      eqUi,
+      eqUi: window.__repforgeOnboarding?.eqUi,
       subsetCount: eqSubsets.length,
-      splitCount: splitPairs.length,
+      splitCount: EXPECTED_SPLITS.length,
       checked,
       blocked,
       generated,
-      varied,
-      identicalWhenNoAlt,
+      rotated,
+      reused,
       stable,
       priorityOk,
       failures: failures.slice(0, 24),
       failureCount: failures.length,
       exhaustedIsNull: exhausted === null,
       addedLegExt: skipPri.some((e) => e.libraryId === "le_mc" || /leg extension/i.test(e.name)),
-      legacyBw: eqGen.bodyweight === "bodyweight",
-      bwInUi: eqUi.includes("bodyweight"),
-      fb3,
-      ul4,
-      ppl6,
-      dbSquats: db3.map((d) =>
-        d.filter((e) => catalogById.get(e.libraryId)?.pattern === "squat").map((e) => e.libraryId)
-      ),
+      legacyBw: window.__repforgeOnboarding?.eqGen?.bodyweight === "bodyweight",
+      bwInUi: (window.__repforgeOnboarding?.eqUi || []).includes("bodyweight"),
       strings: {
         en: window.RepForgeI18n.STRINGS.en["onb.equipment.unsupported"],
         pt: window.RepForgeI18n.STRINGS.pt["onb.equipment.unsupported"],
@@ -5367,49 +5377,25 @@ async function main() {
     f45.subsetCount === 15 && f45.splitCount === 11 && f45.checked === 165,
     "F4/F5: matrix covers every non-empty equipment subset and reachable split",
     JSON.stringify({ subsets: f45.subsetCount, splits: f45.splitCount, checked: f45.checked }),
-    "4 equipment choices → 15 subsets × 11 onboarding splits"
+    "4 equipment choices → 15 subsets × 11 fixtured split/day sequences"
   );
   assert(
     f45.failureCount === 0 && f45.generated + f45.blocked === f45.checked && f45.generated > 0 && f45.blocked > 0,
-    "F4: every combo generates all non-empty days or is marked unsupported",
+    "F4: every combo generates the fixtured day sequence or is independently unsupported",
     `generated=${f45.generated} blocked=${f45.blocked} failures=${f45.failureCount} ${f45.failures.join(" | ")}`,
-    "equipmentSupportsSplit false → skip generate; true → all resolved days, equipment-valid libraryIds"
+    "Catalogue-derived support; allowed cases keep Day 1..N with equipment-valid libraryIds"
   );
   assert(
     f45.stable === f45.generated && f45.priorityOk === f45.generated,
-    "F4/F5: supported combos are deterministic and keep equipment-valid priority additions",
+    "F4/F5: supported combos are deterministic (excluding row ids) and keep equipment-valid priority additions",
     `stable=${f45.stable} priorityOk=${f45.priorityOk} generated=${f45.generated} ${f45.failures.join(" | ")}`,
-    "Two generations match without row ids; all-muscle priorities never violate equipment"
+    "Two generations match visible/library fields; generated ids are unique"
   );
   assert(
-    f45.exhaustedIsNull && !f45.addedLegExt,
-    "F4/F5: within-day exhaustion returns null; unavailable priority additions are skipped",
-    `exhaustedIsNull=${f45.exhaustedIsNull} addedLegExt=${f45.addedLegExt}`,
-    "chooseExercise usedIds=full pool → null; cable-only + Quads does not insert leg extension"
-  );
-  assert(
-    f45.fb3.length === 3 && f45.fb3[0] !== f45.fb3[1] && f45.fb3[1] !== f45.fb3[2],
-    "F5: 3-day full body repeats differ while alternatives remain",
-    `sigs=${JSON.stringify(f45.fb3)}`,
-    "machine full_body 3-day → Day 1/2/3 libraryId sequences differ"
-  );
-  assert(
-    f45.ul4.length === 4 && f45.ul4[0] !== f45.ul4[2] && f45.ul4[1] !== f45.ul4[3],
-    "F5: 4-day upper/lower repeats differ while alternatives remain",
-    `sigs=${JSON.stringify(f45.ul4)}`,
-    "upper_lower 4-day → Day 1≠Day 3 and Day 2≠Day 4"
-  );
-  assert(
-    f45.ppl6.length === 6 && f45.ppl6[0] !== f45.ppl6[3] && f45.ppl6[1] !== f45.ppl6[4] && f45.ppl6[2] !== f45.ppl6[5],
-    "F5: 6-day PPL repeats differ while alternatives remain",
-    `sigs=${JSON.stringify(f45.ppl6)}`,
-    "ppl 6-day → second push/pull/legs cycle differs from the first"
-  );
-  assert(
-    f45.dbSquats.length === 3 && f45.dbSquats.every((ids) => ids[0] === "sq_db"),
-    "F5: reuse after alternatives are exhausted is allowed across repeated days",
-    `dbSquats=${JSON.stringify(f45.dbSquats)}`,
-    "dumbbell-only squat pool has one entry → goblet squat on every full-body day"
+    f45.rotated > 0 && f45.reused > 0 && f45.exhaustedIsNull && !f45.addedLegExt,
+    "F5: every repeated occurrence rotates, reuses after wrap, and skips unavailable priorities",
+    `rotated=${f45.rotated} reused=${f45.reused} exhaustedIsNull=${f45.exhaustedIsNull} addedLegExt=${f45.addedLegExt} ${f45.failures.join(" | ")}`,
+    "Per-slot occ k → pool[k % n]; wrap equals occ 0; chooseExercise returns null when the within-day pool is empty"
   );
   assert(
     f45.strings.en === "Choose equipment that supports every training day." &&
@@ -5440,15 +5426,14 @@ async function main() {
     `vals=${eqVals.join(",")}`,
     "Onboarding step 5 equipment cards"
   );
-  const machinesSelected = await page.locator('[data-onb-pick="equipment"][data-onb-val="machines"].is-selected').count();
-  if (machinesSelected) await page.click('[data-onb-pick="equipment"][data-onb-val="machines"]');
-  const cablesSelected = await page.locator('[data-onb-pick="equipment"][data-onb-val="cables"].is-selected').count();
-  if (!cablesSelected) await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
-  for (const val of ["dumbbells", "barbells"]) {
-    if (await page.locator(`[data-onb-pick="equipment"][data-onb-val="${val}"].is-selected`).count()) {
-      await page.click(`[data-onb-pick="equipment"][data-onb-val="${val}"]`);
+  async function setEquipOnly(vals) {
+    const want = new Set(vals);
+    for (const val of eqVals) {
+      const selected = await page.locator(`[data-onb-pick="equipment"][data-onb-val="${val}"].is-selected`).count();
+      if (want.has(val) !== !!selected) await page.click(`[data-onb-pick="equipment"][data-onb-val="${val}"]`);
     }
   }
+  await setEquipOnly(["cables"]);
   await page.waitForSelector("#onbEquipUnsupported", { timeout: 5000 });
   const blockedCopy = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
   const nextDisabled = await page.locator("#onbNext").isDisabled();
@@ -5458,15 +5443,36 @@ async function main() {
     `disabled=${nextDisabled} copy="${blockedCopy}"`,
     "2-day upper/lower → cables only → Continue disabled"
   );
+  await setEquipOnly([]);
+  await page.waitForSelector("#onbEquipUnsupported", { timeout: 5000 });
+  const emptyEn = {
+    copy: ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim(),
+    disabled: await page.locator("#onbNext").isDisabled(),
+  };
+  assert(
+    emptyEn.disabled && emptyEn.copy === "Choose equipment that supports every training day.",
+    "F4: deselecting all equipment keeps Continue disabled and shows the explanation",
+    JSON.stringify(emptyEn),
+    "Equipment step → uncheck every card"
+  );
   await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
   await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
+  await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
+  const emptyPt = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
+  const emptyPtDisabled = await page.locator("#onbNext").isDisabled();
+  assert(
+    emptyPtDisabled && emptyPt === "Escolha equipamentos compatíveis com todos os dias de treino.",
+    "F4: empty-equipment explanation renders in Portuguese",
+    `disabled=${emptyPtDisabled} copy="${emptyPt}"`,
+    "setLang(pt) → all equipment unchecked"
+  );
   await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
   const blockedCopyPt = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
   assert(
     blockedCopyPt === "Escolha equipamentos compatíveis com todos os dias de treino.",
     "F4: unsupported-equipment explanation renders in Portuguese",
     `copy="${blockedCopyPt}"`,
-    "setLang(pt) → re-render equipment step"
+    "setLang(pt) → cables-only upper/lower"
   );
   await page.evaluate(() => window.RepForgeI18n.setLang("en"));
   await page.click('[data-onb-pick="equipment"][data-onb-val="machines"]');
