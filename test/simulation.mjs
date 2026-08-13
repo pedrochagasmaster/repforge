@@ -21,6 +21,7 @@ import { launchChromium } from "./browser.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { join } from "path";
 import { tmpdir } from "os";
+import { runHistoryIndexChecks, runHistoryOperabilityChecks } from "./accessibility.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -6799,6 +6800,14 @@ async function main() {
     "Program Done clears the onboarding follow-up marker once",
     JSON.stringify({ follow: afterDone._storageFollowUp }),
     "Edit onboarding → Program Done"
+  );
+
+  beginPhase("History index and operability");
+  await runHistoryOperabilityChecks(page, (cond, name, detail) =>
+    assert(cond, name, detail, "History tab → search / expand / edit / delete")
+  );
+  await runHistoryIndexChecks(page, (cond, name, detail) =>
+    assert(cond, name, detail, "History index large fixture + renderWithSource")
   );
 
   // Console errors
