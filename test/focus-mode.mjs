@@ -414,6 +414,8 @@ async function main() {
   assert(Object.values(noteSaved.draft).includes("Seat 4, feet high.") && noteSaved.closed,
     "saving the sheet writes the note into the session draft", JSON.stringify(noteSaved));
   assert(noteSaved.marked, "the card's note tool shows the exercise now has one");
+  assert(await page.evaluate(() => document.activeElement?.matches?.("[data-exnote-open]") && document.activeElement.isConnected),
+    "saving the sheet returns focus to the newly rendered note tool");
   await page.locator("[data-exnote-open]").first().click();
   await page.waitForTimeout(250);
   await page.keyboard.press("Escape");
