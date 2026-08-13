@@ -4,14 +4,69 @@ Hands-on audit ahead of launch. Every tab, every segment, every dialog, driven t
 browser at phone size, in both languages, both units, both RIR modes, and across seven data
 states (cold start, one session, eight weeks, two years, mid-workout, stale user, empty program).
 
-**Verdict: the app is beautifully made and one bug away from being untrustworthy.** The visual
-design, typography, information hierarchy and copy are better than most shipping fitness apps.
-But the number RepForge exists to produce — *the weight to put on the machine today* — is wrong
-in the most common case, and two screens disagree about whether you trained this week. Those
-undermine the product's whole claim. They are also small fixes.
+**Original verdict: the app is beautifully made but has several trust-damaging edge cases.** The
+visual design, typography, information hierarchy and copy are better than most shipping fitness
+apps. In the audited descending-load fixture, the weight RepForge tells a lifter to use can fall
+off the configured plate/pin grid, and two screens disagree about the current week. Those defects
+undermine the product's claim, but the original “most common case” wording was not established.
 
-Below, P0 means "do not launch without this", P1 means "fix in the first week", P2/P3 are the
-backlog.
+The original severity labels below are preserved for traceability. The post-publication
+verification matrix is authoritative where it changes a label or rejects a claim.
+
+---
+
+## Post-publication verification
+
+Rechecked on `main` at `ee59cdf` against the live source, targeted Chromium probes, the locked
+capacity decision in `docs/adr/0003-capacity-as-progression-currency.md`, and both browser suites:
+
+- `REPFORGE_URL=http://localhost:8000/ npm --prefix test run simulate`: **408 passed, 0 failed**
+- `REPFORGE_URL=http://localhost:8000/ npm --prefix test run test:focus`: **83 passed, 0 failed**
+
+This review found a strong core of real defects, but the original report is not accurate enough to
+execute unchanged. In particular, source plus targeted probes reject findings 13 and 16, finding 3
+conflates distinct display policies, and the proposed change to the capacity engine's median would
+bypass a recorded product decision.
+
+| Finding | Verification | Correction / execution decision |
+|---|---|---|
+| 1 | Confirmed; claim narrowed | Four raw-load return paths exist, not three. Even-set mixed loads can put their median off-grid; not every mixed-load session does. Round those paths without replacing the capacity engine's median. |
+| 2 | Confirmed | Unify the user-facing meaning of “this week” on the existing Monday–Sunday helper. The metric counts distinct planned training days completed, even where current copy says sessions. |
+| 3 | Partly confirmed; deferred | Decimal noise is real, but rounding every historical value to 5 lb would misstate stored data. Separate historical formatting from actionable-load policy before changing it. |
+| 4 | Confirmed; scope expanded | The catalogue has zero bodyweight entries and the fallback violates selected equipment. Priority-muscle insertion bypasses the filter too, and zero-fill day types need an explicit onboarding outcome. |
+| 5 | Confirmed | Repeated days are visually identical, not byte-identical (their generated ids differ). Rotate deterministic selections across repeated day types and compare stable visible/library fields, not generated ids. |
+| 6 | Confirmed | Add one unambiguous disabled treatment rather than leaving the implementation choice open. |
+| 7 | Confirmed; scope expanded | Per-set commit and final save accept unbounded values; History session editing is a third persistence path that needs the same parser. |
+| 8 | Confirmed; scope expanded | Keep elapsed week separate from clamped display week, and update `blockSnapshot()` as well as `mesocycleWeek()`. |
+| 9–10 | Confirmed; edge cases added | Remove the CSS minimum-width nub, define zero-plan rows, and use a deterministic deficit sort before truncation. |
+| 11 | Confirmed; transition clarified | Compact dialogs expose the background; the full-screen review covers it visually. All three need focus, Escape, focus-return and inert handling, including opener transfer from confirmation to review. |
+| 12 | Confirmed; not in this pass | Focus mode has no early-finish action. It was not in PR 107's original dispatch list and remains separate interaction design work. |
+| 13 | Rejected | Source inspection and a targeted 320×568 probe contradict the reported collapsed inputs and missing ledger. The checked-in compact suite protects general fit but does not specifically prove prior-session visibility. |
+| 14 | Partly confirmed; design review | Landscape leaves the CTA below the initial viewport and nearly collapses the ledger, but the inputs remain reachable. Portrait locking is not a validated fix. |
+| 15 | Partly confirmed; not in this pass | The bottom navigation and per-set timer descriptions are stale; Today still conditionally renders its readiness line. |
+| 16 | Rejected | Source inspection and targeted 320 px probes show full-width List choices and three usable Focus columns. The checked-in compact loop does not itself exercise 320 px effort mode. |
+| 17 | Partly confirmed; product choice | A set can legitimately establish both load and e1RM records, but not every load PR does. Collapsing same-set pairs is a presentation decision, not a correctness fix. |
+| 18 | Partly confirmed | The real defect is that the percentage beside the session fraction is volume compliance, plus target block length is presented beside a longer actual date range without explanation. Week-vs-block lift counts are not comparable. |
+| 19–20 | Confirmed | The hidden-element width override and missing table affordance are real. |
+| 21 | Observation, not defect | Uniform seeded recommendations do not establish that the signal lacks resolution. |
+| 22–23 | Confirmed | Both are interaction/information-architecture defects. |
+| 24 | Partly confirmed | Invalid numeric settings reset silently; they do not remain visible after `render()`. Unbounded `rirHigh` is confirmed. |
+| 25 | Partly confirmed | An empty program reaches `Exercise 0 of 0`, but Back and Settings → Create new program remain escape routes. |
+| 26–27 | Confirmed | “View exercises” enters the workout shell; priority-muscle insertion misroutes Calves and always appends to Day 1. |
+| 28 | Partly confirmed | Duplicate names and day-inappropriate filler are real. Cable curl vs Preacher curl and cross-day reuse are not duplicate-name defects. |
+| 29–30 | Confirmed | Bro/Machine-only semantics and the discarded Advanced answer reproduce in source and targeted generation. |
+
+The original P3 bucket is mixed, and “polish” understates some accessibility and semantic defects.
+Contrast, several undersized targets, the unnamed notification toggle, conditional install-banner
+occlusion, raw header/editor glyphs, missing nearby export feedback, the misleading Delete all data
+action, repeated attention copy, partial Portuguese, the exercise-page header selector mismatch and
+the hidden heat-gauge control are confirmed. Non-uniform rounded chart labels are not by themselves
+a defect and that bullet is rejected.
+
+The corrected PR 107 dispatch scope is deliberately narrower than every confirmed audit finding:
+audit findings **1, 2 and 4–11**, plus the promoted contrast work item **C1**. Finding 3 is deferred;
+findings 12, 14, 15 and 17–30 remain follow-up work; findings 13, 16 and the chart-label bullet are
+rejected. These identifiers are used consistently in the implementation brief.
 
 ---
 
@@ -27,18 +82,19 @@ backlog.
 
 ---
 
-## P0 — ship blockers
+## P0 — original ship-blocker classification
 
-### 1. Every "hold" recommendation is a weight that cannot be loaded
+### 1. History-derived hold-family recommendations can return unloadable weights
 
 `recommendation()` (app.js:934–970) uses `l.med` — the **median of last session's loads** — as
 the recommended load. The `add` and `reduce` branches pass it through `round()` (app.js:880,
-snaps to `minJump`, default 2.5 kg). The three `hold` branches (app.js:955, 956, 958, 959) return
-it raw.
+snaps to `minJump`, default 2.5 kg). The four stalled/recover/push-reps/default return paths
+(app.js:955–960) return it raw.
 
-Any session with mixed loads across sets — which is what happens the moment a lifter drops weight
-on the last set, i.e. nearly always — gives an even-count median landing on a half increment. On a
-seeded 8-week log, **all six lifts on Day 1** recommended an impossible weight:
+An even-set session whose middle two loads average off the configured increment grid can produce an
+unloadable median. Mixed loads do not always do this: odd set counts select an actual middle load,
+and some even-set midpoints still land on-grid. On the seeded 8-week log used for the audit,
+**all six lifts on Day 1** hit the defect:
 
 ```
 Hack squat or pendulum squat : hold  53.75 kg
@@ -56,9 +112,11 @@ top load 55 kg — so "hold" is telling you to go *down*.
 A lifter standing at the machine cannot act on this. It is the app's core output and it is wrong
 six times out of six.
 
-**Fix:** wrap the `hold` branches in `round()`, same as the others. One-line class of change.
-Consider also snapping to the *previous session's actual working load* rather than a median, since
-"hold" should mean "the weight you used", not "the average of the weights you used".
+**Validated fix:** wrap the four history-derived raw return paths in `round()`, same as the
+load-change paths, and add a descending-load regression case for each branch. Keep the median: the
+capacity engine normalizes its trigger arithmetic at the session's typical load under ADR 0003.
+Changing that reference is a separate product decision. A manually entered off-grid load may still
+be echoed by the current-session `setSuggestion()` path; that is not this history-rounding defect.
 
 ### 2. Today and Program disagree about the same week
 
@@ -70,7 +128,9 @@ Same state, same moment, three screens:
 | Progress → This week | `2 of 3 sessions · 16 hard sets` |
 | Program → sessions | `3 / 3` and `3 / 3 days this week` |
 
-Ground truth from the app's own helper: 2 sessions in the current week.
+Ground truth from the app's own helper: two distinct planned training days were completed in the
+current calendar week. Existing “sessions” copy is retained in this fix, but the metric does not
+count repeated sessions of the same training day twice.
 
 Cause: `weeklySnapshot()` (app.js:542) uses `weekRange(today)` — a Monday-to-Sunday calendar week.
 `programAdherence()` (app.js:538) uses `daysAgo(6)` — a rolling 7-day window. Two definitions of
@@ -78,24 +138,29 @@ Cause: `weeklySnapshot()` (app.js:542) uses `weekRange(today)` — a Monday-to-S
 
 A tracker that contradicts itself about whether you showed up is a tracker you stop believing.
 
-**Fix:** make `programAdherence()` call `weekRange()`. Or, if a rolling window is deliberate, label
-it "last 7 days" so the two are visibly different questions.
+**Validated fix:** make `programAdherence()` use both inclusive bounds from `weekRange(today())`.
+The product already uses Monday–Sunday elsewhere, so retaining the rolling window is not an
+implementation alternative in this pass.
 
-### 3. Pounds are unusable
+### 3. Pound display exposes two unresolved formatting policies
 
-Switching to lb converts but never rounds. `fmtPlain` (app.js:32) does `toFixed(2)`, so everything
-gets two decimals of noise:
+Switching to lb converts stored kilograms and formats non-integers to at most two decimals.
+That produces noisy values:
 
 - Ledger of last session: `115.74 lb`, `110.23 lb`
 - Focus cue: `Drop to 112.99 lb · aim for 6 reps`
 - PR table: `194.01`, `199.52`, delta `+5.51`
-- Metrics row: `231klb` volume, `307lb` best e1RM
+- The metrics row's text alternative has no separator (`231klb`), although the visible `<small>`
+  unit receives a CSS margin.
 
-Nobody loads 112.99 lb. Every US user sees this on the first screen of their first workout.
-`231klb` is also a string-concatenation glitch (`kfmt` appends `k`, then the unit is appended raw).
+The original report called this unusable and prescribed rounding every load to 5 lb. That is too
+broad. Historical rows are facts; snapping a stored 52 kg row to 115 lb would display a load the
+lifter did not record. The app also explicitly stores `minJump` in kilograms regardless of display
+unit, so a unit-specific recommendation grid is a product-policy change rather than a formatter fix.
 
-**Fix:** round display loads to a sensible increment per unit (2.5 kg / 5 lb) and put a space or a
-styled unit span between the abbreviated number and the unit.
+**Decision:** defer the actionable-load rounding policy. A later design must distinguish concise,
+truthful formatting of historical values from the increment used for editable suggestions, and
+must keep switching units lossless. The accessible unit separator can be fixed independently.
 
 ### 4. Onboarding ignores the equipment answer
 
@@ -112,15 +177,23 @@ Cable pullover · Cable lateral raise · Dumbbell curl
 empties a slot's pool, silently and without telling anyone. The screen makes a promise; the next
 screen breaks it. This is the first thirty seconds of the product.
 
-**Fix:** either restrict slots to what the equipment supports (drop unfillable slots, backfill from
-other patterns that *are* fillable), or say plainly on the review screen which exercises needed
-equipment the lifter didn't select.
+`applyPriorityMuscles()` has a second bypass: it calls `chooseExercise()` with an empty equipment
+list, so a priority addition can violate the same answer even after the catalogue fallback is
+removed. Removing the fallback can also leave a resolved day type with no exercise, and the current
+data model cannot represent an empty training day.
 
-### 5. Generated programs repeat the same day verbatim
+**Validated fix:** remove the unsupported Bodyweight choice from the UI while retaining its legacy
+mapping/translation for existing data; remove the fallback to the unfiltered catalogue; and pass
+selected equipment through primary slots, priority additions and fillers. Skip an unavailable
+priority addition. If a selected equipment/split combination cannot produce any exercise for one of
+its resolved day types, block continuation at the equipment step with a localized explanation.
+Short non-empty days are acceptable; silently dropping a day or violating equipment is not.
+
+### 5. Generated programs repeat the same day visually
 
 `resolveSplit()` (app.js:333–341) emits N copies of the same day type and `exerciseSlotsForDay()`
-returns the same slot list each time, with `usedIds` scoped per day. So every repeat of a day type
-is byte-identical. Swept across all 45 reachable answer combinations:
+returns the same slot list each time, with `usedIds` scoped per day. Generated ids differ, but every
+user-visible field repeats. The audited scenario matrix reproduced these representative cases:
 
 | Answer | Result |
 |---|---|
@@ -134,9 +207,11 @@ It reads as a rendering bug even when the training logic is defensible, and it m
 indistinguishable on the Log tab forever after (Program tab shows both as "Quads · Hamstrings ·
 Chest, 6 exercises · 12 sets").
 
-**Fix (minimum):** if a day type repeats, collapse it — show "Day A ×3" on review and label the
-tabs by day type, not ordinal. **Fix (better):** vary exercise selection across repeats of a type
-so Day 1 and Day 3 differ.
+**Validated fix:** rotate each filtered pool by the occurrence index of its day type so repeated
+days differ while alternatives remain, preserving the within-day duplicate guard. Stability is
+measured on ordered `libraryId`/visible selections; generated row ids are intentionally unique.
+Reuse after a pool is exhausted is acceptable. Collapsing repeat cards would hide that the saved
+program still contains indistinguishable training days, so it is not an acceptable substitute.
 
 ### 6. Disabled primary buttons look fully enabled
 
@@ -164,7 +239,7 @@ and split the message into "enter a weight" vs "that isn't a valid weight".
 
 ---
 
-## P1 — fix in the first week
+## P1 — original first follow-up classification
 
 ### 8. The block counter runs past its own end
 
@@ -201,14 +276,17 @@ Sort by deficit, not alphabet, and label the cut ("+5 more").
 
 `#endBlockConfirm`, `#importChoice` and `#blockReview` all carry `aria-modal="true"` but:
 
-- no scrim — the page behind stays fully visible and **fully tappable** (you can hit "+ Add
-  exercise" behind the "End this training block?" dialog)
+- the two compact dialogs have no scrim, so the page behind stays visible and tappable (you can hit
+  "+ Add exercise" behind the "End this training block?" dialog)
+- the full-screen block review covers the page, but does not make the background inert
 - focus is never moved into the dialog (`document.activeElement` stays on the trigger or `body`)
 - **Escape does not close them**
-- tapping outside does not close them
+- the compact dialogs do not close when their backdrop area is tapped
 
-The exercise-note sheet gets all of this right (scrim, focus into the textarea, tap-out to close).
-Apply that pattern to the other three.
+The exercise-note sheet gets all of this right, including a Tab loop and focus return. Extract that
+behavior into a shared dialog helper and apply the appropriate backdrop behavior to all three.
+When the end-block confirmation transitions into block review, carry the original Program-page
+opener forward rather than returning focus to the now-hidden confirmation button.
 
 ### 12. There is no way to end a workout early in Focus mode
 
@@ -226,19 +304,18 @@ the CTA does correctly become "Continue workout" — that part is good.)
 
 ### 13. Layout breaks at 320 px
 
-On an iPhone SE inside a workout:
-
-- the reps and RIR inputs collapse to **4 px and 6 px wide**
-- the "Save" button shrinks to 38×46
-- **the entire "Last session" ledger is clipped away** — the column headers render, the two data
-  rows do not. The single most useful reference in the app is invisible on small phones.
-- the target line truncates to `TARGET 4–8 reps · RIR…`
+**Rejected after verification.** Source inspection and a targeted 320×568 Chromium probe show
+usable numeric inputs, an intact 46 px CTA, no page overflow and at least one visible prior-session
+row. `test/focus-mode.mjs` also protects general compact fit, though its 320 px case logs current
+sets and does not specifically prove prior-session visibility. The original measurements do not
+describe the current Focus layout and must not drive implementation.
 
 ### 14. Landscape is broken
 
-At 844×390 the card is sliced mid-word ("LAST SESSION" cut in half), no input is reachable without
-scrolling, and the content sits in a narrow column with large dead margins. Either adapt the layout
-or lock to portrait in the manifest.
+At 844×390 the prior-session ledger nearly collapses and the primary CTA starts below the initial
+viewport, while the content sits in a narrow column with large dead margins. The numeric inputs
+remain reachable, contrary to the original claim. Adapting the layout remains design work; locking
+to portrait is an unvalidated alternative, not a prescribed fix.
 
 ### 15. The tour describes a UI that no longer exists
 
@@ -246,18 +323,20 @@ Step 4: *"The bar at the bottom moves between exercises with Previous exercise a
 Turn on the mic in Settings."* — there is no bottom bar; navigation is top chevrons and swipe.
 
 Step 5: *"On Today, the orange-dot line shows how many lifts are ready for more weight. Tap a set's
-rest button to run the rest timer."* — Today shows a week-dot strip, not a readiness line
-(`#heatGauge` is `visually-hidden`), and there is no per-set rest button in Focus; there is one in
-the header.
+rest button to run the rest timer."* — the readiness line still appears conditionally when an
+exercise is ready, so that clause is valid. The stale part is the per-set timer description: Focus
+has one timer control in the workout header.
 
 A guided tour that points at absent controls is worse than no tour. It is also the first thing a
 new user sees after saving their program.
 
 ### 16. Effort-mode labels are clipped to illegibility
 
-In Easy/Hard/Max mode the picker buttons are 32×46 and `.effort__word` truncates: "Easy" renders
-in 24 px of 31 px needed, "Hard" 24 of 34. The words are cut mid-glyph. This is the whole point of
-the mode — it exists so beginners don't have to think in RIR.
+**Rejected after verification.** Since commit `4341657`, before this audit, the List picker spans a
+dedicated full-width row specifically because the three words do not fit beside load and reps.
+Focus uses three usable columns. Targeted 320 px probes show no clipped words; the checked-in
+compact loop itself uses numeric RIR, so it is not the evidence for this rejection. The reported
+32 px controls are not the current DOM geometry.
 
 ---
 
@@ -265,33 +344,37 @@ the mode — it exists so beginners don't have to think in RIR.
 
 ### 17. The PR timeline is half duplicates
 
-Every load PR is immediately followed by an e1RM PR for the same set, same date, same numbers:
+When one set establishes both a load PR and an e1RM PR, the timeline emits two rows for the same
+set, date and numbers:
 
 ```
 August 13  Lying or seated leg curl  LOAD  69.5kg × 8  +2.5kg
 August 13  Lying or seated leg curl  E1RM  69.5kg × 8  +5kg
 ```
 
-Roughly half the timeline is the same achievement counted twice, which also inflates the "11 PRs"
-figure on the exercise page. Collapse a same-set load+e1RM pair into one row with two badges.
+The audit fixture produced enough same-set pairs that roughly half its timeline repeated the same
+achievement, which also increased the exercise-page PR count. The two PR conditions are independent,
+so not every load PR has an e1RM twin. Collapsing same-set pairs into one row with two badges is a
+presentation option, not a data-correctness repair.
 
 Exercise names in that list also truncate at 175 px — "Machine chest dip or plate-loaded chest …" —
 so you often can't tell which lift the record belongs to.
 
 ### 18. Block review numbers are internally inconsistent
 
-The review dialog, on an 8-week seed, reports:
+The review dialog, on an 8-week seed for a six-week target, exposes two concrete calculation/
+labelling defects:
 
-- **"Block complete · 6 weeks · 18 Jun – 13 Aug"** — that date range is 8 weeks
-- **"24 / 18 completed100%"** — 24 of 18 shown as 100 %, and the percentage collides with the
-  fraction (missing separator)
-- **"18 improved / 0 stable / 0 stalled"** — while Progress, on the same data, says
-  "8 improved / 3 stable / 7 attention"
-- **"RECOMMENDATION"** label above a sentence that starts "Recommendation:" — said twice
-- the recommendation itself is *"repeat this block or progress"*, which is two options, not a
-  recommendation
-- a raw 🔒 emoji in an app that otherwise uses a custom masked-icon set
-- the "Block complete" headline renders in grey, reading as disabled next to everything else
+- **"Block complete · 6 weeks · 18 Jun – 13 Aug"** places target length beside an eight-week actual
+  range without identifying either, so it reads as contradictory.
+- The session line renders **"24 / 18 completed"** beside a percentage derived from
+  `volumeCompliance`, not `adherenceRatio`. The fraction and percentage therefore describe
+  different measures on one line.
+
+The original comparison with Progress was invalid: a block-wide latest-session count and a
+calendar-week summary are different windows. The highlighted recommended strategy already exists.
+Remaining concerns — the repeated “Recommendation” wording, a raw 🔒 glyph, and a recommendation
+that offers two paths — are copy/visual polish rather than evidence that the calculations disagree.
 
 ### 19. Progress tab scrolls sideways
 
@@ -314,9 +397,10 @@ cards on narrow screens.
 
 ### 21. The Strength table gives every lift the same answer
 
-All 18 rows read `Hold · add reps`. Partly a property of the seeded data, but it exposes that the
-signal column has very low resolution — a table where every row says the same thing is a table
-nobody reads twice. Consider surfacing only the lifts whose signal differs from the default.
+All 18 rows in the audit seed read `Hold · add reps`. That is expected when every exercise receives
+the same synthetic history and does not establish a production defect or low-resolution engine.
+Treat this as a fixture-quality observation only. A proposal to hide default rows needs product
+evidence and is not a validated fix.
 
 ### 22. Skipping an exercise gives no feedback and no undo
 
@@ -333,8 +417,9 @@ counter so it clearly belongs to the calendar.
 
 ### 24. Invalid settings are swallowed silently
 
-Entering `-5` or `abc` in Load jump % coerces the stored value back to 2.5 but **leaves the invalid
-text in the field** with no toast. The user believes they changed it.
+Entering `-5` or `abc` in Load jump % coerces the stored value back to 2.5 with no explanation.
+`commitSettings()` immediately calls `render()`, so the field is reset to 2.5; the original claim
+that invalid text remains visible is false. The remaining UX defect is silent correction.
 
 `Target RIR ceiling = 99` is accepted outright, producing `TARGET 4–8 reps · RIR 0–99` in every
 workout. Meanwhile `hardRir = -1` and `restSec = -30` are correctly rejected — so validation exists,
@@ -344,8 +429,10 @@ just inconsistently.
 
 Saving `[]` through the advanced JSON editor produces a cheerful "Program saved." Today then shows
 "Day 1 · 0 exercises" with a live Start workout button that opens a workout shell reading
-**"EXERCISE 0 OF 0"** and nothing else — no message, no escape hatch, no "create a program" CTA.
-It doesn't crash, but it is a state with no way forward.
+**"EXERCISE 0 OF 0"** and nothing else — no contextual message or "create a program" CTA.
+The header Back action and Settings → Create new program remain escape routes, so “no way forward”
+was an overstatement. The accepted empty state is still misleading and should be rejected or
+rendered intentionally.
 
 ### 26. "View exercises" starts the workout
 
@@ -360,13 +447,14 @@ chain of `includes()` tests and a final fallback of `"curl"`. **Calves has no br
 Calves as a priority adds a biceps curl. The function also appends every backfilled exercise to
 `program[0].day`, so Day 1 ends up with 7 exercises while Days 2 and 3 have 6.
 
-### 28. Two catalogue entries share a name
+### 28. Multiple catalogue entries share names
 
 `ar_mc`/`cu_mc` are both "Preacher curl machine"; `ar_db`/`cu_db` both "Dumbbell curl";
 `dl_db`/`lr_db` both "Dumbbell lateral raise"; `dl_mc`/`lr_mc` both "Lateral raise machine". Because
 dedup is by id, a single generated day can contain two identically-named exercises. Observed:
-6-day PPL long puts Cable curl **and** Preacher curl machine on the same day, and Cable pressdown on
-both Day 1 and Day 2. The filler also ignores day type — leg day ends with a biceps curl.
+machine-only full-body long can put two "Preacher curl machine" rows on one day. The filler also
+ignores day type, so a leg day can end with a biceps curl. Cable curl versus Preacher curl are not
+duplicate names, and reusing an exercise on different training days is not itself an error.
 
 ### 29. "Bro split" and "Machine only" don't do what they say
 
@@ -378,66 +466,72 @@ selected yields cable exercises. Both labels promise something the generator doe
 ### 30. "Advanced" experience is indistinguishable from "Intermediate"
 
 `repScheme()` branches on `experience === "beginner"` only. Beginner gets 2 sets and 8–12 reps;
-intermediate and advanced get identical output in every combination tested. An onboarding question
-whose answer is discarded.
+intermediate and advanced get identical user-visible output in every combination tested (generated
+row ids still differ). An onboarding question whose answer is discarded.
 
 ---
 
-## P3 — polish
+## P3 — original polish classification
+
+Some items below are accessibility or semantic defects and deserve higher triage than “polish.”
+The original grouping is retained for traceability.
 
 - **Contrast.** `--ink-faint` (`#98948C`) on the app background is **2.7:1** — every section label,
   every table header, every eyebrow, the calendar day-of-week row and the settings group labels fail
   AA (needs 4.5:1). The accent `#E04E14` on background is **3.57:1** — every text link, "Edit",
   "Done", "See volume ›", "Cancel", the back links. On card white it's 3.99:1. The disabled Focus
-  prev-chevron is **1.31:1** — effectively invisible rather than merely dim. This is the single
-  highest-volume accessibility issue in the app; darkening `--ink-faint` to roughly `#6E6A62` and the
-  text-accent to about `#B33C0F` clears almost all of it in two variable changes.
-- **Tap targets.** Consistently present under 44 px: `#programEditToggle` (34×35), `#viewExercises`
+  prev-chevron is **1.31:1** — hard to perceive, although disabled controls are exempt from WCAG
+  contrast criteria. Darkening `--ink-faint` to roughly `#6E6A62` and using a separate accent-text
+  token around `#B8410E` clears the audited body-text failures without changing brand fills.
+- **Tap targets against the product's 44 px standard.** Consistently present under 44 px:
+  `#programEditToggle` (34×35), `#viewExercises`
   (358×35), the program editor's ▲/▼/✕ (34×34), the onboarding back chevron (13×44), the install
   banner close (19×21), `select#unit` and `select#lang` (19 px tall), the toggles (51×31), and the
-  set-number buttons (24×44).
+  set-number buttons (24×44). This list is not a claim that every item fails WCAG 2.2's 24×24
+  minimum: the selects sit inside larger labels and the toggles meet 24 px. The smallest standalone
+  controls remain genuine failures.
 - **`#notifyToggle` has no accessible name** — the voice toggle has `data-i18n-aria`, the
   notifications one doesn't.
-- **The install banner overlays content mid-page** on Today, Progress and History, covering two
-  list rows, with a 19×21 px dismiss target. It should sit above the bottom nav or be a settings row.
+- **The install banner can overlay content mid-page** because its fixed position reserves no layout
+  space; the exact rows covered depend on scroll and data state. Its dismiss target is 19×21 px.
+  It should sit above the bottom nav or be a settings row.
 - **History header icons are raw glyphs** — `⌕` and `▤` in the markup, next to a polished masked-icon
   set everywhere else. They read as missing-font artifacts.
 - **Program editor ▲/▼ are text triangles** while the delete in the same row uses the icon system.
-- **Huge dead space in the Focus card.** The ledger reserves full height for `ex.sets` rows, so on
-  set 1 there is ~450 px of empty white between "No sets logged yet" and the input well — on the app's
-  most-used screen.
-- **The exercise page header** renders `‹ Today` and `Exercise` jammed together, centred, instead of
-  back-link-left / title-centre.
-- **"Improved" and "Regressed"** on the exercise page and history rows use the same orange. Good and
-  bad news look identical.
-- **Chart axis labels are non-uniform** — `42 / 52 / 61 / 71 kg` (steps of 10, 9, 10).
+- **Large dead space in the Focus card.** The flexing ledger creates a measured 218–305 px gap
+  between "No sets logged yet" and the input well across the audited portrait sizes — not the
+  originally claimed ~450 px or a reservation of one row per configured set.
+- **The exercise page header has a selector mismatch.** CSS absolutely positions `.exview__back`,
+  but the markup uses `.back-link`, leaving Back and the title touching in the centred flex flow.
+- **"Improved" and "Regressed"** on exercise-page rows use the same orange. History summaries use
+  the same neutral grey, not orange; the underlying good/bad distinction is still weak.
 - **Thin-data formatting.** With one session the trend line reads `Top load 64→64 kg · 0 kg over 1
   session` with an orphan `·` where the direction arrow belongs.
 - **Portuguese is partial.** Chrome and labels translate; day names ("Day 1") and the default
   program's exercise names stay English, so a PT user sees `2026-08-13 · Day 3 · Cable pressdown`.
-- **Export gives no confirmation.** Tapping Export backup JSON produces a file and no toast.
-- **Delete all data uses a native `confirm()`** — inconsistent with the app's own dialogs, and the
-  message ("Delete the training log?") doesn't match the row label ("Delete all data") or answer
-  whether the program goes too.
+- **Export gives no toast or nearby completion feedback.** Backup JSON does update the last-export
+  note after the action, while CSV has no in-app response.
+- **Delete all data is semantically wrong.** It uses a native `confirm()` whose message says
+  "Delete the training log?", and the handler clears only the log: the program and settings survive
+  despite the row label. This is more than visual inconsistency and should be triaged above P3.
 - **Repetitive attention copy.** Five consecutive rows reading "Primary muscle under weekly volume
   target." Group them under one heading.
 - **`#heatGauge`** is `visually-hidden` but still exposes a control named "forge" to assistive tech.
 
 ### Performance at two years of training
 
-3,744 rows / 1 MB in localStorage:
-
-| | |
-|---|---|
-| Cold boot | 743 ms |
-| Progress render | 798 ms, 2,560 nodes, 8,877 px tall |
-| History render | 786 ms, **32,559 nodes**, **45,650 px tall** |
+The structural measurements reproduce on an equivalent 104-week seed: 3,744 rows, about 1.1 MB in
+localStorage, roughly **32,560 History nodes**, a **45,646 px** document and 312 unpaginated session
+cards. The audit's absolute boot/render timings and Progress node counts are not retained as current
+baselines because it did not record hardware, throttling, cache state or a repeatable timing
+protocol.
 
 The History tab builds the full "Every set" table into the DOM on every render whether the
-`<details>` is open or not, and the session list has no pagination. On a mid-range Android this will
-be visibly slow and memory-hungry. Also worth noting: localStorage is at 1 MB after two years and
-the per-origin cap is ~5 MB — the mirror write is wrapped in try/catch and IndexedDB is primary, so
-data survives, but the failure is silent.
+`<details>` is open or not, and the session list has no pagination. That creates a credible
+mid-range-device performance risk, but this audit did not reproduce it on an identified Android
+device. Also worth noting: localStorage is around 1 MB after two years and browser quotas vary. The
+mirror write is wrapped in try/catch and IndexedDB is primary, so data survives when only the mirror
+fails; the user is not notified, although the failure is logged.
 
 ---
 
@@ -446,15 +540,15 @@ data survives, but the failure is silent.
 Four themes account for most of what's above.
 
 **1. Two sources of truth for the same idea.** "This week" is a calendar week in one place and a
-rolling window in another. "Improved" is counted three different ways across Progress, Program and
-Block review. The volume bar and the volume number use different denominators. Each of these is a
-small bug, but together they teach the user that the app's numbers are decorative. Pick one
-definition per concept, compute it once, and have every surface read that.
+rolling window in another. The block-review session fraction and adjacent percentage use different
+metrics. The volume bar and its number use different denominators. Each is a small bug, but together
+they teach the user that the app's numbers are decorative. Pick one definition per concept, compute
+it once, and have every surface read that.
 
-**2. Rounding and unit formatting were never centralised.** The load pipeline has a `round()`
-helper that three call sites use and three don't. `fmtLoad` converts but doesn't round.
-`kfmt` produces "231k" and the caller appends "lb". One function that owns "turn a kilogram into
-the string a lifter reads" would kill findings 1, 3, and several P3 items at once.
+**2. Recommendation normalization and unit formatting are separate contracts.** Four
+history-derived recommendation paths bypass the existing `round()` grid. Separately, `fmtLoad`
+converts truthful historical values and `kfmt` abbreviates metrics. One universal formatter would
+conflate recorded facts with actionable suggestions; centralize each contract without merging them.
 
 **3. The generator was built as a demo and shipped as a feature.** Onboarding asks eight questions;
 the answers to equipment, experience (advanced), and split type are partly or wholly discarded, and
@@ -465,27 +559,25 @@ flow beats a long one that ignores you.
 **4. Dialog and disabled-state primitives are missing.** No `.btn:disabled`, no scrim/focus-trap/
 Escape helper. Both are ten-line additions that fix a class of problems rather than instances.
 
-## What I'd do before tomorrow
+## Validated implementation pass
 
-Ordered by damage-per-hour of work:
+This is the corrected PR 107 scope, ordered by user impact and dependency risk:
 
-1. `round()` on the three `hold` branches (app.js:955–959). **~10 minutes, fixes the worst bug.**
-2. Point `programAdherence()` at `weekRange()`. **~10 minutes.**
-3. Round lb display and put a space before the unit in `kfmt` callers. **~30 minutes.**
-4. Add `.btn:disabled{opacity:.4}`. **~2 minutes.**
-5. Clamp load input to a sane maximum; fix the three wrong validation messages. **~30 minutes.**
-6. Clamp `mesocycleWeek().current` to `total`. **~5 minutes.**
-7. Volume bar width → `completed / planned`; sort by deficit; drop the 4 % floor. **~20 minutes.**
-8. Equipment: stop the silent full-catalogue fallback, or say on the review screen what was
-   substituted. **~1 hour.**
-9. Collapse identical generated days on the review screen. **~1 hour.**
-10. Scrim + Escape + focus-trap on the three dialogs, reusing the note-sheet pattern. **~1 hour.**
-11. Darken `--ink-faint` and the text accent. **~10 minutes, clears most of the AA failures.**
-12. Rewrite tour steps 4 and 5 to match the current UI, or disable the tour for launch.
+1. **F1:** Round the four history-derived raw recommendation paths, preserving ADR 0003's median.
+2. **F2/F8:** Unify week semantics and separate elapsed from clamped mesocycle display weeks.
+3. **F7:** Reject malformed or implausible loads in every interactive persistence path.
+4. **F4/F5:** Honor selected equipment throughout generation and rotate repeated day selections.
+5. **F6:** Add one unmistakable disabled-button treatment.
+6. **F9/F10:** Align overview bars with row targets, sort by deficit and disclose truncation.
+7. **F11:** Give the three dialogs shared modal behavior based on the exercise-note sheet.
+8. **C1:** Correct the audited body-text contrast failures without changing brand fills.
 
-Items 1–7 and 11 are under three hours together and remove every finding that makes the app look
-untrustworthy. Items 13 (320 px) and 14 (landscape) are the next tier and want a real layout pass
-rather than a patch.
+The implementation brief contains eleven work items because grouped lines above contain F2/F8,
+F4/F5 and F9/F10. It intentionally does not include every confirmed finding.
+
+Pound increment policy (F3), early workout finish (F12), landscape (F14), tour accuracy (F15),
+History scale and Focus-card space remain follow-up design or implementation work. F13 and F16 are
+rejected rather than deferred.
 
 ## What's genuinely good
 
