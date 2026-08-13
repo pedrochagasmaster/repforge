@@ -832,6 +832,42 @@ async function main() {
       assert(/55/.test(cue || "") && !/53\.75/.test(cue || "") && loadVal === "55",
         `F1 ${c.key}: untouched first-set Focus cue is on-grid`, `cue="${cue}" input=${loadVal} rec=${JSON.stringify(rec)}`);
     }
+
+    for (const c of cases) {
+      await boot(f1Page);
+      await enterFocus(f1Page, 0);
+      const seed = await f1Page.evaluate(() => {
+        const ex = window.__repforgeFocus.list()[0];
+        return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
+      });
+      const rows = c.dates.flatMap((date, i) => {
+        const sample = c.row(seed, date, i);
+        return sample.map((r) => ({ ...r, load: 1, session: `${r.session}_1kg` }));
+      });
+      await persist(f1Page, `
+        const exId = ${JSON.stringify(seed.id)};
+        s.settings = { ...(s.settings || {}), minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" };
+        s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
+        s.log = ${JSON.stringify(rows)};
+      `);
+      await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await reload(f1Page);
+      await enterFocus(f1Page, 0);
+      const rec = await f1Page.evaluate((id) => {
+        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+        const ex = (raw.program || []).find((e) => e.id === id);
+        const r = window.__repforgeRecommendation?.(ex);
+        const loads = (raw.log || []).filter((x) => x.exerciseId === id).map((x) => +x.load);
+        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label, historyLoads: loads };
+      }, seed.id);
+      const cue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
+      const loadVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
+      assert(rec?.historyLoads?.every((kg) => kg === 1) && rec?.load === 2.5 && onGrid(rec.load),
+        `F1 1 kg ${c.key}: recommendation clamps to minJump`, JSON.stringify(rec));
+      assert(loadVal === "2.5" && /2\.5/.test(cue || "") && !/^0(?:\.0+)?$/.test(loadVal),
+        `F1 1 kg ${c.key}: untouched first-set Focus cue is a positive grid load`,
+        `cue="${cue}" input=${loadVal} rec=${JSON.stringify(rec)}`);
+    }
     await f1Ctx.close();
   }
 

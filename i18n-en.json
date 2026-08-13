@@ -767,6 +767,7 @@
   "settings.import_data": "Import data",
   "settings.storage": "Storage",
   "settings.delete_all": "Delete all data",
+  "dialog.block_review.ready": "Week {n} of {total} · ready for review.",
   "dialog.block_review.completed": "Block complete",
   "dialog.block_review.range": "{weeks} weeks · {range}",
   "block_review.stalled": "stalled",

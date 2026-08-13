@@ -767,6 +767,7 @@
   "settings.import_data": "Importar dados",
   "settings.storage": "Armazenamento",
   "settings.delete_all": "Apagar todos os dados",
+  "dialog.block_review.ready": "Semana {n} de {total} · pronta para revisão.",
   "dialog.block_review.completed": "Bloco concluído",
   "dialog.block_review.range": "{weeks} semanas · {range}",
   "block_review.stalled": "travado",

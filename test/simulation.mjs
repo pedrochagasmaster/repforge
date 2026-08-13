@@ -3007,6 +3007,91 @@ async function main() {
       `load=${lbLoad}`,
       "Switch unit to lb → recommendation().load remains 55 kg"
     );
+
+    const kg1Rows = (ex, date, reps, rir, tag) => {
+      const session = `${date}_${ex.day}_f1_1kg_${ex.id}_${tag}`;
+      const created = new Date(`${date}T12:00:00Z`).toISOString();
+      return [1, 1].map((load, i) => ({
+        session, date, day: ex.day, name: ex.name, exerciseId: ex.id, set: i + 1,
+        load, reps, rir, notes: "", created, primary: ex.primary, secondary: ex.secondary,
+      }));
+    };
+    const kg1Log = [];
+    f1Cases.forEach((c) => {
+      c.dates.forEach((date, i) => {
+        const sample = c.session(c.ex, date, i)[0];
+        kg1Log.push(...kg1Rows(c.ex, date, sample.reps, sample.rir, `${c.key}_${i}`));
+      });
+    });
+    const kg1State = await getState(page);
+    await persistState(page, {
+      ...kg1State,
+      settings: { ...kg1State.settings, minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" },
+      log: kg1Log,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+
+    for (const c of f1Cases) {
+      const rec = await page.evaluate((id) => {
+        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+        const ex = (raw.program || []).find((e) => e.id === id);
+        const r = window.__repforgeRecommendation?.(ex);
+        const loads = (raw.log || []).filter((x) => x.exerciseId === id).map((x) => +x.load);
+        return r && { status: r.status, load: r.load, stalled: !!r.stalled, label: r.label, historyLoads: loads };
+      }, c.ex.id);
+      assert(
+        rec?.status === c.status && rec?.stalled === c.stalled && c.label.test(rec?.label || ""),
+        `F1: 1 kg ${c.key} branch still fires`,
+        JSON.stringify(rec),
+        `Seed 1 kg history → recommendation() ${c.key}`
+      );
+      assert(
+        rec?.historyLoads?.length && rec.historyLoads.every((kg) => kg === 1) && rec?.load === 2.5 && rec.load > 0 && onGrid(rec.load),
+        `F1: 1 kg ${c.key} hold clamps to minJump, history stays 1 kg`,
+        `load=${rec?.load} history=${JSON.stringify(rec?.historyLoads)}`,
+        `${c.key} 1 kg median → round would be 0; clamp to 2.5`
+      );
+
+      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await page.evaluate(({ id, day }) => {
+        window.__repforgeEnterWorkout?.({ focus: true, day });
+        const fl = window.__repforgeFocus?.list?.() || [];
+        const i = fl.findIndex((e) => e.id === id);
+        if (i >= 0) window.__repforgeFocus.to(i);
+      }, { id: c.ex.id, day: "Day 1" });
+      await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
+      const cue = await page.locator(".exercise.is-current .focus-cue__text").textContent();
+      const cueLoad = await page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
+      assert(
+        cueLoad === "2.5" && !/^0(?:\.0+)?$/.test(cueLoad) && /2\.5/.test(cue || "") && !/\b0(?:\.0+)?\s*kg/.test(cue || ""),
+        `F1: 1 kg ${c.key} first-set prefill is a positive grid load`,
+        `cue="${cue}" input=${cueLoad}`,
+        `Focus → first set of 1 kg ${c.key} lift`
+      );
+      await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    }
+
+    const hold1 = f1Cases.find((c) => c.key === "hold").ex;
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await page.fill(`[data-k="${hold1.id}_1_load"]`, "1");
+    await page.fill(`[data-k="${hold1.id}_1_reps"]`, "7");
+    await page.fill(`[data-k="${hold1.id}_1_rir"]`, "1");
+    await page.click(`.saveset[data-save="${hold1.id}_1"]`);
+    await page.waitForTimeout(120);
+    const echoed1 = +(await page.inputValue(`[data-k="${hold1.id}_2_load"]`));
+    assert(
+      echoed1 === 1,
+      "F1: in-session hold still echoes a 1 kg committed load",
+      `set2=${echoed1}`,
+      "Commit 1 kg on set 1 → set 2 suggestion stays 1 (history clamp does not apply)"
+    );
   }
 
   await clearState(page);
@@ -5187,6 +5272,64 @@ async function main() {
       "buildPlainSummary at week 8 of 6"
     );
 
+    const openFullScreenReview = async () => {
+      await nav(page, "program");
+      await page.click("#endBlock");
+      await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+      await page.click("#endBlockGo");
+      await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+    };
+    const heroOf = async () => (await page.locator("#blockReview .blockreview__hero").textContent())?.trim() || "";
+    const panelOf = async () => (await page.locator("#blockReview").textContent()) || "";
+
+    await openFullScreenReview();
+    let hero = await heroOf();
+    let panel = await panelOf();
+    assert(
+      /Week 6 of 6/.test(hero) && /ready for review/i.test(hero) && !/Block complete/i.test(hero) && !overrunText(hero),
+      "F8: full-screen review headline is ready-for-review while still active",
+      `hero="${hero}"`,
+      "End block → #blockReview hero at week 8 of 6, mesocycleStatus=active"
+    );
+    assert(
+      /Week 6 of 6/.test(panel) && /ready for review/i.test(panel) && !/Block complete/i.test(panel) && !overrunText(panel) && !/Week 8 of 6/.test(panel),
+      "F8: full-screen review copy stays clamped and not completed while active",
+      `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
+      "#blockReview body at active week 8 of 6"
+    );
+    await page.click("#blockDecideLater");
+    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+    const afterLater = (await getState(page)).programMeta.mesocycleStatus;
+    assert(
+      afterLater === "active",
+      "F8: Decide later leaves the mesocycle active",
+      `status=${afterLater}`,
+      "#blockDecideLater at week 8 of 6"
+    );
+
+    f8 = await getState(page);
+    await persistState(page, { ...f8, settings: { ...f8.settings, lang: "pt" } });
+    await reloadApp(page);
+    await openFullScreenReview();
+    hero = await heroOf();
+    panel = await panelOf();
+    assert(
+      /Semana 6 de 6/.test(hero) && /pronta para revisão/i.test(hero) && !/Bloco concluído/i.test(hero) && !overrunText(hero),
+      "F8: PT full-screen review headline is ready-for-review while still active",
+      `hero="${hero}"`,
+      "lang=pt → #blockReview hero at active week 8 of 6"
+    );
+    assert(
+      /Semana 6 de 6/.test(panel) && /pronta para revisão/i.test(panel) && !/Bloco concluído/i.test(panel) && !overrunText(panel) && !/Semana 8 de 6/.test(panel),
+      "F8: PT full-screen review copy stays clamped and not completed while active",
+      `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
+      "lang=pt → #blockReview body at active week 8 of 6"
+    );
+    await page.click("#blockDecideLater");
+    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+    await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "en" } });
+    await reloadApp(page);
+
     f8 = await getState(page);
     await persistState(page, {
       ...f8,
@@ -5221,6 +5364,44 @@ async function main() {
       `summary="${reviewDoneSummary}" review="${(reviewDone || "").replace(/\s+/g, " ").slice(0, 160)}"`,
       "Review panel + plain summary when completed"
     );
+
+    await openFullScreenReview();
+    hero = await heroOf();
+    panel = await panelOf();
+    assert(
+      /^Block complete$/i.test(hero) && !/ready for review/i.test(hero) && !overrunText(hero),
+      "F8: full-screen review headline is Block complete only when stored-completed",
+      `hero="${hero}"`,
+      "End block → #blockReview hero at mesocycleStatus=completed"
+    );
+    assert(
+      /Block complete/i.test(panel) && !/Week 8 of 6/.test(panel) && !overrunText(panel),
+      "F8: completed full-screen review keeps week displays clamped",
+      `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
+      "#blockReview body when stored-completed"
+    );
+    await page.click("#blockReviewClose");
+    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+
+    await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });
+    await reloadApp(page);
+    await openFullScreenReview();
+    hero = await heroOf();
+    panel = await panelOf();
+    assert(
+      /^Bloco concluído$/i.test(hero) && !/pronta para revisão/i.test(hero),
+      "F8: PT full-screen review headline is Bloco concluído when stored-completed",
+      `hero="${hero}"`,
+      "lang=pt → #blockReview hero at mesocycleStatus=completed"
+    );
+    assert(
+      /Bloco concluído/i.test(panel) && !/Semana 8 de 6/.test(panel) && !overrunText(panel),
+      "F8: PT completed full-screen review keeps week displays clamped",
+      `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
+      "lang=pt → #blockReview body when stored-completed"
+    );
+    await page.click("#blockReviewClose");
+    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
     await persistState(page, f8Restore);
     await reloadApp(page);
   }
