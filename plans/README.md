@@ -179,9 +179,10 @@ the improve skill's non-interactive rule.
   program editor's `oninput` → `persistProgram()` does the same; fixing it
   for one input would be inconsistent. A debounced-save pass would be a
   separate, whole-app finding.
-- **"days this week" chip wording on a rolling 7-day window**: matches the
-  design note's documented display spec; a calendar-week rework is a product
-  decision, not a bug.
+- **Rolling 7-day adherence vs. calendar-week adherence**: the rolling window
+  is the accepted Program contract; a calendar-week rework is a product
+  decision, not a bug. The UI now names that window explicitly instead of
+  calling it “this week.”
 - **Warmup-only rows counting toward adherence**: defensible ("you showed
   up"); all saved rows have load > 0 anyway, so the edge is nearly
   unreachable.

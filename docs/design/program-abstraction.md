@@ -30,7 +30,7 @@ All signals are **computed at render time**, never stored as points or streaks.
 ```
 daysLogged = unique training-day labels with ≥1 session in [today-6, today]
 adherence = daysLogged / prog.days().length
-display = "{daysLogged} / {totalDays} days this week"
+display = "{daysLogged} / {totalDays} days in the last 7 days"
 ```
 
 Only days that exist in the current program template count toward the denominator.

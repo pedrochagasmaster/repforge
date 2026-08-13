@@ -18,7 +18,8 @@ simulation and **83/0** for Focus mode. Audit numbers are not reused for unrelat
   C1 remain out of this pass.
 - F13 and F16 are rejected by current source plus targeted runtime probes; do not implement them.
 - Preserve ADR 0003's capacity arithmetic. F1 rounds the four raw recommendation paths; it does
-  not replace the median.
+  not replace the median. Preserve the accepted rolling Program-adherence contract in
+  `docs/design/program-abstraction.md`; F2 fixes its labels rather than changing its window.
 
 ## Your task
 
@@ -91,6 +92,23 @@ number independently, update the exact expectation, and document why. Do not loo
 Each item gives you: the symptom, where it lives, what to do, and how you'll know it's done. Verify
 every acceptance criterion in a real browser before moving on.
 
+Effort uses S/M/L implementation complexity. Risk is the risk of the fix itself, not the existing
+defect. All eleven items have high confidence after source review and targeted browser probes.
+
+| Work item | Effort | Fix risk | Primary risk to control |
+|---|---:|---:|---|
+| F1 | S | Medium | Keep capacity triggers and exact-grid double progression intact |
+| F2 | S | Low | Preserve the accepted rolling adherence contract |
+| F4 | M | Medium | Avoid silently dropping a selected training day |
+| F5 | M | Medium | Keep generation deterministic and prevent within-day duplicates |
+| F6 | S | Low | Do not weaken enabled CTA or focus styling |
+| F7 | M | High | Apply one unit-aware parser to every persistence path |
+| F8 | S | Medium | Separate display clamping from lifecycle state |
+| F9 | S | Low | Handle zero-plan rows without division or visual nubs |
+| F10 | S | Low | Keep deterministic ordering and disclose truncation |
+| F11 | M | High | Preserve focus, inertness and opener transfer across chained dialogs |
+| C1 | M | Medium | Change text foregrounds without moving brand fills or focus indicators |
+
 ---
 
 ### F1. History-derived hold-family recommendations can return unloadable weights — **P0**
@@ -109,33 +127,44 @@ default hold — return it raw.
   load-change paths do.
 - Keep `l.med` as the capacity engine's typical-load reference. ADR 0003 and plan 039 deliberately
   normalize capacity at that load; replacing it with top load or set 1 is out of scope.
-- Confirm `baseSuggestion()` passes the corrected `rec.load` through unchanged. Do not round the
-  independent current-session `setSuggestion()` hold: it may truthfully echo a manually entered
-  off-grid load and belongs to the deferred input/increment policy.
+- When normalization changes `rec.load` from the raw history reference, use the existing
+  capacity-based re-entry calculation for first-set reps at the normalized load. A rounded-up hold
+  must not blindly combine more load with the old `+1 rep` progression. Exact on-grid holds keep
+  their existing rep behavior.
+- Do not round the independent current-session `setSuggestion()` hold: it may truthfully echo a
+  manually entered off-grid load and belongs to the deferred input/increment policy.
 
 **Done when.** With `minJump = 2.5`, every history-derived `recommendation().load` from the stalled,
 recover, push-reps and default paths lies on the internal kilogram grid. Exercise all four branches
-with mixed previous-set loads and assert the kg card, untouched first-set Focus cue and
-exercise-page headline. In lb mode preserve lossless conversion; do not invent F3's display grid.
+with mixed previous-set loads and assert the kg card, untouched first-set Focus load and reps, and
+exercise-page headline. Cover a rounded-up mixed median, an exact on-grid hold and a positive
+sub-increment load. In lb mode preserve lossless conversion; do not invent F3's display grid.
 
 ---
 
-### F2. Two definitions of "this week" — **P0**
+### F2. Program labels rolling adherence as "this week" — **P0**
 
 **Symptom.** Same state, same moment: Today says `2 of 3 sessions completed`, Progress says
-`2 of 3 sessions`, Program says `3 / 3` and `3 / 3 days this week`. Ground truth is 2.
+`2 of 3 sessions`, Program says `3 / 3` and `3 / 3 days this week`. Two days are in the current
+calendar week and three are in the trailing seven days; Program's count is valid but its labels
+make the windows look contradictory.
 
 **Cause.** `weeklySnapshot()` (`app.js:542`) uses `weekRange(today)` — Monday-to-Sunday.
-`programAdherence()` (`app.js:538`) uses `daysAgo(6)` — a rolling 7 days. Both render under labels
-that read identically.
+`programAdherence()` (`app.js:538`) uses `daysAgo(6)` — a rolling 7 days. Accepted
+`docs/design/program-abstraction.md` explicitly defines that rolling adherence contract, and
+`plans/README.md` records a calendar-week conversion as a product decision rather than a bug.
+Program nevertheless renders the value as generic “sessions” and “days this week.”
 
-**Do.** Make `programAdherence()` filter inclusively from `weekRange(today()).start` through `.end`,
-matching `weeklySnapshot()`. Preserve the current adherence rule: it counts each planned training
-day at most once, even where the existing UI calls the result sessions.
+**Do.** Preserve an inclusive Program window from `today-6` through `today`, explicitly excluding
+future rows. Relabel the Program overview stat as `days (7d)` and the Program chip as
+`{done} / {planned} days in the last 7 days`, with natural Portuguese equivalents. Keep Today and
+Progress on their existing Monday–Sunday helper. Preserve the adherence rule: each planned training
+day counts at most once.
 
-**Done when.** Today, Progress → This week, Program → sessions stat, and the Program `days this
-week` chip all report the same number for the same log. Seed the previous Sunday, dates inside the
-current Monday–Sunday range and the following Monday; future-dated rows must not leak in.
+**Done when.** Seed the previous Sunday, dates inside the current Monday–Sunday range and the
+following Monday. Today and Progress show the calendar-week count; both Program surfaces show the
+rolling-seven-day count and explicitly name that window. The following Monday does not leak into
+either result.
 
 ---
 
@@ -381,7 +410,7 @@ F13 and F16 are rejected, not backlog work.
 
 These are logical workstreams for isolated implementation agents, not conflict-free file seams:
 
-1. Recommendation/week lifecycle: F1, F2 and F8.
+1. Recommendation/adherence/week lifecycle: F1, F2 and F8.
 2. Onboarding generator: F4 and F5.
 3. Load validation: F7.
 4. Presentation: F6, F9, F10 and C1.
@@ -405,9 +434,10 @@ localStorage silently does nothing). Copy that helper rather than reinventing it
 Required focused regression coverage:
 
 - **F1:** all four raw recommendation branches with mixed previous-set loads; internal kg-grid
-  alignment plus kg output in the card, untouched Focus first-set cue and exercise page.
-- **F2:** previous Sunday, current Monday–Sunday and following Monday; identical counts on Today,
-  Progress and both Program surfaces.
+  alignment plus kg output in the card, untouched Focus first-set load/reps and exercise page;
+  exact-grid holds retain double progression and sub-increment loads stay positive.
+- **F2:** previous Sunday, current Monday–Sunday and following Monday; calendar counts on Today and
+  Progress, rolling counts plus explicit seven-day copy on both Program surfaces, no future leak.
 - **F4/F5:** every selectable non-empty equipment subset and reachable split/day pair; no Bodyweight
   UI, equipment-valid `libraryId`s including priority additions, no within-day duplicate, differing
   repeated days while alternatives remain, and stable visible output across two generations.

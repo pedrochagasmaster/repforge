@@ -7,8 +7,9 @@ states (cold start, one session, eight weeks, two years, mid-workout, stale user
 **Original verdict: the app is beautifully made but has several trust-damaging edge cases.** The
 visual design, typography, information hierarchy and copy are better than most shipping fitness
 apps. In the audited descending-load fixture, the weight RepForge tells a lifter to use can fall
-off the configured plate/pin grid, and two screens disagree about the current week. Those defects
-undermine the product's claim, but the original “most common case” wording was not established.
+off the configured plate/pin grid, and Program labels a rolling seven-day metric as “this week,”
+making it appear to disagree with calendar-week screens. Those defects undermine the product's
+claim, but the original “most common case” wording was not established.
 
 The original severity labels below are preserved for traceability. The post-publication
 verification matrix is authoritative where it changes a label or rejects a claim.
@@ -18,7 +19,8 @@ verification matrix is authoritative where it changes a label or rejects a claim
 ## Post-publication verification
 
 Rechecked on `main` at `ee59cdf` against the live source, targeted Chromium probes, the locked
-capacity decision in `docs/adr/0003-capacity-as-progression-currency.md`, and both browser suites:
+capacity decision in `docs/adr/0003-capacity-as-progression-currency.md`, the accepted rolling
+adherence contract in `docs/design/program-abstraction.md`, and both browser suites:
 
 - `REPFORGE_URL=http://localhost:8000/ npm --prefix test run simulate`: **408 passed, 0 failed**
 - `REPFORGE_URL=http://localhost:8000/ npm --prefix test run test:focus`: **83 passed, 0 failed**
@@ -30,8 +32,8 @@ bypass a recorded product decision.
 
 | Finding | Verification | Correction / execution decision |
 |---|---|---|
-| 1 | Confirmed; claim narrowed | Four raw-load return paths exist, not three. Even-set mixed loads can put their median off-grid; not every mixed-load session does. Round those paths without replacing the capacity engine's median. |
-| 2 | Confirmed | Unify the user-facing meaning of “this week” on the existing Monday–Sunday helper. The metric counts distinct planned training days completed, even where current copy says sessions. |
+| 1 | Confirmed; claim narrowed | Four raw-load return paths exist, not three. Even-set mixed loads can put their median off-grid; not every mixed-load session does. Round those paths without replacing the capacity engine's median, and re-enter reps when normalization changes the target load. |
+| 2 | Confirmed; remedy corrected | Preserve Program's accepted rolling-seven-day adherence contract and relabel both Program surfaces explicitly. Today and Progress remain Monday–Sunday; Program counts distinct planned training days in `[today-6, today]`, not sessions. |
 | 3 | Partly confirmed; deferred | Decimal noise is real, but rounding every historical value to 5 lb would misstate stored data. Separate historical formatting from actionable-load policy before changing it. |
 | 4 | Confirmed; scope expanded | The catalogue has zero bodyweight entries and the fallback violates selected equipment. Priority-muscle insertion bypasses the filter too, and zero-fill day types need an explicit onboarding outcome. |
 | 5 | Confirmed | Repeated days are visually identical, not byte-identical (their generated ids differ). Rotate deterministic selections across repeated day types and compare stable visible/library fields, not generated ids. |
@@ -67,6 +69,46 @@ The corrected PR 107 dispatch scope is deliberately narrower than every confirme
 audit findings **1, 2 and 4–11**, plus the promoted contrast work item **C1**. Finding 3 is deferred;
 findings 12, 14, 15 and 17–30 remain follow-up work; findings 13, 16 and the chart-label bullet are
 rejected. These identifiers are used consistently in the implementation brief.
+
+### Finding metadata
+
+Impact below reflects the corrected claim rather than the preserved original heading. Effort uses
+S/M/L implementation complexity; risk is the risk of the fix itself; confidence reflects the
+post-publication evidence. Detailed evidence and impact mechanisms remain in the numbered sections.
+
+| Finding | Corrected impact | Effort | Fix risk | Confidence |
+|---|---|---:|---:|---:|
+| 1 | High — core recommendation can be unactionable | S | Medium | High |
+| 2 | Medium — rolling adherence is presented as a calendar week | S | Low | High |
+| 3 | Medium — pound output is noisy; policy remains unresolved | M | High | High |
+| 4 | High — onboarding breaks its equipment promise | M | Medium | High |
+| 5 | High — generated multi-day programs lack intended variation | M | Medium | High |
+| 6 | Medium — primary onboarding action appears broken | S | Low | High |
+| 7 | High — invalid loads can reach persisted training data | M | High | High |
+| 8 | Medium — lifecycle copy can exceed the configured block | S | Medium | High |
+| 9–10 | Medium — volume encoding contradicts and omits priorities | M | Medium | High |
+| 11 | High — declared dialogs lack required modal interaction | M | High | High |
+| 12 | Medium — Focus lacks an early-exit workflow | M | High | High |
+| 13 | Rejected by source and targeted probe | — | — | High |
+| 14 | Medium — landscape needs adaptive design | M | High | Medium |
+| 15 | Low — tour copy is stale | S | Low | High |
+| 16 | Rejected by source and targeted probes | — | — | High |
+| 17 | Low — optional presentation consolidation | S | Medium | High |
+| 18 | Medium — adjacent block-review values are mislabelled | M | Medium | High |
+| 19 | Medium — hidden content can widen Progress | S | Low | High |
+| 20 | Low — wide tables lack an overflow affordance | S | Low | High |
+| 21 | Observation; fixture does not establish a defect | — | — | High |
+| 22 | Medium — skip has no confirmation or undo | M | Medium | High |
+| 23 | Medium — calendar selection does not filter sessions | M | Medium | High |
+| 24 | High — settings are silently replaced or left unbounded | M | Medium | High |
+| 25 | Medium — empty programs enter a broken state | S | Low | High |
+| 26 | Medium — a read-only label enters the workout shell | S | Low | High |
+| 27 | High — priority generation can target the wrong day | M | Medium | High |
+| 28 | Medium — catalogue identity can produce duplicate names | M | Medium | High |
+| 29 | High — named generator modes violate their contract | M | High | High |
+| 30 | Medium — an onboarding answer has no effect | M | Medium | High |
+| P3 bucket | Mixed; confirmed items range from access to polish | M | Medium | High |
+| Performance | Medium structural scaling risk; exact timings unverified | L | High | High for structure, Low for timings |
 
 ---
 
@@ -113,12 +155,15 @@ A lifter standing at the machine cannot act on this. It is the app's core output
 six times out of six.
 
 **Validated fix:** wrap the four history-derived raw return paths in `round()`, same as the
-load-change paths, and add a descending-load regression case for each branch. Keep the median: the
-capacity engine normalizes its trigger arithmetic at the session's typical load under ADR 0003.
-Changing that reference is a separate product decision. A manually entered off-grid load may still
-be echoed by the current-session `setSuggestion()` path; that is not this history-rounding defect.
+load-change paths, and add a descending-load regression case for each branch. If normalization
+changes the target load, derive reps at that normalized target with the existing capacity-based
+re-entry logic; otherwise a rounded-up hold can prescribe more load and more reps at once. Exact
+on-grid holds retain their existing double-progression behavior. Keep the median: the capacity
+engine normalizes its trigger arithmetic at the session's typical load under ADR 0003. Changing
+that reference is a separate product decision. A manually entered off-grid load may still be
+echoed by the current-session `setSuggestion()` path; that is not this history-rounding defect.
 
-### 2. Today and Program disagree about the same week
+### 2. Program disguises rolling adherence as a calendar week
 
 Same state, same moment, three screens:
 
@@ -128,19 +173,23 @@ Same state, same moment, three screens:
 | Progress → This week | `2 of 3 sessions · 16 hard sets` |
 | Program → sessions | `3 / 3` and `3 / 3 days this week` |
 
-Ground truth from the app's own helper: two distinct planned training days were completed in the
-current calendar week. Existing “sessions” copy is retained in this fix, but the metric does not
-count repeated sessions of the same training day twice.
+Two distinct planned training days were completed in the current calendar week. Three were
+completed in the trailing seven days. Both numbers are valid for their own windows, but Program
+calls its rolling-window value both “sessions” and “days this week”; the metric actually counts
+distinct planned training-day labels and never counts repeated sessions of one day twice.
 
 Cause: `weeklySnapshot()` (app.js:542) uses `weekRange(today)` — a Monday-to-Sunday calendar week.
-`programAdherence()` (app.js:538) uses `daysAgo(6)` — a rolling 7-day window. Two definitions of
-"this week", each rendered under a label that reads identically to the user.
+`programAdherence()` (app.js:538) uses `daysAgo(6)` — a rolling 7-day window. The latter is
+intentional: accepted `docs/design/program-abstraction.md` defines Program adherence as unique
+program days in `[today-6, today]`, and `plans/README.md` records a calendar-week conversion as a
+product decision rather than a bug. The implementation defect is copy that erases that distinction.
 
 A tracker that contradicts itself about whether you showed up is a tracker you stop believing.
 
-**Validated fix:** make `programAdherence()` use both inclusive bounds from `weekRange(today())`.
-The product already uses Monday–Sunday elsewhere, so retaining the rolling window is not an
-implementation alternative in this pass.
+**Validated fix:** preserve an inclusive rolling window from `today-6` through `today` and exclude
+future rows. Relabel the Program stat as `days (7d)` and its chip as
+`{done} / {planned} days in the last 7 days`, localized in both languages. Today and Progress keep
+their existing Monday–Sunday labels and calculations.
 
 ### 3. Pound display exposes two unresolved formatting policies
 
@@ -539,11 +588,11 @@ fails; the user is not notified, although the failure is logged.
 
 Four themes account for most of what's above.
 
-**1. Two sources of truth for the same idea.** "This week" is a calendar week in one place and a
-rolling window in another. The block-review session fraction and adjacent percentage use different
-metrics. The volume bar and its number use different denominators. Each is a small bug, but together
-they teach the user that the app's numbers are decorative. Pick one definition per concept, compute
-it once, and have every surface read that.
+**1. Ambiguous labels erase meaningful boundaries.** Program's accepted rolling adherence window
+is labelled as a calendar week. The block-review session fraction and adjacent percentage use
+different metrics. The volume bar and its number use different denominators. Each is a small bug,
+but together they teach the user that the app's numbers are decorative. Name each window and
+measure explicitly, then have every surface for that concept read the same computation.
 
 **2. Recommendation normalization and unit formatting are separate contracts.** Four
 history-derived recommendation paths bypass the existing `round()` grid. Separately, `fmtLoad`
@@ -564,7 +613,8 @@ Escape helper. Both are ten-line additions that fix a class of problems rather t
 This is the corrected PR 107 scope, ordered by user impact and dependency risk:
 
 1. **F1:** Round the four history-derived raw recommendation paths, preserving ADR 0003's median.
-2. **F2/F8:** Unify week semantics and separate elapsed from clamped mesocycle display weeks.
+2. **F2/F8:** Clarify calendar-versus-rolling labels and separate elapsed from clamped mesocycle
+   display weeks.
 3. **F7:** Reject malformed or implausible loads in every interactive persistence path.
 4. **F4/F5:** Honor selected equipment throughout generation and rotate repeated day selections.
 5. **F6:** Add one unmistakable disabled-button treatment.
