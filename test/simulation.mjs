@@ -3609,7 +3609,7 @@ async function main() {
       role: spin?.getAttribute("role") || "",
       named: !!spin?.getAttribute("aria-label"),
       valueText: spin?.getAttribute("aria-valuetext") || "",
-      hint: cell?.querySelector(".curset__hint")?.textContent?.trim() || "",
+      hint: cell?.querySelector(".effortpop__hint")?.textContent?.trim() || "",
       steps: steps.length,
       tall: steps.every((b) => b.getBoundingClientRect().height >= 44),
       clipped: !!spin && spin.scrollWidth > spin.clientWidth + 1,

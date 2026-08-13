@@ -232,6 +232,12 @@ async function main() {
   await enterFocus(page, 0);
   await logSets(page, 4, { load: 7.5, reps: 4 });
   await shot(page, "04-effort-mode");
+  // 04b — the effort explainer, popped open off the word it explains
+  await page.locator(".exercise.is-current .focus-well [data-effspin]").click();
+  await page.waitForTimeout(420);
+  await shot(page, "04b-effort-explainer");
+  await page.locator(".exercise.is-current .focus-ex__muscle").click();
+  await page.waitForTimeout(300);
 
   // 05 — high-volume exercise with folded history
   await boot(page, { rirMode: "effort" });
