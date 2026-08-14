@@ -926,6 +926,14 @@ function draftHasSessionWork(d){
   if(Object.prototype.hasOwnProperty.call(d,"__sessionNotes")||Object.prototype.hasOwnProperty.call(d,"__bodyweight")||Object.prototype.hasOwnProperty.call(d,"__date")){
     if(flags.date||flags.sessionNotes||flags.bodyweight) return true}
   return Object.keys(d).some(k=>/_load$/.test(k)&&parseDec(d[k])>0)}
+function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
+  if(nextSets>=currentSets)return false;
+  d=d||loadDraft();
+  const marked=new Set(["__done","__touched","__warm"].flatMap(k=>Array.isArray(d[k])?d[k]:[]));
+  for(let n=nextSets+1;n<=currentSets;n++){
+    const key=`${exerciseId}_${n}`;
+    if(marked.has(key)||parseDec(d[`${key}_load`])>0)return true}
+  return false}
 function requestWorkoutDay(nextDay){
   if(!nextDay||nextDay===day) return true;
   const raw=localStorage.getItem(DRAFT);
@@ -3606,7 +3614,12 @@ function exCard(e,i,n){
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
-    inp.oninput=()=>{prog.update(inp.dataset.id,inp.dataset.field,inp.value);persistProgram();renderVolume();updateGauge();updateSaveMeta()};
+    inp.oninput=()=>{const e=prog.find(inp.dataset.id);if(!e)return;
+      if(inp.dataset.field==="sets"){
+        const next=Exercise.posInt(inp.value,e.sets);
+        if(draftHasProgressInRemovedSets(e.id,next,e.sets)){
+          inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}
+      prog.update(inp.dataset.id,inp.dataset.field,inp.value);persistProgram();renderVolume();updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
       inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");

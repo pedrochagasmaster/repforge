@@ -1440,6 +1440,7 @@ suite blocks release.
 | `test/i18n.mjs` | EN/PT JSON ↔ runtime dictionary ↔ DOM/JavaScript key parity, placeholder parity, and raw-fallback rejection |
 | `test/manual-matrix.mjs` | Deterministic six-cell definitions, resets, fixture emission/seeding, permission modes, and evidence metadata |
 | `test/focus-mode.mjs` | Resumed Focus skip/substitution/draft context |
+| `test/program-draft-set-reduction.mjs` | Program set-count reductions cannot orphan meaningful active-draft sets |
 | `test/simulation.mjs` | Integrated validation, onboarding/block/template, History, coaching, copy, manifest, PWA |
 | `test/recover-gate.mjs` | Existing recommendation recovery regressions; unchanged behavior |
 | `test/schedule.mjs` | Existing scheduling baseline; unchanged behavior |

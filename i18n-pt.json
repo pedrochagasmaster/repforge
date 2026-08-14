@@ -642,6 +642,7 @@
   "toast.storage_full": "Não foi possível salvar neste navegador — o armazenamento pode estar cheio. Exporte um backup agora.",
   "toast.storage_degraded": "Salvo em só um depósito deste navegador. Exporte um backup — a outra cópia não pôde ser atualizada.",
   "toast.rir_locked_draft": "Conclua ou descarte este treino antes de mudar o modo de esforço.",
+  "toast.set_count_locked_draft": "Conclua ou descarte este treino antes de reduzir séries já iniciadas.",
   "toast.chart_missing_lift": "Registre este exercício para ver o gráfico.",
   "toast.all_sets_saved": "Todas as séries deste exercício já foram salvas.",
   "toast.command_applied": "Aplicado: {load}×{reps}{rir}",
