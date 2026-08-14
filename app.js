@@ -1220,8 +1220,49 @@ function setEffortPick(key,eff){
     el.dataset.e=eff;el.textContent=effortLabel(eff);
     el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
     el.setAttribute("aria-valuetext",effortLabel(eff));
-    const hint=el.closest(".curset__cell")?.querySelector(".curset__hint");
-    if(hint)hint.textContent=effortHint(eff)})}
+    const pop=el.closest(".curset__cell")?.querySelector(".effortpop");
+    fillEffortPop(pop,eff,{bump:!!pop?.classList.contains("is-open")})})}
+
+/* ---- Effort explainer ----
+   How many reps an effort leaves in the tank ("≈1 left") used to sit as a
+   caption under that column's steppers, where it read as permanent chrome and
+   stretched the column. It is a pill now: it pops off the word on a tap, and
+   goes away on the next tap anywhere. */
+const effortPopHtml=(key,eff)=>
+  `<div class="effortpop" id="effpop_${esc(key)}" data-effpop="${esc(key)}" role="tooltip">`+
+    `<span class="effortpop__hint">${esc(effortHint(eff))}</span>`+
+    `<span class="effortpop__arrow" aria-hidden="true"></span></div>`;
+/** Write one effort's shorthand into the pill. `bump` replays a small pulse —
+ *  the pill is already open and the value under it just moved, so the new
+ *  reading should announce itself rather than swap silently. */
+function fillEffortPop(pop,eff,{bump=false}={}){
+  if(!pop)return;
+  const hint=pop.querySelector(".effortpop__hint");
+  if(hint)hint.textContent=effortHint(eff);
+  if(!bump)return;
+  clearTimeout(pop.bumpT);pop.classList.remove("is-bump");void pop.offsetWidth;
+  pop.classList.add("is-bump");
+  pop.bumpT=setTimeout(()=>pop.classList.remove("is-bump"),420)}
+/** Park the card over the word it explains and play it in. */
+function openEffortPop(key){
+  const spin=$(`[data-effspin="${key}"]`),pop=$(`[data-effpop="${key}"]`);
+  if(!spin||!pop)return;
+  closeEffortPop({except:pop});
+  spin.closest(".curset__cell")?.classList.add("is-active");
+  fillEffortPop(pop,spin.dataset.e);
+  clearTimeout(pop.closeT);pop.classList.remove("is-closing");
+  pop.classList.add("is-open");spin.classList.add("is-open")}
+function closeEffortPop({except=null}={}){
+  $$(".effortpop.is-open").forEach(pop=>{
+    if(pop===except)return;
+    pop.classList.remove("is-open");pop.classList.add("is-closing");
+    clearTimeout(pop.closeT);pop.closeT=setTimeout(()=>pop.classList.remove("is-closing"),240);
+    const spin=$(`[data-effspin="${pop.dataset.effpop}"]`);
+    spin?.classList.remove("is-open");
+    spin?.closest(".curset__cell")?.classList.remove("is-active")})}
+const toggleEffortPop=key=>{
+  const pop=$(`[data-effpop="${key}"]`);
+  if(pop?.classList.contains("is-open"))closeEffortPop();else openEffortPop(key)};
 function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   g.querySelector(".glossary__term").textContent=t(`glossary.term.${termKey}`)||termKey;
   g.querySelector(".glossary__body").textContent=t(`glossary.${termKey}`)||"";
@@ -3088,14 +3129,13 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
   return top(summary+head())+`<div id="ledger_${esc(ex.id)}">${rowsFor(open?done:shown)}</div>`+disclosure}
 
 /** One value cell of the well: label, big value, hairline, and its steppers.
- *  A caption comes last, under the steppers: only effort has one, and between
- *  the word and the hairline it drags that column below load and reps. */
-function focusCell(label,inner,{accent=false,steps="",hint="",cls=""}={}){
+ *  `extra` rides along out of flow — the effort explainer, which floats over
+ *  the card rather than taking a caption slot below the steppers. */
+function focusCell(label,inner,{accent=false,steps="",extra="",cls=""}={}){
   return `<div class="curset__cell${accent?" is-load is-active":""}${cls?` ${cls}`:""}">`+
     `<div class="curset__cell-lab${accent?" is-accent":""}">${label}</div>${inner}`+
     `<span class="curset__underline" aria-hidden="true"></span>`+
-    (steps?`<div class="curset__steps">${steps}</div>`:"")+
-    (hint?`<div class="curset__hint">${hint}</div>`:"")+`</div>`}
+    (steps?`<div class="curset__steps">${steps}</div>`:"")+extra+`</div>`}
 const stepBtn=(target,dir,label,attr="data-step",peek=false)=>
   `<button type="button" class="stepbtn"${peek?"":` ${attr}="${esc(target)}" data-dir="${dir}" aria-label="${esc(label)}"`} tabindex="-1">${dir>0?"+":"−"}</button>`;
 
@@ -3123,9 +3163,10 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
     const body=peek
       ?`<div class="curset__val curset__val--static curset__val--word">${esc(effortLabel(effortVal))}</div>`
       :`<div class="curset__val curset__val--word" role="spinbutton" tabindex="0" data-effspin="${esc(key)}" data-e="${esc(effortVal)}"`+
-        ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
+        ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-describedby="effpop_${esc(key)}"`+
+        ` aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
         ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
-    return focusCell(esc(t("log.effort")),body,{cls:"is-effort",hint:esc(effortHint(effortVal)),
+    return focusCell(esc(t("log.effort")),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
       steps:stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep",peek)+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep",peek)})})();
   const rirCell=focusCell("RIR",
     val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
@@ -3502,11 +3543,16 @@ function bindWorkout(){
     setEffortPick(key,next);touched.add(key);
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
-  $w("[data-effspin]").forEach(el=>{el.onkeydown=e=>{
-    const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
-    const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
-    if(!step&&jump==null)return;
-    e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
+  $w("[data-effspin]").forEach(el=>{
+    // Tapping the word asks what it means; the ± buttons beside it change it.
+    el.onclick=()=>toggleEffortPop(el.dataset.effspin);
+    el.onkeydown=e=>{
+      if(e.key==="Enter"||e.key===" "||e.key==="Spacebar"){e.preventDefault();toggleEffortPop(el.dataset.effspin);return}
+      if(e.key==="Escape"){closeEffortPop();return}
+      const step=e.key==="ArrowUp"||e.key==="ArrowRight"?1:e.key==="ArrowDown"||e.key==="ArrowLeft"?-1:0;
+      const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
+      if(!step&&jump==null)return;
+      e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
   $w("[data-exnote-toggle]").forEach(b=>b.onclick=()=>{
     const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
     if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
@@ -5195,7 +5241,13 @@ function init(){
     closeWorkoutOverflow()};
   document.addEventListener("click",dismissOverflow);
   document.addEventListener("touchstart",dismissOverflow,{passive:true});
-  document.addEventListener("keydown",e=>{if(e.key==="Escape")closeWorkoutOverflow()});
+  document.addEventListener("keydown",e=>{if(e.key==="Escape"){closeWorkoutOverflow();closeEffortPop()}});
+  // The effort explainer dismisses like any popover: a tap anywhere off it, or
+  // a swipe of the card underneath. Capture, so a card drag never outlives it.
+  document.addEventListener("pointerdown",e=>{
+    const el=e.target instanceof Element?e.target:null;
+    if(el?.closest(".effortpop, [data-effspin], [data-effstep]"))return;
+    closeEffortPop()},{capture:true});
   let deckResize;
   window.addEventListener("resize",()=>{clearTimeout(deckResize);deckResize=setTimeout(sizeFocusDeck,120)});
   // Focus mode is a card deck: drag it sideways, or use the arrow keys.

@@ -447,7 +447,7 @@ async function main() {
       label: spin?.getAttribute("aria-label") || "",
       valueText: spin?.getAttribute("aria-valuetext") || "",
       valueNow: spin?.getAttribute("aria-valuenow") || "",
-      hint: document.querySelector("#workout .exercise.is-current .focus-well .curset__hint")?.textContent?.trim() || "",
+      hint: document.querySelector("#workout .exercise.is-current .focus-well .effortpop__hint")?.textContent?.trim() || "",
       head,
       rowEffort: row ? [...row.querySelectorAll("span")][3]?.textContent?.trim() : "",
       rirField: !!document.querySelector('#workout .exercise.is-current .focus-well [data-k$="_rir"]'),
@@ -483,6 +483,57 @@ async function main() {
     "effort, load and reps share one baseline in the well", JSON.stringify(wellAlign));
   assert(st.ledgerRows === 4 && !st.fold,
     "four logged sets still show in full", JSON.stringify(st));
+  // The reps-left shorthand is a pill off the word, not a caption under the steppers.
+  const popClosed = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    const steps = document.querySelector(".focus-well .curset__cell.is-effort .curset__steps");
+    const p = pop?.getBoundingClientRect(), s = steps?.getBoundingClientRect();
+    return { present: !!pop, open: !!pop?.classList.contains("is-open"),
+      inCell: !!pop?.closest(".curset__cell.is-effort"),
+      // Nothing of it may sit under the ± buttons any more.
+      belowSteps: !!(p && s) && p.top > s.bottom };
+  });
+  assert(popClosed.present && popClosed.inCell && !popClosed.open && !popClosed.belowSteps,
+    "the effort shorthand starts closed and clear of the steppers", JSON.stringify(popClosed));
+  await page.locator(".focus-well [data-effspin]").click();
+  await page.waitForTimeout(420);
+  const popOpen = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    const spin = document.querySelector(".focus-well [data-effspin]");
+    const pill = pop?.querySelector(".effortpop__hint");
+    const c = pill.getBoundingClientRect(), s = spin.getBoundingClientRect();
+    const well = document.querySelector(".focus-well").getBoundingClientRect();
+    return {
+      open: pop.classList.contains("is-open"),
+      text: pill.textContent.trim(),
+      above: Math.round(s.top - c.bottom),
+      // Centred on the word it explains, and inside the well.
+      offCentre: Math.round(Math.abs((c.left + c.right) / 2 - (s.left + s.right) / 2)),
+      inside: c.left >= well.left - 1 && c.right <= well.right + 1,
+      opacity: +getComputedStyle(pill).opacity,
+    };
+  });
+  assert(popOpen.open && popOpen.text && popOpen.above >= 0 && popOpen.above <= 60 &&
+    popOpen.offCentre <= 2 && popOpen.inside && popOpen.opacity > .9,
+    "tapping the effort word pops its shorthand open just above it", JSON.stringify(popOpen));
+  // Stepping the word under an open pill rewrites the pill rather than closing it.
+  await page.locator(".exercise.is-current .focus-well [data-effstep]").last().click();
+  await page.waitForTimeout(300);
+  const popStepped = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    return { open: pop.classList.contains("is-open"),
+      text: pop.querySelector(".effortpop__hint")?.textContent?.trim() || "" };
+  });
+  assert(popStepped.open && popStepped.text && popStepped.text !== popOpen.text,
+    "the open shorthand follows the effort word as it steps", JSON.stringify(popStepped));
+  await page.locator(".exercise.is-current .focus-ex__muscle").click();
+  await page.waitForTimeout(400);
+  const popDismissed = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    return { open: pop.classList.contains("is-open"), opacity: +getComputedStyle(pop).opacity };
+  });
+  assert(!popDismissed.open && popDismissed.opacity < .05,
+    "a tap outside dismisses the explainer", JSON.stringify(popDismissed));
   // Keyboard operation of the spinner.
   await page.focus("#workout .exercise.is-current .focus-well [data-effspin]");
   const effBefore = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]").dataset.e);
