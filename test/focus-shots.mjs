@@ -57,7 +57,9 @@ async function boot(page, { lang = "pt", rirMode = "numeric", device = "ref" } =
   const dev = DEVICES[device];
   await page.setViewportSize({ width: dev.width, height: dev.height });
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => typeof window.closeOnboarding === "function", { timeout: 10000 });
+  // Day tabs, not a hoisted function name: boot assigns state asynchronously,
+  // and everything below reads it.
+  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
   await page.evaluate((d) => {
     if (window.stopRest) window.stopRest();
     localStorage.removeItem(d);
@@ -68,7 +70,9 @@ async function boot(page, { lang = "pt", rirMode = "numeric", device = "ref" } =
   }, DRAFT);
   await persist(page, `s.settings = { ...(s.settings || {}), lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)} };`);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => typeof window.closeOnboarding === "function", { timeout: 10000 });
+  // Day tabs, not a hoisted function name: boot assigns state asynchronously,
+  // and everything below reads it.
+  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     if (el?.classList.contains("active")) window.closeOnboarding();

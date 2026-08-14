@@ -11,7 +11,7 @@ Durable state is mirrored in `localStorage` (`repforge_v1`) and IndexedDB (`repf
 - Run the app in development by serving the repo root over HTTP (a static server is required because of the service worker and `fetch` of `manifest`/assets). The README documents `python3 -m http.server 8000`, then open `http://localhost:8000/`. Python 3 is available on the VM.
 - Service worker caching gotcha: `sw.js` uses cache `repforge-v70`. `ASSETS` is `./`, `index.html`, `styles.css`, `app.js`, `manifest.webmanifest`, `schedule.js`, `notify.js`, `i18n.js`, the icon SVG/PNGs, and the Plex font woff2 files. `SHELL` is `/`, `/index.html`, `/app.js`, `/styles.css`, `/i18n.js`, `/manifest.webmanifest`. After editing those files, a normal reload may serve stale cached copies. Hard-reload (or unregister the service worker / clear site data via DevTools → Application) to see changes.
 - To reset state for a clean test, clear site storage or use **Settings → Delete workout history**.
-- Core flow to smoke-test: on the **Log** tab fill a set's kg/reps/RIR and click **Save workout**, then confirm the **Stats** and **History** tabs populate with the saved session.
+- Core flow to smoke-test: on the **Log** tab fill a set's kg/reps/RIR and click **Save workout**, then confirm the session summary opens over the app, and that the **Stats** and **History** tabs populate with the saved session once it is dismissed.
 
 ## Agent skills
 

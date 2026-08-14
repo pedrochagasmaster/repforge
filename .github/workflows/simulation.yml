@@ -108,6 +108,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/program-text-export.mjs
 
+      - name: Session summary
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/session-summary.mjs
+
       - name: Workout draft guards
         env:
           REPFORGE_URL: http://localhost:8000/
