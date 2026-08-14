@@ -6,6 +6,10 @@
  * These assertions lock down the safe invariants at the transaction boundary.
  */
 import { launchChromium } from "./browser.mjs";
+import {
+  clearPersistenceArtifacts,
+  inventoryPersistenceArtifacts,
+} from "./persistence-artifacts.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8000/";
 const KEY = "repforge_v1";
@@ -13,12 +17,20 @@ const DRAFT = "repforge_draft_v1";
 const PENDING = "repforge_pending_v1";
 const PENDING_PREFIX = `${PENDING}:`;
 const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
+const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
 const EXERCISE_ID = "adversarial-press";
 const OTHER_EXERCISE_ID = "adversarial-row";
 const SET_KEY = `${EXERCISE_ID}_1`;
+const FOCUSED_SCENARIO = process.argv.includes("--stored-close-marker-failure")
+  ? "stored-close-marker-failure"
+  : process.argv.includes("--settings-unit-draft-failure")
+    ? "settings-unit-draft-failure"
+    : process.argv.includes("--settings-unit-draft-conflict")
+      ? "settings-unit-draft-conflict"
+    : null;
 
 const failures = [];
 let passed = 0;
@@ -201,6 +213,23 @@ function latestDraftPendingRaw(runtime) {
   return entry?.value?.raw ?? null;
 }
 
+async function waitForDraftPendingValue(page, loadKey, expected, timeout = 10000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const artifacts = await inventoryPersistenceArtifacts(page);
+    const found = artifacts.draftSidecarEntries.some((entry) => {
+      try {
+        return JSON.parse(entry.value?.raw || "null")?.[loadKey] === expected;
+      } catch {
+        return false;
+      }
+    });
+    if (found) return;
+    await page.waitForTimeout(25);
+  }
+  throw new Error(`timed out waiting for draft sidecar ${loadKey}=${expected}`);
+}
+
 async function waitForApp(page) {
   await page.waitForFunction(
     () =>
@@ -277,18 +306,9 @@ async function writeReplicas(page, state) {
 
 async function seedScenario(page, { state = fixture(), draftRaw = null } = {}) {
   await page.evaluate(() => window.__repforgeStorage.flush());
+  await clearPersistenceArtifacts(page);
   await page.evaluate(
-    async ({ key, draftKey, pendingKey, draftPendingPrefix, dbName, storeName, state, draftRaw }) => {
-      for (let index = localStorage.length - 1; index >= 0; index--) {
-        const storageKey = localStorage.key(index);
-        if (
-          storageKey === pendingKey ||
-          storageKey?.startsWith(`${pendingKey}:`) ||
-          storageKey?.startsWith(draftPendingPrefix)
-        ) {
-          localStorage.removeItem(storageKey);
-        }
-      }
+    async ({ key, draftKey, dbName, storeName, state, draftRaw }) => {
       localStorage.setItem(key, JSON.stringify(state));
       if (draftRaw == null) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, draftRaw);
@@ -313,8 +333,6 @@ async function seedScenario(page, { state = fixture(), draftRaw = null } = {}) {
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
       dbName: DB,
       storeName: STORE,
       state,
@@ -326,8 +344,8 @@ async function seedScenario(page, { state = fixture(), draftRaw = null } = {}) {
 }
 
 async function readRuntime(page) {
-  return page.evaluate(
-    async ({ key, draftKey, pendingKey, draftPendingPrefix, dbName, storeName }) => {
+  const runtime = await page.evaluate(
+    async ({ key, draftKey, dbName, storeName }) => {
       const parse = (raw) => {
         if (raw == null) return null;
         try {
@@ -354,40 +372,32 @@ async function readRuntime(page) {
         request.onerror = () => reject(request.error);
       });
       db.close();
-      const pendingEntries = [];
-      const draftPendingEntries = [];
-      for (let index = 0; index < localStorage.length; index++) {
-        const storageKey = localStorage.key(index);
-        if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
-          const raw = localStorage.getItem(storageKey);
-          pendingEntries.push({ key: storageKey, raw, value: parse(raw) });
-        } else if (storageKey?.startsWith(draftPendingPrefix)) {
-          const raw = localStorage.getItem(storageKey);
-          draftPendingEntries.push({ key: storageKey, raw, value: parse(raw) });
-        }
-      }
-      pendingEntries.sort((a, b) => a.key.localeCompare(b.key));
-      draftPendingEntries.sort((a, b) => a.key.localeCompare(b.key));
       return {
         localRaw,
         local: parse(localRaw),
         idb,
         draftRaw,
         draft: parse(draftRaw),
-        pendingEntries,
-        draftPendingEntries,
         recoveryOpen: !!document.querySelector("#storageRecovery")?.open,
       };
     },
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
       dbName: DB,
       storeName: STORE,
     }
   );
+  const artifacts = await inventoryPersistenceArtifacts(page);
+  return {
+    ...runtime,
+    pendingEntries: artifacts.pendingEntries,
+    draftPendingEntries: artifacts.draftPendingEntries,
+    closingMarkerEntries: artifacts.closingMarkerEntries,
+    draftArtifacts: artifacts.draftArtifacts.map((entry) => entry.key),
+    persistenceArtifactEntries: artifacts.entries,
+    persistenceArtifacts: artifacts.keys,
+  };
 }
 
 async function holdStorageLock(page) {
@@ -433,9 +443,25 @@ async function runFinalCheckOrphan(browser) {
     await seedScenario(writer, { draftRaw: originalDraftRaw });
     const before = await readRuntime(writer);
     const stale = await openPopup(context, writer, "adversarial-final-check-stale");
+    await stale.evaluate((draftPendingPrefix) => {
+      const originalSetItem = Storage.prototype.setItem;
+      window.__adversarialStagedRaw = null;
+      window.__adversarialRestoreSidecarCapture = () => {
+        Storage.prototype.setItem = originalSetItem;
+        delete window.__adversarialRestoreSidecarCapture;
+      };
+      Storage.prototype.setItem = function (candidate, value) {
+        if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
+          try {
+            window.__adversarialStagedRaw = JSON.parse(value)?.raw ?? null;
+          } catch {}
+        }
+        return originalSetItem.apply(this, arguments);
+      };
+    }, DRAFT_PENDING_PREFIX);
 
     const observed = await writer.evaluate(
-      async ({ key, draftKey, pendingPrefix, draftPendingPrefix, loadKey, newerLoad }) => {
+      async ({ key, draftKey, pendingPrefix, loadKey, newerLoad }) => {
         const originalRemoveItem = Storage.prototype.removeItem;
         let injected = false;
         let stateJournalPresent = false;
@@ -449,11 +475,7 @@ async function runFinalCheckOrphan(browser) {
               stateJournalPresent = localStorage.getItem(candidate) != null;
               input.value = newerLoad;
               input.dispatchEvent(new staleTab.Event("input", { bubbles: true }));
-              for (let index = 0; index < localStorage.length; index++) {
-                const sidecarKey = localStorage.key(index);
-                if (!sidecarKey?.startsWith(draftPendingPrefix)) continue;
-                stagedRaw = JSON.parse(localStorage.getItem(sidecarKey) || "null")?.raw ?? null;
-              }
+              stagedRaw = staleTab.__adversarialStagedRaw;
             }
           }
           return originalRemoveItem.apply(this, arguments);
@@ -470,13 +492,13 @@ async function runFinalCheckOrphan(browser) {
           };
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
+          window.__adversarialStaleTab?.__adversarialRestoreSidecarCapture?.();
         }
       },
       {
         key: KEY,
         draftKey: DRAFT,
         pendingPrefix: PENDING_PREFIX,
-        draftPendingPrefix: DRAFT_PENDING_PREFIX,
         loadKey: `${SET_KEY}_load`,
         newerLoad: "131.25",
       }
@@ -510,8 +532,7 @@ async function runFinalCheckOrphan(browser) {
         final.local?.programMeta?.id === before.local?.programMeta?.id &&
         final.idb?.programMeta?.id === before.idb?.programMeta?.id &&
         final.draftRaw === observed.stagedRaw &&
-        final.pendingEntries.length === 0 &&
-        final.draftPendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "final settlement rejects the program change and republishes a draft queued before journal deletion",
       {
         result: observed.result,
@@ -521,6 +542,7 @@ async function runFinalCheckOrphan(browser) {
         canonicalMatchesStaged: final.draftRaw === observed.stagedRaw,
         stateJournals: final.pendingEntries.length,
         sidecars: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
 
@@ -552,21 +574,7 @@ async function runDuplicateCleanupOrphan(browser) {
     await waitForPendingStorageLock(locker);
 
     await stale.locator(`[data-k="${SET_KEY}_load"]`).fill("141.25");
-    await stale.waitForFunction(
-      ({ prefix, loadKey, expected }) => {
-        for (let index = 0; index < localStorage.length; index++) {
-          const key = localStorage.key(index);
-          if (!key?.startsWith(prefix)) continue;
-          try {
-            const raw = JSON.parse(localStorage.getItem(key) || "null")?.raw;
-            if (JSON.parse(raw || "null")?.[loadKey] === expected) return true;
-          } catch {}
-        }
-        return false;
-      },
-      { prefix: DRAFT_PENDING_PREFIX, loadKey: `${SET_KEY}_load`, expected: "141.25" },
-      { timeout: 10000 }
-    );
+    await waitForDraftPendingValue(stale, `${SET_KEY}_load`, "141.25");
     const staged = await readRuntime(stale);
     const stagedRaw = latestDraftPendingRaw(staged);
     const advanced = replacementState(seeded.local, {
@@ -598,26 +606,26 @@ async function runDuplicateCleanupOrphan(browser) {
     check(
       rawDraftLoad(stagedRaw) === "141.25" &&
         final.draftRaw === stagedRaw &&
-        final.pendingEntries.length === 0 &&
-        final.draftPendingEntries.length === 0 &&
+        final.persistenceArtifacts.length === 0 &&
         reloaded.draftRaw === stagedRaw &&
-        reloaded.draftPendingEntries.length === 0,
+        reloaded.persistenceArtifacts.length === 0,
       "duplicate cleanup promotes the queued draft and leaves no sidecar across reload",
       {
         stagedLoad: rawDraftLoad(stagedRaw),
         canonicalLoad: rawDraftLoad(final.draftRaw),
         stateJournals: final.pendingEntries.length,
         sidecars: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
         reloadCanonicalLoad: rawDraftLoad(reloaded.draftRaw),
         reloadSidecars: reloaded.draftPendingEntries.length,
+        reloadArtifacts: reloaded.persistenceArtifacts,
       }
     );
 
     check(
       result?.duplicate === true &&
         final.draftRaw === stagedRaw &&
-        final.pendingEntries.length === 0 &&
-        final.draftPendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "duplicate expectedProgramId cleanup restores its staged writes before deleting the owning journal",
       {
         result,
@@ -626,6 +634,7 @@ async function runDuplicateCleanupOrphan(browser) {
         stagedLoad: rawDraftLoad(stagedRaw),
         stateJournals: final.pendingEntries.length,
         sidecars: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {
@@ -690,8 +699,7 @@ async function runFinalMarkerFailure(browser) {
         !interrupted.local?._storageDraftTransaction &&
         !interrupted.idb?._storageDraftTransaction &&
         interrupted.draftRaw === draftRaw &&
-        interrupted.pendingEntries.length === 0 &&
-        interrupted.draftPendingEntries.length === 0,
+        interrupted.persistenceArtifacts.length === 0,
       "compensation restores the prior program and exact draft before returning",
       {
         local: programSummary(interrupted.local),
@@ -699,6 +707,7 @@ async function runFinalMarkerFailure(browser) {
         canonicalDraft: interrupted.draftRaw,
         stateJournals: interrupted.pendingEntries.length,
         sidecars: interrupted.draftPendingEntries.length,
+        artifacts: interrupted.persistenceArtifacts,
       }
     );
 
@@ -711,13 +720,14 @@ async function runFinalMarkerFailure(browser) {
         !reloaded.local?._storageDraftTransaction &&
         !reloaded.idb?._storageDraftTransaction &&
         reloaded.draftRaw === draftRaw &&
-        reloaded.pendingEntries.length === 0,
+        reloaded.persistenceArtifacts.length === 0,
       "reload cannot resurrect a replacement reported as rejected",
       {
         local: programSummary(reloaded.local),
         idb: programSummary(reloaded.idb),
         canonicalDraft: reloaded.draftRaw,
         stateJournals: reloaded.pendingEntries.length,
+        artifacts: reloaded.persistenceArtifacts,
       }
     );
 
@@ -815,13 +825,14 @@ async function runDeferredBlockFinalization(browser) {
         !finalized.local?._storageDraftTransaction &&
         !finalized.idb?._storageDraftTransaction &&
         finalized.draftRaw === draftRaw &&
-        finalized.pendingEntries.length === 0,
+        finalized.persistenceArtifacts.length === 0,
       "boot finalizes the explicitly deferred block without losing its draft",
       {
         local: programSummary(finalized.local),
         idb: programSummary(finalized.idb),
         draftMatches: finalized.draftRaw === draftRaw,
         pendingCount: finalized.pendingEntries.length,
+        artifacts: finalized.persistenceArtifacts,
       }
     );
   } finally {
@@ -851,7 +862,7 @@ async function runOversizedRequiredEffects(browser) {
         afterFinish.local?.log?.length === 0 &&
         afterFinish.idb?.log?.length === 0 &&
         afterFinish.draftRaw === draftRaw &&
-        afterFinish.pendingEntries.length === 0,
+        afterFinish.persistenceArtifacts.length === 0,
       "Finish fails closed before writing state when its required draft effect is oversized",
       {
         draftLength: draftRaw.length,
@@ -860,6 +871,7 @@ async function runOversizedRequiredEffects(browser) {
         idbRows: afterFinish.idb?.log?.length,
         draftUnchanged: afterFinish.draftRaw === draftRaw,
         stateJournals: afterFinish.pendingEntries.length,
+        artifacts: afterFinish.persistenceArtifacts,
       }
     );
 
@@ -957,7 +969,7 @@ async function runMalformedBootEffect(browser) {
       replayed.local?.programMeta?.id === originalState.programMeta.id &&
         replayed.idb?.programMeta?.id === originalState.programMeta.id &&
         replayed.draftRaw === draftRaw &&
-        replayed.pendingEntries.length === 0 &&
+        replayed.persistenceArtifacts.length === 0 &&
         replayed.recoveryOpen === false,
       "boot drains a malformed v2 effect without applying its proposal",
       {
@@ -965,6 +977,7 @@ async function runMalformedBootEffect(browser) {
         idb: programSummary(replayed.idb),
         canonicalDraftLoad: rawDraftLoad(replayed.draftRaw),
         stateJournals: replayed.pendingEntries.length,
+        artifacts: replayed.persistenceArtifacts,
         recoveryOpen: replayed.recoveryOpen,
       }
     );
@@ -1004,21 +1017,7 @@ async function runDirectDraftOwnerRace(browser) {
     await waitForPendingStorageLock(locker);
 
     await stale.locator(`[data-k="${SET_KEY}_load"]`).fill("157.5");
-    await stale.waitForFunction(
-      ({ prefix, loadKey }) => {
-        for (let index = 0; index < localStorage.length; index++) {
-          const key = localStorage.key(index);
-          if (!key?.startsWith(prefix)) continue;
-          try {
-            const raw = JSON.parse(localStorage.getItem(key) || "null")?.raw;
-            if (JSON.parse(raw || "null")?.[loadKey] === "157.5") return true;
-          } catch {}
-        }
-        return false;
-      },
-      { prefix: DRAFT_PENDING_PREFIX, loadKey: `${SET_KEY}_load` },
-      { timeout: 10000 }
-    );
+    await waitForDraftPendingValue(stale, `${SET_KEY}_load`, "157.5");
     const staged = await readRuntime(stale);
     const stagedRaw = latestDraftPendingRaw(staged);
     const dialogs = [];
@@ -1082,8 +1081,7 @@ async function runDirectDraftOwnerRace(browser) {
         final.local?.programMeta?.id === originalState.programMeta.id &&
         final.idb?.programMeta?.id === originalState.programMeta.id &&
         final.draftRaw === stagedRaw &&
-        final.pendingEntries.length === 0 &&
-        final.draftPendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "transaction rejection promotes the newer staged draft while retaining the old program",
       {
         transactionResult,
@@ -1093,6 +1091,288 @@ async function runDirectDraftOwnerRace(browser) {
         lostLoad: rawDraftLoad(stagedRaw),
         stateJournals: final.pendingEntries.length,
         sidecars: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runStoredCloseMarkerFailure(browser) {
+  console.log("\n5. Stored recovery fails closed when close-marker creation fails");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const page = await openApp(context);
+    const previous = fixture({ revision: 100 });
+    const expectedDraftRaw = JSON.stringify(workoutDraft("stored-close-marker-expected", "108.75"));
+    const concurrentDraftRaw = JSON.stringify(workoutDraft("stored-close-marker-concurrent", "166.25"));
+    await seedScenario(page, { state: previous, draftRaw: expectedDraftRaw });
+
+    const transactionId = "audit-stored-close-marker-failure";
+    const prepared = replacementState(previous, {
+      revision: previous._storageRevision + 1,
+      programId: "stored-close-marker-replacement",
+      programName: "Stored close-marker replacement",
+    });
+    prepared._storageDraftTransaction = {
+      version: 1,
+      id: transactionId,
+      previous: clone(previous),
+      effect: {
+        required: true,
+        kind: "clear-draft",
+        expectedRaw: expectedDraftRaw,
+        precondition: "abort-changed",
+      },
+    };
+    await writeReplicas(page, prepared);
+    const seeded = await readRuntime(page);
+
+    const observed = await page.evaluate(
+      async ({ draftKey, closeKey, concurrentRaw }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        const originalRemoveItem = Storage.prototype.removeItem;
+        let closeMarkerFailures = 0;
+        let otherStorageFailures = 0;
+        let concurrentWriteInjected = false;
+        let injectionPhase = null;
+
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === closeKey) {
+            closeMarkerFailures++;
+            throw new DOMException("audit: reject close-marker creation", "QuotaExceededError");
+          }
+          try {
+            return originalSetItem.apply(this, arguments);
+          } catch (error) {
+            otherStorageFailures++;
+            throw error;
+          }
+        };
+        Storage.prototype.removeItem = function (candidate) {
+          if (candidate === draftKey && closeMarkerFailures > 0 && !concurrentWriteInjected) {
+            originalSetItem.call(this, draftKey, concurrentRaw);
+            concurrentWriteInjected = true;
+            injectionPhase = "before-canonical-effect";
+          }
+          return originalRemoveItem.apply(this, arguments);
+        };
+
+        try {
+          const decision = await window.resolveBootReplicas();
+          if (!concurrentWriteInjected) {
+            originalSetItem.call(localStorage, draftKey, concurrentRaw);
+            concurrentWriteInjected = true;
+            injectionPhase = "after-fail-closed-return";
+          }
+          return {
+            decision: { kind: decision.kind, reason: decision.reason ?? null },
+            closeMarkerFailures,
+            otherStorageFailures,
+            concurrentWriteInjected,
+            injectionPhase,
+            canonicalDraftRaw: localStorage.getItem(draftKey),
+            closeMarkerRaw: localStorage.getItem(closeKey),
+          };
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+          Storage.prototype.removeItem = originalRemoveItem;
+        }
+      },
+      {
+        draftKey: DRAFT,
+        closeKey: `${DRAFT_CLOSE_PREFIX}${transactionId}`,
+        concurrentRaw: concurrentDraftRaw,
+      }
+    );
+
+    const after = await readRuntime(page);
+    const failClosed =
+      observed.decision.kind === "unresolved" &&
+      observed.decision.reason === "pending-transaction" &&
+      after.local?._storageDraftTransaction?.id === transactionId &&
+      after.idb?._storageDraftTransaction?.id === transactionId;
+    const canonicalPreserved =
+      observed.canonicalDraftRaw === concurrentDraftRaw && after.draftRaw === concurrentDraftRaw;
+
+    check(
+      seeded.draftRaw === expectedDraftRaw &&
+        seeded.local?._storageDraftTransaction?.id === transactionId &&
+        seeded.idb?._storageDraftTransaction?.id === transactionId &&
+        observed.closeMarkerFailures > 0 &&
+        observed.otherStorageFailures === 0 &&
+        observed.concurrentWriteInjected &&
+        observed.closeMarkerRaw === null,
+      "precondition: only close-marker creation fails during stored recovery",
+      {
+        seededCanonicalLoad: rawDraftLoad(seeded.draftRaw),
+        closeMarkerFailures: observed.closeMarkerFailures,
+        otherStorageFailures: observed.otherStorageFailures,
+        concurrentWriteInjected: observed.concurrentWriteInjected,
+        injectionPhase: observed.injectionPhase,
+        closeMarkerPresent: observed.closeMarkerRaw != null,
+      }
+    );
+    check(
+      canonicalPreserved && failClosed,
+      "stored recovery preserves a concurrent canonical draft and remains durably fail closed",
+      {
+        decision: observed.decision,
+        injectionPhase: observed.injectionPhase,
+        expectedConcurrentLoad: rawDraftLoad(concurrentDraftRaw),
+        observedCanonicalLoad: rawDraftLoad(after.draftRaw),
+        canonicalPreserved,
+        local: programSummary(after.local),
+        idb: programSummary(after.idb),
+        localTransactionId: after.local?._storageDraftTransaction?.id ?? null,
+        idbTransactionId: after.idb?._storageDraftTransaction?.id ?? null,
+        failClosed,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runSettingsUnitDraftFailure(browser) {
+  console.log("\n6. Settings unit conversion fails atomically when draft publication fails");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const page = await openApp(context);
+    const originalState = fixture({ revision: 110 });
+    const originalDraftRaw = JSON.stringify(workoutDraft("settings-unit-publication-failure", "100"));
+    await seedScenario(page, { state: originalState, draftRaw: originalDraftRaw });
+    const before = await readRuntime(page);
+
+    const observed = await page.evaluate(
+      async ({ draftKey }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        let draftPublicationAttempts = 0;
+        let otherStorageFailures = 0;
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === draftKey) {
+            draftPublicationAttempts++;
+            throw new DOMException("audit: reject converted draft publication", "QuotaExceededError");
+          }
+          try {
+            return originalSetItem.apply(this, arguments);
+          } catch (error) {
+            otherStorageFailures++;
+            throw error;
+          }
+        };
+        try {
+          window.__repforgeShowSettings();
+          const unit = document.querySelector("#unit");
+          unit.value = "lb";
+          unit.dispatchEvent(new Event("input", { bubbles: true }));
+          const result = await document.querySelector("#saveSettings").onclick();
+          await window.__repforgeStorage.flush();
+          return { result, draftPublicationAttempts, otherStorageFailures };
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+        }
+      },
+      { draftKey: DRAFT }
+    );
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const reloaded = await readRuntime(page);
+    const resultRejected = !(observed.result?.localOk || observed.result?.idbOk);
+    const settingsCompensated =
+      reloaded.local?.settings?.unit === "kg" && reloaded.idb?.settings?.unit === "kg";
+    const exactDraftPreserved = reloaded.draftRaw === originalDraftRaw;
+
+    check(
+      before.local?.settings?.unit === "kg" &&
+        before.idb?.settings?.unit === "kg" &&
+        before.draftRaw === originalDraftRaw &&
+        observed.draftPublicationAttempts > 0 &&
+        observed.otherStorageFailures === 0,
+      "precondition: only canonical draft publication fails during a real kg-to-lb Settings save",
+      {
+        beforeLocalUnit: before.local?.settings?.unit,
+        beforeIdbUnit: before.idb?.settings?.unit,
+        beforeDraftLoad: rawDraftLoad(before.draftRaw),
+        draftPublicationAttempts: observed.draftPublicationAttempts,
+        otherStorageFailures: observed.otherStorageFailures,
+      }
+    );
+    check(
+      resultRejected &&
+        settingsCompensated &&
+        exactDraftPreserved &&
+        reloaded.persistenceArtifacts.length === 0 &&
+        !reloaded.local?._storageDraftTransaction &&
+        !reloaded.idb?._storageDraftTransaction,
+      "failed unit conversion rejects the Settings commit and preserves the exact kg draft",
+      {
+        result: observed.result,
+        localUnit: reloaded.local?.settings?.unit,
+        idbUnit: reloaded.idb?.settings?.unit,
+        retainedDraftLoad: rawDraftLoad(reloaded.draftRaw),
+        exactDraftPreserved,
+        stateJournals: reloaded.pendingEntries.length,
+        sidecars: reloaded.draftPendingEntries.length,
+        artifacts: reloaded.persistenceArtifacts,
+        localTransaction: reloaded.local?._storageDraftTransaction?.version ?? null,
+        idbTransaction: reloaded.idb?._storageDraftTransaction?.version ?? null,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runSettingsUnitDraftConflict(browser) {
+  console.log("\n7. Settings unit conversion rejects a newer draft");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const writer = await openApp(context);
+    const originalState = fixture({ revision: 120 });
+    const originalDraftRaw = JSON.stringify(workoutDraft("settings-unit-conflict-original", "100"));
+    const newerDraftRaw = JSON.stringify(workoutDraft("settings-unit-conflict-newer", "145"));
+    await seedScenario(writer, { state: originalState, draftRaw: originalDraftRaw });
+    const locker = await openApp(context);
+    await holdStorageLock(locker);
+
+    await writer.evaluate(() => {
+      window.__repforgeShowSettings();
+      const unit = document.querySelector("#unit");
+      unit.value = "lb";
+      window.__settingsUnitConflictResult = unit.onchange();
+    });
+    await waitForPendingStorageLock(locker);
+    await locker.evaluate(
+      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
+      { draftKey: DRAFT, raw: newerDraftRaw }
+    );
+    await releaseStorageLock(locker);
+    const result = await writer.evaluate(() => window.__settingsUnitConflictResult);
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(writer);
+
+    check(
+      result?.draftConflict === true &&
+        !result.localOk &&
+        !result.idbOk &&
+        final.local?.settings?.unit === "kg" &&
+        final.idb?.settings?.unit === "kg" &&
+        final.draftRaw === newerDraftRaw &&
+        final.persistenceArtifacts.length === 0,
+      "a newer draft rejects unit conversion without changing its bytes or persisted unit",
+      {
+        result,
+        localUnit: final.local?.settings?.unit,
+        idbUnit: final.idb?.settings?.unit,
+        expectedDraftLoad: rawDraftLoad(newerDraftRaw),
+        retainedDraftLoad: rawDraftLoad(final.draftRaw),
+        exactDraftPreserved: final.draftRaw === newerDraftRaw,
+        stateJournals: final.pendingEntries.length,
+        sidecars: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {
@@ -1115,13 +1395,24 @@ async function main() {
   console.log(`Target: ${BASE}`);
   const browser = await launchChromium();
   try {
-    await runScenario("post-final-check orphan", () => runFinalCheckOrphan(browser));
-    await runScenario("expectedProgramId duplicate cleanup", () => runDuplicateCleanupOrphan(browser));
-    await runScenario("final marker-removal total failure", () => runFinalMarkerFailure(browser));
-    await runScenario("deferred block finalization", () => runDeferredBlockFinalization(browser));
-    await runScenario("oversized in-page required effects", () => runOversizedRequiredEffects(browser));
-    await runScenario("malformed boot required effect", () => runMalformedBootEffect(browser));
-    await runScenario("direct draft owner race", () => runDirectDraftOwnerRace(browser));
+    if (!FOCUSED_SCENARIO) {
+      await runScenario("post-final-check orphan", () => runFinalCheckOrphan(browser));
+      await runScenario("expectedProgramId duplicate cleanup", () => runDuplicateCleanupOrphan(browser));
+      await runScenario("final marker-removal total failure", () => runFinalMarkerFailure(browser));
+      await runScenario("deferred block finalization", () => runDeferredBlockFinalization(browser));
+      await runScenario("oversized in-page required effects", () => runOversizedRequiredEffects(browser));
+      await runScenario("malformed boot required effect", () => runMalformedBootEffect(browser));
+      await runScenario("direct draft owner race", () => runDirectDraftOwnerRace(browser));
+    }
+    if (!FOCUSED_SCENARIO || FOCUSED_SCENARIO === "stored-close-marker-failure") {
+      await runScenario("stored recovery close-marker failure", () => runStoredCloseMarkerFailure(browser));
+    }
+    if (!FOCUSED_SCENARIO || FOCUSED_SCENARIO === "settings-unit-draft-failure") {
+      await runScenario("Settings unit draft publication failure", () => runSettingsUnitDraftFailure(browser));
+    }
+    if (!FOCUSED_SCENARIO || FOCUSED_SCENARIO === "settings-unit-draft-conflict") {
+      await runScenario("Settings unit newer-draft conflict", () => runSettingsUnitDraftConflict(browser));
+    }
   } finally {
     await browser.close();
   }

@@ -4,12 +4,15 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import {
+  clearPersistenceArtifacts,
+  inventoryPersistenceArtifacts,
+} from "./persistence-artifacts.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
-const PENDING = "repforge_pending_v1";
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -154,21 +157,13 @@ async function openApp(context) {
 }
 
 async function seedScenario(page, draftRaw, state = fixture()) {
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await clearPersistenceArtifacts(page);
   await page.evaluate(
-    async ({ key, draftKey, draftPendingPrefix, pendingKey, dbName, storeName, state, draftRaw }) => {
+    async ({ key, draftKey, dbName, storeName, state, draftRaw }) => {
       localStorage.setItem(key, JSON.stringify(state));
       if (draftRaw == null) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, draftRaw);
-      for (let index = localStorage.length - 1; index >= 0; index--) {
-        const storageKey = localStorage.key(index);
-        if (
-          storageKey === pendingKey ||
-          storageKey?.startsWith(`${pendingKey}:`) ||
-          storageKey?.startsWith(draftPendingPrefix)
-        ) {
-          localStorage.removeItem(storageKey);
-        }
-      }
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
@@ -186,8 +181,6 @@ async function seedScenario(page, draftRaw, state = fixture()) {
     {
       key: KEY,
       draftKey: DRAFT,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      pendingKey: PENDING,
       dbName: DB,
       storeName: STORE,
       state,
@@ -199,8 +192,8 @@ async function seedScenario(page, draftRaw, state = fixture()) {
 }
 
 async function readRuntime(page) {
-  return page.evaluate(
-    async ({ key, draftKey, draftPendingPrefix, pendingKey, dbName, storeName }) => {
+  const runtime = await page.evaluate(
+    async ({ key, draftKey, dbName, storeName }) => {
       const localRaw = localStorage.getItem(key);
       const local = localRaw == null ? null : JSON.parse(localRaw);
       const draftRaw = localStorage.getItem(draftKey);
@@ -216,32 +209,25 @@ async function readRuntime(page) {
         request.onerror = () => reject(request.error);
       });
       db.close();
-      const pendingEntries = [];
-      for (let index = 0; index < localStorage.length; index++) {
-        const storageKey = localStorage.key(index);
-        if (storageKey !== pendingKey && !storageKey?.startsWith(`${pendingKey}:`)) continue;
-        const raw = localStorage.getItem(storageKey);
-        pendingEntries.push({ key: storageKey, raw, value: JSON.parse(raw) });
-      }
-      pendingEntries.sort((a, b) => a.key.localeCompare(b.key));
-      const draftPendingEntries = [];
-      for (let index = 0; index < localStorage.length; index++) {
-        const storageKey = localStorage.key(index);
-        if (!storageKey?.startsWith(draftPendingPrefix)) continue;
-        draftPendingEntries.push({ key: storageKey, raw: localStorage.getItem(storageKey) });
-      }
-      draftPendingEntries.sort((a, b) => a.key.localeCompare(b.key));
-      return { localRaw, local, idb, draftRaw, pendingEntries, draftPendingEntries };
+      return { localRaw, local, idb, draftRaw };
     },
     {
       key: KEY,
       draftKey: DRAFT,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      pendingKey: PENDING,
       dbName: DB,
       storeName: STORE,
     }
   );
+  const artifacts = await inventoryPersistenceArtifacts(page);
+  return {
+    ...runtime,
+    pendingEntries: artifacts.pendingEntries,
+    draftPendingEntries: artifacts.draftPendingEntries,
+    closingMarkerEntries: artifacts.closingMarkerEntries,
+    draftArtifacts: artifacts.draftArtifacts.map((entry) => entry.key),
+    persistenceArtifactEntries: artifacts.entries,
+    persistenceArtifacts: artifacts.keys,
+  };
 }
 
 async function holdStorageLock(page) {
@@ -355,7 +341,11 @@ async function runTemplateConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "template conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "template conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
     check(/retry|try again/i.test(toastText), "template conflict shows retry guidance", toastText);
   } finally {
     await context.close();
@@ -428,9 +418,9 @@ async function runFinalizeConflict(browser) {
       }
     );
     check(
-      final.pendingEntries.length === 0,
+      final.persistenceArtifacts.length === 0,
       "program finalization conflict clears only its stale journal",
-      final.pendingEntries
+      final.persistenceArtifacts
     );
   } finally {
     await context.close();
@@ -489,7 +479,11 @@ async function runSaveProgramConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "raw program save conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "raw program save conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
   } finally {
     await context.close();
   }
@@ -547,7 +541,11 @@ async function runNormalProgramImportConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "normal program import conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "normal program import conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
   } finally {
     await context.close();
   }
@@ -611,7 +609,11 @@ async function runOnboardingProgramImportConflict(browser) {
         onboardingActive,
       }
     );
-    check(final.pendingEntries.length === 0, "onboarding import conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "onboarding import conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
   } finally {
     await context.close();
   }
@@ -663,7 +665,11 @@ async function runDeleteExerciseConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "exercise deletion conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "exercise deletion conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
   } finally {
     await context.close();
   }
@@ -715,7 +721,11 @@ async function runDeleteDayConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "day deletion conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "day deletion conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
   } finally {
     await context.close();
   }
@@ -774,7 +784,11 @@ async function runBackupReplaceConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "full-backup Replace conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "full-backup Replace conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
     check(
       await writer.locator("#importChoice").evaluate((dialog) => !dialog.classList.contains("hidden")),
       "full-backup Replace conflict leaves the chooser open for retry"
@@ -848,7 +862,11 @@ async function runDeleteLogConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "Delete log conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "Delete log conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
   } finally {
     await context.close();
   }
@@ -888,13 +906,14 @@ async function runIndependentlyRemovedDraft(browser) {
       final.local?.programMeta?.name === "Beginner program" &&
         final.idb?.programMeta?.name === "Beginner program" &&
         final.draftRaw === null &&
-        final.pendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "safe acceptance installs the program without recreating the removed draft",
       {
         localName: final.local?.programMeta?.name,
         idbName: final.idb?.programMeta?.name,
         draftRaw: final.draftRaw,
         pendingCount: final.pendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {
@@ -952,7 +971,11 @@ async function runBootDestructiveConflict(browser) {
         draftMatchesNewer: final.draftRaw === newerDraftRaw,
       }
     );
-    check(final.pendingEntries.length === 0, "boot destructive conflict clears only its stale journal", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "boot destructive conflict clears only its stale journal",
+      final.persistenceArtifacts
+    );
     check(/try again/i.test(toastText), "boot destructive conflict shows retry guidance", toastText);
   } finally {
     await context.close();
@@ -1008,9 +1031,9 @@ async function runDraftCreatedAfterConfirmation(browser) {
       }
     );
     check(
-      final.pendingEntries.length === 0,
+      final.persistenceArtifacts.length === 0,
       "new-draft conflict clears only the stale replacement journal",
-      final.pendingEntries
+      final.persistenceArtifacts
     );
   } finally {
     await context.close();
@@ -1071,9 +1094,9 @@ async function runLocalReplicaWriteRace(browser) {
       actual: final.draftRaw,
     });
     check(
-      final.pendingEntries.length === 0,
+      final.persistenceArtifacts.length === 0,
       "local-write race drains its stale journal only after rejection is durable",
-      final.pendingEntries
+      final.persistenceArtifacts
     );
   } finally {
     await context.close();
@@ -1146,9 +1169,9 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
       actual: final.draftRaw,
     });
     check(
-      final.pendingEntries.length === 0,
+      final.persistenceArtifacts.length === 0,
       "boot local-write race drains its stale journal only after durable rollback",
-      final.pendingEntries
+      final.persistenceArtifacts
     );
     check(/retry|try again/i.test(toastText), "boot local-write race reports a draft conflict", toastText);
   } finally {
@@ -1222,7 +1245,7 @@ async function runOneStoreReplicaWriteRaces(browser) {
         domainSnapshot(compensated.local) === domainSnapshot(before.local) &&
           domainSnapshot(compensated.idb) === domainSnapshot(before.idb) &&
           compensated.draftRaw === newerDraftRaw &&
-          compensated.pendingEntries.length === 0,
+          compensated.persistenceArtifacts.length === 0,
         `${outcome.label} compensation preserves the prior domain head and newer draft`,
         {
           localName: compensated.local?.programMeta?.name,
@@ -1230,6 +1253,7 @@ async function runOneStoreReplicaWriteRaces(browser) {
           localRevision: compensated.local?._storageRevision,
           idbRevision: compensated.idb?._storageRevision,
           pendingCount: compensated.pendingEntries.length,
+          artifacts: compensated.persistenceArtifacts,
         }
       );
 
@@ -1300,13 +1324,14 @@ async function runEffectApplicationRace(browser) {
       domainSnapshot(final.local) === domainSnapshot(before.local) &&
         domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
         final.draftRaw === newerDraftRaw &&
-        final.pendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "receipt-application race durably restores both replicas and preserves the newer draft",
       {
         localName: final.local?.programMeta?.name,
         idbName: final.idb?.programMeta?.name,
         draftMatches: final.draftRaw === newerDraftRaw,
         pendingCount: final.pendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {
@@ -1443,8 +1468,7 @@ async function runSuccessfulClearPublicationRace(browser) {
       domainSnapshot(final.local) === domainSnapshot(before.local) &&
         domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
         final.draftRaw === newerDraftRaw &&
-        final.pendingEntries.length === 0 &&
-        final.draftPendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "successful-clear publication durably restores both replicas and preserves the newer draft",
       {
         beforeName: before.local?.programMeta?.name,
@@ -1453,6 +1477,7 @@ async function runSuccessfulClearPublicationRace(browser) {
         newerDraftPreserved: final.draftRaw === newerDraftRaw,
         pendingCount: final.pendingEntries.length,
         pendingDraftCount: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {
@@ -1477,9 +1502,23 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
     }, BASE);
     const stale = await popup;
     await waitForApp(stale);
+    await stale.evaluate((draftPendingPrefix) => {
+      const originalSetItem = Storage.prototype.setItem;
+      window.__draftConflictQueuedSidecarKeys = new Set();
+      window.__draftConflictRestoreSidecarCapture = () => {
+        Storage.prototype.setItem = originalSetItem;
+        delete window.__draftConflictRestoreSidecarCapture;
+      };
+      Storage.prototype.setItem = function (candidate) {
+        if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
+          window.__draftConflictQueuedSidecarKeys.add(candidate);
+        }
+        return originalSetItem.apply(this, arguments);
+      };
+    }, DRAFT_PENDING_PREFIX);
 
     const observed = await writer.evaluate(
-      async ({ key, draftKey, draftPendingPrefix, staleLoad }) => {
+      async ({ key, draftKey, staleLoad }) => {
         const originalRemoveItem = Storage.prototype.removeItem;
         let saveDispatched = false;
         let markerPresent = false;
@@ -1499,9 +1538,7 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
               input.dispatchEvent(new staleTab.Event("input", { bubbles: true }));
               saveDispatched = true;
               draftRawAfterSave = staleTab.localStorage.getItem(draftKey);
-              for (let index = 0; index < staleTab.localStorage.length; index++) {
-                if (staleTab.localStorage.key(index)?.startsWith(draftPendingPrefix)) queuedWriteCount++;
-              }
+              queuedWriteCount = staleTab.__draftConflictQueuedSidecarKeys.size;
             }
           }
           return removed;
@@ -1511,9 +1548,10 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
           return { result, saveDispatched, markerPresent, draftRawAfterSave, queuedWriteCount };
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
+          window.__draftConflictStaleTab?.__draftConflictRestoreSidecarCapture?.();
         }
       },
-      { key: KEY, draftKey: DRAFT, draftPendingPrefix: DRAFT_PENDING_PREFIX, staleLoad: "131.25" }
+      { key: KEY, draftKey: DRAFT, staleLoad: "131.25" }
     );
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
@@ -1536,8 +1574,7 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
       domainSnapshot(final.local) === domainSnapshot(before.local) &&
         domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
         finalDraft?.["draft-conflict-press_1_load"] === "131.25" &&
-        final.pendingEntries.length === 0 &&
-        final.draftPendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "stale-tab save is retained exactly while both durable replicas return to the old program",
       {
         beforeName: before.local?.programMeta?.name,
@@ -1546,6 +1583,7 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
         staleLoad: finalDraft?.["draft-conflict-press_1_load"],
         pendingCount: final.pendingEntries.length,
         pendingDraftCount: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {
@@ -1647,8 +1685,7 @@ async function runQueuedStaleTabUnloadRecovery(browser) {
         domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
         final.local?._storageRevision === final.idb?._storageRevision &&
         finalDraft?.["draft-conflict-press_1_load"] === "133.75" &&
-        final.pendingEntries.length === 0 &&
-        final.draftPendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "boot durably compensates and republishes the queued stale-tab draft without loss",
       {
         beforeName: before.local?.programMeta?.name,
@@ -1657,6 +1694,7 @@ async function runQueuedStaleTabUnloadRecovery(browser) {
         staleLoad: finalDraft?.["draft-conflict-press_1_load"],
         pendingCount: final.pendingEntries.length,
         pendingDraftCount: final.draftPendingEntries.length,
+        artifacts: final.persistenceArtifacts,
       }
     );
     check(/retry|try again/i.test(toastText), "queued unload recovery reports the rejected replacement", toastText);

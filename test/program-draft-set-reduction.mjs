@@ -4,14 +4,14 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import {
+  clearPersistenceArtifacts,
+  inventoryPersistenceArtifacts,
+} from "./persistence-artifacts.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
-const PENDING = "repforge_pending_v1";
-const PENDING_PREFIX = `${PENDING}:`;
-const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
-const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -106,31 +106,18 @@ async function reloadApp(page) {
 }
 
 async function writeFixture(page, state) {
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await clearPersistenceArtifacts(page);
   await page.evaluate(
     async ({
       key,
       draftKey,
-      pendingKey,
-      pendingPrefix,
-      draftPendingPrefix,
-      draftClosePrefix,
       dbName,
       storeName,
       state,
     }) => {
       localStorage.setItem(key, JSON.stringify(state));
       localStorage.removeItem(draftKey);
-      for (let index = localStorage.length - 1; index >= 0; index--) {
-        const storageKey = localStorage.key(index);
-        if (
-          storageKey === pendingKey ||
-          storageKey?.startsWith(pendingPrefix) ||
-          storageKey?.startsWith(draftPendingPrefix) ||
-          storageKey?.startsWith(draftClosePrefix)
-        ) {
-          localStorage.removeItem(storageKey);
-        }
-      }
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
@@ -148,10 +135,6 @@ async function writeFixture(page, state) {
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
-      pendingPrefix: PENDING_PREFIX,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      draftClosePrefix: DRAFT_CLOSE_PREFIX,
       dbName: DB,
       storeName: STORE,
       state,
@@ -171,17 +154,8 @@ async function writeFixture(page, state) {
 }
 
 async function readRuntime(page) {
-  return page.evaluate(
-    async ({
-      key,
-      draftKey,
-      pendingKey,
-      pendingPrefix,
-      draftPendingPrefix,
-      draftClosePrefix,
-      dbName,
-      storeName,
-    }) => {
+  const runtime = await page.evaluate(
+    async ({ key, draftKey, dbName, storeName }) => {
       const localRaw = localStorage.getItem(key);
       const draftRaw = localStorage.getItem(draftKey);
       const db = await new Promise((resolve, reject) => {
@@ -196,38 +170,30 @@ async function readRuntime(page) {
         request.onerror = () => reject(request.error);
       });
       db.close();
-      const persistenceArtifacts = [];
-      for (let index = 0; index < localStorage.length; index++) {
-        const storageKey = localStorage.key(index);
-        if (
-          storageKey === pendingKey ||
-          storageKey?.startsWith(pendingPrefix) ||
-          storageKey?.startsWith(draftPendingPrefix) ||
-          storageKey?.startsWith(draftClosePrefix)
-        ) {
-          persistenceArtifacts.push(storageKey);
-        }
-      }
-      persistenceArtifacts.sort();
       return {
         local: localRaw == null ? null : JSON.parse(localRaw),
         idb,
         draftRaw,
         draft: draftRaw == null ? null : JSON.parse(draftRaw),
-        persistenceArtifacts,
       };
     },
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
-      pendingPrefix: PENDING_PREFIX,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      draftClosePrefix: DRAFT_CLOSE_PREFIX,
       dbName: DB,
       storeName: STORE,
     }
   );
+  const artifacts = await inventoryPersistenceArtifacts(page);
+  return {
+    ...runtime,
+    pendingEntries: artifacts.pendingEntries,
+    draftPendingEntries: artifacts.draftPendingEntries,
+    closingMarkerEntries: artifacts.closingMarkerEntries,
+    draftArtifacts: artifacts.draftArtifacts.map((entry) => entry.key),
+    persistenceArtifactEntries: artifacts.entries,
+    persistenceArtifacts: artifacts.keys,
+  };
 }
 
 function programSets(snapshot) {
@@ -238,6 +204,30 @@ async function fillSet(page, set, load, reps, rir) {
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).fill(String(load));
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_reps"]`).fill(String(reps));
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_rir"]`).fill(String(rir));
+}
+
+async function waitForDraftValue(page, loadKey, expected, timeout = 5000) {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const [canonicalRaw, artifacts] = await Promise.all([
+      page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT),
+      inventoryPersistenceArtifacts(page),
+    ]);
+    const raws = [
+      canonicalRaw,
+      ...artifacts.draftSidecarEntries.map((entry) => entry.value?.raw ?? null),
+    ];
+    const found = raws.some((raw) => {
+      try {
+        return JSON.parse(raw || "null")?.[loadKey] === expected;
+      } catch {
+        return false;
+      }
+    });
+    if (found) return;
+    await page.waitForTimeout(25);
+  }
+  throw new Error(`timed out waiting for draft value ${loadKey}=${expected}`);
 }
 
 async function openProgramEditor(page) {
@@ -349,7 +339,8 @@ async function main() {
     const rejectedToast = await page.locator("#toast").textContent();
     const reductionGuarded =
       programSets(afterReduction.local) === 2 &&
-      programSets(afterReduction.idb) === 2;
+      programSets(afterReduction.idb) === 2 &&
+      afterReduction.persistenceArtifacts.length === 0;
     const replicasUnchanged =
       JSON.stringify(afterReduction.local) === JSON.stringify(beforeReduction.local) &&
       JSON.stringify(afterReduction.idb) === JSON.stringify(beforeReduction.idb);
@@ -363,6 +354,7 @@ async function main() {
           indexedDb: programSets(afterReduction.idb),
         },
         draftStillContainsSet2: afterReduction.draft?.[`${EXERCISE_ID}_2_load`] != null,
+        artifacts: afterReduction.persistenceArtifacts,
       }
     );
     check(dialogs.length === 0, "rejection does not open a confirmation dialog", dialogs);
@@ -416,13 +408,18 @@ async function main() {
     const savedSets = savedRows.map((row) => row.set);
     const draftCleared = finished.draftRaw == null;
     check(
-      savedSets.length === 2 && savedSets[0] === 1 && savedSets[1] === 2 && draftCleared,
+      savedSets.length === 2 &&
+        savedSets[0] === 1 &&
+        savedSets[1] === 2 &&
+        draftCleared &&
+        finished.persistenceArtifacts.length === 0,
       "Finish persists both drafted sets before clearing the draft",
       {
         savedSets,
         savedLoads: savedRows.map((row) => row.load),
         draftCleared,
         lostDraftSet2: draftCleared && !savedSets.includes(2),
+        artifacts: finished.persistenceArtifacts,
       }
     );
 
@@ -462,10 +459,12 @@ async function main() {
     const afterAllowedReduction = await readRuntime(page);
     const allowed =
       programSets(afterAllowedReduction.local) === 1 &&
-      programSets(afterAllowedReduction.idb) === 1;
+      programSets(afterAllowedReduction.idb) === 1 &&
+      afterAllowedReduction.persistenceArtifacts.length === 0;
     check(allowed, "set-count reduction remains allowed when removed sets have no draft progress", {
       localSets: programSets(afterAllowedReduction.local),
       idbSets: programSets(afterAllowedReduction.idb),
+      artifacts: afterAllowedReduction.persistenceArtifacts,
     });
     check(
       dialogs.length === dialogsBeforeAllowed,
@@ -505,12 +504,14 @@ async function main() {
         !blockResult?.localOk &&
         !blockResult?.idbOk &&
         programSets(afterBlockReduction.local) === 2 &&
-        programSets(afterBlockReduction.idb) === 2,
+        programSets(afterBlockReduction.idb) === 2 &&
+        afterBlockReduction.persistenceArtifacts.length === 0,
       "reduce_volume cannot commit a successor that removes a drafted set",
       {
         blockResult,
         localSets: programSets(afterBlockReduction.local),
         idbSets: programSets(afterBlockReduction.idb),
+        artifacts: afterBlockReduction.persistenceArtifacts,
       }
     );
     check(
@@ -548,12 +549,14 @@ async function main() {
         blockRows[0]?.set === 1 &&
         blockRows[1]?.set === 2 &&
         blockRows[1]?.load === 92.5 &&
-        afterBlockFinish.draftRaw == null,
+        afterBlockFinish.draftRaw == null &&
+        afterBlockFinish.persistenceArtifacts.length === 0,
       "Finish saves both sets after rejected reduce_volume before clearing the draft",
       {
         savedSets: blockRows.map((row) => row.set),
         savedLoads: blockRows.map((row) => row.load),
         draftPresent: afterBlockFinish.draftRaw != null,
+        artifacts: afterBlockFinish.persistenceArtifacts,
       }
     );
 
@@ -577,12 +580,14 @@ async function main() {
         safeBlockResult?.localOk &&
         safeBlockResult?.idbOk &&
         programSets(afterSafeBlock.local) === 1 &&
-        programSets(afterSafeBlock.idb) === 1,
+        programSets(afterSafeBlock.idb) === 1 &&
+        afterSafeBlock.persistenceArtifacts.length === 0,
       "reduce_volume remains allowed when removed sets have no draft progress",
       {
         safeBlockResult,
         localSets: programSets(afterSafeBlock.local),
         idbSets: programSets(afterSafeBlock.idb),
+        artifacts: afterSafeBlock.persistenceArtifacts,
       }
     );
     check(
@@ -605,12 +610,14 @@ async function main() {
       safeRows.length === 1 &&
         safeRows[0]?.set === 1 &&
         safeRows[0]?.load === 105 &&
-        afterSafeFinish.draftRaw == null,
+        afterSafeFinish.draftRaw == null &&
+        afterSafeFinish.persistenceArtifacts.length === 0,
       "Finish saves the retained set after accepted compatible reduce_volume",
       {
         savedSets: safeRows.map((row) => row.set),
         savedLoads: safeRows.map((row) => row.load),
         draftPresent: afterSafeFinish.draftRaw != null,
+        artifacts: afterSafeFinish.persistenceArtifacts,
       }
     );
 
@@ -634,31 +641,7 @@ async function main() {
       await queuedInput.fill("1");
       await waitForPendingStorageLock(locker);
       await fillSet(workout, 2, 97.5, 7, 1);
-      await workout.waitForFunction(
-        ({ draftKey, draftPendingPrefix, loadKey }) => {
-          const raws = [localStorage.getItem(draftKey)];
-          for (let index = 0; index < localStorage.length; index++) {
-            const storageKey = localStorage.key(index);
-            if (!storageKey?.startsWith(draftPendingPrefix)) continue;
-            try {
-              raws.push(JSON.parse(localStorage.getItem(storageKey))?.raw ?? null);
-            } catch {}
-          }
-          return raws.some((raw) => {
-            try {
-              return JSON.parse(raw || "null")?.[loadKey] === "97.5";
-            } catch {
-              return false;
-            }
-          });
-        },
-        {
-          draftKey: DRAFT,
-          draftPendingPrefix: DRAFT_PENDING_PREFIX,
-          loadKey: `${EXERCISE_ID}_2_load`,
-        },
-        { timeout: 5000 }
-      );
+      await waitForDraftValue(workout, `${EXERCISE_ID}_2_load`, "97.5");
 
       await releaseStorageLock(locker);
       await page.evaluate(() => window.__repforgeStorage.flush());
@@ -670,12 +653,14 @@ async function main() {
         programSets(raced.local) === 2 &&
           programSets(raced.idb) === 2 &&
           raced.draft?.[`${EXERCISE_ID}_2_load`] === "97.5" &&
+          raced.persistenceArtifacts.length === 0 &&
           (await page.locator(`[data-k="${EXERCISE_ID}_2_load"]`).count()) === 1,
         "queued set reduction aborts when set progress is published before its lock",
         {
           localSets: programSets(raced.local),
           idbSets: programSets(raced.idb),
           draftSet2: raced.draft?.[`${EXERCISE_ID}_2_load`],
+          artifacts: raced.persistenceArtifacts,
         }
       );
     } finally {
