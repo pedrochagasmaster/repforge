@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deterministic production-path repros for eleven cross-tab persistence races.
+ * Deterministic production-path repros for twelve cross-tab persistence races.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
@@ -1241,6 +1241,152 @@ async function scenarioLegacyAndCorruptEffectsAreIgnored(browser) {
   }
 }
 
+async function scenarioDeferredOnboardingCannotSupersedeRepeat(browser) {
+  console.log("\n12. Deferred onboarding loses to a committed Repeat successor");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const onboarding = await openApp(context);
+    const rev130 = fixture(130);
+    await writeReplicas(onboarding, { local: rev130, idb: rev130 });
+    await reloadApp(onboarding);
+    const repeat = await openApp(context);
+    const locker = await openApp(context);
+    const baseline = await readBoth(locker);
+    const baselineRevision = baseline.local?._storageRevision;
+
+    const deferred = await onboarding.evaluate((oldId) =>
+      window.__repforgeCommitNextBlock("onboarding", undefined, oldId), rev130.programMeta.id);
+    const captured = await onboarding.evaluate(() => ({
+      origin: window.__repforgeOnboardingOrigin(),
+      oldProgramId: window.__repforgePendingBlock()?.oldProgramId ?? null,
+      onboardingActive: document.querySelector("#onboarding")?.classList.contains("active") === true,
+    }));
+
+    await holdStorageLock(locker);
+    await repeat.evaluate((oldId) => {
+      window.__auditRepeatSuccessor = window.__repforgeCommitNextBlock("repeat", undefined, oldId);
+    }, rev130.programMeta.id);
+    await waitForPendingStorageLocks(locker, 1);
+    await releaseStorageLock(locker);
+    const repeatResult = await repeat.evaluate(() => window.__auditRepeatSuccessor);
+    await repeat.evaluate(() => window.__repforgeStorage.flush());
+    const afterRepeat = await readBoth(locker);
+    const repeatId = afterRepeat.local?.programMeta?.id;
+    const repeatRevision = afterRepeat.local?._storageRevision;
+
+    const recovery = await onboarding.evaluate(
+      ({ draftKey, pendingKey, snapshot }) => {
+        const draftRaw = JSON.stringify({
+          __touched: ["audit-press_1"],
+          "audit-press_1_load": "91.5",
+          "audit-press_1_reps": "8",
+          "audit-press_1_rir": "1",
+        });
+        localStorage.setItem(draftKey, draftRaw);
+        const clean = JSON.parse(JSON.stringify(snapshot));
+        delete clean._storageRevision;
+        const survivor = {
+          version: 2,
+          id: "audit-onboarding-survivor",
+          order: { at: 300, writer: "audit-onboarding", seq: 1 },
+          base: clean,
+          liveBase: clean,
+          proposal: clean,
+          replace: false,
+          expectedProgramId: null,
+        };
+        const survivorKey = `${pendingKey}:${survivor.id}`;
+        const survivorRaw = JSON.stringify(survivor);
+        localStorage.setItem(survivorKey, survivorRaw);
+        return { draftRaw, survivorKey, survivorRaw };
+      },
+      { draftKey: DRAFT, pendingKey: PENDING, snapshot: afterRepeat.local }
+    );
+
+    const staleResult = await onboarding.evaluate(
+      ({ exercises }) => window.__repforgeFinalizeProgramSetup({
+        exercises,
+        name: "Stale onboarding successor",
+        answers: { goal: "hypertrophy" },
+        destination: "log",
+        origin: "block",
+        draftConfirmed: true,
+      }),
+      { exercises: rev130.program }
+    );
+    await onboarding.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readBoth(locker);
+    const staleUi = await onboarding.evaluate(() => ({
+      origin: window.__repforgeOnboardingOrigin(),
+      oldProgramId: window.__repforgePendingBlock()?.oldProgramId ?? null,
+      onboardingActive: document.querySelector("#onboarding")?.classList.contains("active") === true,
+    }));
+    const pendingAfter = await locker.evaluate(
+      ({ survivorKey }) => ({
+        survivorRaw: localStorage.getItem(survivorKey),
+        keys: Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+          .filter((key) => key === "repforge_pending_v1" || key?.startsWith("repforge_pending_v1:"))
+          .sort(),
+      }),
+      recovery
+    );
+    const staleJournalKeys = pendingAfter.keys.filter((key) => key !== recovery.survivorKey);
+
+    check(
+      deferred?.kind === "deferred" &&
+        captured.origin === "block" &&
+        captured.oldProgramId === rev130.programMeta.id &&
+        captured.onboardingActive,
+      "precondition: Tab A defers onboarding with the old program identity captured",
+      { deferred, captured }
+    );
+    check(
+      (repeatResult?.localOk || repeatResult?.idbOk) &&
+        repeatResult.kind === "committed" &&
+        repeatId &&
+        repeatId !== rev130.programMeta.id &&
+        repeatRevision === baselineRevision + 1,
+      "precondition: Tab B commits a Repeat successor through the real Web Lock",
+      { baselineRevision, repeatResult, replicas: summary(afterRepeat) }
+    );
+    check(
+      staleResult?.kind === "duplicate" &&
+        staleResult.committed === false &&
+        staleResult.duplicate === true &&
+        staleResult.localOk === false &&
+        staleResult.idbOk === false,
+      "Tab A reports the stale block finalization as a standardized duplicate",
+      staleResult
+    );
+    check(
+      final.local?.programMeta?.id === repeatId &&
+        final.idb?.programMeta?.id === repeatId &&
+        final.local?._storageRevision === repeatRevision &&
+        final.idb?._storageRevision === repeatRevision &&
+        final.local?.programHistory?.filter((entry) => entry.id === rev130.programMeta.id).length === 1 &&
+        final.idb?.programHistory?.filter((entry) => entry.id === rev130.programMeta.id).length === 1,
+      "the stale finalizer preserves Tab B's successor, archive, and revision",
+      { repeatId, repeatRevision, replicas: summary(final) }
+    );
+    check(
+      final.draftRaw === recovery.draftRaw &&
+        staleUi.origin === "block" &&
+        staleUi.oldProgramId === rev130.programMeta.id &&
+        staleUi.onboardingActive,
+      "Tab A keeps its onboarding state and exact draft available for recovery or cancel",
+      { staleUi, draftMatches: final.draftRaw === recovery.draftRaw }
+    );
+    check(
+      pendingAfter.survivorRaw === recovery.survivorRaw &&
+        staleJournalKeys.length === 0,
+      "duplicate cleanup drains only Tab A's stale intent",
+      { recovery, pendingAfter, staleJournalKeys }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function runScenario(name, fn) {
   try {
     await fn();
@@ -1273,6 +1419,9 @@ try {
   );
   await runScenario("legacy and corrupt effects are ignored", () =>
     scenarioLegacyAndCorruptEffectsAreIgnored(browser)
+  );
+  await runScenario("deferred onboarding cannot supersede Repeat", () =>
+    scenarioDeferredOnboardingCannotSupersedeRepeat(browser)
   );
 } finally {
   await browser.close();

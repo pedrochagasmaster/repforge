@@ -4104,20 +4104,24 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
 async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
+  const blockCap=originEff==="block"?pendingBlockTransition:null;
+  const expectedProgramId=blockCap?.oldProgramId||null;
   if(draftHasProgress()&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const proposal=cloneSnapshot(state);
   if(originEff==="block"){
-    const cap=pendingBlockTransition;
-    if(!cap)return{revision:readRevision(state),localOk:false,idbOk:false};
-    if(proposal.programMeta?.id!==cap.oldProgramId)return{revision:readRevision(state),localOk:false,idbOk:false};
-    archiveCapturedBlock(proposal,cap)}
+    if(!blockCap)return blockTransitionResult("failed");
+    if(proposal.programMeta?.id!==expectedProgramId)return blockTransitionResult("duplicate");
+    archiveCapturedBlock(proposal,blockCap)}
   const meta=buildProgramMeta({name,answers:answers||onbAnswers});
   proposal.programMeta=meta;
   proposal.program=new Program(exercises).toJSON();
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
-  const result=await commitProposedState(proposal,adapter);
+  const persisted=await commitProposedState(proposal,adapter,{expectedProgramId});
+  const result=originEff==="block"
+    ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
+    :persisted;
   if(!(result.localOk||result.idbOk))return result;
   clearDraft();
   if(originEff==="block")pendingBlockTransition=null;
