@@ -598,7 +598,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 }
 .focus-well .btn--cta.saveset:hover{color:var(--cta-ink);border-color:transparent}
 /* Exercise and workout completion are the same shape, one step apart. */
-.focus-well.is-done{padding-top:18px}
+.focus-well.is-done{padding-top:18px;padding-bottom:24px}
 .focus-done{display:flex;align-items:center;gap:14px}
 .focus-done__mark{
   flex:none;width:46px;height:46px;border-radius:50%;border:2px solid var(--accent);position:relative;
@@ -1015,6 +1015,7 @@ body.is-sheet-open{overflow:hidden}
   .fcard__ledger{margin-top:12px}
   .exercise--focus .focus-ex__name{font-size:24px}
   .focus-well{padding:12px 14px 14px}
+  .focus-well.is-done{padding-bottom:21px}
   .curset{--curset-val:30px;margin-top:8px}
   .curset__cell-lab{margin-bottom:6px}
   .curset__val--word{font-size:24px}
@@ -1029,6 +1030,7 @@ body.is-sheet-open{overflow:hidden}
   .exercise--focus .focus-ex__name{font-size:21px}
   .focus-ex__target{margin-top:4px}
   .focus-well{padding:10px 14px 12px}
+  .focus-well.is-done{padding-bottom:18px}
   .focus-cue{font-size:13px}
   .curset{--curset-val:26px;margin-top:4px}
   .curset__cell{padding-top:2px}
