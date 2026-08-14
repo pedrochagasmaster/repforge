@@ -1472,7 +1472,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .edrow__in{margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
 .edrow__rm{
   justify-self:end;display:inline-flex;align-items:center;justify-content:center;
-  width:40px;height:40px;flex:none;padding:0;cursor:pointer;
+  width:44px;height:44px;flex:none;padding:0;cursor:pointer;
   border:1px solid var(--rule-strong);border-radius:10px;background:var(--surface);
   color:var(--ink-soft);font:inherit;font-size:19px;line-height:1;
 }
