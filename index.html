@@ -516,6 +516,24 @@
     </div>
     <p class="sheet__foot" data-i18n="focus.note.carry">Visible in your next session</p>
   </div>
+  <div id="programTextScrim" class="sheet-scrim hidden"></div>
+  <div id="programTextSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="programTextTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <button type="button" class="sheet__act" id="programTextClose" data-i18n="dialog.close">Close</button>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="programTextTitle" data-i18n="program.export_text.title">Program as text</p>
+        <p class="sheet__sub" id="programTextFor"></p>
+      </div>
+      <button type="button" class="sheet__act sheet__act--accent" id="programTextCopy" data-i18n="program.export_text.copy">Copy</button>
+    </div>
+    <div class="sheet__body">
+      <pre id="programTextOut" class="sheet__pre" tabindex="0" data-i18n-aria="program.export_text.title" aria-label="Program as text"></pre>
+    </div>
+    <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
+    </div>
+  </div>
   <dialog id="storageRecovery" class="storage-recovery" aria-modal="true" aria-labelledby="storageRecoveryTitle" data-i18n-aria="dialog.storage_recovery.aria">
     <h2 id="storageRecoveryTitle" class="importchoice__title" tabindex="-1"></h2>
     <p id="storageRecoveryLead" class="importchoice__body"></p>

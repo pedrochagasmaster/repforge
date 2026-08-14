@@ -4461,6 +4461,9 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
     `<button type="button" class="listrow" id="seeVolumeAudit"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
     `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
+    // Nothing to read out when the program has no days left, so the row waits for one.
+    (ds.length?`<button type="button" class="listrow" id="exportProgramText"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
+      `<div class="listrow__sub">${esc(t("program.export_text.sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
     `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
     const cur=new Set(openDays);
@@ -4469,6 +4472,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
   $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
+  const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
 
 function openDayInEditor(d){if(!d||!prog.days().includes(d))return;
@@ -4836,6 +4840,63 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`repforge_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
+
+/* ---- Plain-text program export ----
+ * The program as something a lifter can read or paste into a chat: the name and
+ * how many days it runs, then each training day with its muscles and its
+ * exercise templates numbered in order, "3× 6-10" for sets × rep range.
+ * Lossy by design — ids, muscles per exercise, notes, and alternates stay in the
+ * JSON export, which is the one that can be imported back. */
+const programTextReps=e=>e.min===e.max?`${e.min}`:`${e.min}-${e.max}`;
+function programText(){
+  const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
+  const up=s=>String(s??"").toLocaleUpperCase(locTag());
+  const lines=[`${up(meta.name||t("untitled_program"))} (${t("program.export_text.days_per_week",{n:ds.length})})`];
+  for(const d of ds){
+    const mus=dayMuscles(d).map(muscleLabel);
+    lines.push("",`${up(d)}${mus.length?` — ${mus.join(" · ")}`:""}`);
+    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name} — ${e.sets}× ${programTextReps(e)}`))}
+  return lines.join("\n")}
+const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
+  return `repforge_program_${slug?`${slug}_`:""}${today()}.txt`};
+let programTextReturn=null;
+function openProgramTextSheet(){
+  const sheet=$("#programTextSheet"),scrim=$("#programTextScrim"),out=$("#programTextOut");
+  if(!sheet||!out)return;
+  out.textContent=programText();
+  out.scrollTop=0;
+  const sub=$("#programTextFor");if(sub)sub.textContent=state.programMeta?.name||t("untitled_program");
+  programTextReturn=document.activeElement;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#programTextCopy"),
+    returnFocus:programTextReturn,
+    onEscape:closeProgramTextSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeProgramTextSheet(){
+  const sheet=$("#programTextSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  programTextReturn=null;
+  return closeModal(sheet)}
+/** Clipboard first; the hidden-textarea path covers browsers that refuse the
+ *  async clipboard, and only a genuine failure of both surfaces a toast. */
+async function copyProgramText(){
+  const text=$("#programTextOut")?.textContent||programText();
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);
+    toast(t("toast.program_text_copied"));return true}}catch{}
+  try{const ta=document.createElement("textarea");
+    ta.value=text;ta.setAttribute("readonly","");
+    ta.style.cssText="position:fixed;top:0;left:0;opacity:0";
+    document.body.append(ta);ta.select();
+    const ok=document.execCommand("copy");ta.remove();
+    if(ok){toast(t("toast.program_text_copied"));return true}}catch{}
+  toast(t("toast.program_text_copy_failed"));return false}
+function shareProgramText(){
+  return shareOrDownload($("#programTextOut")?.textContent||programText(),programTextName(),"text/plain")}
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
@@ -5243,6 +5304,10 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
+  const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
+  const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
+  const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
+  const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
