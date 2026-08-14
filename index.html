@@ -61,10 +61,12 @@
           </div>
         </div>
         <div id="todayProgram" class="today-prog hidden"></div>
-        <p class="section-label" data-i18n="today.session_label">Today's session</p>
+        <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
         <button type="button" class="text-link text-link--center" id="viewExercises" data-i18n="today.view_exercises">View exercises</button>
+        <button type="button" class="btn btn--steel hidden" id="reviewTodaySession" data-i18n="today.done_review">View today's session</button>
+        <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
         <p class="section-label" data-i18n="today.this_week">This week</p>
         <div id="todayWeek" class="today-week"></div>
         <p class="section-label" data-i18n="today.up_next">Up next</p>
