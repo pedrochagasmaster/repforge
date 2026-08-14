@@ -1044,6 +1044,9 @@ function canTakeFocus(el){
     if(st.display==="none"||st.visibility==="hidden")return false}
   return true}
 function resolveReturnFocus(target){
+  // A callback lets a caller name its return target before the view that owns it
+  // has rendered, which is how boot-time dialogs reach a Today control.
+  if(typeof target==="function")target=target();
   if(typeof target==="string")target=$(target);
   if(!(target instanceof Element)||!target.isConnected)return null;
   if(canTakeFocus(target))return target;
@@ -2942,6 +2945,51 @@ function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN
     return s?s.charAt(0).toUpperCase()+s.slice(1):s}
   catch{return iso}}
 function weekdayLetters(){return state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
+/** Sessions saved today, in the order they were logged. */
+function sessionsToday(){const iso=today(),by=new Map();
+  for(const r of state.log){if(String(r.date)!==iso)continue;
+    const k=String(r.session||iso);
+    let s=by.get(k);if(!s){s={session:k,day:r.day,rows:[]};by.set(k,s)}
+    s.rows.push(r)}
+  return [...by.values()]}
+/** What today already holds, or null when nothing is logged yet. Today swaps its
+ *  whole session block for this: a finished day is not one to start again. */
+function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)return null;
+  const iso=today(),work=sessions.flatMap(s=>s.rows).filter(isWork);
+  const doneDays=[...new Set(sessions.map(s=>s.day).filter(Boolean))];
+  // A lift's first appearance sets its bests without beating anything, so only
+  // events carrying a delta are records the lifter actually broke today.
+  const prLifts=new Set((week?.prs||[])
+    .filter(ev=>String(ev.date)===iso&&(ev.deltaLoad!=null||ev.deltaReps!=null||ev.deltaE1rm!=null))
+    .map(ev=>ev.exerciseId||ev.exerciseName));
+  return{sessions,days:doneDays,lastDay:sessions.at(-1).day||day,
+    muscles:[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
+    sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size}}
+/** The program day that follows `from`, or null when the split has only one. */
+function nextDayAfter(from){const ds=days();if(!ds.length)return null;
+  const i=ds.indexOf(from);if(i<0)return ds[0];
+  return ds.length>1?ds[(i+1)%ds.length]:null}
+/** The program day that follows the last one trained today. */
+function dayAfterTrainedToday(){const done=sessionsToday();
+  return nextDayAfter(done.length?done.at(-1).day:day)}
+function todayDoneHtml(recap){
+  return `<div class="today-done">`+
+    `<div class="today-session__name today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
+    `${esc(recap.days.join(" · ")||t("today.done_title"))}</div>`+
+    (recap.muscles.length?`<div class="today-session__muscles">${esc(recap.muscles.join(" · "))}</div>`:"")+
+    `<div class="today-session__meta">${esc(t("today.done_meta",{sets:recap.sets,setword:tp(recap.sets,"set"),vol:kfmt(toDisplay(recap.volume)),unit:unitLabel()}))}</div>`+
+    (recap.prs?`<p class="today-done__pr">${esc(recap.prs===1?t("today.done_pr_one"):t("today.done_prs",{n:recap.prs}))}</p>`:"")+
+    `<p class="today-done__note">${esc(t("today.done_note"))}</p></div>`}
+/** Whichever action Today is currently leading with — the start CTA, or the
+ *  recap's review action once the day's session is saved. */
+function todayPrimaryControl(){
+  for(const sel of["#startWorkout","#reviewTodaySession"]){const el=$(sel);if(el&&canTakeFocus(el))return el}
+  return $("#todayDash .page-title")}
+/** Today's recap hands off to History, opened on the session it describes. */
+function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
+  expandedSession=done.at(-1).session;histQuery="";
+  navTo("history");
+  $$("#sessions [data-sess]").find(el=>el.dataset.sess===expandedSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
 // The day's exercises, previewed on Today: sets × rep range per row, the rest
 // behind a "+N" disclosure. Tapping a row opens that exercise's page.
 function todayExListHtml(exs){if(!exs.length)return"";
@@ -2966,12 +3014,20 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`+
       (week.plannedDays?`<div class="today-prog__done">${esc(t("today.sessions_done",{done:week.completedDays,planned:week.plannedDays}))}</div>`:"")}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
-  const sess=$("#todaySession");if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
+  // A saved session means today is spent: Today recaps it instead of offering the
+  // day again. An unsaved draft still outranks it — that session is not over.
+  const inProgress=draftHasProgress(),recap=inProgress?null:todayRecap(week);
+  const sessLabel=$("#todaySessionLabel");if(sessLabel){const key=recap?"today.done_label":"today.session_label";
+    sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
+  const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
+  else if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
     sess.innerHTML=`<div class="today-session__name">${esc(day)}</div>`+
       (mus.length?`<div class="today-session__muscles">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
       (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
       todayExListHtml(exs)}
+    for(const[sel,shown]of[["#startWorkout",!recap],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+      const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
     const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
       if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}
@@ -2979,7 +3035,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
   const cta=$("#startWorkout")?.querySelector("span");
-  if(cta){const key=draftHasProgress()?"today.continue":"today.start";
+  if(cta){const key=inProgress?"today.continue":"today.start";
     cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
   const weekEl=$("#todayWeek");if(weekEl){const w=week,{start}=weekRange(today()),letters=weekdayLetters();
     const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
@@ -2989,13 +3045,15 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
       return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
     weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
-  const up=$("#todayUpNext");if(up){const ds=days(),idx=Math.max(0,ds.indexOf(day)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(next)}</div>`+
         `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
       $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
     else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
-  const lastEl=$("#todayLast");if(lastEl){const dates=state.log.map(r=>String(r.date)).filter(Boolean).sort();
+  // The recap above already says today was trained; the footer would only echo it.
+  const lastEl=$("#todayLast");if(lastEl&&recap)lastEl.innerHTML="";
+  else if(lastEl){const dates=state.log.map(r=>String(r.date)).filter(Boolean).sort();
     if(dates.length){const lastD=dates.at(-1),n=Math.max(0,Math.round((new Date(`${today()}T12:00:00`)-new Date(`${lastD}T12:00:00`))/86400000));
       lastEl.innerHTML=`<span class="today-footer__icon" aria-hidden="true">⏱</span>${esc(n===0?t("today.last_trained_today"):n===1?t("today.last_trained_one"):t("today.last_trained",{n}))}`}
     else lastEl.innerHTML=""}
@@ -5337,6 +5395,10 @@ function init(){
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
   const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
+  const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
+  // Training twice in a day is the lifter's call, never Today's suggestion, so it
+  // opens the day that follows the one already done rather than repeating it.
+  const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day,focus:true});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
   const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
@@ -5569,7 +5631,7 @@ function presentStorageRecovery(decision){
       if(!d.open)d.showModal();
       openModal(d,{
         initialFocus:$("#storageExportA")||$("#storageRetry")||title,
-        returnFocus:$("#startWorkout")||$("#todayDash .page-title"),
+        returnFocus:todayPrimaryControl,
         onEscape:null
       });
       bump();

@@ -117,6 +117,19 @@ async function persistState(page, state) {
   );
 }
 
+/** Shift every logged row back `days` days, so today reads as untrained. */
+async function backdateLog(page, days) {
+  const state = await getState(page);
+  const shift = (iso) => {
+    const d = new Date(`${iso}T12:00:00`);
+    d.setDate(d.getDate() - days);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  };
+  await persistState(page, { ...state, log: (state.log || []).map((r) => ({ ...r, date: shift(String(r.date)) })) });
+  await reloadApp(page);
+  await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+}
+
 function readServiceWorkerMeta() {
   const src = readFileSync(join(ROOT, "sw.js"), "utf8");
   const cache = src.match(/const CACHE\s*=\s*"([^"]+)"/)?.[1];
@@ -3978,9 +3991,25 @@ async function main() {
     JSON.stringify(hotCard),
     "Log max-rep session → reopen → is-add/is-add2"
   );
-  // Leave workout to see Today readiness line, then re-enter via it
+  // Everything logged so far carries today's date, so Today is in its
+  // completed-session state: a recap, and no session on offer.
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
+  const doneState = await page.evaluate(() => ({
+    recap: !!document.querySelector(".today-done"),
+    start: !!document.querySelector("#startWorkout:not(.hidden)"),
+    ready: !!document.querySelector("#readyLine"),
+  }));
+  assert(
+    doneState.recap && !doneState.start && !doneState.ready,
+    "Today recaps the day once a session is saved for it",
+    JSON.stringify(doneState),
+    "Save a session dated today → Today drops the start CTA for a recap"
+  );
+
+  // The readiness line belongs to the session Today is offering, so move the
+  // ledger back a day to get an untrained day and the line that comes with it.
+  await backdateLog(page, 1);
   const readyText = await page.locator("#readyLine, .today-ready").first().textContent();
   assert(
     /ready|prontos|hot|increase|aumentar/i.test(readyText || ""),
@@ -5269,6 +5298,9 @@ async function main() {
   beginPhase("Phase: workout entry CTA + transition");
   await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
   await reloadApp(page);
+  // The Start/Continue CTA only exists on a day with no session saved yet, and
+  // the phases above have been logging against today.
+  await backdateLog(page, 1);
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
   const ctaFresh = (await page.locator("#startWorkout").textContent())?.trim();
