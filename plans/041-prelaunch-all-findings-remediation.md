@@ -495,7 +495,11 @@ Implement a storage-only revision without wrapping the existing state shape:
    stale transition identity; total failure retains that entry and its ordered
    tail. Boot rereads/repairs under the same lock, migrates an old un-suffixed
    `repforge_pending_v1` entry first, and replays all surviving valid entries
-   before initializing the app. Make `save()`/`persist()` return the individual
+   before initializing the app. A Finish entry may carry only a bounded
+   `clear-draft` receipt containing the exact captured draft bytes: apply it
+   after one or both stores accept, including replay, and only while the current
+   draft bytes still match so a newer cross-tab draft survives. Make
+   `save()`/`persist()` return the individual
    result promise containing `{ revision, localOk, idbOk }` so transactional
    callers can distinguish one accepted replica from total failure.
 7. Add `commitProposedState(proposal, io=storageIO)` at this persistence seam.

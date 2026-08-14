@@ -86,6 +86,7 @@ const storageIO={
   async writeIdb(data){await idbSet(KEY,data)}
 };
 const STORAGE_LOCK="repforge:state-write";
+const PENDING_EFFECT_MAX_RAW=1000000;
 let persistTail=Promise.resolve();
 let persistHead=null,mutationBase=null;
 let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
@@ -207,6 +208,18 @@ function unversionedSnapshot(snapshot){
   const out=cloneSnapshot(snapshot);
   if(out&&typeof out==="object")delete out[STORAGE_REV];
   return out}
+function pendingJournalEffect(effect){
+  if(effect?.kind!=="clear-draft"||typeof effect.expectedRaw!=="string"||
+    effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
+  return{kind:"clear-draft",expectedRaw:effect.expectedRaw}}
+function applyPendingJournalEffect(effect){
+  const receipt=pendingJournalEffect(effect);
+  if(!receipt)return false;
+  try{
+    if(localStorage.getItem(DRAFT)!==receipt.expectedRaw)return false;
+    localStorage.removeItem(DRAFT);
+    return true}
+  catch{return false}}
 let pendingJournalSeq=0,pendingJournalClock=0;
 function pendingJournalUuid(){
   const uuid=globalThis.crypto?.randomUUID?.();
@@ -242,7 +255,8 @@ function decodePendingJournal(key,raw){
     return{key,raw,legacy,order:legacy?null:order,journal:{
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
-      expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null}}}
+      expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
+      effect:legacy?null:pendingJournalEffect(journal.effect)}}}
   catch{return null}}
 function readPendingJournal(){
   const entries=[],invalid=[];
@@ -258,10 +272,12 @@ function readPendingJournal(){
     return a.order.at-b.order.at||a.order.writer.localeCompare(b.order.writer)||
       a.order.seq-b.order.seq||a.journal.id.localeCompare(b.journal.id)});
   return{entries,invalid}}
-function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null}={}){
+function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,effect=null}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
+  const receipt=pendingJournalEffect(effect);
+  if(receipt)journal.effect=receipt;
   const raw=JSON.stringify(journal);
   try{localStorage.setItem(key,raw);return{key,raw,journal}}
   catch(e){console.warn("pending state journal failed",e);return null}}
@@ -279,12 +295,12 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false}={}){
   const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
   return snapshot}
-function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null}={}){
+function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,effect=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
-  const frozenProposal=cloneSnapshot(proposal);
+  const frozenProposal=cloneSnapshot(proposal),frozenEffect=pendingJournalEffect(effect);
   const pendingRecord=io===storageIO
-    ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,{replace,expectedProgramId})
+    ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,{replace,expectedProgramId,effect:frozenEffect})
     :null;
   const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
     let head=cloneSnapshot(persistHead||frozenBase);
@@ -300,6 +316,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,{replace});
     const result=await writeSnapshot(snapshot,io);
     if(result.localOk||result.idbOk){
+      applyPendingJournalEffect(frozenEffect);
       clearPendingJournal(pendingRecord);
       persistHead=cloneSnapshot(snapshot);
       applyAcceptedSnapshot(frozenLiveBase,snapshot)}
@@ -592,8 +609,7 @@ const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
-function clearDraft(){
-  localStorage.removeItem(DRAFT);
+function resetDraftSessionState(){
   clearUnfinishedWatch();
   lastCommitAt=0;
   committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();
@@ -602,6 +618,9 @@ function clearDraft(){
   if(el){el.classList.add("hidden");el.hidden=true}
   delete document.body.dataset.unfinishedPrompt;
 }
+function clearDraft(){
+  localStorage.removeItem(DRAFT);
+  resetDraftSessionState()}
 const loadDraft=()=>{try{return JSON.parse(localStorage.getItem(DRAFT)||"{}")}catch{clearDraft();return{}}};
 function convertDraftUnits(oldUnit,newUnit){
   if(oldUnit===newUnit)return;
@@ -2807,12 +2826,10 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   const rawDraft=localStorage.getItem(DRAFT);
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.concat(cloneSnapshot(rows));
-  const result=await commitProposedState(proposal,io||storageIO);
-  if(!(result.localOk||result.idbOk)){
-    if(rawDraft==null){try{localStorage.removeItem(DRAFT)}catch{}}
-    else try{localStorage.setItem(DRAFT,rawDraft)}catch{}
-    return result}
-  clearDraft();
+  const effect=rawDraft==null?null:{kind:"clear-draft",expectedRaw:rawDraft};
+  const result=await commitProposedState(proposal,io||storageIO,{effect});
+  if(!(result.localOk||result.idbOk))return result;
+  resetDraftSessionState();
   resetSessionContextFields();
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
@@ -4531,6 +4548,7 @@ async function resolveBootReplicas(candidate=null){
       const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,{replace:journal.replace});
       const result=await writeSnapshot(snapshot,storageIO);
       if(!(result.localOk||result.idbOk))break;
+      applyPendingJournalEffect(journal.effect);
       clearPendingJournal(record);
       head=snapshot;replayed=true}
     if(replayed)return{kind:"chosen",snapshot:head,source:"pending"};

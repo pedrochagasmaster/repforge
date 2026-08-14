@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deterministic production-path repros for seven cross-tab persistence races.
+ * Deterministic production-path repros for eleven cross-tab persistence races.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
@@ -207,7 +207,7 @@ async function readBoth(page) {
         }
       });
       const pending = parsedPending.length === 1 ? parsedPending[0].value : parsedPending;
-      return { local, idb, draftRaw, draft, pendingRaw, pending };
+      return { local, idb, draftRaw, draft, pendingRaw, pending, pendingEntries: parsedPending };
     },
     { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE }
   );
@@ -383,6 +383,11 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
         oneSided.idb?.log?.length === 1,
       "precondition: the next workout revision is accepted only by IDB while local remains at the prior head",
       { beforeRevision, accepted, replicas: summary(oneSided) }
+    );
+    check(
+      oneSided.draftRaw === null && oneSided.pendingEntries.length === 0,
+      "one-store Finish acceptance applies its draft receipt and clears only its record",
+      { accepted, replicas: summary(oneSided), pending: oneSided.pendingEntries }
     );
 
     await holdStorageLock(writer);
@@ -914,6 +919,328 @@ async function scenarioReplayReturnsAcceptedHeadBeforeFailedTail(browser) {
   }
 }
 
+async function scenarioBootReplayFinishClearsCapturedDraft(browser) {
+  console.log("\n8. Boot replay of an accepted Finish clears only its captured draft");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const writer = await openApp(context);
+    const rev90 = fixture(90);
+    await writeReplicas(writer, { local: rev90, idb: rev90 });
+    await reloadApp(writer);
+    const locker = await openApp(context);
+
+    await enterWorkout(writer);
+    await fillSet(writer, 1, { load: 77.5, reps: 9, rir: 1 });
+    await writer.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
+    const capturedDraftRaw = await writer.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+
+    await holdStorageLock(locker);
+    await writer.evaluate(() => {
+      window.__auditInterruptedFinish = window.__repforgeSaveWorkout();
+    });
+    await waitForPendingStorageLocks(locker, 1);
+
+    const blocked = await readBoth(writer);
+    const finishRecord = blocked.pendingEntries[0];
+    check(
+      blocked.pendingEntries.length === 1 &&
+        finishRecord.key !== PENDING &&
+        finishRecord.key.startsWith(`${PENDING}:`) &&
+        blocked.draftRaw === capturedDraftRaw,
+      "precondition: Finish owns a distinct pending entry beside its exact draft",
+      {
+        pendingKeys: blocked.pendingEntries.map((entry) => entry.key),
+        draftMatches: blocked.draftRaw === capturedDraftRaw,
+      }
+    );
+    check(
+      finishRecord.value?.effect?.kind === "clear-draft" &&
+        finishRecord.value.effect.expectedRaw === capturedDraftRaw,
+      "the immutable Finish intent records an exact conditional draft receipt",
+      { effect: finishRecord.value?.effect, capturedDraftRaw }
+    );
+
+    await writer.close();
+    await releaseStorageLock(locker);
+
+    const recovered = await openApp(context);
+    await recovered.evaluate(() => window.__repforgeStorage.flush());
+    const replayed = await readBoth(recovered);
+    const localSessions = new Set((replayed.local?.log || []).map((row) => row.session));
+    const idbSessions = new Set((replayed.idb?.log || []).map((row) => row.session));
+    const savedSession = [...localSessions][0];
+
+    check(
+      localSessions.size === 1 &&
+        idbSessions.size === 1 &&
+        idbSessions.has(savedSession) &&
+        replayed.local.log.filter((row) => row.session === savedSession).length === 1 &&
+        replayed.idb.log.filter((row) => row.session === savedSession).length === 1,
+      "boot replay makes exactly one session durable in both replicas",
+      { replicas: summary(replayed), localSessions: [...localSessions], idbSessions: [...idbSessions] }
+    );
+    check(
+      replayed.draftRaw === null && replayed.pendingEntries.length === 0,
+      "boot replay clears the exact captured draft and its accepted record",
+      { replicas: summary(replayed), pending: replayed.pendingEntries, draft: replayed.draftRaw }
+    );
+
+    await enterWorkout(recovered);
+    await recovered.evaluate(() => window.__repforgeSaveWorkout());
+    await recovered.evaluate(() => window.__repforgeStorage.flush());
+    const afterNormalFinish = await readBoth(recovered);
+    const localSessionsAfter = new Set((afterNormalFinish.local?.log || []).map((row) => row.session));
+    const idbSessionsAfter = new Set((afterNormalFinish.idb?.log || []).map((row) => row.session));
+    check(
+      localSessionsAfter.size === 1 &&
+        idbSessionsAfter.size === 1 &&
+        localSessionsAfter.has(savedSession) &&
+        idbSessionsAfter.has(savedSession) &&
+        afterNormalFinish.pendingEntries.length === 0,
+      "the normal Finish flow cannot save the replayed session again",
+      {
+        replicas: summary(afterNormalFinish),
+        localSessions: [...localSessionsAfter],
+        idbSessions: [...idbSessionsAfter],
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenarioInPageFinishPreservesNewerDraft(browser) {
+  console.log("\n9. In-page Finish preserves a newer cross-tab draft");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const writer = await openApp(context);
+    const rev100 = fixture(100);
+    await writeReplicas(writer, { local: rev100, idb: rev100 });
+    await reloadApp(writer);
+    const locker = await openApp(context);
+
+    await enterWorkout(writer);
+    await fillSet(writer, 1, { load: 82.5, reps: 8, rir: 1 });
+    await writer.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
+    const capturedDraftRaw = await writer.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+
+    await holdStorageLock(locker);
+    await writer.evaluate(() => {
+      window.__auditInPageFinish = window.__repforgeSaveWorkout();
+    });
+    await waitForPendingStorageLocks(locker, 1);
+
+    const newerDraftRaw = await locker.evaluate(
+      ({ draftKey, captured }) => {
+        const draft = JSON.parse(captured);
+        draft.__auditNewerDraft = "cross-tab";
+        draft.__done = [];
+        draft.__touched = ["audit-press_2"];
+        delete draft["audit-press_1_load"];
+        delete draft["audit-press_1_reps"];
+        delete draft["audit-press_1_rir"];
+        draft["audit-press_2_load"] = "42.5";
+        draft["audit-press_2_reps"] = "11";
+        draft["audit-press_2_rir"] = "2";
+        const raw = JSON.stringify(draft);
+        localStorage.setItem(draftKey, raw);
+        return raw;
+      },
+      { draftKey: DRAFT, captured: capturedDraftRaw }
+    );
+
+    await releaseStorageLock(locker);
+    const finishResult = await writer.evaluate(() => window.__auditInPageFinish);
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readBoth(writer);
+    const ui = await writer.evaluate(() => ({
+      formReady:
+        !document.querySelector("#logForm")?.inert &&
+        document.querySelector("#logForm")?.getAttribute("aria-busy") === null,
+      set1Suggested: document.querySelector('[data-set="audit-press_1"]')?.classList.contains("is-suggested"),
+      set1Done: document.querySelector('[data-set="audit-press_1"]')?.classList.contains("is-done"),
+      set2Suggested: document.querySelector('[data-set="audit-press_2"]')?.classList.contains("is-suggested"),
+      set2Load: document.querySelector('[data-k="audit-press_2_load"]')?.value ?? null,
+    }));
+
+    check(
+      (finishResult?.localOk || finishResult?.idbOk) &&
+        final.local?.log?.length === 1 &&
+        final.idb?.log?.length === 1 &&
+        final.pendingEntries.length === 0,
+      "precondition: the captured Finish is accepted and only its record is cleaned",
+      { finishResult, replicas: summary(final), pending: final.pendingEntries }
+    );
+    check(
+      final.draftRaw === newerDraftRaw,
+      "accepted in-page Finish compare-and-clears without deleting newer draft bytes",
+      {
+        capturedMatches: final.draftRaw === capturedDraftRaw,
+        newerMatches: final.draftRaw === newerDraftRaw,
+      }
+    );
+    check(
+      ui.formReady &&
+        ui.set1Suggested === true &&
+        ui.set1Done === false &&
+        ui.set2Suggested === false &&
+        ui.set2Load === "42.5",
+      "the finishing tab resets stale collections and renders the preserved newer draft",
+      ui
+    );
+
+    const fresh = await openApp(context);
+    const afterFreshBoot = await readBoth(fresh);
+    check(
+      afterFreshBoot.draftRaw === newerDraftRaw &&
+        (afterFreshBoot.local?.log?.length ?? 0) === 1 &&
+        (afterFreshBoot.idb?.log?.length ?? 0) === 1,
+      "a fresh boot retains the newer draft beside the accepted session",
+      { replicas: summary(afterFreshBoot), draftMatches: afterFreshBoot.draftRaw === newerDraftRaw }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenarioTotalFinishFailureRetainsReceiptAndDraft(browser) {
+  console.log("\n10. Total Finish failure retains its journal and exact draft");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const page = await openApp(context);
+    const rev110 = fixture(110);
+    await writeReplicas(page, { local: rev110, idb: rev110 });
+    await reloadApp(page);
+
+    await enterWorkout(page);
+    await fillSet(page, 1, { load: 87.5, reps: 8, rir: 1 });
+    await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
+    const capturedDraftRaw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+    const result = await page.evaluate(
+      async ({ key }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        const originalPut = IDBObjectStore.prototype.put;
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === key) throw new Error("audit: reject Finish local replica");
+          return originalSetItem.apply(this, arguments);
+        };
+        IDBObjectStore.prototype.put = function (_value, candidate) {
+          if (candidate === key) throw new Error("audit: reject Finish IDB replica");
+          return originalPut.apply(this, arguments);
+        };
+        try {
+          return await window.__repforgeSaveWorkout();
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+          IDBObjectStore.prototype.put = originalPut;
+        }
+      },
+      { key: KEY }
+    );
+    const failed = await readBoth(page);
+    const retained = failed.pendingEntries[0];
+
+    check(
+      result?.localOk === false &&
+        result?.idbOk === false &&
+        (failed.local?.log?.length ?? 0) === 0 &&
+        (failed.idb?.log?.length ?? 0) === 0,
+      "precondition: neither replica accepts the Finish state",
+      { result, replicas: summary(failed) }
+    );
+    check(
+      failed.pendingEntries.length === 1 &&
+        retained.key.startsWith(`${PENDING}:`) &&
+        retained.value?.effect?.kind === "clear-draft" &&
+        retained.value.effect.expectedRaw === capturedDraftRaw &&
+        failed.draftRaw === capturedDraftRaw,
+      "total failure retains both the exact Finish journal and exact draft",
+      {
+        pendingCount: failed.pendingEntries.length,
+        effect: retained.value?.effect,
+        draftMatches: failed.draftRaw === capturedDraftRaw,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenarioLegacyAndCorruptEffectsAreIgnored(browser) {
+  console.log("\n11. Legacy and corrupt journal effects are ignored");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const setup = await openApp(context);
+    const rev120 = fixture(120);
+    await writeReplicas(setup, { local: rev120, idb: rev120 });
+    await reloadApp(setup);
+
+    const seeded = await setup.evaluate(
+      ({ pendingKey, draftKey, snapshot }) => {
+        const base = JSON.parse(JSON.stringify(snapshot));
+        delete base._storageRevision;
+        const legacyProposal = JSON.parse(JSON.stringify(base));
+        legacyProposal.settings.jumpPct = 3.75;
+        const corruptProposal = JSON.parse(JSON.stringify(base));
+        corruptProposal.settings.minJump = 1.25;
+        const draftRaw = JSON.stringify({ __touched: ["audit-press_1"], marker: "must-survive" });
+        const legacy = {
+          id: "audit-legacy-effect",
+          base,
+          liveBase: base,
+          proposal: legacyProposal,
+          replace: false,
+          expectedProgramId: null,
+          effect: { kind: "clear-draft", expectedRaw: draftRaw },
+        };
+        const corrupt = {
+          version: 2,
+          id: "audit-corrupt-effect",
+          order: { at: 200, writer: "audit-corrupt", seq: 1 },
+          base,
+          liveBase: base,
+          proposal: corruptProposal,
+          replace: false,
+          expectedProgramId: null,
+          effect: { kind: "clear-draft", expectedRaw: { not: "raw bytes" } },
+        };
+        const corruptKey = `${pendingKey}:${corrupt.id}`;
+        localStorage.setItem(draftKey, draftRaw);
+        localStorage.setItem(pendingKey, JSON.stringify(legacy));
+        localStorage.setItem(corruptKey, JSON.stringify(corrupt));
+        return { draftRaw, corruptKey };
+      },
+      { pendingKey: PENDING, draftKey: DRAFT, snapshot: rev120 }
+    );
+    await setup.close();
+
+    const recovered = await openApp(context);
+    const final = await readBoth(recovered);
+    check(
+      final.local?.settings?.jumpPct === 3.75 &&
+        final.idb?.settings?.jumpPct === 3.75 &&
+        final.local?.settings?.minJump === 1.25 &&
+        final.idb?.settings?.minJump === 1.25 &&
+        final.pendingEntries.length === 0,
+      "legacy and corrupt-effect journals still replay state and drain normally",
+      { replicas: summary(final), pending: final.pendingEntries, seeded }
+    );
+    check(
+      final.draftRaw === seeded.draftRaw,
+      "legacy and corrupt effect metadata cannot clear a draft",
+      { draftMatches: final.draftRaw === seeded.draftRaw }
+    );
+    check(
+      !Object.prototype.hasOwnProperty.call(final.local || {}, "effect") &&
+        !Object.prototype.hasOwnProperty.call(final.idb || {}, "effect"),
+      "journal effect metadata never becomes authoritative app state",
+      { localKeys: Object.keys(final.local || {}), idbKeys: Object.keys(final.idb || {}) }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function runScenario(name, fn) {
   try {
     await fn();
@@ -934,6 +1261,18 @@ try {
   await runScenario("accepted cleanup overlapping boot", () => scenarioAcceptedCleanupOverlappingBoot(browser));
   await runScenario("accepted replay head before failed tail", () =>
     scenarioReplayReturnsAcceptedHeadBeforeFailedTail(browser)
+  );
+  await runScenario("boot replay Finish receipt", () =>
+    scenarioBootReplayFinishClearsCapturedDraft(browser)
+  );
+  await runScenario("in-page Finish preserves newer draft", () =>
+    scenarioInPageFinishPreservesNewerDraft(browser)
+  );
+  await runScenario("total Finish failure retains receipt and draft", () =>
+    scenarioTotalFinishFailureRetainsReceiptAndDraft(browser)
+  );
+  await runScenario("legacy and corrupt effects are ignored", () =>
+    scenarioLegacyAndCorruptEffectsAreIgnored(browser)
   );
 } finally {
   await browser.close();
