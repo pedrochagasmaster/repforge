@@ -552,6 +552,280 @@ async function runFinalCheckOrphan(browser) {
   }
 }
 
+async function runPostGuardReleaseDraft(browser) {
+  console.log("\n1c. A stale app draft cannot land after the closing guard is released");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const writer = await openApp(context);
+    const originalDraftRaw = JSON.stringify(workoutDraft("post-guard-original", "91.25"));
+    await seedScenario(writer, { draftRaw: originalDraftRaw });
+    const before = await readRuntime(writer);
+    const stale = await openPopup(context, writer, "adversarial-post-guard-stale");
+    await stale.evaluate((draftPendingPrefix) => {
+      const originalSetItem = Storage.prototype.setItem;
+      window.__adversarialStagedRaw = null;
+      window.__adversarialRestoreSidecarCapture = () => {
+        Storage.prototype.setItem = originalSetItem;
+        delete window.__adversarialRestoreSidecarCapture;
+      };
+      Storage.prototype.setItem = function (candidate, value) {
+        if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
+          try {
+            window.__adversarialStagedRaw = JSON.parse(value)?.raw ?? null;
+          } catch {}
+        }
+        return originalSetItem.apply(this, arguments);
+      };
+    }, DRAFT_PENDING_PREFIX);
+
+    const observed = await writer.evaluate(
+      async ({ key, draftKey, pendingPrefix, closePrefix, loadKey, newerLoad }) => {
+        const originalGetItem = Storage.prototype.getItem;
+        let injected = false;
+        let guardAbsent = false;
+        let stateFinalized = false;
+        let publishedRaw = null;
+        let stagedRaw = null;
+        Storage.prototype.getItem = function (candidate) {
+          const current = originalGetItem.apply(this, arguments);
+          if (!injected && candidate === draftKey && current === null) {
+            const storageKeys = [];
+            for (let index = 0; index < localStorage.length; index++) {
+              storageKeys.push(localStorage.key(index));
+            }
+            const durable = JSON.parse(originalGetItem.call(this, key) || "null");
+            guardAbsent =
+              !storageKeys.some(
+                (storageKey) =>
+                  storageKey === pendingPrefix ||
+                  storageKey?.startsWith(`${pendingPrefix}:`) ||
+                  storageKey?.startsWith(closePrefix)
+              ) && !durable?._storageDraftTransaction;
+            stateFinalized = durable?.programMeta?.name === "Beginner program";
+            if (guardAbsent && stateFinalized) {
+              const staleTab = window.__adversarialStaleTab;
+              const input = staleTab?.document.querySelector(`[data-k="${loadKey}"]`);
+              if (input) {
+                injected = true;
+                input.value = newerLoad;
+                input.dispatchEvent(new staleTab.Event("input", { bubbles: true }));
+                publishedRaw = staleTab.localStorage.getItem(draftKey);
+                stagedRaw = staleTab.__adversarialStagedRaw;
+              }
+            }
+          }
+          return current;
+        };
+        try {
+          const result = await window.__repforgeApplyProgramTemplate();
+          return { result, injected, guardAbsent, stateFinalized, publishedRaw, stagedRaw };
+        } finally {
+          Storage.prototype.getItem = originalGetItem;
+          window.__adversarialStaleTab?.__adversarialRestoreSidecarCapture?.();
+        }
+      },
+      {
+        key: KEY,
+        draftKey: DRAFT,
+        pendingPrefix: PENDING,
+        closePrefix: DRAFT_CLOSE_PREFIX,
+        loadKey: `${SET_KEY}_load`,
+        newerLoad: "132.5",
+      }
+    );
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(writer);
+
+    check(
+      observed.injected && observed.guardAbsent && observed.stateFinalized,
+      "precondition: stale save runs after journal, marker, and closing guard are absent",
+      observed
+    );
+    check(
+      observed.result?.draftConflict === true &&
+        final.local?.programMeta?.id === before.local?.programMeta?.id &&
+        final.idb?.programMeta?.id === before.idb?.programMeta?.id &&
+        observed.publishedRaw === null &&
+        final.draftRaw === observed.stagedRaw &&
+        rawDraftLoad(final.draftRaw) === "132.5" &&
+        final.persistenceArtifacts.length === 0,
+      "post-guard stale save rejects the replacement and preserves its exact draft",
+      {
+        result: observed.result,
+        expectedProgramId: before.local?.programMeta?.id,
+        localProgramId: final.local?.programMeta?.id,
+        idbProgramId: final.idb?.programMeta?.id,
+        stagedLoad: rawDraftLoad(observed.stagedRaw),
+        staleCanonicalDraft: observed.publishedRaw,
+        finalLoad: rawDraftLoad(final.draftRaw),
+        artifacts: final.persistenceArtifacts,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runUnloadSafeDraftWal(browser) {
+  console.log("\n1d. App draft writes recover from interruption after their WAL sidecar");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const page = await openApp(context);
+    await seedScenario(page, { draftRaw: null });
+    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+
+    const observed = await page.evaluate(
+      ({ draftKey, draftPendingPrefix, loadKey, load }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        let canonicalAttempts = 0;
+        let stagedRaw = null;
+        Storage.prototype.setItem = function (candidate, value) {
+          if (candidate === draftKey) {
+            canonicalAttempts++;
+            throw new DOMException("audit: interrupt canonical draft publication", "QuotaExceededError");
+          }
+          const written = originalSetItem.apply(this, arguments);
+          if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
+            stagedRaw = JSON.parse(value)?.raw ?? null;
+          }
+          return written;
+        };
+        try {
+          const input = document.querySelector(`[data-k="${loadKey}"]`);
+          input.value = load;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          return {
+            canonicalAttempts,
+            stagedRaw,
+            canonicalRaw: localStorage.getItem(draftKey),
+          };
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+        }
+      },
+      {
+        draftKey: DRAFT,
+        draftPendingPrefix: DRAFT_PENDING_PREFIX,
+        loadKey: `${SET_KEY}_load`,
+        load: "134.75",
+      }
+    );
+    const interrupted = await readRuntime(page);
+
+    check(
+      observed.canonicalAttempts > 0 &&
+        observed.canonicalRaw === null &&
+        rawDraftLoad(observed.stagedRaw) === "134.75" &&
+        interrupted.draftPendingEntries.length === 1,
+      "precondition: interrupted write leaves exact draft bytes in the synchronous WAL",
+      {
+        canonicalAttempts: observed.canonicalAttempts,
+        canonicalRaw: observed.canonicalRaw,
+        stagedLoad: rawDraftLoad(observed.stagedRaw),
+        sidecars: interrupted.draftPendingEntries.length,
+      }
+    );
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const recovered = await readRuntime(page);
+    check(
+      recovered.draftRaw === observed.stagedRaw &&
+        rawDraftLoad(recovered.draftRaw) === "134.75" &&
+        recovered.persistenceArtifacts.length === 0,
+      "boot promotes the exact WAL draft and drains its sidecar",
+      {
+        recoveredLoad: rawDraftLoad(recovered.draftRaw),
+        exact: recovered.draftRaw === observed.stagedRaw,
+        artifacts: recovered.persistenceArtifacts,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runSameRawDraftWalAcceptance(browser) {
+  console.log("\n1e. A same-raw draft WAL does not reject its owning destructive receipt");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const page = await openApp(context);
+    await seedScenario(page, { draftRaw: null });
+    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+
+    const staged = await page.evaluate(
+      ({ draftKey, draftPendingPrefix, loadKey, load }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        let canonicalAttempts = 0;
+        let stagedRaw = null;
+        Storage.prototype.setItem = function (candidate, value) {
+          if (candidate === draftKey) {
+            canonicalAttempts++;
+            throw new DOMException("audit: retain same-raw draft WAL", "QuotaExceededError");
+          }
+          const written = originalSetItem.apply(this, arguments);
+          if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
+            stagedRaw = JSON.parse(value)?.raw ?? null;
+          }
+          return written;
+        };
+        try {
+          const input = document.querySelector(`[data-k="${loadKey}"]`);
+          input.value = load;
+          input.dispatchEvent(new Event("input", { bubbles: true }));
+          return { canonicalAttempts, stagedRaw, canonicalRaw: localStorage.getItem(draftKey) };
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+        }
+      },
+      {
+        draftKey: DRAFT,
+        draftPendingPrefix: DRAFT_PENDING_PREFIX,
+        loadKey: `${SET_KEY}_load`,
+        load: "136.25",
+      }
+    );
+    const before = await readRuntime(page);
+    const result = await page.evaluate(() => window.__repforgeApplyProgramTemplate());
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(page);
+
+    check(
+      staged.canonicalAttempts > 0 &&
+        staged.canonicalRaw === null &&
+        rawDraftLoad(staged.stagedRaw) === "136.25" &&
+        latestDraftPendingRaw(before) === staged.stagedRaw,
+      "precondition: expectedRaw exists only in one same-context draft-write WAL",
+      {
+        canonicalAttempts: staged.canonicalAttempts,
+        canonicalRaw: staged.canonicalRaw,
+        stagedLoad: rawDraftLoad(staged.stagedRaw),
+        sidecars: before.draftPendingEntries.length,
+      }
+    );
+    check(
+      (result?.localOk || result?.idbOk) &&
+        result?.draftConflict !== true &&
+        final.local?.programMeta?.name === "Beginner program" &&
+        final.idb?.programMeta?.name === "Beginner program" &&
+        final.draftRaw === null &&
+        final.persistenceArtifacts.length === 0,
+      "same-raw WAL is consumed by the accepted receipt without a false conflict",
+      {
+        result,
+        local: programSummary(final.local),
+        idb: programSummary(final.idb),
+        draftRaw: final.draftRaw,
+        artifacts: final.persistenceArtifacts,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function runDuplicateCleanupOrphan(browser) {
   console.log("\n1b. Duplicate expectedProgramId cleanup owns a queued draft");
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
@@ -742,6 +1016,148 @@ async function runFinalMarkerFailure(browser) {
         beforeProgramId: before.local?.programMeta?.id,
         reloadedLocalProgramId: reloaded.local?.programMeta?.id,
         reloadedIdbProgramId: reloaded.idb?.programMeta?.id,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runLateSidecarFailedCompensation(browser) {
+  console.log("\n2a. Failed late-sidecar compensation retains a boot rollback witness");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const writer = await openApp(context);
+    const originalDraftRaw = JSON.stringify(workoutDraft("late-sidecar-original", "96.75"));
+    await seedScenario(writer, { state: fixture({ revision: 55 }), draftRaw: originalDraftRaw });
+    const before = await readRuntime(writer);
+    const stale = await openPopup(context, writer, "adversarial-late-sidecar-stale");
+    await stale.evaluate((draftPendingPrefix) => {
+      const originalSetItem = Storage.prototype.setItem;
+      window.__adversarialStagedRaw = null;
+      window.__adversarialRestoreSidecarCapture = () => {
+        Storage.prototype.setItem = originalSetItem;
+        delete window.__adversarialRestoreSidecarCapture;
+      };
+      Storage.prototype.setItem = function (candidate, value) {
+        if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
+          try {
+            window.__adversarialStagedRaw = JSON.parse(value)?.raw ?? null;
+          } catch {}
+        }
+        return originalSetItem.apply(this, arguments);
+      };
+    }, DRAFT_PENDING_PREFIX);
+
+    const observed = await writer.evaluate(
+      async ({ key, pendingPrefix, loadKey, newerLoad }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        const originalRemoveItem = Storage.prototype.removeItem;
+        const originalPut = IDBObjectStore.prototype.put;
+        let localStateWrites = 0;
+        let idbStateWrites = 0;
+        let injected = false;
+        let journalPresentAtInjection = false;
+        let stagedRaw = null;
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === key && ++localStateWrites > 2) {
+            throw new Error("audit: reject late-sidecar local compensation");
+          }
+          return originalSetItem.apply(this, arguments);
+        };
+        IDBObjectStore.prototype.put = function (_value, candidate) {
+          if (candidate === key && ++idbStateWrites > 2) {
+            throw new Error("audit: reject late-sidecar IDB compensation");
+          }
+          return originalPut.apply(this, arguments);
+        };
+        Storage.prototype.removeItem = function (candidate) {
+          if (!injected && typeof candidate === "string" && candidate.startsWith(pendingPrefix)) {
+            const staleTab = window.__adversarialStaleTab;
+            const input = staleTab?.document.querySelector(`[data-k="${loadKey}"]`);
+            if (input) {
+              injected = true;
+              journalPresentAtInjection = localStorage.getItem(candidate) != null;
+              input.value = newerLoad;
+              input.dispatchEvent(new staleTab.Event("input", { bubbles: true }));
+              stagedRaw = staleTab.__adversarialStagedRaw;
+            }
+          }
+          return originalRemoveItem.apply(this, arguments);
+        };
+        try {
+          const result = await window.__repforgeApplyProgramTemplate();
+          return {
+            result,
+            localStateWrites,
+            idbStateWrites,
+            injected,
+            journalPresentAtInjection,
+            stagedRaw,
+          };
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+          Storage.prototype.removeItem = originalRemoveItem;
+          IDBObjectStore.prototype.put = originalPut;
+          window.__adversarialStaleTab?.__adversarialRestoreSidecarCapture?.();
+        }
+      },
+      {
+        key: KEY,
+        pendingPrefix: PENDING_PREFIX,
+        loadKey: `${SET_KEY}_load`,
+        newerLoad: "146.25",
+      }
+    );
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const interrupted = await readRuntime(writer);
+
+    check(
+      observed.injected &&
+        observed.journalPresentAtInjection &&
+        rawDraftLoad(observed.stagedRaw) === "146.25" &&
+        observed.localStateWrites >= 3 &&
+        observed.idbStateWrites >= 3,
+      "precondition: different-raw related sidecar lands during close after both successor writes",
+      observed
+    );
+    check(
+      observed.result?.draftConflict === true &&
+        observed.result?.localOk === false &&
+        observed.result?.idbOk === false &&
+        observed.result?.compensationPending === true &&
+        interrupted.draftRaw === observed.stagedRaw &&
+        interrupted.pendingEntries.length === 1,
+      "failed compensation is reported as pending and retains its rollback journal",
+      {
+        result: observed.result,
+        local: programSummary(interrupted.local),
+        idb: programSummary(interrupted.idb),
+        draftMatches: interrupted.draftRaw === observed.stagedRaw,
+        pendingCount: interrupted.pendingEntries.length,
+        artifacts: interrupted.persistenceArtifacts,
+      }
+    );
+
+    await stale.close();
+    await writer.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(writer);
+    const recovered = await readRuntime(writer);
+    const toastText = await writer.locator("#toast").innerText();
+    check(
+      recovered.local?.programMeta?.id === before.local?.programMeta?.id &&
+        recovered.idb?.programMeta?.id === before.idb?.programMeta?.id &&
+        recovered.draftRaw === observed.stagedRaw &&
+        recovered.persistenceArtifacts.length === 0 &&
+        /retry|try again/i.test(toastText),
+      "boot accepts the retained rollback, heals both replicas, and drains cleanup artifacts",
+      {
+        beforeProgramId: before.local?.programMeta?.id,
+        local: programSummary(recovered.local),
+        idb: programSummary(recovered.idb),
+        draftMatches: recovered.draftRaw === observed.stagedRaw,
+        artifacts: recovered.persistenceArtifacts,
+        toastText,
       }
     );
   } finally {
@@ -1397,8 +1813,12 @@ async function main() {
   try {
     if (!FOCUSED_SCENARIO) {
       await runScenario("post-final-check orphan", () => runFinalCheckOrphan(browser));
+      await runScenario("post-guard stale draft", () => runPostGuardReleaseDraft(browser));
+      await runScenario("unload-safe draft WAL", () => runUnloadSafeDraftWal(browser));
+      await runScenario("same-raw draft WAL acceptance", () => runSameRawDraftWalAcceptance(browser));
       await runScenario("expectedProgramId duplicate cleanup", () => runDuplicateCleanupOrphan(browser));
       await runScenario("final marker-removal total failure", () => runFinalMarkerFailure(browser));
+      await runScenario("late-sidecar failed compensation", () => runLateSidecarFailedCompensation(browser));
       await runScenario("deferred block finalization", () => runDeferredBlockFinalization(browser));
       await runScenario("oversized in-page required effects", () => runOversizedRequiredEffects(browser));
       await runScenario("malformed boot required effect", () => runMalformedBootEffect(browser));

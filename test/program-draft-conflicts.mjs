@@ -1279,6 +1279,148 @@ async function runOneStoreReplicaWriteRaces(browser) {
   }
 }
 
+async function runCrossStoreCompensationRecovery(browser) {
+  console.log("\n15b. Opposite one-store rollback outcomes deterministically win on boot");
+  for (const outcome of [
+    {
+      label: "local provisional / IDB rollback",
+      initialLocalOk: true,
+      initialIdbOk: false,
+      rollbackLocalOk: false,
+      rollbackIdbOk: true,
+    },
+    {
+      label: "IDB provisional / local rollback",
+      initialLocalOk: false,
+      initialIdbOk: true,
+      rollbackLocalOk: true,
+      rollbackIdbOk: false,
+    },
+  ]) {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      serviceWorkers: "block",
+    });
+    try {
+      const page = await openApp(context);
+      const confirmedDraftRaw = JSON.stringify(draft(`confirmed-${outcome.label}`, "105.5"));
+      const newerDraftRaw = JSON.stringify(draft(`newer-${outcome.label}`, "125.5"));
+      await seedScenario(page, confirmedDraftRaw);
+      const before = await readRuntime(page);
+      const result = await page.evaluate(
+        async ({
+          key,
+          draftKey,
+          newerDraftRaw,
+          initialLocalOk,
+          initialIdbOk,
+          rollbackLocalOk,
+          rollbackIdbOk,
+        }) => {
+          const originalSetItem = Storage.prototype.setItem;
+          const originalPut = IDBObjectStore.prototype.put;
+          let localWrites = 0;
+          let idbWrites = 0;
+          let injected = false;
+          Storage.prototype.setItem = function (candidate, value) {
+            if (candidate !== key) return originalSetItem.call(this, candidate, value);
+            localWrites++;
+            const allowed = localWrites === 1 ? initialLocalOk : rollbackLocalOk;
+            if (!allowed) throw new Error(`audit: reject local state round ${localWrites}`);
+            const written = originalSetItem.call(this, candidate, value);
+            if (!injected && localWrites === 1) {
+              injected = true;
+              originalSetItem.call(this, draftKey, newerDraftRaw);
+            }
+            return written;
+          };
+          IDBObjectStore.prototype.put = function (_value, candidate) {
+            if (candidate !== key) return originalPut.apply(this, arguments);
+            idbWrites++;
+            const allowed = idbWrites === 1 ? initialIdbOk : rollbackIdbOk;
+            if (!allowed) throw new Error(`audit: reject IDB state round ${idbWrites}`);
+            const request = originalPut.apply(this, arguments);
+            if (!injected && idbWrites === 1) {
+              injected = true;
+              originalSetItem.call(localStorage, draftKey, newerDraftRaw);
+            }
+            return request;
+          };
+          try {
+            const value = await window.__repforgeApplyProgramTemplate();
+            return { value, localWrites, idbWrites };
+          } finally {
+            Storage.prototype.setItem = originalSetItem;
+            IDBObjectStore.prototype.put = originalPut;
+          }
+        },
+        {
+          key: KEY,
+          draftKey: DRAFT,
+          newerDraftRaw,
+          initialLocalOk: outcome.initialLocalOk,
+          initialIdbOk: outcome.initialIdbOk,
+          rollbackLocalOk: outcome.rollbackLocalOk,
+          rollbackIdbOk: outcome.rollbackIdbOk,
+        }
+      );
+      await page.evaluate(() => window.__repforgeStorage.flush());
+      const split = await readRuntime(page);
+      const rollbackReplica = outcome.rollbackLocalOk ? split.local : split.idb;
+      const provisionalReplica = outcome.initialLocalOk ? split.local : split.idb;
+
+      check(
+        result.value?.draftConflict === true &&
+          result.value.localOk === false &&
+          result.value.idbOk === false &&
+          result.value.compensationLocalOk === outcome.rollbackLocalOk &&
+          result.value.compensationIdbOk === outcome.rollbackIdbOk &&
+          result.localWrites === 2 &&
+          result.idbWrites === 2,
+        `${outcome.label} reports rejection with the accepted rollback replica`,
+        result
+      );
+      check(
+        domainSnapshot(rollbackReplica) === domainSnapshot(before.local) &&
+          rollbackReplica?._storageRevision > provisionalReplica?._storageRevision &&
+          split.draftRaw === newerDraftRaw &&
+          split.persistenceArtifacts.length === 0,
+        `${outcome.label} leaves a higher-revision rollback head and exact newer draft`,
+        {
+          rollbackName: rollbackReplica?.programMeta?.name,
+          provisionalName: provisionalReplica?.programMeta?.name,
+          rollbackRevision: rollbackReplica?._storageRevision,
+          provisionalRevision: provisionalReplica?._storageRevision,
+          draftMatches: split.draftRaw === newerDraftRaw,
+          artifacts: split.persistenceArtifacts,
+        }
+      );
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      const healed = await readRuntime(page);
+      check(
+        domainSnapshot(healed.local) === domainSnapshot(before.local) &&
+          domainSnapshot(healed.idb) === domainSnapshot(before.idb) &&
+          healed.local?._storageRevision === healed.idb?._storageRevision &&
+          healed.draftRaw === newerDraftRaw &&
+          healed.persistenceArtifacts.length === 0,
+        `${outcome.label} heals both replicas from the rollback winner`,
+        {
+          localName: healed.local?.programMeta?.name,
+          idbName: healed.idb?.programMeta?.name,
+          localRevision: healed.local?._storageRevision,
+          idbRevision: healed.idb?._storageRevision,
+          draftMatches: healed.draftRaw === newerDraftRaw,
+          artifacts: healed.persistenceArtifacts,
+        }
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 async function runEffectApplicationRace(browser) {
   console.log("\n16. A draft published between post-write check and receipt application is rejected");
   const context = await browser.newContext({
@@ -1723,6 +1865,7 @@ async function main() {
     await runLocalReplicaWriteRace(browser);
     await runBootReplayLocalReplicaWriteRace(browser);
     await runOneStoreReplicaWriteRaces(browser);
+    await runCrossStoreCompensationRecovery(browser);
     await runEffectApplicationRace(browser);
     await runPreparedTransactionUnloadRecovery(browser);
     await runSuccessfulClearPublicationRace(browser);

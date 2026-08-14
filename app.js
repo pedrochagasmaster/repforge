@@ -1,5 +1,6 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",PENDING="repforge_pending_v1",NOTIFY_META="repforge_notify_v1";
 const PENDING_PREFIX=`${PENDING}:`,DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
+const DRAFT_WRITE_TRANSACTION="draft-write";
 const DB="repforge",STORE="kv";
 function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
@@ -339,15 +340,29 @@ function pendingDraftPostEffectAccepted(effect){
     const after=pendingJournalEffectState(receipt);
     return after.status!=="conflict"&&after.status!=="exact"}
   catch{return false}}
-function pendingDraftSettlementAccepted(effect,transactionId){
-  if(transactionId&&DraftStore.sidecarKeys(transactionId).length)return false;
-  return pendingDraftPostEffectAccepted(effect)}
-function pendingDraftEffectAccepted(effect,checked,transactionId){
+function pendingDraftRelatedState(effect,transactionId,contextFingerprint=null){
+  const pending=DraftStore.related(transactionId,contextFingerprint);
+  const outcome=normalizeDraftEffectOutcome(effect),expectedRaw=outcome.effect?.expectedRaw;
+  const expectedWrites=[],entries=[];
+  for(const entry of pending.entries){
+    if(outcome.status===DRAFT_EFFECT_VALID&&
+      entry.value.transactionId===DRAFT_WRITE_TRANSACTION&&entry.value.raw===expectedRaw)
+      expectedWrites.push(entry);
+    else entries.push(entry)}
+  return{entries,invalid:pending.invalid,expectedWrites}}
+function pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint=null){
+  const related=()=>pendingDraftRelatedState(effect,transactionId,contextFingerprint);
+  let pending=related();
+  if(pending.entries.length||pending.invalid.length)return false;
+  const accepted=pendingDraftPostEffectAccepted(effect);
+  pending=related();
+  return accepted&&!pending.entries.length&&!pending.invalid.length}
+function pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint=null){
   const outcome=normalizeDraftEffectOutcome(effect);
   if(outcome.status===DRAFT_EFFECT_INVALID)return false;
   if(outcome.status===DRAFT_EFFECT_NONE||!draftEffectRequiresCoordination(outcome))return true;
   if(checked.status==="conflict")return false;
-  return pendingDraftSettlementAccepted(effect,transactionId)}
+  return pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint)}
 function readDraftRaw(){
   return DraftStore.readRaw()}
 function consumedDraftClearEffect(expectedRaw){
@@ -393,6 +408,10 @@ function pendingJournalOrder(){
 function draftProgramFingerprint(snapshot){
   return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[]}))}
+function draftContextFingerprint(snapshot){
+  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
+    program:Array.isArray(snapshot?.program)?snapshot.program:[],
+    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"}))}
 function programTransitionPrecondition(snapshot=state){
   return{expectedProgramId:snapshot?.programMeta?.id||null,
     expectedProgramFingerprint:draftProgramFingerprint(snapshot)}}
@@ -439,6 +458,14 @@ const DraftStore={
       a.value.order.writer.localeCompare(b.value.order.writer)||
       a.value.order.seq-b.value.order.seq||a.key.localeCompare(b.key));
     return{entries,invalid}},
+  related(transactionId=null,contextFingerprint=null){
+    const pending=this.pending();
+    const entries=pending.entries.filter(entry=>
+      transactionId!=null&&entry.value.transactionId===transactionId||
+      contextFingerprint!=null&&entry.value.programFingerprint===contextFingerprint);
+    const invalid=transactionId==null?[]:pending.invalid.filter(entry=>
+      entry.key.startsWith(`${DRAFT_PENDING_PREFIX}${transactionId}:`));
+    return{entries,invalid}},
   closingIds(){
     const ids=[];
     try{for(let i=0;i<localStorage.length;i++){
@@ -474,31 +501,51 @@ const DraftStore={
       record.journal.effectOutcome.status===DRAFT_EFFECT_VALID&&
       draftEffectRequiresCoordination(record.journal.effectOutcome));
     return next?{id:next.journal.id}:null},
-  stage(target,raw){
-    if(!target||typeof target.id!=="string"||
+  writeSidecar(transactionId,raw){
+    if(typeof transactionId!=="string"||!transactionId||
       !(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
-    const order=pendingJournalOrder(),key=`${DRAFT_PENDING_PREFIX}${target.id}:${pendingJournalWriterId}`;
-    const value={version:1,transactionId:target.id,writer:pendingJournalWriterId,order,
-      programFingerprint:draftProgramFingerprint(state),raw};
-    try{localStorage.setItem(key,JSON.stringify(value))}
-    catch{return false}
+    const order=pendingJournalOrder(),key=`${DRAFT_PENDING_PREFIX}${transactionId}:${pendingJournalWriterId}`;
+    const value={version:1,transactionId,writer:pendingJournalWriterId,order,
+      programFingerprint:draftContextFingerprint(state),raw};
+    try{
+      const encoded=JSON.stringify(value);
+      localStorage.setItem(key,encoded);
+      return this.decodeSidecar(key,encoded)}
+    catch{return false}},
+  stage(target,raw){
+    if(!target||typeof target.id!=="string")return false;
+    if(!this.writeSidecar(target.id,raw))return false;
     if(!this.transactionOwned(target.id))return this.promote(target.id).settled;
     return true},
   readRaw(){
-    const queued=this.pending().entries.at(-1);
+    const contextFingerprint=draftContextFingerprint(state);
+    const queued=this.pending().entries.filter(entry=>
+      entry.value.programFingerprint===contextFingerprint).at(-1);
     return queued?queued.value.raw:this.readCanonicalRaw()},
   publish(raw){
-    const target=this.writeTarget();
-    return target?this.stage(target,raw):this.publishCanonical(raw)},
+    if(!(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
+    const staged=this.writeSidecar(DRAFT_WRITE_TRANSACTION,raw);
+    if(!staged)return false;
+    const stable=()=>{
+      if(this.writeTarget())return false;
+      const local=readLocalStatus();
+      return local.status==="valid"&&!pendingDraftTransaction(local.parsed)&&
+        draftContextFingerprint(local.parsed)===staged.value.programFingerprint};
+    if(!stable())return true;
+    if(!this.publishCanonical(raw))return false;
+    if(!stable())return true;
+    this.clearSidecar(staged);
+    return true},
   write(raw){return typeof raw==="string"&&this.publish(raw)},
   remove(){return this.publish(null)},
   clearSidecar(entry){
     try{
       if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key)}
     catch{}},
-  promote(transactionId){
-    const pending=this.pending(transactionId),keys=this.sidecarKeys(transactionId);
-    if(!keys.length)return{settled:true,hadWrites:false,raw:undefined};
+  promote(transactionId,contextFingerprint=null){
+    const pending=this.related(transactionId,contextFingerprint);
+    if(!pending.entries.length&&!pending.invalid.length)
+      return{settled:true,hadWrites:false,raw:undefined};
     const latest=pending.entries.at(-1);
     if(latest&&!this.publishCanonical(latest.value.raw))
       return{settled:false,hadWrites:true,raw:latest.value.raw};
@@ -506,9 +553,11 @@ const DraftStore={
     for(const invalid of pending.invalid){
       try{if(localStorage.getItem(invalid.key)===invalid.raw)localStorage.removeItem(invalid.key)}
       catch{}}
-    return{settled:this.sidecarKeys(transactionId).length===0,hadWrites:true,raw:latest?.value.raw}},
-  restoreEffect(transactionId,effect){
-    const promoted=this.promote(transactionId);
+    const remaining=this.related(transactionId,contextFingerprint);
+    return{settled:remaining.entries.length===0&&remaining.invalid.length===0,
+      hadWrites:true,raw:latest?.value.raw}},
+  restoreEffect(transactionId,effect,contextFingerprint=null){
+    const promoted=this.promote(transactionId,contextFingerprint);
     if(!promoted.settled||promoted.hadWrites)return promoted;
     const outcome=normalizeDraftEffectOutcome(effect);
     if(outcome.status!==DRAFT_EFFECT_VALID)return promoted;
@@ -516,10 +565,10 @@ const DraftStore={
     const appliedRaw=receipt.kind==="clear-draft"?null:receipt.replacementRaw;
     if(this.readCanonicalRaw()!==appliedRaw)return promoted;
     return{settled:this.publishCanonical(receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
-  endClose(transactionId){
+  endClose(transactionId,contextFingerprint=null){
     try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
     catch{return{settled:false,hadWrites:false}}
-    return this.promote(transactionId)}
+    return this.promote(transactionId,contextFingerprint)}
 };
 function pendingJournalKeys(){
   const keys=[];
@@ -545,12 +594,21 @@ function decodePendingJournal(key,raw){
     const reconcileSessionIds=normalizeJournalSessionIds(journal.reconcileSessionIds);
     const dayRenames=normalizeJournalDayRenames(journal.dayRenames);
     if(reconcileSessionIds==null||dayRenames==null)return null;
+    let rollback=null;
+    if(Object.prototype.hasOwnProperty.call(journal,"rollback")){
+      if(!isValidStateShape(journal.rollback)||
+        Object.prototype.hasOwnProperty.call(journal.rollback,STORAGE_DRAFT_TXN))return null;
+      rollback=cloneSnapshot(journal.rollback)}
+    else if(Object.prototype.hasOwnProperty.call(journal,"rollbackRevision")){
+      if(!Number.isInteger(journal.rollbackRevision)||journal.rollbackRevision<0)return null;
+      rollback=cloneSnapshot(journal.base);
+      rollback[STORAGE_REV]=journal.rollbackRevision}
     return{key,raw,legacy,order:legacy?null:order,journal:{
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
       expectedProgramFingerprint,reconcileSessionIds,dayRenames,
-      effectOutcome,effect:effectOutcome.effect}}}
+      effectOutcome,effect:effectOutcome.effect,rollback}}}
   catch{return null}}
 function readPendingJournal(){
   const entries=[],invalid=[];
@@ -596,12 +654,35 @@ function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgr
   const raw=JSON.stringify(journal);
   try{localStorage.setItem(key,raw);return decodePendingJournal(key,raw)}
   catch(e){console.warn("pending state journal failed",e);return null}}
+function armPendingJournalRollback(record,snapshot){
+  if(!record||record.legacy||!isValidStateShape(snapshot)||
+    Object.prototype.hasOwnProperty.call(snapshot,STORAGE_DRAFT_TXN))return null;
+  try{
+    if(localStorage.getItem(record.key)!==record.raw)return null;
+    const journal=JSON.parse(record.raw),rollback=cloneSnapshot(snapshot);
+    journal.rollbackRevision=readRevision(rollback);
+    delete journal.rollback;
+    if(!storageSnapshotsEqual(unversionedSnapshot(rollback),record.journal.base))
+      journal.rollback=rollback;
+    const raw=JSON.stringify(journal);
+    localStorage.setItem(record.key,raw);
+    return decodePendingJournal(record.key,raw)}
+  catch(e){console.warn("pending rollback journal failed",e);return null}}
 function clearPendingJournal(record){
   if(!record)return true;
   try{
     const current=localStorage.getItem(record.key);
     if(current===record.raw)localStorage.removeItem(record.key);
     return localStorage.getItem(record.key)!==record.raw}
+  catch{return false}}
+function retainPendingJournal(record){
+  if(!record)return false;
+  try{
+    const current=localStorage.getItem(record.key);
+    if(current===record.raw)return true;
+    if(current!=null)return false;
+    localStorage.setItem(record.key,record.raw);
+    return localStorage.getItem(record.key)===record.raw}
   catch{return false}}
 function clearPendingJournalById(id){
   if(typeof id!=="string"||!id)return;
@@ -647,6 +728,13 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconci
   delete snapshot[STORAGE_DRAFT_TXN];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
   return snapshot}
+function pendingJournalSuccessorMatches(record,head){
+  const journal=record?.journal,rollback=journal?.rollback;
+  if(!journal||!rollback||!head)return false;
+  const candidate=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,rollback,
+    {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,
+      dayRenames:journal.dayRenames});
+  return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
 function preparePendingDraftTransaction(snapshot,previous,effect,id){
   const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
   if(outcome.status!==DRAFT_EFFECT_VALID||!draftEffectRequiresCoordination(outcome))return prepared;
@@ -666,29 +754,55 @@ function rejectedDraftTransactionSnapshot(snapshot){
   delete rollback[STORAGE_DRAFT_TXN];
   rollback[STORAGE_REV]=readRevision(snapshot)+1;
   return rollback}
-function settlePendingDraftRecord(record,{transactionId=record?.journal?.id||null,effect=null,restoreEffect=false}={}){
+function settlePendingDraftSidecars(transactionId,effect,restoreEffect,contextFingerprint){
+  if(restoreEffect)return DraftStore.restoreEffect(transactionId,effect,contextFingerprint);
+  let pending=pendingDraftRelatedState(effect,transactionId,contextFingerprint);
+  for(const entry of pending.expectedWrites)DraftStore.clearSidecar(entry);
+  pending=pendingDraftRelatedState(effect,transactionId,contextFingerprint);
+  if(pending.expectedWrites.length)
+    return{settled:false,hadWrites:false,conflict:false};
+  const promoted=DraftStore.promote(transactionId,contextFingerprint);
+  return Object.assign({},promoted,{conflict:promoted.hadWrites})}
+function settlePendingDraftRecord(record,{transactionId=record?.journal?.id||null,effect=null,
+  restoreEffect=false,allowWrites=false,contextFingerprint=null}={}){
   if(!transactionId){
     return{settled:clearPendingJournal(record),hadWrites:false}}
-  const first=restoreEffect?DraftStore.restoreEffect(transactionId,effect):DraftStore.promote(transactionId);
-  if(!first.settled)return{settled:false,hadWrites:first.hadWrites};
+  const settle=()=>settlePendingDraftSidecars(
+    transactionId,effect,restoreEffect,contextFingerprint);
+  const blocked=result=>{
+    const conflict=!restoreEffect&&!allowWrites&&!!result.conflict;
+    return Object.assign({},result,{settled:false,conflict,
+      recordRetained:conflict?retainPendingJournal(record):undefined})};
+  const first=settle();
+  if(!first.settled||!restoreEffect&&!allowWrites&&first.conflict)return blocked(first);
   const cleared=clearPendingJournal(record);
-  const second=DraftStore.promote(transactionId);
-  if(!cleared||!second.settled)
-    return{settled:false,hadWrites:first.hadWrites||second.hadWrites};
-  const ended=DraftStore.endClose(transactionId);
-  const final=DraftStore.promote(transactionId);
-  return{settled:ended.settled&&final.settled,
-    hadWrites:first.hadWrites||second.hadWrites||ended.hadWrites||final.hadWrites}}
+  const second=settle();
+  if(!cleared||!second.settled||!restoreEffect&&!allowWrites&&second.conflict)
+    return blocked({settled:false,hadWrites:first.hadWrites||second.hadWrites,
+      conflict:second.conflict});
+  let ended=true;
+  try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
+  catch{ended=false}
+  const final=settle();
+  if(!ended||!final.settled||!restoreEffect&&!allowWrites&&final.conflict)
+    return blocked({settled:false,
+      hadWrites:first.hadWrites||second.hadWrites||final.hadWrites,
+      conflict:final.conflict});
+  return{settled:true,hadWrites:first.hadWrites||second.hadWrites||final.hadWrites,
+    conflict:false}}
 async function compensatePendingDraftTransaction(snapshot,io,transactionId,effect){
+  const transaction=pendingDraftTransaction(snapshot);
+  const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
   const rollback=rejectedDraftTransactionSnapshot(snapshot);
   const result=rollback?await writeSnapshot(rollback,io):{revision:readRevision(snapshot),localOk:false,idbOk:false};
   const durable=!!(result.localOk||result.idbOk);
-  const restored=durable?DraftStore.restoreEffect(transactionId,effect):{settled:false};
+  const restored=durable?DraftStore.restoreEffect(transactionId,effect,contextFingerprint):{settled:false};
   return{settled:durable&&restored.settled,snapshot:rollback,result}}
 async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io,provisionalResult){
   const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
+  const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
   const applied=applyPendingJournalEffect(effect);
-  if(!pendingDraftEffectAccepted(effect,checked,transactionId)){
+  if(!pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint)){
     const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
     return Object.assign({accepted:false,rejected:true},compensation)}
   if(!transaction)return{accepted:true,rejected:false,snapshot:finalized,result:null};
@@ -698,7 +812,7 @@ async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,i
     if(compensation.settled)return Object.assign({accepted:false,rejected:true},compensation);
     return{accepted:true,rejected:false,deferred:true,settled:false,snapshot:prepared,
       result:provisionalResult,finalizationResult:result,applied}}
-  if(!pendingDraftSettlementAccepted(effect,transactionId)){
+  if(!pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint)){
     const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
     return Object.assign({accepted:false,rejected:true},compensation)}
   return{accepted:true,rejected:false,settled:true,snapshot:finalized,result}}
@@ -708,15 +822,18 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   const effectOutcome=normalizeDraftEffectOutcome(effect);
   const transaction=prepared&&pendingDraftTransaction(prepared);
   const id=transaction?.id||transactionId;
+  const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):
+    record?.journal?draftContextFingerprint(record.journal.liveBase):null;
   const coordinated=draftEffectRequiresCoordination(effectOutcome);
   const beginClose=()=>!id||DraftStore.beginClose(id);
-  const close=restoreEffect=>{
+  const close=(restoreEffect,allowWrites=false)=>{
     if(!id)return{settled:clearPendingJournal(record),hadWrites:false};
     if(!beginClose())return{settled:false,hadWrites:false,closeFailed:true};
     return settlePendingDraftRecord(record,
-      {transactionId:id,effect:effectOutcome,restoreEffect:!!restoreEffect})};
+      {transactionId:id,effect:effectOutcome,restoreEffect:!!restoreEffect,
+        allowWrites:!!allowWrites,contextFingerprint})};
   if(discard){
-    const closed=close(false);
+    const closed=close(false,true);
     return{kind:closed.settled?"discarded":"close-failed",accepted:false,rejected:false,
       settled:closed.settled,closed,snapshot:null,result:null}}
   requireAdapter(io,"executeDraftTransaction");
@@ -725,9 +842,10 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
     return{kind:"close-failed",accepted:false,rejected:false,settled:false,
       closeFailed:true,snapshot:prepared,result:preparedResult};
   const preEffectState=pendingJournalEffectState(effectOutcome);
+  const preEffectPending=pendingDraftRelatedState(effectOutcome,id,contextFingerprint);
   if(writePrepared&&(preEffectState.status==="conflict"||
-    (id&&DraftStore.sidecarKeys(id).length))){
-    const closed=close(false);
+    preEffectPending.entries.length||preEffectPending.invalid.length)){
+    const closed=close(false,true);
     return{kind:"precondition-rejected",accepted:false,rejected:true,settled:closed.settled,
       closed,snapshot:null,result:null}}
   let result=preparedResult;
@@ -737,7 +855,7 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
       let closed=null;
       if(retainRecordOnWriteFailure){
         if(coordinated&&id)DraftStore.endClose(id)}
-      else closed=close(false);
+      else closed=close(false,true);
       return{kind:"write-failed",accepted:false,rejected:false,settled:!!closed?.settled,
         closed,snapshot:prepared,result}}}
   const checked=writePrepared?pendingJournalEffectState(effectOutcome):preEffectState;
@@ -754,12 +872,15 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   if(settlement.deferred)
     return Object.assign({},settlement,{kind:"settlement-deferred"});
   const closed=close(false);
-  if(coordinated&&(closed.hadWrites||!pendingDraftPostEffectAccepted(effectOutcome))){
+  if(coordinated&&(closed.hadWrites||
+    !pendingDraftSettlementAccepted(effectOutcome,id,contextFingerprint))){
     const compensation=await compensatePendingDraftTransaction(prepared,io,id,effectOutcome);
     if(compensation.settled){
       const restored=close(true);
       return Object.assign({kind:"compensated",accepted:false,rejected:true},compensation,
         {settled:restored.settled,closed,restored})}
+    if(closed.conflict)
+      return Object.assign({kind:"rejected",accepted:false,rejected:true},compensation,{closed});
     return{kind:"close-deferred",accepted:true,rejected:false,deferred:true,settled:false,
       snapshot:prepared,result:settlement.result||result,closed}}
   if(!closed.settled)
@@ -781,7 +902,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
       draftConflict:true,effectInvalid:true,effectReason:frozenEffectOutcome.reason});
   const frozenEffect=frozenEffectOutcome.effect;
-  const pendingRecord=io===storageIO
+  let pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
       {replace,expectedProgramId,expectedProgramFingerprint,
         reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
@@ -811,6 +932,14 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
+      const armed=armPendingJournalRollback(pendingRecord,head);
+      if(!armed){
+        await executeDraftTransaction({record:pendingRecord,
+          transactionId:pendingRecord.journal.id,effect:frozenEffectOutcome,discard:true});
+        return{revision:readRevision(head),localOk:false,idbOk:false,
+          draftConflict:true,journalFailed:true}}
+      pendingRecord=armed}
     const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,
       {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames});
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
@@ -5214,6 +5343,20 @@ async function resolveBootReplicas(candidate=null){
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         draftConflict=true;
         continue}
+      if(pendingJournalSuccessorMatches(record,head)){
+        const prepared=preparePendingDraftTransaction(
+          head,journal.rollback,journal.effectOutcome,journal.id);
+        const execution=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,prepared,snapshot:head,io:storageIO,writePrepared:false,
+          preparedResult:{revision:readRevision(head),localOk:true,idbOk:true}});
+        if(!execution.settled||
+          (execution.kind!=="committed"&&execution.kind!=="rejected"&&execution.kind!=="compensated"))
+          return{kind:"unresolved",reason:"pending-transaction",
+            local:readLocalStatus(),idb:await readIdbStatus()};
+        head=execution.snapshot;
+        if(execution.kind!=="committed")draftConflict=true;
+        replayed=true;
+        continue}
       if(journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
@@ -5256,6 +5399,7 @@ async function applyBootDecision(decision){
   prog=new Program(state.program);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
+  DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();
   const migrated=migrateLog();
