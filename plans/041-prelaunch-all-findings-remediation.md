@@ -294,8 +294,8 @@ document.querySelectorAll("[data-i18n-title]").forEach(el => {
 });
 ```
 
-`sw.js:1-9,22` currently uses cache `repforge-v53`; `ASSETS` is broader than
-`SHELL`, and both lists are release invariants:
+At this plan's baseline, `sw.js:1-9,22` used cache `repforge-v53`; `ASSETS` was
+broader than `SHELL`, and both lists remain release invariants:
 
 ```js
 const CACHE = "repforge-v53";
@@ -1275,20 +1275,25 @@ Expected: exit 0 and `FAILED: 0`.
    - `test/schedule.mjs`;
    - `test/i18n.mjs`;
    - `test/persistence.mjs`;
+   - `test/persistence-race.mjs`;
+   - `test/thermonuclear-races.mjs`;
    - `test/notifications.mjs`;
    - `test/recover-gate.mjs`;
    - `test/accessibility.mjs`;
    - `test/focus-mode.mjs`;
+   - `test/program-draft-set-reduction.mjs`;
+   - `test/workout-day-context-discard.mjs`;
    - `test/manual-matrix.mjs --self-test`;
    - the full 52-week profiled integrated simulation.
 2. Increase the job timeout explicitly (start at 30 minutes and adjust only from
    measured green-run evidence). Do not hide failures with `continue-on-error`.
-3. Increment `sw.js` from `repforge-v53` to the next cache version exactly once.
-   Confirm every changed runtime asset remains in `ASSETS`/`SHELL`.
+3. Advance the implementation branch's `sw.js` cache version after the final
+   shell edits (the audited final value is `repforge-v57`). Confirm every
+   changed runtime asset remains in `ASSETS`/`SHELL`.
 4. Extend PWA assertions from a new browser context and one canonical
    `http://127.0.0.1:8000` origin. Unregister workers, delete CacheStorage,
    clear origin storage and the browser HTTP cache, seed canonical training
-   state, register/wait for `repforge-v56`, then:
+   state, register/wait for `repforge-v57`, then:
    - fetch each shell asset online with cache bypass and compare its bytes and
      content type with the matching CacheStorage response;
    - clear the HTTP cache again without deleting CacheStorage, switch the
@@ -1328,10 +1333,14 @@ for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs; do node --check 
 node test/schedule.mjs
 node test/i18n.mjs
 node test/persistence.mjs
+node test/persistence-race.mjs
+node test/thermonuclear-races.mjs
 node test/notifications.mjs
 node test/recover-gate.mjs
 node test/accessibility.mjs
 node test/focus-mode.mjs
+node test/program-draft-set-reduction.mjs
+node test/workout-day-context-discard.mjs
 node test/manual-matrix.mjs --self-test
 REPFORGE_SIM_WEEKS=52 REPFORGE_PROFILE=1 node test/simulation.mjs
 git diff --check
@@ -1441,6 +1450,7 @@ suite blocks release.
 | `test/manual-matrix.mjs` | Deterministic six-cell definitions, resets, fixture emission/seeding, permission modes, and evidence metadata |
 | `test/focus-mode.mjs` | Resumed Focus skip/substitution/draft context |
 | `test/program-draft-set-reduction.mjs` | Program set-count reductions cannot orphan meaningful active-draft sets |
+| `test/workout-day-context-discard.mjs` | Confirmed day switches discard stale session date, note, and bodyweight context while Cancel preserves the draft byte-for-byte |
 | `test/simulation.mjs` | Integrated validation, onboarding/block/template, History, coaching, copy, manifest, PWA |
 | `test/recover-gate.mjs` | Existing recommendation recovery regressions; unchanged behavior |
 | `test/schedule.mjs` | Existing scheduling baseline; unchanged behavior |
