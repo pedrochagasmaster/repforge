@@ -291,6 +291,44 @@ async function main() {
   );
   assert(rirCell, "the well's third column is a numeric RIR field", String(rirCell));
 
+  // ---- 03b — a logged set lands -----------------------------------------------
+  phase("State 03b: a logged set lands with one pass of motion");
+  const setLanded = await page.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const rows = [...card.querySelectorAll(".ledger__row[data-editn]")];
+    const fresh = card.querySelector(".ledger__row.is-fresh");
+    const anim = (el) => (el ? getComputedStyle(el).animationName : "");
+    return {
+      freshRows: card.querySelectorAll(".ledger__row.is-fresh").length,
+      newest: !!fresh && fresh === rows[rows.length - 1],
+      rowAnim: anim(fresh),
+      checkAnim: anim(fresh?.querySelector(".ledger__check")),
+      cueAnim: anim(card.querySelector(".focus-well.is-fresh .focus-cue")),
+      cursetAnim: anim(card.querySelector(".focus-well.is-fresh .curset")),
+      counterAnim: anim(card.querySelector(".focus-ex__setof.is-fresh b")),
+      // A peek is inert scenery: it must never replay the live card's beat.
+      peekFresh: document.querySelectorAll("#focusDeck .is-peek .is-fresh").length,
+    };
+  });
+  assert(setLanded.freshRows === 1 && setLanded.newest,
+    "only the set that just landed is marked fresh", JSON.stringify(setLanded));
+  assert(/setland-row/.test(setLanded.rowAnim) && /setland-check/.test(setLanded.checkAnim),
+    "the new ledger row and its tick animate in", JSON.stringify(setLanded));
+  assert(/setland-arm/.test(setLanded.cueAnim) && /setland-arm/.test(setLanded.cursetAnim),
+    "the well re-arms for the next set", JSON.stringify(setLanded));
+  assert(/setland-count/.test(setLanded.counterAnim),
+    "the set counter ticks over", JSON.stringify(setLanded));
+  assert(setLanded.peekFresh === 0, "the neighbouring peek cards stay still", JSON.stringify(setLanded));
+  // The card is redrawn on every navigation and every draft change, so the beat
+  // has to belong to the render that logged the set and to no other.
+  await page.evaluate(() => window.__repforgeFocus.to(1));
+  await page.evaluate(() => window.__repforgeFocus.to(0));
+  const replayed = await page.evaluate(() => document.querySelectorAll("#workout .is-fresh").length);
+  assert(replayed === 0, "a later render draws the same card at rest", String(replayed));
+  st = await cardState(page);
+  assert(st.ledgerRows === 2 && st.lastRowBottom <= st.ledgerBottom + 1,
+    "the landing animation leaves the ledger where the layout puts it", JSON.stringify(st));
+
   // ---- 07 — rest lives in the workout chrome ---------------------------------
   phase("State 07: active rest timer in the workout chrome");
   // Logging a set arms rest on its own; the header chip is where it reads.
@@ -871,6 +909,20 @@ async function main() {
     };
   });
   assert(/^0s/.test(motion.sheet), "reduced motion drops the sheet animation", JSON.stringify(motion));
+  await logSets(rmPage, 1);
+  const rmLanded = await rmPage.evaluate(() => {
+    const card = document.querySelector("#workout .exercise.is-current");
+    const fresh = card.querySelector(".ledger__row.is-fresh");
+    const anim = (el) => (el ? getComputedStyle(el).animationName : "");
+    return {
+      marked: !!fresh,
+      row: anim(fresh),
+      check: anim(fresh?.querySelector(".ledger__check")),
+      well: anim(card.querySelector(".focus-well.is-fresh .curset")),
+    };
+  });
+  assert(rmLanded.marked && rmLanded.row === "none" && rmLanded.check === "none" && rmLanded.well === "none",
+    "reduced motion logs the set without playing it in", JSON.stringify(rmLanded));
   await rmCtx.close();
 
   // Compact and large viewports.
