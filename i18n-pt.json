@@ -42,6 +42,7 @@
   "focus.rest.start_aria": "Iniciar descanso",
   "focus.rest.running_aria": "Descanso {time} — toque para parar",
   "focus.rest.done_aria": "Descanso concluído — toque para dispensar",
+  "focus.rest.over_aria": "Descanso concluído há {time} — toque para dispensar",
   "focus.deck_aria": "Exercícios — deslize ou use as setas de navegação",
   "nav.program": "Programa",
   "nav.settings": "Ajustes",

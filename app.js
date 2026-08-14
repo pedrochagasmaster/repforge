@@ -2628,18 +2628,21 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar for List, and the chip in the
- *  workout header for Focus — where it must never sit over a control. */
-function paintRest(text,done){
+ *  workout header for Focus — where it must never sit over a control.
+ *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
+function paintRest(text,done,over=0){
   const b=$("#restBar");
   if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
-    b.classList.toggle("is-done",!!done)}
+    b.classList.toggle("is-done",!!done);
+    b.classList.toggle("is-over",over>0)}
   const chip=$("#woRest");if(!chip)return;
   const el=chip.querySelector(".wo-rest__time");if(el)el.textContent=text;
   chip.classList.toggle("is-done",!!done);
+  chip.classList.toggle("is-over",over>0);
   const running=chip.classList.contains("is-running");
-  chip.setAttribute("aria-label",running
-    ?t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text})
-    :t("focus.rest.start_aria"))}
+  if(!running)chip.setAttribute("aria-label",t("focus.rest.start_aria"));
+  else if(over>0)chip.setAttribute("aria-label",t("focus.rest.over_aria",{time:fmtClock(over)}));
+  else chip.setAttribute("aria-label",t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text}))}
 /** Show or hide the header chip, and keep the floating bar out of Focus. */
 function updateRestChrome(){
   const focus=workoutActive&&logMode==="focus";
@@ -2658,9 +2661,9 @@ function updateRestChrome(){
       hint.textContent=t("tour.rest_preview_hint");hint.hidden=false}
     else{
       const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
-      if(!restEnd){chip.classList.remove("is-done");
+      if(!restEnd){chip.classList.remove("is-done","is-over");
         chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
-    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done")}
+    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restAnnounced=false;
@@ -2668,22 +2671,31 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
+/** Past the bell the clock keeps running as a negative count-up, so a glance
+ *  says how long the set has been waiting. It stops climbing after an hour —
+ *  by then the number has stopped meaning anything. */
+const REST_OVERTIME_MAX=60*60;
+function restOvertimeSec(){return restEnd?Math.round((Date.now()-restEnd)/1000):0}
+/** One-shot side effects at zero: the live-region line, buzz, or OS notice. */
+function ringRest(){
+  announceRestDone();
+  if(restNotified)return;
+  restNotified=true;
+  if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
+  if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
+  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"})}
 function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
-  if(left<=0){
-    paintRest("0:00",true);clearInterval(restTick);restTick=null;
-    announceRestDone();
-    if(restNotified)return;
-    restNotified=true;
-    if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
-    if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
-    else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"});
-    return}
-  paintRest(fmtClock(left),false)}
+  if(left>0){paintRest(fmtClock(left),false);return}
+  const over=Math.min(-left,REST_OVERTIME_MAX);
+  paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over);
+  if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
+  ringRest()}
+function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
-  clearInterval(restTick);restTick=setInterval(tickRest,250)}
+  armRestTick()}
 window.__repforgeRest={
   expire(){
     if(!restEnd)return false;
@@ -2694,9 +2706,10 @@ window.__repforgeRest={
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
   if(restEnd&&Date.now()>=restEnd){
-    paintRest("0:00",true);
-    if(restTick){clearInterval(restTick);restTick=null}
-    announceRestDone();
+    // Background throttling freezes the tick; repaint from the clock, then let
+    // the count-up carry on unless it has already run out its overtime.
+    tickRest();
+    if(!restTick&&restOvertimeSec()<REST_OVERTIME_MAX)armRestTick();
   }
   reconcileNotifyPermission();
   paintNotifyControls();

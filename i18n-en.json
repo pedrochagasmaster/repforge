@@ -42,6 +42,7 @@
   "focus.rest.start_aria": "Start rest timer",
   "focus.rest.running_aria": "Rest {time} — tap to stop",
   "focus.rest.done_aria": "Rest finished — tap to dismiss",
+  "focus.rest.over_aria": "Rest finished {time} ago — tap to dismiss",
   "focus.deck_aria": "Exercises — swipe or use the navigation arrows",
   "nav.program": "Program",
   "nav.settings": "Settings",
