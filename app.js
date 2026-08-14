@@ -942,7 +942,8 @@ function requestWorkoutDay(nextDay){
       if(raw==null){try{localStorage.removeItem(DRAFT)}catch{}}
       else try{localStorage.setItem(DRAFT,raw)}catch{}
       return false}
-    clearDraft()}
+    clearDraft();
+    resetSessionContextFields()}
   day=nextDay;
   contextTouched.day=true;
   saveDraft({fromDom:false});

@@ -86,10 +86,12 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/focus-mode.mjs
 
-      - name: Program draft guards
+      - name: Workout draft guards
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: node test/program-draft-set-reduction.mjs
+        run: |
+          node test/program-draft-set-reduction.mjs
+          node test/workout-day-context-discard.mjs
 
       - name: Manual-matrix helper
         run: node test/manual-matrix.mjs --self-test
