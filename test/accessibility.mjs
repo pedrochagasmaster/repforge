@@ -1086,16 +1086,36 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   const toastSeq = await page.evaluate(async () => {
     const live = document.querySelector("#toast");
-    const seen = [];
-    const mo = new MutationObserver(() => {
-      const text = live.textContent;
-      if (text) seen.push(text);
+    const afterFrames = (count = 4) =>
+      new Promise((resolve) => {
+        const next = () => (--count > 0 ? requestAnimationFrame(next) : resolve());
+        requestAnimationFrame(next);
+      });
+    const capture = async (invoke) => {
+      const seen = [];
+      const mo = new MutationObserver((records) => {
+        for (const record of records) {
+          if (record.type === "characterData") seen.push(record.target.data);
+          else seen.push([...record.addedNodes].map((node) => node.textContent).join(""));
+        }
+      });
+      mo.observe(live, { childList: true, characterData: true, subtree: true });
+      invoke();
+      await afterFrames();
+      mo.disconnect();
+      return { seen, final: live.textContent };
+    };
+    live.textContent = "";
+    const repeated = await capture(() => {
+      toast("alpha");
+      toast("alpha");
     });
-    mo.observe(live, { childList: true, characterData: true, subtree: true });
-    toast("alpha");
-    await new Promise((r) => setTimeout(r, 50));
-    toast("alpha");
-    await new Promise((r) => setTimeout(r, 80));
+    live.textContent = "";
+    const rapid = await capture(() => {
+      toast("alpha");
+      toast("alpha");
+      toast("beta");
+    });
     const polite = { role: live.getAttribute("role"), live: live.getAttribute("aria-live"), atomic: live.getAttribute("aria-atomic") };
     const raw = JSON.parse(localStorage.getItem("repforge_v1"));
     await window.__repforgeStorage.writeWithAdapter(raw, {
@@ -1106,20 +1126,30 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
         throw new Error("fail idb");
       },
     });
-    await new Promise((r) => setTimeout(r, 80));
+    await afterFrames();
     const assertive = { role: live.getAttribute("role"), live: live.getAttribute("aria-live") };
     toast("beta");
-    await new Promise((r) => setTimeout(r, 80));
+    await afterFrames();
     const restored = { role: live.getAttribute("role"), live: live.getAttribute("aria-live") };
-    mo.disconnect();
-    return { seen, polite, assertive, restored };
+    return { repeated, rapid, polite, assertive, restored };
   });
   assert(
     toastSeq.polite.role === "status" && toastSeq.polite.live === "polite" && toastSeq.polite.atomic === "true",
     "toast is an atomic polite status region",
     JSON.stringify(toastSeq.polite)
   );
-  assert(toastSeq.seen.filter((x) => x === "alpha").length >= 2, "new and repeated-identical toast text appears in mutation-observed order", JSON.stringify(toastSeq.seen));
+  assert(
+    JSON.stringify(toastSeq.repeated.seen) === JSON.stringify(["alpha", "", "alpha"]) &&
+      toastSeq.repeated.final === "alpha",
+    "immediate repeated-identical toast is cleared and re-announced in exact order",
+    JSON.stringify(toastSeq.repeated)
+  );
+  assert(
+    JSON.stringify(toastSeq.rapid.seen) === JSON.stringify(["alpha", "", "beta"]) &&
+      toastSeq.rapid.final === "beta",
+    "newer rapid toast cancels stale identical-message work and remains final",
+    JSON.stringify(toastSeq.rapid)
+  );
   assert(toastSeq.assertive.role === "alert" && toastSeq.assertive.live === "assertive", "simulated both-store failure uses the assertive alert path", JSON.stringify(toastSeq.assertive));
   assert(toastSeq.restored.role === "status" && toastSeq.restored.live === "polite", "next routine toast restores polite semantics", JSON.stringify(toastSeq.restored));
   await context.close();

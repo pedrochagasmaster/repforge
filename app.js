@@ -270,16 +270,23 @@ const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
 };
 function syncLang(){if(!I18N)return;I18N.setLang(state?.settings?.lang||I18N.detectLang());applyI18n()}
 function announce(msg,{assertive=false}={}){
+  const generation=announce._generation=(announce._generation||0)+1;
   const live=$("#toast");if(!live)return;
   live.setAttribute("role",assertive?"alert":"status");
   live.setAttribute("aria-live",assertive?"assertive":"polite");
   live.setAttribute("aria-atomic","true");
   live.classList.remove("hidden");
-  const write=()=>{live.textContent=msg;
+  clearTimeout(announce._t);
+  const write=()=>{
+    live.textContent=msg;
     clearTimeout(announce._t);announce._t=setTimeout(()=>live.classList.add("hidden"),2400)};
   if(live.textContent===msg){
     live.textContent="";
-    requestAnimationFrame(()=>requestAnimationFrame(write))}
+    requestAnimationFrame(()=>{
+      if(generation!==announce._generation)return;
+      requestAnimationFrame(()=>{
+        if(generation!==announce._generation)return;
+        write()})})}
   else write()}
 const toast=(m,opts)=>announce(m,opts||{});
 let activeModal=null;
