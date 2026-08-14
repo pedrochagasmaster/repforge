@@ -4145,9 +4145,11 @@ function closeSessionSummary(opts={}){
   if(opts.nav)navTo(opts.nav);
   else render();
   // The control that opened this is gone with the workout, so focus lands on
-  // the one thing Today asks for next rather than falling back to the body.
-  if(!opts.nav){const cta=$("#startWorkout");
-    if(canTakeFocus(cta)){try{cta.focus({preventScroll:true})}catch{}}}}
+  // whatever Today now leads with rather than falling back to the body. Saving
+  // the day's session swaps the start CTA for the recap, so the target is read
+  // off the rendered dashboard instead of assumed to be the CTA.
+  if(!opts.nav){const next=resolveReturnFocus(todayPrimaryControl);
+    if(next){try{next.focus({preventScroll:true})}catch{}}}}
 window.__repforgeSessionSummary={
   open:openSessionSummary,close:closeSessionSummary,
   build:buildSessionSummary,current:()=>sessionSummaryCurrent};
