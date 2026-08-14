@@ -26,7 +26,18 @@
   --cta-ink:#FFFFFF;
   --danger:#C93A2B;
   --radius:14px;
-  --nav:72px;
+  /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
+     safe area, inset --dock-inset from each edge. --nav stays the single
+     "space the dock claims at the bottom" token every other floating element
+     (rest bar, toast, tour, FAB) already measures itself against. */
+  --dock-h:62px;
+  --dock-gap:10px;
+  --dock-inset:14px;
+  --nav:calc(var(--dock-h) + var(--dock-gap));
+  --dock-glass:rgba(250,248,245,.8);
+  --dock-edge:rgba(27,26,23,.10);
+  --dock-sheen:rgba(255,255,255,.7);
+  --dock-pill:rgba(255,255,255,.82);
   --maxw:560px;
 
   --display:"Plex Sans",system-ui,sans-serif;
@@ -1215,22 +1226,73 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-footer{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid var(--rule);margin-top:8px}
 .program-footer__link{color:var(--accent-deep);background:none;border:0;cursor:pointer;font-size:15px;padding:8px 0}
 
-/* ---- Bottom nav ---- */
+/* ---- Bottom nav — floating glass dock ----
+   A capsule that hovers over the page rather than capping it, so the content
+   stays visible (blurred) underneath: the edge highlight and the drop shadow
+   are what read as glass, and the blur is what keeps the labels legible over
+   whatever scrolls behind. Content still stops at the dock's top edge —
+   body's padding-bottom reserves --nav — so nothing important sits under it. */
 nav{
-  position:fixed;left:0;right:0;bottom:0;z-index:25;
-  height:calc(var(--nav) + env(safe-area-inset-bottom));
+  position:fixed;z-index:25;
+  left:50%;transform:translateX(-50%);
+  bottom:calc(var(--dock-gap) + env(safe-area-inset-bottom));
+  width:min(
+    calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 2*var(--dock-inset)),
+    var(--maxw)
+  );
+  height:var(--dock-h);
   display:grid;grid-template-columns:repeat(4,1fr);
-  padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));gap:2px;
-  background:rgba(244,242,239,.92);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--rule);
+  padding:6px;gap:2px;
+  border:1px solid var(--dock-edge);border-radius:calc(var(--dock-h)/2);
+  background:var(--dock-glass);
+  backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 var(--dock-sheen),
+    inset 0 -1px 0 rgba(27,26,23,.05),
+    0 10px 30px rgba(27,26,23,.13),
+    0 2px 8px rgba(27,26,23,.07);
+}
+/* Without backdrop-filter the panel is a plain translucent sheet and the page
+   shows through sharp, so pay for legibility with opacity instead. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  nav{--dock-glass:rgba(250,248,245,.97)}
 }
 nav button{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  background:transparent;border:0;color:var(--ink-soft);cursor:pointer;border-radius:12px;
+  background:transparent;border:0;color:var(--ink-soft);cursor:pointer;
+  border-radius:calc(var(--dock-h)/2 - 6px);
   font-weight:500;letter-spacing:0;font-size:11px;text-transform:none;
-  transition:color .2s ease;min-height:44px;
+  transition:color .2s ease,transform .18s ease;min-height:44px;
 }
-nav button.active{color:var(--accent-deep)}
+nav button:active{transform:scale(.93)}
+nav button:focus-visible{outline-offset:-3px}
+/* The selected tab sits in a lighter lens. This one is painted on the button
+   itself and is the fallback: where :has can name the live tab, the block below
+   swaps it for a single pill that slides between the four. */
+nav button.active{
+  color:var(--accent-deep);
+  background:var(--dock-pill);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 1px 3px rgba(27,26,23,.08);
+}
+@supports selector(:has(*)){
+  nav button.active{background:transparent;box-shadow:none}
+  nav::before{
+    content:"";position:absolute;z-index:-1;
+    top:6px;bottom:6px;left:6px;
+    /* One of four columns of the padding box, gaps discounted. */
+    width:calc((100% - 12px - 6px)/4);
+    /* A step is one column plus one gap, and 100% here is the pill's own width. */
+    transform:translateX(calc(var(--dock-i,0) * (100% + 2px)));
+    border-radius:calc(var(--dock-h)/2 - 6px);
+    background:var(--dock-pill);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 1px 3px rgba(27,26,23,.09);
+    transition:transform .38s cubic-bezier(.32,.72,0,1);
+  }
+  nav:has(button:nth-child(1).active){--dock-i:0}
+  nav:has(button:nth-child(2).active){--dock-i:1}
+  nav:has(button:nth-child(3).active){--dock-i:2}
+  nav:has(button:nth-child(4).active){--dock-i:3}
+}
 .nav__icon{width:22px;height:22px;background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}
 nav button.active .nav__icon{background:var(--accent)}
@@ -1679,8 +1741,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 @media (min-width:680px){
   .metrics,.statrow--4,.statband--4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .page-title,h2{font-size:32px}
-  nav{width:min(100%,var(--maxw));left:50%;transform:translateX(-50%);
-    border-radius:18px 18px 0 0;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 }
 @media (max-width:360px){
   /* A 288px row cannot hold the set action, a three-part load control, reps,
