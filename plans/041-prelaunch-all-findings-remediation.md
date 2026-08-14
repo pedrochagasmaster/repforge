@@ -486,11 +486,15 @@ Implement a storage-only revision without wrapping the existing state shape:
    awaits that absorbing tail. Clone each snapshot before queueing so later
    `state` mutations cannot alter an earlier write. Before queueing a real
    browser write, synchronously store its base/live/proposal intent without a
-   revision under `repforge_pending_v1`; this is unload safety, not a third
-   authoritative replica. Under the origin-scoped Web Lock, reread both durable
-   replicas, rebase the intent onto the selected head, and only then allocate
-   one new revision. Clear the matching journal when the operation settles;
-   boot rereads/repairs under the same lock and replays a surviving journal
+   revision as an immutable, uniquely keyed `repforge_pending_v1:<uuid>` entry;
+   this is an ordered unload-safety journal, not a third authoritative replica.
+   A later enqueue must never overwrite an earlier entry. Under the
+   origin-scoped Web Lock, reread both durable replicas, rebase intents in
+   deterministic order onto the selected head, and only then allocate each new
+   revision. Remove an entry inside the lock only after acceptance or a proven
+   stale transition identity; total failure retains that entry and its ordered
+   tail. Boot rereads/repairs under the same lock, migrates an old un-suffixed
+   `repforge_pending_v1` entry first, and replays all surviving valid entries
    before initializing the app. Make `save()`/`persist()` return the individual
    result promise containing `{ revision, localOk, idbOk }` so transactional
    callers can distinguish one accepted replica from total failure.
@@ -506,10 +510,12 @@ Implement a storage-only revision without wrapping the existing state shape:
    and closes the chooser only after acceptance; Merge appends unique sessions
    only after acceptance. Total failure leaves live state/draft/chooser intact,
    shows no success, and permits retry.
-9. Keep the unversioned localStorage write-ahead journal synchronous; never
-   publish a revisioned `repforge_v1` snapshot before the lock, because a stale
-   tab could make it outrank newer IndexedDB data. Track each authoritative
-   store's latest write result separately. When only one store accepts a write,
+9. Keep every unversioned localStorage write-ahead entry synchronous and
+   immutable; never use a shared read/append/write array or publish a revisioned
+   `repforge_v1` snapshot before the lock, because cross-tab writers can race and
+   a stale tab could overwrite another intent or outrank newer IndexedDB data.
+   Track each authoritative store's latest write result separately. When only
+   one store accepts a write,
    keep the data but expose a persistent degraded-storage line in Settings and
    one localized toast; when both fail, use the destructive storage error
    treatment. A later successful write to both stores clears the degraded
@@ -554,6 +560,12 @@ Create `test/persistence.mjs`, following the result/`assert` style of
 - an IndexedDB-only accepted workout survives repeated Settings writes from a
   stale tab, and the unversioned journal replays once after an interrupted
   write without becoming an authoritative revision;
+- Finish and Settings queued behind one lock, followed by writer unload, retain
+  two distinct entries that replay in order and drain without losing either
+  intent;
+- a boot queued immediately behind an accepting writer cannot replay that
+  writer's not-yet-cleaned entry; an accepted replay followed by total failure
+  returns the accepted head while retaining only the failed ordered tail;
 - boot repair that waits behind a newer locked write rereads the replicas and
   cannot roll them back;
 - same-page workout/Settings, cross-tab Settings, destructive reset, and

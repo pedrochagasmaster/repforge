@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Deterministic production-path repros for four cross-tab persistence races.
+ * Deterministic production-path repros for seven cross-tab persistence races.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
@@ -116,7 +116,12 @@ async function writeReplicas(page, { local, idb, clearDraft = true }) {
       else localStorage.setItem(key, JSON.stringify(local));
       if (clearDraft) {
         localStorage.removeItem(draftKey);
-        localStorage.removeItem(pendingKey);
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+          const storageKey = localStorage.key(i);
+          if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
+            localStorage.removeItem(storageKey);
+          }
+        }
       }
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
@@ -185,13 +190,23 @@ async function readBoth(page) {
       } catch {
         draft = { __invalid: true };
       }
-      const pendingRaw = localStorage.getItem(pendingKey);
-      let pending = null;
-      try {
-        pending = pendingRaw == null ? null : JSON.parse(pendingRaw);
-      } catch {
-        pending = { __invalid: true };
+      const pendingItems = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const storageKey = localStorage.key(i);
+        if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
+          pendingItems.push({ key: storageKey, raw: localStorage.getItem(storageKey) });
+        }
       }
+      pendingItems.sort((a, b) => a.key.localeCompare(b.key));
+      const pendingRaw = pendingItems.length ? pendingItems.map((item) => item.raw).join("\n") : null;
+      const parsedPending = pendingItems.map((item) => {
+        try {
+          return { key: item.key, value: JSON.parse(item.raw) };
+        } catch {
+          return { key: item.key, value: { __invalid: true } };
+        }
+      });
+      const pending = parsedPending.length === 1 ? parsedPending[0].value : parsedPending;
       return { local, idb, draftRaw, draft, pendingRaw, pending };
     },
     { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE }
@@ -260,8 +275,74 @@ async function releaseStorageLock(page) {
   });
 }
 
+async function scenarioUnloadWithTwoPendingIntents(browser) {
+  console.log("\n1. Unload with Finish and Settings queued behind the real lock");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const page = await openApp(context);
+    const rev60 = fixture(60);
+    await writeReplicas(page, { local: rev60, idb: rev60 });
+    await reloadApp(page);
+    const locker = await openApp(context);
+
+    await enterWorkout(page);
+    await fillSet(page, 1, { load: 72.5, reps: 9, rir: 1 });
+    await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
+    await holdStorageLock(locker);
+
+    await page.evaluate(() => {
+      window.__auditPendingFinish = window.__repforgeSaveWorkout();
+    });
+    await waitForPendingStorageLocks(locker, 1);
+    await page.evaluate(() => {
+      window.__repforgeShowSettings();
+      document.querySelector("#jumpPct").value = "3.75";
+      document.querySelector("#saveSettings").click();
+    });
+
+    const whileBlocked = await readBoth(page);
+    check(
+      whileBlocked.pendingRaw !== null &&
+        !whileBlocked.pendingRaw.includes("_storageRevision") &&
+        whileBlocked.draftRaw !== null,
+      "precondition: synchronous pending data and the workout draft exist before either write gets the lock",
+      { replicas: summary(whileBlocked), pending: whileBlocked.pending }
+    );
+
+    await page.close();
+    await releaseStorageLock(locker);
+
+    const recovered = await openApp(context);
+    await recovered.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readBoth(recovered);
+    const workoutSurvived =
+      final.local?.log?.some((row) => row.exerciseId === "audit-press" && row.load === 72.5 && row.reps === 9) &&
+      final.idb?.log?.some((row) => row.exerciseId === "audit-press" && row.load === 72.5 && row.reps === 9);
+    const settingsSurvived =
+      final.local?.settings?.jumpPct === 3.75 && final.idb?.settings?.jumpPct === 3.75;
+
+    check(
+      settingsSurvived,
+      "later queued Settings intent replays after the writer unloads",
+      { replicas: summary(final) }
+    );
+    check(
+      workoutSurvived,
+      "earlier accepted Finish intent also replays after the writer unloads",
+      { replicas: summary(final), draft: final.draft }
+    );
+    check(
+      final.pendingRaw === null,
+      "successful boot replay drains the pending intents",
+      { replicas: summary(final), pending: final.pending }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function scenarioIdbOnlyThenStaleSettings(browser) {
-  console.log("\n1. IDB-only workout followed by two stale Settings saves");
+  console.log("\n2. IDB-only workout followed by two stale Settings saves");
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const writer = await openApp(context);
@@ -369,7 +450,7 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
 }
 
 async function scenarioBootHealRollback(browser) {
-  console.log("\n2. Boot repair re-reads the durable head after waiting on the real lock");
+  console.log("\n3. Boot repair re-reads the durable head after waiting on the real lock");
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const setup = await openApp(context);
@@ -440,7 +521,7 @@ async function scenarioBootHealRollback(browser) {
 }
 
 async function scenarioFinishClearsNewerSet(browser) {
-  console.log("\n3. Set 2 entered while Finish waits on the real Web Lock");
+  console.log("\n4. Set 2 entered while Finish waits on the real Web Lock");
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const page = await openApp(context);
@@ -521,7 +602,7 @@ async function scenarioFinishClearsNewerSet(browser) {
 }
 
 async function scenarioDoubleBlockCompletion(browser) {
-  console.log("\n4. Two tabs complete the same old block with different strategies");
+  console.log("\n5. Two tabs complete the same old block with different strategies");
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const first = await openApp(context);
@@ -530,6 +611,37 @@ async function scenarioDoubleBlockCompletion(browser) {
     await reloadApp(first);
     const second = await openApp(context);
     const locker = await openApp(context);
+    const survivors = await locker.evaluate(
+      ({ pendingKey, snapshot }) => {
+        const clean = JSON.parse(JSON.stringify(snapshot));
+        delete clean._storageRevision;
+        const legacy = {
+          id: "audit-legacy-survivor",
+          base: clean,
+          liveBase: clean,
+          proposal: clean,
+          replace: false,
+          expectedProgramId: null,
+        };
+        const v2 = {
+          version: 2,
+          id: "audit-v2-survivor",
+          order: { at: 1, writer: "audit-survivor", seq: 1 },
+          base: clean,
+          liveBase: clean,
+          proposal: clean,
+          replace: false,
+          expectedProgramId: null,
+        };
+        const legacyRaw = JSON.stringify(legacy);
+        const v2Key = `${pendingKey}:${v2.id}`;
+        const v2Raw = JSON.stringify(v2);
+        localStorage.setItem(pendingKey, legacyRaw);
+        localStorage.setItem(v2Key, v2Raw);
+        return { legacyRaw, v2Key, v2Raw };
+      },
+      { pendingKey: PENDING, snapshot: rev30 }
+    );
 
     await holdStorageLock(locker);
     await first.evaluate((oldId) => {
@@ -554,6 +666,21 @@ async function scenarioDoubleBlockCompletion(browser) {
     const acceptedCount = [firstResult, secondResult].filter(
       (result) => result?.localOk || result?.idbOk
     ).length;
+    const pendingAfter = await locker.evaluate(
+      ({ pendingKey, v2Key }) => {
+        const keys = [];
+        for (let i = 0; i < localStorage.length; i++) {
+          const key = localStorage.key(i);
+          if (key === pendingKey || key?.startsWith(`${pendingKey}:`)) keys.push(key);
+        }
+        return {
+          legacyRaw: localStorage.getItem(pendingKey),
+          v2Raw: localStorage.getItem(v2Key),
+          keys: keys.sort(),
+        };
+      },
+      { pendingKey: PENDING, v2Key: survivors.v2Key }
+    );
 
     check(
       firstResult?.localOk || firstResult?.idbOk,
@@ -569,6 +696,218 @@ async function scenarioDoubleBlockCompletion(browser) {
         final.idb?.programHistory?.filter((entry) => entry.id === rev30.programMeta.id).length === 1,
       "only one strategy can complete a captured old program ID",
       { firstResult, secondResult, acceptedCount, replicas: summary(final) }
+    );
+    check(
+      pendingAfter.legacyRaw === survivors.legacyRaw &&
+        pendingAfter.v2Raw === survivors.v2Raw &&
+        pendingAfter.keys.length === 2 &&
+        pendingAfter.keys.includes(PENDING) &&
+        pendingAfter.keys.includes(survivors.v2Key),
+      "accepted and duplicate cleanup remove only their exact records beside legacy and v2 journals",
+      { survivors, pendingAfter }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenarioAcceptedCleanupOverlappingBoot(browser) {
+  console.log("\n6. Accepted writer releases its lock while another tab boots");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const writer = await openApp(context);
+    const rev70 = fixture(70);
+    await writeReplicas(writer, { local: rev70, idb: rev70 });
+    await reloadApp(writer);
+    const locker = await openApp(context);
+    const before = await readBoth(writer);
+    const beforeRevision = Math.max(
+      before.local?._storageRevision ?? 0,
+      before.idb?._storageRevision ?? 0
+    );
+    await writer.evaluate((lockName) => {
+      const originalRequest = LockManager.prototype.request;
+      let releaseReturnedPromise;
+      const returnedPromiseGate = new Promise((resolve) => {
+        releaseReturnedPromise = resolve;
+      });
+      window.__auditReleaseReturnedLockPromise = releaseReturnedPromise;
+      window.__auditNativeLockReleased = false;
+      window.__auditDelayedStorageRequest = false;
+      LockManager.prototype.request = function (name, ...args) {
+        const released = originalRequest.call(this, name, ...args);
+        if (name !== lockName || window.__auditDelayedStorageRequest) return released;
+        window.__auditDelayedStorageRequest = true;
+        return released.then(async (value) => {
+          window.__auditNativeLockReleased = true;
+          await returnedPromiseGate;
+          return value;
+        });
+      };
+    }, STORAGE_LOCK);
+
+    await holdStorageLock(locker);
+    await writer.evaluate(() => {
+      window.__repforgeShowSettings();
+      document.querySelector("#jumpPct").value = "3.75";
+      document.querySelector("#saveSettings").click();
+    });
+    await waitForPendingStorageLocks(locker, 1);
+    const pending = await readBoth(writer);
+
+    const booting = await context.newPage();
+    await booting.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForPendingStorageLocks(locker, 2);
+
+    await releaseStorageLock(locker);
+    await writer.waitForFunction(() => window.__auditNativeLockReleased === true);
+    await waitForApp(booting);
+    const overlap = await readBoth(booting);
+    await writer.evaluate(() => window.__auditReleaseReturnedLockPromise());
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readBoth(booting);
+
+    check(
+      pending.pendingRaw !== null && pending.pendingRaw.includes('"jumpPct":3.75'),
+      "precondition: the accepted writer has a durable pending intent before it receives the lock",
+      { replicas: summary(pending), pending: pending.pending }
+    );
+    check(
+      overlap.local?._storageRevision === beforeRevision + 1 &&
+        overlap.idb?._storageRevision === beforeRevision + 1 &&
+        final.local?._storageRevision === beforeRevision + 1 &&
+        final.idb?._storageRevision === beforeRevision + 1 &&
+        final.local?.settings?.jumpPct === 3.75 &&
+        final.idb?.settings?.jumpPct === 3.75 &&
+        final.pendingRaw === null,
+      "a boot queued behind an accepted writer cannot replay that writer's intent",
+      {
+        beforeRevision,
+        expectedRevision: beforeRevision + 1,
+        overlap: summary(overlap),
+        final: summary(final),
+        pending: final.pending,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenarioReplayReturnsAcceptedHeadBeforeFailedTail(browser) {
+  console.log("\n7. Ordered boot replay accepts its head before the tail totally fails");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  try {
+    const setup = await openApp(context);
+    const rev80 = fixture(80);
+    await writeReplicas(setup, { local: rev80, idb: rev80 });
+    await reloadApp(setup);
+    await setup.evaluate(() => window.__repforgeStorage.flush());
+    const seeded = await readBoth(setup);
+    const base = seeded.local;
+    const baseRevision = base?._storageRevision ?? 0;
+    const journals = await setup.evaluate(
+      ({ pendingKey, base }) => {
+        const clean = JSON.parse(JSON.stringify(base));
+        delete clean._storageRevision;
+        const firstProposal = JSON.parse(JSON.stringify(clean));
+        firstProposal.settings.jumpPct = 3.75;
+        const secondProposal = JSON.parse(JSON.stringify(firstProposal));
+        secondProposal.settings.minJump = 1.25;
+        const first = {
+          version: 2,
+          id: "audit-replay-head",
+          order: { at: 100, writer: "audit-replay", seq: 1 },
+          base: clean,
+          liveBase: clean,
+          proposal: firstProposal,
+          replace: false,
+          expectedProgramId: null,
+        };
+        const second = {
+          version: 2,
+          id: "audit-replay-tail",
+          order: { at: 101, writer: "audit-replay", seq: 2 },
+          base: clean,
+          liveBase: clean,
+          proposal: secondProposal,
+          replace: false,
+          expectedProgramId: null,
+        };
+        const firstKey = `${pendingKey}:${first.id}`;
+        const secondKey = `${pendingKey}:${second.id}`;
+        localStorage.setItem(firstKey, JSON.stringify(first));
+        localStorage.setItem(secondKey, JSON.stringify(second));
+        return { firstKey, secondKey };
+      },
+      { pendingKey: PENDING, base }
+    );
+
+    const booting = await context.newPage();
+    await booting.addInitScript(
+      ({ key, failRevision }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        Storage.prototype.setItem = function (candidate, value) {
+          if (candidate === key) {
+            try {
+              if (JSON.parse(value)?._storageRevision === failRevision) {
+                throw new Error("audit: reject replay tail in localStorage");
+              }
+            } catch (error) {
+              if (String(error).includes("audit:")) throw error;
+            }
+          }
+          return originalSetItem.call(this, candidate, value);
+        };
+        const originalPut = IDBObjectStore.prototype.put;
+        IDBObjectStore.prototype.put = function (value, candidate) {
+          if (candidate === key && value?._storageRevision === failRevision) {
+            throw new Error("audit: reject replay tail in IndexedDB");
+          }
+          return originalPut.apply(this, arguments);
+        };
+      },
+      { key: KEY, failRevision: baseRevision + 2 }
+    );
+    await booting.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(booting);
+    const final = await readBoth(booting);
+    const live = await booting.evaluate(() => {
+      window.__repforgeShowSettings();
+      return {
+        jumpPct: Number(document.querySelector("#jumpPct")?.value),
+        minJump: Number(document.querySelector("#minJump")?.value),
+      };
+    });
+    const pendingAfter = await booting.evaluate(
+      ({ firstKey, secondKey }) => ({
+        first: localStorage.getItem(firstKey),
+        second: localStorage.getItem(secondKey),
+      }),
+      journals
+    );
+
+    check(
+      final.local?._storageRevision === baseRevision + 1 &&
+        final.idb?._storageRevision === baseRevision + 1 &&
+        final.local?.settings?.jumpPct === 3.75 &&
+        final.idb?.settings?.jumpPct === 3.75 &&
+        final.local?.settings?.minJump === base.settings.minJump &&
+        final.idb?.settings?.minJump === base.settings.minJump &&
+        live.jumpPct === 3.75 &&
+        live.minJump === base.settings.minJump &&
+        pendingAfter.first === null &&
+        pendingAfter.second !== null,
+      "ordered replay returns the accepted head and retains the totally failed tail",
+      {
+        baseRevision,
+        replicas: summary(final),
+        live,
+        pendingAfter: {
+          firstPresent: pendingAfter.first !== null,
+          secondPresent: pendingAfter.second !== null,
+        },
+      }
     );
   } finally {
     await context.close();
@@ -587,10 +926,15 @@ async function runScenario(name, fn) {
 
 const browser = await launchChromium();
 try {
+  await runScenario("unload with two pending intents", () => scenarioUnloadWithTwoPendingIntents(browser));
   await runScenario("IDB-only then stale Settings", () => scenarioIdbOnlyThenStaleSettings(browser));
   await runScenario("boot heal rollback", () => scenarioBootHealRollback(browser));
   await runScenario("Finish clears newer set", () => scenarioFinishClearsNewerSet(browser));
   await runScenario("double block completion", () => scenarioDoubleBlockCompletion(browser));
+  await runScenario("accepted cleanup overlapping boot", () => scenarioAcceptedCleanupOverlappingBoot(browser));
+  await runScenario("accepted replay head before failed tail", () =>
+    scenarioReplayReturnsAcceptedHeadBeforeFailedTail(browser)
+  );
 } finally {
   await browser.close();
 }

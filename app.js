@@ -1,4 +1,5 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",PENDING="repforge_pending_v1",NOTIFY_META="repforge_notify_v1";
+const PENDING_PREFIX=`${PENDING}:`;
 const DB="repforge",STORE="kv";
 function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
@@ -207,28 +208,72 @@ function unversionedSnapshot(snapshot){
   const out=cloneSnapshot(snapshot);
   if(out&&typeof out==="object")delete out[STORAGE_REV];
   return out}
-let pendingJournalSeq=0;
-function readPendingJournal(){
+let pendingJournalSeq=0,pendingJournalClock=0;
+function pendingJournalUuid(){
+  const uuid=globalThis.crypto?.randomUUID?.();
+  if(uuid)return uuid;
+  const words=new Uint32Array(4);
+  if(globalThis.crypto?.getRandomValues){
+    globalThis.crypto.getRandomValues(words);
+    return [...words].map(n=>n.toString(36)).join("-")}
+  return`${Date.now().toString(36)}-${(++pendingJournalSeq).toString(36)}-${Math.random().toString(36).slice(2)}`}
+const pendingJournalWriterId=pendingJournalUuid();
+function pendingJournalOrder(){
+  const clock=Number.isFinite(globalThis.performance?.timeOrigin)&&Number.isFinite(globalThis.performance?.now?.())
+    ?Math.floor((globalThis.performance.timeOrigin+globalThis.performance.now())*1000):Date.now()*1000;
+  const at=Math.max(clock,pendingJournalClock+1);
+  pendingJournalClock=at;
+  return{at,writer:pendingJournalWriterId,seq:++pendingJournalSeq}}
+function pendingJournalKeys(){
+  const keys=[];
+  try{for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key===PENDING||key?.startsWith(PENDING_PREFIX))keys.push(key)}}
+  catch{}
+  return[...new Set(keys)]}
+function decodePendingJournal(key,raw){
   try{
-    const raw=localStorage.getItem(PENDING);
-    if(!raw)return null;
     const journal=JSON.parse(raw);
     if(!journal||typeof journal.id!=="string"||
       !isValidStateShape(journal.base)||!isValidStateShape(journal.liveBase)||!isValidStateShape(journal.proposal))return null;
-    return journal}
+    const legacy=key===PENDING,order=journal.order;
+    if(!legacy&&(key!==PENDING_PREFIX+journal.id||journal.version!==2||
+      !Number.isSafeInteger(order?.at)||typeof order?.writer!=="string"||
+      !Number.isSafeInteger(order?.seq)))return null;
+    return{key,raw,legacy,order:legacy?null:order,journal:{
+      id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
+      proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
+      expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null}}}
   catch{return null}}
+function readPendingJournal(){
+  const entries=[],invalid=[];
+  for(const key of pendingJournalKeys()){
+    let raw;
+    try{raw=localStorage.getItem(key)}catch{continue}
+    if(raw==null)continue;
+    const record=decodePendingJournal(key,raw);
+    if(record)entries.push(record);else invalid.push({key,raw})}
+  entries.sort((a,b)=>{
+    if(a.legacy!==b.legacy)return a.legacy?-1:1;
+    if(a.legacy)return a.journal.id.localeCompare(b.journal.id);
+    return a.order.at-b.order.at||a.order.writer.localeCompare(b.order.writer)||
+      a.order.seq-b.order.seq||a.journal.id.localeCompare(b.journal.id)});
+  return{entries,invalid}}
 function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null}={}){
-  const id=globalThis.crypto?.randomUUID?.()||`pending_${Date.now()}_${++pendingJournalSeq}`;
-  const journal={id,base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
+  const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
+  const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
-  try{localStorage.setItem(PENDING,JSON.stringify(journal));return id}
+  const raw=JSON.stringify(journal);
+  try{localStorage.setItem(key,raw);return{key,raw,journal}}
   catch(e){console.warn("pending state journal failed",e);return null}}
-function clearPendingJournal(id){
-  if(!id)return;
+function clearPendingJournal(record){
+  if(!record)return;
   try{
-    const current=JSON.parse(localStorage.getItem(PENDING)||"null");
-    if(current?.id===id)localStorage.removeItem(PENDING)}
+    if(localStorage.getItem(record.key)===record.raw)localStorage.removeItem(record.key)}
   catch{}}
+function clearAllPendingJournal(){
+  const records=readPendingJournal();
+  for(const record of [...records.entries,...records.invalid])clearPendingJournal(record)}
 function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false}={}){
   const durableHead=cloneSnapshot(head||base);
   const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
@@ -239,7 +284,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal);
-  const pendingId=io===storageIO
+  const pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,{replace,expectedProgramId})
     :null;
   const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
@@ -250,15 +295,17 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         console.warn("storage write blocked by an unresolved concurrent snapshot");
         return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}
       head=refreshed.head||head}
-    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId)
-      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true};
+    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
+      clearPendingJournal(pendingRecord);
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
     const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,{replace});
     const result=await writeSnapshot(snapshot,io);
     if(result.localOk||result.idbOk){
+      clearPendingJournal(pendingRecord);
       persistHead=cloneSnapshot(snapshot);
       applyAcceptedSnapshot(frozenLiveBase,snapshot)}
     return result}));
-  return operation.finally(()=>clearPendingJournal(pendingId))}
+  return operation}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
@@ -4454,7 +4501,7 @@ function presentStorageRecovery(decision){
           try{await idbDel(KEY)}catch{}
           return{localNow:readLocalStatus(),idbNow:await readIdbStatus()}});
         if(localNow.status==="absent"&&idbNow.status==="absent"){
-          try{localStorage.removeItem(PENDING)}catch{}
+          clearAllPendingJournal();
           finish({kind:"first-run"})}
         else{
           decision={kind:"unresolved",reason:"no-valid",local:localNow,idb:idbNow};
@@ -4482,16 +4529,21 @@ async function resolveBootReplicas(candidate=null){
       if(!recoveryChoiceMatches(candidate,decision))return decision;
       decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
         heal:candidate.source==="local"?"idb":"local"}}
-    const head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot);
-    const journal=readPendingJournal();
-    if(journal&&journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId)
-      clearPendingJournal(journal.id);
-    else if(journal){
+    let head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot),replayed=false;
+    const pending=readPendingJournal();
+    for(const invalid of pending.invalid)clearPendingJournal(invalid);
+    for(const record of pending.entries){
+      const journal=record.journal;
+      if(journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId){
+        clearPendingJournal(record);
+        continue}
       const journalHead=head||cloneSnapshot(journal.base);
       const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,{replace:journal.replace});
       const result=await writeSnapshot(snapshot,storageIO);
-      if(result.localOk||result.idbOk)clearPendingJournal(journal.id);
-      return{kind:"chosen",snapshot,source:"pending"}}
+      if(!(result.localOk||result.idbOk))break;
+      clearPendingJournal(record);
+      head=snapshot;replayed=true}
+    if(replayed)return{kind:"chosen",snapshot:head,source:"pending"};
     if(decision.kind==="chosen"&&decision.heal)await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
     return decision})}
 async function applyBootDecision(decision){
