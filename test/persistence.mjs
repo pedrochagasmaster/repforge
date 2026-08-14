@@ -902,6 +902,36 @@ try {
     await idbPut(page, JSON.parse(JSON.stringify(local)));
     await reloadForApp(page);
     const revBeforeReplace = (await readBoth(page)).local?._storageRevision;
+    const beforeInvalidReplace = await readBoth(page);
+    const invalidReplace = await page.evaluate(async () => {
+      const calls = { local: 0, idb: 0 };
+      const io = {
+        writeLocal() { calls.local++; },
+        writeIdb() { calls.idb++; },
+      };
+      try {
+        await window.__repforgeStorage.replaceImport(
+          { settings: {}, programMeta: {}, program: { not: "an array" }, log: [] },
+          io
+        );
+        return { rejected: false, calls };
+      } catch (error) {
+        return { rejected: /invalid repforge backup/i.test(String(error)), calls };
+      }
+    });
+    const afterInvalidReplace = await readBoth(page);
+    assert(
+      invalidReplace.rejected &&
+        invalidReplace.calls.local === 0 &&
+        invalidReplace.calls.idb === 0,
+      "Replace rejects a malformed program before invoking either storage adapter",
+      JSON.stringify(invalidReplace)
+    );
+    assert(
+      JSON.stringify(afterInvalidReplace.local) === JSON.stringify(beforeInvalidReplace.local) &&
+        JSON.stringify(afterInvalidReplace.idb) === JSON.stringify(beforeInvalidReplace.idb),
+      "Rejected malformed Replace leaves both replicas byte-equivalent"
+    );
 
     const incoming = sampleState({
       name: "Incoming999",

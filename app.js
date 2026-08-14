@@ -1107,13 +1107,16 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     blockPromptDismissedId}}
-function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log)){
+function isImportableState(s){return!!(s&&Array.isArray(s.program)&&Array.isArray(s.log))}
+function normalizeLoaded(s){try{if(isImportableState(s)){
   const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
     programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0}}
-function proposalFromImport(incoming){return normalizeLoaded(stripStorageMeta(incoming))}
+function proposalFromImport(incoming){
+  if(!isImportableState(incoming))throw new TypeError("Invalid RepForge backup");
+  return normalizeLoaded(stripStorageMeta(incoming))}
 async function replaceImportedState(incoming,io=storageIO){
   requireAdapter(io,"replaceImportedState");
   const proposal=proposalFromImport(incoming);
@@ -3937,7 +3940,7 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();
+  try{const s=JSON.parse(await f.text());if(!isImportableState(s))throw Error();
     const inSessions=new Set(s.log.map(r=>r.session)).size,inSets=s.log.length;
     const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
     const have=new Set(state.log.map(r=>r.session));

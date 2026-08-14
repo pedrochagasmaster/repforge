@@ -2168,6 +2168,23 @@ async function main() {
     `Toast: "${badToast}"`,
     "Settings → Import non-RepForge JSON file"
   );
+  const malformedProgramPath = join(tmpDir, "bad-program-shape.json");
+  writeFileSync(malformedProgramPath, JSON.stringify({ ...state, program: { not: "an array" } }));
+  await page.setInputFiles("#importJson", malformedProgramPath);
+  await page.waitForTimeout(200);
+  const malformedProgramImport = await page.evaluate(() => ({
+    toast: document.querySelector("#toast")?.textContent || "",
+    chooserOpen: !document.querySelector("#importChoice")?.classList.contains("hidden"),
+    programIsArray: Array.isArray(JSON.parse(localStorage.getItem("repforge_v1") || "null")?.program),
+  }));
+  assert(
+    !malformedProgramImport.chooserOpen &&
+      malformedProgramImport.programIsArray &&
+      /valid|backup/i.test(malformedProgramImport.toast),
+    "Backup import rejects an object-shaped program before offering Replace",
+    JSON.stringify(malformedProgramImport),
+    "Settings → Import backup with program object instead of array"
+  );
 
   // ── Phase 12: All-tier upgrades ──────────────────────────────────
   beginPhase("Phase 12: Progression + UX + hypertrophy upgrades");
