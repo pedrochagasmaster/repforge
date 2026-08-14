@@ -992,6 +992,16 @@ try {
         "programHistory nested program [null]",
         { ...local, programHistory: [{ id: "old-program", program: [null] }] },
       ],
+      [
+        "log rows with object performedName",
+        {
+          ...local,
+          log: [
+            { ...local.log[0], session: "unsafe-a", performedName: {} },
+            { ...local.log[0], session: "unsafe-b", performedName: {} },
+          ],
+        },
+      ],
     ];
     for (const [label, incomingState] of malformedEntityCases) {
       const before = await readBoth(page);

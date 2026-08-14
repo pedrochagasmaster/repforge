@@ -32,10 +32,14 @@ function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isPlainStateObject)}
+function isSafeLogRow(entry){
+  if(!isPlainStateObject(entry))return false;
+  return!Object.prototype.hasOwnProperty.call(entry,"performedName")||
+    entry.performedName==null||typeof entry.performedName==="string"}
 function isValidStateShape(s){
   try{
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
-      !Array.isArray(s.log)||!s.log.every(isPlainStateObject))return false;
+      !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
     return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
@@ -238,15 +242,20 @@ function pendingJournalEffect(effect){
   if(precondition!==DRAFT_PRECONDITION_MATCH_ONLY&&precondition!==DRAFT_PRECONDITION_ABORT_CHANGED&&
     precondition!==DRAFT_PRECONDITION_ABORT_SAME_DAY)return null;
   if(effect.kind==="clear-draft"){
-    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY)return null;
+    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY&&effect.expectedRaw!==null)return null;
     if(effect.expectedRaw!==null&&
       (typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW))return null;
-    if(effect.expectedRaw===null&&precondition!==DRAFT_PRECONDITION_ABORT_CHANGED)return null;
-    return{kind:"clear-draft",expectedRaw:effect.expectedRaw,precondition}}
+    if(effect.expectedRaw===null&&precondition!==DRAFT_PRECONDITION_ABORT_CHANGED&&
+      precondition!==DRAFT_PRECONDITION_ABORT_SAME_DAY)return null;
+    const receipt={kind:"clear-draft",expectedRaw:effect.expectedRaw,precondition};
+    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
+      if(typeof effect.conflictDay!=="string"||!effect.conflictDay||effect.conflictDay.length>200)return null;
+      receipt.conflictDay=effect.conflictDay}
+    return receipt}
   if(effect.kind==="replace-draft"&&typeof effect.replacementRaw==="string"&&
     effect.replacementRaw.length<=PENDING_EFFECT_MAX_RAW){
     if(typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
-    if(precondition===DRAFT_PRECONDITION_ABORT_CHANGED)return null;
+    if(precondition===DRAFT_PRECONDITION_ABORT_CHANGED&&effect.replacementRaw!==effect.expectedRaw)return null;
     const receipt={kind:"replace-draft",expectedRaw:effect.expectedRaw,replacementRaw:effect.replacementRaw,precondition};
     if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
       if(typeof effect.conflictDay!=="string"||!effect.conflictDay||effect.conflictDay.length>200)return null;
@@ -295,7 +304,10 @@ function pendingDraftPostEffectAccepted(effect){
   if(!draftEffectRequiresCoordination(receipt))return true;
   try{
     const currentRaw=localStorage.getItem(DRAFT);
-    if(receipt.kind==="clear-draft")return currentRaw==null;
+    if(receipt.kind==="clear-draft"){
+      if(currentRaw==null)return true;
+      const after=pendingJournalEffectState(receipt);
+      return receipt.precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY&&after.status==="mismatch"}
     if(currentRaw===receipt.replacementRaw)return true;
     const after=pendingJournalEffectState(receipt);
     return after.status!=="conflict"&&after.status!=="exact"}
@@ -313,14 +325,23 @@ function readDraftRaw(){
 function destructiveDraftClearEffect(expectedRaw){
   return pendingJournalEffect({kind:"clear-draft",expectedRaw,
     precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
+function draftPreservationEffect(expectedRaw){
+  if(expectedRaw==null)return destructiveDraftClearEffect(null);
+  return pendingJournalEffect({kind:"replace-draft",expectedRaw,replacementRaw:expectedRaw,
+    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
 function draftDayReplacementEffect(oldDay,newDay){
   try{
     const expectedRaw=localStorage.getItem(DRAFT);
-    if(expectedRaw==null||expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
-    const draft=JSON.parse(expectedRaw);
-    if(!draft||typeof draft!=="object"||Array.isArray(draft)||draft.__day!==oldDay)return null;
-    draft.__day=newDay;
-    return pendingJournalEffect({kind:"replace-draft",expectedRaw,replacementRaw:JSON.stringify(draft),
+    if(expectedRaw==null)return pendingJournalEffect({kind:"clear-draft",expectedRaw:null,
+      precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay});
+    if(expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
+    let replacementRaw=expectedRaw;
+    try{
+      const draft=JSON.parse(expectedRaw);
+      if(draft&&typeof draft==="object"&&!Array.isArray(draft)&&draft.__day===oldDay){
+        draft.__day=newDay;replacementRaw=JSON.stringify(draft)}}
+    catch{}
+    return pendingJournalEffect({kind:"replace-draft",expectedRaw,replacementRaw,
       precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay})}
   catch{return null}}
 let pendingJournalSeq=0,pendingJournalClock=0;
@@ -904,7 +925,7 @@ const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?
 const isWork=r=>!r.warmup;
 const liftKey=x=>x.exerciseId||x.name;
 const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
-const displayName=row=>row.performedName||exerciseLabel(row);
+const displayName=row=>String(row.performedName||exerciseLabel(row)||"");
 // Muscles for a log row: prefer the saved snapshot, else resolve from the live program.
 const rowMuscles=row=>{if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=state.program.find(e=>e.id===row.exerciseId)||state.program.find(e=>e.name===row.name);
@@ -1630,12 +1651,27 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
     startOnboarding("block");
     return Promise.resolve(blockTransitionResult("deferred"))}
   const task=(async()=>{
+    const nextProgram=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
+    let effect=null;
+    if(strategy==="reduce_volume"){
+      const draftRaw=readDraftRaw();
+      let draft={};
+      try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}
+      catch{}
+      const currentById=new Map(cap.oldProgram.map(ex=>[ex.id,ex]));
+      const blocked=nextProgram.some(ex=>{
+        const current=currentById.get(ex.id);
+        return current&&draftHasProgressInRemovedSets(ex.id,ex.sets,current.sets,draft)});
+      effect=draftPreservationEffect(draftRaw);
+      if(blocked||!effect){
+        toast(t("toast.set_count_locked_draft"));
+        return blockTransitionResult("failed",{draftConflict:true})}}
     const proposal=cloneSnapshot(state);
     archiveCapturedBlock(proposal,cap);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
     proposal.programMeta=nextMeta;
-    proposal.program=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
-    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId});
+    proposal.program=nextProgram;
+    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId,effect});
     const kind=persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed";
     const result=blockTransitionResult(kind,persisted);
     if(result.committed){

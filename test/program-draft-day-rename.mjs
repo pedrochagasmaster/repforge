@@ -9,6 +9,7 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const PENDING = "repforge_pending_v1";
+const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -394,7 +395,36 @@ async function fillRaceWorkout(page, load) {
   await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).fill(String(load));
   await page.locator(`[data-k="${EXERCISE_ID}_1_reps"]`).fill("8");
   await page.locator(`[data-k="${EXERCISE_ID}_1_rir"]`).fill("1");
-  await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
+  await page.waitForFunction(
+    ({ draftKey, pendingPrefix, setKey, expectedLoad }) => {
+      const raws = [localStorage.getItem(draftKey)];
+      for (let index = 0; index < localStorage.length; index++) {
+        const key = localStorage.key(index);
+        if (!key?.startsWith(pendingPrefix)) continue;
+        try {
+          raws.push(JSON.parse(localStorage.getItem(key))?.raw ?? null);
+        } catch {}
+      }
+      return raws.some((raw) => {
+        try {
+          const draft = JSON.parse(raw || "null");
+          return (
+            draft?.__day === "Day 1" &&
+            draft?.[`${setKey}_load`] === expectedLoad &&
+            draft?.__touched?.includes(setKey)
+          );
+        } catch {
+          return false;
+        }
+      });
+    },
+    {
+      draftKey: DRAFT,
+      pendingPrefix: DRAFT_PENDING_PREFIX,
+      setKey: SET_KEY,
+      expectedLoad: String(load),
+    }
+  );
 }
 
 async function runAcceptedRename(browser) {
@@ -878,8 +908,147 @@ async function runBootSameDayDraftConflict(browser) {
   }
 }
 
+async function runAbsentDraftConflict(browser) {
+  console.log("\n6. A same-day draft created after an absent-draft rename aborts it");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const writer = await openApp(context);
+    await seedScenario(writer, null);
+    const staleWorkout = await openApp(context);
+    const locker = await openApp(context);
+    const before = await readRuntime(writer);
+    await openProgramEditor(writer);
+    await holdStorageLock(locker);
+    await dispatchRename(writer, "Day 1", "Push Day");
+    await waitForPendingStorageLock(locker);
+    const blocked = await readRuntime(writer);
+    const effect = blocked.pendingEntries[0]?.value?.effect;
+
+    check(
+      blocked.pendingEntries.length === 1 &&
+        effect?.expectedRaw === null &&
+        effect?.precondition === "abort-same-day" &&
+        effect?.conflictDay === "Day 1",
+      "absent-draft rename journals a same-day conflict guard",
+      blocked.pendingEntries.map((entry) => entry.value?.effect)
+    );
+
+    await fillRaceWorkout(staleWorkout, 81.25);
+    await releaseStorageLock(locker);
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(writer);
+
+    check(
+      final.localRaw === before.localRaw &&
+        JSON.stringify(final.idb) === JSON.stringify(before.idb) &&
+        final.draft?.__day === "Day 1" &&
+        final.draft?.[`${SET_KEY}_load`] === "81.25",
+      "new same-day draft aborts the queued rename and remains reachable",
+      {
+        localChanged: final.localRaw !== before.localRaw,
+        idbChanged: JSON.stringify(final.idb) !== JSON.stringify(before.idb),
+        draft: final.draft,
+      }
+    );
+    check(
+      final.pendingEntries.length === 0,
+      "absent-draft conflict drains only the stale rename journal",
+      final.pendingEntries
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runBootAbsentDraftConflict(browser) {
+  console.log("\n7. Boot replay aborts an absent-draft rename for a new same-day draft");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const writer = await openApp(context);
+    await seedScenario(writer, null);
+    const staleWorkout = await openApp(context);
+    await openProgramEditor(writer);
+    const before = await readRuntime(writer);
+    await writer.evaluate(
+      async ({ key, oldDay, nextDay }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        const originalPut = IDBObjectStore.prototype.put;
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === key) throw new Error("audit: reject absent-draft rename local replica");
+          return originalSetItem.apply(this, arguments);
+        };
+        IDBObjectStore.prototype.put = function (_value, candidate) {
+          if (candidate === key) throw new Error("audit: reject absent-draft rename IDB replica");
+          return originalPut.apply(this, arguments);
+        };
+        try {
+          const input = [...document.querySelectorAll('[data-act="renameDay"]')].find(
+            (candidate) => candidate.dataset.day === oldDay
+          );
+          if (!input) throw new Error(`rename input missing for ${oldDay}`);
+          input.value = nextDay;
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          await window.__repforgeStorage.flush();
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+          IDBObjectStore.prototype.put = originalPut;
+        }
+      },
+      { key: KEY, oldDay: "Day 1", nextDay: "Push Day" }
+    );
+    const retained = await readRuntime(writer);
+    const effect = retained.pendingEntries[0]?.value?.effect;
+
+    check(
+      retained.pendingEntries.length === 1 &&
+        effect?.expectedRaw === null &&
+        effect?.precondition === "abort-same-day" &&
+        effect?.conflictDay === "Day 1" &&
+        retained.localRaw === before.localRaw &&
+        JSON.stringify(retained.idb) === JSON.stringify(before.idb),
+      "total failure retains the absent-draft same-day guard without changing replicas",
+      {
+        effect,
+        localChanged: retained.localRaw !== before.localRaw,
+        idbChanged: JSON.stringify(retained.idb) !== JSON.stringify(before.idb),
+      }
+    );
+
+    await fillRaceWorkout(staleWorkout, 83.75);
+    await writer.close();
+    await reloadApp(staleWorkout);
+    const replayed = await readRuntime(staleWorkout);
+
+    check(
+      replayed.localRaw === before.localRaw &&
+        JSON.stringify(replayed.idb) === JSON.stringify(before.idb) &&
+        replayed.draft?.__day === "Day 1" &&
+        replayed.draft?.[`${SET_KEY}_load`] === "83.75",
+      "boot replay aborts the rename and restores the new same-day draft",
+      {
+        localChanged: replayed.localRaw !== before.localRaw,
+        idbChanged: JSON.stringify(replayed.idb) !== JSON.stringify(before.idb),
+        draft: replayed.draft,
+      }
+    );
+    check(
+      replayed.pendingEntries.length === 0,
+      "boot absent-draft conflict drains only the stale rename journal",
+      replayed.pendingEntries
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function runWorkoutThenRenameRace(browser) {
-  console.log("\n6. Workout queued before rename keeps program and log days aligned");
+  console.log("\n8. Workout queued before rename keeps program and log days aligned");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
@@ -960,7 +1129,7 @@ async function runWorkoutThenRenameRace(browser) {
 }
 
 async function runRenameThenWorkoutRace(browser) {
-  console.log("\n7. Rename queued before stale workout keeps program and log days aligned");
+  console.log("\n9. Rename queued before stale workout keeps program and log days aligned");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
@@ -1062,6 +1231,8 @@ async function main() {
     await runScenario("newer draft race", () => runNewerDraftRace(browser));
     await runScenario("same-day draft conflict", () => runSameDayDraftConflict(browser));
     await runScenario("boot same-day draft conflict", () => runBootSameDayDraftConflict(browser));
+    await runScenario("absent-draft conflict", () => runAbsentDraftConflict(browser));
+    await runScenario("boot absent-draft conflict", () => runBootAbsentDraftConflict(browser));
     await runScenario("workout then rename race", () => runWorkoutThenRenameRace(browser));
     await runScenario("rename then workout race", () => runRenameThenWorkoutRace(browser));
   } finally {

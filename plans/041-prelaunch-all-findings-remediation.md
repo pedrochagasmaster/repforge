@@ -1310,12 +1310,12 @@ Expected: exit 0 and `FAILED: 0`.
 2. Increase the job timeout explicitly (start at 30 minutes and adjust only from
    measured green-run evidence). Do not hide failures with `continue-on-error`.
 3. Advance the implementation branch's `sw.js` cache version after the final
-   shell edits (the audited final value is `repforge-v59`). Confirm every
+   shell edits (the audited final value is `repforge-v60`). Confirm every
    changed runtime asset remains in `ASSETS`/`SHELL`.
 4. Extend PWA assertions from a new browser context and one canonical
    `http://127.0.0.1:8000` origin. Unregister workers, delete CacheStorage,
    clear origin storage and the browser HTTP cache, seed canonical training
-   state, register/wait for `repforge-v59`, then:
+   state, register/wait for `repforge-v60`, then:
    - fetch each shell asset online with cache bypass and compare its bytes and
      content type with the matching CacheStorage response;
    - clear the HTTP cache again without deleting CacheStorage, switch the

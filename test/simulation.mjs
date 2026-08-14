@@ -1625,6 +1625,16 @@ async function main() {
         "programHistory nested program [null]",
         { ...exported, programHistory: [{ id: "old-program", program: [null] }] },
       ],
+      [
+        "log rows with object performedName",
+        {
+          ...exported,
+          log: [
+            { session: "unsafe-a", date: "2026-08-14", performedName: {} },
+            { session: "unsafe-b", date: "2026-08-14", performedName: {} },
+          ],
+        },
+      ],
     ];
     for (const [label, malformed] of malformedBackups) {
       const malformedPath = join(tmpDir, `invalid-${label.replace(/[^a-z]+/gi, "-").toLowerCase()}.json`);

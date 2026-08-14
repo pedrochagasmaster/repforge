@@ -358,6 +358,136 @@ async function main() {
         after: afterAllowedReduction.draftRaw,
       }
     );
+
+    await writeFixture(page, fixture());
+    await reloadApp(page);
+    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await fillSet(page, 1, 100, 8, 1);
+    await fillSet(page, 2, 92.5, 10, 2);
+
+    const beforeBlockReduction = await readRuntime(page);
+    const oldProgramId = beforeBlockReduction.local?.programMeta?.id;
+    const blockResult = await page.evaluate(
+      (capturedId) => window.__repforgeCommitNextBlock("reduce_volume", undefined, capturedId),
+      oldProgramId
+    );
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterBlockReduction = await readRuntime(page);
+
+    check(
+      blockResult?.committed === false &&
+        !blockResult?.localOk &&
+        !blockResult?.idbOk &&
+        programSets(afterBlockReduction.local) === 2 &&
+        programSets(afterBlockReduction.idb) === 2,
+      "reduce_volume cannot commit a successor that removes a drafted set",
+      {
+        blockResult,
+        localSets: programSets(afterBlockReduction.local),
+        idbSets: programSets(afterBlockReduction.idb),
+      }
+    );
+    check(
+      JSON.stringify(afterBlockReduction.local) === JSON.stringify(beforeBlockReduction.local) &&
+        JSON.stringify(afterBlockReduction.idb) === JSON.stringify(beforeBlockReduction.idb),
+      "rejected reduce_volume leaves both durable replicas unchanged",
+      {
+        localBefore: beforeBlockReduction.local,
+        localAfter: afterBlockReduction.local,
+        idbBefore: beforeBlockReduction.idb,
+        idbAfter: afterBlockReduction.idb,
+      }
+    );
+    check(
+      afterBlockReduction.draftRaw === beforeBlockReduction.draftRaw,
+      "rejected reduce_volume preserves the exact active draft",
+      {
+        before: beforeBlockReduction.draftRaw,
+        after: afterBlockReduction.draftRaw,
+      }
+    );
+    check(
+      (await page.locator(`[data-k="${EXERCISE_ID}_2_load"]`).count()) === 1,
+      "drafted set 2 remains reachable after rejected reduce_volume"
+    );
+
+    await page.evaluate(() => window.__repforgeSaveWorkout());
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterBlockFinish = await readRuntime(page);
+    const blockRows = (afterBlockFinish.local?.log ?? [])
+      .filter((row) => row.exerciseId === EXERCISE_ID)
+      .sort((a, b) => a.set - b.set);
+    check(
+      blockRows.length === 2 &&
+        blockRows[0]?.set === 1 &&
+        blockRows[1]?.set === 2 &&
+        blockRows[1]?.load === 92.5 &&
+        afterBlockFinish.draftRaw == null,
+      "Finish saves both sets after rejected reduce_volume before clearing the draft",
+      {
+        savedSets: blockRows.map((row) => row.set),
+        savedLoads: blockRows.map((row) => row.load),
+        draftPresent: afterBlockFinish.draftRaw != null,
+      }
+    );
+
+    await writeFixture(page, fixture());
+    await reloadApp(page);
+    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await fillSet(page, 1, 105, 8, 1);
+
+    const beforeSafeBlock = await readRuntime(page);
+    const safeOldProgramId = beforeSafeBlock.local?.programMeta?.id;
+    const safeBlockResult = await page.evaluate(
+      (capturedId) => window.__repforgeCommitNextBlock("reduce_volume", undefined, capturedId),
+      safeOldProgramId
+    );
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterSafeBlock = await readRuntime(page);
+
+    check(
+      safeBlockResult?.committed === true &&
+        safeBlockResult?.localOk &&
+        safeBlockResult?.idbOk &&
+        programSets(afterSafeBlock.local) === 1 &&
+        programSets(afterSafeBlock.idb) === 1,
+      "reduce_volume remains allowed when removed sets have no draft progress",
+      {
+        safeBlockResult,
+        localSets: programSets(afterSafeBlock.local),
+        idbSets: programSets(afterSafeBlock.idb),
+      }
+    );
+    check(
+      afterSafeBlock.draftRaw === beforeSafeBlock.draftRaw &&
+        (await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).inputValue()) === "105",
+      "accepted reduce_volume preserves the exact compatible draft and retained set",
+      {
+        before: beforeSafeBlock.draftRaw,
+        after: afterSafeBlock.draftRaw,
+      }
+    );
+
+    await page.evaluate(() => window.__repforgeSaveWorkout());
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const afterSafeFinish = await readRuntime(page);
+    const safeRows = (afterSafeFinish.local?.log ?? []).filter(
+      (row) => row.exerciseId === EXERCISE_ID
+    );
+    check(
+      safeRows.length === 1 &&
+        safeRows[0]?.set === 1 &&
+        safeRows[0]?.load === 105 &&
+        afterSafeFinish.draftRaw == null,
+      "Finish saves the retained set after accepted compatible reduce_volume",
+      {
+        savedSets: safeRows.map((row) => row.set),
+        savedLoads: safeRows.map((row) => row.load),
+        draftPresent: afterSafeFinish.draftRaw != null,
+      }
+    );
   } finally {
     await browser.close();
   }
