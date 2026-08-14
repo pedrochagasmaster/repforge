@@ -495,10 +495,11 @@ Implement a storage-only revision without wrapping the existing state shape:
    stale transition identity; total failure retains that entry and its ordered
    tail. Boot rereads/repairs under the same lock, migrates an old un-suffixed
    `repforge_pending_v1` entry first, and replays all surviving valid entries
-   before initializing the app. A Finish entry may carry only a bounded
-   `clear-draft` receipt containing the exact captured draft bytes: apply it
-   after one or both stores accept, including replay, and only while the current
-   draft bytes still match so a newer cross-tab draft survives. Make
+   before initializing the app. An entry may carry only a bounded draft receipt:
+   Finish uses `clear-draft`, while a transactional day rename uses
+   `replace-draft`; both contain the exact captured draft bytes and apply after
+   one or both stores accept, including replay, only while the current draft
+   bytes still match so a newer cross-tab draft survives. Make
    `save()`/`persist()` return the individual
    result promise containing `{ revision, localOk, idbOk }` so transactional
    callers can distinguish one accepted replica from total failure.
@@ -1357,6 +1358,7 @@ node test/accessibility.mjs
 node test/history.mjs
 node test/focus-mode.mjs
 node test/program-draft-set-reduction.mjs
+node test/program-draft-day-rename.mjs
 node test/workout-day-context-discard.mjs
 node test/manual-matrix.mjs --self-test
 REPFORGE_SIM_WEEKS=52 REPFORGE_PROFILE=1 node test/simulation.mjs

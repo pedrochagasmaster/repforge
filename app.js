@@ -209,17 +209,30 @@ function unversionedSnapshot(snapshot){
   if(out&&typeof out==="object")delete out[STORAGE_REV];
   return out}
 function pendingJournalEffect(effect){
-  if(effect?.kind!=="clear-draft"||typeof effect.expectedRaw!=="string"||
-    effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
-  return{kind:"clear-draft",expectedRaw:effect.expectedRaw}}
+  if(typeof effect?.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
+  if(effect.kind==="clear-draft")return{kind:"clear-draft",expectedRaw:effect.expectedRaw};
+  if(effect.kind==="replace-draft"&&typeof effect.replacementRaw==="string"&&
+    effect.replacementRaw.length<=PENDING_EFFECT_MAX_RAW)
+    return{kind:"replace-draft",expectedRaw:effect.expectedRaw,replacementRaw:effect.replacementRaw};
+  return null}
 function applyPendingJournalEffect(effect){
   const receipt=pendingJournalEffect(effect);
   if(!receipt)return false;
   try{
     if(localStorage.getItem(DRAFT)!==receipt.expectedRaw)return false;
-    localStorage.removeItem(DRAFT);
+    if(receipt.kind==="clear-draft")localStorage.removeItem(DRAFT);
+    else localStorage.setItem(DRAFT,receipt.replacementRaw);
     return true}
   catch{return false}}
+function draftDayReplacementEffect(oldDay,newDay){
+  try{
+    const expectedRaw=localStorage.getItem(DRAFT);
+    if(expectedRaw==null||expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
+    const draft=JSON.parse(expectedRaw);
+    if(!draft||typeof draft!=="object"||Array.isArray(draft)||draft.__day!==oldDay)return null;
+    draft.__day=newDay;
+    return pendingJournalEffect({kind:"replace-draft",expectedRaw,replacementRaw:JSON.stringify(draft)})}
+  catch{return null}}
 let pendingJournalSeq=0,pendingJournalClock=0;
 function pendingJournalUuid(){
   const uuid=globalThis.crypto?.randomUUID?.();
@@ -3711,11 +3724,18 @@ function bindEditor(){
     }
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
-    inp.onchange=()=>{const old=inp.dataset.day,next=inp.value.trim();
-      if(prog.renameDay(old,next)){renameCollapsedDay(old,next);
-        for(const row of state.log)if(row.day===old)row.day=next;
-        if(day===old)day=next;persistProgram();save();render();toast(t("toast.day_renamed"))}
-      else{inp.value=old;toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"))}};
+    inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
+      const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+      if(!nextProgram.renameDay(old,next)){
+        inp.value=old;toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
+      proposal.program=nextProgram.toJSON();
+      for(const row of proposal.log)if(row.day===old)row.day=next;
+      const effect=draftDayReplacementEffect(old,next);
+      const result=await commitProposedState(proposal,storageIO,{effect});
+      if(!(result.localOk||result.idbOk)){inp.value=old;return}
+      renameCollapsedDay(old,next);
+      if(day===old)day=next;
+      render();toast(t("toast.day_renamed"))};
   });
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }

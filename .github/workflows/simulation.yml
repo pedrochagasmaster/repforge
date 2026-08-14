@@ -96,6 +96,7 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: |
           node test/program-draft-set-reduction.mjs
+          node test/program-draft-day-rename.mjs
           node test/workout-day-context-discard.mjs
 
       - name: Manual-matrix helper
