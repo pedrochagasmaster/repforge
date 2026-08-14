@@ -118,6 +118,20 @@ export async function clearPersistenceArtifacts(page) {
   return { before, after };
 }
 
+async function waitForAppBoot(page) {
+  // The storage test export is assigned while app.js is still parsing. Day
+  // tabs are rendered by init() only after async replica recovery and any
+  // first-run persistence complete; they stay attached beneath onboarding.
+  await page.waitForFunction(
+    () =>
+      document.readyState === "complete" &&
+      typeof window.__repforgeStorage?.flush === "function" &&
+      document.querySelector("#dayTabs button") !== null,
+    undefined,
+    { timeout: 15000 }
+  );
+}
+
 export async function runPersistenceArtifactsSelfTest() {
   console.log("Persistence artifact helper self-test");
   console.log(`Target: ${BASE}\n`);
@@ -146,10 +160,7 @@ export async function runPersistenceArtifactsSelfTest() {
   const page = await context.newPage();
   try {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
-    await page.waitForFunction(
-      () => typeof window.__repforgeStorage?.flush === "function",
-      { timeout: 15000 }
-    );
+    await waitForAppBoot(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     await clearPersistenceArtifacts(page);
     await page.evaluate((keys) => {
