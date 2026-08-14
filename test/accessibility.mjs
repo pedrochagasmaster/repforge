@@ -1869,6 +1869,7 @@ async function runDimmedStateAccessibility(browser) {
       restoreAria: "Restore Press today",
       skip: "Skip",
       skipAria: "Skip Press today",
+      removeSet: "Remove set",
       undoRemove: "Undo remove",
     },
     pt: {
@@ -1877,6 +1878,7 @@ async function runDimmedStateAccessibility(browser) {
       restoreAria: "Restaurar Press hoje",
       skip: "Pular",
       skipAria: "Pular Press hoje",
+      removeSet: "Remover série",
       undoRemove: "Desfazer remoção",
     },
   };
@@ -1996,6 +1998,24 @@ async function runDimmedStateAccessibility(browser) {
     await page.locator("#sessions .session__toggle").first().click();
     await page.locator("#sessions [data-edit]").first().click();
     await page.waitForSelector(".session--edit");
+    const removeAction = await page.evaluate(() => {
+      const action = document.querySelector(".session--edit [data-edrm]");
+      const box = action?.getBoundingClientRect();
+      return {
+        text: action?.textContent.replace(/\s+/g, " ").trim() || "",
+        aria: action?.getAttribute("aria-label") || "",
+        width: box ? +box.width.toFixed(2) : 0,
+        height: box ? +box.height.toFixed(2) : 0,
+      };
+    });
+    assert(
+      removeAction.text === "×" &&
+        removeAction.aria === copy.removeSet &&
+        removeAction.width >= 36 &&
+        removeAction.height >= 36,
+      `history remove-set action is an icon-only box with an accessible name (${lang})`,
+      JSON.stringify(removeAction)
+    );
     await page.locator(".session--edit [data-edrm]").first().click();
     await page.waitForSelector(".session--edit .edrow.is-removed");
     await page.evaluate(() =>
@@ -2013,6 +2033,7 @@ async function runDimmedStateAccessibility(browser) {
         fieldCount: fields.length,
         disabledCount: fields.filter((field) => field.disabled).length,
         actionText: action?.textContent.replace(/\s+/g, " ").trim() || "",
+        actionAria: action?.getAttribute("aria-label") || "",
         actionDisabled: !!action?.disabled,
       };
     });
@@ -2020,7 +2041,8 @@ async function runDimmedStateAccessibility(browser) {
       removedState.fieldCount === 3 &&
         removedState.disabledCount === 3 &&
         !removedState.actionDisabled &&
-        removedState.actionText === copy.undoRemove,
+        removedState.actionText === "↺" &&
+        removedState.actionAria === copy.undoRemove,
       `history removed row distinguishes disabled fields from enabled restore action (${lang})`,
       JSON.stringify(removedState)
     );
