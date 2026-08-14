@@ -3288,6 +3288,8 @@ async function deleteSession(sid,io=storageIO){
 
 function renderHistory(){
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
+  const focusedToggle=document.activeElement?.matches?.("#sessions .session__toggle")?document.activeElement:null;
+  const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
   const index=buildHistoryIndex(state.log);
   renderHistoryCalendar(index);
   const q=histQuery.trim();
@@ -3317,6 +3319,9 @@ function renderHistory(){
       `<button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
       `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`;
   }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
+  if(focusedSession){
+    const next=$$("#sessions .session__toggle").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
+    if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
   $$("#sessions .session__toggle").forEach(btn=>btn.onclick=()=>{
     const art=btn.closest("[data-sess]");if(!art)return;
     expandedSession=expandedSession===art.dataset.sess?null:art.dataset.sess;renderHistory()});
@@ -4442,7 +4447,7 @@ function presentStorageRecovery(decision){
       if(!d.open)d.showModal();
       openModal(d,{
         initialFocus:$("#storageExportA")||$("#storageRetry")||title,
-        returnFocus:$("#todayDash .page-title")||$("#startWorkout"),
+        returnFocus:$("#startWorkout")||$("#todayDash .page-title"),
         onEscape:null
       });
       bump();

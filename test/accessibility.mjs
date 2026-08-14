@@ -634,6 +634,19 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   await page.waitForTimeout(50);
   const byDay = await page.locator("#sessions article.session, #sessions .session[data-sess]").count();
   check(byDay >= 1 && byDay < 3, "Search by day filters sessions", `visible=${byDay}`);
+  const searchFocus = await page.evaluate(() => {
+    const input = document.querySelector("#historySearch");
+    return {
+      active: document.activeElement?.id || document.activeElement?.tagName,
+      current: document.activeElement === input,
+      connected: !!document.activeElement?.isConnected,
+    };
+  });
+  check(
+    searchFocus.current && searchFocus.connected,
+    "History search rerender keeps focus on the live search input",
+    JSON.stringify(searchFocus)
+  );
 
   await page.fill("#historySearch", "Unique Lift Zeta");
   await page.waitForTimeout(50);
@@ -676,25 +689,68 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
 
   const toggle = page.locator("#sessions [data-sess='ui-a'] .session__toggle, #sessions [data-sess='ui-a'] button[aria-expanded]").first();
   await toggle.focus();
-  await toggle.press("Enter");
+  await page.keyboard.press("Enter");
   const entered = await page.evaluate(() => {
     const btn = document.querySelector("#sessions [data-sess='ui-a'] button[aria-expanded]");
-    return { expanded: btn?.getAttribute("aria-expanded"), controls: btn?.getAttribute("aria-controls") };
+    const controls = btn?.getAttribute("aria-controls");
+    const panel = controls ? document.getElementById(controls) : null;
+    return {
+      expanded: btn?.getAttribute("aria-expanded"),
+      controls,
+      active: document.activeElement?.id || document.activeElement?.tagName,
+      activeIsCurrent: document.activeElement === btn,
+      activeSession: document.activeElement?.closest?.("[data-sess]")?.getAttribute("data-sess"),
+      activeConnected: !!document.activeElement?.isConnected,
+      panelMatchesSession: panel?.closest("[data-sess]")?.getAttribute("data-sess") === "ui-a",
+      panelHidden: panel?.hasAttribute("hidden"),
+    };
   });
-  check(entered.expanded === "true" && !!entered.controls, "Enter expands a session and sets aria-expanded/aria-controls", JSON.stringify(entered));
+  check(
+    entered.expanded === "true" &&
+      !!entered.controls &&
+      entered.activeIsCurrent &&
+      entered.activeSession === "ui-a" &&
+      entered.activeConnected &&
+      entered.panelMatchesSession &&
+      entered.panelHidden === false,
+    "Enter expands ui-a and restores focus to its live logical toggle",
+    JSON.stringify(entered)
+  );
   const panel = await page.evaluate((id) => {
     const el = document.getElementById(id);
     return { exists: !!el, hidden: el?.hasAttribute("hidden"), edit: !!el?.querySelector("[data-edit]"), del: !!el?.querySelector("[data-del]") };
   }, entered.controls);
   check(panel.exists && !panel.hidden && panel.edit && panel.del, "Expanded region contains independent Edit and Delete actions", JSON.stringify(panel));
 
-  await toggle.press(" ");
-  const spaced = await page.evaluate(() =>
-    document.querySelector("#sessions [data-sess='ui-a'] button[aria-expanded]")?.getAttribute("aria-expanded")
+  await page.keyboard.press(" ");
+  const spaced = await page.evaluate(() => {
+    const btn = document.querySelector("#sessions [data-sess='ui-a'] button[aria-expanded]");
+    const controls = btn?.getAttribute("aria-controls");
+    const panel = controls ? document.getElementById(controls) : null;
+    return {
+      expanded: btn?.getAttribute("aria-expanded"),
+      controls,
+      active: document.activeElement?.id || document.activeElement?.tagName,
+      activeIsCurrent: document.activeElement === btn,
+      activeSession: document.activeElement?.closest?.("[data-sess]")?.getAttribute("data-sess"),
+      activeConnected: !!document.activeElement?.isConnected,
+      panelMatchesSession: panel?.closest("[data-sess]")?.getAttribute("data-sess") === "ui-a",
+      panelHidden: panel?.hasAttribute("hidden"),
+    };
+  });
+  check(
+    spaced.expanded === "false" &&
+      !!spaced.controls &&
+      spaced.activeIsCurrent &&
+      spaced.activeSession === "ui-a" &&
+      spaced.activeConnected &&
+      spaced.panelMatchesSession &&
+      spaced.panelHidden === true,
+    "Space collapses ui-a and restores focus to its live logical toggle",
+    JSON.stringify(spaced)
   );
-  check(spaced === "false", "Space collapses the session", `aria-expanded=${spaced}`);
 
-  await toggle.press("Enter");
+  await page.keyboard.press("Enter");
   await page.click("#sessions [data-sess='ui-a'] [data-edit]");
   const editing = await page.locator('.session--edit[data-editing="ui-a"]').count();
   check(editing === 1, "Edit opens the session editor without nesting inside the toggle", `editors=${editing}`);
@@ -868,14 +924,80 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     return !!document.querySelector("#storageRecovery")?.open;
   });
   assert(stillOpen, "Storage Recovery: Escape does nothing until resolved");
-  await page.locator("#storageUseA").click();
+  await page.locator("#storageUseA").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => !document.querySelector("#storageRecovery")?.open, { timeout: 5000 });
   await waitForApp(page);
-  const after = await page.evaluate(() => ({
-    open: !!document.querySelector("#storageRecovery")?.open,
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
-    heading: document.activeElement?.classList.contains("page-title") || document.activeElement?.id === "startWorkout" || document.activeElement?.closest("#todayDash"),
-  }));
+  const after = await page.evaluate(() => {
+    const active = document.activeElement;
+    const start = document.querySelector("#startWorkout");
+    const style = start ? getComputedStyle(start) : null;
+    const startVisible = !!(
+      start &&
+      style?.display !== "none" &&
+      style?.visibility !== "hidden" &&
+      start.getClientRects().length
+    );
+    return {
+      open: !!document.querySelector("#storageRecovery")?.open,
+      leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+      active: active?.id || active?.tagName,
+      activeIsStart: active === start,
+      activeConnected: !!active?.isConnected,
+      startVisible,
+      startInert: !!start?.closest("[inert]"),
+    };
+  });
   assert(!after.open && after.leaked.length === 0, "Storage Recovery: close restores inertness", JSON.stringify(after));
+  assert(
+    after.activeIsStart && after.activeConnected && after.startVisible && !after.startInert,
+    "Storage Recovery: Enter on Use Copy A restores focus to visible #startWorkout",
+    JSON.stringify(after)
+  );
+  await context.close();
+}
+
+{
+  const { context, page } = await freshPage(browser);
+  const local = sampleState({ name: "CopyA", programId: "prog-a" });
+  const other = sampleState({ name: "Beta", programId: "prog-b" });
+  await page.evaluate(
+    ({ k, blob }) => localStorage.setItem(k, JSON.stringify(blob)),
+    { k: KEY, blob: local }
+  );
+  await idbPut(page, other);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => document.querySelector("#storageRecovery")?.open, { timeout: 15000 });
+  await page.locator("#storageUseB").focus();
+  await page.keyboard.press(" ");
+  await page.waitForFunction(() => !document.querySelector("#storageRecovery")?.open, { timeout: 5000 });
+  await waitForApp(page);
+  const after = await page.evaluate(() => {
+    const active = document.activeElement;
+    const start = document.querySelector("#startWorkout");
+    const style = start ? getComputedStyle(start) : null;
+    const startVisible = !!(
+      start &&
+      style?.display !== "none" &&
+      style?.visibility !== "hidden" &&
+      start.getClientRects().length
+    );
+    return {
+      open: !!document.querySelector("#storageRecovery")?.open,
+      leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+      active: active?.id || active?.tagName,
+      activeIsStart: active === start,
+      activeConnected: !!active?.isConnected,
+      startVisible,
+      startInert: !!start?.closest("[inert]"),
+    };
+  });
+  assert(!after.open && after.leaked.length === 0, "Storage Recovery: Use Copy B closes and restores inertness", JSON.stringify(after));
+  assert(
+    after.activeIsStart && after.activeConnected && after.startVisible && !after.startInert,
+    "Storage Recovery: Space on Use Copy B restores focus to visible #startWorkout",
+    JSON.stringify(after)
+  );
   await context.close();
 }
 
