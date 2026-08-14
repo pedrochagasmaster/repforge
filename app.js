@@ -2965,11 +2965,13 @@ function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)ret
   return{sessions,days:doneDays,lastDay:sessions.at(-1).day||day,
     muscles:[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
     sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size}}
+/** The program day that follows `from`, or null when the split has only one. */
+function nextDayAfter(from){const ds=days();if(!ds.length)return null;
+  const i=ds.indexOf(from);if(i<0)return ds[0];
+  return ds.length>1?ds[(i+1)%ds.length]:null}
 /** The program day that follows the last one trained today. */
-function dayAfterTrainedToday(){const ds=days();if(!ds.length)return null;
-  const done=sessionsToday(),from=done.length?done.at(-1).day:day,i=ds.indexOf(from);
-  if(i<0)return ds[0];
-  return ds[(i+1)%ds.length]}
+function dayAfterTrainedToday(){const done=sessionsToday();
+  return nextDayAfter(done.length?done.at(-1).day:day)}
 function todayDoneHtml(recap){
   return `<div class="today-done">`+
     `<div class="today-session__name today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
@@ -3043,7 +3045,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
       return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
     weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
-  const up=$("#todayUpNext");if(up){const ds=days(),from=recap?recap.lastDay:day,idx=Math.max(0,ds.indexOf(from)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(next)}</div>`+
         `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
