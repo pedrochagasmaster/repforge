@@ -4469,7 +4469,7 @@ async function main() {
   await clickLogMode(page, "focus");
   await page.waitForTimeout(200);
   const focusEffort = await page.evaluate(() => {
-    const cell = document.querySelector(".focus-well .curset__cell.is-effort");
+    const cell = document.querySelector("#workout .exercise.is-current .focus-well .curset__cell.is-effort");
     const spin = cell?.querySelector("[data-effspin]");
     const steps = [...(cell?.querySelectorAll("[data-effstep]") || [])];
     return {
@@ -4576,7 +4576,7 @@ async function main() {
     await page.click(`.focus-well [data-effstep="${effEx.id}_1"][data-dir="${dir}"]`);
     await page.waitForTimeout(80);
   }
-  await page.click(".focus-well .saveset");
+  await page.click("#workout .exercise.is-current .focus-well .saveset");
   await page.waitForTimeout(300);
   const loggedRow = await page.evaluate(() => {
     const row = document.querySelector(".ledger__row[data-editn]");
@@ -4986,7 +4986,7 @@ async function main() {
   const cardMetrics = () =>
     page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-      const well = document.querySelector(".focus-well")?.getBoundingClientRect();
+      const well = document.querySelector("#workout .exercise.is-current .focus-well")?.getBoundingClientRect();
       return {
         h: Math.round(card.height),
         top: Math.round(card.top),
@@ -5043,8 +5043,8 @@ async function main() {
   );
   const split = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current").getBoundingClientRect();
-    const ledger = document.querySelector("#workout .fcard__ledger").getBoundingClientRect();
-    const save = document.querySelector("#workout .focus-well .saveset").getBoundingClientRect();
+    const ledger = document.querySelector("#workout .exercise.is-current .fcard__ledger").getBoundingClientRect();
+    const save = document.querySelector("#workout .exercise.is-current .focus-well .saveset").getBoundingClientRect();
     return {
       ledgerShare: Math.round((ledger.height / card.height) * 100),
       slackUnderSave: Math.round(card.bottom - save.bottom),

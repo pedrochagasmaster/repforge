@@ -113,12 +113,12 @@ async function setSetCount(page, i, sets) {
 /** Commit `n` sets on the focused exercise through the real UI path. */
 async function logSets(page, n, { load = 100, reps = 4 } = {}) {
   for (let i = 0; i < n; i++) {
-    const loadInput = page.locator(".focus-well .curset__val[data-k$='_load']");
+    const loadInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_load']");
     if (!(await loadInput.count())) break;
     await loadInput.first().fill(String(load));
-    const repsInput = page.locator(".focus-well .curset__val[data-k$='_reps']");
+    const repsInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']");
     if (await repsInput.count()) await repsInput.first().fill(String(reps));
-    await page.locator(".focus-well .saveset").first().click();
+    await page.locator("#workout .exercise.is-current .focus-well .saveset").first().click();
     await page.waitForTimeout(140);
   }
 }
@@ -216,7 +216,7 @@ async function main() {
   await logSets(page, 1);
   await page.locator(".ledger__row[data-editn]").nth(1).click();
   await shot(page, "06-editing-set");
-  const cancel = page.locator(".focus-well__cancel");
+  const cancel = page.locator("#workout .exercise.is-current .focus-well__cancel");
   if (await cancel.count()) await cancel.click();
 
   // 08 — note editor sheet
