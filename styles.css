@@ -1407,8 +1407,18 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
     border-radius:18px 18px 0 0;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 }
 @media (max-width:360px){
-  .sets__head,.setrow{grid-template-columns:44px minmax(0,2.4fr) minmax(0,.85fr) minmax(0,.65fr) auto;gap:4px}
-  .sets__head.has-effort,.setrow.has-effort{grid-template-columns:44px minmax(0,2.4fr) minmax(0,.85fr) auto;row-gap:6px}
+  /* A 288px row cannot hold the set action, a three-part load control, reps,
+     RIR and Save in one line at 44px each. Keep the outer fields explicit and
+     stack the load input over its two steppers inside the flexible column. */
+  .sets__head,.setrow{grid-template-columns:44px minmax(0,1fr) 44px 44px 44px;gap:4px}
+  .sets__head.has-effort,.setrow.has-effort{grid-template-columns:44px minmax(0,1fr) 44px 44px;row-gap:6px}
+  .setrow{align-items:start}
+  .setrow .kg{display:grid;grid-template-columns:repeat(2,minmax(44px,1fr));align-items:stretch}
+  .setrow .kg input{grid-column:1/-1;grid-row:1;width:100%;min-width:44px;border-bottom:1px solid var(--rule)}
+  .setrow .kg input:focus{border-bottom-color:var(--rule)}
+  .setrow .kg .stepbtn{width:100%;min-width:44px}
+  .setrow .kg .stepbtn[data-dir="-1"]{grid-column:1;grid-row:2}
+  .setrow .kg .stepbtn[data-dir="1"]{grid-column:2;grid-row:2;border-left:1px solid var(--rule)}
   .effort__btn{font-size:11px;letter-spacing:.02em}
   .vrow{grid-template-columns:1fr auto}
   .setrow input{font-size:16px;padding:12px 2px}
