@@ -867,7 +867,11 @@ body.is-sheet-open{overflow:hidden}
 .sheet{
   position:fixed;left:0;right:0;bottom:var(--kb,0px);z-index:41;
   display:flex;flex-direction:column;
-  height:min(74dvh,660px);max-height:calc(100dvh - var(--kb,0px) - 56px);
+  /* Size against the band the keyboard leaves visible (--vvh tracks
+     visualViewport.height), not 100dvh: dvh ignores the software keyboard, so
+     the sheet grew taller than the screen and pushed its own header out of
+     sight above the top edge. */
+  height:min(74dvh,660px);max-height:calc(var(--vvh,100dvh) - 56px);
   background:var(--surface);border-radius:20px 20px 0 0;
   box-shadow:0 -8px 40px rgba(0,0,0,.18);
   padding-bottom:env(safe-area-inset-bottom);
