@@ -805,13 +805,26 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.waitForSelector("#sessionBanner:not(.hidden) .sessionbanner__act", { timeout: 8000 });
-    const beforeDay = await page.evaluate(() => document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day);
+    const bannerTarget = await page.evaluate(() => ({
+      beforeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      dueDay: RepForgeSchedule.mostOverdueDay(state.log, days(), today())?.day || null,
+    }));
     await page.locator(".sessionbanner__act").focus();
     await page.keyboard.press("Enter");
     const afterEnter = await page.evaluate(() => ({
       hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
+      activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      workoutVisible: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+      dashboardHidden: document.querySelector("#todayDash")?.classList.contains("hidden"),
     }));
-    assert(afterEnter.hidden, "session banner action activates with Enter", JSON.stringify({ beforeDay, afterEnter }));
+    assert(
+      afterEnter.hidden &&
+        afterEnter.activeDay === bannerTarget.dueDay &&
+        afterEnter.workoutVisible &&
+        afterEnter.dashboardHidden,
+      "session banner Enter action opens the advertised workout day",
+      JSON.stringify({ bannerTarget, afterEnter })
+    );
     await page.evaluate(
       async ({ k, blob }) => {
         localStorage.setItem(k, JSON.stringify(blob));
@@ -824,8 +837,21 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.waitForSelector("#sessionBanner:not(.hidden) .sessionbanner__act", { timeout: 8000 });
     await page.locator(".sessionbanner__act").focus();
     await page.keyboard.press(" ");
-    const afterSpace = await page.evaluate(() => document.querySelector("#sessionBanner")?.classList.contains("hidden"));
-    assert(afterSpace, "session banner action activates with Space");
+    const afterSpace = await page.evaluate(() => ({
+      hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
+      activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
+      dueDay: RepForgeSchedule.mostOverdueDay(state.log, days(), today())?.day || null,
+      workoutVisible: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+      dashboardHidden: document.querySelector("#todayDash")?.classList.contains("hidden"),
+    }));
+    assert(
+      afterSpace.hidden &&
+        afterSpace.activeDay === afterSpace.dueDay &&
+        afterSpace.workoutVisible &&
+        afterSpace.dashboardHidden,
+      "session banner Space action opens the advertised workout day",
+      JSON.stringify(afterSpace)
+    );
     await page.evaluate(
       async ({ k, blob }) => {
         localStorage.setItem(k, JSON.stringify(blob));

@@ -1957,9 +1957,8 @@ function updateSessionBanner(){
   el.onclick=null;
   el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
   el.querySelector(".sessionbanner__act").onclick=()=>{
-    if(!requestWorkoutDay(due.day)) return;
+    if(!enterWorkout({day:due.day}))return;
     dismissForToday();
-    renderTabs(); renderWorkout();
     toast(t("toast.day_ready",{day:due.day}));
   };
 }
@@ -2115,14 +2114,14 @@ function focusDragEnd(e){
   if(!past||!focusCanGo(dir)){focusSettle(track,card,deck);return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
-function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return;
+function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return false;
   workoutLeft=false;setWorkoutActive(true);
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true)logMode="focus";
   else if(opts.focus===false)logMode="full";
   syncLogModeControls();
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
-  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
+  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
 function leaveWorkout(){workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
   for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
