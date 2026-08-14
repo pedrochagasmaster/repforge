@@ -15,6 +15,7 @@ import { createHash } from "crypto";
 import { mkdirSync, writeFileSync } from "fs";
 import { dirname, join, resolve } from "path";
 import { fileURLToPath } from "url";
+import { launchChromium } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const SEED = "repforge-launch-041";
@@ -881,7 +882,6 @@ async function runPrepare(args) {
     return 0;
   }
 
-  const { launchChromium } = await import("./browser.mjs");
   const browser = await launchChromium({ headless: !args.headed });
   const context = await browser.newContext({
     viewport: cell.viewport,
