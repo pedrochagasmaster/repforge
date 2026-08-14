@@ -484,26 +484,36 @@ Implement a storage-only revision without wrapping the existing state shape:
    `tail = operation.then(()=>undefined,()=>undefined)`); never assign a
    potentially rejected operation directly as the next queue tail. `flush()`
    awaits that absorbing tail. Clone each snapshot before queueing so later
-   `state` mutations cannot alter an earlier write. Increment the revision once
-   per logical `persist()` call. Make `save()`/`persist()` return the individual
+   `state` mutations cannot alter an earlier write. Before queueing a real
+   browser write, synchronously store its base/live/proposal intent without a
+   revision under `repforge_pending_v1`; this is unload safety, not a third
+   authoritative replica. Under the origin-scoped Web Lock, reread both durable
+   replicas, rebase the intent onto the selected head, and only then allocate
+   one new revision. Clear the matching journal when the operation settles;
+   boot rereads/repairs under the same lock and replays a surviving journal
+   before initializing the app. Make `save()`/`persist()` return the individual
    result promise containing `{ revision, localOk, idbOk }` so transactional
    callers can distinguish one accepted replica from total failure.
 7. Add `commitProposedState(proposal, io=storageIO)` at this persistence seam.
-   It deep-clones the proposal, assigns the next local revision, writes that
-   snapshot, and updates live `state`/`prog`/memoized derivatives only when
-   `localOk || idbOk`. If both fail, live globals remain byte-equivalent to
-   their pre-call values. High-risk transitions in Steps 2 and 4 use this path;
-   ordinary existing mutators may continue calling `persist()`.
+   It deep-clones the proposal, queues its intent, assigns the next revision
+   from the locked durable head, writes that snapshot, and updates live
+   `state`/`prog`/memoized derivatives only when `localOk || idbOk`. If both
+   fail, live globals remain byte-equivalent to their pre-call values.
+   High-risk transitions in Steps 2 and 4 use this path; ordinary existing
+   mutators may continue calling `persist()`.
 8. Refactor full-backup Replace and Merge to build proposals and use
    `commitProposedState(proposal, io)`. Replace clears draft/storage-only marker
    and closes the chooser only after acceptance; Merge appends unique sessions
    only after acceptance. Total failure leaves live state/draft/chooser intact,
    shows no success, and permits retry.
-9. Keep the real localStorage write synchronous. Track each store's latest
-   write result separately. When only one store accepts a write, keep the data
-   but expose a persistent degraded-storage line in Settings and one localized
-   toast; when both fail, use the destructive storage error treatment. A later
-   successful write to both stores clears the degraded warning.
+9. Keep the unversioned localStorage write-ahead journal synchronous; never
+   publish a revisioned `repforge_v1` snapshot before the lock, because a stale
+   tab could make it outrank newer IndexedDB data. Track each authoritative
+   store's latest write result separately. When only one store accepts a write,
+   keep the data but expose a persistent degraded-storage line in Settings and
+   one localized toast; when both fail, use the destructive storage error
+   treatment. A later successful write to both stores clears the degraded
+   warning.
 10. Export a copy of `state` with `_storageRevision` and any reserved
    storage-only UI transition marker removed. Import/merge and program-only
    export formats remain unchanged.
@@ -541,6 +551,14 @@ Create `test/persistence.mjs`, following the result/`assert` style of
 - delayed writes resolved in adversarial order cannot leave a lower revision;
 - 20 rapid Settings mutations followed by `flush()` leave both stores byte-
   equivalent at the highest revision;
+- an IndexedDB-only accepted workout survives repeated Settings writes from a
+  stale tab, and the unversioned journal replays once after an interrupted
+  write without becoming an authoritative revision;
+- boot repair that waits behind a newer locked write rereads the replicas and
+  cannot roll them back;
+- same-page workout/Settings, cross-tab Settings, destructive reset, and
+  same-old-program block-completion races converge without losing a session or
+  creating two successors;
 - a downloaded JSON backup while a follow-up marker is pending omits both
   `_storageRevision` and the marker;
 - replace import at local revision 17 finishes at 18 whether the file has no
@@ -558,8 +576,10 @@ stores to verify boot selection and healing.
 **Verify**:
 
 ```bash
-for f in app.js test/persistence.mjs; do node --check "$f" || exit 1; done
+for f in app.js test/persistence.mjs test/persistence-race.mjs test/thermonuclear-races.mjs; do node --check "$f" || exit 1; done
 node test/persistence.mjs
+node test/persistence-race.mjs
+node test/thermonuclear-races.mjs
 REPFORGE_SIM_WEEKS=12 node test/simulation.mjs
 ```
 
@@ -1413,6 +1433,8 @@ suite blocks release.
 | Test file | New responsibility |
 |---|---|
 | `test/persistence.mjs` | Replica selection, legacy-conflict recovery, corrupt-state protection, healing, write ordering, import/backup metadata |
+| `test/persistence-race.mjs` | Same-page/cross-tab state-change rebasing and transactional destructive reset races |
+| `test/thermonuclear-races.mjs` | One-sided acceptance, delayed boot repair, Finish locking, and same-old-program cross-tab completion |
 | `test/notifications.mjs` | Permission/preference truth table and revocation |
 | `test/accessibility.mjs` | Dialog lifecycle, disclosures, live status, controls, zoom, contrast, focus, targets, large History index |
 | `test/i18n.mjs` | EN/PT JSON ↔ runtime dictionary ↔ DOM/JavaScript key parity, placeholder parity, and raw-fallback rejection |

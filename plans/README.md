@@ -9,7 +9,9 @@ codebase audit of `app.js`, `index.html`, `styles.css`, and `sw.js`.
 - **Codebase shape**: static PWA, no application build, no framework, no
   application dependencies. Durable state is mirrored in IndexedDB
   (`repforge` / `kv`) and `localStorage` (`repforge_v1`). The in-progress
-  workout draft is `localStorage`-only (`repforge_draft_v1`). Logic in
+  workout draft is `localStorage`-only (`repforge_draft_v1`); an unversioned
+  pending-write journal (`repforge_pending_v1`) protects mutations waiting on
+  the cross-tab lock and is replayed at boot. Logic in
   `app.js`, markup in `index.html`, styles in `styles.css`, offline caching in
   `sw.js` (`CACHE` / `ASSETS` / `SHELL` in that file are the shell contract).
 - **Verification gate (every plan uses it)**: the application stays

@@ -1,4 +1,4 @@
-const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
+const KEY="repforge_v1",DRAFT="repforge_draft_v1",PENDING="repforge_pending_v1",NOTIFY_META="repforge_notify_v1";
 const DB="repforge",STORE="kv";
 function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
@@ -87,7 +87,6 @@ const storageIO={
 const STORAGE_LOCK="repforge:state-write";
 let persistTail=Promise.resolve();
 let persistHead=null,mutationBase=null;
-let stateChangesPending=0;
 let lastLocalRev=-1,lastIdbRev=-1;
 let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
 let storageDegradedToast=false;
@@ -204,39 +203,62 @@ function applyAcceptedSnapshot(base,snapshot){
   prog=new Program(state.program);state.program=prog.toJSON();
   mutationBase=cloneSnapshot(snapshot);
   dropMemo.clear();baselineMemo.clear()}
-function prepareLocalMirror(base,proposal){
-  const read=readLocalStatus();
-  if(read.status==="invalid"||read.status==="failed")return null;
-  let head=cloneSnapshot(persistHead||base);
-  if(read.status==="valid"&&readRevision(read.parsed)>=readRevision(head))head=cloneSnapshot(read.parsed);
-  const snapshot=rebaseStateChange(base,proposal,head);
-  snapshot[STORAGE_REV]=Math.max(readRevision(head),readRevision(persistHead))+1;
-  try{storageIO.writeLocal(snapshot);lastLocalRev=readRevision(snapshot);return snapshot}
-  catch(e){console.warn("localStorage mirror failed",e);return null}}
-function enqueueStateChange(base,proposal,io,{replace=false,allowConflict=false,prepared=null,liveBase=base}={}){
+function unversionedSnapshot(snapshot){
+  const out=cloneSnapshot(snapshot);
+  if(out&&typeof out==="object")delete out[STORAGE_REV];
+  return out}
+let pendingJournalSeq=0;
+function readPendingJournal(){
+  try{
+    const raw=localStorage.getItem(PENDING);
+    if(!raw)return null;
+    const journal=JSON.parse(raw);
+    if(!journal||typeof journal.id!=="string"||
+      !isValidStateShape(journal.base)||!isValidStateShape(journal.liveBase)||!isValidStateShape(journal.proposal))return null;
+    return journal}
+  catch{return null}}
+function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null}={}){
+  const id=globalThis.crypto?.randomUUID?.()||`pending_${Date.now()}_${++pendingJournalSeq}`;
+  const journal={id,base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
+    proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
+  try{localStorage.setItem(PENDING,JSON.stringify(journal));return id}
+  catch(e){console.warn("pending state journal failed",e);return null}}
+function clearPendingJournal(id){
+  if(!id)return;
+  try{
+    const current=JSON.parse(localStorage.getItem(PENDING)||"null");
+    if(current?.id===id)localStorage.removeItem(PENDING)}
+  catch{}}
+function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false}={}){
+  const durableHead=cloneSnapshot(head||base);
+  const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
+  const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
+  snapshot[STORAGE_REV]=readRevision(durableHead)+1;
+  return snapshot}
+function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
-  const frozenProposal=cloneSnapshot(proposal),frozenPrepared=cloneSnapshot(prepared);
-  stateChangesPending++;
+  const frozenProposal=cloneSnapshot(proposal);
+  const pendingId=io===storageIO
+    ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,{replace,expectedProgramId})
+    :null;
   const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
     let head=cloneSnapshot(persistHead||frozenBase);
-    if(io===storageIO&&!allowConflict){
+    if(io===storageIO){
       const refreshed=await refreshPersistenceHead();
       if(refreshed.conflict){
         console.warn("storage write blocked by an unresolved concurrent snapshot");
         return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}
       head=refreshed.head||head}
-    const preparedCurrent=frozenPrepared&&storageSnapshotsEqual(frozenPrepared,head);
-    const liveHead=replace?head:rebaseStateChange(frozenBase,frozenLiveBase,head);
-    const snapshot=preparedCurrent?cloneSnapshot(frozenPrepared):
-      (replace?cloneSnapshot(frozenProposal):rebaseStateChange(frozenLiveBase,frozenProposal,liveHead));
-    if(!preparedCurrent)snapshot[STORAGE_REV]=readRevision(head)+1;
+    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId)
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true};
+    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,{replace});
     const result=await writeSnapshot(snapshot,io);
     if(result.localOk||result.idbOk){
       persistHead=cloneSnapshot(snapshot);
       applyAcceptedSnapshot(frozenLiveBase,snapshot)}
     return result}));
-  return operation.finally(()=>{stateChangesPending--})}
+  return operation.finally(()=>clearPendingJournal(pendingId))}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
@@ -1266,7 +1288,7 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
     proposal.programMeta=nextMeta;
     proposal.program=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
-    const result=await commitProposedState(proposal,io);
+    const result=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId});
     if(result.localOk||result.idbOk){
       pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
     return result})();
@@ -1335,16 +1357,12 @@ function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
   const base=cloneSnapshot(mutationBase||state);
   const snapshot=cloneSnapshot(state);
-  snapshot[STORAGE_REV]=Math.max(readRevision(base),readRevision(persistHead))+1;
-  const prepared=stateChangesPending===0&&!opts.allowConflict?prepareLocalMirror(base,snapshot):null;
-  return enqueueStateChange(base,snapshot,storageIO,Object.assign({},opts,{prepared}))}
+  return enqueueStateChange(base,snapshot,storageIO,opts)}
 async function commitProposedState(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProposedState");
   const base=cloneSnapshot(mutationBase||state);
   const liveBase=cloneSnapshot(state);
-  const next=cloneSnapshot(proposal);
-  next[STORAGE_REV]=Math.max(readRevision(base),readRevision(persistHead))+1;
-  const snapshot=cloneSnapshot(next);
+  const snapshot=cloneSnapshot(proposal);
   const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
   return result}
 async function deleteTrainingLog(io=storageIO){
@@ -2694,7 +2712,10 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day,done,planned}):(entered?t("log.save_meta.entered",{day,entered,planned}):t("log.save_meta.planned",{day,planned}));}
 
-async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;saving=true;
+async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
+  const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
+  saving=true;
+  if(form){form.inert=true;form.setAttribute("aria-busy","true")}
   try{const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
   if(applyFieldError(check))return;
   if(!keys.length){toast(t("toast.enter_weight_before_save"));return}
@@ -2736,7 +2757,9 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   if(prLifts.length)msg+=` ${t("toast.workout_pr",{items:prLifts.join(", ")})}`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
   toast(msg);render();
-  return result}finally{saving=false}}
+  return result}finally{
+    if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
+    saving=false}}
 
 function summaries(){const m=new Map();
   for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
@@ -4384,7 +4407,9 @@ function presentStorageRecovery(decision){
           try{localStorage.removeItem(KEY)}catch{}
           try{await idbDel(KEY)}catch{}
           return{localNow:readLocalStatus(),idbNow:await readIdbStatus()}});
-        if(localNow.status==="absent"&&idbNow.status==="absent")finish({kind:"first-run"});
+        if(localNow.status==="absent"&&idbNow.status==="absent"){
+          try{localStorage.removeItem(PENDING)}catch{}
+          finish({kind:"first-run"})}
         else{
           decision={kind:"unresolved",reason:"no-valid",local:localNow,idb:idbNow};
           retryBusy=false;delete d.dataset.busy;paint()}
@@ -4399,7 +4424,31 @@ function presentStorageRecovery(decision){
       const focusEl=$("#storageExportA")||$("#storageRetry")||title;
       if(focusEl)focusEl.focus()};
     paint()})}
-async function applyBootDecision(decision,{allowConflict=false}={}){
+function recoveryChoiceMatches(candidate,current){
+  if(candidate?.kind!=="chosen"||(candidate.source!=="local"&&candidate.source!=="idb"))return false;
+  const selected=candidate.source==="local"?current.local:current.idb;
+  return selected?.status==="valid"&&storageSnapshotsEqual(selected.parsed,candidate.snapshot)}
+async function resolveBootReplicas(candidate=null){
+  return withStorageLock(storageIO,async()=>{
+    const local=readLocalStatus(),idb=await readIdbStatus();
+    let decision=chooseSnapshot(local,idb);
+    if(decision.kind==="unresolved"){
+      if(!recoveryChoiceMatches(candidate,decision))return decision;
+      decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
+        heal:candidate.source==="local"?"idb":"local"}}
+    const head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot);
+    const journal=readPendingJournal();
+    if(journal&&journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId)
+      clearPendingJournal(journal.id);
+    else if(journal){
+      const journalHead=head||cloneSnapshot(journal.base);
+      const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,{replace:journal.replace});
+      const result=await writeSnapshot(snapshot,storageIO);
+      if(result.localOk||result.idbOk)clearPendingJournal(journal.id);
+      return{kind:"chosen",snapshot,source:"pending"}}
+    if(decision.kind==="chosen"&&decision.heal)await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
+    return decision})}
+async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
   prog=new Program(state.program);state.program=prog.toJSON();
@@ -4410,18 +4459,14 @@ async function applyBootDecision(decision,{allowConflict=false}={}){
   const migrated=migrateLog();
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist({allowConflict});
-  else if(decision.heal){
-    const snapshot=cloneSnapshot(state);
-    const result=await enqueueWrite(()=>withStorageLock(storageIO,()=>writeSnapshot(snapshot,storageIO)));
-    if(result.localOk||result.idbOk)resetPersistenceBase(snapshot)}
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
   if(I18N)I18N.setLang(state.settings.lang)}
 async function boot(){
-  const local=readLocalStatus(),idb=await readIdbStatus();
-  let decision=chooseSnapshot(local,idb);
-  const recovering=decision.kind==="unresolved";
-  if(recovering)decision=await presentStorageRecovery(decision);
-  await applyBootDecision(decision,{allowConflict:recovering});
+  let decision=await resolveBootReplicas();
+  while(decision.kind==="unresolved"){
+    const candidate=await presentStorageRecovery(decision);
+    decision=await resolveBootReplicas(candidate)}
+  await applyBootDecision(decision);
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init()}

@@ -5165,6 +5165,7 @@ async function main() {
     window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
   );
   await page.evaluate((review) => window.__repforgeCompleteProgram(review), p9Review);
+  await page.evaluate(() => window.__repforgeStorage.flush());
   const p9AfterComplete = await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem("repforge_v1"));
     return { historyLen: s.programHistory.length, status: s.programMeta.mesocycleStatus };
@@ -6136,6 +6137,7 @@ async function main() {
       const el = document.querySelector(`input[name="rirMode"][value="${m}"]`);
       el.checked = true;
       el.dispatchEvent(new Event("change", { bubbles: true }));
+      return window.__repforgeStorage.flush();
     }, mode);
   }
   async function rirState() {

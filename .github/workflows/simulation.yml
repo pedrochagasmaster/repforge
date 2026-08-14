@@ -64,6 +64,7 @@ jobs:
         run: |
           node test/persistence.mjs
           node test/persistence-race.mjs
+          node test/thermonuclear-races.mjs
 
       - name: Notifications
         env:

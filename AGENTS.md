@@ -2,7 +2,7 @@
 
 RepForge is a local-only mobile PWA for tracking progressive overload. It is a static site (`index.html`, `styles.css`, `app.js`, `schedule.js`, `notify.js`, `i18n.js`, `sw.js`, `manifest.webmanifest`, `icons/`) with no build step, no package manager, and no application dependencies. All training data stays on this device; nothing is sent to a backend.
 
-Durable state is mirrored in `localStorage` (`repforge_v1`) and IndexedDB (`repforge` / `kv`). An in-progress workout draft lives in `localStorage` only (`repforge_draft_v1`).
+Durable state is mirrored in `localStorage` (`repforge_v1`) and IndexedDB (`repforge` / `kv`). An in-progress workout draft lives in `localStorage` only (`repforge_draft_v1`). While a state write is waiting on the cross-tab lock, an unversioned write-ahead journal (`repforge_pending_v1`) preserves the mutation for boot-time replay without claiming a durable revision.
 
 ## Cursor Cloud specific instructions
 
