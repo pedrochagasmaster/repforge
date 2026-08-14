@@ -137,6 +137,7 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
   transition:transform .12s ease,filter .2s ease,border-color .2s ease,background .2s ease;
 }
 .btn:active{transform:translateY(1px) scale(.995)}
+.btn:disabled{opacity:.4;cursor:default}
 .btn--ghost{background:transparent;padding:8px 13px;font-size:13px;border-radius:999px}
 .btn--steel{background:var(--surface);border-color:var(--rule-strong)}
 .btn--cta{
@@ -146,7 +147,9 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
 }
 .btn--cta::after{
   content:"→";position:absolute;right:18px;top:50%;transform:translateY(-50%);
-  color:var(--accent-deep);font-size:20px;font-weight:500;
+  /* Brand accent stays here deliberately: on the near-black CTA the brighter
+   * orange measures ~4.6:1 while --accent-deep drops to ~3.3:1 (C1). */
+  color:var(--accent);font-size:20px;font-weight:500;
 }
 .btn--noarrow{padding:0 20px}
 .btn--noarrow::after{content:none;display:none}
@@ -412,7 +415,7 @@ body.is-focus-wo .restbar{display:none!important}
   flex:none;width:44px;height:44px;padding:0;border:0;background:none;cursor:pointer;
   color:var(--ink);font-size:24px;line-height:1;border-radius:50%;
 }
-.focusnav:disabled{color:var(--rule-strong);cursor:default}
+.focusnav:disabled{color:var(--ink-faint);cursor:default}
 .segbar--ex{gap:8px;margin:0}
 body.is-workout #logWorkspace{padding-bottom:72px}
 body.is-workout #logForm{padding-bottom:24px}
@@ -985,7 +988,7 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .vrow__status{grid-row:1;grid-column:3;font-size:13px;color:var(--accent-deep);text-align:right;min-width:4rem}
 .vrow__status.is-on{color:var(--positive)}
 .vrow__bar{grid-row:2;grid-column:1/-1;display:block;height:4px;border-radius:2px;background:var(--rule);overflow:hidden}
-.vrow__fill{display:block;height:100%;border-radius:2px;background:var(--accent);min-width:3px}
+.vrow__fill{display:block;height:100%;border-radius:2px;background:var(--accent)}
 .vrow__fill.is-high,.vrow__fill.is-on{background:var(--positive)}
 .vrow__head{display:contents}
 

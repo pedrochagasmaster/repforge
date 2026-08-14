@@ -389,6 +389,20 @@ async function main() {
     "the note sheet is a named modal dialog", JSON.stringify(sheet));
   assert(sheet.onScreen && sheet.scrim && sheet.focused && sheet.forName,
     "it rises from the bottom, dims the card and takes the caret", JSON.stringify(sheet));
+  const sheetModal = await page.evaluate(() => ({
+    main: !!document.querySelector("main")?.inert,
+    nav: !!document.querySelector("nav")?.inert,
+    sheet: !!document.querySelector("#exNoteSheet")?.inert,
+    scrim: !!document.querySelector("#exNoteScrim")?.inert,
+  }));
+  assert(sheetModal.main && sheetModal.nav && !sheetModal.sheet && !sheetModal.scrim,
+    "the note sheet leaves the card inert and keeps its own surface live", JSON.stringify(sheetModal));
+  await page.keyboard.press("Tab");
+  assert(await page.evaluate(() => document.activeElement?.id === "exNoteCancel"),
+    "Tab from the note field wraps to Cancel");
+  await page.keyboard.press("Shift+Tab");
+  assert(await page.evaluate(() => document.activeElement?.id === "exNoteText"),
+    "Shift+Tab from Cancel wraps back to the note field");
   await page.fill("#exNoteText", "Seat 4, feet high.");
   await page.click("#exNoteSave");
   await page.waitForFunction(() => {
@@ -403,6 +417,8 @@ async function main() {
   assert(Object.values(noteSaved.draft).includes("Seat 4, feet high.") && noteSaved.closed,
     "saving the sheet writes the note into the session draft", JSON.stringify(noteSaved));
   assert(noteSaved.marked, "the card's note tool shows the exercise now has one");
+  assert(await page.evaluate(() => document.activeElement?.matches?.("[data-exnote-open]") && document.activeElement.isConnected),
+    "saving the sheet returns focus to the newly rendered note tool");
   await page.locator("[data-exnote-open]").first().click();
   await page.waitForTimeout(250);
   await page.keyboard.press("Escape");
@@ -412,6 +428,8 @@ async function main() {
   }, { timeout: 2000 });
   assert(await page.evaluate(() => document.querySelector("#exNoteSheet").hidden),
     "Escape closes the note sheet");
+  assert(await page.evaluate(() => document.activeElement?.matches?.("[data-exnote-open]")),
+    "Escape returns focus to the note tool");
 
   // ---- 04 — effort mode -------------------------------------------------------
   phase("State 04: mid-exercise logging with Easy / Hard / Max");
@@ -730,6 +748,33 @@ async function main() {
   const rmPage = await rmCtx.newPage();
   await boot(rmPage);
   await enterFocus(rmPage, 0);
+  phase("C1: disabled Focus navigation contrast");
+  const navContrast = await rmPage.evaluate(() => {
+    const lin = (c) => {
+      const s = c / 255;
+      return s <= 0.04045 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+    };
+    const lum = (r, g, b) => 0.2126 * lin(r) + 0.7152 * lin(g) + 0.0722 * lin(b);
+    const hexToRgb = (hex) => {
+      const n = parseInt(String(hex).replace("#", ""), 16);
+      return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+    };
+    const parseRgb = (c) => {
+      const m = String(c).match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);
+      return m ? [+m[1], +m[2], +m[3]] : null;
+    };
+    const prev = document.querySelector("#woPrev");
+    const color = getComputedStyle(prev).color;
+    const bg = getComputedStyle(document.documentElement).getPropertyValue("--bg").trim();
+    const rgb = parseRgb(color);
+    const [br, bgc, bb] = hexToRgb(bg);
+    const L1 = lum(...rgb);
+    const L2 = lum(br, bgc, bb);
+    const [hi, lo] = L1 > L2 ? [L1, L2] : [L2, L1];
+    return { disabled: prev.disabled, color, contrast: (hi + 0.05) / (lo + 0.05) };
+  });
+  assert(navContrast.disabled === true, "previous chevron is disabled on the first exercise", JSON.stringify(navContrast));
+  assert(navContrast.contrast >= 3, "disabled Focus navigation reaches the 3:1 usability target", JSON.stringify(navContrast));
   const motion = await rmPage.evaluate(() => {
     const track = document.querySelector("#focusTrack");
     return {
@@ -882,7 +927,48 @@ async function main() {
   );
   await draftCtx.close();
 
+  phase("F1: mixed-load hold first-set Focus cue");
+  {
+    const f1Ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+    const f1Page = await f1Ctx.newPage();
+    await boot(f1Page);
+    await enterFocus(f1Page, 0);
+    const seed = await f1Page.evaluate(() => {
+      const ex = window.__repforgeFocus.list()[0];
+      return { id: ex.id, day: ex.day, name: ex.name, primary: ex.primary, secondary: ex.secondary };
+    });
+    const rows = [52.5, 55].map((load, i) => ({
+      session: `2025-05-15_${seed.day}_f1_hold`, date: "2025-05-15", day: seed.day,
+      name: seed.name, exerciseId: seed.id, set: i + 1, load, reps: 7, rir: 1, notes: "",
+      created: "2025-05-15T12:00:00.000Z", primary: seed.primary, secondary: seed.secondary,
+    }));
+    await persist(f1Page, `
+      const exId = ${JSON.stringify(seed.id)};
+      s.settings = { ...(s.settings || {}), minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" };
+      s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
+      s.log = ${JSON.stringify(rows)};
+    `);
+    await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reload(f1Page);
+    await enterFocus(f1Page, 0);
+    const rec = await f1Page.evaluate((id) => {
+      const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const ex = (raw.program || []).find((e) => e.id === id);
+      const r = window.__repforgeRecommendation?.(ex);
+      return r && { status: r.status, load: r.load, reenterReps: !!r.reenterReps };
+    }, seed.id);
+    const cue = await f1Page.locator(".exercise.is-current .focus-cue__text").textContent();
+    const loadVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_load']").inputValue();
+    const repsVal = await f1Page.locator(".exercise.is-current .curset__val[data-k$='_reps']").inputValue();
+    assert(rec?.status === "hold" && rec.load === 55 && rec.reenterReps && loadVal === "55" && !/53\.75/.test(cue || ""),
+      "F1 mixed hold: Focus first-set load is on-grid 55 kg", `cue="${cue}" rec=${JSON.stringify(rec)}`);
+    assert(repsVal === "6" && /aim for 6 reps/.test(cue || ""),
+      "F1 mixed hold: Focus first-set reps re-enter at 6", `cue="${cue}" reps=${repsVal}`);
+    await f1Ctx.close();
+  }
+
   phase("Console");
+
   assert(errors.length === 0, "no page errors during the focus run", errors.join(" | "));
 
   await browser.close();
