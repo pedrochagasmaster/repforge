@@ -626,6 +626,33 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .restbar.is-done{border-color:var(--accent);color:var(--accent-deep)}
 .restbar__time{min-width:2.5em;text-align:center}
 
+/* Overtime — the clock has passed zero and is counting up in the negative.
+   A slow breathing ring plus a blinking dot reads as "still waiting", which no
+   part of the countdown does. Placed after both rest blocks so it wins. */
+@keyframes restover-ring{
+  0%,100%{box-shadow:0 0 0 0 rgba(201,58,43,0)}
+  50%{box-shadow:0 0 0 5px rgba(201,58,43,.15)}
+}
+@keyframes restover-dot{
+  0%,100%{opacity:1;transform:scale(1)}
+  50%{opacity:.25;transform:scale(.72)}
+}
+.wo-rest.is-over,.restbar.is-over{
+  color:var(--danger);border-color:var(--danger);
+  animation:restover-ring 1.5s ease-in-out infinite;
+}
+.wo-rest.is-over .wo-rest__dot,.restbar.is-over .restbar__dot{
+  background:var(--danger);animation:restover-dot 1.5s ease-in-out infinite;
+}
+.restbar.is-over .restbar__time{min-width:3.4em}
+@media (prefers-reduced-motion:reduce){
+  /* Colour alone carries overtime; the dot holds at half strength so it still
+     differs from the steady countdown dot. */
+  .wo-rest.is-over,.restbar.is-over,
+  .wo-rest.is-over .wo-rest__dot,.restbar.is-over .restbar__dot{animation:none}
+  .wo-rest.is-over .wo-rest__dot,.restbar.is-over .restbar__dot{opacity:.5}
+}
+
 /* Hidden legacy gauge (tests may still poke it; UI uses Today readiness) */
 .gauge{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
 
