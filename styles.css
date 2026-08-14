@@ -1322,6 +1322,115 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .blockprogress__title{font-weight:600;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
 .review__summary{margin:0;font-size:14px;line-height:1.55;color:var(--ink)}
 
+/* ============================================================
+   Session summary — the screen a finished session earns
+   Full-bleed over the app: the work is done, so nothing else competes for the
+   page. One column, the evidence in the order it matters — records, how the
+   lifts moved, what the muscles took, where the week now stands.
+   Motion is one beat. `is-played` is set a frame after the panel is up, so the
+   strike is seen rather than missed, and every block settles in behind it in
+   reading order. The animations only exist under `is-played`, so a panel that
+   never gets there is a fully legible page rather than a blank one.
+   ============================================================ */
+.sumsheet{
+  position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--bg);
+  padding:calc(30px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
+    calc(30px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+}
+.sumsheet.hidden{display:none!important}
+.sumsheet__body{width:min(100%,var(--maxw));margin:0 auto}
+
+/* The strike: the same mark a finished exercise draws, at the size the end of
+   a whole session deserves, under a ring that opens once and goes. */
+.sum-crest{display:flex;justify-content:center}
+.sum-crest__mark{
+  position:relative;width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);
+}
+.sum-crest__mark::after{
+  content:"";position:absolute;inset:0;background:var(--accent);
+  -webkit-mask:var(--check) no-repeat center/30px;mask:var(--check) no-repeat center/30px;
+}
+.sumsheet.is-played .sum-crest__mark{animation:sum-strike .5s cubic-bezier(.2,1.25,.4,1) both}
+.sumsheet.is-played .sum-crest__mark::before{
+  content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--accent);
+  animation:sum-ring .8s .1s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes sum-strike{
+  0%{opacity:0;transform:scale(.5)}
+  55%{opacity:1;transform:scale(1.12)}
+  100%{opacity:1;transform:scale(1)}
+}
+@keyframes sum-ring{from{opacity:.55;transform:scale(1)}to{opacity:0;transform:scale(1.7)}}
+/* Each block carries its own index, so the stagger follows the reading order
+   however many blocks this particular session earned. */
+.sumsheet.is-played .sumsheet__body>*:not(.sum-crest){
+  animation:sum-settle .4s cubic-bezier(.2,.7,.2,1) both;
+  animation-delay:calc(var(--i,0) * 55ms);
+}
+@keyframes sum-settle{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.sum-eyebrow{
+  margin-top:16px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent-deep);
+}
+/* The heading takes focus so a screen reader is read the session before the
+   controls, not because it is one. A ring here would draw a box around a title
+   nobody can act on, so it stays off — every actual control keeps its own. */
+.sum-hero{margin-top:6px;text-align:center;font-size:34px;font-weight:650;letter-spacing:-.02em;line-height:1.05}
+.sum-hero:focus,.sum-hero:focus-visible{outline:none}
+.sum-sub{margin-top:6px;text-align:center;font-size:14px;color:var(--ink-soft)}
+.sum-stats{margin-top:22px}
+
+/* A record reads as one line: what kind, on what, by how much, at what. */
+.sum-prs{list-style:none;margin:0;padding:0}
+.sum-pr{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px 11px;
+  padding:12px 0;border-bottom:1px solid var(--rule);
+}
+.sum-pr:first-child{border-top:1px solid var(--rule)}
+.sum-pr__badge{
+  font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--cta-ink);background:var(--accent-deep);border-radius:999px;padding:4px 8px;white-space:nowrap;
+}
+.sum-pr__text{min-width:0}
+/* The lift is the point of the line, so a long name wraps rather than being cut
+   off — an ellipsis on "Chest-supported machine row" hides which lift it was. */
+.sum-pr__name{display:block;font-size:15px;font-weight:600;color:var(--ink);line-height:1.25}
+.sum-pr__over{display:block;margin-top:2px;font-size:12px;color:var(--accent-deep)}
+.sum-pr__val{font-family:var(--mono);font-size:13px;color:var(--ink-soft);white-space:nowrap;align-self:center}
+.sum-more{margin-top:10px;font-size:13px;color:var(--ink-faint)}
+
+.sum-chips{display:flex;flex-wrap:wrap;gap:8px}
+.sum-chip{
+  font-size:13px;color:var(--ink-soft);background:var(--surface);
+  border:1px solid var(--rule);border-radius:999px;padding:7px 12px;
+}
+.sum-chip.is-up{color:var(--positive);border-color:rgba(47,125,51,.35)}
+.sum-chip.is-new{color:var(--accent-deep);border-color:rgba(224,78,20,.35)}
+
+.sum-baseline{
+  margin-top:24px;padding-left:14px;border-left:2px solid var(--accent);
+  font-size:15px;line-height:1.55;color:var(--ink-soft);
+}
+.sum-week{font-size:15px;color:var(--ink)}
+.sum-segbar{margin-top:10px}
+.sum-next{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:26px;padding:14px 0;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+}
+.sum-next__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.sum-next__day{font-size:17px;font-weight:600}
+.sum-next__meta{margin-left:auto;font-size:13px;color:var(--ink-soft)}
+.sum-actions{margin-top:28px}
+
+@media (prefers-reduced-motion:reduce){
+  /* The panel still arrives as a full screen; it just stops moving to do it. */
+  .sumsheet.is-played .sum-crest__mark,
+  .sumsheet.is-played .sumsheet__body>*:not(.sum-crest){animation:none}
+  .sumsheet.is-played .sum-crest__mark::before{content:none}
+}
+
 .importchoice{
   position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);

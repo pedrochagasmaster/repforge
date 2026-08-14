@@ -9,6 +9,7 @@ RepForge is a local-only mobile PWA for tracking load progression and progressiv
 - Load, reps, and RIR per working set
 - Double-progression recommendations
 - Previous-session display
+- Session summary at the end of a workout: records, lift movement, hard sets per muscle, and the week
 - Stats dashboard with top-load chart
 - Training history and session deletion
 - Visual program editor (add/reorder/remove days and exercises), with raw-JSON advanced mode

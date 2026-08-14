@@ -389,6 +389,29 @@ async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   );
 }
 
+/**
+ * Close the session summary a finished workout opens over the app, returning
+ * the text it showed. Every save has to go through this: while the summary is
+ * up the app underneath is inert, so the next interaction would never land.
+ *
+ * Closing it ends the session and steps the shell back to Today — which is the
+ * point of the screen. This harness logs one session after another on the same
+ * day, so it re-opens the workout the way a lifter starting the next one would.
+ */
+async function dismissSessionSummary(page) {
+  const seen = await page.evaluate(() => {
+    const el = document.querySelector("#sessionSummary");
+    if (!el || el.classList.contains("hidden")) return null;
+    return document.querySelector("#sessionSummaryBody")?.innerText || "";
+  });
+  if (seen == null) return null;
+  await page.evaluate(() => window.__repforgeSessionSummary?.close());
+  await page.waitForSelector("#sessionSummary.hidden", { state: "attached", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  return seen;
+}
+
 async function saveWorkout(page, { expectNewRows = true } = {}) {
   const beforeLen = (await getState(page))?.log?.length ?? 0;
   await page.evaluate(async () => {
@@ -401,7 +424,7 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
   });
   if (!expectNewRows) {
     await page.waitForTimeout(120);
-    return;
+    return await dismissSessionSummary(page);
   }
   await page.waitForFunction(
     ({ k, len }) => {
@@ -417,6 +440,7 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
     { k: KEY, len: beforeLen },
     { timeout: 8000 }
   );
+  return await dismissSessionSummary(page);
 }
 
 async function flushStorage(page) {
@@ -872,21 +896,20 @@ async function main() {
   const smokeDate = isoDateFromWeeksAgo(0);
   await setLogDate(page, smokeDate);
   await fillExerciseSets(page, d1Exs[0].id, 1, 105, 7, 1);
-  await saveWorkout(page);
+  const smokeSummary = (await saveWorkout(page)) || "";
   sessionCount++;
   uiSaveCount++;
-  const smokeToast = await page.textContent("#toast");
   assert(
-    /1 set logged\./.test(smokeToast),
-    "Finish toast uses singular set for one-set save",
-    `Toast: ${smokeToast}`,
-    "Log tab → fill one set → Save workout → toast reads '1 set logged.'"
+    /(^|\n)set logged(\n|$)/.test(smokeSummary),
+    "Session summary uses singular set for one-set save",
+    `Summary: ${JSON.stringify(smokeSummary)}`,
+    "Log tab → fill one set → Save workout → summary reads 'set logged'"
   );
   assert(
-    !/1 sets/.test(smokeToast),
-    "Finish toast does not use plural sets for one-set save",
-    `Toast: ${smokeToast}`,
-    "Log tab → fill one set → Save workout → toast must not read '1 sets'"
+    !/sets logged/.test(smokeSummary),
+    "Session summary does not use plural sets for one-set save",
+    `Summary: ${JSON.stringify(smokeSummary)}`,
+    "Log tab → fill one set → Save workout → summary must not read 'sets logged'"
   );
   assert(
     (await getState(page)).log.some((r) => r.date === smokeDate && +r.load === 105),
@@ -2076,12 +2099,11 @@ async function main() {
   await selectDay(page, prDay);
   // PR for exercise 0: beats its own prior top (~125) but stays below the 250 global max elsewhere
   await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 150, 6, 2);
-  await saveWorkout(page);
-  const prToast = await page.textContent("#toast");
+  const prSummary = (await saveWorkout(page)) || "";
   assert(
-    /PR:/.test(prToast),
-    "Save toast announces a per-exercise top-load PR (not global max)",
-    `Toast: ${prToast}`,
+    /PERSONAL RECORDS/i.test(prSummary) && /150 kg × 6/.test(prSummary) && !/250 kg/.test(prSummary),
+    "Session summary announces a per-exercise top-load PR (not global max)",
+    `Summary: ${JSON.stringify(prSummary)}`,
     "Log another exercise at 250 kg, then PR the first exercise at 150 kg → Save"
   );
   await nav(page, "stats");
@@ -2323,6 +2345,7 @@ async function main() {
   await page.fill("#notes", "collision-test-A");
   await page.evaluate(() => { const f=document.querySelector("#logForm"); f?.requestSubmit(); f?.requestSubmit(); });
   await page.waitForTimeout(300);
+  await dismissSessionSummary(page);
   state = await getState(page);
   const collisionSessions = [
     ...new Set(
@@ -2345,6 +2368,7 @@ async function main() {
   const logLenBeforeInvalid = (await getState(page)).log.length;
   await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
   await page.waitForTimeout(200);
+  await dismissSessionSummary(page);
   const logLenAfterInvalid = (await getState(page)).log.length;
   const formValid = await page.evaluate(() => document.querySelector("#logForm").checkValidity());
   if (!formValid && logLenAfterInvalid === logLenBeforeInvalid) {
@@ -5258,6 +5282,7 @@ async function main() {
   );
   await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
   await page.waitForTimeout(120);
+  await dismissSessionSummary(page);
   assert(
     (await getState(page)).log.some((r) => r.exerciseId === focusMeta[0].id && +r.load === 90),
     "Finish workout saves focus-mode sets",
@@ -7002,23 +7027,22 @@ async function main() {
   await setLogDate(page, deltaDate);
   await fillExerciseSets(page, deltaEx.id, deltaEx.sets, 100, 10, 1);
   const sessionsBeforeDelta = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  const deltaSummary = (await saveWorkout(page)) || "";
   deltaState = await getState(page);
   const deltaSession = [...new Set(deltaState.log.map((r) => r.session))].find(
     (s) => !sessionsBeforeDelta.has(s)
   );
-  const deltaToast = await page.textContent("#toast");
   assert(
-    /improved/i.test(deltaToast),
-    "Save toast includes session delta improved summary",
-    `Toast: ${deltaToast}`,
-    "Seed 100×8 → save 100×10 → toast mentions improved"
+    /improved/i.test(deltaSummary),
+    "Session summary includes the session delta improved summary",
+    `Summary: ${JSON.stringify(deltaSummary)}`,
+    "Seed 100×8 → save 100×10 → summary mentions improved"
   );
   assert(
-    /\d+ improved/.test(deltaToast),
-    "Save toast delta uses count format",
-    `Toast: ${deltaToast}`,
-    "Toast should read like '1 improved'"
+    /\d+ improved/.test(deltaSummary),
+    "Session summary delta uses count format",
+    `Summary: ${JSON.stringify(deltaSummary)}`,
+    "Summary should read like '1 improved'"
   );
   const compareImproved = await page.evaluate(
     ({ exId, sid }) => {

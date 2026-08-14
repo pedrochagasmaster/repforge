@@ -63,7 +63,11 @@ async function persist(page, src) {
 }
 
 async function settle(page) {
-  await page.waitForFunction(() => typeof window.closeOnboarding === "function", { timeout: 10000 });
+  // `closeOnboarding` is a hoisted declaration, so it exists as soon as app.js
+  // parses — long before boot has read storage and assigned state. Rendered day
+  // tabs are the first thing that cannot appear until it has, which is what the
+  // rest of this file then reaches into. Same gate as every other suite.
+  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     if (el?.classList.contains("active")) window.closeOnboarding();
