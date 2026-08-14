@@ -306,16 +306,31 @@ async function run() {
   phase("Leaving the summary ends the session");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(200);
-  const afterEsc = await page.evaluate(() => ({
-    hidden: document.querySelector("#sessionSummary").classList.contains("hidden"),
-    shellHidden: document.querySelector("#workoutShell").classList.contains("hidden"),
-    dashHidden: document.querySelector("#todayDash").classList.contains("hidden"),
-    focused: document.activeElement?.id || "",
-  }));
+  const afterEsc = await page.evaluate(() => {
+    const shown = (sel) => {
+      const el = document.querySelector(sel);
+      return !!el && getComputedStyle(el).display !== "none";
+    };
+    return {
+      hidden: document.querySelector("#sessionSummary").classList.contains("hidden"),
+      shellHidden: document.querySelector("#workoutShell").classList.contains("hidden"),
+      dashHidden: document.querySelector("#todayDash").classList.contains("hidden"),
+      focused: document.activeElement?.id || "",
+      startShown: shown("#startWorkout"),
+      reviewShown: shown("#reviewTodaySession"),
+    };
+  });
   assert(afterEsc.hidden, "Escape closes the summary");
   assert(!(await appInert(page)), "closing releases the app");
   assert(afterEsc.shellHidden && !afterEsc.dashHidden, "the workout shell steps back to Today", JSON.stringify(afterEsc));
-  assert(afterEsc.focused === "startWorkout", "focus lands on what Today asks for next", afterEsc.focused);
+  // The session just saved is today's, so Today leads with the recap's review
+  // action instead of the start CTA — that is what focus has to find.
+  assert(
+    !afterEsc.startShown && afterEsc.reviewShown,
+    "Today leads with the recap once the session is saved",
+    JSON.stringify(afterEsc)
+  );
+  assert(afterEsc.focused === "reviewTodaySession", "focus lands on what Today asks for next", afterEsc.focused);
 
   // ---- 4 — a first session has no records to claim -----------------------------
   phase("A first session is a baseline, not a record");
