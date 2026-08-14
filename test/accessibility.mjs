@@ -341,9 +341,14 @@ const HISTORY_INDEX_SCRIPT = `(() => {
 
 export async function runHistoryIndexChecks(page, check = assert) {
   const hookReady = await page.evaluate(
-    () => !!(window.__repforgeHistory && typeof window.__repforgeHistory.buildIndex === "function")
+    () =>
+      !!(
+        window.__repforgeHistory &&
+        typeof window.__repforgeHistory.buildIndex === "function" &&
+        typeof window.__repforgeHistory.indexFor === "function"
+      )
   );
-  check(hookReady, "window.__repforgeHistory exposes buildIndex/searchIndex/renderWithSource", hookReady ? "" : "hook missing");
+  check(hookReady, "window.__repforgeHistory exposes the pure index/search/render test seam", hookReady ? "" : "hook missing");
   if (!hookReady) return;
 
   const built = await page.evaluate((helperSrc) => {
@@ -426,7 +431,7 @@ export async function runHistoryIndexChecks(page, check = assert) {
       built.summary.janPr1 === true &&
       built.summary.janPr2 === false &&
       built.summary.janPr11 === true,
-    "Month grouping and calendar PR marks come from copied rows",
+    "Month grouping and calendar PR marks come from indexed rows",
     JSON.stringify({
       sessions: built.summary.janSessions,
       sets: built.summary.janSets,
@@ -439,7 +444,7 @@ export async function runHistoryIndexChecks(page, check = assert) {
     built.summary.tableCount === 20000 &&
       built.summary.tableFirst &&
       built.summary.tableFirst.session === "sess-4999",
-    "Every-set table ordering is date desc from the copied rows",
+    "Every-set table ordering is date desc from the indexed rows",
     JSON.stringify(built.summary.tableFirst) + ` count=${built.summary.tableCount}`
   );
   check(
@@ -460,6 +465,7 @@ export async function runHistoryIndexChecks(page, check = assert) {
     const H = window.__repforgeHistory;
     H.diagnostics.reset();
     H.diagnostics.onBuilt = () => counted.revoke();
+    const originalLog = state.log;
     const t0 = performance.now();
     let threw = false;
     let throwMsg = "";
@@ -475,13 +481,13 @@ export async function runHistoryIndexChecks(page, check = assert) {
     const editIds = [...document.querySelectorAll("#sessions [data-edit]")].map((b) => b.getAttribute("data-edit"));
     const delIds = [...document.querySelectorAll("#sessions [data-del]")].map((b) => b.getAttribute("data-del"));
     const qPush = H.searchIndex(H.diagnostics.last, "push").length;
-    return {
+    const result = {
       threw,
       throwMsg,
       renderMs,
       visits: counted.visits(),
       builds: H.diagnostics.builds,
-      restored: H.diagnostics.sourceRestored,
+      sourceUntouched: state.log === originalLog,
       articleCount: articles.length,
       firstSess: articles[0] && articles[0].getAttribute("data-sess"),
       lastSess: articles.at(-1) && articles.at(-1).getAttribute("data-sess"),
@@ -491,6 +497,8 @@ export async function runHistoryIndexChecks(page, check = assert) {
       qPush,
       summary: helpers.summarize(H.diagnostics.last),
     };
+    H.diagnostics.disable();
+    return result;
   }, HISTORY_INDEX_SCRIPT);
 
   console.log(`    History renderWithSource ${rendered.renderMs.toFixed(1)}ms, visits ${rendered.visits}`);
@@ -501,7 +509,11 @@ export async function runHistoryIndexChecks(page, check = assert) {
     "renderWithSource consumes exactly 20,000 source rows",
     `visits=${rendered.visits}`
   );
-  check(rendered.restored === true, "renderWithSource restores the original state.log on success", String(rendered.restored));
+  check(
+    rendered.sourceUntouched === true,
+    "renderWithSource never replaces the live state.log on success",
+    String(rendered.sourceUntouched)
+  );
   check(
     rendered.summary.sessionCount === 5000 &&
       rendered.summary.firstSession === "sess-4999" &&
@@ -520,12 +532,31 @@ export async function runHistoryIndexChecks(page, check = assert) {
     })
   );
 
+  const cached = await page.evaluate(() => {
+    const H = window.__repforgeHistory;
+    const rows = [
+      { session: "cache-a", date: "2026-01-01", day: "Day 1", exerciseId: "cache-lift", name: "Cache lift", set: 1, load: 10, reps: 8, rir: 1, created: "2026-01-01T12:00:00.000Z" },
+    ];
+    H.diagnostics.reset();
+    const first = H.indexFor(rows);
+    const second = H.indexFor(rows);
+    const result = { same: first === second, builds: H.diagnostics.builds };
+    H.diagnostics.disable();
+    return result;
+  });
+  check(
+    cached.same && cached.builds === 1,
+    "History index memoizes by immutable log-array identity",
+    JSON.stringify(cached)
+  );
+
   const errored = await page.evaluate((helperSrc) => {
     const helpers = eval(helperSrc);
     const rows = helpers.buildFixture();
     const counted = helpers.makeCountingLog(rows);
     const H = window.__repforgeHistory;
     H.diagnostics.reset();
+    const originalLog = state.log;
     H.diagnostics.onBuilt = () => {
       counted.revoke();
       throw new Error("injected-index-error");
@@ -536,13 +567,15 @@ export async function runHistoryIndexChecks(page, check = assert) {
     } catch (e) {
       threw = String(e && e.message || e).includes("injected-index-error");
     }
-    return { threw, restored: H.diagnostics.sourceRestored, visits: counted.visits() };
+    const result = { threw, sourceUntouched: state.log === originalLog, visits: counted.visits() };
+    H.diagnostics.disable();
+    return result;
   }, HISTORY_INDEX_SCRIPT);
   check(errored.threw, "injected renderWithSource error still surfaces", JSON.stringify(errored));
   check(
-    errored.restored === true,
-    "renderWithSource restores the original state.log after an injected error",
-    String(errored.restored)
+    errored.sourceUntouched === true,
+    "renderWithSource never replaces the live state.log when index construction throws",
+    String(errored.sourceUntouched)
   );
 }
 

@@ -3228,18 +3228,19 @@ function redrawChart(){
   if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
-const historyDiagnostics={builds:0,sourceRowVisits:0,last:null,sourceRestored:false,onBuilt:null,
-  reset(){this.builds=0;this.sourceRowVisits=0;this.last=null;this.sourceRestored=false}};
-function copyHistoryRow(raw,rowId){const row=Object.assign({},raw);row.__rowId=rowId;row.__sessionId=raw&&raw.session!=null?String(raw.session):"";return row}
+const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
+  reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
+  disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
+const historyIndexCache=new WeakMap();
 function historyPanelId(session){return`hist-sess-${String(session??"").replace(/[^A-Za-z0-9_-]/g,"_")}`}
 function buildHistoryIndex(log){
   const source=log||[];
   const rows=[];
   const n=source.length;
-  for(let i=0;i<n;i++)rows.push(copyHistoryRow(source[i],i));
+  for(let i=0;i<n;i++){const raw=source[i];rows.push(raw&&typeof raw==="object"?raw:{})}
   const sessionMap=new Map();
   for(const row of rows){
-    const sid=row.__sessionId;
+    const sid=row&&row.session!=null?String(row.session):"";
     if(!sessionMap.has(sid))sessionMap.set(sid,{session:row.session,date:row.date,day:row.day,created:row.created,rows:[]});
     sessionMap.get(sid).rows.push(row)}
   for(const sess of sessionMap.values()){
@@ -3254,13 +3255,12 @@ function buildHistoryIndex(log){
     const sm=liftChrono.get(k);
     if(!sm.has(row.session))sm.set(row.session,{session:row.session,date:row.date,created:row.created,rows:[]});
     sm.get(row.session).rows.push(row)}
-  const liftPred=new Map(),liftMetrics=new Map();
+  const liftPred=new Map();
   for(const[k,sm]of liftChrono){
     const ordered=[...sm.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
     for(let i=0;i<ordered.length;i++){
       const cur=ordered[i],pred=i>0?ordered[i-1].rows:[];
-      liftPred.set(`${cur.session}|${k}`,pred);
-      liftMetrics.set(`${cur.session}|${k}`,{current:exerciseSessionMetrics(cur.rows),previous:pred.length?exerciseSessionMetrics(pred):null,predecessorSession:i>0?ordered[i-1].session:null})}}
+      liftPred.set(`${cur.session}|${k}`,pred)}}
   for(const sess of sessions){
     const byLift=new Map();
     for(const r of sess.rows){
@@ -3288,20 +3288,26 @@ function buildHistoryIndex(log){
     bucket.byDay.get(dayNum).sets++;
     if(prDates.has(date))bucket.byDay.get(dayNum).pr=true}
   const tableRows=[...rows].sort((a,b)=>String(b.date).localeCompare(String(a.date))||displayName(a).localeCompare(displayName(b))||a.set-b.set);
-  const index={rows,sessions,months,prEvents,tableRows,liftPred,liftMetrics};
-  historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
-  if(typeof historyDiagnostics.onBuilt==="function")historyDiagnostics.onBuilt(index);
+  const index={rows,sessions,months,prEvents,tableRows,liftPred};
+  if(historyDiagnostics.enabled){
+    historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
+    if(typeof historyDiagnostics.onBuilt==="function")historyDiagnostics.onBuilt(index)}
   return index}
+function historyIndexFor(log){
+  const source=log||[];
+  if(source&&typeof source==="object"){
+    const cached=historyIndexCache.get(source);
+    if(cached)return cached;
+    const index=buildHistoryIndex(source);historyIndexCache.set(source,index);return index}
+  return buildHistoryIndex(source)}
 function searchHistoryIndex(index,query){
   const q=String(query||"").trim().toLowerCase(),sessions=index?.sessions||[];
   if(!q)return sessions.slice();
   return sessions.filter(s=>String(s.searchText||"").includes(q))}
-function renderHistoryWithSource(source){
-  const prev=state.log;historyDiagnostics.sourceRestored=false;
-  try{state.log=source;renderHistory()}
-  finally{state.log=prev;historyDiagnostics.sourceRestored=true}}
+function renderHistoryWithSource(source){renderHistory(source)}
 window.__repforgeHistory={
   buildIndex:buildHistoryIndex,
+  indexFor:historyIndexFor,
   searchIndex:searchHistoryIndex,
   renderWithSource:renderHistoryWithSource,
   diagnostics:historyDiagnostics};
@@ -3331,11 +3337,11 @@ async function deleteSession(sid,io=storageIO){
     render();toast(t("toast.session_deleted"))}
   return result}
 
-function renderHistory(){
+function renderHistory(source=state.log){
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
   const focusedToggle=document.activeElement?.matches?.("#sessions .session__toggle")?document.activeElement:null;
   const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
-  const index=buildHistoryIndex(state.log);
+  const index=historyIndexFor(source);
   renderHistoryCalendar(index);
   const q=histQuery.trim();
   const sessions=searchHistoryIndex(index,q);
