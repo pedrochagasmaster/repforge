@@ -2412,9 +2412,13 @@ function renderWorkout(){
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
     const rows=Array.from({length:ex.sets},(_,i)=>setRowHtml(ex,i+1,r,draft,prev,nextSet)).join("");
-    const perf=substituted.get(ex.id);
+    const isSkipped=skipped.has(ex.id),perf=substituted.get(ex.id),display=perf||ex.name;
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
-    const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
+    const statusHtml=isSkipped?`<span class="ex__state">${esc(t("log.skipped"))}</span>`:"";
+    const openAria=t("log.open_exercise_aria",{name:display})+(isSkipped?` · ${t("log.skipped")}`:"");
+    const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(openAria)}">${nameLabel}${statusHtml}</button>`;
+    const skipLabel=isSkipped?t("log.restore"):t("log.skip");
+    const skipAria=isSkipped?t("log.restore_aria",{name:display}):t("log.skip_aria",{name:display});
     const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
     const notePreview=noteVal?esc(noteVal):esc(t("log.note.empty"));
     const noteHtml=`<div class="exnote${noteVal?" has-note":""}">`+
@@ -2434,9 +2438,9 @@ function renderWorkout(){
       `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
-      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
+      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(skipAria)}">${esc(skipLabel)}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
+    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${isSkipped?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
       listHead+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+

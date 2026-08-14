@@ -1523,6 +1523,224 @@ const AUDIT_JS = `(() => {
   };
 })()`;
 
+async function auditEnabledControlText(page, rootSelector, extraTextSelectors = []) {
+  return page.evaluate(
+    ({ rootSelector, extraTextSelectors }) => {
+      const parse = (str) => {
+        if (!str || str === "transparent") return [0, 0, 0, 0];
+        const match = String(str).match(
+          /rgba?\((\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)(?:[,\s/]+(\d+(?:\.\d+)?))?\)/i
+        );
+        if (match) {
+          return [
+            +match[1],
+            +match[2],
+            +match[3],
+            match[4] == null ? 1 : +match[4],
+          ];
+        }
+        const hex = String(str).trim();
+        if (hex[0] !== "#") return null;
+        const value = hex.slice(1);
+        if (value.length === 3) {
+          return [
+            parseInt(value[0] + value[0], 16),
+            parseInt(value[1] + value[1], 16),
+            parseInt(value[2] + value[2], 16),
+            1,
+          ];
+        }
+        if (value.length === 6 || value.length === 8) {
+          return [
+            parseInt(value.slice(0, 2), 16),
+            parseInt(value.slice(2, 4), 16),
+            parseInt(value.slice(4, 6), 16),
+            value.length === 8 ? parseInt(value.slice(6, 8), 16) / 255 : 1,
+          ];
+        }
+        return null;
+      };
+      const over = (front, back) => {
+        const alpha = front[3] + back[3] * (1 - front[3]);
+        if (alpha <= 0) return [0, 0, 0, 0];
+        return [
+          (front[0] * front[3] + back[0] * back[3] * (1 - front[3])) / alpha,
+          (front[1] * front[3] + back[1] * back[3] * (1 - front[3])) / alpha,
+          (front[2] * front[3] + back[2] * back[3] * (1 - front[3])) / alpha,
+          alpha,
+        ];
+      };
+      const withOpacity = (color, opacity) => [
+        color[0],
+        color[1],
+        color[2],
+        color[3] * opacity,
+      ];
+      const luminance = (color) => {
+        const channels = color.slice(0, 3).map((value) => {
+          const channel = value / 255;
+          return channel <= 0.03928
+            ? channel / 12.92
+            : ((channel + 0.055) / 1.055) ** 2.4;
+        });
+        return (
+          0.2126 * channels[0] +
+          0.7152 * channels[1] +
+          0.0722 * channels[2]
+        );
+      };
+      const contrast = (a, b) => {
+        const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
+        return (values[0] + 0.05) / (values[1] + 0.05);
+      };
+      const visible = (element) => {
+        if (!element || !element.isConnected || element.closest("[hidden]")) return false;
+        for (let node = element; node; node = node.parentElement) {
+          const style = getComputedStyle(node);
+          if (
+            style.display === "none" ||
+            style.visibility === "hidden" ||
+            Number(style.opacity) === 0
+          ) {
+            return false;
+          }
+        }
+        const rect = element.getBoundingClientRect();
+        return rect.width >= 0.5 && rect.height >= 0.5;
+      };
+      const renderedPixel = (element, paint) => {
+        const chain = [];
+        for (let node = element; node; node = node.parentElement) chain.push(node);
+        chain.reverse();
+        let pixel = [255, 255, 255, 1];
+        const groups = [];
+        for (const node of chain) {
+          const style = getComputedStyle(node);
+          const opacity = Number(style.opacity);
+          if (Number.isFinite(opacity) && opacity < 0.999) {
+            groups.push({ backdrop: pixel, opacity });
+            pixel = [0, 0, 0, 0];
+          }
+          const background = parse(style.backgroundColor);
+          if (background && background[3] > 0) pixel = over(background, pixel);
+        }
+        if (paint) pixel = over(paint, pixel);
+        for (let index = groups.length - 1; index >= 0; index--) {
+          pixel = over(
+            withOpacity(pixel, groups[index].opacity),
+            groups[index].backdrop
+          );
+        }
+        return pixel;
+      };
+      const keyFor = (element) => {
+        const id = element.id ? `#${element.id}` : "";
+        const classes = String(element.className || "")
+          .trim()
+          .split(/\s+/)
+          .filter(Boolean)
+          .slice(0, 3)
+          .map((name) => `.${name}`)
+          .join("");
+        const data =
+          element.getAttribute("data-k") ||
+          element.getAttribute("data-warm") ||
+          element.getAttribute("data-edrm") ||
+          element.getAttribute("data-skip");
+        return `${element.tagName.toLowerCase()}${id}${classes}${
+          data ? `[data=${data}]` : ""
+        }`;
+      };
+      const measure = (element, text, color) => {
+        const background = renderedPixel(element, null);
+        const foreground = renderedPixel(
+          element,
+          parse(color || getComputedStyle(element).color) || [27, 26, 23, 1]
+        );
+        const ratio = contrast(foreground, background);
+        const opacityPath = [];
+        for (let node = element; node; node = node.parentElement) {
+          const opacity = Number(getComputedStyle(node).opacity);
+          if (Number.isFinite(opacity) && opacity < 0.999) {
+            opacityPath.push(`${keyFor(node)}=${opacity}`);
+          }
+        }
+        return {
+          element: keyFor(element),
+          text: String(text).replace(/\s+/g, " ").trim().slice(0, 64),
+          ratio: +ratio.toFixed(2),
+          color: getComputedStyle(element).color,
+          background: getComputedStyle(element).backgroundColor,
+          opacityPath,
+        };
+      };
+      const root = document.querySelector(rootSelector);
+      if (!root) {
+        return {
+          missingRoot: rootSelector,
+          controls: [],
+          issues: [],
+          extraText: [],
+        };
+      }
+      const controlSelector = [
+        "button",
+        "a[href]",
+        "input:not([type=hidden])",
+        "select",
+        "textarea",
+        "[role=button]",
+        "[role=link]",
+      ].join(",");
+      const controls = [
+        ...(root.matches(controlSelector) ? [root] : []),
+        ...root.querySelectorAll(controlSelector),
+      ].filter(
+        (element) =>
+          visible(element) &&
+          !element.matches(":disabled") &&
+          element.getAttribute("aria-disabled") !== "true"
+      );
+      const measurements = [];
+      for (const control of controls) {
+        if (control.matches("input:not([type=button]):not([type=submit]),textarea")) {
+          const value = control.value || control.placeholder;
+          if (value) {
+            const color = control.value
+              ? getComputedStyle(control).color
+              : getComputedStyle(control, "::placeholder").color;
+            measurements.push(measure(control, value, color));
+          }
+          continue;
+        }
+        if (control.matches("select")) {
+          const text = control.selectedOptions[0]?.textContent || "";
+          if (text.trim()) measurements.push(measure(control, text));
+          continue;
+        }
+        const walker = document.createTreeWalker(control, NodeFilter.SHOW_TEXT);
+        let node;
+        while ((node = walker.nextNode())) {
+          const text = node.textContent.replace(/\s+/g, " ").trim();
+          const owner = node.parentElement;
+          if (text && owner && visible(owner)) measurements.push(measure(owner, text));
+        }
+      }
+      const extraText = extraTextSelectors.map((selector) => {
+        const element = document.querySelector(selector);
+        if (!element || !visible(element)) return { selector, missing: true };
+        return { selector, ...measure(element, element.textContent) };
+      });
+      return {
+        controls: measurements,
+        issues: measurements.filter((entry) => entry.ratio + 1e-6 < 4.5),
+        extraText,
+      };
+    },
+    { rootSelector, extraTextSelectors }
+  );
+}
+
 async function installVisualHooks(context) {
   await context.addInitScript(() => {
     window.__repforgeHeard = new Set();
@@ -1698,6 +1916,179 @@ async function visitSurfaces(page) {
     const term = page.locator(".term[data-term]").first();
     if (await term.count()) await term.click().catch(() => {});
   }
+}
+
+async function runDimmedStateAccessibility(browser) {
+  console.log("\nDimmed-state accessibility");
+  const expected = {
+    en: {
+      skipped: "Skipped",
+      restore: "Restore",
+      restoreAria: "Restore Press today",
+      skip: "Skip",
+      skipAria: "Skip Press today",
+      undoRemove: "Undo remove",
+    },
+    pt: {
+      skipped: "Pulado",
+      restore: "Restaurar",
+      restoreAria: "Restaurar Press hoje",
+      skip: "Pular",
+      skipAria: "Pular Press hoje",
+      undoRemove: "Desfazer remoção",
+    },
+  };
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await clearState(page);
+
+  for (const lang of ["en", "pt"]) {
+    const first = sampleState().log[0];
+    const blob = sampleState({
+      log: [
+        first,
+        {
+          ...first,
+          set: 2,
+          load: 55,
+          reps: 11,
+        },
+      ],
+    });
+    blob.settings.lang = lang;
+    await page.evaluate((draftKey) => localStorage.removeItem(draftKey), DRAFT);
+    await persistState(page, blob);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await showView(page, "log");
+
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)");
+    await page.evaluate(() => setLogMode("full"));
+    await page.locator("#workout [data-warm]").first().click();
+    await page.waitForSelector("#workout .setrow.is-warmup");
+    await page.evaluate(() =>
+      document.getAnimations().forEach((animation) => animation.finish())
+    );
+    const warmup = await auditEnabledControlText(
+      page,
+      "#workout .setrow.is-warmup"
+    );
+    assert(
+      warmup.controls.length >= 5,
+      `warm-up state exposes its enabled control text to the contrast audit (${lang})`,
+      JSON.stringify(warmup)
+    );
+    assert(
+      warmup.issues.length === 0,
+      `warm-up enabled control text contrast ≥4.5:1 (${lang})`,
+      JSON.stringify(warmup.issues)
+    );
+
+    await page.locator("#workout .exercise .ex__skip").first().click();
+    await page.waitForSelector("#workout .exercise.is-skipped");
+    await page.evaluate(() =>
+      document.getAnimations().forEach((animation) => animation.finish())
+    );
+    const semantics = await page.evaluate(() => {
+      const card = document.querySelector("#workout .exercise.is-skipped");
+      const action = card?.querySelector(".ex__skip");
+      const status = card?.querySelector(".ex__state");
+      const name = card?.querySelector(".ex__name");
+      return {
+        actionText: action?.textContent.replace(/\s+/g, " ").trim() || "",
+        actionAria: action?.getAttribute("aria-label") || "",
+        statusText: status?.textContent.replace(/\s+/g, " ").trim() || "",
+        statusIsRealDom: !!status,
+        generatedNameContent: name
+          ? getComputedStyle(name, "::after").content
+          : "",
+      };
+    });
+    const copy = expected[lang];
+    assert(
+      semantics.actionText === copy.restore &&
+        semantics.actionAria === copy.restoreAria &&
+        semantics.statusText === copy.skipped &&
+        semantics.statusIsRealDom &&
+        !["Skipped", "Pulado"].some((label) =>
+          semantics.generatedNameContent.includes(label)
+        ),
+      `skipped label and restore action are state-correct real DOM copy (${lang})`,
+      JSON.stringify({ expected: copy, actual: semantics })
+    );
+    const skipped = await auditEnabledControlText(
+      page,
+      "#workout .exercise.is-skipped",
+      ["#workout .exercise.is-skipped .ex__state"]
+    );
+    assert(
+      skipped.issues.length === 0 &&
+        skipped.extraText.length === 1 &&
+        !skipped.extraText[0].missing &&
+        skipped.extraText[0].ratio >= 4.5,
+      `skipped label/action and enabled control text contrast ≥4.5:1 (${lang})`,
+      JSON.stringify(skipped)
+    );
+
+    await page.locator("#workout .exercise.is-skipped .ex__skip").click();
+    await page.waitForSelector("#workout .exercise:not(.is-skipped)");
+    const restored = await page.evaluate(() => {
+      const action = document.querySelector("#workout .exercise .ex__skip");
+      return {
+        text: action?.textContent.replace(/\s+/g, " ").trim() || "",
+        aria: action?.getAttribute("aria-label") || "",
+      };
+    });
+    assert(
+      restored.text === copy.skip && restored.aria === copy.skipAria,
+      `restoring returns the action to Skip semantics (${lang})`,
+      JSON.stringify({ expected: copy, actual: restored })
+    );
+
+    await page.evaluate(() => leaveWorkout());
+    await showView(page, "history");
+    await page.waitForSelector("#sessions [data-sess]");
+    await page.locator("#sessions .session__toggle").first().click();
+    await page.locator("#sessions [data-edit]").first().click();
+    await page.waitForSelector(".session--edit");
+    await page.locator(".session--edit [data-edrm]").first().click();
+    await page.waitForSelector(".session--edit .edrow.is-removed");
+    await page.evaluate(() =>
+      document.getAnimations().forEach((animation) => animation.finish())
+    );
+    const removed = await auditEnabledControlText(
+      page,
+      ".session--edit .edrow.is-removed"
+    );
+    const removedState = await page.evaluate(() => {
+      const row = document.querySelector(".session--edit .edrow.is-removed");
+      const fields = [...(row?.querySelectorAll(".edrow__in") || [])];
+      const action = row?.querySelector("[data-edrm]");
+      return {
+        fieldCount: fields.length,
+        disabledCount: fields.filter((field) => field.disabled).length,
+        actionText: action?.textContent.replace(/\s+/g, " ").trim() || "",
+        actionDisabled: !!action?.disabled,
+      };
+    });
+    assert(
+      removedState.fieldCount === 3 &&
+        removedState.disabledCount === 3 &&
+        !removedState.actionDisabled &&
+        removedState.actionText === copy.undoRemove,
+      `history removed row distinguishes disabled fields from enabled restore action (${lang})`,
+      JSON.stringify(removedState)
+    );
+    assert(
+      removed.issues.length === 0,
+      `history removed-row enabled control text contrast ≥4.5:1 (${lang})`,
+      JSON.stringify(removed)
+    );
+  }
+  await context.close();
 }
 
 function canvasContrast(page, sel) {
@@ -1959,6 +2350,8 @@ async function main() {
   const browser = await launchChromium();
   if (process.argv.includes("--history-320")) {
     await runHistoryResponsiveLayoutChecks(browser);
+  } else if (process.argv.includes("--dimmed-states")) {
+    await runDimmedStateAccessibility(browser);
   } else {
     await runAccessibleInteractions(browser);
     console.log("\nAccessibility / History index");
@@ -1973,6 +2366,7 @@ async function main() {
     await runHistoryOperabilityChecks(page, assert);
     await context.close();
     await runHistoryResponsiveLayoutChecks(browser);
+    await runDimmedStateAccessibility(browser);
     await runVisualAccessibility(browser);
   }
   await browser.close();

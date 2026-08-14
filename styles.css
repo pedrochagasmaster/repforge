@@ -702,7 +702,6 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .setrow{margin-top:8px}
 .setrow__n{font-weight:600;color:var(--ink-soft);font-size:15px;text-align:center;
   background:none;border:0;padding:0;cursor:pointer;line-height:1;min-width:44px;min-height:44px;width:44px;justify-self:start}
-.setrow.is-warmup{opacity:.62}
 .setrow.is-done .saveset{color:#fff;border-color:transparent;background:var(--cta)}
 .setrow.is-next .setrow__n{color:var(--accent-deep)}
 .setrow.is-next .setrow__n::after{content:"";display:block;margin:3px auto 0;width:4px;height:4px;border-radius:50%;background:var(--accent)}
@@ -1093,11 +1092,10 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
   border-radius:9px;cursor:pointer;font-size:13px;line-height:1}
 .ex__rest{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 .ex__skip{padding:0 10px;height:34px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:11px}
-.exercise.is-skipped{opacity:.58}
 .exercise.is-skipped .heat,.exercise.is-skipped .rec,.exercise.is-skipped .setup,
 .exercise.is-skipped .subst,.exercise.is-skipped .prev,.exercise.is-skipped .delta-prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow,
 .exercise.is-skipped .rec__block,.exercise.is-skipped .insession,.exercise.is-skipped .rec-wrap,.exercise.is-skipped .curset{display:none}
-.exercise.is-skipped .ex__name::after{content:" · Skipped";color:var(--ink-soft);font-weight:400;font-size:.82em}
+.ex__state{display:inline-block;margin-left:.35em;color:var(--ink-soft);font-weight:400;font-size:.82em}
 .skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--surface);border:1px solid var(--rule);border-radius:10px;
   padding:8px 12px;margin-bottom:12px;font-size:13px;color:var(--ink-soft)}
@@ -1308,7 +1306,7 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .edrow__name small{color:var(--ink-faint)}
 .edrow__in{margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
 .edrow__rm{justify-self:end;font-size:12px;padding:4px 0;white-space:nowrap}
-.edrow.is-removed{opacity:.5}
+.edrow.is-removed .edrow__name{text-decoration:line-through;text-decoration-color:var(--ink-faint)}
 .edrow.is-removed .edrow__in{visibility:hidden}
 input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
 .edbtns{display:flex;gap:10px;margin-top:14px}
