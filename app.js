@@ -1094,7 +1094,10 @@ function openModal(el,opts={}){
   activeModal=rec;
   const focusEl=typeof opts.initialFocus==="function"?opts.initialFocus():opts.initialFocus;
   const toFocus=focusEl||modalFocusables(el)[0];
-  if(toFocus)toFocus.focus();
+  // Modals are fixed overlays, so scrolling one into view only shifts the page
+  // beneath them — on iOS that drags the visual viewport and takes the sheet
+  // header with it.
+  if(toFocus){try{toFocus.focus({preventScroll:true})}catch{try{toFocus.focus()}catch{}}}
   return true}
 function closeModal(el){
   const rec=activeModal;
@@ -2813,11 +2816,14 @@ async function saveExNoteSheet(){
     renderWorkout();
     const trigger=$$("#workout [data-exnote-open]").find(b=>b.dataset.exnoteOpen===id);
     if(trigger){try{trigger.focus({preventScroll:true})}catch{try{trigger.focus()}catch{}}}}}
-/** Keep the sheet above the software keyboard rather than behind it. */
+/** Keep the sheet above the software keyboard rather than behind it, and inside
+ *  the band the keyboard leaves visible so its header stays on screen. */
 function trackSheetViewport(){
   const vv=window.visualViewport;if(!vv)return;
+  const root=document.documentElement;
   const apply=()=>{const inset=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
-    document.documentElement.style.setProperty("--kb",`${Math.round(inset)}px`)};
+    root.style.setProperty("--kb",`${Math.round(inset)}px`);
+    root.style.setProperty("--vvh",`${Math.round(vv.height)}px`)};
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);apply()}
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
