@@ -8,6 +8,7 @@ import { launchChromium } from "./browser.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
 const PENDING = "repforge_pending_v1";
 const DB = "repforge";
 const STORE = "kv";
@@ -24,6 +25,23 @@ function check(condition, message, detail) {
   failures.push(message);
   console.error(`  ✗ ${message}`);
   if (detail !== undefined) console.error(`    ${JSON.stringify(detail)}`);
+}
+
+function domainSnapshot(value) {
+  const copy = JSON.parse(JSON.stringify(value));
+  delete copy._storageRevision;
+  const canonicalize = (candidate) => {
+    if (Array.isArray(candidate)) return candidate.map(canonicalize);
+    if (candidate && typeof candidate === "object") {
+      return Object.fromEntries(
+        Object.keys(candidate)
+          .sort()
+          .map((key) => [key, canonicalize(candidate[key])])
+      );
+    }
+    return candidate;
+  };
+  return JSON.stringify(canonicalize(copy));
 }
 
 function fixture() {
@@ -137,13 +155,17 @@ async function openApp(context) {
 
 async function seedScenario(page, draftRaw, state = fixture()) {
   await page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName, state, draftRaw }) => {
+    async ({ key, draftKey, draftPendingPrefix, pendingKey, dbName, storeName, state, draftRaw }) => {
       localStorage.setItem(key, JSON.stringify(state));
       if (draftRaw == null) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, draftRaw);
       for (let index = localStorage.length - 1; index >= 0; index--) {
         const storageKey = localStorage.key(index);
-        if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
+        if (
+          storageKey === pendingKey ||
+          storageKey?.startsWith(`${pendingKey}:`) ||
+          storageKey?.startsWith(draftPendingPrefix)
+        ) {
           localStorage.removeItem(storageKey);
         }
       }
@@ -161,7 +183,16 @@ async function seedScenario(page, draftRaw, state = fixture()) {
       });
       db.close();
     },
-    { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE, state, draftRaw }
+    {
+      key: KEY,
+      draftKey: DRAFT,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      pendingKey: PENDING,
+      dbName: DB,
+      storeName: STORE,
+      state,
+      draftRaw,
+    }
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
@@ -169,7 +200,7 @@ async function seedScenario(page, draftRaw, state = fixture()) {
 
 async function readRuntime(page) {
   return page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName }) => {
+    async ({ key, draftKey, draftPendingPrefix, pendingKey, dbName, storeName }) => {
       const localRaw = localStorage.getItem(key);
       const local = localRaw == null ? null : JSON.parse(localRaw);
       const draftRaw = localStorage.getItem(draftKey);
@@ -193,9 +224,23 @@ async function readRuntime(page) {
         pendingEntries.push({ key: storageKey, raw, value: JSON.parse(raw) });
       }
       pendingEntries.sort((a, b) => a.key.localeCompare(b.key));
-      return { localRaw, local, idb, draftRaw, pendingEntries };
+      const draftPendingEntries = [];
+      for (let index = 0; index < localStorage.length; index++) {
+        const storageKey = localStorage.key(index);
+        if (!storageKey?.startsWith(draftPendingPrefix)) continue;
+        draftPendingEntries.push({ key: storageKey, raw: localStorage.getItem(storageKey) });
+      }
+      draftPendingEntries.sort((a, b) => a.key.localeCompare(b.key));
+      return { localRaw, local, idb, draftRaw, pendingEntries, draftPendingEntries };
     },
-    { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE }
+    {
+      key: KEY,
+      draftKey: DRAFT,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      pendingKey: PENDING,
+      dbName: DB,
+      storeName: STORE,
+    }
   );
 }
 
@@ -973,6 +1018,667 @@ async function runDraftCreatedAfterConfirmation(browser) {
   }
 }
 
+async function runLocalReplicaWriteRace(browser) {
+  console.log("\n13. A draft written from the local replica write path aborts template replacement");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const page = await openApp(context);
+    const confirmedDraftRaw = JSON.stringify(draft("confirmed-local-write-race", "102.5"));
+    const newerDraftRaw = JSON.stringify(draft("newer-local-write-race", "122.5"));
+    await seedScenario(page, confirmedDraftRaw);
+    const before = await readRuntime(page);
+    const result = await page.evaluate(
+      async ({ key, draftKey, newerDraftRaw }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        let injected = false;
+        Storage.prototype.setItem = function (candidate, value) {
+          const written = originalSetItem.call(this, candidate, value);
+          if (!injected && candidate === key) {
+            injected = true;
+            originalSetItem.call(this, draftKey, newerDraftRaw);
+          }
+          return written;
+        };
+        try {
+          return await window.__repforgeApplyProgramTemplate();
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+        }
+      },
+      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+    );
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(page);
+
+    check(result?.draftConflict === true, "local-write race is observably rejected as draftConflict", result);
+    check(
+      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.idb) === domainSnapshot(before.idb),
+      "local-write race preserves the prior domain head in both replicas",
+      {
+        beforeName: before.local?.programMeta?.name,
+        localName: final.local?.programMeta?.name,
+        idbName: final.idb?.programMeta?.name,
+        beforeRevision: before.local?._storageRevision,
+        localRevision: final.local?._storageRevision,
+        idbRevision: final.idb?._storageRevision,
+      }
+    );
+    check(final.draftRaw === newerDraftRaw, "local-write race preserves the newer draft exactly", {
+      expected: newerDraftRaw,
+      actual: final.draftRaw,
+    });
+    check(
+      final.pendingEntries.length === 0,
+      "local-write race drains its stale journal only after rejection is durable",
+      final.pendingEntries
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runBootReplayLocalReplicaWriteRace(browser) {
+  console.log("\n14. Boot replay rolls back when the local replica write path publishes a newer draft");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const page = await openApp(context);
+    const confirmedDraftRaw = JSON.stringify(draft("confirmed-boot-write-race", "103.75"));
+    const newerDraftRaw = JSON.stringify(draft("newer-boot-write-race", "123.75"));
+    await seedScenario(page, confirmedDraftRaw);
+    const before = await readRuntime(page);
+    await page.evaluate(
+      async ({ key }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        const originalPut = IDBObjectStore.prototype.put;
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === key) throw new Error("audit: retain destructive receipt for boot race");
+          return originalSetItem.apply(this, arguments);
+        };
+        IDBObjectStore.prototype.put = function (_value, candidate) {
+          if (candidate === key) throw new Error("audit: retain destructive IDB receipt for boot race");
+          return originalPut.apply(this, arguments);
+        };
+        try {
+          return await window.__repforgeApplyProgramTemplate();
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+          IDBObjectStore.prototype.put = originalPut;
+        }
+      },
+      { key: KEY }
+    );
+    const retained = await readRuntime(page);
+    check(
+      retained.pendingEntries.length === 1 &&
+        retained.pendingEntries[0].value?.effect?.precondition === "abort-changed",
+      "precondition: boot race retains one destructive receipt",
+      retained.pendingEntries.map((entry) => entry.value?.effect)
+    );
+
+    await context.addInitScript(
+      ({ key, draftKey, newerDraftRaw }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        let injected = false;
+        Storage.prototype.setItem = function (candidate, value) {
+          const written = originalSetItem.call(this, candidate, value);
+          if (!injected && candidate === key) {
+            injected = true;
+            originalSetItem.call(this, draftKey, newerDraftRaw);
+          }
+          return written;
+        };
+      },
+      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const final = await readRuntime(page);
+    const toastText = await page.locator("#toast").innerText();
+
+    check(
+      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.idb) === domainSnapshot(before.idb),
+      "boot local-write race preserves the prior domain head in both replicas",
+      {
+        beforeName: before.local?.programMeta?.name,
+        localName: final.local?.programMeta?.name,
+        idbName: final.idb?.programMeta?.name,
+        beforeRevision: before.local?._storageRevision,
+        localRevision: final.local?._storageRevision,
+        idbRevision: final.idb?._storageRevision,
+      }
+    );
+    check(final.draftRaw === newerDraftRaw, "boot local-write race preserves the newer draft exactly", {
+      expected: newerDraftRaw,
+      actual: final.draftRaw,
+    });
+    check(
+      final.pendingEntries.length === 0,
+      "boot local-write race drains its stale journal only after durable rollback",
+      final.pendingEntries
+    );
+    check(/retry|try again/i.test(toastText), "boot local-write race reports a draft conflict", toastText);
+  } finally {
+    await context.close();
+  }
+}
+
+async function runOneStoreReplicaWriteRaces(browser) {
+  console.log("\n15. Post-write draft conflicts compensate every accepted one-store outcome");
+  for (const outcome of [
+    { label: "local-only", localOk: true, idbOk: false },
+    { label: "IDB-only", localOk: false, idbOk: true },
+  ]) {
+    const context = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      serviceWorkers: "block",
+    });
+    try {
+      const page = await openApp(context);
+      const confirmedDraftRaw = JSON.stringify(draft(`confirmed-${outcome.label}-race`, "105"));
+      const newerDraftRaw = JSON.stringify(draft(`newer-${outcome.label}-race`, "125"));
+      await seedScenario(page, confirmedDraftRaw);
+      const before = await readRuntime(page);
+      const result = await page.evaluate(
+        async ({ key, draftKey, newerDraftRaw, localOk, idbOk }) => {
+          const originalSetItem = Storage.prototype.setItem;
+          const originalPut = IDBObjectStore.prototype.put;
+          let injected = false;
+          Storage.prototype.setItem = function (candidate, value) {
+            if (candidate !== key) return originalSetItem.call(this, candidate, value);
+            if (!localOk) throw new Error("audit: reject local replica");
+            const written = originalSetItem.call(this, candidate, value);
+            if (!injected) {
+              injected = true;
+              originalSetItem.call(this, draftKey, newerDraftRaw);
+            }
+            return written;
+          };
+          IDBObjectStore.prototype.put = function (value, candidate) {
+            if (candidate !== key) return originalPut.apply(this, arguments);
+            if (!idbOk) throw new Error("audit: reject IDB replica");
+            const request = originalPut.apply(this, arguments);
+            if (!injected) {
+              injected = true;
+              originalSetItem.call(localStorage, draftKey, newerDraftRaw);
+            }
+            return request;
+          };
+          try {
+            return await window.__repforgeApplyProgramTemplate();
+          } finally {
+            Storage.prototype.setItem = originalSetItem;
+            IDBObjectStore.prototype.put = originalPut;
+          }
+        },
+        { key: KEY, draftKey: DRAFT, newerDraftRaw, localOk: outcome.localOk, idbOk: outcome.idbOk }
+      );
+      await page.evaluate(() => window.__repforgeStorage.flush());
+      const compensated = await readRuntime(page);
+
+      check(
+        result?.draftConflict === true &&
+          result.localOk === false &&
+          result.idbOk === false &&
+          result.compensationLocalOk === outcome.localOk &&
+          result.compensationIdbOk === outcome.idbOk,
+        `${outcome.label} conflict reports rejection and its durable compensation`,
+        result
+      );
+      check(
+        domainSnapshot(compensated.local) === domainSnapshot(before.local) &&
+          domainSnapshot(compensated.idb) === domainSnapshot(before.idb) &&
+          compensated.draftRaw === newerDraftRaw &&
+          compensated.pendingEntries.length === 0,
+        `${outcome.label} compensation preserves the prior domain head and newer draft`,
+        {
+          localName: compensated.local?.programMeta?.name,
+          idbName: compensated.idb?.programMeta?.name,
+          localRevision: compensated.local?._storageRevision,
+          idbRevision: compensated.idb?._storageRevision,
+          pendingCount: compensated.pendingEntries.length,
+        }
+      );
+
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+      const healed = await readRuntime(page);
+      check(
+        domainSnapshot(healed.local) === domainSnapshot(before.local) &&
+          domainSnapshot(healed.idb) === domainSnapshot(before.idb) &&
+          healed.local?._storageRevision === healed.idb?._storageRevision &&
+          healed.draftRaw === newerDraftRaw,
+        `${outcome.label} rollback wins replica selection and heals on boot`,
+        {
+          localName: healed.local?.programMeta?.name,
+          idbName: healed.idb?.programMeta?.name,
+          localRevision: healed.local?._storageRevision,
+          idbRevision: healed.idb?._storageRevision,
+        }
+      );
+    } finally {
+      await context.close();
+    }
+  }
+}
+
+async function runEffectApplicationRace(browser) {
+  console.log("\n16. A draft published between post-write check and receipt application is rejected");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const page = await openApp(context);
+    const confirmedDraftRaw = JSON.stringify(draft("confirmed-effect-race", "106.25"));
+    const newerDraftRaw = JSON.stringify(draft("newer-effect-race", "126.25"));
+    await seedScenario(page, confirmedDraftRaw);
+    const before = await readRuntime(page);
+    const observed = await page.evaluate(
+      async ({ draftKey, newerDraftRaw }) => {
+        const originalGetItem = Storage.prototype.getItem;
+        const originalSetItem = Storage.prototype.setItem;
+        let draftReads = 0;
+        Storage.prototype.getItem = function (candidate) {
+          if (candidate === draftKey) {
+            draftReads++;
+            if (draftReads === 4) originalSetItem.call(this, draftKey, newerDraftRaw);
+          }
+          return originalGetItem.apply(this, arguments);
+        };
+        try {
+          const result = await window.__repforgeApplyProgramTemplate();
+          return { result, draftReads };
+        } finally {
+          Storage.prototype.getItem = originalGetItem;
+        }
+      },
+      { draftKey: DRAFT, newerDraftRaw }
+    );
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(page);
+
+    check(
+      observed.result?.draftConflict === true && observed.draftReads >= 4,
+      "receipt-application race is observably rejected",
+      observed
+    );
+    check(
+      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
+        final.draftRaw === newerDraftRaw &&
+        final.pendingEntries.length === 0,
+      "receipt-application race durably restores both replicas and preserves the newer draft",
+      {
+        localName: final.local?.programMeta?.name,
+        idbName: final.idb?.programMeta?.name,
+        draftMatches: final.draftRaw === newerDraftRaw,
+        pendingCount: final.pendingEntries.length,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runPreparedTransactionUnloadRecovery(browser) {
+  console.log("\n17. Boot compensates an interrupted prepared destructive transaction");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const writer = await openApp(context);
+    const confirmedDraftRaw = JSON.stringify(draft("confirmed-interrupted-transaction", "107.5"));
+    const newerDraftRaw = JSON.stringify(draft("newer-interrupted-transaction", "127.5"));
+    await seedScenario(writer, confirmedDraftRaw);
+    const before = await readRuntime(writer);
+    await writer.evaluate(
+      ({ key, draftKey, newerDraftRaw }) => {
+        const io = {
+          async writeLocal(snapshot) {
+            localStorage.setItem(key, JSON.stringify(snapshot));
+            localStorage.setItem(draftKey, newerDraftRaw);
+          },
+          async writeIdb() {
+            await new Promise(() => {});
+          },
+        };
+        window.__interruptedDraftTransaction = window.__repforgeApplyProgramTemplate(io);
+      },
+      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+    );
+    await writer.waitForFunction(
+      ({ key, marker }) => {
+        const snapshot = JSON.parse(localStorage.getItem(key) || "null");
+        return snapshot?.[marker]?.version === 1;
+      },
+      { key: KEY, marker: "_storageDraftTransaction" },
+      { timeout: 10000 }
+    );
+    const interrupted = await readRuntime(writer);
+    check(
+      interrupted.local?.programMeta?.name === "Beginner program" &&
+        interrupted.local?._storageDraftTransaction?.previous?.programMeta?.name === before.local?.programMeta?.name &&
+        domainSnapshot(interrupted.idb) === domainSnapshot(before.idb) &&
+        interrupted.draftRaw === newerDraftRaw,
+      "precondition: one provisional replica carries its exact rollback head",
+      {
+        localName: interrupted.local?.programMeta?.name,
+        rollbackName: interrupted.local?._storageDraftTransaction?.previous?.programMeta?.name,
+        idbName: interrupted.idb?.programMeta?.name,
+      }
+    );
+
+    await writer.close();
+    const recovered = await openApp(context);
+    const final = await readRuntime(recovered);
+    const toastText = await recovered.locator("#toast").innerText();
+    check(
+      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
+        final.local?._storageRevision === final.idb?._storageRevision &&
+        !("_storageDraftTransaction" in final.local) &&
+        !("_storageDraftTransaction" in final.idb),
+      "boot uses the prepared marker to durably compensate and heal both replicas",
+      {
+        localName: final.local?.programMeta?.name,
+        idbName: final.idb?.programMeta?.name,
+        localRevision: final.local?._storageRevision,
+        idbRevision: final.idb?._storageRevision,
+      }
+    );
+    check(
+      final.draftRaw === newerDraftRaw && /retry|try again/i.test(toastText),
+      "interrupted compensation preserves the newer draft and reports rejection",
+      { draftMatches: final.draftRaw === newerDraftRaw, toastText }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runSuccessfulClearPublicationRace(browser) {
+  console.log("\n18. A draft published immediately after successful removal is compensated");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const page = await openApp(context);
+    const confirmedDraftRaw = JSON.stringify(draft("confirmed-successful-clear-race", "108.75"));
+    const newerDraftRaw = JSON.stringify(draft("newer-successful-clear-race", "128.75"));
+    await seedScenario(page, confirmedDraftRaw);
+    const before = await readRuntime(page);
+    const observed = await page.evaluate(
+      async ({ key, draftKey, newerDraftRaw }) => {
+        const originalRemoveItem = Storage.prototype.removeItem;
+        const originalSetItem = Storage.prototype.setItem;
+        let injected = false;
+        let markerPresent = false;
+        let draftRawAfterRemoval = null;
+        Storage.prototype.removeItem = function (candidate) {
+          const removed = originalRemoveItem.apply(this, arguments);
+          if (!injected && candidate === draftKey) {
+            injected = true;
+            const provisional = JSON.parse(localStorage.getItem(key) || "null");
+            markerPresent = provisional?._storageDraftTransaction?.version === 1;
+            originalSetItem.call(this, draftKey, newerDraftRaw);
+            draftRawAfterRemoval = localStorage.getItem(draftKey);
+          }
+          return removed;
+        };
+        try {
+          const result = await window.__repforgeApplyProgramTemplate();
+          return { result, injected, markerPresent, draftRawAfterRemoval };
+        } finally {
+          Storage.prototype.removeItem = originalRemoveItem;
+        }
+      },
+      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+    );
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(page);
+
+    check(
+      observed.injected && observed.markerPresent && observed.draftRawAfterRemoval === newerDraftRaw,
+      "precondition: newer draft is published while the destructive transaction is provisional",
+      observed
+    );
+    check(observed.result?.draftConflict === true, "successful-clear publication is rejected as draftConflict", observed.result);
+    check(
+      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
+        final.draftRaw === newerDraftRaw &&
+        final.pendingEntries.length === 0 &&
+        final.draftPendingEntries.length === 0,
+      "successful-clear publication durably restores both replicas and preserves the newer draft",
+      {
+        beforeName: before.local?.programMeta?.name,
+        localName: final.local?.programMeta?.name,
+        idbName: final.idb?.programMeta?.name,
+        newerDraftPreserved: final.draftRaw === newerDraftRaw,
+        pendingCount: final.pendingEntries.length,
+        pendingDraftCount: final.draftPendingEntries.length,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runStaleTabSaveDuringSuccessfulClear(browser) {
+  console.log("\n19. A stale tab saveDraft during successful removal is queued without loss");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const writer = await openApp(context);
+    const confirmedDraftRaw = JSON.stringify(draft("confirmed-stale-tab-save", "110"));
+    await seedScenario(writer, confirmedDraftRaw);
+    const before = await readRuntime(writer);
+    const popup = context.waitForEvent("page");
+    await writer.evaluate((url) => {
+      window.__draftConflictStaleTab = window.open(url, "draft-conflict-stale-tab");
+    }, BASE);
+    const stale = await popup;
+    await waitForApp(stale);
+
+    const observed = await writer.evaluate(
+      async ({ key, draftKey, draftPendingPrefix, staleLoad }) => {
+        const originalRemoveItem = Storage.prototype.removeItem;
+        let saveDispatched = false;
+        let markerPresent = false;
+        let draftRawAfterSave = null;
+        let queuedWriteCount = 0;
+        Storage.prototype.removeItem = function (candidate) {
+          const removed = originalRemoveItem.apply(this, arguments);
+          if (!saveDispatched && candidate === draftKey) {
+            const provisional = JSON.parse(localStorage.getItem(key) || "null");
+            markerPresent = provisional?._storageDraftTransaction?.version === 1;
+            const staleTab = window.__draftConflictStaleTab;
+            const input = staleTab?.document.querySelector(
+              '[data-k="draft-conflict-press_1_load"]'
+            );
+            if (input) {
+              input.value = staleLoad;
+              input.dispatchEvent(new staleTab.Event("input", { bubbles: true }));
+              saveDispatched = true;
+              draftRawAfterSave = staleTab.localStorage.getItem(draftKey);
+              for (let index = 0; index < staleTab.localStorage.length; index++) {
+                if (staleTab.localStorage.key(index)?.startsWith(draftPendingPrefix)) queuedWriteCount++;
+              }
+            }
+          }
+          return removed;
+        };
+        try {
+          const result = await window.__repforgeApplyProgramTemplate();
+          return { result, saveDispatched, markerPresent, draftRawAfterSave, queuedWriteCount };
+        } finally {
+          Storage.prototype.removeItem = originalRemoveItem;
+        }
+      },
+      { key: KEY, draftKey: DRAFT, draftPendingPrefix: DRAFT_PENDING_PREFIX, staleLoad: "131.25" }
+    );
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(writer);
+    const finalDraft = final.draftRaw == null ? null : JSON.parse(final.draftRaw);
+
+    check(
+      observed.saveDispatched &&
+        observed.markerPresent &&
+        observed.draftRawAfterSave === null &&
+        observed.queuedWriteCount === 1,
+      "precondition: production saveDraft queues instead of publishing while the transaction is provisional",
+      observed
+    );
+    check(
+      observed.result?.draftConflict === true,
+      "stale-tab save causes compensation instead of accepting an incompatible program",
+      observed.result
+    );
+    check(
+      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
+        finalDraft?.["draft-conflict-press_1_load"] === "131.25" &&
+        final.pendingEntries.length === 0 &&
+        final.draftPendingEntries.length === 0,
+      "stale-tab save is retained exactly while both durable replicas return to the old program",
+      {
+        beforeName: before.local?.programMeta?.name,
+        localName: final.local?.programMeta?.name,
+        idbName: final.idb?.programMeta?.name,
+        staleLoad: finalDraft?.["draft-conflict-press_1_load"],
+        pendingCount: final.pendingEntries.length,
+        pendingDraftCount: final.draftPendingEntries.length,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runQueuedStaleTabUnloadRecovery(browser) {
+  console.log("\n20. Boot recovers a queued stale-tab draft after interrupted compensation");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const writer = await openApp(context);
+    const confirmedDraftRaw = JSON.stringify(draft("confirmed-queued-unload", "112.5"));
+    await seedScenario(writer, confirmedDraftRaw);
+    const before = await readRuntime(writer);
+    const popup = context.waitForEvent("page");
+    await writer.evaluate((url) => {
+      window.__draftConflictStaleTab = window.open(url, "draft-conflict-unload-stale-tab");
+    }, BASE);
+    const stale = await popup;
+    await waitForApp(stale);
+
+    const result = await writer.evaluate(
+      async ({ key, draftKey, staleLoad }) => {
+        const originalRemoveItem = Storage.prototype.removeItem;
+        const originalSetItem = Storage.prototype.setItem;
+        const originalPut = IDBObjectStore.prototype.put;
+        let stateWrites = 0;
+        let idbWrites = 0;
+        let saveDispatched = false;
+        Storage.prototype.removeItem = function (candidate) {
+          const removed = originalRemoveItem.apply(this, arguments);
+          if (!saveDispatched && candidate === draftKey) {
+            const staleTab = window.__draftConflictStaleTab;
+            const input = staleTab?.document.querySelector(
+              '[data-k="draft-conflict-press_1_load"]'
+            );
+            if (input) {
+              input.value = staleLoad;
+              input.dispatchEvent(new staleTab.Event("input", { bubbles: true }));
+              saveDispatched = true;
+            }
+          }
+          return removed;
+        };
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === key && ++stateWrites > 1) {
+            throw new Error("audit: interrupt local compensation");
+          }
+          return originalSetItem.apply(this, arguments);
+        };
+        IDBObjectStore.prototype.put = function (_value, candidate) {
+          if (candidate === key && ++idbWrites > 1) {
+            throw new Error("audit: interrupt IDB compensation");
+          }
+          return originalPut.apply(this, arguments);
+        };
+        try {
+          return await window.__repforgeApplyProgramTemplate();
+        } finally {
+          Storage.prototype.removeItem = originalRemoveItem;
+          Storage.prototype.setItem = originalSetItem;
+          IDBObjectStore.prototype.put = originalPut;
+        }
+      },
+      { key: KEY, draftKey: DRAFT, staleLoad: "133.75" }
+    );
+    const interrupted = await readRuntime(writer);
+    check(
+      result?.draftConflict === true &&
+        result.compensationPending === true &&
+        interrupted.local?._storageDraftTransaction?.version === 1 &&
+        interrupted.idb?._storageDraftTransaction?.version === 1 &&
+        interrupted.draftRaw === null &&
+        interrupted.pendingEntries.length === 1 &&
+        interrupted.draftPendingEntries.length === 1,
+      "precondition: failed compensation retains the provisional marker, state journal, and queued draft",
+      {
+        result,
+        localTransaction: interrupted.local?._storageDraftTransaction?.version,
+        idbTransaction: interrupted.idb?._storageDraftTransaction?.version,
+        draftRaw: interrupted.draftRaw,
+        pendingCount: interrupted.pendingEntries.length,
+        pendingDraftCount: interrupted.draftPendingEntries.length,
+      }
+    );
+
+    await stale.close();
+    await writer.close();
+    const recovered = await openApp(context);
+    const final = await readRuntime(recovered);
+    const finalDraft = final.draftRaw == null ? null : JSON.parse(final.draftRaw);
+    const toastText = await recovered.locator("#toast").innerText();
+    check(
+      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
+        final.local?._storageRevision === final.idb?._storageRevision &&
+        finalDraft?.["draft-conflict-press_1_load"] === "133.75" &&
+        final.pendingEntries.length === 0 &&
+        final.draftPendingEntries.length === 0,
+      "boot durably compensates and republishes the queued stale-tab draft without loss",
+      {
+        beforeName: before.local?.programMeta?.name,
+        localName: final.local?.programMeta?.name,
+        idbName: final.idb?.programMeta?.name,
+        staleLoad: finalDraft?.["draft-conflict-press_1_load"],
+        pendingCount: final.pendingEntries.length,
+        pendingDraftCount: final.draftPendingEntries.length,
+      }
+    );
+    check(/retry|try again/i.test(toastText), "queued unload recovery reports the rejected replacement", toastText);
+  } finally {
+    await context.close();
+  }
+}
+
 async function main() {
   console.log("Program destructive-draft conflict regressions");
   console.log(`Target: ${BASE}`);
@@ -990,6 +1696,14 @@ async function main() {
     await runIndependentlyRemovedDraft(browser);
     await runBootDestructiveConflict(browser);
     await runDraftCreatedAfterConfirmation(browser);
+    await runLocalReplicaWriteRace(browser);
+    await runBootReplayLocalReplicaWriteRace(browser);
+    await runOneStoreReplicaWriteRaces(browser);
+    await runEffectApplicationRace(browser);
+    await runPreparedTransactionUnloadRecovery(browser);
+    await runSuccessfulClearPublicationRace(browser);
+    await runStaleTabSaveDuringSuccessfulClear(browser);
+    await runQueuedStaleTabUnloadRecovery(browser);
   } finally {
     await browser.close();
   }

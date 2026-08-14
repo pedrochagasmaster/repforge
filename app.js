@@ -1,5 +1,5 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",PENDING="repforge_pending_v1",NOTIFY_META="repforge_notify_v1";
-const PENDING_PREFIX=`${PENDING}:`;
+const PENDING_PREFIX=`${PENDING}:`,DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`;
 const DB="repforge",STORE="kv";
 function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
@@ -22,7 +22,7 @@ async function idbDel(key){const db=await idbOpen();
     const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);
     tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
   finally{db.close()}}
-const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp";
+const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction";
 function cloneSnapshot(s){return s==null?s:JSON.parse(JSON.stringify(s))}
 function isPlainStateObject(value){
   if(!value||typeof value!=="object"||Array.isArray(value))return false;
@@ -36,11 +36,12 @@ function isValidStateShape(s){
   try{
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
       !Array.isArray(s.log)||!s.log.every(isPlainStateObject))return false;
+    if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
     return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
   catch{return false}}
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
-function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];return o}
+function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];return o}
 function exportableState(s){return stripStorageMeta(s)}
 function canonicalize(value){
   if(Array.isArray(value))return value.map(canonicalize);
@@ -84,6 +85,10 @@ function chooseSnapshot(localRead,idbRead){
   const equal=snapshotsEqual(localRead.parsed,idbRead.parsed);
   const lr=readRevision(localRead.parsed),ir=readRevision(idbRead.parsed);
   if(equal){
+    const localTxn=pendingDraftTransaction(localRead.parsed),idbTxn=pendingDraftTransaction(idbRead.parsed);
+    if(lr===ir&&!!localTxn!==!!idbTxn){
+      if(localTxn)return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"};
+      return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"}}
     if(lr!==ir){
       if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
       return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"}}
@@ -206,6 +211,8 @@ async function refreshPersistenceHead(){
   const decision=chooseSnapshot(local,idb);
   if(decision.kind==="first-run")return{head:cloneSnapshot(persistHead)};
   if(decision.kind!=="chosen")return{head:cloneSnapshot(persistHead),conflict:true};
+  if(pendingDraftTransaction(decision.snapshot))
+    return{head:cloneSnapshot(persistHead),conflict:true,draftTransaction:true};
   const disk=cloneSnapshot(decision.snapshot),current=cloneSnapshot(persistHead);
   const diskRev=readRevision(disk),currentRev=readRevision(current);
   if(diskRev>currentRev)return{head:disk};
@@ -246,6 +253,17 @@ function pendingJournalEffect(effect){
       receipt.conflictDay=effect.conflictDay}
     return receipt}
   return null}
+function draftEffectRequiresCoordination(effect){
+  const receipt=pendingJournalEffect(effect);
+  return!!receipt&&receipt.precondition!==DRAFT_PRECONDITION_MATCH_ONLY}
+function pendingDraftTransaction(snapshot){
+  const value=snapshot?.[STORAGE_DRAFT_TXN];
+  if(!isPlainStateObject(value)||value.version!==1||typeof value.id!=="string"||!value.id)return null;
+  const effect=pendingJournalEffect(value.effect),previous=value.previous;
+  if(!draftEffectRequiresCoordination(effect)||!isPlainStateObject(previous)||
+    Object.prototype.hasOwnProperty.call(previous,STORAGE_DRAFT_TXN)||!isValidStateShape(previous)||
+    readRevision(snapshot)<=readRevision(previous))return null;
+  return{id:value.id,effect,previous:cloneSnapshot(previous)}}
 function pendingJournalEffectState(effect){
   const receipt=pendingJournalEffect(effect);
   if(!receipt)return{receipt:null,status:"none"};
@@ -272,6 +290,23 @@ function applyPendingJournalEffect(effect){
     else localStorage.setItem(DRAFT,receipt.replacementRaw);
     return true}
   catch{return false}}
+function pendingDraftPostEffectAccepted(effect){
+  const receipt=pendingJournalEffect(effect);
+  if(!draftEffectRequiresCoordination(receipt))return true;
+  try{
+    const currentRaw=localStorage.getItem(DRAFT);
+    if(receipt.kind==="clear-draft")return currentRaw==null;
+    if(currentRaw===receipt.replacementRaw)return true;
+    const after=pendingJournalEffectState(receipt);
+    return after.status!=="conflict"&&after.status!=="exact"}
+  catch{return false}}
+function pendingDraftSettlementAccepted(effect,transactionId){
+  if(transactionId&&readPendingDraftWrites(transactionId).entries.length)return false;
+  return pendingDraftPostEffectAccepted(effect)}
+function pendingDraftEffectAccepted(effect,checked,transactionId){
+  if(!draftEffectRequiresCoordination(effect))return true;
+  if(checked.status==="conflict")return false;
+  return pendingDraftSettlementAccepted(effect,transactionId)}
 function readDraftRaw(){
   try{return localStorage.getItem(DRAFT)}
   catch{return null}}
@@ -304,6 +339,81 @@ function pendingJournalOrder(){
   const at=Math.max(clock,pendingJournalClock+1);
   pendingJournalClock=at;
   return{at,writer:pendingJournalWriterId,seq:++pendingJournalSeq}}
+function draftProgramFingerprint(snapshot){
+  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
+    program:Array.isArray(snapshot?.program)?snapshot.program:[]}))}
+function pendingDraftWriteKeys(){
+  const keys=[];
+  try{for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key?.startsWith(DRAFT_PENDING_PREFIX))keys.push(key)}}
+  catch{}
+  return[...new Set(keys)]}
+function decodePendingDraftWrite(key,raw){
+  try{
+    const value=JSON.parse(raw),order=value?.order;
+    if(!isPlainStateObject(value)||value.version!==1||typeof value.transactionId!=="string"||
+      !value.transactionId||typeof value.writer!=="string"||!value.writer||
+      key!==`${DRAFT_PENDING_PREFIX}${value.transactionId}:${value.writer}`||
+      typeof value.raw!=="string"||value.raw.length>PENDING_EFFECT_MAX_RAW||
+      typeof value.programFingerprint!=="string"||
+      !Number.isSafeInteger(order?.at)||typeof order?.writer!=="string"||
+      !Number.isSafeInteger(order?.seq))return null;
+    return{key,raw,value}}
+  catch{return null}}
+function readPendingDraftWrites(transactionId=null){
+  const entries=[],invalid=[];
+  for(const key of pendingDraftWriteKeys()){
+    let raw;
+    try{raw=localStorage.getItem(key)}catch{continue}
+    if(raw==null)continue;
+    const entry=decodePendingDraftWrite(key,raw);
+    if(!entry)invalid.push({key,raw});
+    else if(transactionId==null||entry.value.transactionId===transactionId)entries.push(entry)}
+  entries.sort((a,b)=>a.value.order.at-b.value.order.at||
+    a.value.order.writer.localeCompare(b.value.order.writer)||
+    a.value.order.seq-b.value.order.seq||a.key.localeCompare(b.key));
+  return{entries,invalid}}
+function pendingDraftWriteTarget(){
+  if(!pendingJournalKeys().length)return null;
+  const local=readLocalStatus();
+  const transaction=local.status==="valid"?pendingDraftTransaction(local.parsed):null;
+  if(transaction)return{id:transaction.id};
+  const coordinated=readPendingJournal().entries.filter(record=>
+    draftEffectRequiresCoordination(record.journal.effect));
+  const next=coordinated[0];
+  return next?{id:next.journal.id}:null}
+function latestPendingDraftWrite(transactionId){
+  return readPendingDraftWrites(transactionId).entries.at(-1)||null}
+function writePendingDraftRaw(target,raw){
+  if(typeof raw!=="string"||raw.length>PENDING_EFFECT_MAX_RAW)return false;
+  const order=pendingJournalOrder();
+  const key=`${DRAFT_PENDING_PREFIX}${target.id}:${pendingJournalWriterId}`;
+  const value={version:1,transactionId:target.id,writer:pendingJournalWriterId,order,
+    programFingerprint:draftProgramFingerprint(state),raw};
+  try{localStorage.setItem(key,JSON.stringify(value));return true}
+  catch{return false}}
+function readAppDraftRaw(){
+  const target=pendingDraftWriteTarget();
+  const queued=target&&latestPendingDraftWrite(target.id);
+  if(queued)return queued.value.raw;
+  return localStorage.getItem(DRAFT)}
+function writeAppDraftRaw(raw){
+  const target=pendingDraftWriteTarget();
+  if(!target){localStorage.setItem(DRAFT,raw);return true}
+  return writePendingDraftRaw(target,raw)}
+function clearPendingDraftWrite(entry){
+  try{
+    if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key)}
+  catch{}}
+function restorePendingDraftWrites(transactionId){
+  const pending=readPendingDraftWrites(transactionId);
+  if(!pending.entries.length)return true;
+  const latest=pending.entries.at(-1);
+  try{localStorage.setItem(DRAFT,latest.value.raw)}
+  catch{return false}
+  for(const entry of pending.entries)clearPendingDraftWrite(entry);
+  return true}
 function pendingJournalKeys(){
   const keys=[];
   try{for(let i=0;i<localStorage.length;i++){
@@ -354,6 +464,15 @@ function clearPendingJournal(record){
   try{
     if(localStorage.getItem(record.key)===record.raw)localStorage.removeItem(record.key)}
   catch{}}
+function clearPendingJournalById(id){
+  if(typeof id!=="string"||!id)return;
+  const key=PENDING_PREFIX+id;
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw==null)return;
+    const record=decodePendingJournal(key,raw);
+    if(record?.journal.id===id)clearPendingJournal(record)}
+  catch{}}
 function clearAllPendingJournal(){
   const records=readPendingJournal();
   for(const record of [...records.entries,...records.invalid])clearPendingJournal(record)}
@@ -371,8 +490,56 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false}={}){
   const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
   const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
   reconcileCandidateLogDays(snapshot);
+  delete snapshot[STORAGE_DRAFT_TXN];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
   return snapshot}
+function preparePendingDraftTransaction(snapshot,previous,effect,id){
+  const prepared=cloneSnapshot(snapshot),receipt=pendingJournalEffect(effect);
+  if(!draftEffectRequiresCoordination(receipt))return prepared;
+  const prior=cloneSnapshot(previous);
+  delete prior[STORAGE_DRAFT_TXN];
+  if(!isValidStateShape(prior))throw new TypeError("draft transaction requires a valid prior state");
+  prepared[STORAGE_DRAFT_TXN]={version:1,id:id||pendingJournalUuid(),previous:prior,effect:receipt};
+  return prepared}
+function finalizedDraftTransactionSnapshot(snapshot){
+  const finalized=cloneSnapshot(snapshot);
+  delete finalized[STORAGE_DRAFT_TXN];
+  return finalized}
+function rejectedDraftTransactionSnapshot(snapshot){
+  const transaction=pendingDraftTransaction(snapshot);
+  if(!transaction)return null;
+  const rollback=cloneSnapshot(transaction.previous);
+  delete rollback[STORAGE_DRAFT_TXN];
+  rollback[STORAGE_REV]=readRevision(snapshot)+1;
+  return rollback}
+async function compensatePendingDraftTransaction(snapshot,io,transactionId){
+  const rollback=rejectedDraftTransactionSnapshot(snapshot);
+  const result=rollback?await writeSnapshot(rollback,io):{revision:readRevision(snapshot),localOk:false,idbOk:false};
+  const durable=!!(result.localOk||result.idbOk);
+  const draftSettled=durable&&restorePendingDraftWrites(transactionId);
+  return{settled:durable&&draftSettled,snapshot:rollback,result}}
+async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io){
+  const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
+  applyPendingJournalEffect(effect);
+  if(!pendingDraftEffectAccepted(effect,checked,transactionId)){
+    const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId);
+    return Object.assign({accepted:false,rejected:true},compensation)}
+  if(!transaction)return{accepted:true,rejected:false,snapshot:finalized,result:null};
+  const result=await writeSnapshot(finalized,io);
+  if(!(result.localOk||result.idbOk))
+    return{accepted:false,rejected:false,settled:false,snapshot:prepared,result};
+  if(!pendingDraftSettlementAccepted(effect,transactionId)){
+    const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId);
+    return Object.assign({accepted:false,rejected:true},compensation)}
+  return{accepted:true,rejected:false,settled:true,snapshot:finalized,result}}
+async function settleStoredDraftTransaction(snapshot,io){
+  const transaction=pendingDraftTransaction(snapshot);
+  if(!transaction)return{settled:true,rejected:false,snapshot:cloneSnapshot(snapshot),result:null};
+  const checked=pendingJournalEffectState(transaction.effect);
+  const finalized=finalizedDraftTransactionSnapshot(snapshot);
+  const outcome=await settleAppliedDraftTransaction(snapshot,finalized,transaction.effect,checked,io);
+  return{settled:!!outcome.accepted||!!outcome.settled,rejected:!!outcome.rejected,
+    snapshot:outcome.snapshot,result:outcome.result}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,effect=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
@@ -391,16 +558,31 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
       clearPendingJournal(pendingRecord);
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
-    if(pendingJournalEffectState(frozenEffect).status==="conflict"){
-      clearPendingJournal(pendingRecord);
+    const coordinationId=pendingRecord?.journal.id||null;
+    const preEffectState=pendingJournalEffectState(frozenEffect);
+    if(preEffectState.status==="conflict"||
+      (coordinationId&&readPendingDraftWrites(coordinationId).entries.length)){
+      if(restorePendingDraftWrites(coordinationId))clearPendingJournal(pendingRecord);
       return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true}}
     const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,{replace});
-    const result=await writeSnapshot(snapshot,io);
+    const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
+    const result=await writeSnapshot(prepared,io);
+    const postWriteEffectState=pendingJournalEffectState(frozenEffect);
     if(result.localOk||result.idbOk){
-      applyPendingJournalEffect(frozenEffect);
+      const finalized=finalizedDraftTransactionSnapshot(prepared);
+      const settlement=await settleAppliedDraftTransaction(prepared,finalized,frozenEffect,postWriteEffectState,io);
+      if(!settlement.accepted){
+        if(settlement.rejected&&settlement.settled){
+          clearPendingJournal(pendingRecord);
+          persistHead=cloneSnapshot(settlement.snapshot);
+          applyAcceptedSnapshot(frozenLiveBase,settlement.snapshot)}
+        return{revision:settlement.result?.revision??result.revision,localOk:false,idbOk:false,
+          draftConflict:!!settlement.rejected,compensationPending:!settlement.settled,
+          compensationLocalOk:!!settlement.result?.localOk,compensationIdbOk:!!settlement.result?.idbOk}}
       clearPendingJournal(pendingRecord);
       persistHead=cloneSnapshot(snapshot);
-      applyAcceptedSnapshot(frozenLiveBase,snapshot)}
+      applyAcceptedSnapshot(frozenLiveBase,snapshot);
+      return settlement.result||result}
     return result}));
   return operation}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
@@ -702,7 +884,7 @@ function resetDraftSessionState(){
 function clearDraft(){
   localStorage.removeItem(DRAFT);
   resetDraftSessionState()}
-const loadDraft=()=>{try{return JSON.parse(localStorage.getItem(DRAFT)||"{}")}catch{clearDraft();return{}}};
+const loadDraft=()=>{try{return JSON.parse(readAppDraftRaw()||"{}")}catch{clearDraft();return{}}};
 function convertDraftUnits(oldUnit,newUnit){
   if(oldUnit===newUnit)return;
   const d=loadDraft();let changed=false;
@@ -717,7 +899,7 @@ function convertDraftUnits(oldUnit,newUnit){
     if(bw!==""&&bw!=null){
       const n=parseDec(bw);
       if(Number.isFinite(n)){d.__bodyweight=conv(n);changed=true}}}
-  if(changed)try{localStorage.setItem(DRAFT,JSON.stringify(d))}catch{}}
+  if(changed)try{writeAppDraftRaw(JSON.stringify(d))}catch{}}
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
 const liftKey=x=>x.exerciseId||x.name;
@@ -1094,7 +1276,7 @@ function requestWorkoutDay(nextDay){
   if(draftHasProgress()){
     if(!confirm(t("confirm.discard_draft"))){
       if(raw==null){try{localStorage.removeItem(DRAFT)}catch{}}
-      else try{localStorage.setItem(DRAFT,raw)}catch{}
+      else try{writeAppDraftRaw(raw)}catch{}
       return false}
     clearDraft();
     resetSessionContextFields()}
@@ -1110,7 +1292,7 @@ function changeRirMode(newMode){
   if(draftHasProgress()){
     $$('input[name="rirMode"]').forEach(r=>{r.checked=old==="effort"?r.value==="effort":r.value!=="effort"});
     if(raw==null){try{localStorage.removeItem(DRAFT)}catch{}}
-    else try{localStorage.setItem(DRAFT,raw)}catch{}
+    else try{writeAppDraftRaw(raw)}catch{}
     toast(t("toast.rir_locked_draft"));
     return false}
   return true}
@@ -2037,7 +2219,7 @@ function updateSessionBanner(){
   };
 }
 
-function draftHasProgress(){try{const d=JSON.parse(localStorage.getItem(DRAFT)||"{}");
+function draftHasProgress(){try{const d=JSON.parse(readAppDraftRaw()||"{}");
   return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
 function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
   document.body.classList.toggle("is-workout",workoutActive);
@@ -2689,7 +2871,7 @@ function saveDraft(opts){
   if(contextTouched.bodyweight||Object.prototype.hasOwnProperty.call(d,"__bodyweight")){
     if(bwEl) d.__bodyweight=bwEl.value}
   d.__contextTouched={day:!!contextTouched.day,date:!!contextTouched.date,sessionNotes:!!contextTouched.sessionNotes,bodyweight:!!contextTouched.bodyweight};
-  try{localStorage.setItem(DRAFT,JSON.stringify(d))}catch{}}
+  try{writeAppDraftRaw(JSON.stringify(d))}catch{}}
 
 function clearFieldInvalid(root){
   (root||document).querySelectorAll("[aria-invalid='true']").forEach(el=>el.removeAttribute("aria-invalid"))}
@@ -4655,6 +4837,14 @@ async function resolveBootReplicas(candidate=null){
       decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
         heal:candidate.source==="local"?"idb":"local"}}
     let head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot),replayed=false,draftConflict=false;
+    const storedTransaction=head&&pendingDraftTransaction(head);
+    if(storedTransaction){
+      const settled=await settleStoredDraftTransaction(head,storageIO);
+      if(!settled.settled)
+        return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+      clearPendingJournalById(storedTransaction.id);
+      head=settled.snapshot;replayed=true;draftConflict=settled.rejected;
+      decision={kind:"chosen",snapshot:head,source:"pending"}}
     const pending=readPendingJournal();
     for(const invalid of pending.invalid)clearPendingJournal(invalid);
     for(const record of pending.entries){
@@ -4662,15 +4852,27 @@ async function resolveBootReplicas(candidate=null){
       if(journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId){
         clearPendingJournal(record);
         continue}
-      if(pendingJournalEffectState(journal.effect).status==="conflict"){
+      const preEffectState=pendingJournalEffectState(journal.effect);
+      if(preEffectState.status==="conflict"||readPendingDraftWrites(journal.id).entries.length){
+        if(!restorePendingDraftWrites(journal.id))
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         clearPendingJournal(record);
         draftConflict=true;
         continue}
       const journalHead=head||cloneSnapshot(journal.base);
       const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,{replace:journal.replace});
-      const result=await writeSnapshot(snapshot,storageIO);
+      const prepared=preparePendingDraftTransaction(snapshot,journalHead,journal.effect,journal.id);
+      const result=await writeSnapshot(prepared,storageIO);
+      const postWriteEffectState=pendingJournalEffectState(journal.effect);
       if(!(result.localOk||result.idbOk))break;
-      applyPendingJournalEffect(journal.effect);
+      const finalized=finalizedDraftTransactionSnapshot(prepared);
+      const settlement=await settleAppliedDraftTransaction(prepared,finalized,journal.effect,postWriteEffectState,storageIO);
+      if(!settlement.accepted){
+        if(!settlement.rejected||!settlement.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        clearPendingJournal(record);
+        head=settlement.snapshot;replayed=true;draftConflict=true;
+        continue}
       clearPendingJournal(record);
       head=snapshot;replayed=true}
     if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict};
