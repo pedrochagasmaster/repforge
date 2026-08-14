@@ -3403,8 +3403,10 @@ function historyIndexFor(log){
   const source=log||[];
   if(source&&typeof source==="object"){
     const cached=historyIndexCache.get(source);
-    if(cached)return cached;
-    const index=buildHistoryIndex(source);historyIndexCache.set(source,index);return index}
+    if(cached?.program===state.program)return cached.index;
+    const index=buildHistoryIndex(source);
+    historyIndexCache.set(source,{program:state.program,index});
+    return index}
   return buildHistoryIndex(source)}
 function searchHistoryIndex(index,query){
   const q=String(query||"").trim().toLowerCase(),sessions=index?.sessions||[];

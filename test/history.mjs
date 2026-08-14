@@ -352,19 +352,37 @@ export async function runHistoryIndexChecks(page, check = assert) {
 
   const cached = await page.evaluate(() => {
     const H = window.__repforgeHistory;
+    const exercise = state.program[0];
     const rows = [
-      { session: "cache-a", date: "2026-01-01", day: "Day 1", exerciseId: "cache-lift", name: "Cache lift", set: 1, load: 10, reps: 8, rir: 1, created: "2026-01-01T12:00:00.000Z" },
+      { session: "cache-a", date: "2026-01-01", day: exercise.day, exerciseId: exercise.id, name: "Historical name", set: 1, load: 10, reps: 8, rir: 1, created: "2026-01-01T12:00:00.000Z" },
     ];
     H.diagnostics.reset();
     const first = H.indexFor(rows);
     const second = H.indexFor(rows);
-    const result = { same: first === second, builds: H.diagnostics.builds };
+    const renamed = "ZZZ Memo Renamed Lift";
+    const originalProgram = state.program;
+    state.program = state.program.map((entry) =>
+      entry.id === exercise.id ? { ...entry, name: renamed } : entry
+    );
+    const afterProgramChange = H.indexFor(rows);
+    const result = {
+      same: first === second,
+      rebuilt: afterProgramChange !== first,
+      renamedMatches: H.searchIndex(afterProgramChange, renamed).length,
+      staleMatches: H.searchIndex(afterProgramChange, exercise.name).length,
+      builds: H.diagnostics.builds,
+    };
+    state.program = originalProgram;
     H.diagnostics.disable();
     return result;
   });
   check(
-    cached.same && cached.builds === 1,
-    "History index memoizes by immutable log-array identity",
+    cached.same &&
+      cached.rebuilt &&
+      cached.renamedMatches === 1 &&
+      cached.staleMatches === 0 &&
+      cached.builds === 2,
+    "History index memoizes by log and program identity without stale search names",
     JSON.stringify(cached)
   );
 
