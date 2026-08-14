@@ -88,7 +88,6 @@ const storageIO={
 const STORAGE_LOCK="repforge:state-write";
 let persistTail=Promise.resolve();
 let persistHead=null,mutationBase=null;
-let lastLocalRev=-1,lastIdbRev=-1;
 let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
 let storageDegradedToast=false;
 function enqueueWrite(op){
@@ -101,9 +100,9 @@ async function writeSnapshot(snapshot,io){
     throw new Error("writeSnapshot requires an explicit adapter");
   const data=cloneSnapshot(snapshot),rev=readRevision(data);
   let localOk=false,idbOk=false;
-  try{if(rev>=lastLocalRev){await io.writeLocal(data);lastLocalRev=rev}localOk=true}
+  try{await io.writeLocal(data);localOk=true}
   catch(e){console.warn("localStorage mirror failed",e)}
-  try{if(rev>=lastIdbRev){await io.writeIdb(data);lastIdbRev=rev}idbOk=true}
+  try{await io.writeIdb(data);idbOk=true}
   catch(e){console.warn("idb persist failed",e)}
   const result={revision:rev,localOk,idbOk};
   noteWriteHealth(result);

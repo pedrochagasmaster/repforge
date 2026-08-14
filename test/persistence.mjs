@@ -717,6 +717,118 @@ try {
   }
 
   // ---------------------------------------------------------------------------
+  // 8a. Explicit adapters do not share revision suppression
+  // ---------------------------------------------------------------------------
+  {
+    console.log("\nexplicit adapter revision isolation");
+    const { context, page } = await freshContext(browser);
+    await waitForApp(page);
+    const highRevision = Number.MAX_SAFE_INTEGER;
+    const high = await page.evaluate(
+      async ({ snapshot }) => {
+        const calls = { local: 0, idb: 0 };
+        const result = await window.__repforgeStorage.writeWithAdapter(snapshot, {
+          writeLocal() {
+            calls.local++;
+          },
+          writeIdb() {
+            calls.idb++;
+          },
+        });
+        return { calls, result };
+      },
+      { snapshot: sampleState({ name: "High adapter", revision: highRevision }) }
+    );
+    assert(high.calls.local === 1 && high.calls.idb === 1, "High revision invokes both methods on the first explicit adapter", JSON.stringify(high));
+
+    const lowRevision = highRevision - 1;
+    const low = await page.evaluate(
+      async ({ snapshot }) => {
+        const calls = { local: 0, idb: 0 };
+        const result = await window.__repforgeStorage.writeWithAdapter(snapshot, {
+          writeLocal() {
+            calls.local++;
+            throw new Error("expected local failure");
+          },
+          writeIdb() {
+            calls.idb++;
+            throw new Error("expected idb failure");
+          },
+        });
+        return { calls, result, health: window.__repforgeStorage.health() };
+      },
+      { snapshot: sampleState({ name: "Lower adapter", revision: lowRevision }) }
+    );
+    assert(low.calls.local === 1 && low.calls.idb === 1, "A lower revision still invokes both methods on a distinct explicit adapter", JSON.stringify(low));
+    assert(!low.result.localOk && !low.result.idbOk, "A lower revision reports the distinct adapter's total failure", JSON.stringify(low));
+    assert(!low.health.localOk && !low.health.idbOk, "A lower revision records the distinct adapter's total failure", JSON.stringify(low.health));
+    await context.close();
+  }
+
+  // ---------------------------------------------------------------------------
+  // 8b. Real-store outcome flags require completed writes
+  // ---------------------------------------------------------------------------
+  {
+    console.log("\nreal adapter reported-success invariant");
+    const { context, page } = await freshContext(browser);
+    await waitForApp(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const highRevision = Number.MAX_SAFE_INTEGER;
+    const high = sampleState({ name: "Real high", revision: highRevision });
+    await page.evaluate(
+      ({ key, snapshot }) => localStorage.setItem(key, JSON.stringify(snapshot)),
+      { key: KEY, snapshot: high }
+    );
+    await idbDelete(page);
+    await page.evaluate(() => window.resolveBootReplicas());
+
+    const low = sampleState({ name: "Real lower", revision: highRevision - 1 });
+    await page.evaluate(
+      ({ key, snapshot }) => localStorage.setItem(key, JSON.stringify(snapshot)),
+      { key: KEY, snapshot: low }
+    );
+    await idbDelete(page);
+    const observed = await page.evaluate(
+      async ({ key }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        const originalPut = IDBObjectStore.prototype.put;
+        const calls = { local: 0, idb: 0 };
+        Storage.prototype.setItem = function (storageKey) {
+          if (storageKey === key) {
+            calls.local++;
+            throw new Error("expected real local failure");
+          }
+          return originalSetItem.apply(this, arguments);
+        };
+        IDBObjectStore.prototype.put = function (_value, storageKey) {
+          if (storageKey === key) {
+            calls.idb++;
+            throw new Error("expected real idb failure");
+          }
+          return originalPut.apply(this, arguments);
+        };
+        try {
+          await window.resolveBootReplicas();
+          return { calls, health: window.__repforgeStorage.health() };
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+          IDBObjectStore.prototype.put = originalPut;
+        }
+      },
+      { key: KEY }
+    );
+    assert(
+      observed.calls.local === 1 &&
+        observed.calls.idb === 1 &&
+        !observed.health.localOk &&
+        !observed.health.idbOk,
+      "Reported real-store outcomes require both adapter methods to complete",
+      JSON.stringify(observed)
+    );
+    await context.close();
+  }
+
+  // ---------------------------------------------------------------------------
   // 9. Delayed writes cannot leave a lower revision
   // ---------------------------------------------------------------------------
   {
