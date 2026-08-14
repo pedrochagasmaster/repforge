@@ -473,7 +473,8 @@ function usage() {
   return `Usage:
   node test/manual-matrix.mjs --self-test
   node test/manual-matrix.mjs --emit-fixtures /tmp/repforge-launch-041
-  node test/manual-matrix.mjs --prepare C1 --fixture clean --permission unsupported --headed`;
+  node test/manual-matrix.mjs --prepare C1 --fixture clean --permission unsupported --headed
+  REPFORGE_RC_ORIGIN=https://branch-preview.example node test/manual-matrix.mjs --prepare C2 --fixture clean --permission native`;
 }
 
 function parseArgs(argv) {
@@ -488,7 +489,7 @@ function parseArgs(argv) {
     unit: null,
     width: null,
     height: null,
-    origin: DEFAULT_ORIGIN,
+    origin: null,
   };
   for (let i = 2; i < argv.length; i++) {
     const a = argv[i];
@@ -512,6 +513,20 @@ function parseArgs(argv) {
     else throw new Error(`Unknown argument: ${a}`);
   }
   return out;
+}
+
+function resolvePrepareOrigin(args, cell, env = process.env) {
+  const raw = args.origin || (cell.headed ? DEFAULT_ORIGIN : env.REPFORGE_RC_ORIGIN);
+  if (!raw) {
+    throw new Error(`${cell.id} requires REPFORGE_RC_ORIGIN or --origin with the branch-addressable HTTPS release candidate`);
+  }
+  const url = new URL(raw);
+  const host = url.hostname.toLowerCase();
+  const loopback = host === "localhost" || host === "::1" || host === "0.0.0.0" || host.startsWith("127.");
+  if (!cell.headed && (url.protocol !== "https:" || loopback)) {
+    throw new Error(`${cell.id} requires a non-loopback HTTPS release-candidate origin; got ${url.origin}`);
+  }
+  return url.origin;
 }
 
 function seedSnippet(fx) {
@@ -577,6 +592,20 @@ function runSelfTest() {
   assert(CELLS.C5.locale === "pt" && CELLS.C5.platform === "ios-safari", "C5 is 390×844 / pt / lb iOS");
   assert(CELLS.C6.locale === "pt" && CELLS.C6.platform === "android-chrome", "C6 is 430×932 / pt / lb Android");
   assert(CELLS.C1.headed && CELLS.C4.headed && !CELLS.C2.headed && !CELLS.C3.headed, "only C1/C4 are headed desktop cells");
+  assert(resolvePrepareOrigin({ origin: null }, CELLS.C1, {}) === "http://127.0.0.1:8000", "desktop cells default to loopback HTTP");
+  assert(
+    resolvePrepareOrigin({ origin: null }, CELLS.C2, { REPFORGE_RC_ORIGIN: "https://preview.example/branch" }) === "https://preview.example",
+    "physical cells consume REPFORGE_RC_ORIGIN"
+  );
+  for (const raw of [null, "http://preview.example", "https://127.0.0.1:8000"]) {
+    let rejected = false;
+    try {
+      resolvePrepareOrigin({ origin: raw }, CELLS.C2, {});
+    } catch {
+      rejected = true;
+    }
+    assert(rejected, `physical cells reject ${raw || "a missing origin"}`);
+  }
 
   const testDate = "2026-08-13";
   const a = buildFixtures(testDate);
@@ -831,7 +860,7 @@ async function runPrepare(args) {
   const fixtures = buildFixtures(testDate, { lang: cell.locale, unit: cell.unit });
   const fx = fixtures[args.fixture];
   const hash = fixtureHash(fx);
-  const origin = new URL(args.origin).origin;
+  const origin = resolvePrepareOrigin(args, cell);
 
   console.log(`\nPrepare ${cell.id}`);
   console.log(`  viewport=${cell.viewport.width}x${cell.viewport.height} locale=${cell.locale} unit=${cell.unit}`);
@@ -849,9 +878,6 @@ async function runPrepare(args) {
       console.log("  Android: Chrome Site settings → the exact origin → Clear & reset, then import the emitted full-backup or run the .seed.js snippet via remote debugging.");
     }
     console.log(`  Record fixture hash ${hash} in the evidence ledger before testing.`);
-    if (!process.env.REPFORGE_RC_ORIGIN) {
-      console.log("  STOP reminder: set REPFORGE_RC_ORIGIN to a branch-addressable HTTPS origin serving this commit before C2/C3/C5/C6.");
-    }
     return 0;
   }
 
