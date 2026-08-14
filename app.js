@@ -4125,9 +4125,8 @@ const TOUR=[
   {view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},
   {view:"stats"},{view:"history"},{view:"program"},{view:"settings"},{view:"settings",install:true}
 ];
-let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourInertPrev=null,tourFocusOrigin=null;
+let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourFocusOrigin=null;
 function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
-function tourFocusables(){return $$("#tour button, #tour [href], #tour input, #tour select, #tour textarea").filter(el=>!el.disabled&&el.offsetParent!==null)}
 function snapshotTourUi(){
   const scrolls={};
   for(const id of["log","stats","history","program","settings"]){const el=$("#"+id);if(el)scrolls[id]=el.scrollTop}
@@ -4266,14 +4265,6 @@ function init(){
   $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
   $("#tourSkip").onclick=()=>endTour(false);
   $("#replayTour").onclick=()=>startTour("replay");
-  document.addEventListener("keydown",e=>{
-    if(!tourActive)return;
-    if(e.key==="Escape"){e.preventDefault();endTour(false);return}
-    if(e.key!=="Tab")return;
-    const stops=tourFocusables();if(!stops.length)return;
-    const first=stops[0],last=stops[stops.length-1];
-    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
-    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}});
   $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
   // One rest control in the workout header: start it when idle, stop it when running.

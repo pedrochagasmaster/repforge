@@ -848,6 +848,14 @@ async function runReplayTourScenario(browser, originMode, exitKind) {
 
   await page.keyboard.press("Enter");
   await page.waitForSelector("#tour:not(.hidden)");
+  if (originMode === "list" && exitKind === "cancel") {
+    const wrap = await tabWrap(page, "#tour");
+    assert(
+      wrap.forward.inside && wrap.back.inside,
+      "Replay Tour uses the shared modal controller for forward/reverse Tab containment",
+      JSON.stringify(wrap)
+    );
+  }
   const total = await page.locator("#tourDots .tour__dot").count();
   const lastStep = exitKind === "cancel" ? Math.min(3, total - 1) : total - 1;
   const trace = [];
