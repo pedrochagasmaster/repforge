@@ -6,25 +6,35 @@ into self-contained, executable implementation plans, complemented with a
 codebase audit of `app.js`, `index.html`, `styles.css`, and `sw.js`.
 
 - **Written against**: commit `ff67850` (`ff67850f3f30245feb0851ae5babda33c318456`), 2026-07-01 (wave 2 consolidated). Wave 1 plans (001–016) were written at `1d68b68` and are **DONE** in the codebase.
-- **Codebase shape**: static PWA, no build step, no framework. Primary state in
-  IndexedDB (`repforge` / `kv`) with `localStorage` mirror (`repforge_v1`), draft
-  key (`repforge_draft_v1`). Logic in `app.js` (~693 lines), markup in
-  `index.html`, styles in `styles.css`, offline caching in `sw.js`.
-- **Verification gate (every plan uses it)**: `node --check app.js` for syntax,
-  then the Playwright simulation:
+- **Codebase shape**: static PWA, no application build, no framework, no
+  application dependencies. Durable state is mirrored in IndexedDB
+  (`repforge` / `kv`) and `localStorage` (`repforge_v1`). The in-progress
+  workout draft is `localStorage`-only (`repforge_draft_v1`); immutable
+  unversioned pending-write entries under `repforge_pending_v1:` protect the
+  ordered mutations waiting on the cross-tab lock and are replayed at boot
+  (`repforge_pending_v1` remains a legacy migration key). Logic in
+  `app.js`, markup in `index.html`, styles in `styles.css`, offline caching in
+  `sw.js` (`CACHE` / `ASSETS` / `SHELL` in that file are the shell contract).
+- **Verification gate (every plan uses it)**: the application stays
+  build-free. Browser suites use pinned test-only dependencies under `test/`.
+  In a fresh checkout bootstrap once, then serve the repo root over HTTP:
 
   ```bash
+  (cd test && npm ci && npx playwright install chromium --with-deps)
   # terminal 1 — static server from repo root
   python3 -m http.server 8000
   # terminal 2 — from repo root
-  cd test && node simulation.mjs
-  # expect: "FAILED: 0" and exit code 0
+  node --check app.js
+  node test/schedule.mjs
+  node test/simulation.mjs
+  # expect: schedule 8/8, simulation "FAILED: 0", exit code 0
   ```
 
-  There is **no** linter, type-checker, or bundler in this repo — do not look
-  for one. `test/simulation.mjs` is the whole test surface (85 checks at
-  `ff67850`; executors add checks there for new behavior). Test dependencies
-  are already installed.
+  There is **no** application linter, type-checker, bundler, or root npm
+  package — do not add one, and do not use npm to run the app. Focused
+  suites live beside `test/simulation.mjs` (`schedule.mjs`, `i18n.mjs`,
+  `persistence.mjs`, `notifications.mjs`, `recover-gate.mjs`,
+  `accessibility.mjs`, `focus-mode.mjs`, `manual-matrix.mjs`).
 
 Every plan is written for the weakest plausible executor: exact `file:line`
 current-state excerpts, repo conventions inlined, a drift check, verification
@@ -179,9 +189,10 @@ the improve skill's non-interactive rule.
   program editor's `oninput` → `persistProgram()` does the same; fixing it
   for one input would be inconsistent. A debounced-save pass would be a
   separate, whole-app finding.
-- **"days this week" chip wording on a rolling 7-day window**: matches the
-  design note's documented display spec; a calendar-week rework is a product
-  decision, not a bug.
+- **Rolling 7-day adherence vs. calendar-week adherence**: the rolling window
+  is the accepted Program contract; a calendar-week rework is a product
+  decision, not a bug. The UI now names that window explicitly instead of
+  calling it “this week.”
 - **Warmup-only rows counting toward adherence**: defensible ("you showed
   up"); all saved rows have load > 0 anyway, so the edge is nearly
   unreachable.

@@ -1,4 +1,6 @@
-const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
+const KEY="repforge_v1",DRAFT="repforge_draft_v1",PENDING="repforge_pending_v1",NOTIFY_META="repforge_notify_v1";
+const PENDING_PREFIX=`${PENDING}:`,DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
+const DRAFT_WRITE_TRANSACTION="draft-write";
 const DB="repforge",STORE="kv";
 function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
@@ -16,6 +18,960 @@ async function idbSet(key,val){const db=await idbOpen();
     const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(val,key);
     tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
   finally{db.close()}}
+async function idbDel(key){const db=await idbOpen();
+  try{return await new Promise((res,rej)=>{
+    const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);
+    tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
+  finally{db.close()}}
+const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction";
+function cloneSnapshot(s){return s==null?s:JSON.parse(JSON.stringify(s))}
+function isPlainStateObject(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  const proto=Object.getPrototypeOf(value);
+  return proto===Object.prototype||proto===null}
+function isSafeProgramHistoryEntry(entry){
+  if(!isPlainStateObject(entry))return false;
+  if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
+  return Array.isArray(entry.program)&&entry.program.every(isPlainStateObject)}
+function isSafeLogRow(entry){
+  if(!isPlainStateObject(entry))return false;
+  return!Object.prototype.hasOwnProperty.call(entry,"performedName")||
+    entry.performedName==null||typeof entry.performedName==="string"}
+function isValidStateShape(s){
+  try{
+    if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
+      !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
+    if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
+    if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
+    return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
+  catch{return false}}
+function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
+function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];return o}
+function exportableState(s){return stripStorageMeta(s)}
+function canonicalize(value){
+  if(Array.isArray(value))return value.map(canonicalize);
+  if(value&&typeof value==="object"){
+    const out={};
+    for(const key of Object.keys(value).sort())out[key]=canonicalize(value[key]);
+    return out}
+  return value}
+function canonicalPayload(s){return JSON.stringify(canonicalize(stripStorageMeta(s)))}
+function snapshotsEqual(a,b){return canonicalPayload(a)===canonicalPayload(b)}
+function snapshotSummary(s){
+  const log=Array.isArray(s?.log)?s.log:[];
+  const sessions=new Set(log.map(r=>r&&r.session).filter(Boolean)).size;
+  const dates=log.map(r=>String(r&&r.date||"")).filter(d=>/^\d{4}-\d{2}-\d{2}$/.test(d)).sort();
+  return{name:String(s?.programMeta?.name||"").trim(),sessions,sets:log.length,lastDate:dates.length?dates[dates.length-1]:""}}
+function encodeRawExport(raw){if(raw==null)return"";if(typeof raw==="string")return raw;try{return JSON.stringify(raw,null,2)}catch{return String(raw)}}
+function readLocalStatus(){
+  try{const raw=localStorage.getItem(KEY);
+    if(raw==null)return{status:"absent",raw:null,parsed:null};
+    try{const parsed=JSON.parse(raw);
+      if(isValidStateShape(parsed))return{status:"valid",raw,parsed};
+      return{status:"invalid",raw,parsed}}
+    catch{return{status:"invalid",raw,parsed:null}}}
+  catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
+async function readIdbStatus(){
+  try{const parsed=await idbGet(KEY);
+    if(parsed==null)return{status:"absent",raw:null,parsed:null};
+    if(isValidStateShape(parsed))return{status:"valid",raw:parsed,parsed};
+    return{status:"invalid",raw:parsed,parsed}}
+  catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
+function chooseSnapshot(localRead,idbRead){
+  const l=localRead?.status,i=idbRead?.status,lv=l==="valid",iv=i==="valid";
+  if(l==="absent"&&i==="absent")return{kind:"first-run"};
+  if(!lv&&!iv)return{kind:"unresolved",reason:"no-valid",local:localRead,idb:idbRead};
+  if(lv&&i==="absent")return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
+  if(iv&&l==="absent")return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"};
+  if(lv&&(i==="invalid"||i==="failed"))return{kind:"unresolved",reason:i==="failed"?"valid-plus-failed":"valid-plus-invalid",local:localRead,idb:idbRead};
+  if(iv&&(l==="invalid"||l==="failed"))return{kind:"unresolved",reason:l==="failed"?"valid-plus-failed":"valid-plus-invalid",local:localRead,idb:idbRead};
+  const localHas=Object.prototype.hasOwnProperty.call(localRead.parsed||{},STORAGE_REV);
+  const idbHas=Object.prototype.hasOwnProperty.call(idbRead.parsed||{},STORAGE_REV);
+  const equal=snapshotsEqual(localRead.parsed,idbRead.parsed);
+  const lr=readRevision(localRead.parsed),ir=readRevision(idbRead.parsed);
+  if(equal){
+    const localTxn=pendingDraftTransaction(localRead.parsed),idbTxn=pendingDraftTransaction(idbRead.parsed);
+    if(lr===ir&&!!localTxn!==!!idbTxn){
+      if(localTxn)return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"};
+      return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"}}
+    if(lr!==ir){
+      if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
+      return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"}}
+    if(!localHas||!idbHas){
+      const chosen=localHas?localRead:idbRead;
+      return{kind:"chosen",snapshot:chosen.parsed,source:chosen===localRead?"local":"idb",migrate:true}}
+    return{kind:"chosen",snapshot:idbRead.parsed,source:"idb"}}
+  if(lr!==ir){
+    if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
+    return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"}}
+  return{kind:"unresolved",reason:"divergent",local:localRead,idb:idbRead}}
+const storageIO={
+  writeLocal(data){localStorage.setItem(KEY,JSON.stringify(data))},
+  async writeIdb(data){await idbSet(KEY,data)}
+};
+const STORAGE_LOCK="repforge:state-write";
+const PENDING_EFFECT_MAX_RAW=1000000;
+const DRAFT_PRECONDITION_MATCH_ONLY="match-only";
+const DRAFT_PRECONDITION_ABORT_CHANGED="abort-changed";
+const DRAFT_PRECONDITION_ABORT_SAME_DAY="abort-same-day";
+const DRAFT_EFFECT_VALID="valid",DRAFT_EFFECT_INVALID="invalid",DRAFT_EFFECT_NONE="none";
+let persistTail=Promise.resolve();
+let persistHead=null,mutationBase=null;
+let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
+let storageDegradedToast=false;
+function enqueueWrite(op){
+  const result=persistTail.then(op);
+  persistTail=result.then(()=>undefined,()=>undefined);
+  return result}
+function flushStorage(){return persistTail}
+async function writeSnapshot(snapshot,io){
+  if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
+    throw new Error("writeSnapshot requires an explicit adapter");
+  const data=cloneSnapshot(snapshot),rev=readRevision(data);
+  let localOk=false,idbOk=false;
+  try{await io.writeLocal(data);localOk=true}
+  catch(e){console.warn("localStorage mirror failed",e)}
+  try{await io.writeIdb(data);idbOk=true}
+  catch(e){console.warn("idb persist failed",e)}
+  const result={revision:rev,localOk,idbOk};
+  noteWriteHealth(result);
+  return result}
+function noteWriteHealth(result){
+  const both=!!(result.localOk&&result.idbOk),none=!result.localOk&&!result.idbOk,degraded=!both&&!none;
+  storageHealth={revision:result.revision,localOk:!!result.localOk,idbOk:!!result.idbOk,degraded,lastResult:result};
+  if(none){storageDegradedToast=false;toast(t("toast.storage_full"),{assertive:true})}
+  else if(degraded){if(!storageDegradedToast){storageDegradedToast=true;toast(t("toast.storage_degraded"))}}
+  else storageDegradedToast=false;
+  const el=$("#storageDegraded");
+  if(el){el.textContent=degraded?t("settings.storage.degraded"):"";el.classList.toggle("hidden",!degraded);el.hidden=!degraded}}
+function requireAdapter(io,label){
+  if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
+    throw new Error(label+" requires an explicit adapter");
+  return io}
+const CHANGE_MISSING=Symbol("change-missing");
+function changeValueEqual(a,b){
+  if(a===CHANGE_MISSING||b===CHANGE_MISSING)return a===b;
+  return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+function changeObject(v){return!!(v&&typeof v==="object"&&!Array.isArray(v))}
+function changeEntityKey(root,value,index){
+  if(!value||typeof value!=="object")return`${root}:value:${index}:${JSON.stringify(canonicalize(value))}`;
+  if(root==="log")return value.session?`session:${value.session}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
+  if(root==="program"||root==="programHistory")return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
+  return null}
+function changeGroups(list,root){
+  const order=[],map=new Map();
+  (Array.isArray(list)?list:[]).forEach((value,index)=>{
+    const key=changeEntityKey(root,value,index);
+    if(key==null)return;
+    if(!map.has(key)){order.push(key);map.set(key,[])}
+    map.get(key).push(value)});
+  return{order,map}}
+function mergeChangedArray(base,proposal,target,root,preferProposal){
+  const b=changeGroups(base,root),p=changeGroups(proposal,root),tgt=changeGroups(target,root);
+  const order=[...tgt.order],out=new Map([...tgt.map].map(([key,value])=>[key,cloneSnapshot(value)]));
+  const remove=key=>{out.delete(key);const i=order.indexOf(key);if(i>=0)order.splice(i,1)};
+  for(const key of new Set([...b.order,...p.order])){
+    const bv=b.map.has(key)?b.map.get(key):CHANGE_MISSING;
+    const pv=p.map.has(key)?p.map.get(key):CHANGE_MISSING;
+    const tv=tgt.map.has(key)?tgt.map.get(key):CHANGE_MISSING;
+    if(changeValueEqual(pv,bv))continue;
+    if(pv===CHANGE_MISSING){
+      if(tv!==CHANGE_MISSING&&(changeValueEqual(tv,bv)||preferProposal))remove(key);
+      continue}
+    if(tv===CHANGE_MISSING){
+      if(bv===CHANGE_MISSING||preferProposal){out.set(key,cloneSnapshot(pv));if(!order.includes(key))order.push(key)}
+      continue}
+    if(bv===CHANGE_MISSING){
+      if(preferProposal){out.set(key,cloneSnapshot(pv));if(!order.includes(key))order.push(key)}
+      continue}
+    if(root==="program"&&bv.length===1&&pv.length===1&&tv.length===1&&
+      changeObject(bv[0])&&changeObject(pv[0])&&changeObject(tv[0])){
+      const merged=mergeStateValue(bv[0],pv[0],tv[0],[root,key],preferProposal);
+      if(merged===CHANGE_MISSING)remove(key);
+      else{out.set(key,[merged]);if(!order.includes(key))order.push(key)}
+      continue}
+    if(changeValueEqual(tv,bv)||preferProposal)out.set(key,cloneSnapshot(pv))}
+  return order.flatMap(key=>out.get(key)||[])}
+function mergeStateValue(base,proposal,target,path,preferProposal){
+  if(changeValueEqual(proposal,base))return target===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(target);
+  if(changeValueEqual(target,base))return proposal===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(proposal);
+  const root=path[0];
+  if(path.length===1&&Array.isArray(base)&&Array.isArray(proposal)&&Array.isArray(target)&&
+    (root==="log"||root==="program"||root==="programHistory"))
+    return mergeChangedArray(base,proposal,target,root,preferProposal);
+  if(changeObject(base)&&changeObject(proposal)&&changeObject(target)){
+    const out={};
+    for(const key of new Set([...Object.keys(base),...Object.keys(proposal),...Object.keys(target)])){
+      if(path.length===0&&key===STORAGE_REV)continue;
+      const bv=Object.prototype.hasOwnProperty.call(base,key)?base[key]:CHANGE_MISSING;
+      const pv=Object.prototype.hasOwnProperty.call(proposal,key)?proposal[key]:CHANGE_MISSING;
+      const tv=Object.prototype.hasOwnProperty.call(target,key)?target[key]:CHANGE_MISSING;
+      const merged=mergeStateValue(bv,pv,tv,path.concat(key),preferProposal);
+      if(merged!==CHANGE_MISSING)out[key]=merged}
+    return out}
+  const chosen=preferProposal?proposal:target;
+  return chosen===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(chosen)}
+function rebaseStateChange(base,proposal,target,{preferProposal=true}={}){
+  const merged=mergeStateValue(base,proposal,target,[],preferProposal);
+  return merged===CHANGE_MISSING?{}:merged}
+function storageSnapshotsEqual(a,b){return changeValueEqual(a,b)}
+function resetPersistenceBase(snapshot){
+  persistHead=cloneSnapshot(snapshot);
+  mutationBase=cloneSnapshot(snapshot)}
+async function refreshPersistenceHead(){
+  const local=readLocalStatus(),idb=await readIdbStatus();
+  const decision=chooseSnapshot(local,idb);
+  if(decision.kind==="first-run")return{head:cloneSnapshot(persistHead)};
+  if(decision.kind!=="chosen")return{head:cloneSnapshot(persistHead),conflict:true};
+  if(pendingDraftTransaction(decision.snapshot))
+    return{head:cloneSnapshot(persistHead),conflict:true,draftTransaction:true};
+  const disk=cloneSnapshot(decision.snapshot),current=cloneSnapshot(persistHead);
+  const diskRev=readRevision(disk),currentRev=readRevision(current);
+  if(diskRev>currentRev)return{head:disk};
+  if(diskRev<currentRev||storageSnapshotsEqual(disk,current))return{head:current};
+  return{head:current,conflict:true}}
+function withStorageLock(io,op){
+  if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,op);
+  return op()}
+function applyAcceptedSnapshot(base,snapshot){
+  const live=rebaseStateChange(base,snapshot,state,{preferProposal:false});
+  live[STORAGE_REV]=readRevision(snapshot);
+  state=live;
+  prog=new Program(state.program);state.program=prog.toJSON();
+  mutationBase=cloneSnapshot(snapshot);
+  dropMemo.clear();baselineMemo.clear()}
+function unversionedSnapshot(snapshot){
+  const out=cloneSnapshot(snapshot);
+  if(out&&typeof out==="object")delete out[STORAGE_REV];
+  return out}
+function draftEffectOutcome(effect){
+  if(effect==null)return{status:DRAFT_EFFECT_NONE,effect:null};
+  if(!isPlainStateObject(effect))return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"shape"};
+  if(effect.required!==undefined&&typeof effect.required!=="boolean")
+    return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"required"};
+  const precondition=effect.precondition??DRAFT_PRECONDITION_MATCH_ONLY;
+  if(precondition!==DRAFT_PRECONDITION_MATCH_ONLY&&precondition!==DRAFT_PRECONDITION_ABORT_CHANGED&&
+    precondition!==DRAFT_PRECONDITION_ABORT_SAME_DAY)
+    return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"precondition"};
+  if(effect.kind==="clear-draft"){
+    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY&&effect.expectedRaw!==null)
+      return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"same-day-clear"};
+    if(effect.expectedRaw!==null&&
+      (typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW))
+      return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"expected-raw"};
+    const receipt={kind:"clear-draft",expectedRaw:effect.expectedRaw,precondition};
+    if(effect.required===true)receipt.required=true;
+    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
+      if(typeof effect.conflictDay!=="string"||!effect.conflictDay||effect.conflictDay.length>200)
+        return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"conflict-day"};
+      receipt.conflictDay=effect.conflictDay}
+    return{status:DRAFT_EFFECT_VALID,effect:receipt}}
+  if(effect.kind==="replace-draft"&&typeof effect.replacementRaw==="string"&&
+    effect.replacementRaw.length<=PENDING_EFFECT_MAX_RAW){
+    if(typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)
+      return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"expected-raw"};
+    const receipt={kind:"replace-draft",expectedRaw:effect.expectedRaw,replacementRaw:effect.replacementRaw,precondition};
+    if(effect.required===true)receipt.required=true;
+    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
+      if(typeof effect.conflictDay!=="string"||!effect.conflictDay||effect.conflictDay.length>200)
+        return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"conflict-day"};
+      receipt.conflictDay=effect.conflictDay}
+    return{status:DRAFT_EFFECT_VALID,effect:receipt}}
+  return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"kind"}}
+function normalizeDraftEffectOutcome(value){
+  if(isPlainStateObject(value)&&
+    (value.status===DRAFT_EFFECT_VALID||value.status===DRAFT_EFFECT_INVALID||value.status===DRAFT_EFFECT_NONE)){
+    if(value.status===DRAFT_EFFECT_VALID)return draftEffectOutcome(value.effect);
+    if(value.status===DRAFT_EFFECT_NONE)return{status:DRAFT_EFFECT_NONE,effect:null};
+    return{status:DRAFT_EFFECT_INVALID,effect:null,reason:value.reason||"invalid"}}
+  return draftEffectOutcome(value)}
+function pendingJournalEffect(effect){
+  const outcome=normalizeDraftEffectOutcome(effect);
+  return outcome.status===DRAFT_EFFECT_VALID?outcome.effect:null}
+function draftEffectRequiresCoordination(effect){
+  const outcome=normalizeDraftEffectOutcome(effect);
+  return outcome.status===DRAFT_EFFECT_VALID&&
+    outcome.effect.precondition!==DRAFT_PRECONDITION_MATCH_ONLY}
+function pendingDraftTransaction(snapshot){
+  const value=snapshot?.[STORAGE_DRAFT_TXN];
+  if(!isPlainStateObject(value)||value.version!==1||typeof value.id!=="string"||!value.id)return null;
+  const effectOutcome=draftEffectOutcome(value.effect),previous=value.previous;
+  if(effectOutcome.status!==DRAFT_EFFECT_VALID||!draftEffectRequiresCoordination(effectOutcome)||!isPlainStateObject(previous)||
+    Object.prototype.hasOwnProperty.call(previous,STORAGE_DRAFT_TXN)||!isValidStateShape(previous)||
+    readRevision(snapshot)<=readRevision(previous))return null;
+  return{id:value.id,effect:effectOutcome.effect,previous:cloneSnapshot(previous)}}
+function pendingJournalEffectState(effect){
+  const outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
+  if(outcome.status!==DRAFT_EFFECT_VALID)return{receipt:null,status:outcome.status};
+  try{
+    const currentRaw=DraftStore.readCanonicalRaw();
+    if(currentRaw===receipt.expectedRaw)return{receipt,currentRaw,status:"exact"};
+    if(currentRaw==null)return{receipt,currentRaw,status:"missing"};
+    if(receipt.precondition===DRAFT_PRECONDITION_ABORT_CHANGED)
+      return{receipt,currentRaw,status:"conflict"};
+    if(receipt.precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
+      try{
+        const current=JSON.parse(currentRaw);
+        if(current&&typeof current==="object"&&!Array.isArray(current)&&current.__day===receipt.conflictDay)
+          return{receipt,currentRaw,status:"conflict"}}
+      catch{}}
+    return{receipt,currentRaw,status:"mismatch"}}
+  catch{
+    return{receipt,currentRaw:null,status:receipt.precondition===DRAFT_PRECONDITION_MATCH_ONLY?"mismatch":"conflict"}}}
+function applyPendingJournalEffect(effect){
+  const checked=pendingJournalEffectState(effect),receipt=checked.receipt;
+  if(checked.status===DRAFT_EFFECT_NONE)return{status:DRAFT_EFFECT_NONE,receipt:null};
+  if(!receipt)return{status:DRAFT_EFFECT_INVALID,receipt:null};
+  if(checked.status!=="exact")return{status:"no-effect",receipt,reason:checked.status};
+  return DraftStore.publishCanonical(receipt.kind==="clear-draft"?null:receipt.replacementRaw)
+    ?{status:"applied",receipt}:{status:"failed",receipt}}
+function pendingDraftPostEffectAccepted(effect){
+  const outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
+  if(outcome.status===DRAFT_EFFECT_NONE)return true;
+  if(outcome.status!==DRAFT_EFFECT_VALID)return false;
+  if(!draftEffectRequiresCoordination(outcome))return true;
+  try{
+    const currentRaw=DraftStore.readCanonicalRaw();
+    if(receipt.kind==="clear-draft"){
+      if(currentRaw==null)return true;
+      const after=pendingJournalEffectState(receipt);
+      return receipt.precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY&&after.status==="mismatch"}
+    if(currentRaw===receipt.replacementRaw)return true;
+    const after=pendingJournalEffectState(receipt);
+    return after.status!=="conflict"&&after.status!=="exact"}
+  catch{return false}}
+function pendingDraftRelatedState(effect,transactionId,contextFingerprint=null){
+  const pending=DraftStore.related(transactionId,contextFingerprint);
+  const outcome=normalizeDraftEffectOutcome(effect),expectedRaw=outcome.effect?.expectedRaw;
+  const expectedWrites=[],entries=[];
+  for(const entry of pending.entries){
+    if(outcome.status===DRAFT_EFFECT_VALID&&
+      entry.value.transactionId===DRAFT_WRITE_TRANSACTION&&entry.value.raw===expectedRaw)
+      expectedWrites.push(entry);
+    else entries.push(entry)}
+  return{entries,invalid:pending.invalid,expectedWrites}}
+function pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint=null){
+  const related=()=>pendingDraftRelatedState(effect,transactionId,contextFingerprint);
+  let pending=related();
+  if(pending.entries.length||pending.invalid.length)return false;
+  const accepted=pendingDraftPostEffectAccepted(effect);
+  pending=related();
+  return accepted&&!pending.entries.length&&!pending.invalid.length}
+function pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint=null){
+  const outcome=normalizeDraftEffectOutcome(effect);
+  if(outcome.status===DRAFT_EFFECT_INVALID)return false;
+  if(outcome.status===DRAFT_EFFECT_NONE||!draftEffectRequiresCoordination(outcome))return true;
+  if(checked.status==="conflict")return false;
+  return pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint)}
+function readDraftRaw(){
+  return DraftStore.readRaw()}
+function consumedDraftClearEffect(expectedRaw){
+  return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw,
+    precondition:DRAFT_PRECONDITION_MATCH_ONLY})}
+function destructiveDraftClearEffect(expectedRaw){
+  return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw,
+    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
+function draftPreservationEffect(expectedRaw){
+  if(expectedRaw==null)return destructiveDraftClearEffect(null);
+  return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,replacementRaw:expectedRaw,
+    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
+function draftDayReplacementEffect(oldDay,newDay){
+  try{
+    const expectedRaw=DraftStore.readRaw();
+    if(expectedRaw==null)return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw:null,
+      precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay});
+    let replacementRaw=expectedRaw;
+    try{
+      const draft=JSON.parse(expectedRaw);
+      if(draft&&typeof draft==="object"&&!Array.isArray(draft)&&draft.__day===oldDay){
+        draft.__day=newDay;replacementRaw=JSON.stringify(draft)}}
+    catch{}
+    return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,replacementRaw,
+      precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay})}
+  catch{return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"draft-read"}}}
+let pendingJournalSeq=0,pendingJournalClock=0;
+function pendingJournalUuid(){
+  const uuid=globalThis.crypto?.randomUUID?.();
+  if(uuid)return uuid;
+  const words=new Uint32Array(4);
+  if(globalThis.crypto?.getRandomValues){
+    globalThis.crypto.getRandomValues(words);
+    return [...words].map(n=>n.toString(36)).join("-")}
+  return`${Date.now().toString(36)}-${(++pendingJournalSeq).toString(36)}-${Math.random().toString(36).slice(2)}`}
+const pendingJournalWriterId=pendingJournalUuid();
+function pendingJournalOrder(){
+  const clock=Number.isFinite(globalThis.performance?.timeOrigin)&&Number.isFinite(globalThis.performance?.now?.())
+    ?Math.floor((globalThis.performance.timeOrigin+globalThis.performance.now())*1000):Date.now()*1000;
+  const at=Math.max(clock,pendingJournalClock+1);
+  pendingJournalClock=at;
+  return{at,writer:pendingJournalWriterId,seq:++pendingJournalSeq}}
+function draftProgramFingerprint(snapshot){
+  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
+    program:Array.isArray(snapshot?.program)?snapshot.program:[]}))}
+function draftContextFingerprint(snapshot){
+  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
+    program:Array.isArray(snapshot?.program)?snapshot.program:[],
+    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"}))}
+function programTransitionPrecondition(snapshot=state){
+  return{expectedProgramId:snapshot?.programMeta?.id||null,
+    expectedProgramFingerprint:draftProgramFingerprint(snapshot)}}
+const DraftStore={
+  readCanonicalRaw(){
+    try{return localStorage.getItem(DRAFT)}
+    catch{return null}},
+  publishCanonical(raw){
+    if(raw!==null&&typeof raw!=="string")return false;
+    try{
+      if(raw===null)localStorage.removeItem(DRAFT);
+      else localStorage.setItem(DRAFT,raw);
+      return true}
+    catch{return false}},
+  sidecarKeys(transactionId=null){
+    const keys=[],prefix=transactionId==null?DRAFT_PENDING_PREFIX:`${DRAFT_PENDING_PREFIX}${transactionId}:`;
+    try{for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key?.startsWith(prefix))keys.push(key)}}
+    catch{}
+    return[...new Set(keys)].sort()},
+  decodeSidecar(key,raw){
+    try{
+      const value=JSON.parse(raw),order=value?.order;
+      if(!isPlainStateObject(value)||value.version!==1||typeof value.transactionId!=="string"||
+        !value.transactionId||typeof value.writer!=="string"||!value.writer||
+        key!==`${DRAFT_PENDING_PREFIX}${value.transactionId}:${value.writer}`||
+        !(value.raw===null||typeof value.raw==="string"&&value.raw.length<=PENDING_EFFECT_MAX_RAW)||
+        typeof value.programFingerprint!=="string"||
+        !Number.isSafeInteger(order?.at)||typeof order?.writer!=="string"||
+        !Number.isSafeInteger(order?.seq))return null;
+      return{key,raw,value}}
+    catch{return null}},
+  pending(transactionId=null){
+    const entries=[],invalid=[];
+    for(const key of this.sidecarKeys(transactionId)){
+      let raw;
+      try{raw=localStorage.getItem(key)}catch{continue}
+      if(raw==null)continue;
+      const entry=this.decodeSidecar(key,raw);
+      if(!entry)invalid.push({key,raw});
+      else if(transactionId==null||entry.value.transactionId===transactionId)entries.push(entry)}
+    entries.sort((a,b)=>a.value.order.at-b.value.order.at||
+      a.value.order.writer.localeCompare(b.value.order.writer)||
+      a.value.order.seq-b.value.order.seq||a.key.localeCompare(b.key));
+    return{entries,invalid}},
+  related(transactionId=null,contextFingerprint=null){
+    const pending=this.pending();
+    const entries=pending.entries.filter(entry=>
+      transactionId!=null&&entry.value.transactionId===transactionId||
+      contextFingerprint!=null&&entry.value.programFingerprint===contextFingerprint);
+    const invalid=transactionId==null?[]:pending.invalid.filter(entry=>
+      entry.key.startsWith(`${DRAFT_PENDING_PREFIX}${transactionId}:`));
+    return{entries,invalid}},
+  closingIds(){
+    const ids=[];
+    try{for(let i=0;i<localStorage.length;i++){
+      const key=localStorage.key(i);
+      if(key?.startsWith(DRAFT_CLOSE_PREFIX)&&key.length>DRAFT_CLOSE_PREFIX.length)
+        ids.push(key.slice(DRAFT_CLOSE_PREFIX.length))}}
+    catch{}
+    return[...new Set(ids)].sort()},
+  isClosing(transactionId){
+    try{return localStorage.getItem(DRAFT_CLOSE_PREFIX+transactionId)!=null}
+    catch{return false}},
+  beginClose(transactionId){
+    if(typeof transactionId!=="string"||!transactionId)return false;
+    try{
+      localStorage.setItem(DRAFT_CLOSE_PREFIX+transactionId,
+        JSON.stringify({version:1,transactionId,writer:pendingJournalWriterId}));
+      return true}
+    catch{return false}},
+  transactionOwned(transactionId){
+    if(this.isClosing(transactionId))return true;
+    const local=readLocalStatus();
+    const transaction=local.status==="valid"?pendingDraftTransaction(local.parsed):null;
+    if(transaction?.id===transactionId)return true;
+    return readPendingJournal().entries.some(record=>record.journal.id===transactionId)},
+  writeTarget(){
+    const closing=this.closingIds()[0];
+    if(closing)return{id:closing};
+    if(!pendingJournalKeys().length)return null;
+    const local=readLocalStatus();
+    const transaction=local.status==="valid"?pendingDraftTransaction(local.parsed):null;
+    if(transaction)return{id:transaction.id};
+    const next=readPendingJournal().entries.find(record=>
+      record.journal.effectOutcome.status===DRAFT_EFFECT_VALID&&
+      draftEffectRequiresCoordination(record.journal.effectOutcome));
+    return next?{id:next.journal.id}:null},
+  writeSidecar(transactionId,raw){
+    if(typeof transactionId!=="string"||!transactionId||
+      !(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
+    const order=pendingJournalOrder(),key=`${DRAFT_PENDING_PREFIX}${transactionId}:${pendingJournalWriterId}`;
+    const value={version:1,transactionId,writer:pendingJournalWriterId,order,
+      programFingerprint:draftContextFingerprint(state),raw};
+    try{
+      const encoded=JSON.stringify(value);
+      localStorage.setItem(key,encoded);
+      return this.decodeSidecar(key,encoded)}
+    catch{return false}},
+  stage(target,raw){
+    if(!target||typeof target.id!=="string")return false;
+    if(!this.writeSidecar(target.id,raw))return false;
+    if(!this.transactionOwned(target.id))return this.promote(target.id).settled;
+    return true},
+  readRaw(){
+    const contextFingerprint=draftContextFingerprint(state);
+    const queued=this.pending().entries.filter(entry=>
+      entry.value.programFingerprint===contextFingerprint).at(-1);
+    return queued?queued.value.raw:this.readCanonicalRaw()},
+  publish(raw){
+    if(!(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
+    const staged=this.writeSidecar(DRAFT_WRITE_TRANSACTION,raw);
+    if(!staged)return false;
+    const stable=()=>{
+      if(this.writeTarget())return false;
+      const local=readLocalStatus();
+      return local.status==="valid"&&!pendingDraftTransaction(local.parsed)&&
+        draftContextFingerprint(local.parsed)===staged.value.programFingerprint};
+    if(!stable())return true;
+    if(!this.publishCanonical(raw))return false;
+    if(!stable())return true;
+    this.clearSidecar(staged);
+    return true},
+  write(raw){return typeof raw==="string"&&this.publish(raw)},
+  remove(){return this.publish(null)},
+  clearSidecar(entry){
+    try{
+      if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key)}
+    catch{}},
+  promote(transactionId,contextFingerprint=null){
+    const pending=this.related(transactionId,contextFingerprint);
+    if(!pending.entries.length&&!pending.invalid.length)
+      return{settled:true,hadWrites:false,raw:undefined};
+    const latest=pending.entries.at(-1);
+    if(latest&&!this.publishCanonical(latest.value.raw))
+      return{settled:false,hadWrites:true,raw:latest.value.raw};
+    for(const entry of pending.entries)this.clearSidecar(entry);
+    for(const invalid of pending.invalid){
+      try{if(localStorage.getItem(invalid.key)===invalid.raw)localStorage.removeItem(invalid.key)}
+      catch{}}
+    const remaining=this.related(transactionId,contextFingerprint);
+    return{settled:remaining.entries.length===0&&remaining.invalid.length===0,
+      hadWrites:true,raw:latest?.value.raw}},
+  restoreEffect(transactionId,effect,contextFingerprint=null){
+    const promoted=this.promote(transactionId,contextFingerprint);
+    if(!promoted.settled||promoted.hadWrites)return promoted;
+    const outcome=normalizeDraftEffectOutcome(effect);
+    if(outcome.status!==DRAFT_EFFECT_VALID)return promoted;
+    const receipt=outcome.effect;
+    const appliedRaw=receipt.kind==="clear-draft"?null:receipt.replacementRaw;
+    if(this.readCanonicalRaw()!==appliedRaw)return promoted;
+    return{settled:this.publishCanonical(receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
+  endClose(transactionId,contextFingerprint=null){
+    try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
+    catch{return{settled:false,hadWrites:false}}
+    return this.promote(transactionId,contextFingerprint)}
+};
+function pendingJournalKeys(){
+  const keys=[];
+  try{for(let i=0;i<localStorage.length;i++){
+    const key=localStorage.key(i);
+    if(key===PENDING||key?.startsWith(PENDING_PREFIX))keys.push(key)}}
+  catch{}
+  return[...new Set(keys)]}
+function decodePendingJournal(key,raw){
+  try{
+    const journal=JSON.parse(raw);
+    if(!journal||typeof journal.id!=="string"||
+      !isValidStateShape(journal.base)||!isValidStateShape(journal.liveBase)||!isValidStateShape(journal.proposal))return null;
+    const legacy=key===PENDING,order=journal.order;
+    if(!legacy&&(key!==PENDING_PREFIX+journal.id||journal.version!==2||
+      !Number.isSafeInteger(order?.at)||typeof order?.writer!=="string"||
+      !Number.isSafeInteger(order?.seq)))return null;
+    const effectOutcome=legacy?{status:DRAFT_EFFECT_NONE,effect:null}:
+      draftEffectOutcome(Object.prototype.hasOwnProperty.call(journal,"effect")?journal.effect:null);
+    const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
+      journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
+    if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
+    const reconcileSessionIds=normalizeJournalSessionIds(journal.reconcileSessionIds);
+    const dayRenames=normalizeJournalDayRenames(journal.dayRenames);
+    if(reconcileSessionIds==null||dayRenames==null)return null;
+    let rollback=null;
+    if(Object.prototype.hasOwnProperty.call(journal,"rollback")){
+      if(!isValidStateShape(journal.rollback)||
+        Object.prototype.hasOwnProperty.call(journal.rollback,STORAGE_DRAFT_TXN))return null;
+      rollback=cloneSnapshot(journal.rollback)}
+    else if(Object.prototype.hasOwnProperty.call(journal,"rollbackRevision")){
+      if(!Number.isInteger(journal.rollbackRevision)||journal.rollbackRevision<0)return null;
+      rollback=cloneSnapshot(journal.base);
+      rollback[STORAGE_REV]=journal.rollbackRevision}
+    return{key,raw,legacy,order:legacy?null:order,journal:{
+      id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
+      proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
+      expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
+      expectedProgramFingerprint,reconcileSessionIds,dayRenames,
+      effectOutcome,effect:effectOutcome.effect,rollback}}}
+  catch{return null}}
+function readPendingJournal(){
+  const entries=[],invalid=[];
+  for(const key of pendingJournalKeys()){
+    let raw;
+    try{raw=localStorage.getItem(key)}catch{continue}
+    if(raw==null)continue;
+    const record=decodePendingJournal(key,raw);
+    if(record)entries.push(record);else invalid.push({key,raw})}
+  entries.sort((a,b)=>{
+    if(a.legacy!==b.legacy)return a.legacy?-1:1;
+    if(a.legacy)return a.journal.id.localeCompare(b.journal.id);
+    return a.order.at-b.order.at||a.order.writer.localeCompare(b.order.writer)||
+      a.order.seq-b.order.seq||a.journal.id.localeCompare(b.journal.id)});
+  return{entries,invalid}}
+function normalizeJournalSessionIds(value){
+  if(value==null)return[];
+  if(!Array.isArray(value)||value.length>1000)return null;
+  const ids=[];
+  for(const id of value){
+    if(typeof id!=="string"||!id||id.length>300)return null;
+    if(!ids.includes(id))ids.push(id)}
+  return ids}
+function normalizeJournalDayRenames(value){
+  if(value==null)return[];
+  if(!Array.isArray(value)||value.length>100)return null;
+  const renames=[];
+  for(const entry of value){
+    if(!isPlainStateObject(entry)||typeof entry.from!=="string"||!entry.from||
+      typeof entry.to!=="string"||!entry.to||entry.from.length>200||entry.to.length>200)return null;
+    renames.push({from:entry.from,to:entry.to})}
+  return renames}
+function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
+  expectedProgramFingerprint=null,reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
+  const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
+  const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
+    proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
+  if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
+  if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
+  if(dayRenames.length)journal.dayRenames=dayRenames;
+  const outcome=normalizeDraftEffectOutcome(effectOutcome);
+  if(outcome.status===DRAFT_EFFECT_VALID)journal.effect=outcome.effect;
+  const raw=JSON.stringify(journal);
+  try{localStorage.setItem(key,raw);return decodePendingJournal(key,raw)}
+  catch(e){console.warn("pending state journal failed",e);return null}}
+function armPendingJournalRollback(record,snapshot){
+  if(!record||record.legacy||!isValidStateShape(snapshot)||
+    Object.prototype.hasOwnProperty.call(snapshot,STORAGE_DRAFT_TXN))return null;
+  try{
+    if(localStorage.getItem(record.key)!==record.raw)return null;
+    const journal=JSON.parse(record.raw),rollback=cloneSnapshot(snapshot);
+    journal.rollbackRevision=readRevision(rollback);
+    delete journal.rollback;
+    if(!storageSnapshotsEqual(unversionedSnapshot(rollback),record.journal.base))
+      journal.rollback=rollback;
+    const raw=JSON.stringify(journal);
+    localStorage.setItem(record.key,raw);
+    return decodePendingJournal(record.key,raw)}
+  catch(e){console.warn("pending rollback journal failed",e);return null}}
+function clearPendingJournal(record){
+  if(!record)return true;
+  try{
+    const current=localStorage.getItem(record.key);
+    if(current===record.raw)localStorage.removeItem(record.key);
+    return localStorage.getItem(record.key)!==record.raw}
+  catch{return false}}
+function retainPendingJournal(record){
+  if(!record)return false;
+  try{
+    const current=localStorage.getItem(record.key);
+    if(current===record.raw)return true;
+    if(current!=null)return false;
+    localStorage.setItem(record.key,record.raw);
+    return localStorage.getItem(record.key)===record.raw}
+  catch{return false}}
+function clearPendingJournalById(id){
+  if(typeof id!=="string"||!id)return;
+  const key=PENDING_PREFIX+id;
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw==null)return;
+    const record=decodePendingJournal(key,raw);
+    if(record?.journal.id===id)clearPendingJournal(record)}
+  catch{}}
+function clearAllPendingJournal(){
+  const records=readPendingJournal();
+  for(const record of [...records.entries,...records.invalid])clearPendingJournal(record)}
+function reconcileExplicitLogDayRenames(snapshot,dayRenames){
+  if(!Array.isArray(snapshot?.log)||!dayRenames.length)return snapshot;
+  for(const {from,to} of dayRenames){
+    const sessions=new Set(snapshot.log.filter(row=>row?.day===from&&row.session).map(row=>row.session));
+    for(const row of snapshot.log){
+      if(row?.day===from||row?.session&&sessions.has(row.session))row.day=to}}
+  return snapshot}
+function reconcileCandidateLogDays(snapshot,sessionIds){
+  if(!Array.isArray(snapshot?.program)||!Array.isArray(snapshot?.log)||!sessionIds.length)return snapshot;
+  const currentDays=new Map();
+  for(const exercise of snapshot.program){
+    if(exercise&&typeof exercise.id==="string"&&exercise.id)currentDays.set(exercise.id,exercise.day)}
+  for(const sessionId of sessionIds){
+    const rows=snapshot.log.filter(row=>row?.session===sessionId);
+    if(!rows.length)continue;
+    const sourceDays=[...new Set(rows.map(row=>row.day).filter(day=>typeof day==="string"&&day))];
+    const mappedDays=[...new Set(rows.map(row=>currentDays.get(row.exerciseId)).filter(day=>typeof day==="string"&&day))];
+    let targetDay=null;
+    if(mappedDays.length===1)targetDay=mappedDays[0];
+    else if(sourceDays.length===1)targetDay=sourceDays[0];
+    else targetDay=sourceDays[0]||mappedDays[0]||null;
+    if(targetDay!=null)for(const row of rows)row.day=targetDay}
+  return snapshot}
+function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconcileSessionIds=[],dayRenames=[]}={}){
+  const durableHead=cloneSnapshot(head||base);
+  const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
+  const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
+  reconcileExplicitLogDayRenames(snapshot,dayRenames);
+  reconcileCandidateLogDays(snapshot,reconcileSessionIds);
+  delete snapshot[STORAGE_DRAFT_TXN];
+  snapshot[STORAGE_REV]=readRevision(durableHead)+1;
+  return snapshot}
+function pendingJournalSuccessorMatches(record,head){
+  const journal=record?.journal,rollback=journal?.rollback;
+  if(!journal||!rollback||!head)return false;
+  const candidate=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,rollback,
+    {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,
+      dayRenames:journal.dayRenames});
+  return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
+function preparePendingDraftTransaction(snapshot,previous,effect,id){
+  const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
+  if(outcome.status!==DRAFT_EFFECT_VALID||!draftEffectRequiresCoordination(outcome))return prepared;
+  const prior=cloneSnapshot(previous);
+  delete prior[STORAGE_DRAFT_TXN];
+  if(!isValidStateShape(prior))throw new TypeError("draft transaction requires a valid prior state");
+  prepared[STORAGE_DRAFT_TXN]={version:1,id:id||pendingJournalUuid(),previous:prior,effect:receipt};
+  return prepared}
+function finalizedDraftTransactionSnapshot(snapshot){
+  const finalized=cloneSnapshot(snapshot);
+  delete finalized[STORAGE_DRAFT_TXN];
+  return finalized}
+function rejectedDraftTransactionSnapshot(snapshot){
+  const transaction=pendingDraftTransaction(snapshot);
+  if(!transaction)return null;
+  const rollback=cloneSnapshot(transaction.previous);
+  delete rollback[STORAGE_DRAFT_TXN];
+  rollback[STORAGE_REV]=readRevision(snapshot)+1;
+  return rollback}
+function settlePendingDraftSidecars(transactionId,effect,restoreEffect,contextFingerprint){
+  if(restoreEffect)return DraftStore.restoreEffect(transactionId,effect,contextFingerprint);
+  let pending=pendingDraftRelatedState(effect,transactionId,contextFingerprint);
+  for(const entry of pending.expectedWrites)DraftStore.clearSidecar(entry);
+  pending=pendingDraftRelatedState(effect,transactionId,contextFingerprint);
+  if(pending.expectedWrites.length)
+    return{settled:false,hadWrites:false,conflict:false};
+  const promoted=DraftStore.promote(transactionId,contextFingerprint);
+  return Object.assign({},promoted,{conflict:promoted.hadWrites})}
+function settlePendingDraftRecord(record,{transactionId=record?.journal?.id||null,effect=null,
+  restoreEffect=false,allowWrites=false,contextFingerprint=null}={}){
+  if(!transactionId){
+    return{settled:clearPendingJournal(record),hadWrites:false}}
+  const settle=()=>settlePendingDraftSidecars(
+    transactionId,effect,restoreEffect,contextFingerprint);
+  const blocked=result=>{
+    const conflict=!restoreEffect&&!allowWrites&&!!result.conflict;
+    return Object.assign({},result,{settled:false,conflict,
+      recordRetained:conflict?retainPendingJournal(record):undefined})};
+  const first=settle();
+  if(!first.settled||!restoreEffect&&!allowWrites&&first.conflict)return blocked(first);
+  const cleared=clearPendingJournal(record);
+  const second=settle();
+  if(!cleared||!second.settled||!restoreEffect&&!allowWrites&&second.conflict)
+    return blocked({settled:false,hadWrites:first.hadWrites||second.hadWrites,
+      conflict:second.conflict});
+  let ended=true;
+  try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
+  catch{ended=false}
+  const final=settle();
+  if(!ended||!final.settled||!restoreEffect&&!allowWrites&&final.conflict)
+    return blocked({settled:false,
+      hadWrites:first.hadWrites||second.hadWrites||final.hadWrites,
+      conflict:final.conflict});
+  return{settled:true,hadWrites:first.hadWrites||second.hadWrites||final.hadWrites,
+    conflict:false}}
+async function compensatePendingDraftTransaction(snapshot,io,transactionId,effect){
+  const transaction=pendingDraftTransaction(snapshot);
+  const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
+  const rollback=rejectedDraftTransactionSnapshot(snapshot);
+  const result=rollback?await writeSnapshot(rollback,io):{revision:readRevision(snapshot),localOk:false,idbOk:false};
+  const durable=!!(result.localOk||result.idbOk);
+  const restored=durable?DraftStore.restoreEffect(transactionId,effect,contextFingerprint):{settled:false};
+  return{settled:durable&&restored.settled,snapshot:rollback,result}}
+async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io,provisionalResult){
+  const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
+  const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
+  const applied=applyPendingJournalEffect(effect);
+  if(!pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint)){
+    const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
+    return Object.assign({accepted:false,rejected:true},compensation)}
+  if(!transaction)return{accepted:true,rejected:false,snapshot:finalized,result:null};
+  const result=await writeSnapshot(finalized,io);
+  if(!(result.localOk||result.idbOk)){
+    const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
+    if(compensation.settled)return Object.assign({accepted:false,rejected:true},compensation);
+    return{accepted:true,rejected:false,deferred:true,settled:false,snapshot:prepared,
+      result:provisionalResult,finalizationResult:result,applied}}
+  if(!pendingDraftSettlementAccepted(effect,transactionId,contextFingerprint)){
+    const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
+    return Object.assign({accepted:false,rejected:true},compensation)}
+  return{accepted:true,rejected:false,settled:true,snapshot:finalized,result}}
+async function executeDraftTransaction({record=null,transactionId=record?.journal?.id||null,effect=null,
+  prepared=null,snapshot=null,io=null,writePrepared=true,preparedResult=null,
+  retainRecordOnWriteFailure=false,discard=false}={}){
+  const effectOutcome=normalizeDraftEffectOutcome(effect);
+  const transaction=prepared&&pendingDraftTransaction(prepared);
+  const id=transaction?.id||transactionId;
+  const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):
+    record?.journal?draftContextFingerprint(record.journal.liveBase):null;
+  const coordinated=draftEffectRequiresCoordination(effectOutcome);
+  const beginClose=()=>!id||DraftStore.beginClose(id);
+  const close=(restoreEffect,allowWrites=false)=>{
+    if(!id)return{settled:clearPendingJournal(record),hadWrites:false};
+    if(!beginClose())return{settled:false,hadWrites:false,closeFailed:true};
+    return settlePendingDraftRecord(record,
+      {transactionId:id,effect:effectOutcome,restoreEffect:!!restoreEffect,
+        allowWrites:!!allowWrites,contextFingerprint})};
+  if(discard){
+    const closed=close(false,true);
+    return{kind:closed.settled?"discarded":"close-failed",accepted:false,rejected:false,
+      settled:closed.settled,closed,snapshot:null,result:null}}
+  requireAdapter(io,"executeDraftTransaction");
+  if(!prepared||!snapshot)throw new TypeError("executeDraftTransaction requires prepared and final snapshots");
+  if(coordinated&&(!id||!beginClose()))
+    return{kind:"close-failed",accepted:false,rejected:false,settled:false,
+      closeFailed:true,snapshot:prepared,result:preparedResult};
+  const preEffectState=pendingJournalEffectState(effectOutcome);
+  const preEffectPending=pendingDraftRelatedState(effectOutcome,id,contextFingerprint);
+  if(writePrepared&&(preEffectState.status==="conflict"||
+    preEffectPending.entries.length||preEffectPending.invalid.length)){
+    const closed=close(false,true);
+    return{kind:"precondition-rejected",accepted:false,rejected:true,settled:closed.settled,
+      closed,snapshot:null,result:null}}
+  let result=preparedResult;
+  if(writePrepared){
+    result=await writeSnapshot(prepared,io);
+    if(!(result.localOk||result.idbOk)){
+      let closed=null;
+      if(retainRecordOnWriteFailure){
+        if(coordinated&&id)DraftStore.endClose(id)}
+      else closed=close(false,true);
+      return{kind:"write-failed",accepted:false,rejected:false,settled:!!closed?.settled,
+        closed,snapshot:prepared,result}}}
+  const checked=writePrepared?pendingJournalEffectState(effectOutcome):preEffectState;
+  const provisionalResult=result||
+    {revision:readRevision(prepared),localOk:!writePrepared,idbOk:!writePrepared};
+  const settlement=await settleAppliedDraftTransaction(
+    prepared,snapshot,effectOutcome,checked,io,provisionalResult);
+  if(!settlement.accepted){
+    if(settlement.rejected&&settlement.settled){
+      const closed=close(true);
+      return Object.assign({},settlement,{kind:"rejected",settled:closed.settled,closed})}
+    return Object.assign({},settlement,
+      {kind:settlement.deferred?"settlement-deferred":"rejected"})}
+  if(settlement.deferred)
+    return Object.assign({},settlement,{kind:"settlement-deferred"});
+  const closed=close(false);
+  if(coordinated&&(closed.hadWrites||
+    !pendingDraftSettlementAccepted(effectOutcome,id,contextFingerprint))){
+    const compensation=await compensatePendingDraftTransaction(prepared,io,id,effectOutcome);
+    if(compensation.settled){
+      const restored=close(true);
+      return Object.assign({kind:"compensated",accepted:false,rejected:true},compensation,
+        {settled:restored.settled,closed,restored})}
+    if(closed.conflict)
+      return Object.assign({kind:"rejected",accepted:false,rejected:true},compensation,{closed});
+    return{kind:"close-deferred",accepted:true,rejected:false,deferred:true,settled:false,
+      snapshot:prepared,result:settlement.result||result,closed}}
+  if(!closed.settled)
+    return{kind:"close-deferred",accepted:true,rejected:false,deferred:true,settled:false,
+      snapshot:prepared,result:settlement.result||result,closed};
+  return{kind:"committed",accepted:true,rejected:false,settled:true,
+    snapshot,result:settlement.result||result,closed}}
+function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
+  expectedProgramFingerprint=null,reconcileSessionIds=[],dayRenames=[],effect=null}={}){
+  requireAdapter(io,"enqueueStateChange");
+  const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
+  const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
+  const frozenReconcileSessionIds=normalizeJournalSessionIds(reconcileSessionIds);
+  const frozenDayRenames=normalizeJournalDayRenames(dayRenames);
+  if(frozenReconcileSessionIds==null||frozenDayRenames==null)
+    return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
+      conflict:true,journalMetadataInvalid:true});
+  if(frozenEffectOutcome.status===DRAFT_EFFECT_INVALID)
+    return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
+      draftConflict:true,effectInvalid:true,effectReason:frozenEffectOutcome.reason});
+  const frozenEffect=frozenEffectOutcome.effect;
+  let pendingRecord=io===storageIO
+    ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
+      {replace,expectedProgramId,expectedProgramFingerprint,
+        reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
+        effectOutcome:frozenEffectOutcome})
+    :null;
+  if(io===storageIO&&!pendingRecord){
+    const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
+    if(frozenEffect?.required===true)failed.draftConflict=true;
+    noteWriteHealth(failed);
+    return Promise.resolve(failed)}
+  const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
+    let head=cloneSnapshot(persistHead||frozenBase);
+    if(io===storageIO){
+      const refreshed=await refreshPersistenceHead();
+      if(refreshed.conflict){
+        console.warn("storage write blocked by an unresolved concurrent snapshot");
+        await executeDraftTransaction({record:pendingRecord,
+          transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
+        return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}
+      head=refreshed.head||head}
+    const coordinationId=pendingRecord?.journal.id||null;
+    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedProgramFingerprint&&draftProgramFingerprint(head)!==expectedProgramFingerprint){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
+      const armed=armPendingJournalRollback(pendingRecord,head);
+      if(!armed){
+        await executeDraftTransaction({record:pendingRecord,
+          transactionId:pendingRecord.journal.id,effect:frozenEffectOutcome,discard:true});
+        return{revision:readRevision(head),localOk:false,idbOk:false,
+          draftConflict:true,journalFailed:true}}
+      pendingRecord=armed}
+    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,
+      {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames});
+    const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
+    const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
+    const execution=await executeDraftTransaction({record:pendingRecord,transactionId,
+      effect:frozenEffectOutcome,prepared,snapshot,io,writePrepared:true});
+    if(execution.kind==="close-failed")
+      return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,closeFailed:true};
+    if(execution.kind==="precondition-rejected")
+      return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true};
+    if(execution.kind==="write-failed")return execution.result;
+    if(execution.kind==="rejected"||execution.kind==="compensated"){
+      if(execution.settled&&execution.snapshot){
+        persistHead=cloneSnapshot(execution.snapshot);
+        applyAcceptedSnapshot(frozenLiveBase,execution.snapshot)}
+      return{revision:execution.result?.revision??readRevision(head),localOk:false,idbOk:false,
+        draftConflict:!!execution.rejected,compensationPending:!execution.settled,
+        compensationLocalOk:!!execution.result?.localOk,compensationIdbOk:!!execution.result?.idbOk}}
+    if(execution.kind==="settlement-deferred"){
+        persistHead=cloneSnapshot(prepared);
+        applyAcceptedSnapshot(frozenLiveBase,snapshot);
+        return Object.assign({},execution.result,
+          {accepted:true,deferred:true,finalizationPending:true})}
+    if(execution.kind==="close-deferred")
+      return Object.assign({},execution.result,
+        {accepted:true,deferred:true,finalizationPending:true});
+    if(execution.kind==="committed"){
+      persistHead=cloneSnapshot(snapshot);
+      applyAcceptedSnapshot(frozenLiveBase,snapshot);
+      return execution.result}
+    return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}));
+  return operation}
 const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(s));
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
@@ -26,6 +982,157 @@ const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=t(`glossary.term.${key}`)||key;if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
 };
 function syncLang(){if(!I18N)return;I18N.setLang(state?.settings?.lang||I18N.detectLang());applyI18n()}
+function announce(msg,{assertive=false}={}){
+  const generation=announce._generation=(announce._generation||0)+1;
+  const live=$("#toast");if(!live)return;
+  live.setAttribute("role",assertive?"alert":"status");
+  live.setAttribute("aria-live",assertive?"assertive":"polite");
+  live.setAttribute("aria-atomic","true");
+  live.classList.remove("hidden");
+  clearTimeout(announce._t);
+  const write=()=>{
+    live.textContent=msg;
+    clearTimeout(announce._t);announce._t=setTimeout(()=>live.classList.add("hidden"),2400)};
+  if(live.textContent===msg){
+    live.textContent="";
+    requestAnimationFrame(()=>{
+      if(generation!==announce._generation)return;
+      requestAnimationFrame(()=>{
+        if(generation!==announce._generation)return;
+        write()})})}
+  else write()}
+const toast=(m,opts)=>announce(m,opts||{});
+let activeModal=null;
+function modalFocusables(root){
+  if(!root)return[];
+  const sel='a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex="-1"])';
+  return [...root.querySelectorAll(sel)].filter(el=>{
+    if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
+    const st=getComputedStyle(el);
+    return st.display!=="none"&&st.visibility!=="hidden";
+  })}
+function snapshotBodyInert(){
+  return [...document.body.children].map(el=>({el,inert:!!el.inert}))}
+function applyModalInert(keep){
+  const allow=new Set(keep.filter(Boolean));
+  allow.add($("#announcementHost"));
+  for(const child of document.body.children){
+    if(allow.has(child)){child.inert=false;continue}
+    child.inert=true}}
+function restoreBodyInert(snap){
+  if(!snap)return;
+  for(const {el,inert} of snap){if(el.isConnected)el.inert=inert}}
+function detachModalListeners(rec){
+  if(!rec)return;
+  if(rec.onKey)document.removeEventListener("keydown",rec.onKey,true);
+  if(rec.onPointer)document.removeEventListener("pointerdown",rec.onPointer,true)}
+function hideModalElement(rec){
+  if(!rec?.el)return;
+  const el=rec.el;
+  if(el.tagName==="DIALOG"){if(typeof el.close==="function"&&el.open)el.close()}
+  else{el.classList.add("hidden");el.hidden=true}
+  rec.scrim?.classList.add("hidden");rec.scrim?.classList.remove("is-open");
+  el.classList.remove("is-open");
+  document.body.classList.remove("is-sheet-open")}
+function canTakeFocus(el){
+  if(!(el instanceof Element)||!el.isConnected)return false;
+  if(el.hasAttribute("disabled")||el.closest("[disabled]"))return false;
+  for(let n=el;n;n=n.parentElement){
+    if(n.inert)return false;
+    if(n.hidden===true)return false;
+    const st=getComputedStyle(n);
+    if(st.display==="none"||st.visibility==="hidden")return false}
+  return true}
+function resolveReturnFocus(target){
+  if(typeof target==="string")target=$(target);
+  if(!(target instanceof Element)||!target.isConnected)return null;
+  if(canTakeFocus(target))return target;
+  const lab=target.closest?.("label")||target.labels?.[0];
+  if(lab&&canTakeFocus(lab))return lab;
+  return null}
+function openModal(el,opts={}){
+  if(!el)return false;
+  const extras=opts.extras||[];
+  if(activeModal&&activeModal.el!==el){
+    if(!opts.handoff)return false;
+    const opener=opts.returnFocus||activeModal.returnFocus;
+    const prevInert=activeModal.prevInert;
+    const prev=activeModal;
+    detachModalListeners(prev);
+    hideModalElement(prev);
+    activeModal=null;
+    return openModal(el,{...opts,handoff:false,returnFocus:opener,prevInert})}
+  if(activeModal&&activeModal.el===el)return true;
+  const rec={
+    el,scrim:opts.scrim||null,returnFocus:opts.returnFocus||document.activeElement,
+    onEscape:opts.onEscape,delayHide:opts.delayHide||0,prevInert:opts.prevInert||snapshotBodyInert(),closing:false
+  };
+  if(el.tagName==="DIALOG"){if(typeof el.showModal==="function"&&!el.open)el.showModal()}
+  else{el.hidden=false;el.classList.remove("hidden")}
+  rec.scrim?.classList.remove("hidden");
+  applyModalInert([el,rec.scrim,...extras]);
+  rec.onKey=e=>{
+    if(!activeModal||activeModal.el!==el)return;
+    if(e.key==="Escape"){
+      e.preventDefault();e.stopPropagation();
+      if(typeof rec.onEscape==="function")rec.onEscape();
+      return}
+    if(e.key!=="Tab")return;
+    const stops=modalFocusables(el);
+    if(!stops.length){e.preventDefault();return}
+    const first=stops[0],last=stops[stops.length-1];
+    if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+    else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+    else if(!el.contains(document.activeElement)){e.preventDefault();(e.shiftKey?last:first).focus()}};
+  rec.onPointer=e=>{
+    if(!activeModal||activeModal.el!==el)return;
+    const t=e.target instanceof Element?e.target:null;
+    if(t&&(el.contains(t)||rec.scrim?.contains(t)))return;
+    e.preventDefault();e.stopPropagation()};
+  document.addEventListener("keydown",rec.onKey,true);
+  document.addEventListener("pointerdown",rec.onPointer,true);
+  activeModal=rec;
+  const focusEl=typeof opts.initialFocus==="function"?opts.initialFocus():opts.initialFocus;
+  const toFocus=focusEl||modalFocusables(el)[0];
+  if(toFocus)toFocus.focus();
+  return true}
+function closeModal(el){
+  const rec=activeModal;
+  if(!rec||(el&&rec.el!==el)||rec.closing)return Promise.resolve(false);
+  rec.closing=true;
+  return new Promise(resolve=>{
+    let fallback=null,onEnd=null;
+    const finish=()=>{
+      if(rec.done)return;rec.done=true;
+      if(fallback)clearTimeout(fallback);
+      if(onEnd)rec.el.removeEventListener("transitionend",onEnd);
+      detachModalListeners(rec);
+      hideModalElement(rec);
+      restoreBodyInert(rec.prevInert);
+      if(activeModal===rec)activeModal=null;
+      const target=resolveReturnFocus(rec.returnFocus);
+      if(target){
+        try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}
+      resolve(true)};
+    if(rec.delayHide>0){
+      rec.el.classList.remove("is-open");
+      rec.scrim?.classList.remove("is-open");
+      fallback=setTimeout(finish,rec.delayHide);
+      onEnd=e=>{if(e.target===rec.el)finish()};
+      rec.el.addEventListener("transitionend",onEnd)}
+    else finish()})}
+function setDisclosure(button,panel,open){
+  if(!button||!panel)return;
+  const on=!!open;
+  button.setAttribute("aria-expanded",on?"true":"false");
+  if(panel.id)button.setAttribute("aria-controls",panel.id);
+  panel.classList.toggle("is-open",on);
+  panel.setAttribute("aria-hidden",on?"false":"true");
+  const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on)}
+function syncLogModeControls(){
+  const list=logMode==="full",full=$("#modeFull"),focus=$("#modeFocus");
+  if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
+  if(focus){focus.classList.toggle("active",!list);focus.setAttribute("aria-pressed",list?"false":"true")}}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
@@ -42,15 +1149,17 @@ const plural=(n,word)=>`${word}${+n===1?"":"s"}`;
 const avg=a=>a.length?a.reduce((s,x)=>s+Number(x||0),0)/a.length:0;
 const median=a=>{if(!a.length)return 0;const s=[...a].map(Number).sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
 const sum=a=>a.reduce((s,x)=>s+Number(x||0),0);
-const daysAgo=n=>{const d=new Date();d.setDate(d.getDate()-n);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
+function shiftDate(date,n){const d=new Date(`${String(date).slice(0,10)}T12:00:00`);d.setDate(d.getDate()+n);
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
+const daysAgo=n=>shiftDate(today(),-n);
 function weekStart(date){const d=new Date(`${String(date).slice(0,10)}T12:00:00`),dow=d.getDay(),diff=dow===0?6:dow-1;
   d.setDate(d.getDate()-diff);return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`}
-function weekRange(date){const start=weekStart(date),endD=new Date(`${start}T12:00:00`);endD.setDate(endD.getDate()+6);
-  return{start,end:`${endD.getFullYear()}-${String(endD.getMonth()+1).padStart(2,"0")}-${String(endD.getDate()).padStart(2,"0")}`}}
+function weekRange(date){const start=weekStart(date);return{start,end:shiftDate(start,6)}}
 function sessionsInRange(start,end){const ids=new Set();for(const x of state.log){if(String(x.date)>=start&&String(x.date)<=end)ids.add(x.session)}return[...ids]}
 window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+const muscleLabel=name=>{const k="muscle."+name,s=t(k);return s===k?name:s};
 // Capacity: what a set demonstrated the lifter COULD have done (ADR 0003).
 // RIR credit is capped at hardRir — trustworthy near failure, fantasy far from it.
 // TUNABLE: every constant the capacity engine reads lives here. Never inline them.
@@ -70,7 +1179,6 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
-const toast=m=>{const t=$("#toast");t.textContent=m;t.classList.remove("hidden");clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.add("hidden"),2400)};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
@@ -121,10 +1229,11 @@ function glossaryPopover(termKey,anchor){const g=$("#glossary");if(!g)return;
   const r=anchor.getBoundingClientRect();g.style.top=`${window.scrollY+r.bottom+6}px`;g.style.left=`${Math.max(8,r.left)}px`}
 const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExport:"",unit:"kg",lang:null,rirMode:"numeric",voiceInputEnabled:false,notify:{enabled:false,timer:true,session:true,unfinished:true,missed:true}};
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
+const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
 function normalizeNotify(n){
   return{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false}}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normSetting(s?.restSec,DEFAULTS.restSec,0),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)}};
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)}};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -135,40 +1244,90 @@ const parseDec=v=>{
   if(v==null||v==="")return NaN;
   const n=Number(String(v).trim().replace(/(\d),(\d)/g,"$1.$2"));
   return Number.isFinite(n)?n:NaN};
+// Strict F7 parsing (grammar + 1000 kg ceiling) wearing the field-error shape:
+// value is canonical kg so the exact lb bound snaps instead of drifting 1 ulp over.
+const parseLoadDisplay=raw=>{const p=parseLoadInput(raw);
+  if(p.kind==="valid")return{value:p.kg};
+  return{field:"load",key:p.kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight"}};
+const parseRepsValue=raw=>{const n=parseDec(raw);if(!Number.isFinite(n)||n<=0||!Number.isInteger(n))return{field:"reps",key:"validation.reps"};return{value:n}};
+const parseRirValue=raw=>{const n=parseDec(raw);if(!Number.isFinite(n)||n<0)return{field:"rir",key:"validation.rir"};return{value:n}};
+const parseEffortValue=raw=>{const v=String(raw||"");if(!Object.prototype.hasOwnProperty.call(EFFORT_RIR,v))return{field:"effort",key:"validation.effort"};return{value:v}};
+const parseOptionalBodyweightDisplay=raw=>{if(raw==null||String(raw).trim()==="")return{value:0};const n=parseDec(raw);if(!Number.isFinite(n)||n<=0)return{field:"bodyweight",key:"validation.bodyweight"};return{value:n}};
+const parseCalendarDate=raw=>{const s=String(raw??"").trim();if(!/^\d{4}-\d{2}-\d{2}$/.test(s))return{field:"date",key:"validation.date"};const y=+s.slice(0,4),m=+s.slice(5,7),d=+s.slice(8,10);const dt=new Date(y,m-1,d);if(dt.getFullYear()!==y||dt.getMonth()!==m-1||dt.getDate()!==d)return{field:"date",key:"validation.date"};return{value:s}};
 const toDisplayUnit=(kg,unit)=>unit==="lb"?(+kg||0)*LB:(+kg||0);
 const fromDisplayUnit=(v,unit)=>{const n=parseDec(v),x=Number.isFinite(n)?n:0;return unit==="lb"?x/LB:x};
 const isLb=()=>state.settings.unit==="lb";
 const toDisplay=kg=>toDisplayUnit(kg,state.settings.unit);
 const fromDisplay=v=>fromDisplayUnit(v,state.settings.unit);
 const unitLabel=()=>isLb()?"lb":"kg";
+/* Typed loads reject exponent notation and anything over 1000 kg after
+   one display-unit conversion — a 1e5 commit poisons every derived metric.
+   1000 kg is inclusive. The lb display of that bound is 1000*LB; converting
+   it back can land 1 ulp over, so only that exact display value snaps to 1000. */
+const LOAD_RAW=/^\d+(?:[.,]\d+)?$/,MAX_LOAD_KG=1000,MAX_LOAD_LB=MAX_LOAD_KG*LB;
+function parseLoadInput(raw,unit=state.settings.unit){
+  const s=String(raw??"").trim();
+  if(!s)return{kind:"empty"};
+  if(!LOAD_RAW.test(s))return{kind:"invalid"};
+  const display=+s.replace(",",".");
+  if(!Number.isFinite(display)||!(display>0))return{kind:"invalid"};
+  if(unit==="lb"){
+    if(display>MAX_LOAD_LB)return{kind:"invalid"};
+    if(display===MAX_LOAD_LB)return{kind:"valid",kg:MAX_LOAD_KG};
+    const kg=display/LB;
+    if(kg>MAX_LOAD_KG)return{kind:"invalid"};
+    return{kind:"valid",kg}}
+  if(display>MAX_LOAD_KG)return{kind:"invalid"};
+  return{kind:"valid",kg:display}}
+const loadInputToast=p=>t(p.kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight");
 const unitHintHtml=()=>`<span class="unit-hint">${esc(unitLabel())}</span>`;
 const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
-function clearDraft(){
-  localStorage.removeItem(DRAFT);
+function resetDraftSessionState(){
   clearUnfinishedWatch();
   lastCommitAt=0;
+  committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();
+  contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
   const el=$("#unfinishedBanner");
   if(el){el.classList.add("hidden");el.hidden=true}
   delete document.body.dataset.unfinishedPrompt;
 }
-const loadDraft=()=>{try{return JSON.parse(localStorage.getItem(DRAFT)||"{}")}catch{clearDraft();return{}}};
-function convertDraftUnits(oldUnit,newUnit){
-  if(oldUnit===newUnit)return;
-  const d=loadDraft();let changed=false;
+function clearDraft(){
+  DraftStore.remove();
+  resetDraftSessionState()}
+const loadDraft=()=>{try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{clearDraft();return{}}};
+function convertDraftUnitsRaw(raw,oldUnit,newUnit){
+  if(raw==null||oldUnit===newUnit)return raw;
+  let d;
+  try{d=JSON.parse(raw)}
+  catch{return raw}
+  if(!d||typeof d!=="object")return raw;
+  let changed=false;
+  const conv=v=>fmtPlain(toDisplayUnit(fromDisplayUnit(v,oldUnit),newUnit));
   for(const k of Object.keys(d)){
     if(k.startsWith("__")||!k.endsWith("_load"))continue;
     const v=d[k];if(v===""||v==null)continue;
     const n=parseDec(v);if(!Number.isFinite(n))continue;
-    d[k]=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit));changed=true}
-  if(changed)localStorage.setItem(DRAFT,JSON.stringify(d))}
+    d[k]=conv(n);changed=true}
+  if(Object.prototype.hasOwnProperty.call(d,"__bodyweight")){
+    const bw=d.__bodyweight;
+    if(bw!==""&&bw!=null){
+      const n=parseDec(bw);
+      if(Number.isFinite(n)){d.__bodyweight=conv(n);changed=true}}}
+  return changed?JSON.stringify(d):raw}
+function draftUnitConversionEffect(expectedRaw,oldUnit,newUnit){
+  if(oldUnit===newUnit)return null;
+  if(expectedRaw==null)return destructiveDraftClearEffect(null);
+  return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,
+    replacementRaw:convertDraftUnitsRaw(expectedRaw,oldUnit,newUnit),
+    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
 const liftKey=x=>x.exerciseId||x.name;
 const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
-const displayName=row=>row.performedName||exerciseLabel(row);
+const displayName=row=>String(row.performedName||exerciseLabel(row)||"");
 // Muscles for a log row: prefer the saved snapshot, else resolve from the live program.
 const rowMuscles=row=>{if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=state.program.find(e=>e.id===row.exerciseId)||state.program.find(e=>e.name===row.name);
@@ -343,13 +1502,20 @@ function catalogForSlot(slot,equipment,experience){
   const eq=new Set((equipment||[]).map(s=>String(s).toLowerCase()));
   let pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
   if(eq.size)pool=pool.filter(e=>e.equipment.some(x=>eq.has(String(x).toLowerCase())));
-  if(!pool.length)pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
   if(experience==="beginner"){const bf=pool.filter(e=>e.beginnerFriendly);if(bf.length)pool=bf}
   return pool.sort((a,b)=>a.id.localeCompare(b.id))}
-function chooseExercise(slot,equipment,experience,usedIds){
-  const pool=catalogForSlot(slot,equipment,experience).filter(e=>!usedIds.has(e.id));
-  if(pool.length)return pool[0];
-  return catalogForSlot(slot,equipment,experience)[0]||null}
+function rotateCatalog(pool,occurrence){
+  if(!pool.length)return pool;
+  const n=pool.length,i=((occurrence%n)+n)%n;
+  return i?pool.slice(i).concat(pool.slice(0,i)):pool}
+function chooseExercise(slot,equipment,experience,usedIds,occurrence){
+  // Rotate the equipment-filtered pool across repeated day types; never reuse a within-day id.
+  const pool=rotateCatalog(catalogForSlot(slot,equipment,experience),occurrence||0).filter(e=>!usedIds.has(e.id));
+  return pool[0]||null}
+function dayTypeHasPrimary(dayType,equipment,experience){
+  return exerciseSlotsForDay(dayType).some(slot=>catalogForSlot(slot,equipment,experience).length>0)}
+function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
+  return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
 function repScheme(experience,goal,slot){
   let sets=experience==="beginner"?2:3,min=experience==="beginner"?8:6,max=experience==="beginner"?12:10;
   if(goal==="strength"){min=4;max=6;sets=experience==="beginner"?3:4}
@@ -358,7 +1524,7 @@ function repScheme(experience,goal,slot){
   return{sets,min,max}}
 function muscleHit(ex,muscle){const m=muscle.toLowerCase();
   return muscles(ex.primary).concat(muscles(ex.secondary)).some(x=>x.toLowerCase()===m||x.toLowerCase().includes(m))}
-function applyPriorityMuscles(program,priorityMuscles){
+function applyPriorityMuscles(program,priorityMuscles,equipment,experience){
   if(!priorityMuscles?.length)return;
   for(const ex of program){
     if(priorityMuscles.some(m=>muscleHit(ex,m)))ex.sets=Math.min(ex.sets+1,5)}
@@ -368,47 +1534,56 @@ function applyPriorityMuscles(program,priorityMuscles){
     const slot=muscle.includes("Quad")?"leg_extension":muscle.includes("Chest")?"chest_iso":muscle.includes("Bicep")?"curl":
       muscle.includes("Tricep")?"triceps":muscle.includes("Ham")?"leg_curl":muscle.includes("Glute")?"hinge":
       muscle.includes("Lat")||muscle.includes("Back")?"row":muscle.includes("delt")?"lateral_raise":"curl";
-    const entry=chooseExercise(slot,[],null,new Set(program.map(e=>e.libraryId)));
+    const entry=chooseExercise(slot,equipment,experience,new Set(program.map(e=>e.libraryId)));
     if(!entry)continue;
     const rs=repScheme("intermediate","hypertrophy",slot);
     program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
-function pickFillerForDay(dayExs,usedIds,equipment,experience){
+function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
   const have=new Set(dayExs.map(e=>e.libraryId));
   for(const slot of FILLER_SLOTS){
-    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]));
+    const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]),occurrence);
     if(!entry||have.has(entry.id))continue;
     const rs=repScheme(experience,"hypertrophy",slot);
     return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
   return null}
-function applySessionLength(program,sessionLength,equipment,experience){
+function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
   const [lo,hi]=SESSION_BOUNDS[sessionLength]||SESSION_BOUNDS.normal,out=[];
   const days=[...new Set(program.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
   for(const day of days){
     let list=program.filter(e=>e.day===day).sort((a,b)=>a.order-b.order);
     if(list.length>hi)list=list.slice(0,hi);
     const used=new Set(list.map(e=>e.libraryId));
-    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
+    const occ=dayOcc?.[day]||0;
+    while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
 function generateProgramFromOnboarding(answers){
   const a=answers||{},equipment=a.equipment||[],experience=a.experience||"intermediate",goal=a.goal||"hypertrophy";
-  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[];
+  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[],dayOcc={},seen={};
   dayTypes.forEach((dayType,di)=>{
-    const dayName=`Day ${di+1}`,slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
+    const occ=seen[dayType]|0;seen[dayType]=occ+1;
+    const dayName=`Day ${di+1}`;dayOcc[dayName]=occ;
+    const slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
     for(const slot of slots){
-      const entry=chooseExercise(slot,equipment,experience,usedIds);if(!entry)continue;
+      const entry=chooseExercise(slot,equipment,experience,usedIds,occ);if(!entry)continue;
       usedIds.add(entry.id);order++;
       const rs=repScheme(experience,goal,slot);
       program.push({id:uid(),day:dayName,order,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
         primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
-  applyPriorityMuscles(program,a.priorityMuscles||[]);
-  applySessionLength(program,a.sessionLength||"normal",equipment,experience);
+  applyPriorityMuscles(program,a.priorityMuscles||[],equipment,experience);
+  applySessionLength(program,a.sessionLength||"normal",equipment,experience,dayOcc);
   return program}
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
-let restEnd=0,restTick=null,restNotified=false;
+let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
+function announceRestDone(){
+  if(restAnnounced)return;
+  restAnnounced=true;
+  const el=$("#restAnnounce");if(!el)return;
+  el.textContent="";
+  requestAnimationFrame(()=>requestAnimationFrame(()=>{el.textContent=t("rest.complete")}))}
 let unfinishedTimer=null;
 let lastCommitAt=0;             // module-level; hydrated from draft at boot
 const UNFINISHED_MS=15*60*1000;
@@ -472,6 +1647,104 @@ const substituted=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
+let contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
+function knownExerciseIds(){return new Set((state.program||[]).map(e=>e.id))}
+function setKeyExerciseId(k){return String(k).replace(/_\d+$/,"")}
+function retainSetKeys(list,known){return (list||[]).filter(k=>known.has(setKeyExerciseId(k)))}
+function contextFlagsFromDraft(d){
+  const flags=d&&typeof d.__contextTouched==="object"&&d.__contextTouched?d.__contextTouched:{};
+  return {day:!!flags.day,date:!!flags.date,sessionNotes:!!flags.sessionNotes,bodyweight:!!flags.bodyweight}}
+function hydrateDraftCollections(d){
+  const known=knownExerciseIds();
+  committed.clear();retainSetKeys(d.__done,known).forEach(k=>committed.add(k));
+  touched.clear();retainSetKeys(d.__touched,known).forEach(k=>touched.add(k));
+  warmups.clear();retainSetKeys(d.__warm,known).forEach(k=>warmups.add(k));
+  skipped.clear();(d.__skipped||[]).forEach(id=>{if(known.has(id))skipped.add(id)});
+  substituted.clear();
+  const subs=d.__substituted&&typeof d.__substituted==="object"?d.__substituted:{};
+  for(const [id,name] of Object.entries(subs)){
+    if(!known.has(id))continue;
+    const n=String(name||"").trim().slice(0,80);
+    if(n)substituted.set(id,n)}}
+function hydrateWorkoutDraft({restoreDay=false}={}){
+  const d=loadDraft();
+  hydrateDraftCollections(d);
+  contextTouched=contextFlagsFromDraft(d);
+  if(restoreDay&&typeof d.__day==="string"&&days().includes(d.__day)) day=d.__day;
+  return d}
+function applyDraftContextToDom(){
+  const d=loadDraft(),dateEl=$("#date"),bwEl=$("#bodyweight"),notesEl=$("#notes");
+  if(dateEl) dateEl.value=Object.prototype.hasOwnProperty.call(d,"__date")?d.__date:today();
+  if(bwEl) bwEl.value=Object.prototype.hasOwnProperty.call(d,"__bodyweight")?d.__bodyweight:lastBodyweight();
+  if(notesEl) notesEl.value=Object.prototype.hasOwnProperty.call(d,"__sessionNotes")?d.__sessionNotes:"";
+}
+function resetSessionContextFields(){
+  contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
+  const notesEl=$("#notes"),dateEl=$("#date"),bwEl=$("#bodyweight");
+  if(notesEl)notesEl.value="";
+  if(dateEl)dateEl.value=today();
+  if(bwEl)bwEl.value=lastBodyweight();
+}
+function draftHasSessionWork(d){
+  d=d||loadDraft();
+  if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length) return true;
+  if((d.__skipped||[]).length) return true;
+  if(d.__substituted&&typeof d.__substituted==="object"&&Object.keys(d.__substituted).length) return true;
+  const flags=contextFlagsFromDraft(d);
+  if(flags.date||flags.sessionNotes||flags.bodyweight) return true;
+  if(Object.prototype.hasOwnProperty.call(d,"__sessionNotes")||Object.prototype.hasOwnProperty.call(d,"__bodyweight")||Object.prototype.hasOwnProperty.call(d,"__date")){
+    if(flags.date||flags.sessionNotes||flags.bodyweight) return true}
+  return Object.keys(d).some(k=>/_load$/.test(k)&&parseDec(d[k])>0)}
+function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
+  if(nextSets>=currentSets)return false;
+  d=d||loadDraft();
+  const marked=new Set(["__done","__touched","__warm"].flatMap(k=>Array.isArray(d[k])?d[k]:[]));
+  for(let n=nextSets+1;n<=currentSets;n++){
+    const key=`${exerciseId}_${n}`;
+    if(marked.has(key)||parseDec(d[`${key}_load`])>0)return true}
+  return false}
+function requestWorkoutDay(nextDay){
+  if(!nextDay||nextDay===day) return true;
+  if(draftHasProgress()){
+    if(!confirm(t("confirm.discard_draft"))){
+      return false}
+    clearDraft();
+    resetSessionContextFields()}
+  day=nextDay;
+  contextTouched.day=true;
+  saveDraft({fromDom:false});
+  return true}
+function changeRirMode(newMode){
+  const old=state.settings.rirMode==="effort"?"effort":"numeric";
+  const next=newMode==="effort"?"effort":"numeric";
+  if(old===next) return true;
+  if(draftHasProgress()){
+    $$('input[name="rirMode"]').forEach(r=>{r.checked=old==="effort"?r.value==="effort":r.value!=="effort"});
+    toast(t("toast.rir_locked_draft"));
+    return false}
+  return true}
+function applySkipToggle(id){
+  if(skipped.has(id)) skipped.delete(id);
+  else{skipped.add(id);substituted.delete(id)}
+  if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
+  saveDraft();renderWorkout()}
+function applyShowAll(){skipped.clear();saveDraft();renderWorkout()}
+function applyPredefinedSub(id,name){
+  const n=String(name||"").trim().slice(0,80);
+  if(!n) substituted.delete(id);
+  else{substituted.set(id,n);skipped.delete(id)}
+  saveDraft();renderWorkout()}
+function applyCustomSub(id,raw){
+  const name=String(raw||"").trim().slice(0,80);
+  const progName=prog.find(id)?.name;
+  if(!name||name===progName) substituted.delete(id);
+  else{substituted.set(id,name);skipped.delete(id)}
+  saveDraft();renderWorkout()}
+function applyFatigueTrim(){
+  const exs=exercises();
+  skipped.clear();
+  for(const e of exs){const s=recommendation(e).status;if(!(s==="add"||s==="add2"))skipped.add(e.id)}
+  saveDraft();renderWorkout();toast(t("toast.trimmed_priority"))}
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
@@ -484,19 +1757,29 @@ const focusUnfolded=new Set();
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
+let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
-function migrateLog(){let changed=false;for(const row of state.log){
-  if(!row.exerciseId){const ex=state.program.find(e=>e.name===row.name&&e.day===row.day)||state.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
+function migrateLogSnapshot(snapshot){let changed=false;for(const row of snapshot.log){
+  if(!row.exerciseId){const ex=snapshot.program.find(e=>e.name===row.name&&e.day===row.day)||snapshot.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
   const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
+function migrateLog(){return migrateLogSnapshot(state)}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
+function buildProgramMeta({name, answers}={}){
+  const a=answers||{},now=new Date().toISOString();
+  const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
+  return{id:uid(),name:programName,started:today(),created:now,updated:now,
+    goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
+    equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
+    sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
+    blockPromptDismissedId:null}}
 function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
@@ -516,29 +1799,71 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     blockPromptDismissedId}}
-function normalizeLoaded(s){try{if(s?.program&&Array.isArray(s.log))
-  return{settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
-    programHistory:Array.isArray(s.programHistory)?s.programHistory:[]}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[]}}
-function applyState(s){state={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:Array.isArray(s.log)?s.log:[],
-  programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
-  prog=new Program(state.program);state.program=prog.toJSON();state.programMeta=normalizeProgramMeta(state.programMeta,state.log);migrateLog();save()}
-function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();
-  if(partial.started!==undefined){const v=partial.started;state.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
-  if(partial.goal!==undefined)state.programMeta.goal=partial.goal;
-  if(partial.experience!==undefined)state.programMeta.experience=partial.experience;
-  if(partial.daysPerWeek!==undefined)state.programMeta.daysPerWeek=partial.daysPerWeek;
-  if(partial.splitType!==undefined)state.programMeta.splitType=partial.splitType;
-  if(partial.equipment!==undefined)state.programMeta.equipment=partial.equipment;
-  if(partial.priorityMuscles!==undefined)state.programMeta.priorityMuscles=partial.priorityMuscles;
-  if(partial.sessionLength!==undefined)state.programMeta.sessionLength=partial.sessionLength;
-  if(partial.mesocycleStatus!==undefined)state.programMeta.mesocycleStatus=partial.mesocycleStatus;
-  if(partial.onboarded!==undefined)state.programMeta.onboarded=partial.onboarded;
-  state.programMeta.updated=new Date().toISOString();save()}
-function programAdherence(){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
-  const cutoff=daysAgo(6),programDaySet=new Set(prog.days()),loggedDays=new Set();
-  for(const x of state.log){if(String(x.date)<cutoff)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
+function isImportableState(s){return isValidStateShape(s)}
+function normalizeProgramHistory(history){
+  return(Array.isArray(history)?history:[]).map(entry=>{
+    const normalized=cloneSnapshot(entry);
+    if(Object.prototype.hasOwnProperty.call(normalized,"program"))
+      normalized.program=new Program(normalized.program).toJSON();
+    return normalized})}
+function normalizeLoaded(s){
+  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0};
+  if(!isValidStateShape(s))throw new TypeError("Invalid RepForge state");
+  const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
+    program:new Program(s.program).toJSON(),log:cloneSnapshot(s.log),
+    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[])};
+  out[STORAGE_REV]=readRevision(s);
+  if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
+  return out}
+function proposalFromImport(incoming){
+  if(!isValidStateShape(incoming))throw new TypeError("Invalid RepForge backup");
+  return normalizeLoaded(stripStorageMeta(incoming))}
+async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
+  requireAdapter(io,"replaceImportedState");
+  const transition=programTransitionPrecondition(state);
+  const proposal=proposalFromImport(incoming);
+  delete proposal[STORAGE_FOLLOWUP];
+  migrateLogSnapshot(proposal);
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,io,{replace:true,effect,...transition});
+  return result}
+async function mergeImportedLog(incoming,io=storageIO){
+  requireAdapter(io,"mergeImportedLog");
+  if(!isValidStateShape(incoming))throw new TypeError("Invalid RepForge backup");
+  const rows=(incoming.log||[]).filter(r=>r&&r.session);
+  const have=new Set(state.log.map(r=>r.session));
+  const add=rows.filter(r=>!have.has(r.session));
+  const added=new Set(add.map(r=>r.session)).size;
+  if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
+  const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.concat(cloneSnapshot(add));
+  migrateLogSnapshot(proposal);
+  const result=await commitProposedState(proposal,io);
+  result.added=added;
+  return result}
+function applyState(s){return replaceImportedState(s)}
+async function persistProgramMeta(partial={}){
+  const proposal=cloneSnapshot(state);
+  if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
+  if(partial.name!==undefined)proposal.programMeta.name=String(partial.name??"").trim();
+  if(partial.started!==undefined){const v=partial.started;proposal.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
+  if(partial.goal!==undefined)proposal.programMeta.goal=partial.goal;
+  if(partial.experience!==undefined)proposal.programMeta.experience=partial.experience;
+  if(partial.daysPerWeek!==undefined)proposal.programMeta.daysPerWeek=partial.daysPerWeek;
+  if(partial.splitType!==undefined)proposal.programMeta.splitType=partial.splitType;
+  if(partial.equipment!==undefined)proposal.programMeta.equipment=partial.equipment;
+  if(partial.priorityMuscles!==undefined)proposal.programMeta.priorityMuscles=partial.priorityMuscles;
+  if(partial.sessionLength!==undefined)proposal.programMeta.sessionLength=partial.sessionLength;
+  if(partial.mesocycleStatus!==undefined)proposal.programMeta.mesocycleStatus=partial.mesocycleStatus;
+  if(partial.onboarded!==undefined)proposal.programMeta.onboarded=partial.onboarded;
+  proposal.programMeta.updated=new Date().toISOString();
+  return commitProposedState(proposal)}
+function programAdherence(asOf=today()){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
+  // Inclusive rolling [asOf-6, asOf] — distinct planned days; future rows excluded.
+  const end=asOf,start=shiftDate(end,-6),programDaySet=new Set(prog.days()),loggedDays=new Set();
+  for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
   const logged=loggedDays.size;return{logged,total:totalDays,ratio:totalDays?logged/totalDays:0}}
+window.__repforgeProgramAdherence=programAdherence;
 function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart=start,weekEnd=end;
   const completedSessions=sessionsInRange(start,end).length,plannedDays=prog.days().length,programDaySet=new Set(prog.days()),loggedDays=new Set();
   for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
@@ -562,14 +1887,28 @@ function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart
   else status=t("status.rebuilding");
   return{weekStart,weekEnd,plannedDays,completedDays,completedSessions,totalWorkingSets,totalHardSets,prs,improvedLifts,flatLifts,regressedLifts,readyToAdd,status}}
 window.__repforgeWeeklySnapshot=weeklySnapshot;
-function programWeek(){const s=state.programMeta?.started;if(!s)return null;
-  const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
-  const days=Math.floor((now-start)/86400000);return days<0?1:Math.floor(days/7)+1}
-function mesocycleWeek(){const wk=programWeek(),total=state.programMeta?.mesocycleLengthWeeks||6;
-  const current=wk!=null?Math.max(1,wk):null;
-  const isFinalWeek=current!=null&&current>=total;
-  const isComplete=state.programMeta?.mesocycleStatus==="completed"||(current!=null&&current>total);
-  return{current,total,isFinalWeek,isComplete}}
+function mesocycleLifecycle(programMeta){
+  const meta=programMeta||{},total=+meta.mesocycleLengthWeeks||6,s=meta.started;
+  let elapsedWeek=null;
+  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
+    const days=Math.floor((now-start)/86400000);elapsedWeek=days<0?1:Math.floor(days/7)+1}
+  const current=elapsedWeek==null?null:Math.min(elapsedWeek,total);
+  const overrunWeeks=elapsedWeek==null?0:Math.max(0,elapsedWeek-total);
+  const isFinalWeek=elapsedWeek!=null&&elapsedWeek>=total;
+  const isComplete=meta.mesocycleStatus==="completed";
+  return{elapsedWeek,current,total,overrunWeeks,isFinalWeek,isComplete}}
+function programWeek(){return mesocycleLifecycle(state.programMeta).elapsedWeek}
+function mesocycleWeek(){return mesocycleLifecycle(state.programMeta)}
+function mesocycleWeekCopy(mc,ofKey="today.week_of"){
+  if(mc.isComplete)return t("meso.complete");
+  if(mc.current==null)return"";
+  return mc.isFinalWeek?t("meso.week_ready",{n:mc.current,total:mc.total}):t(ofKey,{n:mc.current,total:mc.total})}
+function programWeekContext(name,mc){
+  const nm=name||t("untitled_program");
+  if(mc.isComplete)return t("log.context.program_complete",{name:nm});
+  if(mc.isFinalWeek)return t("log.context.program_week_ready",{name:nm,n:mc.current,total:mc.total});
+  if(mc.current!=null)return t("log.context.program_week",{name:nm,n:mc.current,total:mc.total});
+  return nm}
 function rowMusclesPure(row,program){if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=(program||[]).find(e=>e.id===row.exerciseId)||(program||[]).find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
@@ -631,14 +1970,14 @@ function buildBlockReview(programMeta,program,log){const p=new Program(program||
     volumeCompliance,recommendation,created:new Date().toISOString()}}
 const REC_STRATEGY={repeat_or_progress:"repeat",repeat_with_small_swaps:"repeat_swaps",reduce_volume_or_deload:"reduce_volume",keep_program_improve_completion:"repeat",repeat_with_simpler_schedule:"reduce_volume"};
 function blockRecommendationCopy(key){const k=key||"repeat_with_small_swaps";return{line:t(`block_rec.${k}.line`),why:t(`block_rec.${k}.why`)}}
-function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),total=programMeta?.mesocycleLengthWeeks||6;
-  let weekCurrent=null;const s=programMeta?.started;
-  if(s){const start=new Date(`${s}T12:00:00`),now=new Date(`${today()}T12:00:00`);
-    const days=Math.floor((now-start)/86400000);weekCurrent=days<0?1:Math.floor(days/7)+1}
-  return{...review,weekCurrent,weekTotal:total}}
+function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),life=mesocycleLifecycle(programMeta);
+  return{...review,weekCurrent:life.current,weekTotal:life.total,elapsedWeek:life.elapsedWeek,
+    overrunWeeks:life.overrunWeeks,isFinalWeek:life.isFinalWeek,isComplete:life.isComplete}}
 function buildPlainSummary(snapshot){if(!snapshot)return"";
   const parts=[];
-  if(snapshot.weekCurrent!=null&&snapshot.weekTotal)parts.push(t("review.summary.week",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
+  if(snapshot.isComplete)parts.push(t("review.summary.week_complete"));
+  else if(snapshot.isFinalWeek&&snapshot.weekCurrent!=null)parts.push(t("review.summary.week_ready",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
+  else if(snapshot.weekCurrent!=null&&snapshot.weekTotal)parts.push(t("review.summary.week",{n:snapshot.weekCurrent,total:snapshot.weekTotal}));
   const ad=snapshot.adherenceRatio??0,adKey=ad>=.8?"solid":ad>=.5?"mixed":"low";
   if(snapshot.plannedSessions)parts.push(t("review.summary.adherence",{status:t(`review.summary.adherence.${adKey}`),done:snapshot.completedSessions,planned:snapshot.plannedSessions}));
   const imp=snapshot.improvedLifts??0,flat=snapshot.flatLifts??0;
@@ -651,17 +1990,20 @@ function buildPlainSummary(snapshot){if(!snapshot)return"";
 function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
   const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
+  const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
   el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
-    `<p><b>${esc(t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal}))}</b></p>`+
+    `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:snap.completedSessions,planned:snap.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p></div>`+
     `<p class="review__summary">${esc(summary)}</p>`}
 function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
   const meta=state.programMeta||{},started=meta.started?new Date(`${meta.started}T12:00:00`):null;
+  const activationProgramId=review.programId||meta.id||null;
   const end=new Date(`${today()}T12:00:00`);
   const range=started?`${started.getDate()} ${t("month_short."+started.getMonth())} – ${end.getDate()} ${t("month_short."+end.getMonth())}`:"";
-  const weeks=meta.mesocycleLengthWeeks||6;
+  const life=mesocycleLifecycle(meta),weeks=life.total||6;
+  const hero=life.isComplete?t("dialog.block_review.completed"):life.isFinalWeek&&life.current!=null?t("dialog.block_review.ready",{n:life.current,total:life.total}):life.current!=null?t("today.week_of",{n:life.current,total:life.total}):t("dialog.block_review.title");
   const recKey=review.recommendation||"repeat_with_small_swaps";
   const strategies=[
     {id:"repeat_swaps",title:t("dialog.block_review.repeat_swaps"),cap:t("block_strategy.repeat_swaps.cap")},
@@ -673,7 +2015,7 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
   const recStrategy=REC_STRATEGY[recKey]||"repeat_swaps";
   $("#blockReviewBody").innerHTML=
     `<p class="blockreview__prog">${esc(meta.name||t("untitled_program"))}</p>`+
-    `<h2 class="blockreview__hero">${esc(t("dialog.block_review.completed"))}</h2>`+
+    `<h2 class="blockreview__hero">${esc(hero)}</h2>`+
     `<p class="blockreview__range">${esc(t("dialog.block_review.range",{weeks,range}))}</p>`+
     `<div class="blockreview__adherence"><span>${esc(t("review.sessions_completed",{done:review.completedSessions,planned:review.plannedSessions}))}</span><span>${pct}%</span></div>`+
     `<div class="blockreview__bar"><span style="width:${pct}%"></span><i class="blockreview__bar-knob" style="left:${pct}%"></i></div>`+
@@ -696,57 +2038,133 @@ function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(revie
   let selected=recStrategy;
   $$("#blockStrategies .blockreview__act").forEach(b=>b.onclick=()=>{selected=b.dataset.strategy;
     $$("#blockStrategies .blockreview__act").forEach(x=>x.classList.toggle("is-selected",x===b))});
-  $("#blockStartNext").onclick=()=>finishBlockAndStart(selected);
+  $("#blockStartNext").onclick=()=>finishBlockAndStart(selected,activationProgramId);
   $("#blockDecideLater").onclick=closeBlockReview;
-  const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{closeBlockReview();navTo("stats");setStatsSeg("review")}}
+  const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{
+    closeBlockReview();
+    navTo("stats");setStatsSeg("review");
+    const seg=$(`#statsSeg button[data-seg="review"]`);if(seg)seg.focus()}}
 let blockReviewCurrent=null;
-function closeBlockReview(){const d=$("#blockReview");if(d)d.classList.add("hidden")}
-function completeCurrentProgram(review){
-  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  if(!Array.isArray(state.programHistory))state.programHistory=[];
-  state.programHistory.push({id:state.programMeta.id,meta:{...state.programMeta},program:prog.toJSON(),
-    completedAt:new Date().toISOString(),review});
-  state.programMeta.mesocycleStatus="completed";
-  state.programMeta.completedAt=new Date().toISOString();
-  state.programMeta.updated=new Date().toISOString();
-  save()}
-function startNextMesocycle(strategy){
-  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  if(strategy==="onboarding"&&typeof window.startOnboarding==="function"){window.startOnboarding();return}
-  let list=prog.toJSON();
-  if(strategy==="repeat_swaps")list=list.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
-  else if(strategy==="increase_volume")list=list.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
-  else if(strategy==="reduce_volume")list=list.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
-  state.programMeta={...state.programMeta,id:uid(),started:today(),mesocycleStatus:"active",completedAt:null,onboarded:true,
-    blockPromptDismissedId:null,updated:new Date().toISOString()};
-  prog=new Program(list);persistProgram();render();
+let pendingBlockTransition=null;
+let onboardingOrigin=null;
+let blockCommitInFlight=null;
+function closeBlockReview(){
+  closeModal($("#blockReview"))}
+function successorProgramList(strategy,list){
+  const src=cloneSnapshot(list||[]);
+  if(strategy==="repeat_swaps")return src.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
+  if(strategy==="increase_volume")return src.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
+  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
+  return src}
+function capturePendingBlock(strategy,review){
+  return{oldProgramId:state.programMeta?.id,oldMeta:cloneSnapshot(state.programMeta),oldProgram:cloneSnapshot(prog.toJSON()),
+    programFingerprint:draftProgramFingerprint(state),review:cloneSnapshot(review||blockReviewCurrent),strategy}}
+function archiveCapturedBlock(proposal,cap){
+  if(!cap?.oldProgramId)return proposal;
+  const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
+  history.push({id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
+    completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)});
+  proposal.programHistory=history;return proposal}
+function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
   toast(t(msg[strategy]||"toast.new_block_started"))}
-function finishBlockAndStart(strategy){const review=blockReviewCurrent;if(!review)return;
-  completeCurrentProgram(review);startNextMesocycle(strategy);closeBlockReview()}
-function openBlockReview(review){blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  d.classList.remove("hidden");$("#blockReviewClose").onclick=closeBlockReview}
-function promptEndBlock(){const d=$("#endBlockConfirm");if(!d)return;
-  d.classList.remove("hidden");
-  $("#endBlockGo").onclick=()=>{d.classList.add("hidden");openBlockReview(buildBlockReview(state.programMeta,state.program,state.log))};
-  $("#endBlockCancel").onclick=()=>d.classList.add("hidden")}
-function dismissBlockPrompt(){
-  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  state.programMeta.blockPromptDismissedId=state.programMeta.id;
-  state.programMeta.updated=new Date().toISOString();
-  save();
-  renderBlockPrompt()}
+function blockTransitionResult(kind,result={}){
+  const deferred=kind==="deferred"||result.deferred===true;
+  const outcomeKind=deferred?"deferred":kind;
+  const committed=outcomeKind==="committed";
+  const revision=Number.isInteger(result.revision)&&result.revision>=0?result.revision:readRevision(state);
+  return{...result,kind:outcomeKind,committed,deferred,duplicate:outcomeKind==="duplicate",
+    revision,localOk:(committed||deferred)&&!!result.localOk,idbOk:(committed||deferred)&&!!result.idbOk}}
+function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
+  requireAdapter(io,"commitNextBlock");
+  const liveId=state.programMeta?.id;
+  const oldId=expectedOldId||liveId;
+  if(!liveId||!oldId)return Promise.resolve(blockTransitionResult("failed"));
+  if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
+  if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
+  const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
+    ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
+  if(state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
+  if(strategy==="onboarding"){
+    pendingBlockTransition=cap;
+    closeBlockReview();
+    startOnboarding("block");
+    return Promise.resolve(blockTransitionResult("deferred"))}
+  const task=(async()=>{
+    const nextProgram=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
+    let effect=null;
+    if(strategy==="reduce_volume"){
+      const draftRaw=readDraftRaw();
+      let draft={};
+      try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}
+      catch{}
+      const currentById=new Map(cap.oldProgram.map(ex=>[ex.id,ex]));
+      const blocked=nextProgram.some(ex=>{
+        const current=currentById.get(ex.id);
+        return current&&draftHasProgressInRemovedSets(ex.id,ex.sets,current.sets,draft)});
+      effect=draftPreservationEffect(draftRaw);
+      if(blocked||effect.status!==DRAFT_EFFECT_VALID){
+        toast(t("toast.set_count_locked_draft"));
+        return blockTransitionResult("failed",{draftConflict:true})}}
+    const proposal=cloneSnapshot(state);
+    archiveCapturedBlock(proposal,cap);
+    const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
+    proposal.programMeta=nextMeta;
+    proposal.program=nextProgram;
+    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId,
+      expectedProgramFingerprint:cap.programFingerprint,effect});
+    const kind=persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed";
+    const result=blockTransitionResult(kind,persisted);
+    if(result.committed){
+      pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
+    return result})();
+  blockCommitInFlight={oldProgramId:oldId,promise:task};
+  const clear=()=>{if(blockCommitInFlight?.promise===task)blockCommitInFlight=null};
+  task.then(clear,clear);
+  return task}
+function finishBlockAndStart(strategy,expectedOldId){return commitNextBlock(strategy,storageIO,expectedOldId)}
+function openBlockReview(review,opts={}){
+  blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
+  openModal(d,{
+    initialFocus:$("#blockReviewClose"),
+    returnFocus:opts.returnFocus||document.activeElement,
+    onEscape:closeBlockReview,
+    handoff:!!opts.handoff,
+    prevInert:opts.prevInert
+  });
+  $("#blockReviewClose").onclick=closeBlockReview}
+function promptEndBlock(){
+  const d=$("#endBlockConfirm");if(!d)return;
+  const opener=$("#endBlock")||document.activeElement;
+  openModal(d,{
+    initialFocus:$("#endBlockCancel"),
+    returnFocus:opener,
+    onEscape:()=>closeModal(d)
+  });
+  $("#endBlockGo").onclick=()=>{
+    openBlockReview(buildBlockReview(state.programMeta,state.program,state.log),{handoff:true,returnFocus:opener})};
+  $("#endBlockCancel").onclick=()=>closeModal(d)}
+async function dismissBlockPrompt(){
+  const proposal=cloneSnapshot(state);
+  if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
+  proposal.programMeta.blockPromptDismissedId=proposal.programMeta.id;
+  proposal.programMeta.updated=new Date().toISOString();
+  const result=await commitProposedState(proposal);
+  if(result.localOk||result.idbOk)renderBlockPrompt();
+  return result}
 function renderBlockPrompt(){const mc=mesocycleWeek();
   const id=state.programMeta?.id;
   const dismissed=!!(id&&state.programMeta?.blockPromptDismissedId===id);
   const show=(mc.isComplete||mc.isFinalWeek)&&!dismissed;
-  const html=show?`<p><b>${esc(t("review.block_ending"))}</b> ${esc(t("review.block_ending.body",{n:mc.current,total:mc.total}))} <button type="button" class="blockprompt__act">${esc(t("review.block_ending.cta"))}</button></p>`+
+  const body=mc.isComplete?t("meso.complete"):t("meso.week_ready",{n:mc.current,total:mc.total});
+  const html=show?`<p><b>${esc(t("review.block_ending"))}</b> ${esc(body)} <button type="button" class="blockprompt__act">${esc(t("review.block_ending.cta"))}</button></p>`+
     `<button type="button" class="blockprompt__dismiss" aria-label="${esc(t("review.block_ending.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`:"";
   for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
     el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;
       const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock;
-      const dismiss=el.querySelector(".blockprompt__dismiss");if(dismiss)dismiss.onclick=e=>{e.stopPropagation();dismissBlockPrompt()}}}}
+      const dismiss=el.querySelector(".blockprompt__dismiss");if(dismiss)dismiss.onclick=async e=>{e.stopPropagation();await dismissBlockPrompt()}}}}
 function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
   if(!withHistory.length)return null;
   const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
@@ -764,14 +2182,37 @@ function parseProgramImport(parsed){
   if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null};
   if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null};
   return null}
-function save(){persist()}
-function persist(){
+function save(){return persist()}
+function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
-  let lsOk=true;
-  try{localStorage.setItem(KEY,JSON.stringify(state))}catch(e){lsOk=false;console.warn("localStorage mirror failed",e)}
-  idbSet(KEY,state).catch(e=>{console.warn("idb persist failed",e);
-    // Only alarm the user when neither store took the write — data is genuinely at risk.
-    if(!lsOk&&!persist.warned){persist.warned=true;toast(t("toast.storage_full"))}})}
+  const base=cloneSnapshot(mutationBase||state);
+  const snapshot=cloneSnapshot(state);
+  return enqueueStateChange(base,snapshot,storageIO,opts)}
+async function commitProposedState(proposal,io=storageIO,opts={}){
+  requireAdapter(io,"commitProposedState");
+  const base=cloneSnapshot(mutationBase||state);
+  const liveBase=cloneSnapshot(state);
+  const snapshot=cloneSnapshot(proposal);
+  const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
+  if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
+  return result}
+async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
+  const proposal=cloneSnapshot(state);
+  proposal.log=[];
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,io,{effect});
+  if(result.localOk||result.idbOk){
+    resetDraftSessionState();render();toast(t("toast.log_deleted"))}
+  return result}
+window.__repforgeStorage={
+  flush:flushStorage,
+  chooseSnapshot,
+  writeWithAdapter(snapshot,io){
+    requireAdapter(io,"writeWithAdapter");
+    return enqueueWrite(()=>writeSnapshot(cloneSnapshot(snapshot),io))},
+  health(){return Object.assign({},storageHealth)},
+  replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
+  mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
@@ -878,24 +2319,31 @@ function recoverSignal(ex,sess,rirCeiling=0.5){sess=sess||sessionsFor(ex);if(ses
   if(+last.med-+prior.med>=0.01)return false;
   return +last.maxReps<=+prior.maxReps&&+last.medReps<=+prior.medReps}
 function round(v){const raw=+state.settings.minJump;const inc=Number.isFinite(raw)&&raw>0?raw:2.5;return Math.round(v/inc)*inc}
+const LOAD_EPS=1e-6;
+const sameLoad=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<=LOAD_EPS;
 function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
   if(!rows.length)return "";const latest=rows.sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
   return fmt(toDisplay(latest.bodyweight))}
 function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
-  el.placeholder=unitLabel();const lbl=$("#bodyweightLabel");
-  if(lbl){for(const n of [...lbl.childNodes])if(n.nodeType===3)n.remove();
-    lbl.insertBefore(document.createTextNode(`Bodyweight (${unitLabel()}, optional) `),el)}}
-function focusList(){return exercises().filter(e=>!skipped.has(e.id))}
+  el.placeholder=unitLabel();
+  const lbl=$("#bodyweightLabel")?.querySelector("span");
+  if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
+function focusList(){
+  const exs=exercises();
+  if(tourActive&&tourPreview?.ignoreSkipped){
+    const first=exs[0];
+    return first?[first]:[]}
+  return exs.filter(e=>!skipped.has(e.id))}
 function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   menu.classList.toggle("hidden",!open);
   $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
 function closeWorkoutOverflow(){setWorkoutOverflow(false)}
 function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
-function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");closeWorkoutOverflow();renderWorkout()}
+function setLogMode(m){logMode=m;syncLogModeControls();document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;closeWorkoutOverflow();renderWorkout()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
-  day=ex.day;
+  if(!requestWorkoutDay(ex.day))return;
   if(logMode==="focus"){
     const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
     focusIndex=idx>=0?idx:0;
@@ -952,12 +2400,15 @@ function recommendation(ex){
     if(allTop||nearTop||cr>=ex.max+CAPACITY.jumpMargin)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false};
     // Back off only when capacity itself falls short of the range — stopping early is not failing.
     if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
-    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load,stalled:true,pushReps:false};
-    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load,stalled:false,pushReps:false};
+    // Hold-family loads keep the session median as the capacity reference (ADR 0003) but snap onto minJump.
+    // Nearest-grid round of a sub-increment history load (1 kg vs 2.5) can land on 0; same floor as reduce.
+    const holdLoad=Math.max(round(load),+state.settings.minJump||2.5);
+    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:holdLoad,stalled:true,pushReps:false};
+    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:holdLoad,stalled:false,pushReps:false};
     // Room left inside the range: chase reps before load.
-    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load,stalled:false,pushReps:true};
+    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:holdLoad,stalled:false,pushReps:true};
     return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
-      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load,stalled:false,pushReps:true};
+      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:holdLoad,stalled:false,pushReps:true};
   })();
   const trend=blockTrendFor(sess);
   // Weak block tempering: a block that is losing strength should not double-jump.
@@ -965,6 +2416,7 @@ function recommendation(ex){
     rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1))}
   rec.block=trend;rec.blockNote=blockTrendNote(trend);
   rec.cap=medCap;rec.typRir=typicalRir(ex,sess);
+  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,load);
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -972,10 +2424,10 @@ function recommendation(ex){
 // reset to ex.min — which survives only as the clamp on big percentage jumps.
 const reentryReps=(ex,cap,load,typRir)=>clamp(Math.round(repsAtLoad(cap,load)-(+typRir||0)),ex.min,ex.max);
 // Base reps target from the previous-session recommendation (no in-session data yet).
-// Load-up / back-off re-enters on predicted capacity; holds chase one more rep
-// (double progression), capped at the range top. Hold · recover keeps the prior target.
+// rec.reenterReps is the policy: load-change and snapped-hold recs re-enter on
+// capacity; exact-load holds chase one more rep. Hold · recover keeps the prior target.
 function baseSetReps(ex,rec,old){
-  if(rec.status==="add"||rec.status==="add2"||rec.status==="reduce")
+  if(rec.reenterReps)
     return rec.cap>0&&rec.load>0?reentryReps(ex,rec.cap,rec.load,rec.typRir):ex.min;
   const prev=old&&+old.reps>0?+old.reps:null;
   if(prev==null)return ex.min;
@@ -1133,7 +2585,7 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   const anchor=art.querySelector(".delta-prev")||art.querySelector(".prev");
   if(anchor)anchor.insertAdjacentElement("afterend",el);
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
-function fmtClock(s){const m=Math.floor(s/60);return `${m}:${String(s%60).padStart(2,"0")}`}
+function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar for List, and the chip in the
  *  workout header for Focus — where it must never sit over a control. */
 function paintRest(text,done){
@@ -1151,21 +2603,34 @@ function paintRest(text,done){
 function updateRestChrome(){
   const focus=workoutActive&&logMode==="focus";
   const chip=$("#woRest");
+  const preview=tourActive&&tourPreview?.showRest;
+  const restOn=+state.settings.restSec>0;
   if(chip){
-    const on=focus&&+state.settings.restSec>0;
+    const on=focus&&(restOn||preview);
     chip.classList.toggle("hidden",!on);
     chip.classList.toggle("is-running",!!restEnd);
-    if(!restEnd){chip.classList.remove("is-done");
-      chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
+    chip.disabled=!!(preview&&!restOn);
+    if(preview&&!restOn){
+      chip.setAttribute("aria-label",t("tour.rest_preview_aria"));
+      let hint=$("#woRestPreviewHint");
+      if(!hint){hint=document.createElement("p");hint.id="woRestPreviewHint";hint.className="tour-rest-hint";chip.insertAdjacentElement("afterend",hint)}
+      hint.textContent=t("tour.rest_preview_hint");hint.hidden=false}
+    else{
+      const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
+      if(!restEnd){chip.classList.remove("is-done");
+        chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
+    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;
+function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restAnnounced=false;
   $("#restBar")?.classList.add("hidden");paintRest("—",false);
   updateRestChrome();
+  const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
 function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
   if(left<=0){
     paintRest("0:00",true);clearInterval(restTick);restTick=null;
+    announceRestDone();
     if(restNotified)return;
     restNotified=true;
     if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
@@ -1174,16 +2639,26 @@ function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
     return}
   paintRest(fmtClock(left),false)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
-  restEnd=Date.now()+s*1000;restNotified=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+  const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
   clearInterval(restTick);restTick=setInterval(tickRest,250)}
+window.__repforgeRest={
+  expire(){
+    if(!restEnd)return false;
+    restEnd=Date.now()-1;
+    if(restTick){clearInterval(restTick);restTick=null}
+    return true}};
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
   if(restEnd&&Date.now()>=restEnd){
     paintRest("0:00",true);
     if(restTick){clearInterval(restTick);restTick=null}
+    announceRestDone();
   }
+  reconcileNotifyPermission();
+  paintNotifyControls();
   updateSessionBanner();
 }
 
@@ -1221,20 +2696,19 @@ function updateSessionBanner(){
   }
 
   el.className=`sessionbanner${isMissed?" is-missed":""}`;
-  el.innerHTML=`<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
-    `<p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p>`;
+  el.innerHTML=`<button type="button" class="sessionbanner__act"><p class="sessionbanner__title">${esc(title)}</p><p class="sessionbanner__body">${esc(body)}</p></button>`+
+    `<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`;
+  el.onclick=null;
   el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
-  el.onclick=()=>{
-    day=due.day;
+  el.querySelector(".sessionbanner__act").onclick=()=>{
+    if(!enterWorkout({day:due.day}))return;
     dismissForToday();
-    renderTabs(); renderWorkout();
     toast(t("toast.day_ready",{day:due.day}));
   };
 }
 
-function draftHasProgress(){try{const d=JSON.parse(localStorage.getItem(DRAFT)||"{}");
-  if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length)return true;
-  return Object.keys(d).some(k=>/_load$/.test(k)&&parseDec(d[k])>0)}catch{return false}}
+function draftHasProgress(){try{const d=JSON.parse(DraftStore.readRaw()||"{}");
+  return draftHasSessionWork(d)||!!contextFlagsFromDraft(d).day}catch{return false}}
 function setWorkoutActive(on){const was=workoutActive;workoutActive=!!on;
   document.body.classList.toggle("is-workout",workoutActive);
   const dash=$("#todayDash"),shell=$("#workoutShell");
@@ -1261,25 +2735,30 @@ function openExNoteSheet(exId){
   exNoteFor=exId;exNoteReturn=document.activeElement;
   $("#exNoteFor").textContent=substituted.get(exId)||ex.name;
   ta.value=$(`[data-exnote="${exId}"]`)?.value??(loadDraft().__exnotes?.[exId]??lastExerciseNote(ex));
-  sheet.hidden=false;sheet.classList.remove("hidden");scrim?.classList.remove("hidden");
   document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:ta,
+    returnFocus:exNoteReturn,
+    onEscape:closeExNoteSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open");
-    ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)})}
+    if(ta===document.activeElement)ta.setSelectionRange(ta.value.length,ta.value.length)})}
 function closeExNoteSheet(){
-  const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim");
-  if(!sheet||sheet.hidden)return;
-  sheet.classList.remove("is-open");scrim?.classList.remove("is-open");
-  document.body.classList.remove("is-sheet-open");
-  const finish=()=>{sheet.classList.add("hidden");sheet.hidden=true;scrim?.classList.add("hidden")};
-  reducedMotion()?finish():setTimeout(finish,220);
-  exNoteFor=null;
-  if(exNoteReturn?.isConnected)exNoteReturn.focus();
-  exNoteReturn=null}
-function saveExNoteSheet(){
+  const sheet=$("#exNoteSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  exNoteFor=null;exNoteReturn=null;
+  return closeModal(sheet)}
+async function saveExNoteSheet(){
   const id=exNoteFor,val=$("#exNoteText")?.value??"";
   if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;saveDraft()}
-  closeExNoteSheet();
-  if(id)renderWorkout()}
+  await closeExNoteSheet();
+  if(id){
+    renderWorkout();
+    const trigger=$$("#workout [data-exnote-open]").find(b=>b.dataset.exnoteOpen===id);
+    if(trigger){try{trigger.focus({preventScroll:true})}catch{try{trigger.focus()}catch{}}}}}
 /** Keep the sheet above the software keyboard rather than behind it. */
 function trackSheetViewport(){
   const vv=window.visualViewport;if(!vv)return;
@@ -1379,12 +2858,14 @@ function focusDragEnd(e){
   if(!past||!focusCanGo(dir)){focusSettle(track,card,deck);return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
-function enterWorkout(opts={}){workoutLeft=false;setWorkoutActive(true);if(opts.day)day=opts.day;
+function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return false;
+  workoutLeft=false;setWorkoutActive(true);
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
-  if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
-  else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active")}
+  if(opts.focus===true)logMode="focus";
+  else if(opts.focus===false)logMode="full";
+  syncLogModeControls();
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
-  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
+  renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
 function leaveWorkout(){workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
   for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
@@ -1411,10 +2892,10 @@ function todayExListHtml(exs){if(!exs.length)return"";
 function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
-  if(progEl){if(nm||mc.current!=null){progEl.classList.remove("hidden");
-    const segs=mc.total||6,cur=mc.current||0;
+  if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
+    const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
-      (mc.current!=null?`<div class="today-prog__week">${esc(t("today.week_of",{n:mc.current,total:mc.total}))}</div>`:"")+
+      (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
       `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`+
       (week.plannedDays?`<div class="today-prog__done">${esc(t("today.sessions_done",{done:week.completedDays,planned:week.plannedDays}))}</div>`:"")}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
@@ -1452,15 +2933,16 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       lastEl.innerHTML=`<span class="today-footer__icon" aria-hidden="true">⏱</span>${esc(n===0?t("today.last_trained_today"):n===1?t("today.last_trained_one"):t("today.last_trained",{n}))}`}
     else lastEl.innerHTML=""}
   const lc=$("#logContext");if(lc){const nm2=state.programMeta?.name,mc2=mesocycleWeek();
-    const hasCtx=!!(nm2||mc2.current!=null);
-    lc.textContent=hasCtx?(mc2.current!=null?t("log.context.program_week",{name:nm2||t("untitled_program"),n:mc2.current,total:mc2.total}):(nm2||t("untitled_program"))):t("log.context.today");
+    const hasCtx=!!(nm2||mc2.current!=null||mc2.isComplete);
+    lc.textContent=hasCtx?programWeekContext(nm2,mc2):t("log.context.today");
     // Kept as a hidden deep-link hook; Today shows the program strip instead.
     lc.classList.add("hidden")}
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
   const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=day;
-  const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();woSub.textContent=mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
+  const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
+    woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
 
 function render(){applyI18n();
@@ -1474,7 +2956,7 @@ function render(){applyI18n();
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
-  $$("#dayTabs button").forEach(b=>b.onclick=()=>{day=b.dataset.day;renderTabs();renderWorkout();renderToday()})}
+  $$("#dayTabs button").forEach(b=>b.onclick=()=>{if(!requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
 function setFieldVals(ex,n,r,draft,prev){
   const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
@@ -1535,7 +3017,7 @@ function focusCue(ex,n,r,draft,prev,editing){
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
   if(sg.load==null)return{kind:"start",label:t("focus.cue.start"),text:t("focus.cue.pick_load",{min:ex.min,max:ex.max})};
   const ref=focusRefLoad(ex,n,draft,prev);
-  const move=ref==null?"hold":sg.load>ref+1e-6?"up":sg.load<ref-1e-6?"down":"hold";
+  const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
   const reps=sg.reps!=null?sg.reps:ex.min;
   return{kind:"now",label:t("focus.cue.now"),
     text:`${t(`focus.cue.${move}`,{load:fmtLoad(sg.load),unit:unitLabel()})} · ${t("focus.cue.reps",{reps})}`}}
@@ -1730,11 +3212,8 @@ function focusDeckHtml(ex,r,draft,prev,{fl,at}){
 function renderWorkout(){
   if(!workoutActive){updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
-    lc.textContent=nm||mc.current!=null?(mc.current!=null?t("log.context.program_week",{name:nm||t("untitled_program"),n:mc.current,total:mc.total}):(nm||t("untitled_program"))):t("log.context.today")}
-  const draft=loadDraft();
-  committed.clear();(draft.__done||[]).forEach(k=>committed.add(k));
-  touched.clear();(draft.__touched||[]).forEach(k=>touched.add(k));
-  warmups.clear();(draft.__warm||[]).forEach(k=>warmups.add(k));
+    lc.textContent=nm||mc.current!=null||mc.isComplete?programWeekContext(nm,mc):t("log.context.today")}
+  const draft=hydrateWorkoutDraft();
   const effortMode=isEffortMode();
   const restOn=+state.settings.restSec>0;
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
@@ -1755,9 +3234,13 @@ function renderWorkout(){
     const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
     const rows=Array.from({length:ex.sets},(_,i)=>setRowHtml(ex,i+1,r,draft,prev,nextSet)).join("");
-    const perf=substituted.get(ex.id);
+    const isSkipped=skipped.has(ex.id),perf=substituted.get(ex.id),display=perf||ex.name;
     const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
-    const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:perf||ex.name}))}">${nameLabel}</button>`;
+    const statusHtml=isSkipped?`<span class="ex__state">${esc(t("log.skipped"))}</span>`:"";
+    const openAria=t("log.open_exercise_aria",{name:display})+(isSkipped?` · ${t("log.skipped")}`:"");
+    const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(openAria)}">${nameLabel}${statusHtml}</button>`;
+    const skipLabel=isSkipped?t("log.restore"):t("log.skip");
+    const skipAria=isSkipped?t("log.restore_aria",{name:display}):t("log.skip_aria",{name:display});
     const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
     const notePreview=noteVal?esc(noteVal):esc(t("log.note.empty"));
     const noteHtml=`<div class="exnote${noteVal?" has-note":""}">`+
@@ -1777,9 +3260,9 @@ function renderWorkout(){
       `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
-      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name:ex.name}))}">${esc(t("log.skip"))}</button>`+
+      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(skipAria)}">${esc(skipLabel)}</button>`+
       `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${skipped.has(ex.id)?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
+    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${isSkipped?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
       listHead+
       `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
       `<span class="chip">${esc(r.label)}</span></div>`+
@@ -1847,15 +3330,73 @@ function currentExerciseNote(exId){const el=$(`[data-exnote="${exId}"]`);
   if(el)return el.value.trim();
   const d=loadDraft().__exnotes||{};return String(d[exId]??"").trim()}
 
-function saveDraft(){const d={};$$("#workout input").forEach(x=>d[x.dataset.k]=x.value);
-  $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
-  $$("#workout [data-effspin]").forEach(e=>d[`${e.dataset.effspin}_effort`]=e.dataset.e);
-  // Store every note field, empty included — an empty value is the lifter clearing a carried-forward note.
-  const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
-  if(Object.keys(notes).length)d.__exnotes=notes;
+function saveDraft(opts){
+  const fromDom=opts?.fromDom!==false;
+  const prev=loadDraft(),d={...prev};
+  const inputs=fromDom?$$("#workout input[data-k]"):[];
+  if(inputs.length){
+    for(const k of Object.keys(d)){
+      if(k.startsWith("__"))continue;
+      if(/_(load|reps|rir|effort)$/.test(k)) delete d[k]}
+    inputs.forEach(x=>{if(x.dataset.k)d[x.dataset.k]=x.value});
+    $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
+    $$("#workout [data-effspin]").forEach(e=>d[`${e.dataset.effspin}_effort`]=e.dataset.e);
+    const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
+    if(Object.keys(notes).length)d.__exnotes=notes;
+    else if(prev.__exnotes)d.__exnotes=prev.__exnotes}
   d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];
+  d.__skipped=[...skipped];d.__substituted=Object.fromEntries(substituted);
   if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
-  localStorage.setItem(DRAFT,JSON.stringify(d))}
+  else delete d.__lastCommitAt;
+  const hasWork=committed.size||touched.size||warmups.size||skipped.size||substituted.size
+    ||contextTouched.day||contextTouched.date||contextTouched.sessionNotes||contextTouched.bodyweight
+    ||d.__done.length||d.__touched.length||d.__warm.length||d.__skipped.length||Object.keys(d.__substituted).length;
+  if(hasWork) d.__day=day;
+  const dateEl=$("#date"),notesEl=$("#notes"),bwEl=$("#bodyweight");
+  if(contextTouched.date||Object.prototype.hasOwnProperty.call(d,"__date")||(hasWork&&(committed.size||touched.size||warmups.size||skipped.size||substituted.size))){
+    if(dateEl) d.__date=dateEl.value}
+  if(contextTouched.sessionNotes||Object.prototype.hasOwnProperty.call(d,"__sessionNotes")){
+    if(notesEl) d.__sessionNotes=notesEl.value}
+  if(contextTouched.bodyweight||Object.prototype.hasOwnProperty.call(d,"__bodyweight")){
+    if(bwEl) d.__bodyweight=bwEl.value}
+  d.__contextTouched={day:!!contextTouched.day,date:!!contextTouched.date,sessionNotes:!!contextTouched.sessionNotes,bodyweight:!!contextTouched.bodyweight};
+  DraftStore.write(JSON.stringify(d))}
+
+function clearFieldInvalid(root){
+  (root||document).querySelectorAll("[aria-invalid='true']").forEach(el=>el.removeAttribute("aria-invalid"))}
+function applyFieldError(res){
+  if(!res||res.ok)return false;
+  const el=res.el;
+  if(el){el.setAttribute("aria-invalid","true");try{el.focus()}catch{}}
+  toast(t(res.error?.key||"validation.load"));
+  return true}
+function workoutCandidateKeys(){
+  const keys=[];
+  for(const ex of exercises()){if(skipped.has(ex.id))continue;
+    for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
+      if(committed.has(key)||touched.has(key)||warmups.has(key))keys.push(key)}}
+  return keys}
+function readSetCandidate(key){
+  const loadEl=$(`[data-k="${key}_load"]`),repsEl=$(`[data-k="${key}_reps"]`),rirEl=$(`[data-k="${key}_rir"]`);
+  const loadP=parseLoadDisplay(loadEl?.value);if(loadP.field)return{ok:false,error:loadP,el:loadEl};
+  const repsP=parseRepsValue(repsEl?.value);if(repsP.field)return{ok:false,error:repsP,el:repsEl};
+  let rir;
+  if(isEffortMode()){
+    const draft=loadDraft();
+    const eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||$(`[data-effspin="${key}"]`)?.dataset.e||"hard";
+    const ep=parseEffortValue(eff);
+    if(ep.field)return{ok:false,error:ep,el:$(`.effort__btn[data-eff="${key}"]`)||$(`[data-effspin="${key}"]`)};
+    rir=EFFORT_RIR[ep.value]}
+  else{const rirP=parseRirValue(rirEl?.value);if(rirP.field)return{ok:false,error:rirP,el:rirEl};rir=rirP.value}
+  return{ok:true,values:{load:loadP.value,reps:repsP.value,rir}}}
+function firstWorkoutValidationError(keys){
+  clearFieldInvalid(document);
+  const dateEl=$("#date"),dateP=parseCalendarDate(dateEl?.value);
+  if(dateP.field)return{ok:false,error:dateP,el:dateEl};
+  for(const key of keys){const r=readSetCandidate(key);if(!r.ok)return r}
+  const bwEl=$("#bodyweight"),bwP=parseOptionalBodyweightDisplay(bwEl?.value);
+  if(bwP.field)return{ok:false,error:bwP,el:bwEl};
+  return{ok:true,values:{date:dateP.value,bodyweight:bwP.value===0?0:fromDisplay(bwEl.value)}}}
 
 function bindWorkout(){
   $$("#workout input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow, .curset");
@@ -1866,8 +3407,7 @@ function bindWorkout(){
   i.onfocus=()=>i.select()});
   $$("#workout .term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $$("#workout .saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
-    const load=parseDec($(`[data-k="${key}_load"]`)?.value)||0;
-    if(load<=0){toast(t("toast.enter_weight_before_save_set"));return}
+    if(applyFieldError(firstWorkoutValidationError([key])))return;
     const row=b.closest(".setrow, .curset");
     // Saving an edit updates the set that is already there; it never toggles it
     // off, and it never re-arms the rest clock for a set that finished long ago.
@@ -1910,17 +3450,12 @@ function bindWorkout(){
       else{const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
     saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $$("#workout .ex__rest").forEach(b=>b.onclick=()=>startRest());
-  $$("#workout .ex__skip").forEach(b=>b.onclick=()=>{const id=b.dataset.skip;
-    skipped.has(id)?skipped.delete(id):skipped.add(id);
-    if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
-    renderWorkout()});
+  $$("#workout .ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
   $$("#workout .subst__pick").forEach(sel=>{sel.onchange=()=>{const id=sel.dataset.sub;
     if(sel.value==="__other__"){const v=prompt(t("prompt.alternate_exercise_name"),substituted.get(id)||"");
       if(v==null){renderWorkout();return}
-      const t=String(v).trim().slice(0,80);
-      if(!t||t===prog.find(id)?.name){substituted.delete(id)}else{substituted.set(id,t)}
-    }else if(!sel.value){substituted.delete(id)}else{substituted.set(id,sel.value)}
-    renderWorkout()}});
+      applyCustomSub(id,v);
+    }else applyPredefinedSub(id,sel.value)}});
   $$("#workout .effort__btn").forEach(b=>{
     b.onclick=()=>{const key=b.dataset.eff;
       setEffortPick(key,b.dataset.e);touched.add(key);
@@ -1960,7 +3495,7 @@ function bindWorkout(){
     if(prev)prev.textContent=t.value.trim()||t("log.note.empty");
     t.closest(".exnote")?.classList.toggle("has-note",!!t.value.trim())}});
   $$("#workout .ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
-  const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>{skipped.clear();renderWorkout()};
+  const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
   $$("#workout .ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
   if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
@@ -2011,9 +3546,7 @@ function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercise
   const flagged=exs.filter(e=>{const r=recommendation(e);return r.status==="reduce"||r.stalled}).length;
   if(exs.length>=3&&flagged>=2){el.className="fatigue";el.innerHTML=`<b>${esc(t("log.fatigue.title"))}</b> — ${esc(t("log.fatigue.body",{n:flagged}))} `+
     `<button type="button" class="fatigue__trim">${esc(t("log.fatigue.trim"))}</button>`;
-    $("#fatigue .fatigue__trim").onclick=()=>{skipped.clear();
-      for(const e of exs){const s=recommendation(e).status;if(!(s==="add"||s==="add2"))skipped.add(e.id)}
-      renderWorkout();toast(t("toast.trimmed_priority"))}}
+    $("#fatigue .fatigue__trim").onclick=()=>applyFatigueTrim()}
   else el.className="fatigue hidden",el.innerHTML="";}
 
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
@@ -2021,20 +3554,21 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day,done,planned}):(entered?t("log.save_meta.entered",{day,entered,planned}):t("log.save_meta.planned",{day,planned}));}
 
-function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
-  try{const date=$("#date").value||today(),session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
-  const bwRaw=$("#bodyweight").value,bw=bwRaw===""||bwRaw==null?0:posNum(fromDisplay(bwRaw));
+async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
+  const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
+  if(applyFieldError(check))return;
+  if(!keys.length){toast(t("toast.enter_weight_before_save"));return}
+  const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
+  saving=true;
+  if(form){form.inert=true;form.setAttribute("aria-busy","true")}
+  try{const date=check.values.date,bw=check.values.bodyweight,session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
   for(const ex of exercises()){if(skipped.has(ex.id))continue;
     const exNote=currentExerciseNote(ex.id);
     for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
-    const load=posNum(fromDisplay($(`[data-k="${ex.id}_${n}_load"]`).value)),reps=posNum($(`[data-k="${ex.id}_${n}_reps"]`).value);
-    let rir;
-    if(isEffortMode()){
-      const draft=loadDraft(),eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||"hard";
-      rir=EFFORT_RIR[eff]??1}else{rir=posNum($(`[data-k="${ex.id}_${n}_rir"]`).value)}
-    if(load<=0)continue;
     if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
+    const got=readSetCandidate(key);if(!got.ok){applyFieldError(got);return}
+    const{load,reps,rir}=got.values;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
     if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
     if(exNote)row.exNote=exNote;
@@ -2042,20 +3576,30 @@ function saveWorkout(e){e.preventDefault();if(saving)return;saving=true;
     if(bw>0)row.bodyweight=bw;
     rows.push(row)}}
   if(!rows.length){toast(t("toast.enter_weight_before_save"));return}
-  const prLifts=[];
+  const prevLog=state.log,prLifts=[];
   for(const ex of exercises()){if(skipped.has(ex.id))continue;
     const mine=rows.filter(r=>r.exerciseId===ex.id&&!r.warmup);if(!mine.length)continue;
     const newTop=Math.max(...mine.map(r=>+r.load));
     const match=matchLift(ex);
-    const prevTop=Math.max(0,...state.log.filter(x=>match(x)&&isWork(x)).map(r=>+r.load));
+    const prevTop=Math.max(0,...prevLog.filter(x=>match(x)&&isWork(x)).map(r=>+r.load));
     if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
-  state.log.push(...rows);save();clearDraft();committed.clear();touched.clear();warmups.clear();substituted.clear();$("#notes").value="";
-  const btn=$(".btn--save");btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped");
+  const rawDraft=DraftStore.readRaw();
+  const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.concat(cloneSnapshot(rows));
+  const effect=consumedDraftClearEffect(rawDraft);
+  const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
+  if(!(result.localOk||result.idbOk))return result;
+  resetDraftSessionState();
+  resetSessionContextFields();
+  const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
   const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
   let msg=t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")});
   if(prLifts.length)msg+=` ${t("toast.workout_pr",{items:prLifts.join(", ")})}`;
   if(deltaTxt)msg+=` ${deltaTxt}.`;
-  toast(msg);render()}finally{saving=false}}
+  toast(msg);render();
+  return result}finally{
+    if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
+    saving=false}}
 
 function summaries(){const m=new Map();
   for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
@@ -2086,31 +3630,40 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const ro
 // The week reads as a headline: the verdict first, the arithmetic under it, and a
 // session bar so "3 of 4" is legible without reading. The attention tally counts the
 // same lifts the Attention list below shows, so the two numbers never disagree.
+function coachingDestKey(group){if(group==="add")return"details";if(group==="new"||group==="stale")return"log";return"trend"}
+function coachingDestLabel(group){const k=coachingDestKey(group);return k==="details"?t("stats.dest.details"):k==="log"?t("stats.dest.log"):t("stats.dest.trend")}
 function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
   const attnN=attentionCount();
-  const withHist=prog.exercises.filter(e=>sessionsFor(e).length).length;
-  const flatGuess=Math.max(0,withHist-w.improvedLifts-(attnN||0)-(w.readyToAdd||0));
   const segs=Math.max(w.plannedDays,w.completedDays,1),done=Math.min(w.completedDays,segs);
   el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
     `<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
     `<div class="ov-week-bar" aria-hidden="true">`+
     Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
     `<div class="statrow">`+
-    `<div class="statrow__cell"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${flatGuess}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
-    `<div class="statrow__cell${attnN?" is-attn":""}"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="improved"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="stable"><div class="statrow__val">${w.flatLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
+    `<div class="statrow__cell${attnN?" is-attn":""}" data-week-metric="attention"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
     `</div>`}
+function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
+function overviewVolumeSorted(){return volumeDashboard(7).slice().sort((a,b)=>{
+  const da=Math.max(a.planned-a.completed7,0),db=Math.max(b.planned-b.completed7,0);
+  if(db!==da)return db-da;
+  const ra=a.planned>0?a.completed7/a.planned:Infinity,rb=b.planned>0?b.completed7/b.planned:Infinity;
+  if(ra!==rb)return ra-rb;
+  return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
 function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
-  const rows=volumeDashboard(7),planned=prog.volume(),max=Math.max(...rows.map(r=>Math.max(r.planned,r.completed7)),1);
-  el.innerHTML=rows.length?rows.slice(0,8).map(r=>{
-    const on=r.planned>0&&r.completed7>=r.planned*0.6&&r.completed7<=r.planned*1.3;
-    const below=r.planned>0&&r.completed7<r.planned*0.6;
-    const pct=Math.max(4,Math.round((r.completed7/max)*100));
-    return `<div class="vrow"><span class="vrow__name">${esc(r.muscle)}</span>`+
-      `<span class="vrow__bar"><span class="vrow__fill${on?" is-on":""}" style="width:${pct}%"></span></span>`+
+  const rows=overviewVolumeSorted(),shown=rows.slice(0,8),more=rows.length-shown.length;
+  el.innerHTML=rows.length?shown.map(r=>{
+    const high=r.status===t("status.high"),on=r.status===t("status.on_target"),below=r.status===t("status.low");
+    const pct=overviewBarPct(r.planned,r.completed7);
+    const label=high?t("status.high"):below?t("stats.volume_below"):t("stats.volume_on_target");
+    return `<div class="vrow" data-muscle="${esc(r.muscle)}"><span class="vrow__name">${esc(muscleLabel(r.muscle))}</span>`+
+      `<span class="vrow__bar"><span class="vrow__fill${high?" is-high":on?" is-on":""}" style="width:${pct}%"></span></span>`+
       `<span class="vrow__num">${fmt(r.completed7)} / ${fmt(r.planned)}</span>`+
-      `<span class="vrow__status${on?" is-on":""}">${esc(below?t("stats.volume_below"):t("stats.volume_on_target"))}</span></div>`}).join("")
-    :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`}
+      `<span class="vrow__status${on?" is-on":""}">${esc(label)}</span></div>`}).join("")+
+      (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
+    :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;
+  const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
 function renderReadyList(){const el=$("#readyList");if(!el)return;
   const add=attentionGroups().find(g=>g.key==="add");
   if(!add?.items.length){el.innerHTML="";readyExpanded=false;return}
@@ -2118,8 +3671,9 @@ function renderReadyList(){const el=$("#readyList");if(!el)return;
   const row=({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
       const delta=r.load!=null&&base!=null?r.load-base:null;
       const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
-      return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}<span class="chevron" aria-hidden="true"></span></span></button>`};
+      const dest=coachingDestLabel("add");
+      return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}" data-dest="details"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
+        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}</span><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`};
   el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}<span class="section-label__count">${esc(t("stats.section_count",{n:items.length}))}</span></p>`+shown.map(row).join("")+
     (more>0&&!readyExpanded?`<button type="button" class="link-row-cta" id="readySeeAll"><span>${esc(t("stats.ready_see_all",{n:items.length}))}</span><span class="chevron" aria-hidden="true"></span></button>`:"");
   $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"));
@@ -2194,7 +3748,6 @@ function renderStats(){
   if(statsSeg==="strength")renderStrengthDash();
   if(statsSeg==="volume")renderVolumeDash();
   if(statsSeg==="prs")renderPRTimeline();
-  const period=$("#statsPeriod");if(period)period.textContent=volWindow===7?t("stats.window.7_days"):t("stats.window.28_days");
 }
 
 function detectPRs(log,opts={}){
@@ -2242,15 +3795,24 @@ function parseSetCommand(text){
   return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
 window.__repforgeGenerateProgram=generateProgramFromOnboarding;
+window.__repforgeCatalogForSlot=catalogForSlot;
+window.__repforgeChooseExercise=chooseExercise;
+window.__repforgeResolveSplit=resolveSplit;
+window.__repforgeExerciseCatalog=EXERCISE_CATALOG;
+window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
 window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
-window.__repforgeCompleteProgram=completeCurrentProgram;
-window.__repforgeStartNextMeso=startNextMesocycle;
+window.__repforgeCommitNextBlock=commitNextBlock;
+window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
+window.__repforgeApplyProgramTemplate=applyProgramTemplate;
+window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
+window.__repforgePendingBlock=()=>pendingBlockTransition;
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
 window.__repforgeParseDec=parseDec;
+window.__repforgeParseLoad=parseLoadInput;
 
 function resolveExerciseFromCommand(parsed,currentExercises){
   if(parsed.exerciseName){
@@ -2377,11 +3939,12 @@ function renderAttention(){const el=$("#attention");if(!el)return;
   const n=attentionCount(groups);
   const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
     `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
-    items.map(({ex,why})=>`<button type="button" class="attn__chip" data-attn="${esc(ex.name)}" data-attngo="${esc(key)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("");
+    items.map(({ex,why})=>{const dest=coachingDestLabel(key),destKey=coachingDestKey(key);
+      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`).join("");
   el.innerHTML=html;
-  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,ex=prog.exercises.find(e=>e.name===b.dataset.attn),k=ex?.id||b.dataset.attn;
+  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
     if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
-    else{const has=[...$("#statExercise").options].some(o=>o.value===k);
+    else{const k=ex?.id||id,has=[...$("#statExercise").options].some(o=>o.value===k);
       if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast(t("toast.chart_missing_lift"))}});}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
@@ -2400,6 +3963,7 @@ function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHar
     const p=volEff(planned,muscle),c7v=volEff(c7,muscle),c28v=volEff(c28,muscle);
     return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
 window.__repforgeVolumeDashboard=volumeDashboard;
+window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
 function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:r.muscle,[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
   el.innerHTML=table(rows)}
@@ -2412,11 +3976,24 @@ function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=
 
 function chartLabelDecimals(rngKg){return toDisplay(rngKg/3)<1?1:0}
 window.__repforgeChartLabelDecimals=chartLabelDecimals;
+function chartPalette(){
+  const css=getComputedStyle(document.documentElement);
+  const tok=n=>(css.getPropertyValue(n)||"").trim();
+  return{
+    accent:tok("--accent")||"#E04E14",
+    deep:tok("--accent-deep")||"#B8410E",
+    text:tok("--ink-faint")||"#716D66",
+    ink:tok("--ink")||"#1B1A17",
+    rule:tok("--rule")||"#E4E1DA",
+    bg:tok("--bg")||"#F4F2EF",
+    surface:tok("--surface")||"#FFFFFF"
+  }}
+window.__repforgeChartPalette=chartPalette;
 function draw(rows,sel="#chart"){
   const c=$(sel);if(!c)return;
   const ctx=c.getContext("2d"),w=c.clientWidth||320,h=240,ratio=devicePixelRatio||1;
   c.width=w*ratio;c.height=h*ratio;ctx.setTransform(ratio,0,0,ratio,0,0);ctx.clearRect(0,0,w,h);
-  const C={accent:"#E04E14",steel:"#98948C",dim:"#98948C",rule:"#E4E1DA",mist:"#1B1A17"};
+  const pal=chartPalette(),C={accent:pal.accent,steel:pal.text,dim:pal.text,rule:pal.rule,mist:pal.ink};
   const padL=42,padR=14,padT=22,padB=26,iw=w-padL-padR,ih=h-padT-padB;
   ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="middle";
   if(!rows.length){ctx.fillStyle=C.steel;ctx.textAlign="center";ctx.fillText(t("stats.chart.empty"),w/2,h/2);return}
@@ -2424,14 +4001,14 @@ function draw(rows,sel="#chart"){
   const lo=Math.max(0,min-pad),hi=max+pad,rng=hi-lo||1;
   const X=i=>padL+(rows.length===1?iw/2:i*iw/(rows.length-1)),Y=v=>padT+ih-((v-lo)/rng)*ih;
   const decimals=chartLabelDecimals(rng),yLabel=v=>{const d=toDisplay(v);return decimals?fmt(+d.toFixed(1)):fmt(Math.round(d))};
-  const accent="#E04E14";
+  const accent=pal.accent;
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
   ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.lineJoin="round";ctx.lineCap="round";
   ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();
   rows.forEach((r,i)=>{const v=r.e1rm??r.top,last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(v),last?4:3.5,0,7);
     ctx.fillStyle=accent;ctx.fill()});
-  const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV);ctx.fillStyle=accent;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Sans",sans-serif';
+  const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV);ctx.fillStyle=pal.deep;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Sans",sans-serif';
   ctx.fillText(`${fmt(Math.round(toDisplay(lastV)))} ${unitLabel()}`,lx+(lx>w-60?-10:9),ly-12);
   ctx.fillStyle=C.dim;ctx.font='11px "Plex Sans",sans-serif';ctx.textBaseline="alphabetic";
   ctx.textAlign="left";ctx.fillText(shortDate(rows[0].date),padL,h-8);
@@ -2444,21 +4021,132 @@ function redrawChart(){
   if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
-function renderHistory(){
-  if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
-  renderHistoryCalendar();
-  let sessions=[...new Map(state.log.map(x=>[x.session,x])).values()].sort((a,b)=>{
+const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
+  reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
+  disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
+const historyIndexCache=new WeakMap();
+function historyPanelId(session){return`hist-sess-${String(session??"").replace(/[^A-Za-z0-9_-]/g,"_")}`}
+function buildHistoryIndex(log){
+  const source=log||[];
+  const rows=[];
+  const n=source.length;
+  for(let i=0;i<n;i++){const raw=source[i];rows.push(raw&&typeof raw==="object"?raw:{})}
+  const sessionMap=new Map();
+  for(const row of rows){
+    const sid=row&&row.session!=null?String(row.session):"";
+    if(!sessionMap.has(sid))sessionMap.set(sid,{session:row.session,date:row.date,day:row.day,created:row.created,rows:[]});
+    sessionMap.get(sid).rows.push(row)}
+  for(const sess of sessionMap.values()){
+    sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
+  const sessions=[...sessionMap.values()].sort((a,b)=>{
     const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
-  const q=histQuery.trim().toLowerCase();
-  if(q)sessions=sessions.filter(s=>{
-    const sets=state.log.filter(r=>r.session===s.session);
-    return String(s.day).toLowerCase().includes(q)||sets.some(r=>displayName(r).toLowerCase().includes(q))});
+  const liftChrono=new Map();
+  for(const row of rows){
+    if(!isWork(row)||!(+row.load>0)||!(+row.reps>0))continue;
+    const k=liftKey(row);
+    if(!liftChrono.has(k))liftChrono.set(k,new Map());
+    const sm=liftChrono.get(k);
+    if(!sm.has(row.session))sm.set(row.session,{session:row.session,date:row.date,created:row.created,rows:[]});
+    sm.get(row.session).rows.push(row)}
+  const liftPred=new Map();
+  for(const[k,sm]of liftChrono){
+    const ordered=[...sm.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+    for(let i=0;i<ordered.length;i++){
+      const cur=ordered[i],pred=i>0?ordered[i-1].rows:[];
+      liftPred.set(`${cur.session}|${k}`,pred)}}
+  for(const sess of sessions){
+    const byLift=new Map();
+    for(const r of sess.rows){
+      if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
+      const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
+    const counts={improved:0,flat:0,regressed:0,new:0};
+    for(const[k,liftRows]of byLift){
+      const pred=liftPred.get(`${sess.session}|${k}`)||[];
+      if(!pred.length){counts.new++;continue}
+      const d=buildSessionDelta(pred,liftRows);if(d.status in counts)counts[d.status]++}
+    sess.delta=counts;
+    const names=[...new Set(sess.rows.map(r=>String(displayName(r)||"")))];
+    sess.searchText=`${String(sess.day||"")} ${names.join(" ")}`.toLowerCase();
+    sess.panelId=historyPanelId(sess.session)}
+  const prEvents=detectPRs(rows);
+  const prDates=new Set(prEvents.map(ev=>String(ev.date)));
+  const months=new Map();
+  for(const row of rows){
+    const date=String(row.date||""),ym=date.slice(0,7);
+    if(!/^\d{4}-\d{2}$/.test(ym))continue;
+    if(!months.has(ym))months.set(ym,{sessions:new Set(),sets:0,byDay:new Map()});
+    const bucket=months.get(ym);bucket.sessions.add(row.session);bucket.sets++;
+    const dayNum=+date.slice(8,10);
+    if(!bucket.byDay.has(dayNum))bucket.byDay.set(dayNum,{sets:0,pr:false});
+    bucket.byDay.get(dayNum).sets++;
+    if(prDates.has(date))bucket.byDay.get(dayNum).pr=true}
+  const tableRows=[...rows].sort((a,b)=>String(b.date).localeCompare(String(a.date))||displayName(a).localeCompare(displayName(b))||a.set-b.set);
+  const index={rows,sessions,months,prEvents,tableRows,liftPred};
+  if(historyDiagnostics.enabled){
+    historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
+    if(typeof historyDiagnostics.onBuilt==="function")historyDiagnostics.onBuilt(index)}
+  return index}
+function historyIndexFor(log){
+  const source=log||[];
+  if(source&&typeof source==="object"){
+    const cached=historyIndexCache.get(source);
+    if(cached?.program===state.program)return cached.index;
+    const index=buildHistoryIndex(source);
+    historyIndexCache.set(source,{program:state.program,index});
+    return index}
+  return buildHistoryIndex(source)}
+function searchHistoryIndex(index,query){
+  const q=String(query||"").trim().toLowerCase(),sessions=index?.sessions||[];
+  if(!q)return sessions.slice();
+  return sessions.filter(s=>String(s.searchText||"").includes(q))}
+function renderHistoryWithSource(source){renderHistory(source)}
+window.__repforgeHistory={
+  buildIndex:buildHistoryIndex,
+  indexFor:historyIndexFor,
+  searchIndex:searchHistoryIndex,
+  renderWithSource:renderHistoryWithSource,
+  diagnostics:historyDiagnostics};
+
+function isHistorySearchOpen(){return!$("#historySearchWrap")?.classList.contains("hidden")}
+function setHistorySearchOpen(open){
+  if(!open&&histQuery.trim())return;
+  $("#historySearchWrap")?.classList.toggle("hidden",!open);
+  $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
+  if(open)$("#historySearch")?.focus()}
+function clearHistorySearch(){
+  histQuery="";
+  const inp=$("#historySearch");if(inp)inp.value="";
+  renderHistory();
+  setHistorySearchOpen(false)}
+function syncHistorySearchChrome(){
+  const open=isHistorySearchOpen()||!!histQuery.trim();
+  if(histQuery.trim())$("#historySearchWrap")?.classList.remove("hidden");
+  $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
+  const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
+async function deleteSession(sid,io=storageIO){
+  const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.filter(row=>row.session!==sid);
+  const result=await commitProposedState(proposal,io);
+  if(result.localOk||result.idbOk){
+    if(editSession===sid)editSession=null;
+    render();toast(t("toast.session_deleted"))}
+  return result}
+
+function renderHistory(source=state.log){
+  if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
+  const focusedToggle=document.activeElement?.matches?.("#sessions .session__toggle")?document.activeElement:null;
+  const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
+  const index=historyIndexFor(source);
+  renderHistoryCalendar(index);
+  const q=histQuery.trim();
+  const sessions=searchHistoryIndex(index,q);
+  syncHistorySearchChrome();
   let lastMonth="";
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
-    const sets=state.log.filter(r=>r.session===s.session).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set);
+    const sets=s.rows;
     if(s.session===editSession)return sessionEditor(s,sets);
     const work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
-    const delta=sessionDeltaCounts(sets),deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
+    const delta=s.delta||{improved:0,flat:0,regressed:0,new:0},deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
     const mus=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3);
     const d=new Date(`${s.date}T12:00:00`);
     const monthKey=`${d.getFullYear()}-${d.getMonth()}`;
@@ -2466,30 +4154,47 @@ function renderHistory(){
     if(monthKey!==lastMonth){lastMonth=monthKey;monthHdr=`<p class="section-label">${esc(t("month."+d.getMonth()).toUpperCase())}</p>`}
     const eyebrow=esc(t("history.session_eyebrow",{weekday:t("weekday."+d.getDay()),day:d.getDate(),month:t("month_short."+d.getMonth())}));
     const open=expandedSession===s.session;
-    return monthHdr+`<div class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
+    const panelId=s.panelId||historyPanelId(s.session);
+    return monthHdr+`<article class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
+      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:s.day}))}">`+
       `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(s.day)}</div>`+
       (mus.length?`<div class="session__sub">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
-      (open?`<div class="hist-row__actions" style="margin-top:8px"><button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
-        `<button class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div>`:"")+
-      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div>`;
-  }).join(""):`<div class="table"><div class="empty">${esc(t("history.empty.sessions"))}</div></div>`;
-  $$("#sessions .hist-row[data-sess]").forEach(row=>row.onclick=e=>{if(e.target.closest("[data-edit],[data-del]"))return;
-    expandedSession=expandedSession===row.dataset.sess?null:row.dataset.sess;renderHistory()});
-  $$("[data-del]").forEach(b=>b.onclick=e=>{e.stopPropagation();if(confirm(t("confirm.delete_session"))){state.log=state.log.filter(x=>x.session!==b.dataset.del);if(editSession===b.dataset.del)editSession=null;save();render();toast(t("toast.session_deleted"))}});
-  $$("[data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
+      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
+      `<div class="hist-row__actions" id="${esc(panelId)}"${open?"":" hidden"}>`+
+      `<button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
+      `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`;
+  }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
+  if(focusedSession){
+    const next=$$("#sessions .session__toggle").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
+    if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
+  $$("#sessions .session__toggle").forEach(btn=>btn.onclick=()=>{
+    const art=btn.closest("[data-sess]");if(!art)return;
+    expandedSession=expandedSession===art.dataset.sess?null:art.dataset.sess;renderHistory()});
+  $$("#sessions [data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm(t("confirm.delete_session")))await deleteSession(b.dataset.del)});
+  $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  const rows=[...state.log].sort((a,b)=>b.date.localeCompare(a.date)||displayName(a).localeCompare(displayName(b))||a.set-b.set).map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
+  $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const row=b.closest(".edrow"),card=b.closest(".session--edit");if(!row||!card)return;
+    const removing=!row.classList.contains("is-removed");
+    if(removing){
+      const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
+      if(left.length<=1){toast(t("history.edit.keep_one"));return}
+      row.classList.add("is-removed");b.textContent=t("history.edit.undo_remove");
+      row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
+    else{row.classList.remove("is-removed");b.textContent=t("history.edit.remove_set");
+      row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
+  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
-function renderHistoryCalendar(){const el=$("#historyCalendar");if(!el)return;
+function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
   const {y,m}=histMonth,first=new Date(y,m,1),startDow=(first.getDay()+6)%7;
   const daysInMonth=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();
-  const monthSessions=state.log.filter(r=>String(r.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`));
-  const byDay=new Map();for(const r of monthSessions){const d=+String(r.date).slice(8,10);if(!byDay.has(d))byDay.set(d,{sets:0,pr:false});byDay.get(d).sets++}
-  for(const ev of detectPRs(state.log)){if(String(ev.date).startsWith(`${y}-${String(m+1).padStart(2,"0")}`)){const d=+String(ev.date).slice(8,10);const o=byDay.get(d)||{sets:0,pr:false};o.pr=true;byDay.set(d,o)}}
-  const sessCount=new Set(monthSessions.map(r=>r.session)).size,setCount=monthSessions.length;
+  const ym=`${y}-${String(m+1).padStart(2,"0")}`;
+  const month=index?.months?.get(ym)||{sessions:new Set(),sets:0,byDay:new Map()};
+  const byDay=month.byDay;
+  const sessCount=month.sessions.size,setCount=month.sets;
   const letters=state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"];
   // Monday-start letters already match weekdayLetters
   let cells=letters.map(l=>`<div class="cal-grid__dow">${esc(l)}</div>`).join("");
@@ -2501,9 +4206,9 @@ function renderHistoryCalendar(){const el=$("#historyCalendar");if(!el)return;
     let mark="";if(info?.pr)mark=`<span class="cal-grid__mark is-pr"></span>`;else if(info)mark=`<span class="cal-grid__mark is-check">✓</span>`;else if(isToday)mark=`<span class="cal-grid__mark is-today"></span>`;
     cells+=`<div class="cal-grid__day${out?" is-out":""}">${dayNum}${mark}</div>`;
     if(i===41)break;if(i>=startDow+daysInMonth-1&&(i+1)%7===0)break}
-  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="Previous">‹</button>`+
+  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="${esc(t("history.calendar_prev_aria"))}">‹</button>`+
     `<div class="cal-head__title">${esc(t("history.month_title",{month:(()=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s})(),year:y}))}</div>`+
-    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="Next">›</button></div>`+
+    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="${esc(t("history.calendar_next_aria"))}">›</button></div>`+
     `<div class="cal-summary">${esc(t("history.month_summary",{sessions:sessCount,sets:setCount}))}</div>`+
     `<div class="cal-grid">${cells}</div>`;
   $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistory()};
@@ -2511,29 +4216,48 @@ function renderHistoryCalendar(){const el=$("#historyCalendar");if(!el)return;
 
 
 function sessionEditor(s,sets){
-  const rows=sets.map(r=>{const key=`${liftKey(r)}|${r.set}`;
-    return `<div class="edrow"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
-      `<input class="edrow__in" data-ek="reps|${esc(key)}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
-      `<input class="edrow__in" data-ek="rir|${esc(key)}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}"></div>`}).join("");
+  const rows=sets.map((r,i)=>{
+    return `<div class="edrow" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
+      `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
+      `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
+      `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
+      `<button type="button" class="link-accent edrow__rm" data-edrm="${i}">${esc(t("history.edit.remove_set"))}</button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
     `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
-    `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span></div>`+rows+
+    `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
     `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
 }
 
-function saveSessionEdit(sid){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
-  const newDate=card.querySelector('[data-ed="date"]').value||"",vals={};
-  card.querySelectorAll("[data-ek]").forEach(inp=>vals[inp.dataset.ek]=inp.value);
-  for(const r of state.log){if(r.session!==sid)continue;const key=`${liftKey(r)}|${r.set}`;
-    if(`load|${key}`in vals)r.load=posNum(fromDisplay(vals[`load|${key}`]));
-    if(`reps|${key}`in vals)r.reps=posNum(vals[`reps|${key}`]);
-    if(`rir|${key}`in vals)r.rir=posNum(vals[`rir|${key}`]);
-    if(newDate)r.date=newDate}
-  state.log=state.log.filter(r=>r.session!==sid||+r.load>0);
-  editSession=null;save();render();toast(t("toast.session_updated"));}
+function sessionSetsForEdit(sid){
+  return state.log.filter(r=>r.session===sid).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
+
+async function saveSessionEdit(sid,io=storageIO){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
+  clearFieldInvalid(card);
+  const dateEl=card.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
+  if(dateP.field){if(dateEl){dateEl.setAttribute("aria-invalid","true");try{dateEl.focus()}catch{}}toast(t(dateP.key));return}
+  const orig=sessionSetsForEdit(sid),proposed=[];
+  for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
+    if(rowEl.classList.contains("is-removed"))continue;
+    const i=+rowEl.dataset.edidx,src=orig[i];if(!src)continue;
+    const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]'),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
+    const loadP=parseLoadDisplay(loadEl?.value);
+    if(loadP.field){if(loadEl){loadEl.setAttribute("aria-invalid","true");try{loadEl.focus()}catch{}}toast(t(loadP.key));return}
+    const repsP=parseRepsValue(repsEl?.value);
+    if(repsP.field){if(repsEl){repsEl.setAttribute("aria-invalid","true");try{repsEl.focus()}catch{}}toast(t(repsP.key));return}
+    const rirP=parseRirValue(rirEl?.value);
+    if(rirP.field){if(rirEl){rirEl.setAttribute("aria-invalid","true");try{rirEl.focus()}catch{}}toast(t(rirP.key));return}
+    const next=cloneSnapshot(src);
+    next.load=loadP.value;next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;
+    proposed.push(next)}
+  if(!proposed.length){toast(t("history.edit.keep_one"));return}
+  const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.filter(r=>r.session!==sid).concat(proposed);
+  const result=await commitProposedState(proposal,io);
+  if(result.localOk||result.idbOk){editSession=null;render();toast(t("toast.session_updated"))}
+  return result}
+window.__repforgeSaveSessionEdit=saveSessionEdit;
 
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
@@ -2600,12 +4324,12 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<p class="exdet__meta">${tmpl?`${esc(tmpl.day)} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
     recHtml+
     `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
-    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><button type="button" class="range-quiet">${esc(t("exercise.range_12w"))}<span class="caret" aria-hidden="true"></span></button></p>`+
+    `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
     `<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
     `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
     `<p class="section-label">${esc(t("exercise.records"))}</p>`+
-    (loadPr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
-    (e1Pr?`<button type="button" class="listrow"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}<span class="chevron" aria-hidden="true"></span></span></button>`:"")+
+    (loadPr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.load"))}</div><div class="listrow__sub">${fmtLoad(loadPr.load)} ${unitLabel()} × ${loadPr.reps}</div></div><span class="listrow__meta">${esc(shortDate(loadPr.date))}</span></div>`:"")+
+    (e1Pr?`<div class="listrow listrow--static"><div class="listrow__main"><div class="listrow__title">${esc(t("stats.pr.e1rm"))}</div><div class="listrow__sub">${fmt(Math.round(toDisplay(e1rm(e1Pr.load,e1Pr.reps))))} ${unitLabel()}</div></div><span class="listrow__meta">${esc(shortDate(e1Pr.date))}</span></div>`:"")+
     `<button type="button" class="link-row-cta" id="exSeePrs"><span>${esc(t("exercise.see_all_prs"))}</span><span class="chevron" aria-hidden="true"></span></button>`+
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   draw(sums,"#exChart");
@@ -2637,11 +4361,11 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
     `<div class="prog-overview__meta">${[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ")}</div>`+
-    (mc.current!=null?`<div class="prog-overview__week">${esc(t("today.week_of",{n:mc.current,total:mc.total}))}</div>`+
+    (mc.current!=null||mc.isComplete?`<div class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</div>`+
       `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
     (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
     `<div class="statrow">`+
-    `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.sessions_week"))}</div></div>`+
+    `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.days_7d"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${health?.hot||0}</div><div class="statrow__cap">${esc(t("program.stat.ready"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${vol?Math.round(vol.ratio*100)+"%":"—"}</div><div class="statrow__cap">${esc(t("program.stat.volume"))}</div></div>`+
     `</div>${daysHtml}`+
@@ -2666,11 +4390,11 @@ function renderProgramChips(){
   const top=$("#pmetaChipsTop"),bottom=$("#pmetaChipsBottom");if(!top||!bottom)return;
   const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
-  const weekChip=mc.current!=null?`<span class="pmeta__chip">${esc(t("program.week_chip",{n:mc.current,total:mc.total}))}</span>`:"";
+  const weekChip=(mc.current!=null||mc.isComplete)?`<span class="pmeta__chip">${esc(mesocycleWeekCopy(mc,"program.week_chip"))}</span>`:"";
   const healthChip=health?`<span class="pmeta__chip">${esc(t("program.ready_chip",{done:health.hot,total:health.total}))}</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${esc(t("program.volume_chip",{pct:Math.round(vol.ratio*100)}))}</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
-  bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_this_week",{done:ad.logged,planned:ad.total}))}</span>${healthChip}${volChip}`;
+  bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_last_7",{done:ad.logged,planned:ad.total}))}</span>${healthChip}${volChip}`;
 }
 
 function renderProgramHeader(){
@@ -2688,8 +4412,11 @@ function renderProgramHeader(){
     `</div>`;
   renderProgramChips();
   const nameInp=$("#programName"),startInp=$("#programStarted");
-  nameInp.oninput=()=>persistProgramMeta({name:nameInp.value});
-  startInp.onchange=()=>{persistProgramMeta({started:startInp.value||null});renderProgramChips()};
+  nameInp.oninput=async()=>{const captured=nameInp.value,result=await persistProgramMeta({name:captured});
+    if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=state.programMeta?.name||""};
+  startInp.onchange=async()=>{const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
+    if(result.localOk||result.idbOk)renderProgramChips();
+    else if(startInp.value===captured)startInp.value=state.programMeta?.started||""};
 }
 
 // Collapsed program days live in UI prefs so the state survives reloads without touching training data.
@@ -2749,7 +4476,31 @@ function exCard(e,i,n){
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
-    inp.oninput=()=>{prog.update(inp.dataset.id,inp.dataset.field,inp.value);persistProgram();renderVolume();updateGauge();updateSaveMeta()};
+    inp.oninput=async()=>{const e=prog.find(inp.dataset.id);if(!e)return;
+      const captured=inp.value,field=inp.dataset.field,priorValue=String(e[field]??"");
+      let effect=null;
+      if(field==="sets"){
+        const next=Exercise.posInt(captured,e.sets);
+        if(next<e.sets){
+          const draftRaw=readDraftRaw();
+          let draft={};
+          try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}
+          catch{}
+          if(draftHasProgressInRemovedSets(e.id,next,e.sets,draft)){
+            inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}
+          effect=draftPreservationEffect(draftRaw);
+          if(effect.status!==DRAFT_EFFECT_VALID){
+            inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}}
+      const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+      nextProgram.update(inp.dataset.id,field,captured);proposal.program=nextProgram.toJSON();
+      const result=await commitProposedState(proposal,storageIO,{effect});
+      if(!(result.localOk||result.idbOk)){
+        if(inp.value===captured)inp.value=prog.find(inp.dataset.id)?.[field]??captured;
+        if(effect)toast(t("toast.set_count_locked_draft"));
+        return}
+      if(inp.value===captured||inp.value===priorValue)
+        inp.value=String(prog.find(inp.dataset.id)?.[field]??captured);
+      renderVolume();updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
       inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
@@ -2757,27 +4508,54 @@ function bindEditor(){
     }
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
-    inp.onchange=()=>{const old=inp.dataset.day,next=inp.value.trim();
-      if(prog.renameDay(old,next)){renameCollapsedDay(old,next);
-        for(const row of state.log)if(row.day===old)row.day=next;
-        if(day===old)day=next;persistProgram();save();render();toast(t("toast.day_renamed"))}
-      else{inp.value=old;toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"))}};
+    inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
+      const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+      if(!nextProgram.renameDay(old,next)){
+        inp.value=old;toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
+      proposal.program=nextProgram.toJSON();
+      const effect=draftDayReplacementEffect(old,next);
+      const result=await commitProposedState(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
+      if(!(result.localOk||result.idbOk)){inp.value=old;return}
+      renameCollapsedDay(old,next);
+      if(day===old)day=next;
+      render();toast(t("toast.day_renamed"))};
   });
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }
 
-function editorAction(act,ds){
+async function editorAction(act,ds){
   if(act==="toggleDay"){const card=$(`#programEditor .pday[data-day="${CSS.escape(ds.day)}"]`);if(!card)return;
     const now=!card.classList.contains("is-collapsed");
     card.classList.toggle("is-collapsed",now);setDayCollapsed(ds.day,now);
     const btn=card.querySelector(".pday__caret");
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
       const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
-  else if(act==="addEx"){prog.addExercise(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast(t("toast.exercise_added"))}
-  else if(act==="delEx"){if(confirm(t("confirm.remove_exercise"))){prog.removeExercise(ds.id);persistProgram();render();toast(t("toast.exercise_removed"))}}
-  else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
-  else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
-  else if(act==="delDay"){if(confirm(t("confirm.delete_day",{day:ds.day}))){prog.removeDay(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast(t("toast.day_deleted"))}}
+  else if(act==="addEx"){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.addExercise(ds.day);proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal);
+    if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}
+  else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+    const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
+    if(confirm(t(key))){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
+    const effect=destructiveDraftClearEffect(discardDraftRaw);
+    const result=await commitProposedState(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
+  else if(act==="up"||act==="down"){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.move(ds.id,act==="up"?-1:1);proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal);
+    if(result.localOk||result.idbOk)render()}
+  else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+    const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
+    if(confirm(t(key,{day:ds.day}))){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
+    const effect=destructiveDraftClearEffect(discardDraftRaw);
+    const result=await commitProposedState(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
 function renderVolume(){
@@ -2789,15 +4567,106 @@ function renderVolume(){
 }
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
-function persistProgram(){state.program=prog.toJSON();save()}
+function persistProgram(nextProgram=prog){
+  const proposal=cloneSnapshot(state);proposal.program=new Program(nextProgram.toJSON()).toJSON();
+  return commitProposedState(proposal)}
 
-function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
+async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
+  const transition=programTransitionPrecondition(state);
   const byId=new Map(prog.exercises.map(e=>[e.id,e]));
   for(const row of parsed){if(row.id&&byId.has(row.id))continue;
     const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
     if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
-  prog=new Program(parsed);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())save();render();toast(t("toast.program_saved"))}
+  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
+  const proposal=cloneSnapshot(state);
+  proposal.program=new Program(parsed).toJSON();
+  migrateLogSnapshot(proposal);
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,storageIO,{effect,...transition});
+  if(!(result.localOk||result.idbOk))return result;
+  resetDraftSessionState();day=prog.days()[0]||"Day 1";render();toast(t("toast.program_saved"));
+  return result}
   catch{toast(t("toast.program_json_invalid"))}}
+
+let notifyIntentGen=0,notifyWanted=false,notifyPending=false,notifyRequestInFlight=null;
+function notifyPermission(){return window.RepForgeNotify?RepForgeNotify.permission():"unsupported"}
+function notifyEffective(){return!!state.settings.notify?.enabled&&notifyPermission()==="granted"}
+function persistNotifyEnabled(enabled){
+  const proposal=cloneSnapshot(state);
+  if(!proposal.settings.notify)proposal.settings.notify=normalizeNotify();
+  proposal.settings.notify=normalizeNotify({...proposal.settings.notify,enabled:!!enabled});
+  return commitProposedState(proposal)}
+function notifyStatusText(){
+  const perm=notifyPermission();
+  if(notifyPending)return t("settings.notifications.status.pending");
+  if(perm==="unsupported")return t("settings.notifications.next.unsupported");
+  if(perm==="denied")return t("settings.notifications.next.denied");
+  if(perm==="default")return t("settings.notifications.next.prompt");
+  if(perm==="granted")return t("settings.notifications.permission",{status:t("settings.notifications.status.granted")});
+  return t("settings.notifications.permission",{status:perm})}
+function paintNotifyControls(){
+  const n=state.settings.notify||normalizeNotify();
+  const effective=notifyEffective();
+  const ne=$("#notifyEnabled");if(ne)ne.checked=effective||notifyPending;
+  const ntog=$("#notifyToggle");
+  if(ntog){
+    ntog.classList.toggle("is-on",effective||notifyPending);
+    ntog.setAttribute("aria-pressed",effective?"true":"false");
+    ntog.setAttribute("aria-busy",notifyPending?"true":"false");
+    const name=t("settings.notifications.toggle_aria");
+    if(name)ntog.setAttribute("aria-label",name)}
+  const nt=$("#notifyTimer");if(nt)nt.checked=n.timer!==false;
+  const ns=$("#notifySession");if(ns)ns.checked=n.session!==false;
+  const nu=$("#notifyUnfinished");if(nu)nu.checked=n.unfinished!==false;
+  const nm=$("#notifyMissed");if(nm)nm.checked=n.missed!==false;
+  $$("#notifyTypes input").forEach(i=>{i.disabled=!effective});
+  const ps=$("#notifyPermStatus");if(ps)ps.textContent=notifyStatusText()}
+function reconcileNotifyPermission(){
+  const perm=notifyPermission();
+  if(perm==="granted"){
+    if(state.settings.notify?.enabled)notifyWanted=true;
+    return}
+  const wasEnabled=!!state.settings.notify?.enabled;
+  if(wasEnabled){
+    notifyIntentGen++;
+    notifyWanted=false;
+    notifyPending=false;
+    void persistNotifyEnabled(false);
+    return}
+  if(notifyPending&&(perm==="denied"||perm==="unsupported")){
+    notifyIntentGen++;
+    notifyWanted=false;
+    notifyPending=false}}
+async function setNotificationsEnabled(wanted){
+  wanted=!!wanted;
+  notifyWanted=wanted;
+  if(!wanted){
+    notifyIntentGen++;
+    notifyPending=false;
+    await persistNotifyEnabled(false);
+    paintNotifyControls();
+    return}
+  if(notifyPending&&notifyRequestInFlight)return notifyRequestInFlight;
+  const gen=notifyIntentGen;
+  notifyPending=true;
+  paintNotifyControls();
+  const request=notifyRequestInFlight||(async()=>{
+    let result="unsupported";
+    try{result=window.RepForgeNotify?await RepForgeNotify.request():"unsupported"}
+    catch{result=notifyPermission()}
+    return result})();
+  notifyRequestInFlight=request;
+  try{
+    const result=await request;
+    if(gen!==notifyIntentGen||!notifyWanted)return;
+    const perm=notifyPermission();
+    const granted=result==="granted"&&perm==="granted";
+    notifyPending=false;
+    await persistNotifyEnabled(granted);
+    if(!granted)notifyWanted=false;
+    paintNotifyControls()}
+  finally{if(notifyRequestInFlight===request)notifyRequestInFlight=null}}
 
 function renderSettings(){
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
@@ -2807,35 +4676,43 @@ function renderSettings(){
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
-  const n=state.settings.notify||normalizeNotify();
-  const ne=$("#notifyEnabled");if(ne)ne.checked=!!n.enabled;
-  const ntog=$("#notifyToggle");if(ntog){ntog.classList.toggle("is-on",!!n.enabled);ntog.setAttribute("aria-pressed",n.enabled?"true":"false")}
-  const nt=$("#notifyTimer");if(nt)nt.checked=n.timer!==false;
-  const ns=$("#notifySession");if(ns)ns.checked=n.session!==false;
-  const nu=$("#notifyUnfinished");if(nu)nu.checked=n.unfinished!==false;
-  const nm=$("#notifyMissed");if(nm)nm.checked=n.missed!==false;
-  $$("#notifyTypes input").forEach(i=>{i.disabled=!n.enabled});
-  const ps=$("#notifyPermStatus");if(ps)ps.textContent=t("settings.notifications.permission",{status:window.RepForgeNotify?RepForgeNotify.permission():t("notify.permission.unsupported")});
+  reconcileNotifyPermission();
+  paintNotifyControls();
   updateVoiceBtn();
   const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",isStandalone());
-  const sec=+state.settings.restSec||0,disp=$("#restSecDisplay");
-  if(disp)disp.textContent=sec?`${Math.floor(sec/60)}:${String(sec%60).padStart(2,"0")}`:t("settings.rest_off");
+  const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
+  if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
   const sn=$("#storageNote");if(sn)sn.textContent=`${ago} ${t("settings.storage.note",{key:KEY})}`;
+  const deg=$("#storageDegraded");
+  if(deg){const on=!!storageHealth.degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
 }
 
-function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
+async function commitSettings(silent){const editRevision=settingsEditRevision;
+  const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
-  const oldRirMode=state.settings.rirMode;
   const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
-  if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
+  if(!changeRirMode(newRirMode))return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
+  const rsEl=$("#restSec");let restSec;
+  const restN=parseDec(rsEl?.value);
+  if(Number.isFinite(restN)&&restN>=0&&!Number.isInteger(restN)){
+    if(rsEl){rsEl.value=String(state.settings.restSec);rsEl.setAttribute("aria-invalid","true");try{rsEl.focus()}catch{}}
+    toast(t("validation.rest_frac"));restSec=state.settings.restSec}
+  else{rsEl?.removeAttribute("aria-invalid");restSec=rsEl?num("#restSec",120,0):state.settings.restSec}
+  const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
+  const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
+  const proposal=cloneSnapshot(state);
+  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  const result=await commitProposedState(proposal,storageIO,{effect:unitEffect});
+  if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
+  if(oldUnit!==newUnit){
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
-  if(oldRirMode!==newRirMode)clearDraft();
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec:num("#restSec",120,0),lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!$("#notifyEnabled")?.checked,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
-  save();render();if(!silent)toast(t("toast.settings_saved"));}
+  if(editRevision===settingsEditRevision)render();
+  if(!silent)toast(t("toast.settings_saved"));
+  return result}
 
 function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;const h=Object.keys(rows[0]);
   return`<table><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${h.map(x=>`<td>${esc(r[x])}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
@@ -2859,52 +4736,93 @@ function exportCsv(){
     ...state.log.map(r=>cols.map(c=>q(c[1](r))).join(","))].join("\n");
   download(csv,`repforge_log_${today()}.csv`,"text/csv");
 }
-function exportJson(){state.settings.lastExport=new Date().toISOString();save();
-  const text=JSON.stringify(state,null,2),name=`repforge_backup_${today()}.json`;
-  shareOrDownload(text,name,"application/json");renderSettings()}
+async function exportJson(){
+  const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
+  const result=await commitProposedState(proposal);
+  if(!(result.localOk||result.idbOk))return result;
+  const text=JSON.stringify(exportableState(state),null,2),name=`repforge_backup_${today()}.json`;
+  shareOrDownload(text,name,"application/json");renderSettings();
+  return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`repforge_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
-async function importProgramFile(e){const f=e.target.files?.[0];if(!f)return;
+async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
     const list=imp.exercises;
-    if(!confirm(t("confirm.import_program_replace",{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
-    if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())persistProgramMeta({name:imp.meta.name});
-    $("#programJson").value=JSON.stringify(list,null,2);saveProgram()}
-  catch{toast(t("toast.program_import_invalid"))}
+    const draftConfirmed=draftHasProgress();
+    const discardDraftRaw=readDraftRaw();
+    const confirmKey=draftConfirmed?"confirm.replace_program_discard_draft":"confirm.import_program_replace";
+    if(!confirm(t(confirmKey,{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
+    const adapter=io||storageIO;
+    if($("#onboarding")?.classList.contains("active")){
+      const name=typeof imp.meta?.name==="string"?imp.meta.name.trim():"";
+      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",
+        io:adapter,draftConfirmed,discardDraftRaw})}
+    else{
+      const transition=programTransitionPrecondition(state);
+      const proposal=cloneSnapshot(state);
+      const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
+      if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())meta.name=imp.meta.name.trim();
+      meta.updated=new Date().toISOString();
+      proposal.programMeta=meta;proposal.program=new Program(list).toJSON();
+      migrateLogSnapshot(proposal);
+      const effect=destructiveDraftClearEffect(discardDraftRaw);
+      const result=await commitProposedState(proposal,adapter,{effect,...transition});
+      if(result.localOk||result.idbOk){
+        resetDraftSessionState();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
+        render();toast(t("toast.program_saved"))}}
+  }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{const s=JSON.parse(await f.text());if(!s.program||!Array.isArray(s.log))throw Error();
+  try{const s=JSON.parse(await f.text());
+    if(!isImportableState(s))throw Error();
     const inSessions=new Set(s.log.map(r=>r.session)).size,inSets=s.log.length;
     const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
     const have=new Set(state.log.map(r=>r.session));
     const newSessions=new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size;
-    openImportChoice({s,inSessions,inSets,curSessions,curSets,newSessions})}
+    openImportChoice({s,inSessions,inSets,curSessions,curSets,newSessions,opener:e.target})}
   catch{toast(t("toast.import_invalid"))}
   e.target.value=""}
 function openImportChoice(ctx){const d=$("#importChoice");
   $("#importChoiceBody").textContent=t("dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
-  d.classList.remove("hidden");
-  const close=()=>{d.classList.add("hidden")};
-  $("#importCancel").onclick=()=>{close();toast(t("toast.import_cancelled"))};
-  $("#importReplace").onclick=()=>{close();applyState(ctx.s);clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))};
-  $("#importMerge").onclick=()=>{close();mergeLog(ctx.s)};}
-function mergeLog(s){const have=new Set(state.log.map(r=>r.session));
-  const rows=s.log.filter(r=>r&&r.session&&!have.has(r.session));
-  const added=new Set(rows.map(r=>r.session)).size;
-  if(!added){toast(t("toast.nothing_to_merge"));return}
-  state.log.push(...rows);
-  migrateLog();save();
-  render();toast(t("toast.merged_sessions",{n:added,sessions:tp(added,"session")}))}
+  const active=document.activeElement;
+  const opener=canTakeFocus(active)?active:($("#importJson")?.closest("label")||$("#dataImportRow"));
+  const close=()=>closeModal(d);
+  openModal(d,{initialFocus:$("#importCancel"),returnFocus:opener,onEscape:close});
+  let importBusy=false;
+  $("#importCancel").onclick=()=>{if(importBusy)return;close();toast(t("toast.import_cancelled"))};
+  $("#importReplace").onclick=async()=>{
+    if(importBusy)return;importBusy=true;
+    const discardDraftRaw=readDraftRaw();
+    try{const result=await replaceImportedState(ctx.s,storageIO,{discardDraftRaw});
+      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
+    finally{importBusy=false}};
+  $("#importMerge").onclick=async()=>{
+    if(importBusy)return;importBusy=true;
+    try{const result=await mergeImportedLog(ctx.s);
+      if(result.added===0){close();toast(t("toast.nothing_to_merge"));return}
+      if(result.localOk||result.idbOk){close();render();toast(t("toast.merged_sessions",{n:result.added,sessions:tp(result.added,"session")}))}}
+    finally{importBusy=false}}}
+function mergeLog(s){return mergeImportedLog(s)}
 
-function switchToBeginnerProgram(){prog=new Program(programBeginner);persistProgram();clearDraft();day=prog.days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
+function switchToBeginnerProgram(discardDraftRaw){return applyProgramTemplate(storageIO,{discardDraftRaw})}
+async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
+  requireAdapter(io,"applyProgramTemplate");
+  const transition=programTransitionPrecondition(state);
+  const proposal=cloneSnapshot(state);
+  proposal.program=new Program(cloneSnapshot(programBeginner)).toJSON();
+  proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,io,{effect,...transition});
+  if(result.localOk||result.idbOk){resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
+  return result}
 
 const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
   5:["ppl","bro","upper_lower"],6:["ppl"]};
 const ONB_SPLIT_LABEL={full_body:"Full body",upper_lower:"Upper / lower",machine_only:"Machine only",ppl:"Push / pull / legs",bro:"Bro split"};
-const ONB_EQ_UI=["machines","cables","dumbbells","barbells","bodyweight"];
+const ONB_EQ_UI=["machines","cables","dumbbells","barbells"];
 const ONB_EQ_LABEL={machines:"Machines",cables:"Cables",dumbbells:"Dumbbells",barbells:"Barbells",bodyweight:"Bodyweight"};
 const ONB_EQ_GEN={machines:"machine",cables:"cable",dumbbells:"dumbbell",barbells:"barbell",bodyweight:"bodyweight"};
 const ONB_MUSCLES=["Chest","Back","Quads","Hamstrings","Glutes","Side delts","Arms","Calves"];
@@ -2923,11 +4841,20 @@ function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboa
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
   render()}
-function startOnboarding(){onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
-function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding()}
+function startOnboarding(origin){
+  onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
+  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
+function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run")}
+function cancelOnboarding(){
+  if(onboardingOrigin==="block")pendingBlockTransition=null;
+  onboardingOrigin=null;closeOnboarding()}
+function onbEquipmentSupportsDays(a){
+  if(!a?.equipment?.length||a.daysPerWeek==null||!a.splitType)return false;
+  const gen=onbGenAnswers(a);
+  return equipmentSupportsSplit(gen.daysPerWeek,gen.splitType,gen.equipment,gen.experience)}
 function onbCanNext(){const a=onbAnswers;
   if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
-  if(onbStep===3)return!!a.splitType;if(onbStep===4)return a.equipment?.length>0;if(onbStep===6)return!!a.sessionLength;return true}
+  if(onbStep===3)return!!a.splitType;if(onbStep===4)return onbEquipmentSupportsDays(a);if(onbStep===6)return!!a.sessionLength;return true}
 function onbPick(key,val,multi){if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
   if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
   if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
@@ -2957,8 +4884,10 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
     html+=`<p class="onb__explain">${esc(t("onb.split.lede",{n:onbAnswers.daysPerWeek}))}</p><div class="onb__opts">`+
       opts.map(s=>onbOpt("","splitType",s,t("split."+s)||ONB_SPLIT_LABEL[s]||s,"",false)).join("")+`</div>`}
-  else if(onbStep===4)html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
+  else if(onbStep===4){html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
     ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e)||ONB_EQ_LABEL[e],"",true)).join("")+`</div>`;
+    if(!onbEquipmentSupportsDays(onbAnswers))
+      html+=`<p class="lede" id="onbEquipUnsupported" role="status">${esc(t("onb.equipment.unsupported"))}</p>`}
   else if(onbStep===5)html+=`<p class="onb__explain">${esc(t("onb.priority.lede"))}</p><div class="onb__opts">`+
     ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,t("muscle."+m)||m,"",true)).join("")+`</div>`;
   else if(onbStep===6)html+=`<div class="onb__opts">`+
@@ -2976,20 +4905,56 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   body.innerHTML=html;
   $$("[data-onb-pick]").forEach(b=>b.onclick=()=>{const k=b.dataset.onbPick,v=b.dataset.onbVal;
     const multi=b.dataset.onbMulti==="1",num=k==="daysPerWeek"?+v:v;onbPick(k,num,multi)});
-  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=saveOnboardingProgram;
-  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=editOnboardingProgram;
+  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=()=>saveOnboardingProgram();
+  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=()=>editOnboardingProgram();
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-function saveOnboardingProgram(){const a=onbAnswers;prog=new Program(generateProgramFromOnboarding(onbGenAnswers(a)));
-  persistProgramMeta({goal:a.goal,experience:a.experience,daysPerWeek:a.daysPerWeek,splitType:a.splitType,equipment:a.equipment,
-    priorityMuscles:a.priorityMuscles,sessionLength:a.sessionLength,started:today(),mesocycleStatus:"active",onboarded:true});
-  persistProgram();day=prog.days()[0]||"Day 1";closeOnboarding();toast(t("toast.onboarding_saved"));
-  if(!maybeStartTour())maybeShowInstallBanner()}
-function editOnboardingProgram(){prog=new Program(generateProgramFromOnboarding(onbGenAnswers(onbAnswers)));persistProgram();
-  day=prog.days()[0]||"Day 1";closeOnboarding();
-  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));render();toast(t("toast.tweak_program"))}
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw}={}){
+  const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
+  const originEff=origin||onboardingOrigin||"first-run";
+  const blockCap=originEff==="block"?pendingBlockTransition:null;
+  const transition=blockCap
+    ?{expectedProgramId:blockCap.oldProgramId,expectedProgramFingerprint:blockCap.programFingerprint}
+    :programTransitionPrecondition(state);
+  const draftActive=draftHasProgress();
+  const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
+  if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
+    return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
+  const proposal=cloneSnapshot(state);
+  if(originEff==="block"){
+    if(!blockCap)return blockTransitionResult("failed");
+    if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
+    archiveCapturedBlock(proposal,blockCap)}
+  const meta=buildProgramMeta({name,answers:answers||onbAnswers});
+  proposal.programMeta=meta;
+  proposal.program=new Program(exercises).toJSON();
+  if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
+  else delete proposal[STORAGE_FOLLOWUP];
+  const effect=destructiveDraftClearEffect(confirmedDraftRaw);
+  const persisted=await commitProposedState(proposal,adapter,{...transition,effect});
+  const result=originEff==="block"
+    ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
+    :persisted;
+  if(!(result.localOk||result.idbOk))return result;
+  resetDraftSessionState();
+  if(originEff==="block")pendingBlockTransition=null;
+  onboardingOrigin=null;day=days()[0]||"Day 1";closeOnboarding();
+  if(destination==="program-edit"){
+    programEditMode=true;
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+    document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding");
+    render();toast(t("toast.tweak_program"));return result}
+  render();toast(t("toast.onboarding_saved"));
+  if(!maybeStartTour())maybeShowInstallBanner();
+  return result}
+function saveOnboardingProgram(io){
+  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
+  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"log",origin:onboardingOrigin||"first-run",io:io||storageIO})}
+function editOnboardingProgram(io){
+  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
+  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"program-edit",origin:onboardingOrigin||"first-run",io:io||storageIO})}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
@@ -3017,6 +4982,7 @@ async function triggerInstall(){
 }
 function installBannerEligible(){
   if(isStandalone())return false;
+  if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
   if(tourActive||$("#onboarding")?.classList.contains("active"))return false;
   if(!installPrompt&&!isIOS())return false;
   const dis=+uiPrefs.installDismissedAt||0;
@@ -3040,8 +5006,69 @@ const TOUR=[
   {view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},
   {view:"stats"},{view:"history"},{view:"program"},{view:"settings"},{view:"settings",install:true}
 ];
-let tourStep=0,tourActive=false;
+let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourFocusOrigin=null;
 function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
+function snapshotTourUi(){
+  const scrolls={};
+  for(const id of["log","stats","history","program","settings"]){const el=$("#"+id);if(el)scrolls[id]=el.scrollTop}
+  return{view:currentViewId(),settings:document.body.classList.contains("is-settings"),exercise:!!exView,
+    exView:exView?{key:exView.key,from:exView.from}:null,statsSeg,programEditMode,workoutActive,workoutLeft,logMode,focusIndex,
+    focusEdit:focusEdit?Object.assign({},focusEdit):null,overflow:!$("#woOverflow")?.classList.contains("hidden"),day,
+    date:$("#date")?.value||"",scrolls,windowScroll:window.scrollY}}
+function restoreTourUi(snap){
+  if(!snap)return;
+  tourPreview=null;day=snap.day;if($("#date")&&snap.date!=null)$("#date").value=snap.date;
+  logMode=snap.logMode;focusIndex=snap.focusIndex;focusEdit=snap.focusEdit;programEditMode=snap.programEditMode;
+  syncLogModeControls();
+  workoutLeft=snap.workoutLeft;
+  if(snap.statsSeg)setStatsSeg(snap.statsSeg);
+  document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+  if(snap.settings){showSettings()}
+  else if(snap.exercise&&snap.exView){openExerciseView(snap.exView.key,snap.exView.from)}
+  else{
+    $$("nav button").forEach(x=>{const on=x.dataset.view===snap.view;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id===snap.view))}
+  setWorkoutActive(!!snap.workoutActive);
+  document.body.classList.toggle("is-focus-wo",!!snap.workoutActive&&snap.logMode==="focus");
+  if(snap.workoutActive){renderTabs();renderWorkout()}
+  render();
+  setWorkoutOverflow(!!snap.overflow);
+  for(const[id,top]of Object.entries(snap.scrolls||{})){const el=$("#"+id);if(el)el.scrollTop=top}
+  window.scrollTo(0,snap.windowScroll||0)}
+function applyTourChoreography(step){
+  const focus=step===3||step===4,list=step===1||step===2||step===5,overflow=step===1||step===2;
+  tourPreview={step,ignoreSkipped:list||focus,showRest:step===4};
+  if(step===0){
+    setWorkoutActive(false);document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));renderToday();window.scrollTo({top:0});return}
+  if(step>=1&&step<=5){
+    document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
+    logMode=focus?"focus":"full";
+    syncLogModeControls();
+    setWorkoutActive(true);renderTabs();renderWorkout();renderToday();setWorkoutOverflow(overflow);
+    if(step===5)$("#logForm .btn--save")?.scrollIntoView({block:"center"});return}
+  setWorkoutActive(false);
+  const s=tourSteps()[step];if(s?.view)navTo(s.view)}
+function openTourOverlay(){
+  const tour=$("#tour");if(!tour)return;
+  openModal(tour,{
+    initialFocus:$("#tourSkip"),
+    returnFocus:document.activeElement,
+    onEscape:()=>endTour(false)
+  })}
+function closeTourOverlay(){
+  closeModal($("#tour"))}
+function focusAfterTour(origin,original){
+  const sameId=original?.id?document.getElementById(original.id):null;
+  const stable=origin==="first-run"?$("#startWorkout"):origin==="replay"?$("#replayTour"):null;
+  const fallback=origin==="replay"?$("#settingsBack"):$('nav button[data-view="log"]');
+  for(const candidate of origin==="first-run"?[stable,original,sameId,fallback]:[original,sameId,stable,fallback]){
+    const target=resolveReturnFocus(candidate);
+    if(target){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}return true}}
+  return false}
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
@@ -3055,6 +5082,8 @@ function navTo(view){
   window.scrollTo({top:0});render()
 }
 window.__repforgeEnterWorkout=enterWorkout;
+window.__repforgeGoToLogExercise=goToLogExercise;
+window.__repforgeSaveWorkout=(io)=>saveWorkout({preventDefault(){}},io);
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
@@ -3062,11 +5091,15 @@ window.__repforgeFocus={
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
-function startTour(){tourStep=0;tourActive=true;hideInstallBanner(false);$("#tour").classList.remove("hidden");renderTour()}
+function startTour(origin){
+  tourOrigin=origin==="replay"?"replay":"first-run";
+  tourFocusOrigin=document.activeElement instanceof Element?document.activeElement:null;
+  tourSnapshot=tourOrigin==="replay"?snapshotTourUi():null;
+  tourStep=0;tourActive=true;hideInstallBanner(false);openTourOverlay();renderTour()}
 function renderTour(){
   const steps=tourSteps(),s=steps[tourStep];
   if(!s){endTour(true);return}
-  if(s.view)navTo(s.view);
+  applyTourChoreography(tourStep);
   $("#tourEyebrow").textContent=t("tour.eyebrow_progress",{n:tourStep+1,total:steps.length});
   $("#tourTitle").textContent=t(`tour.${tourStep}.title`);
   const extra=$("#tourExtra");
@@ -3078,14 +5111,27 @@ function renderTour(){
   $("#tourDots").innerHTML=steps.map((_,i)=>`<span class="tour__dot${i===tourStep?" is-on":""}"></span>`).join("");
   $("#tourBack").classList.toggle("hidden",tourStep===0);
   $("#tourNext").textContent=tourStep===steps.length-1?t("tour.done"):t("tour.next");
-  window.scrollTo({top:0});
+  if(tourStep!==5)window.scrollTo({top:0});
 }
-function endTour(completed){tourActive=false;$("#tour").classList.add("hidden");setUiPref("tourDone",true);
-  if(completed)navTo("log");
-  maybeShowInstallBanner();}
-function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour();return true}
+function endTour(completed){
+  const origin=tourOrigin,snap=tourSnapshot,focusOrigin=tourFocusOrigin;
+  closeTourOverlay();tourActive=false;tourPreview=null;tourOrigin=null;tourSnapshot=null;tourFocusOrigin=null;
+  if(origin==="first-run"){setUiPref("tourDone",true);setWorkoutActive(false);navTo("log")}
+  else if(origin==="replay")restoreTourUi(snap);
+  else{setUiPref("tourDone",true);if(completed)navTo("log")}
+  focusAfterTour(origin,focusOrigin);
+  maybeShowInstallBanner()}
+function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
 window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
+function resumeProgramEditFollowUp(){
+  if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
+  programEditMode=true;
+  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding");
+  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+  return true}
+window.__repforgeOnboarding={eqUi:ONB_EQ_UI,eqGen:ONB_EQ_GEN,splits:ONB_SPLITS,muscles:ONB_MUSCLES};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -3100,24 +5146,14 @@ function init(){
   $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
   $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
   $("#tourSkip").onclick=()=>endTour(false);
-  $("#replayTour").onclick=startTour;
+  $("#replayTour").onclick=()=>startTour("replay");
   $("#installApp").onclick=triggerInstall;
   $("#restBar").onclick=stopRest;
   // One rest control in the workout header: start it when idle, stop it when running.
-  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{restEnd?stopRest():startRest()};
+  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?stopRest():startRest()};
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
-  // The sheet is modal: Escape leaves it and Tab stays inside it.
-  document.addEventListener("keydown",e=>{
-    const sheet=$("#exNoteSheet");if(!sheet||sheet.hidden)return;
-    if(e.key==="Escape"){e.preventDefault();closeExNoteSheet();return}
-    if(e.key!=="Tab")return;
-    const stops=$$("#exNoteSheet button, #exNoteSheet textarea").filter(el=>!el.disabled);
-    if(!stops.length)return;
-    const first=stops[0],lastStop=stops[stops.length-1];
-    if(e.shiftKey&&document.activeElement===first){e.preventDefault();lastStop.focus()}
-    else if(!e.shiftKey&&document.activeElement===lastStop){e.preventDefault();first.focus()}});
   trackSheetViewport();
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
@@ -3128,6 +5164,7 @@ function init(){
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
   // iOS does not reliably bubble click to document, so touchstart backs it up.
   const dismissOverflow=e=>{
+    if(tourActive)return;
     const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
     const target=e.target instanceof Element?e.target:null;
     if(target&&(menu.contains(target)||target.closest("#woOverflowBtn")))return;
@@ -3150,22 +5187,37 @@ function init(){
     if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
-  const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>closeWorkoutOverflow());
-  const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=()=>{programEditMode=!programEditMode;renderProgram()};
-  const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>{$("#historySearchWrap")?.classList.toggle("hidden");$("#historySearch")?.focus()};
+  const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>{contextTouched.date=true;saveDraft();closeWorkoutOverflow()});
+  const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",()=>{contextTouched.sessionNotes=true;saveDraft()});
+  const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",()=>{contextTouched.bodyweight=true;saveDraft()});
+  const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
+    if(programEditMode&&state[STORAGE_FOLLOWUP]?.kind==="onboarding-edit"){
+      const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
+      const result=await commitProposedState(proposal,storageIO);
+      if(!(result.localOk||result.idbOk))return;
+      programEditMode=false;renderProgram();
+      if(!maybeStartTour())maybeShowInstallBanner();
+      return}
+    programEditMode=!programEditMode;renderProgram()};
+  const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>setHistorySearchOpen(!isHistorySearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
+  const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>clearHistorySearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
-  const statsPeriod=$("#statsPeriod");if(statsPeriod)statsPeriod.onclick=()=>{volWindow=volWindow===7?28:7;$$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});renderStats();renderCompleted()};
-  const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>$("#restSecPanel")?.classList.toggle("is-open");
-  const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>$("#rirModePanel")?.classList.toggle("is-open");
-  const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>{const d=$("#progressionDetails");if(d)d.classList.toggle("is-open")};
-  const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>$("#notifyTypes")?.classList.toggle("is-open");
-  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>$("#dataBackupPanel")?.classList.toggle("is-open");
-  const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>$("#dataImportPanel")?.classList.toggle("is-open");
-  const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitSettings(true)}};
-  const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{const c=$("#notifyEnabled");if(c){c.checked=!c.checked;c.dispatchEvent(new Event("change"))}};
-  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else closeOnboarding()};
+  const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
+  const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
+  const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
+  const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>setDisclosure(notifyCfg,$("#notifyTypes"),!$("#notifyTypes")?.classList.contains("is-open"));
+  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>setDisclosure(dataBackup,$("#dataBackupPanel"),!$("#dataBackupPanel")?.classList.contains("is-open"));
+  const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
+  [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
+  const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
+  $("#settings").addEventListener("input",()=>{settingsEditRevision++});
+  const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
+  const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
+    const on=notifyPending||notifyEffective();
+    setNotificationsEnabled(!on)};
+  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else cancelOnboarding()};
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
@@ -3181,38 +5233,45 @@ function init(){
     if(s!=null)try{t.setSelectionRange(s,en)}catch{}});
   $$("[data-term]").forEach(b=>{if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)}});
   $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
-  $("#date").value=today();
-  $("#bodyweight").value=lastBodyweight();
+  applyDraftContextToDom();
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
+  syncLogModeControls();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
-  $("#logForm").onsubmit=saveWorkout;
+  $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
-  $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast(t("toast.day_added"))};
+  $("#addDay").onclick=async()=>{
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const nextDay=nextProgram.addDay();proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal);
+    if(result.localOk||result.idbOk){day=nextDay;render();toast(t("toast.day_added"))}};
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
-  $("#beginnerProgram").onclick=()=>{if(confirm(t("confirm.replace_program_template")))switchToBeginnerProgram()};
-  $("#createProgram").onclick=()=>startOnboarding();
+  $("#beginnerProgram").onclick=()=>{
+    const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+    const key=draftActive?"confirm.replace_program_discard_draft":"confirm.replace_program_template";
+    if(confirm(t(key)))switchToBeginnerProgram(discardDraftRaw)};
+  $("#createProgram").onclick=()=>startOnboarding("settings");
   $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
   $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
-  ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
-  $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
-  const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
+  ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=commitChangedSettings);
+  $$('input[name="rirMode"]').forEach(r=>r.onchange=commitChangedSettings);
+  const vi=$("#voiceInputEnabled");if(vi)vi.onchange=commitChangedSettings;
   const ne=$("#notifyEnabled");
-  if(ne)ne.onchange=()=>{const turningOn=!state.settings.notify?.enabled&&ne.checked;
-    let req=null;if(turningOn&&window.RepForgeNotify)req=RepForgeNotify.request();
-    commitSettings(true);if(req)Promise.resolve(req).then(()=>renderSettings())};
-  ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=()=>commitSettings(true)});
+  if(ne)ne.onchange=()=>setNotificationsEnabled(!!ne.checked);
+  ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=commitChangedSettings});
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
-  $("#reset").onclick=()=>{if(confirm(t("confirm.delete_log"))){state.log=[];clearDraft();save();render();toast(t("toast.log_deleted"))}};
+  $("#reset").onclick=async()=>{
+    const discardDraftRaw=readDraftRaw();
+    if(confirm(t("confirm.delete_log")))await deleteTrainingLog(storageIO,{discardDraftRaw})};
   $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;workoutLeft=true;
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
@@ -3236,20 +5295,214 @@ function applyGotoParam(){
   }catch{}
 }
 
-async function boot(){
-  let raw=null;
-  try{raw=await idbGet(KEY)}catch(e){console.warn("idb read failed",e)}
-  if(raw==null){try{const ls=localStorage.getItem(KEY);
-    if(ls){raw=JSON.parse(ls);try{await idbSet(KEY,raw)}catch(e){console.warn("idb migration failed",e)}}}
-  catch(e){console.warn("localStorage read failed",e)}}
-  state=normalizeLoaded(raw);
+function recoveryCopyLabel(side){return t(side==="local"?"dialog.storage_recovery.copy_a":"dialog.storage_recovery.copy_b")}
+function recoverySummaryText(parsed){
+  const sum=snapshotSummary(parsed),name=sum.name||t("dialog.storage_recovery.unnamed");
+  if(sum.lastDate)return t("dialog.storage_recovery.summary",{name,sessions:sum.sessions,sets:sum.sets,date:sum.lastDate});
+  return t("dialog.storage_recovery.summary_empty",{name,sessions:sum.sessions,sets:sum.sets})}
+function recoveryStatusText(read){
+  if(read.status==="valid")return recoverySummaryText(read.parsed);
+  if(read.status==="invalid")return t("dialog.storage_recovery.invalid_copy");
+  if(read.status==="failed")return t("dialog.storage_recovery.unread_copy");
+  return t("dialog.storage_recovery.absent_copy")}
+function closeStorageRecovery(){
+  closeModal($("#storageRecovery"))}
+function bindStorageRecoveryGuard(d){
+  if(!d||d.dataset.guarded)return;
+  d.dataset.guarded="1";
+  d.addEventListener("cancel",e=>e.preventDefault());
+  d.addEventListener("click",e=>{if(e.target===d)e.stopPropagation()})}
+function exportRecoveryRaw(raw,name){download(encodeRawExport(raw),name,"application/json")}
+function presentStorageRecovery(decision){
+  return new Promise(resolve=>{
+    const d=$("#storageRecovery");if(!d){resolve({kind:"first-run"});return}
+    bindStorageRecoveryGuard(d);
+    const langHint=decision.local?.parsed?.settings?.lang||decision.idb?.parsed?.settings?.lang;
+    if(I18N&&langHint)I18N.setLang(langHint);
+    let retryBusy=false;
+    const bump=()=>{d.dataset.seq=String((+d.dataset.seq||0)+1)};
+    const finish=choice=>{d.dataset.resolved="1";d.dataset.busy="0";bump();closeStorageRecovery();resolve(choice)};
+    const paint=()=>{
+      const title=$("#storageRecoveryTitle"),lead=$("#storageRecoveryLead"),copies=$("#storageRecoveryCopies"),actions=$("#storageRecoveryActions");
+      const reason=decision.reason;
+      title.textContent=reason==="no-valid"?t("dialog.storage_recovery.title_blocked"):t("dialog.storage_recovery.title");
+      lead.textContent=reason==="divergent"?t("dialog.storage_recovery.divergent"):
+        reason==="valid-plus-failed"?t("dialog.storage_recovery.valid_failed"):
+        reason==="valid-plus-invalid"?t("dialog.storage_recovery.valid_invalid"):
+        t("dialog.storage_recovery.none_valid");
+      copies.innerHTML=`<div class="storage-recovery__copy"><p class="storage-recovery__copy-label">${esc(recoveryCopyLabel("local"))}</p><p>${esc(recoveryStatusText(decision.local))}</p></div>`+
+        `<div class="storage-recovery__copy"><p class="storage-recovery__copy-label">${esc(recoveryCopyLabel("idb"))}</p><p>${esc(recoveryStatusText(decision.idb))}</p></div>`;
+      const btns=[];
+      const add=(id,cls,key)=>btns.push(`<button type="button" class="btn ${cls}" id="${id}">${esc(t(key))}</button>`);
+      add("storageExportA","btn--steel","dialog.storage_recovery.export_a");
+      add("storageExportB","btn--steel","dialog.storage_recovery.export_b");
+      add("storageRetry","btn--steel","dialog.storage_recovery.retry");
+      if(reason==="divergent"){
+        add("storageUseA","btn--cta","dialog.storage_recovery.use_a");
+        add("storageUseB","btn--cta","dialog.storage_recovery.use_b")}
+      else if(reason==="valid-plus-invalid"||reason==="valid-plus-failed"){
+        add("storageOverwrite","btn--cta","dialog.storage_recovery.overwrite")}
+      else{
+        add("storageExportRaw","btn--steel","dialog.storage_recovery.export_raw");
+        add("storageStartFresh","btn--danger","dialog.storage_recovery.start_fresh")}
+      actions.innerHTML=btns.join("");
+      $("#storageExportA").onclick=()=>exportRecoveryRaw(decision.local?.raw,"repforge_copy_a.json");
+      $("#storageExportB").onclick=()=>exportRecoveryRaw(decision.idb?.raw,"repforge_copy_b.json");
+      $("#storageRetry").onclick=async()=>{
+        if(retryBusy)return;retryBusy=true;d.dataset.busy="1";
+        try{const local=readLocalStatus(),idb=await readIdbStatus(),next=chooseSnapshot(local,idb);
+          if(next.kind!=="unresolved"){finish(next);return}
+          decision=next;paint()}
+        finally{retryBusy=false;d.dataset.busy="0"}};
+      const useA=$("#storageUseA");if(useA)useA.onclick=()=>finish({kind:"chosen",snapshot:decision.local.parsed,source:"local",heal:"idb"});
+      const useB=$("#storageUseB");if(useB)useB.onclick=()=>finish({kind:"chosen",snapshot:decision.idb.parsed,source:"idb",heal:"local"});
+      const overwrite=$("#storageOverwrite");
+      if(overwrite)overwrite.onclick=()=>{
+        if(!confirm(t("dialog.storage_recovery.overwrite_confirm")))return;
+        const winner=decision.local?.status==="valid"?decision.local.parsed:decision.idb.parsed;
+        const heal=decision.local?.status==="valid"?"idb":"local";
+        finish({kind:"chosen",snapshot:winner,source:heal==="idb"?"local":"idb",heal})};
+      const exportRaw=$("#storageExportRaw");
+      if(exportRaw)exportRaw.onclick=()=>{
+        exportRecoveryRaw(decision.local?.raw,"repforge_copy_a.json");
+        exportRecoveryRaw(decision.idb?.raw,"repforge_copy_b.json")};
+      const fresh=$("#storageStartFresh");
+      if(fresh)fresh.onclick=async()=>{
+        if(retryBusy)return;
+        if(!confirm(t("dialog.storage_recovery.start_fresh_confirm")))return;
+        retryBusy=true;d.dataset.busy="1";
+        const {localNow,idbNow}=await withStorageLock(storageIO,async()=>{
+          try{localStorage.removeItem(KEY)}catch{}
+          try{await idbDel(KEY)}catch{}
+          return{localNow:readLocalStatus(),idbNow:await readIdbStatus()}});
+        if(localNow.status==="absent"&&idbNow.status==="absent"){
+          clearAllPendingJournal();
+          finish({kind:"first-run"})}
+        else{
+          decision={kind:"unresolved",reason:"no-valid",local:localNow,idb:idbNow};
+          retryBusy=false;delete d.dataset.busy;paint()}
+      };
+      if(!d.open)d.showModal();
+      openModal(d,{
+        initialFocus:$("#storageExportA")||$("#storageRetry")||title,
+        returnFocus:$("#startWorkout")||$("#todayDash .page-title"),
+        onEscape:null
+      });
+      bump();
+      const focusEl=$("#storageExportA")||$("#storageRetry")||title;
+      if(focusEl)focusEl.focus()};
+    paint()})}
+function recoveryChoiceMatches(candidate,current){
+  if(candidate?.kind!=="chosen"||(candidate.source!=="local"&&candidate.source!=="idb"))return false;
+  const selected=candidate.source==="local"?current.local:current.idb;
+  return selected?.status==="valid"&&storageSnapshotsEqual(selected.parsed,candidate.snapshot)}
+async function resolveBootReplicas(candidate=null){
+  return withStorageLock(storageIO,async()=>{
+    const local=readLocalStatus(),idb=await readIdbStatus();
+    let decision=chooseSnapshot(local,idb);
+    if(decision.kind==="unresolved"){
+      if(!recoveryChoiceMatches(candidate,decision))return decision;
+      decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
+        heal:candidate.source==="local"?"idb":"local"}}
+    let head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot),replayed=false,draftConflict=false;
+    const storedTransaction=head&&pendingDraftTransaction(head);
+    if(storedTransaction){
+      const storedRecord=readPendingJournal().entries.find(record=>record.journal.id===storedTransaction.id)||null;
+      const finalized=finalizedDraftTransactionSnapshot(head);
+      const execution=await executeDraftTransaction({record:storedRecord,
+        transactionId:storedTransaction.id,effect:storedTransaction.effect,prepared:head,
+        snapshot:finalized,io:storageIO,writePrepared:false,
+        preparedResult:{revision:readRevision(head),localOk:true,idbOk:true}});
+      if(!execution.settled||
+        (execution.kind!=="committed"&&execution.kind!=="rejected"&&execution.kind!=="compensated"))
+        return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+      head=execution.snapshot;
+      draftConflict=execution.kind!=="committed";
+      replayed=true;
+      decision={kind:"chosen",snapshot:head,source:"pending"}}
+    const pending=readPendingJournal();
+    for(const invalid of pending.invalid)clearPendingJournal(invalid);
+    for(const record of pending.entries){
+      const journal=record.journal;
+      if(journal.effectOutcome.status===DRAFT_EFFECT_INVALID){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        draftConflict=true;
+        continue}
+      if(pendingJournalSuccessorMatches(record,head)){
+        const prepared=preparePendingDraftTransaction(
+          head,journal.rollback,journal.effectOutcome,journal.id);
+        const execution=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,prepared,snapshot:head,io:storageIO,writePrepared:false,
+          preparedResult:{revision:readRevision(head),localOk:true,idbOk:true}});
+        if(!execution.settled||
+          (execution.kind!=="committed"&&execution.kind!=="rejected"&&execution.kind!=="compensated"))
+          return{kind:"unresolved",reason:"pending-transaction",
+            local:readLocalStatus(),idb:await readIdbStatus()};
+        head=execution.snapshot;
+        if(execution.kind!=="committed")draftConflict=true;
+        replayed=true;
+        continue}
+      if(journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      if(journal.expectedProgramFingerprint&&
+        draftProgramFingerprint(head)!==journal.expectedProgramFingerprint){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      const journalHead=head||cloneSnapshot(journal.base);
+      const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,
+        {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,dayRenames:journal.dayRenames});
+      const prepared=preparePendingDraftTransaction(snapshot,journalHead,journal.effectOutcome,journal.id);
+      const execution=await executeDraftTransaction({record,transactionId:journal.id,
+        effect:journal.effectOutcome,prepared,snapshot,io:storageIO,writePrepared:true,
+        retainRecordOnWriteFailure:true});
+      if(execution.kind==="write-failed")
+        break;
+      if(execution.kind==="precondition-rejected"){
+        if(!execution.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        draftConflict=true;
+        continue}
+      if(!execution.settled||
+        (execution.kind!=="committed"&&execution.kind!=="rejected"&&execution.kind!=="compensated"))
+        return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+      head=execution.snapshot;
+      if(execution.kind!=="committed")draftConflict=true;
+      replayed=true}
+    if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict};
+    if(decision.kind==="chosen"&&decision.heal)await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
+    return Object.assign({},decision,{draftConflict})})}
+async function applyBootDecision(decision){
+  if(decision.kind==="first-run")state=normalizeLoaded(null);
+  else state=normalizeLoaded(decision.snapshot);
   prog=new Program(state.program);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
+  resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
+  DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();
-  migrateLog();
-  persist();
-  if(I18N)I18N.setLang(state.settings.lang);
+  const migrated=migrateLog();
+  const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
+  const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
+  if(I18N)I18N.setLang(state.settings.lang)}
+async function boot(){
+  let decision=await resolveBootReplicas();
+  while(decision.kind==="unresolved"){
+    const candidate=await presentStorageRecovery(decision);
+    decision=await resolveBootReplicas(candidate)}
+  await applyBootDecision(decision);
+  hydrateWorkoutDraft({restoreDay:true});
+  resumeProgramEditFollowUp();
   init();
-}
+  if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
 boot();

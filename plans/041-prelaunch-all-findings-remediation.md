@@ -294,8 +294,8 @@ document.querySelectorAll("[data-i18n-title]").forEach(el => {
 });
 ```
 
-`sw.js:1-9,22` currently uses cache `repforge-v53`; `ASSETS` is broader than
-`SHELL`, and both lists are release invariants:
+At this plan's baseline, `sw.js:1-9,22` used cache `repforge-v53`; `ASSETS` was
+broader than `SHELL`, and both lists remain release invariants:
 
 ```js
 const CACHE = "repforge-v53";
@@ -368,11 +368,21 @@ permission to mark browser verification as passed.
 - `test/notifications.mjs`
 - `test/focus-mode.mjs`
 - `test/persistence.mjs` (new)
+- `test/persistence-race.mjs` (new)
+- `test/thermonuclear-races.mjs` (new)
 - `test/accessibility.mjs` (new)
+- `test/history.mjs` (new)
 - `test/i18n.mjs` (new)
+- `test/adversarial-draft-transactions.mjs` (new)
+- `test/program-draft-conflicts.mjs` (new)
+- `test/program-draft-day-rename.mjs` (new)
+- `test/program-draft-set-reduction.mjs` (new)
+- `test/workout-day-context-discard.mjs` (new)
 - `test/manual-matrix.mjs` (new; deterministic fixture/reset helper only)
 - `.github/workflows/simulation.yml`
 - `plans/README.md` (status plus factual verification/setup corrections only)
+- `plans/041-prelaunch-all-findings-remediation.md` (audited scope, gate,
+  and release-evidence corrections only)
 
 **Out of scope**:
 
@@ -484,26 +494,49 @@ Implement a storage-only revision without wrapping the existing state shape:
    `tail = operation.then(()=>undefined,()=>undefined)`); never assign a
    potentially rejected operation directly as the next queue tail. `flush()`
    awaits that absorbing tail. Clone each snapshot before queueing so later
-   `state` mutations cannot alter an earlier write. Increment the revision once
-   per logical `persist()` call. Make `save()`/`persist()` return the individual
+   `state` mutations cannot alter an earlier write. Before queueing a real
+   browser write, synchronously store its base/live/proposal intent without a
+   revision as an immutable, uniquely keyed `repforge_pending_v1:<uuid>` entry;
+   this is an ordered unload-safety journal, not a third authoritative replica.
+   A later enqueue must never overwrite an earlier entry. Under the
+   origin-scoped Web Lock, reread both durable replicas, rebase intents in
+   deterministic order onto the selected head, and only then allocate each new
+   revision. Remove an entry inside the lock only after acceptance or a proven
+   stale transition identity; total failure retains that entry and its ordered
+   tail. Boot rereads/repairs under the same lock, migrates an old un-suffixed
+   `repforge_pending_v1` entry first, and replays all surviving valid entries
+   before initializing the app. An entry may carry only a bounded draft receipt:
+   Finish uses match-only `clear-draft`; destructive program/log changes use
+   abort-on-change `clear-draft`; and a transactional day rename uses
+   same-day-conflict `replace-draft`. Enforce each receipt before the durable
+   write and apply it after one or both stores accept, including replay, so a
+   newer cross-tab draft either survives with the state change rejected or
+   remains unrelated and usable. Make
+   `save()`/`persist()` return the individual
    result promise containing `{ revision, localOk, idbOk }` so transactional
    callers can distinguish one accepted replica from total failure.
 7. Add `commitProposedState(proposal, io=storageIO)` at this persistence seam.
-   It deep-clones the proposal, assigns the next local revision, writes that
-   snapshot, and updates live `state`/`prog`/memoized derivatives only when
-   `localOk || idbOk`. If both fail, live globals remain byte-equivalent to
-   their pre-call values. High-risk transitions in Steps 2 and 4 use this path;
-   ordinary existing mutators may continue calling `persist()`.
+   It deep-clones the proposal, queues its intent, assigns the next revision
+   from the locked durable head, writes that snapshot, and updates live
+   `state`/`prog`/memoized derivatives only when `localOk || idbOk`. If both
+   fail, live globals remain byte-equivalent to their pre-call values.
+   High-risk transitions in Steps 2 and 4 use this path; ordinary existing
+   mutators may continue calling `persist()`.
 8. Refactor full-backup Replace and Merge to build proposals and use
    `commitProposedState(proposal, io)`. Replace clears draft/storage-only marker
    and closes the chooser only after acceptance; Merge appends unique sessions
    only after acceptance. Total failure leaves live state/draft/chooser intact,
    shows no success, and permits retry.
-9. Keep the real localStorage write synchronous. Track each store's latest
-   write result separately. When only one store accepts a write, keep the data
-   but expose a persistent degraded-storage line in Settings and one localized
-   toast; when both fail, use the destructive storage error treatment. A later
-   successful write to both stores clears the degraded warning.
+9. Keep every unversioned localStorage write-ahead entry synchronous and
+   immutable; never use a shared read/append/write array or publish a revisioned
+   `repforge_v1` snapshot before the lock, because cross-tab writers can race and
+   a stale tab could overwrite another intent or outrank newer IndexedDB data.
+   Track each authoritative store's latest write result separately. When only
+   one store accepts a write,
+   keep the data but expose a persistent degraded-storage line in Settings and
+   one localized toast; when both fail, use the destructive storage error
+   treatment. A later successful write to both stores clears the degraded
+   warning.
 10. Export a copy of `state` with `_storageRevision` and any reserved
    storage-only UI transition marker removed. Import/merge and program-only
    export formats remain unchanged.
@@ -541,6 +574,20 @@ Create `test/persistence.mjs`, following the result/`assert` style of
 - delayed writes resolved in adversarial order cannot leave a lower revision;
 - 20 rapid Settings mutations followed by `flush()` leave both stores byte-
   equivalent at the highest revision;
+- an IndexedDB-only accepted workout survives repeated Settings writes from a
+  stale tab, and the unversioned journal replays once after an interrupted
+  write without becoming an authoritative revision;
+- Finish and Settings queued behind one lock, followed by writer unload, retain
+  two distinct entries that replay in order and drain without losing either
+  intent;
+- a boot queued immediately behind an accepting writer cannot replay that
+  writer's not-yet-cleaned entry; an accepted replay followed by total failure
+  returns the accepted head while retaining only the failed ordered tail;
+- boot repair that waits behind a newer locked write rereads the replicas and
+  cannot roll them back;
+- same-page workout/Settings, cross-tab Settings, destructive reset, and
+  same-old-program block-completion races converge without losing a session or
+  creating two successors;
 - a downloaded JSON backup while a follow-up marker is pending omits both
   `_storageRevision` and the marker;
 - replace import at local revision 17 finishes at 18 whether the file has no
@@ -558,8 +605,10 @@ stores to verify boot selection and healing.
 **Verify**:
 
 ```bash
-for f in app.js test/persistence.mjs; do node --check "$f" || exit 1; done
+for f in app.js test/persistence.mjs test/persistence-race.mjs test/thermonuclear-races.mjs; do node --check "$f" || exit 1; done
 node test/persistence.mjs
+node test/persistence-race.mjs
+node test/thermonuclear-races.mjs
 REPFORGE_SIM_WEEKS=12 node test/simulation.mjs
 ```
 
@@ -1254,21 +1303,31 @@ Expected: exit 0 and `FAILED: 0`.
    - syntax for all runtime/test JS, including `sw.js`;
    - `test/schedule.mjs`;
    - `test/i18n.mjs`;
+   - `test/persistence-artifacts.mjs --self-test`;
    - `test/persistence.mjs`;
+   - `test/persistence-race.mjs`;
+   - `test/thermonuclear-races.mjs`;
+   - `test/adversarial-draft-transactions.mjs`;
    - `test/notifications.mjs`;
    - `test/recover-gate.mjs`;
-   - `test/accessibility.mjs`;
+   - `test/accessibility.mjs` plus `--touch-targets-320`;
+   - `test/history.mjs`;
    - `test/focus-mode.mjs`;
+   - `test/program-draft-conflicts.mjs`;
+   - `test/program-draft-set-reduction.mjs`;
+   - `test/program-draft-day-rename.mjs`;
+   - `test/workout-day-context-discard.mjs`;
    - `test/manual-matrix.mjs --self-test`;
    - the full 52-week profiled integrated simulation.
 2. Increase the job timeout explicitly (start at 30 minutes and adjust only from
    measured green-run evidence). Do not hide failures with `continue-on-error`.
-3. Increment `sw.js` from `repforge-v53` to the next cache version exactly once.
-   Confirm every changed runtime asset remains in `ASSETS`/`SHELL`.
+3. Advance the implementation branch's `sw.js` cache version after the final
+   shell edits (the audited final value is `repforge-v66`). Confirm every
+   changed runtime asset remains in `ASSETS`/`SHELL`.
 4. Extend PWA assertions from a new browser context and one canonical
    `http://127.0.0.1:8000` origin. Unregister workers, delete CacheStorage,
    clear origin storage and the browser HTTP cache, seed canonical training
-   state, register/wait for `repforge-v54`, then:
+   state, register/wait for `repforge-v66`, then:
    - fetch each shell asset online with cache bypass and compare its bytes and
      content type with the matching CacheStorage response;
    - clear the HTTP cache again without deleting CacheStorage, switch the
@@ -1308,10 +1367,18 @@ for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs; do node --check 
 node test/schedule.mjs
 node test/i18n.mjs
 node test/persistence.mjs
+node test/persistence-race.mjs
+node test/thermonuclear-races.mjs
+node test/adversarial-draft-transactions.mjs
 node test/notifications.mjs
 node test/recover-gate.mjs
 node test/accessibility.mjs
+node test/history.mjs
 node test/focus-mode.mjs
+node test/program-draft-conflicts.mjs
+node test/program-draft-set-reduction.mjs
+node test/program-draft-day-rename.mjs
+node test/workout-day-context-discard.mjs
 node test/manual-matrix.mjs --self-test
 REPFORGE_SIM_WEEKS=52 REPFORGE_PROFILE=1 node test/simulation.mjs
 git diff --check
@@ -1394,7 +1461,7 @@ Expected results are part of each row:
 | Settings/notifications/delete: assigned permission states and pending races stay truthful; disclosures work; deletion preserves program/Settings | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | Tour: every step matches its preview; focus is contained; disabled-rest/all-skipped cases work; Skip and Done obey origin-specific restoration | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | Accessibility: modal lifecycle, visible focus, zoom/pinch, rapid taps, 44×44 targets, contrast, repeated toast, destructive alert and one rest completion announcement all pass | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| PWA: v54 controls, install copy is current, all four tabs work offline from the worker, and both stores/draft are byte-equivalent after reconnect | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| PWA: v66 controls, install copy is current, all four tabs work offline from the worker, and both stores/draft are byte-equivalent after reconnect | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 
 Use VoiceOver for every C2/C5 live-region cell and TalkBack for every C3/C6
 live-region cell; the Chromium accessibility tree is supplementary in C1/C4.
@@ -1413,11 +1480,15 @@ suite blocks release.
 | Test file | New responsibility |
 |---|---|
 | `test/persistence.mjs` | Replica selection, legacy-conflict recovery, corrupt-state protection, healing, write ordering, import/backup metadata |
+| `test/persistence-race.mjs` | Same-page/cross-tab state-change rebasing and transactional destructive reset races |
+| `test/thermonuclear-races.mjs` | One-sided acceptance, delayed boot repair, Finish locking, and same-old-program cross-tab completion |
 | `test/notifications.mjs` | Permission/preference truth table and revocation |
 | `test/accessibility.mjs` | Dialog lifecycle, disclosures, live status, controls, zoom, contrast, focus, targets, large History index |
 | `test/i18n.mjs` | EN/PT JSON ↔ runtime dictionary ↔ DOM/JavaScript key parity, placeholder parity, and raw-fallback rejection |
 | `test/manual-matrix.mjs` | Deterministic six-cell definitions, resets, fixture emission/seeding, permission modes, and evidence metadata |
 | `test/focus-mode.mjs` | Resumed Focus skip/substitution/draft context |
+| `test/program-draft-set-reduction.mjs` | Program set-count reductions cannot orphan meaningful active-draft sets |
+| `test/workout-day-context-discard.mjs` | Confirmed day switches discard stale session date, note, and bodyweight context while Cancel preserves the draft byte-for-byte |
 | `test/simulation.mjs` | Integrated validation, onboarding/block/template, History, coaching, copy, manifest, PWA |
 | `test/recover-gate.mjs` | Existing recommendation recovery regressions; unchanged behavior |
 | `test/schedule.mjs` | Existing scheduling baseline; unchanged behavior |

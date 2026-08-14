@@ -5,23 +5,35 @@ prior conversation context.
 
 ---
 
+## Validation status
+
+Validated on `main` at `ee59cdf`. The browser baselines are **408/0** for the long-horizon
+simulation and **83/0** for Focus mode. Audit numbers are not reused for unrelated work:
+
+- Implement audit findings **F1, F2 and F4–F11**, plus contrast work item **C1**: eleven work items.
+- **Defer F3.** The noisy pound formatting is real, but snapping historical values to 5 lb would
+  display loads the user did not record. Unit-specific actionable increments need a separate
+  product decision.
+- F12 (early workout finish), F14 (landscape), F15 (tour accuracy), F17–F30 and every P3 item except
+  C1 remain out of this pass.
+- F13 and F16 are rejected by current source plus targeted runtime probes; do not implement them.
+- Preserve ADR 0003's capacity arithmetic. F1 rounds the four raw recommendation paths; it does
+  not replace the median. Preserve the accepted rolling Program-adherence contract in
+  `docs/design/program-abstraction.md`; F2 fixes its labels rather than changing its window.
+
 ## Your task
 
-Fix the twelve defects listed below in the RepForge repo. They come from a hands-on pre-launch
-audit; the full findings are in `docs/ui-ux-audit-2026-08-13.md` (read it first — it has
-reproductions and screenshots' worth of detail this brief compresses).
-
-The app ships tomorrow. Items 1–7 are launch blockers. Items 8–12 are cheap and high-value; do
-them if 1–7 land cleanly. Anything not on this list is **out of scope** — do not refactor, do not
-restyle, do not "improve while you're in there".
+Implement the eleven validated work items below. The full evidence and post-publication
+verification matrix are in `docs/ui-ux-audit-2026-08-13.md`; read that matrix first. Anything
+outside the explicit dispatch list is out of scope.
 
 ## The repo, in one paragraph
 
 Static site, no build step, no bundler, no package manager at the root. `index.html`, `styles.css`,
-`app.js` (~3,250 lines, dense but readable), `sw.js`, `i18n.js` + `i18n-en.json` / `i18n-pt.json`,
+`app.js` (dense but readable), `sw.js`, `i18n.js` + `i18n-en.json` / `i18n-pt.json`,
 `schedule.js`, `notify.js`. All training data lives in `localStorage` under `repforge_v1`, mirrored
 to IndexedDB (`repforge` / `kv`), with an in-progress draft under `repforge_draft_v1`. The only
-tooling is a Playwright suite under `test/`.
+tooling is a Playwright suite with its own `test/package.json`; there is no root package.
 
 Read `AGENTS.md` and `CONTEXT.md` before touching anything. `CONTEXT.md` is the domain glossary and
 it is binding — use its terms in code and copy (**program**, **exercise template**, **session**,
@@ -40,16 +52,21 @@ clear site data while developing.
 ### Tests you must keep green
 
 ```bash
-cd test && npm ci && npx playwright install chromium
-node --check ../app.js
-REPFORGE_URL=http://localhost:8000/ npm run simulate     # long-horizon training simulation
-REPFORGE_URL=http://localhost:8000/ npm run test:focus   # Focus-mode state machine
+npm --prefix test ci
+npm --prefix test exec -- playwright install chromium --with-deps
+# separate terminal, from the repository root:
+python3 -m http.server 8000
+node --check app.js
+node --check i18n.js
+node --check sw.js
+REPFORGE_URL=http://localhost:8000/ npm --prefix test run simulate
+REPFORGE_URL=http://localhost:8000/ npm --prefix test run test:focus
 ```
 
-Both run in CI on every PR (`.github/workflows/simulation.yml`). **Fix 1 changes recommendation
-output and will very likely move simulation assertions.** When that happens: verify by hand that the
-new number is the correct one, update the expectation, and say so explicitly in your PR body. Do not
-loosen an assertion to make it pass.
+Both browser suites run in CI on every PR (`.github/workflows/simulation.yml`). New focused checks
+will increase the pass counts; the invariant is zero failures, not the original exact totals.
+**F1 changes recommendation output and may move existing expectations.** If it does, verify the new
+number independently, update the exact expectation, and document why. Do not loosen assertions.
 
 ---
 
@@ -57,11 +74,12 @@ loosen an assertion to make it pass.
 
 - **No new dependencies.** No npm packages at the root, no CDN links, no build step. Vanilla JS,
   matching the existing style (terse, no semicolon-free experiments, no framework).
-- **Every user-facing string goes in both `i18n-en.json` and `i18n-pt.json`.** No hardcoded English
-  in `app.js`. Follow the existing key naming (`rec.*`, `toast.*`, `stats.*`, `settings.*`). If you
-  cannot write good Brazilian Portuguese for a string, say so in the PR rather than guessing badly.
-- **Bump `CACHE` in `sw.js`** (currently `repforge-v53` → `repforge-v54`) in your final commit, or
-  returning users get stale assets.
+- **Every workstream that adds user-facing copy updates `i18n-en.json`, `i18n-pt.json`, and both
+  dictionaries in generated `i18n.js`.** There is no generator script in this repo, so keep all
+  three in sync by hand. Do not add hardcoded English in `app.js`. The integrator resolves expected
+  overlaps and verifies exact dictionary parity.
+- **Only the integrating branch bumps `CACHE` in `sw.js` once.** Parallel workstreams must not each
+  edit it. The shell is network-first, but the final cache rollover keeps the offline set coherent.
 - **Do not touch the storage schema.** No migrations, no new keys in `repforge_v1`. Existing
   backups must still import cleanly.
 - **Match the surrounding code's density and comment style.** This codebase comments *why*, rarely
@@ -74,57 +92,83 @@ loosen an assertion to make it pass.
 Each item gives you: the symptom, where it lives, what to do, and how you'll know it's done. Verify
 every acceptance criterion in a real browser before moving on.
 
+Effort uses S/M/L implementation complexity. Risk is the risk of the fix itself, not the existing
+defect. All eleven items have high confidence after source review and targeted browser probes.
+
+| Work item | Effort | Fix risk | Primary risk to control |
+|---|---:|---:|---|
+| F1 | S | Medium | Keep capacity triggers and exact-grid double progression intact |
+| F2 | S | Low | Preserve the accepted rolling adherence contract |
+| F4 | M | Medium | Avoid silently dropping a selected training day |
+| F5 | M | Medium | Keep generation deterministic and prevent within-day duplicates |
+| F6 | S | Low | Do not weaken enabled CTA or focus styling |
+| F7 | M | High | Apply one unit-aware parser to every persistence path |
+| F8 | S | Medium | Separate display clamping from lifecycle state |
+| F9 | S | Low | Handle zero-plan rows without division or visual nubs |
+| F10 | S | Low | Keep deterministic ordering and disclose truncation |
+| F11 | M | High | Preserve focus, inertness and opener transfer across chained dialogs |
+| C1 | M | Medium | Change text foregrounds without moving brand fills or focus indicators |
+
 ---
 
-### 1. `hold` recommendations return unloadable weights — **P0**
+### F1. History-derived hold-family recommendations can return unloadable weights — **P0**
 
-**Symptom.** With any history where sets used different loads, every "hold" recommendation is a
-half-increment nobody can load: `Hold 53.75 kg`, `Drop to 51.25 kg`, `68.25`, `92.25`, `113.75`.
-Reproduced on 6 of 6 lifts. It's the app's core output and it's unusable.
+**Symptom.** An even-set prior session whose middle loads average off the configured increment grid
+can yield `Hold 53.75 kg`, `Drop to 51.25 kg`, `68.25`, `92.25` or `113.75`. The audit fixture
+reproduced this on 6 of 6 lifts. Mixed-load sessions do not all trigger it.
 
 **Cause.** `recommendation()` (`app.js:934–970`) uses `l.med` — the *median* of the previous
-session's loads (`sessionsForLog()` sets `med: median(o.loads)`). The `add`, `add2` and `reduce`
-branches pass it through `round()` (`app.js:880`, snaps to `minJump`, default 2.5 kg). The three
-`hold` branches — `app.js:955` (stalled), `956` (recover), `958` (push reps) and the fallthrough at
-`959` — return it raw.
+session's loads. The `add`, `add2` and below-range `reduce` paths pass it through `round()`
+(`app.js:880`, snaps to `minJump`, default 2.5 kg). Four paths — stalled, recover, push reps and the
+default hold — return it raw.
 
 **Do.**
-- Round the load on every `hold` branch, the same way the others do.
-- Then reconsider the median itself. "Hold" should mean *the weight you actually used*, not the
-  arithmetic middle of the weights you used. Prefer the previous session's **top working-set load**
-  (or set 1's load) as the hold reference, and note in the commit which you chose and why. If you
-  keep the median, it must still be rounded.
-- Check the same raw-`load` leak in `baseSuggestion()` / `setSuggestion()` (`app.js:1051–1090`) —
-  the tempered path already calls `round()`, the untempered path returns `rec.load` straight
-  through, which is fine *once* `rec.load` is always rounded. Confirm that holds true for every
-  branch.
+- Round the load on all four stalled/recover/push-reps/default raw return paths, the same way the
+  load-change paths do.
+- Keep `l.med` as the capacity engine's typical-load reference. ADR 0003 and plan 039 deliberately
+  normalize capacity at that load; replacing it with top load or set 1 is out of scope.
+- When normalization changes `rec.load` from the raw history reference, use the existing
+  capacity-based re-entry calculation for first-set reps at the normalized load. A rounded-up hold
+  must not blindly combine more load with the old `+1 rep` progression. Exact on-grid holds keep
+  their existing rep behavior.
+- Do not round the independent current-session `setSuggestion()` hold: it may truthfully echo a
+  manually entered off-grid load and belongs to the deferred input/increment policy.
 
-**Done when.** With `minJump = 2.5`, no recommendation, Focus cue, or exercise-page headline can
-ever display a load that isn't a multiple of `minJump`. Test with a seeded log whose sets descend
-(e.g. 55/52.5) — the classic trigger.
+**Done when.** With `minJump = 2.5`, every history-derived `recommendation().load` from the stalled,
+recover, push-reps and default paths lies on the internal kilogram grid. Exercise all four branches
+with mixed previous-set loads and assert the kg card, untouched first-set Focus load and reps, and
+exercise-page headline. Cover a rounded-up mixed median, an exact on-grid hold and a positive
+sub-increment load. In lb mode preserve lossless conversion; do not invent F3's display grid.
 
 ---
 
-### 2. Two definitions of "this week" — **P0**
+### F2. Program labels rolling adherence as "this week" — **P0**
 
 **Symptom.** Same state, same moment: Today says `2 of 3 sessions completed`, Progress says
-`2 of 3 sessions`, Program says `3 / 3` and `3 / 3 days this week`. Ground truth is 2.
+`2 of 3 sessions`, Program says `3 / 3` and `3 / 3 days this week`. Two days are in the current
+calendar week and three are in the trailing seven days; Program's count is valid but its labels
+make the windows look contradictory.
 
 **Cause.** `weeklySnapshot()` (`app.js:542`) uses `weekRange(today)` — Monday-to-Sunday.
-`programAdherence()` (`app.js:538`) uses `daysAgo(6)` — a rolling 7 days. Both render under labels
-that read identically.
+`programAdherence()` (`app.js:538`) uses `daysAgo(6)` — a rolling 7 days. Accepted
+`docs/design/program-abstraction.md` explicitly defines that rolling adherence contract, and
+`plans/README.md` records a calendar-week conversion as a product decision rather than a bug.
+Program nevertheless renders the value as generic “sessions” and “days this week.”
 
-**Do.** Make `programAdherence()` use `weekRange()` so all three surfaces agree. If you believe the
-rolling window is deliberate somewhere, keep it *and* relabel that surface "last 7 days" — but only
-one of the two behaviours may keep the word "week".
+**Do.** Preserve an inclusive Program window from `today-6` through `today`, explicitly excluding
+future rows. Relabel the Program overview stat as `days (7d)` and the Program chip as
+`{done} / {planned} days in the last 7 days`, with natural Portuguese equivalents. Keep Today and
+Progress on their existing Monday–Sunday helper. Preserve the adherence rule: each planned training
+day counts at most once.
 
-**Done when.** Today, Progress → This week, Program → sessions stat, and the Program `days this
-week` chip all report the same number for the same log. Verify with a log that has sessions both
-inside and outside the current Mon–Sun window.
+**Done when.** Seed the previous Sunday, dates inside the current Monday–Sunday range and the
+following Monday. Today and Progress show the calendar-week count; both Program surfaces show the
+rolling-seven-day count and explicitly name that window. The following Monday does not leak into
+either result.
 
 ---
 
-### 3. Pounds are unusable — **P0**
+### F3. Pound formatting and actionable increments — **DEFERRED**
 
 **Symptom.** In lb mode: `115.74 lb`, `Drop to 112.99 lb`, PR table `194.01` / `199.52`, delta
 `+5.51`, metrics row `231klb` and `307lb`.
@@ -134,70 +178,69 @@ inside and outside the current Mon–Sun window.
   rounding to a loadable increment.
 - `kfmt` (`app.js:38–40`) returns `"231k"` and callers concatenate the unit with no separator.
 
-**Do.**
-- Introduce one function that owns "kilograms → the string a lifter reads", and route every load
-  display through it. It should round to a loadable increment per unit — 2.5 kg / 5 lb — and never
-  emit trailing decimal noise. Put it next to the existing `fmtLoad` and delete duplicated logic.
-- Keep stored data in kg and full precision. **Only display rounds.**
-- Fix the unit spacing in the metrics row and anywhere else `kfmt` output is concatenated with a
-  unit label.
+**Do not implement this in the current pass.** A stored historical value and an editable
+recommendation are different contracts. Rounding both to 5 lb would make history untruthful, while
+rounding only the cue would make it disagree with the prefilled input unless the entry pipeline also
+changes. The `minJump` setting is explicitly kilogram-based even in lb mode. Record a follow-up
+decision covering those three surfaces together.
 
-**Done when.** Switching Settings → Units to lb produces round, loadable numbers everywhere: the
-Focus cue, the last-session ledger, the exercise page, PR tables, PR timeline, metrics. Switching
-back to kg is lossless — no accumulated rounding in stored values.
+The accessible separator in abbreviated metric values may be fixed only if it can be done without
+introducing the broader rounding policy.
 
 ---
 
-### 4. Onboarding discards the equipment answer — **P0**
+### F4. Onboarding discards the equipment answer — **P0**
 
 **Symptom.** Onboarding step 5 says *"Pick everything you can use. We'll only program what you
 have."* Select **Bodyweight** only and you get `Barbell back squat`, `Barbell bench press`,
 `Cable pullover`, `Dumbbell curl`.
 
-**Cause.** `catalogForSlot()` (`app.js:342`, fallback at `346`): when the equipment filter empties a
-slot's pool, it silently falls back to the entire catalogue.
+**Cause.** `catalogForSlot()` falls back to the entire catalogue when filtering empties a slot.
+`applyPriorityMuscles()` separately calls `chooseExercise()` with an empty equipment list. Removing
+those bypasses can expose a day type with zero valid primary slots; the current data model then
+silently drops that training day.
 
-**Do.** Pick one and implement it fully:
-- **(a)** Drop slots that can't be filled with the selected equipment, and backfill the day from
-  `FILLER_SLOTS` patterns that *can* be filled — so the day still hits its `SESSION_BOUNDS` length.
-- **(b)** Keep the fallback but surface it: the step-8 review screen names the exercises that
-  required equipment the lifter didn't select, so the promise on step 5 isn't silently broken.
+**Do.**
+- Remove Bodyweight from `ONB_EQ_UI`; the catalogue has zero bodyweight entries. Retain legacy
+  mapping/translation support so existing imported onboarding metadata is not broken.
+- Remove `catalogForSlot()`'s fallback to the unfiltered catalogue.
+- Pass selected equipment through primary-slot selection, `applyPriorityMuscles()` and filler
+  selection. If no matching priority template exists, skip that addition. Never retry with an empty
+  filter or violate equipment merely to hit `SESSION_BOUNDS`.
+- Before leaving the equipment step, detect whether any resolved day type has zero valid primary
+  templates. Keep Continue disabled and render a localized explanation: “Choose equipment that
+  supports every training day.” / “Escolha equipamentos compatíveis com todos os dias de treino.”
+  Short non-empty days are acceptable; silently dropping a selected training day is not.
 
-(a) is the better product. (b) is acceptable if (a) turns out to leave days unfillably short —
-which it may, since the catalogue has no true bodyweight entries. **Check the catalogue first**
-(`EXERCISE_CATALOG`, `app.js:288–332`): if bodyweight is offered in the UI but has almost no
-entries, that's the real bug, and the honest fix may be adding a handful of bodyweight movements or
-removing the option.
-
-**Done when.** No equipment selection produces an exercise the lifter can't perform, or — if the
-catalogue genuinely can't cover it — the review screen says so plainly before they save.
+**Done when.** Every generated exercise—including priority additions and fillers—matches selected
+equipment. Every selectable equipment/split case either produces all resolved non-empty training
+days or is blocked with that explanation. Bodyweight is absent from new onboarding.
 
 ---
 
-### 5. Repeated day types generate byte-identical days — **P0**
+### F5. Repeated day types generate visually identical days — **P0**
 
 **Symptom.** 3-day full body → Day 1, Day 2 and Day 3 contain the same six exercises, verbatim. The
 step-8 review shows identical cards. 4-day upper/lower → Day 1 = Day 3, Day 2 = Day 4. 6-day PPL →
-3 unique days out of 6. Verified across all 45 reachable answer combinations.
+3 unique days out of 6. These are representative audited scenarios, not an exhaustive count of all
+multi-select answer combinations.
 
 **Cause.** `resolveSplit()` (`app.js:333–341`) emits N copies of a day type; `exerciseSlotsForDay()`
 returns the same slot list each time; `usedIds` is scoped per day, so nothing varies between
 repeats.
 
-**Do (minimum).** Make the repetition legible instead of looking broken: on the review screen,
-collapse repeats of a day type into one card labelled with its multiplicity, and label training days
-by type rather than bare ordinals so Day 1 and Day 3 aren't indistinguishable in the Log tab's day
-tabs and the Program tab's day list.
+**Do.** Rotate each equipment-filtered pool by the occurrence index of that day type while retaining
+the per-day duplicate guard. Return `null`, rather than an already-used template, when a within-day
+pool is exhausted. Do not collapse duplicate review cards.
 
-**Do (better, if time allows).** Vary exercise selection across repeats of a day type — carry
-`usedIds` across same-type days and rotate through the pool — so Day 1 and Day 3 genuinely differ.
-
-**Done when.** A new user completing onboarding never sees two cards with identical contents, and
-can tell their training days apart on Log and Program.
+**Done when.** Repeated days differ in at least one ordered `libraryId`/visible selection while
+alternatives remain, and a template never duplicates within one day. Reuse after alternatives are
+exhausted is allowed. Two generations from identical answers have identical ordered visible/library
+fields; generated row ids are intentionally unique and excluded from the comparison.
 
 ---
 
-### 6. Disabled buttons look enabled — **P0**
+### F6. Disabled buttons look enabled — **P0**
 
 **Symptom.** Onboarding step 1: "Continue" renders as a solid black CTA with an orange arrow,
 identical to an active button, and does nothing when tapped. No feedback at all. It is the first
@@ -206,17 +249,17 @@ interaction in the product and it reads as "the app is broken".
 **Cause.** `styles.css` has no `.btn:disabled` rule. (`.iconbtn:disabled` exists at
 `styles.css:1029` — follow that pattern.)
 
-**Do.** Add a disabled treatment for `.btn` that is unmistakable at a glance. Then consider whether
-disabling is even right here: keeping the button enabled and revealing the requirement on tap
-("Pick a goal to continue") is friendlier on a first-run screen. Either is acceptable; silence is
-not.
+**Do.** Add an unmistakable `.btn:disabled` treatment consistent with the existing
+`.iconbtn:disabled` pattern: dim the whole CTA and use the default cursor. Do not turn the button
+back into an enabled validation flow in this work item.
 
-**Done when.** No control anywhere in the app is visually indistinguishable between its enabled and
-disabled states. Sweep for other `disabled` usages while you're in there.
+**Done when.** On onboarding step 1, Continue cannot advance without a selection and its computed
+appearance differs clearly from the enabled state. Existing custom disabled treatments for Focus
+navigation and icon buttons remain intact.
 
 ---
 
-### 7. Loads accepted with no upper bound, and wrong validation messages — **P0**
+### F7. Loads accepted with no upper bound, and wrong validation messages — **P0**
 
 **Symptom.** Typing `1e5` in the load field commits a set at **100,000 kg**; `99999999` also
 commits. Both permanently distort every chart, e1RM, PR and volume number derived from that lift,
@@ -225,33 +268,50 @@ weight before saving the set."* for `abc`, `-50`, `0` and `12.5.5` — cases whe
 did enter something, so they don't know what to change.
 
 **Do.**
-- Clamp load to a plausible range (upper bound around 1000 kg / 2200 lb) and reject scientific
-  notation in `parseDec`'s consumers for this field.
-- Split the message into two: "enter a weight" when the field is empty, "that isn't a valid weight"
-  (or similar) when it's non-empty but unparseable or out of range. Both keys in both locales.
-- Check reps and RIR for the same class of hole while you're there.
+- Add one parser that trims the raw string and accepts only `^\d+(?:[.,]\d+)?$`. Return distinct
+  empty / invalid / valid-kg results. Values `<= 0` or above **1000 kg after exactly one display-unit
+  conversion** are invalid; 1000 kg is inclusive. This rejects exponent notation.
+- Use the existing empty message only for an empty committed/touched field. Add
+  `toast.invalid_weight`: “That isn't a valid weight.” / “Essa carga não é válida.”
+- Use the parser in per-set commit, final session save and History session edit. During final save,
+  ignore untouched blank rows as today; if a touched, committed or warm-up row has invalid load,
+  abort the entire save rather than partially persisting it.
+- Voice may continue to fill the same draft inputs and rely on this parser. Draft storage may retain
+  raw text. Backup import remains unchanged for compatibility. Reps/RIR policy is out of scope.
 
-**Done when.** No input a thumb can produce results in a stored set that corrupts the charts, and
-every rejection tells the user which of the two problems they have.
+**Done when.** Test empty, malformed, non-positive, scientific, comma-decimal, exact-limit and
+over-limit values in kg and lb through all three interactive persistence paths. Each rejection uses
+the correct localized message and leaves the log unchanged.
 
 ---
 
-### 8. Block counter runs past its own end — **P1**
+### F8. Mesocycle counter runs past its own end — **P1**
 
 **Symptom.** `Week 7 of 6`, `Week 9 of 6` — in the Today program chip, the workout header banner
 ("Block ending — Week 7 of 6."), and the Program tab beside a fully-filled 6-segment progress bar.
 
-**Cause.** `mesocycleWeek()` (`app.js:568`) never clamps `current` to `total`.
+**Cause.** `mesocycleWeek()` never separates elapsed week from display week. `blockSnapshot()`
+independently recalculates the same unbounded value, so changing only one helper leaves other
+surfaces wrong.
 
-**Do.** Clamp the displayed week, and make the overrun state say something true and useful —
-"Week 6 of 6 · block complete" or "2 weeks past · review your block" — rather than an impossible
-fraction. The banner is dismissible, so the state persists; the copy has to hold up.
+**Do.** Centralize lifecycle output. `elapsedWeek = programWeek()` may be null, so define:
 
-**Done when.** No surface can display `Week N of M` where `N > M`.
+- `current = elapsedWeek == null ? null : Math.min(elapsedWeek,total)`
+- `overrunWeeks = elapsedWeek == null ? 0 : Math.max(0,elapsedWeek-total)`
+- `isFinalWeek = elapsedWeek != null && elapsedWeek >= total`
+- `isComplete = programMeta.mesocycleStatus === "completed"`
+
+Consume the clamped value from `mesocycleWeek()` and `blockSnapshot()`. Use `isFinalWeek` to offer
+review while active and `isComplete` only for completed-state copy. Passing the target date does not
+mutate status to completed; use truthful localized copy such as “Week 6 of 6 · ready for review.”
+
+**Done when.** Test no start date (`current === null`, never Week 0), active week 8 of 6
+(`current === 6`, `overrunWeeks === 2`, `isComplete === false`) and stored completed status. No
+Today, workout, Program or review surface displays `N of M` where `N > M`.
 
 ---
 
-### 9. Volume bars contradict the numbers beside them — **P1**
+### F9. Volume bars contradict the numbers beside them — **P1**
 
 **Symptom.** `Front delts — 4 / 4 — On target` draws a **67 %** bar. `Lats — 5 / 5 — On target`
 draws 83 %. `Chest — 6 / 6` draws 100 %. `Adductors — 0 / 4 — Below` draws a visible 4 % orange nub
@@ -261,79 +321,107 @@ for zero sets. A lifter who hit every target sees three different bar lengths.
 the largest value across *all* muscles, while the number and status word next to it are per-muscle
 `completed / planned`. Two scales in one row.
 
-**Do.** Set the fill to `completed / planned` (capped at 100 %) so the bar, the fraction and the
-status word all describe the same thing. Drop the `Math.max(4, …)` floor so zero renders as zero.
+**Do.** Compute width as
+`planned > 0 ? Math.min(100, Math.round(completed7 / planned * 100)) : 0`. Remove both the
+`Math.max(4, …)` JavaScript floor and `.vrow__fill`'s CSS `min-width`, so zero is visually empty.
+Retain the existing High/On target/Below status semantics; rows with no planned target use zero
+width rather than dividing by zero.
 
-**Done when.** Every row where the fraction reads `n / n` shows a full bar, and `0 / n` shows an
-empty one.
+**Done when.** Assert `4/4` and `5/5` at 100%, `0/4` at 0%, over-target capped at 100%, and
+unplanned rows at 0% with no visible fill nub.
 
 ---
 
-### 10. Overview volume hides the muscles that matter — **P1**
+### F10. Overview volume hides the muscles that matter — **P1**
 
 **Symptom.** The same function does `rows.slice(0, 8)` on an alphabetically sorted list. On a real
 log that shows Adductors → Mid/upper back and **hides Quads at 0/6 "Low"**, plus Rear delts, Side
 delts, Spinal erectors and Triceps. The one row the lifter needs is cut because it starts with Q.
 
-**Do.** Sort by deficit (largest shortfall first) rather than alphabetically, and label the
-truncation so the list doesn't silently lie ("+5 more" / link to the Volume segment). New string,
-both locales.
+**Do.** Sort a copy by descending `Math.max(planned-completed7,0)`, then ascending completion ratio
+(`planned > 0 ? completed7/planned : Infinity`), then localized muscle name. Render the first eight.
+When rows remain, add a localized `+{n} more` button that opens the complete Volume segment.
 
-**Done when.** Any muscle below target appears in the visible eight, or the user can see that more
-rows exist.
+**Done when.** The largest deficits appear first with deterministic ties, the hidden count equals
+`rows.length-8` in English and Portuguese, and activating it reveals the complete Volume view.
 
 ---
 
-### 11. Dialogs are not modal — **P1**
+### F11. Dialogs are not modal — **P1**
 
 **Symptom.** `#endBlockConfirm`, `#importChoice` and `#blockReview` all carry `aria-modal="true"`
-but have no scrim, never move focus into themselves, don't close on Escape, and don't close on
-tap-outside. The page behind stays fully visible and **fully tappable** — you can hit "+ Add
-exercise" behind the "End this training block?" dialog.
+but never move focus into themselves, do not trap focus, do not close on Escape, and do not restore
+focus. The two compact dialogs also have no scrim and leave the page behind tappable. The
+full-screen block review already covers the viewport, so it does not need a second visible scrim.
 
-**Do.** Extract the pattern the exercise-note sheet already implements correctly (`#exNoteSheet` +
-`#exNoteScrim`: scrim, focus moved into the dialog, tap-out to close) into a small shared helper,
-and apply it to all three. Restore focus to the trigger on close. Keep Escape working.
+**Do.** Extract the exercise-note sheet's focus/Tab/Escape/focus-return behavior into a shared
+controller in `app.js`. Opening records the visible opener, makes background siblings inert, focuses
+the first enabled control and installs one Escape/forward-Tab/reverse-Tab handler. Closing removes
+inert state and restores the recorded opener. Add one shared scrim for compact dialogs and enable
+backdrop-close there only. The full-screen review needs no second visible scrim.
 
-**Done when.** For each of the three: background is dimmed and inert, focus lands inside on open,
-Escape and tap-outside both close, and focus returns to the element that opened it.
+The end-block flow is chained: confirmation closes before block review opens. Transfer the original
+Program-page End block opener into block review instead of recording/restoring the now-hidden
+`#endBlockGo` button.
+
+**Done when.** For each of the three: background is inert, focus lands inside, Tab stays inside,
+Escape closes, and focus returns to the opener. The two compact dialogs are dimmed and close on
+backdrop tap; the full-screen review closes through its own Close/Decide later controls. Retain the
+exercise-note-sheet behavior while sharing the primitive.
 
 ---
 
-### 12. Secondary text fails WCAG AA nearly everywhere — **P1**
+### C1. Secondary and accent text fail WCAG AA — **P1**
 
 **Symptom.** `--ink-faint` (`#98948C`) on the app background is **2.7:1** — every section label,
 table header, eyebrow, calendar day-of-week row and settings group label fails AA (needs 4.5:1). The
 text accent `#E04E14` on background is **3.57:1** — every text link, "Edit", "Done", "See volume ›",
 "Cancel", every back link. On card white it's 3.99:1. The disabled Focus prev-chevron is **1.31:1**,
-which is invisible rather than merely dim.
+which is difficult to perceive. Disabled controls are exempt from WCAG contrast requirements; its
+change below is a usability target, not an AA claim.
 
-**Do.** Darken the two variables until body-size text clears 4.5:1 on both the app background
-(`#F4F2EF`) and card white. Roughly `#6E6A62` for `--ink-faint` and around `#B33C0F` for the text
-accent get there, but **measure, don't trust those values** — compute the ratios yourself against
-both backgrounds. If the brand accent must stay `#E04E14` for large text and fills, introduce a
-separate darker token for accent *text* rather than changing the fill colour.
-
-Also give the disabled `.focusnav` chevron enough contrast to read as a present-but-unavailable
-control (3:1 for non-text UI).
+**Do.** Keep `--accent:#E04E14` for fills, borders, focus rings and the dark-CTA arrow. Set
+`--ink-faint:#6E6A62`. Introduce `--accent-text:#B8410E` and migrate accent foreground text on light
+surfaces to it without changing fills/icons that already rely on brand orange. Those candidates
+measure 4.82/5.38 and 4.95/5.53 against `#F4F2EF`/white respectively; verify the implemented
+selectors. Set `.focusnav:disabled` to a token that reaches the product's 3:1 usability target.
 
 **Done when.** A contrast sweep over Today, Progress, History, Program, Settings and an active
-workout reports no body-text failures. Re-check both locales — Portuguese strings are longer and
-land in different places.
+workout reports no audited body-text failures on cream or white. Both locales pass, brand-orange
+fills/focus indicators remain unchanged, and disabled Focus navigation reaches 3:1.
 
 ---
 
 ## Explicitly out of scope
 
-Do **not** attempt these; they need a design pass, not a patch, and they'll blow the timeline:
+Do **not** attempt these; they need a design or product-decision pass:
 
-- The 320 px layout failure (reps/RIR inputs collapsing to 4–6 px, last-session ledger clipped away).
-- Landscape (844×390 slices the card mid-word).
-- History performance at multi-year scale (32,559 DOM nodes, 45,650 px page).
-- The Focus card's ~450 px of reserved dead space.
+- F3 pound display/actionable increment policy.
+- F12 early workout finish.
+- F14 landscape.
+- F15 tour accuracy.
+- F17–F30 and every P3 item except C1.
+- History performance at multi-year scale and the Focus card's large flex-ledger gap.
 - Any redesign of the Focus deck, the Program editor, or the Block review.
 
-Findings 15–30 and the P3 list in the audit are also out of scope for this pass. Leave them.
+F13 and F16 are rejected, not backlog work.
+
+## Parallel workstreams
+
+These are logical workstreams for isolated implementation agents, not conflict-free file seams:
+
+1. Recommendation/adherence/week lifecycle: F1, F2 and F8.
+2. Onboarding generator: F4 and F5.
+3. Load validation: F7.
+4. Presentation: F6, F9, F10 and C1.
+5. Dialog behavior: F11.
+
+All five may touch `app.js` and browser tests; Presentation and Dialog behavior may share
+`styles.css`; four streams may touch i18n artifacts. Each workstream updates every representation
+needed by its own behavior, owns focused tests and produces one logical commit. The integrator
+cherry-picks in the order above, resolves those expected overlaps, and verifies the merged intent.
+No workstream edits `sw.js`; the integrator performs one cache rollover (`repforge-v53` →
+`repforge-v54`) after integration.
 
 ---
 
@@ -343,36 +431,73 @@ There is a reusable Playwright harness pattern in `test/focus-mode.mjs` — `per
 to **both** localStorage and IndexedDB (the app restores from IndexedDB first, so writing only
 localStorage silently does nothing). Copy that helper rather than reinventing it.
 
-For each fix, verify in a real browser at 390×844, and check the affected screens in **both**
-languages and **both** units. Several of these bugs only appear in one combination.
+Required focused regression coverage:
 
-Before you open the PR:
+- **F1:** all four raw recommendation branches with mixed previous-set loads; internal kg-grid
+  alignment plus kg output in the card, untouched Focus first-set load/reps and exercise page;
+  exact-grid holds retain double progression and sub-increment loads stay positive.
+- **F2:** previous Sunday, current Monday–Sunday and following Monday; calendar counts on Today and
+  Progress, rolling counts plus explicit seven-day copy on both Program surfaces, no future leak.
+- **F4/F5:** every selectable non-empty equipment subset and reachable split/day pair; no Bodyweight
+  UI, equipment-valid `libraryId`s including priority additions, no within-day duplicate, differing
+  repeated days while alternatives remain, and stable visible output across two generations.
+- **F6:** disabled onboarding Continue cannot advance and has computed styling distinct from enabled.
+- **F7:** empty, malformed, non-positive, scientific, comma-decimal, exact-limit and over-limit
+  inputs in kg/lb; correct toast and unchanged log in per-set, final-save and History-edit paths.
+- **F8:** week 8 of 6 across every week-bearing surface, including review; clamped fraction and
+  truthful active/completed copy.
+- **F9/F10:** `4/4` and `5/5` widths at 100%, `0/4` and unplanned rows at 0%, deficits first,
+  deterministic ties, localized hidden-row count and navigation to complete Volume.
+- **F11:** all three dialogs get initial focus, forward/reverse Tab loop, Escape, opener restoration,
+  inert background and compact-dialog backdrop close; retain exercise-note-sheet coverage.
+- **C1:** compute contrast for every changed token against cream and white, assert mapped text
+  selectors use the passing token, retain brand-orange fill/focus rules, and check disabled Focus
+  navigation against the 3:1 product target.
+
+For each work item, verify in a real browser at 390×844 and check affected screens in both languages
+and both units where the behavior varies. Focused tests belong in the existing Playwright files;
+do not create a second test framework.
+
+With the static server running in a separate terminal:
 
 ```bash
 node --check app.js
-cd test && REPFORGE_URL=http://localhost:8000/ npm run simulate
-cd test && REPFORGE_URL=http://localhost:8000/ npm run test:focus
+node --check i18n.js
+node --check sw.js
+REPFORGE_URL=http://localhost:8000/ npm --prefix test run simulate
+REPFORGE_URL=http://localhost:8000/ npm --prefix test run test:focus
 ```
 
 Confirm zero console errors on every tab — the app currently has none, and that's a property worth
 keeping.
 
+After integration, verify i18n parity:
+
+```bash
+node <<'NODE'
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const { STRINGS } = require("./i18n.js");
+for (const lang of ["en", "pt"]) {
+  assert.deepStrictEqual(
+    STRINGS[lang],
+    JSON.parse(fs.readFileSync(`i18n-${lang}.json`, "utf8"))
+  );
+}
+console.log("i18n parity OK");
+NODE
+```
+
 ---
 
 ## Delivering
 
-Work on a branch off `main`. One commit per numbered fix, message naming the finding it closes.
-Bump `sw.js` `CACHE` in the last commit.
+Commit each workstream as one logical change and report the commit hash to the integrator. The
+integrator resolves overlaps, verifies generated `i18n.js`, performs the single `sw.js` cache bump,
+runs both complete suites, and owns the draft PR. In a fresh browser context, the integrator also
+loads online, waits for `navigator.serviceWorker.ready`, reloads, switches offline, reloads again,
+and confirms the shell boots without console errors.
 
-Open a **draft PR**. In the body:
-- list which of the twelve you completed and which you did not, with reasons
-- for fix 1 and fix 3, state exactly what rounding rule you chose and why
-- for fix 4 and fix 5, state which option (a/b, minimum/better) you implemented
-- **name every test expectation you changed and justify each one** — a moved assertion is a claim
-  that the old expected value was wrong, and it needs to read like one
-- flag anything you found that the audit missed
-
-If a fix turns out to be larger than this brief implies, or you find that fixing it properly
-requires touching something on the out-of-scope list, **stop and say so in the PR** rather than
-half-doing it or quietly expanding scope. Shipping six correct fixes and a clear note about the
-seventh beats shipping seven uncertain ones the night before launch.
+Name every changed test expectation and justify it. A moved assertion is a claim that the old
+expected value was wrong; do not loosen checks merely to make them pass. If a validated fix requires
+an out-of-scope product decision, stop that workstream and report the exact boundary.
