@@ -5,8 +5,13 @@ import { launchChromium } from "./browser.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const PENDING = "repforge_pending_v1";
+const PENDING_PREFIX = `${PENDING}:`;
+const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
+const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
 const DB = "repforge";
 const STORE = "kv";
+const STORAGE_LOCK = "repforge:state-write";
 const failures = [];
 
 function check(condition, message, detail) {
@@ -104,11 +109,39 @@ async function waitForApp(page) {
   );
 }
 
+async function flushStorage(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+  });
+}
+
 async function putBoth(page, snapshot) {
+  await flushStorage(page);
   await page.evaluate(
-    async ({ key, draftKey, dbName, storeName, snapshot }) => {
+    async ({
+      key,
+      draftKey,
+      pendingKey,
+      pendingPrefix,
+      draftPendingPrefix,
+      draftClosePrefix,
+      dbName,
+      storeName,
+      snapshot,
+    }) => {
       localStorage.setItem(key, JSON.stringify(snapshot));
       localStorage.removeItem(draftKey);
+      for (let index = localStorage.length - 1; index >= 0; index--) {
+        const storageKey = localStorage.key(index);
+        if (
+          storageKey === pendingKey ||
+          storageKey?.startsWith(pendingPrefix) ||
+          storageKey?.startsWith(draftPendingPrefix) ||
+          storageKey?.startsWith(draftClosePrefix)
+        ) {
+          localStorage.removeItem(storageKey);
+        }
+      }
       const db = await new Promise((resolve, reject) => {
         const req = indexedDB.open(dbName, 1);
         req.onupgradeneeded = () => req.result.createObjectStore(storeName);
@@ -123,7 +156,55 @@ async function putBoth(page, snapshot) {
       });
       db.close();
     },
-    { key: KEY, draftKey: DRAFT, dbName: DB, storeName: STORE, snapshot }
+    {
+      key: KEY,
+      draftKey: DRAFT,
+      pendingKey: PENDING,
+      pendingPrefix: PENDING_PREFIX,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      draftClosePrefix: DRAFT_CLOSE_PREFIX,
+      dbName: DB,
+      storeName: STORE,
+      snapshot,
+    }
+  );
+  const seeded = await readBoth(page);
+  const artifacts = await persistenceArtifactKeys(page);
+  if (
+    JSON.stringify(seeded.local) !== JSON.stringify(snapshot) ||
+    JSON.stringify(seeded.idb) !== JSON.stringify(snapshot) ||
+    seeded.draft !== null ||
+    artifacts.length !== 0
+  ) {
+    throw new Error(
+      `persistence-race baseline seed failed: ${JSON.stringify({ seeded, artifacts })}`
+    );
+  }
+}
+
+async function persistenceArtifactKeys(page) {
+  return page.evaluate(
+    ({ pendingKey, pendingPrefix, draftPendingPrefix, draftClosePrefix }) => {
+      const keys = [];
+      for (let index = 0; index < localStorage.length; index++) {
+        const storageKey = localStorage.key(index);
+        if (
+          storageKey === pendingKey ||
+          storageKey?.startsWith(pendingPrefix) ||
+          storageKey?.startsWith(draftPendingPrefix) ||
+          storageKey?.startsWith(draftClosePrefix)
+        ) {
+          keys.push(storageKey);
+        }
+      }
+      return keys.sort();
+    },
+    {
+      pendingKey: PENDING,
+      pendingPrefix: PENDING_PREFIX,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      draftClosePrefix: DRAFT_CLOSE_PREFIX,
+    }
   );
 }
 
@@ -221,7 +302,7 @@ try {
       session: window.__raceSession,
     };
   });
-  await page.evaluate(() => window.__repforgeStorage.flush());
+  await flushStorage(page);
   const beforeReload = await readBoth(page);
 
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -266,7 +347,7 @@ try {
     await page.locator('[data-k="race-press_1_reps"]').fill("9");
     await page.locator('[data-k="race-press_1_rir"]').fill("1");
     const crossAccepted = await page.evaluate(() => window.__repforgeSaveWorkout());
-    await page.evaluate(() => window.__repforgeStorage.flush());
+    await flushStorage(page);
 
     await peer.evaluate(() => {
       window.__repforgeShowSettings();
@@ -274,7 +355,7 @@ try {
       jump.value = "4.25";
       document.querySelector("#saveSettings").click();
     });
-    await peer.evaluate(() => window.__repforgeStorage.flush());
+    await flushStorage(peer);
 
     const cross = await readBoth(page);
     const crossSummary = {
@@ -409,7 +490,7 @@ try {
     const result = await window.__resetRaceSave;
     return { result, session: window.__resetRaceSession };
   });
-  await page.evaluate(() => window.__repforgeStorage.flush());
+  await flushStorage(page);
   const resetRace = await readBoth(page);
   const resetRaceSummary = {
     accepted: !!(resetRaceAccepted.result?.localOk || resetRaceAccepted.result?.idbOk),
@@ -426,6 +507,89 @@ try {
     "Delete log removes the seen log without erasing a concurrently accepted workout",
     resetRaceSummary
   );
+
+  console.log("\nsynchronous journal failure");
+  {
+    const quotaContext = await browser.newContext();
+    const writer = await quotaContext.newPage();
+    try {
+      await writer.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForApp(writer);
+      const baseline = seededState();
+      baseline._storageRevision = 60;
+      await putBoth(writer, baseline);
+      await writer.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(writer);
+
+      await writer.evaluate((pendingPrefix) => {
+        const originalSetItem = Storage.prototype.setItem;
+        window.__restoreJournalQuotaPatch = () => {
+          Storage.prototype.setItem = originalSetItem;
+          delete window.__restoreJournalQuotaPatch;
+        };
+        Storage.prototype.setItem = function (candidate) {
+          if (typeof candidate === "string" && candidate.startsWith(pendingPrefix)) {
+            throw new DOMException("forced journal quota failure", "QuotaExceededError");
+          }
+          return originalSetItem.apply(this, arguments);
+        };
+      }, PENDING_PREFIX);
+
+      await writer.evaluate(async () => {
+        window.__repforgeShowSettings();
+        document.querySelector("#jumpPct").value = "7.75";
+        document.querySelector("#saveSettings").click();
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+      const ordinary = await readBoth(writer);
+      const ordinaryUi = await writer.evaluate(() => ({
+        jumpPct: Number(document.querySelector("#jumpPct")?.value),
+        toast: document.querySelector("#toast")?.textContent || "",
+        health: window.__repforgeStorage.health(),
+      }));
+      const ordinaryArtifacts = await persistenceArtifactKeys(writer);
+      check(
+        ordinary.local?.settings?.jumpPct === 2.5 &&
+          ordinary.idb?.settings?.jumpPct === 2.5 &&
+          ordinaryUi.jumpPct === 2.5 &&
+          !/settings saved/i.test(ordinaryUi.toast) &&
+          ordinaryUi.health.lastResult?.journalFailed === true &&
+          ordinaryArtifacts.length === 0,
+        "ordinary mutation fails before optimistic state when its journal cannot be written",
+        { ordinaryUi, ordinaryArtifacts }
+      );
+
+      const requiredResult = await writer.evaluate(() =>
+        window.__repforgeApplyProgramTemplate()
+      );
+      await writer.evaluate(
+        () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
+      );
+      const required = await readBoth(writer);
+      const requiredUi = await writer.evaluate(() => ({
+        toast: document.querySelector("#toast")?.textContent || "",
+        health: window.__repforgeStorage.health(),
+      }));
+      const requiredArtifacts = await persistenceArtifactKeys(writer);
+      check(
+        requiredResult?.journalFailed === true &&
+          requiredResult?.localOk === false &&
+          requiredResult?.idbOk === false &&
+          requiredUi.health.lastResult?.journalFailed === true &&
+          /couldn.t save|storage may be full/i.test(requiredUi.toast) &&
+          !/newer unfinished workout/i.test(requiredUi.toast) &&
+          required.local?.programMeta?.id === baseline.programMeta.id &&
+          required.idb?.programMeta?.id === baseline.programMeta.id &&
+          requiredArtifacts.length === 0,
+        "required-effect mutation also fails closed without an unload journal",
+        { requiredResult, requiredUi, requiredArtifacts }
+      );
+      await writer.evaluate(() => window.__restoreJournalQuotaPatch?.());
+    } finally {
+      await quotaContext.close();
+    }
+  }
 } finally {
   await context.close();
   await browser.close();

@@ -6245,11 +6245,11 @@ async function main() {
   async function clickRir(mode) {
     await nav(page, "settings");
     await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
-    await page.evaluate((m) => {
+    await page.evaluate(async (m) => {
       const el = document.querySelector(`input[name="rirMode"][value="${m}"]`);
       el.checked = true;
       el.dispatchEvent(new Event("change", { bubbles: true }));
-      return window.__repforgeStorage.flush();
+      await window.__repforgeStorage.flush();
     }, mode);
   }
   async function rirState() {

@@ -9,8 +9,12 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const PENDING = "repforge_pending_v1";
+const PENDING_PREFIX = `${PENDING}:`;
+const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
+const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
 const DB = "repforge";
 const STORE = "kv";
+const STORAGE_LOCK = "repforge:state-write";
 const EXERCISE_ID = "draft-guard-press";
 const failures = [];
 let passed = 0;
@@ -103,10 +107,30 @@ async function reloadApp(page) {
 
 async function writeFixture(page, state) {
   await page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName, state }) => {
+    async ({
+      key,
+      draftKey,
+      pendingKey,
+      pendingPrefix,
+      draftPendingPrefix,
+      draftClosePrefix,
+      dbName,
+      storeName,
+      state,
+    }) => {
       localStorage.setItem(key, JSON.stringify(state));
       localStorage.removeItem(draftKey);
-      localStorage.removeItem(pendingKey);
+      for (let index = localStorage.length - 1; index >= 0; index--) {
+        const storageKey = localStorage.key(index);
+        if (
+          storageKey === pendingKey ||
+          storageKey?.startsWith(pendingPrefix) ||
+          storageKey?.startsWith(draftPendingPrefix) ||
+          storageKey?.startsWith(draftClosePrefix)
+        ) {
+          localStorage.removeItem(storageKey);
+        }
+      }
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
@@ -121,13 +145,43 @@ async function writeFixture(page, state) {
       });
       db.close();
     },
-    { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE, state }
+    {
+      key: KEY,
+      draftKey: DRAFT,
+      pendingKey: PENDING,
+      pendingPrefix: PENDING_PREFIX,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      draftClosePrefix: DRAFT_CLOSE_PREFIX,
+      dbName: DB,
+      storeName: STORE,
+      state,
+    }
   );
+  const seeded = await readRuntime(page);
+  if (
+    seeded.local?._storageRevision !== state._storageRevision ||
+    seeded.idb?._storageRevision !== state._storageRevision ||
+    seeded.local?.programMeta?.id !== state.programMeta.id ||
+    seeded.idb?.programMeta?.id !== state.programMeta.id ||
+    seeded.draftRaw !== null ||
+    seeded.persistenceArtifacts.length !== 0
+  ) {
+    throw new Error(`isolated set-reduction seed failed: ${JSON.stringify(seeded)}`);
+  }
 }
 
 async function readRuntime(page) {
   return page.evaluate(
-    async ({ key, draftKey, dbName, storeName }) => {
+    async ({
+      key,
+      draftKey,
+      pendingKey,
+      pendingPrefix,
+      draftPendingPrefix,
+      draftClosePrefix,
+      dbName,
+      storeName,
+    }) => {
       const localRaw = localStorage.getItem(key);
       const draftRaw = localStorage.getItem(draftKey);
       const db = await new Promise((resolve, reject) => {
@@ -142,14 +196,37 @@ async function readRuntime(page) {
         request.onerror = () => reject(request.error);
       });
       db.close();
+      const persistenceArtifacts = [];
+      for (let index = 0; index < localStorage.length; index++) {
+        const storageKey = localStorage.key(index);
+        if (
+          storageKey === pendingKey ||
+          storageKey?.startsWith(pendingPrefix) ||
+          storageKey?.startsWith(draftPendingPrefix) ||
+          storageKey?.startsWith(draftClosePrefix)
+        ) {
+          persistenceArtifacts.push(storageKey);
+        }
+      }
+      persistenceArtifacts.sort();
       return {
         local: localRaw == null ? null : JSON.parse(localRaw),
         idb,
         draftRaw,
         draft: draftRaw == null ? null : JSON.parse(draftRaw),
+        persistenceArtifacts,
       };
     },
-    { key: KEY, draftKey: DRAFT, dbName: DB, storeName: STORE }
+    {
+      key: KEY,
+      draftKey: DRAFT,
+      pendingKey: PENDING,
+      pendingPrefix: PENDING_PREFIX,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      draftClosePrefix: DRAFT_CLOSE_PREFIX,
+      dbName: DB,
+      storeName: STORE,
+    }
   );
 }
 
@@ -161,6 +238,54 @@ async function fillSet(page, set, load, reps, rir) {
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).fill(String(load));
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_reps"]`).fill(String(reps));
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_rir"]`).fill(String(rir));
+}
+
+async function openProgramEditor(page) {
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.click('nav button[data-view="program"]');
+  await page.waitForSelector("#program.view.active", { timeout: 5000 });
+  if (await page.locator("#programEditorWrap").evaluate((element) =>
+    element.classList.contains("is-hidden")
+  )) {
+    await page.click("#programEditToggle");
+  }
+  await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+}
+
+async function holdStorageLock(page) {
+  await page.evaluate((lockName) => {
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    window.__setReductionReleaseLock = release;
+    window.__setReductionLockHeld = false;
+    window.__setReductionLockDone = navigator.locks.request(lockName, async () => {
+      window.__setReductionLockHeld = true;
+      await gate;
+    });
+  }, STORAGE_LOCK);
+  await page.waitForFunction(() => window.__setReductionLockHeld === true, {
+    timeout: 10000,
+  });
+}
+
+async function waitForPendingStorageLock(page) {
+  await page.waitForFunction(
+    async (lockName) => {
+      const locks = await navigator.locks.query();
+      return locks.pending.some((lock) => lock.name === lockName);
+    },
+    STORAGE_LOCK,
+    { timeout: 10000 }
+  );
+}
+
+async function releaseStorageLock(page) {
+  await page.evaluate(async () => {
+    window.__setReductionReleaseLock?.();
+    await window.__setReductionLockDone;
+  });
 }
 
 async function main() {
@@ -488,6 +613,75 @@ async function main() {
         draftPresent: afterSafeFinish.draftRaw != null,
       }
     );
+
+    await writeFixture(page, fixture());
+    await reloadApp(page);
+    const workout = await context.newPage();
+    const locker = await context.newPage();
+    try {
+      await workout.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForApp(workout);
+      await locker.goto(BASE, { waitUntil: "domcontentloaded" });
+      await waitForApp(locker);
+      await openProgramEditor(page);
+      await workout.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+      await workout.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+      await holdStorageLock(locker);
+
+      const queuedInput = page.locator(
+        `#programEditor input[data-id="${EXERCISE_ID}"][data-field="sets"]`
+      );
+      await queuedInput.fill("1");
+      await waitForPendingStorageLock(locker);
+      await fillSet(workout, 2, 97.5, 7, 1);
+      await workout.waitForFunction(
+        ({ draftKey, draftPendingPrefix, loadKey }) => {
+          const raws = [localStorage.getItem(draftKey)];
+          for (let index = 0; index < localStorage.length; index++) {
+            const storageKey = localStorage.key(index);
+            if (!storageKey?.startsWith(draftPendingPrefix)) continue;
+            try {
+              raws.push(JSON.parse(localStorage.getItem(storageKey))?.raw ?? null);
+            } catch {}
+          }
+          return raws.some((raw) => {
+            try {
+              return JSON.parse(raw || "null")?.[loadKey] === "97.5";
+            } catch {
+              return false;
+            }
+          });
+        },
+        {
+          draftKey: DRAFT,
+          draftPendingPrefix: DRAFT_PENDING_PREFIX,
+          loadKey: `${EXERCISE_ID}_2_load`,
+        },
+        { timeout: 5000 }
+      );
+
+      await releaseStorageLock(locker);
+      await page.evaluate(() => window.__repforgeStorage.flush());
+      const raced = await readRuntime(page);
+      await reloadApp(page);
+      await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+      await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+      check(
+        programSets(raced.local) === 2 &&
+          programSets(raced.idb) === 2 &&
+          raced.draft?.[`${EXERCISE_ID}_2_load`] === "97.5" &&
+          (await page.locator(`[data-k="${EXERCISE_ID}_2_load"]`).count()) === 1,
+        "queued set reduction aborts when set progress is published before its lock",
+        {
+          localSets: programSets(raced.local),
+          idbSets: programSets(raced.idb),
+          draftSet2: raced.draft?.[`${EXERCISE_ID}_2_load`],
+        }
+      );
+    } finally {
+      await workout.close();
+      await locker.close();
+    }
   } finally {
     await browser.close();
   }

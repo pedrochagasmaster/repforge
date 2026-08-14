@@ -9,6 +9,9 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const PENDING = "repforge_pending_v1";
+const PENDING_PREFIX = `${PENDING}:`;
+const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
+const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -111,14 +114,31 @@ async function reloadApp(page) {
 
 async function writeReplicas(page, { local, idb, clearDraft = true }) {
   await page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName, local, idb, clearDraft }) => {
+    async ({
+      key,
+      draftKey,
+      pendingKey,
+      pendingPrefix,
+      draftPendingPrefix,
+      draftClosePrefix,
+      dbName,
+      storeName,
+      local,
+      idb,
+      clearDraft,
+    }) => {
       if (local == null) localStorage.removeItem(key);
       else localStorage.setItem(key, JSON.stringify(local));
       if (clearDraft) {
         localStorage.removeItem(draftKey);
         for (let i = localStorage.length - 1; i >= 0; i--) {
           const storageKey = localStorage.key(i);
-          if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
+          if (
+            storageKey === pendingKey ||
+            storageKey?.startsWith(pendingPrefix) ||
+            storageKey?.startsWith(draftPendingPrefix) ||
+            storageKey?.startsWith(draftClosePrefix)
+          ) {
             localStorage.removeItem(storageKey);
           }
         }
@@ -139,8 +159,31 @@ async function writeReplicas(page, { local, idb, clearDraft = true }) {
       });
       db.close();
     },
-    { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE, local, idb, clearDraft }
+    {
+      key: KEY,
+      draftKey: DRAFT,
+      pendingKey: PENDING,
+      pendingPrefix: PENDING_PREFIX,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      draftClosePrefix: DRAFT_CLOSE_PREFIX,
+      dbName: DB,
+      storeName: STORE,
+      local,
+      idb,
+      clearDraft,
+    }
   );
+  const seeded = await readBoth(page);
+  if (
+    JSON.stringify(seeded.local) !== JSON.stringify(local) ||
+    JSON.stringify(seeded.idb) !== JSON.stringify(idb) ||
+    (clearDraft &&
+      (seeded.draftRaw !== null ||
+        seeded.pendingEntries.length !== 0 ||
+        seeded.draftArtifacts.length !== 0))
+  ) {
+    throw new Error(`isolated replica seed failed: ${JSON.stringify(summary(seeded))}`);
+  }
 }
 
 async function writeIdb(page, value) {
@@ -168,7 +211,15 @@ async function writeIdb(page, value) {
 
 async function readBoth(page) {
   return page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName }) => {
+    async ({
+      key,
+      draftKey,
+      pendingKey,
+      draftPendingPrefix,
+      draftClosePrefix,
+      dbName,
+      storeName,
+    }) => {
       const localRaw = localStorage.getItem(key);
       const local = localRaw == null ? null : JSON.parse(localRaw);
       const db = await new Promise((resolve, reject) => {
@@ -207,9 +258,37 @@ async function readBoth(page) {
         }
       });
       const pending = parsedPending.length === 1 ? parsedPending[0].value : parsedPending;
-      return { local, idb, draftRaw, draft, pendingRaw, pending, pendingEntries: parsedPending };
+      const draftArtifacts = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const storageKey = localStorage.key(i);
+        if (
+          storageKey?.startsWith(draftPendingPrefix) ||
+          storageKey?.startsWith(draftClosePrefix)
+        ) {
+          draftArtifacts.push(storageKey);
+        }
+      }
+      draftArtifacts.sort();
+      return {
+        local,
+        idb,
+        draftRaw,
+        draft,
+        pendingRaw,
+        pending,
+        pendingEntries: parsedPending,
+        draftArtifacts,
+      };
     },
-    { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE }
+    {
+      key: KEY,
+      draftKey: DRAFT,
+      pendingKey: PENDING,
+      draftPendingPrefix: DRAFT_PENDING_PREFIX,
+      draftClosePrefix: DRAFT_CLOSE_PREFIX,
+      dbName: DB,
+      storeName: STORE,
+    }
   );
 }
 
@@ -239,6 +318,18 @@ async function fillSet(page, set, { load, reps, rir }) {
   await page.locator(`[data-k="audit-press_${set}_load"]`).fill(String(load));
   await page.locator(`[data-k="audit-press_${set}_reps"]`).fill(String(reps));
   await page.locator(`[data-k="audit-press_${set}_rir"]`).fill(String(rir));
+}
+
+async function openProgramEditor(page) {
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.click('nav button[data-view="program"]');
+  await page.waitForSelector("#program.view.active", { timeout: 5000 });
+  if (await page.locator("#programEditorWrap").evaluate((element) =>
+    element.classList.contains("is-hidden")
+  )) {
+    await page.click("#programEditToggle");
+  }
+  await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
 }
 
 async function holdStorageLock(page) {
@@ -1391,6 +1482,192 @@ async function scenarioDeferredOnboardingCannotSupersedeRepeat(browser) {
   }
 }
 
+async function scenarioConcurrentWholeProgramReplacements(browser) {
+  console.log("\n13. Concurrent whole-program replacements use one captured identity");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const first = await openApp(context);
+    const baseline = fixture(140);
+    await writeReplicas(first, { local: baseline, idb: baseline });
+    await reloadApp(first);
+    const second = await openApp(context);
+    const locker = await openApp(context);
+
+    await holdStorageLock(locker);
+    await first.evaluate(() => {
+      window.__auditFirstReplacement = window.__repforgeApplyProgramTemplate();
+    });
+    await waitForPendingStorageLocks(locker, 1);
+    await second.evaluate(() => {
+      window.__auditSecondReplacement = window.__repforgeApplyProgramTemplate();
+    });
+    await waitForPendingStorageLocks(locker, 2);
+    await releaseStorageLock(locker);
+
+    const [firstResult, secondResult] = await Promise.all([
+      first.evaluate(() => window.__auditFirstReplacement),
+      second.evaluate(() => window.__auditSecondReplacement),
+    ]);
+    await Promise.all([
+      first.evaluate(() => window.__repforgeStorage.flush()),
+      second.evaluate(() => window.__repforgeStorage.flush()),
+    ]);
+    const final = await readBoth(locker);
+    const acceptedCount = [firstResult, secondResult].filter(
+      (result) => result?.localOk || result?.idbOk
+    ).length;
+    const semanticSlots = (final.local?.program || []).map(
+      (exercise) => `${exercise.day}\u0000${exercise.order}\u0000${exercise.name}`
+    );
+
+    check(
+      acceptedCount === 1 &&
+        final.local?.program?.length === 18 &&
+        final.idb?.program?.length === 18 &&
+        new Set(semanticSlots).size === 18 &&
+        final.pendingEntries.length === 0,
+      "only one same-base whole-program replacement commits",
+      {
+        firstResult,
+        secondResult,
+        acceptedCount,
+        localRows: final.local?.program?.length,
+        idbRows: final.idb?.program?.length,
+        semanticSlots: new Set(semanticSlots).size,
+        pending: final.pendingEntries,
+      }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenarioConcurrentExerciseFieldEdits(browser) {
+  console.log("\n14. Concurrent same-ID exercise fields rebase independently");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const renamer = await openApp(context);
+    const baseline = fixture(150);
+    await writeReplicas(renamer, { local: baseline, idb: baseline });
+    await reloadApp(renamer);
+    const counter = await openApp(context);
+    const locker = await openApp(context);
+    await openProgramEditor(renamer);
+    await openProgramEditor(counter);
+    await holdStorageLock(locker);
+
+    await renamer
+      .locator('#programEditor input[data-id="audit-press"][data-field="name"]')
+      .fill("Audit press renamed");
+    await waitForPendingStorageLocks(locker, 1);
+    await counter
+      .locator('#programEditor input[data-id="audit-press"][data-field="sets"]')
+      .fill("3");
+    await waitForPendingStorageLocks(locker, 2);
+    await releaseStorageLock(locker);
+    await Promise.all([
+      renamer.evaluate(() => window.__repforgeStorage.flush()),
+      counter.evaluate(() => window.__repforgeStorage.flush()),
+    ]);
+
+    const final = await readBoth(locker);
+    const localExercise = final.local?.program?.find((entry) => entry.id === "audit-press");
+    const idbExercise = final.idb?.program?.find((entry) => entry.id === "audit-press");
+    check(
+      final.local?.program?.length === 1 &&
+        final.idb?.program?.length === 1 &&
+        localExercise?.name === "Audit press renamed" &&
+        localExercise?.sets === 3 &&
+        idbExercise?.name === "Audit press renamed" &&
+        idbExercise?.sets === 3,
+      "distinct concurrent fields survive without duplicate exercise rows",
+      { localExercise, idbExercise }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
+  console.log("\n15. Unrelated program edits cannot split a historical session");
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  try {
+    const page = await openApp(context);
+    const baseline = fixture(160);
+    baseline.program.push({
+      ...baseline.program[0],
+      id: "audit-row",
+      name: "Audit row",
+      order: 2,
+      primary: "Back",
+    });
+    baseline.log = [
+      {
+        session: "audit-indivisible-session",
+        date: "2026-08-14",
+        day: "Day 1",
+        name: "Audit press",
+        exerciseId: "audit-press",
+        set: 1,
+        load: 80,
+        reps: 8,
+        rir: 1,
+        notes: "",
+        created: "2026-08-14T12:00:00.000Z",
+        primary: "Chest",
+        secondary: "",
+      },
+      {
+        session: "audit-indivisible-session",
+        date: "2026-08-14",
+        day: "Day 1",
+        name: "Audit row",
+        exerciseId: "audit-row",
+        set: 1,
+        load: 70,
+        reps: 8,
+        rir: 1,
+        notes: "",
+        created: "2026-08-14T12:00:00.000Z",
+        primary: "Back",
+        secondary: "",
+      },
+    ];
+    await writeReplicas(page, { local: baseline, idb: baseline });
+    await reloadApp(page);
+    await openProgramEditor(page);
+    await page.locator("#programEditorWrap details.advanced").evaluate((details) => {
+      details.open = true;
+    });
+    const moved = JSON.parse(JSON.stringify(baseline.program));
+    moved.find((exercise) => exercise.id === "audit-row").day = "Day 2";
+    await page.locator("#programJson").fill(JSON.stringify(moved));
+    await page.click("#saveProgram");
+    await page.evaluate(() => window.__repforgeStorage.flush());
+
+    const final = await readBoth(page);
+    const rows = final.local?.log?.filter(
+      (row) => row.session === "audit-indivisible-session"
+    ) || [];
+    const weekly = await page.evaluate(() =>
+      window.__repforgeWeeklySnapshot("2026-08-14")
+    );
+    check(
+      new Set(rows.map((row) => row.day)).size === 1 &&
+        rows.every((row) => row.day === "Day 1") &&
+        final.idb?.log
+          ?.filter((row) => row.session === "audit-indivisible-session")
+          .every((row) => row.day === "Day 1") &&
+        weekly.completedDays === 1 &&
+        weekly.completedSessions === 1,
+      "an existing session remains one historical training day",
+      { rows: rows.map((row) => ({ exerciseId: row.exerciseId, day: row.day })), weekly }
+    );
+  } finally {
+    await context.close();
+  }
+}
+
 async function runScenario(name, fn) {
   try {
     await fn();
@@ -1426,6 +1703,15 @@ try {
   );
   await runScenario("deferred onboarding cannot supersede Repeat", () =>
     scenarioDeferredOnboardingCannotSupersedeRepeat(browser)
+  );
+  await runScenario("concurrent whole-program replacements", () =>
+    scenarioConcurrentWholeProgramReplacements(browser)
+  );
+  await runScenario("concurrent same-ID exercise fields", () =>
+    scenarioConcurrentExerciseFieldEdits(browser)
+  );
+  await runScenario("historical session day preservation", () =>
+    scenarioUnrelatedProgramEditPreservesSessionDay(browser)
   );
 } finally {
   await browser.close();

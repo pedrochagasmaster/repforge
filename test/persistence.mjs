@@ -1305,6 +1305,32 @@ try {
       "Replace accepts a sparse legacy domain object",
       JSON.stringify(sparseResult.result)
     );
+    both = await readBoth(page);
+    const sparseExerciseId = both.local?.program?.[0]?.id;
+    assert(
+      typeof sparseExerciseId === "string" &&
+        sparseExerciseId.length > 0 &&
+        both.idb?.program?.[0]?.id === sparseExerciseId &&
+        both.local?.program?.[0]?.name === "Exercise" &&
+        both.local?.program?.[0]?.day === "Day 1" &&
+        both.local?.program?.[0]?.sets === 2,
+      "Accepted sparse Replace is durably normalized before reload",
+      JSON.stringify({
+        localProgram: both.local?.program,
+        idbProgram: both.idb?.program,
+      })
+    );
+    const sparseDraftRaw = JSON.stringify({
+      __day: "Day 1",
+      __touched: [`${sparseExerciseId}_1`],
+      [`${sparseExerciseId}_1_load`]: "42.5",
+      [`${sparseExerciseId}_1_reps`]: "9",
+      [`${sparseExerciseId}_1_rir`]: "2",
+    });
+    await page.evaluate(
+      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
+      { draftKey: DRAFT, raw: sparseDraftRaw }
+    );
     await reloadForApp(page);
     both = await readBoth(page);
     assert(
@@ -1318,6 +1344,18 @@ try {
         both.local.programHistory.length === 0,
       "Sparse legacy entities retain supported default normalization",
       JSON.stringify(both.local)
+    );
+    assert(
+      both.local?.program?.[0]?.id === sparseExerciseId &&
+        both.idb?.program?.[0]?.id === sparseExerciseId &&
+        (await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT)) ===
+          sparseDraftRaw,
+      "Sparse imported exercise identity and its draft keys survive reload",
+      JSON.stringify({
+        before: sparseExerciseId,
+        localAfter: both.local?.program?.[0]?.id,
+        idbAfter: both.idb?.program?.[0]?.id,
+      })
     );
     assert(
       JSON.stringify(both.local) === JSON.stringify(both.idb),

@@ -183,6 +183,12 @@ function mergeChangedArray(base,proposal,target,root,preferProposal){
     if(bv===CHANGE_MISSING){
       if(preferProposal){out.set(key,cloneSnapshot(pv));if(!order.includes(key))order.push(key)}
       continue}
+    if(root==="program"&&bv.length===1&&pv.length===1&&tv.length===1&&
+      changeObject(bv[0])&&changeObject(pv[0])&&changeObject(tv[0])){
+      const merged=mergeStateValue(bv[0],pv[0],tv[0],[root,key],preferProposal);
+      if(merged===CHANGE_MISSING)remove(key);
+      else{out.set(key,[merged]);if(!order.includes(key))order.push(key)}
+      continue}
     if(changeValueEqual(tv,bv)||preferProposal)out.set(key,cloneSnapshot(pv))}
   return order.flatMap(key=>out.get(key)||[])}
 function mergeStateValue(base,proposal,target,path,preferProposal){
@@ -389,6 +395,9 @@ function pendingJournalOrder(){
 function draftProgramFingerprint(snapshot){
   return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[]}))}
+function programTransitionPrecondition(snapshot=state){
+  return{expectedProgramId:snapshot?.programMeta?.id||null,
+    expectedProgramFingerprint:draftProgramFingerprint(snapshot)}}
 const DraftStore={
   readCanonicalRaw(){
     try{return localStorage.getItem(DRAFT)}
@@ -532,10 +541,17 @@ function decodePendingJournal(key,raw){
       !Number.isSafeInteger(order?.seq)))return null;
     const effectOutcome=legacy?{status:DRAFT_EFFECT_NONE,effect:null}:
       draftEffectOutcome(Object.prototype.hasOwnProperty.call(journal,"effect")?journal.effect:null);
+    const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
+      journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
+    if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
+    const reconcileSessionIds=normalizeJournalSessionIds(journal.reconcileSessionIds);
+    const dayRenames=normalizeJournalDayRenames(journal.dayRenames);
+    if(reconcileSessionIds==null||dayRenames==null)return null;
     return{key,raw,legacy,order:legacy?null:order,journal:{
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
+      expectedProgramFingerprint,reconcileSessionIds,dayRenames,
       effectOutcome,effect:effectOutcome.effect}}}
   catch{return null}}
 function readPendingJournal(){
@@ -552,10 +568,31 @@ function readPendingJournal(){
     return a.order.at-b.order.at||a.order.writer.localeCompare(b.order.writer)||
       a.order.seq-b.order.seq||a.journal.id.localeCompare(b.journal.id)});
   return{entries,invalid}}
-function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,effectOutcome=null}={}){
+function normalizeJournalSessionIds(value){
+  if(value==null)return[];
+  if(!Array.isArray(value)||value.length>1000)return null;
+  const ids=[];
+  for(const id of value){
+    if(typeof id!=="string"||!id||id.length>300)return null;
+    if(!ids.includes(id))ids.push(id)}
+  return ids}
+function normalizeJournalDayRenames(value){
+  if(value==null)return[];
+  if(!Array.isArray(value)||value.length>100)return null;
+  const renames=[];
+  for(const entry of value){
+    if(!isPlainStateObject(entry)||typeof entry.from!=="string"||!entry.from||
+      typeof entry.to!=="string"||!entry.to||entry.from.length>200||entry.to.length>200)return null;
+    renames.push({from:entry.from,to:entry.to})}
+  return renames}
+function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
+  expectedProgramFingerprint=null,reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
+  if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
+  if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
+  if(dayRenames.length)journal.dayRenames=dayRenames;
   const outcome=normalizeDraftEffectOutcome(effectOutcome);
   if(outcome.status===DRAFT_EFFECT_VALID)journal.effect=outcome.effect;
   const raw=JSON.stringify(journal);
@@ -580,20 +617,35 @@ function clearPendingJournalById(id){
 function clearAllPendingJournal(){
   const records=readPendingJournal();
   for(const record of [...records.entries,...records.invalid])clearPendingJournal(record)}
-function reconcileCandidateLogDays(snapshot){
-  if(!Array.isArray(snapshot?.program)||!Array.isArray(snapshot?.log))return snapshot;
+function reconcileExplicitLogDayRenames(snapshot,dayRenames){
+  if(!Array.isArray(snapshot?.log)||!dayRenames.length)return snapshot;
+  for(const {from,to} of dayRenames){
+    const sessions=new Set(snapshot.log.filter(row=>row?.day===from&&row.session).map(row=>row.session));
+    for(const row of snapshot.log){
+      if(row?.day===from||row?.session&&sessions.has(row.session))row.day=to}}
+  return snapshot}
+function reconcileCandidateLogDays(snapshot,sessionIds){
+  if(!Array.isArray(snapshot?.program)||!Array.isArray(snapshot?.log)||!sessionIds.length)return snapshot;
   const currentDays=new Map();
   for(const exercise of snapshot.program){
     if(exercise&&typeof exercise.id==="string"&&exercise.id)currentDays.set(exercise.id,exercise.day)}
-  for(const row of snapshot.log){
-    if(!row||typeof row.exerciseId!=="string"||!currentDays.has(row.exerciseId))continue;
-    row.day=currentDays.get(row.exerciseId)}
+  for(const sessionId of sessionIds){
+    const rows=snapshot.log.filter(row=>row?.session===sessionId);
+    if(!rows.length)continue;
+    const sourceDays=[...new Set(rows.map(row=>row.day).filter(day=>typeof day==="string"&&day))];
+    const mappedDays=[...new Set(rows.map(row=>currentDays.get(row.exerciseId)).filter(day=>typeof day==="string"&&day))];
+    let targetDay=null;
+    if(mappedDays.length===1)targetDay=mappedDays[0];
+    else if(sourceDays.length===1)targetDay=sourceDays[0];
+    else targetDay=sourceDays[0]||mappedDays[0]||null;
+    if(targetDay!=null)for(const row of rows)row.day=targetDay}
   return snapshot}
-function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false}={}){
+function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconcileSessionIds=[],dayRenames=[]}={}){
   const durableHead=cloneSnapshot(head||base);
   const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
   const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
-  reconcileCandidateLogDays(snapshot);
+  reconcileExplicitLogDayRenames(snapshot,dayRenames);
+  reconcileCandidateLogDays(snapshot,reconcileSessionIds);
   delete snapshot[STORAGE_DRAFT_TXN];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
   return snapshot}
@@ -663,21 +715,31 @@ async function settleStoredDraftTransaction(snapshot,io){
   const outcome=await settleAppliedDraftTransaction(snapshot,finalized,transaction.effect,checked,io,provisionalResult);
   return{settled:(!!outcome.accepted&&!outcome.deferred)||!!outcome.settled,rejected:!!outcome.rejected,
     deferred:!!outcome.deferred,snapshot:outcome.snapshot,result:outcome.result}}
-function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,effect=null}={}){
+function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
+  expectedProgramFingerprint=null,reconcileSessionIds=[],dayRenames=[],effect=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
+  const frozenReconcileSessionIds=normalizeJournalSessionIds(reconcileSessionIds);
+  const frozenDayRenames=normalizeJournalDayRenames(dayRenames);
+  if(frozenReconcileSessionIds==null||frozenDayRenames==null)
+    return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
+      conflict:true,journalMetadataInvalid:true});
   if(frozenEffectOutcome.status===DRAFT_EFFECT_INVALID)
     return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
       draftConflict:true,effectInvalid:true,effectReason:frozenEffectOutcome.reason});
   const frozenEffect=frozenEffectOutcome.effect;
   const pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
-      {replace,expectedProgramId,effectOutcome:frozenEffectOutcome})
+      {replace,expectedProgramId,expectedProgramFingerprint,
+        reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
+        effectOutcome:frozenEffectOutcome})
     :null;
-  if(io===storageIO&&frozenEffect?.required===true&&!pendingRecord)
-    return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
-      draftConflict:true,journalFailed:true});
+  if(io===storageIO&&!pendingRecord){
+    const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
+    if(frozenEffect?.required===true)failed.draftConflict=true;
+    noteWriteHealth(failed);
+    return Promise.resolve(failed)}
   const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
     let head=cloneSnapshot(persistHead||frozenBase);
     if(io===storageIO){
@@ -695,12 +757,16 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
       closePendingDraftRecord(pendingRecord);
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedProgramFingerprint&&draftProgramFingerprint(head)!==expectedProgramFingerprint){
+      closePendingDraftRecord(pendingRecord);
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
     const preEffectState=pendingJournalEffectState(frozenEffect);
     if(preEffectState.status==="conflict"||
       (coordinationId&&DraftStore.sidecarKeys(coordinationId).length)){
       closePendingDraftRecord(pendingRecord);
       return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true}}
-    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,{replace});
+    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,
+      {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames});
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
     const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
     if(coordinated&&transactionId&&!DraftStore.beginClose(transactionId)){
@@ -1485,15 +1551,17 @@ const focusUnfolded=new Set();
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
+let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
-function migrateLog(){let changed=false;for(const row of state.log){
-  if(!row.exerciseId){const ex=state.program.find(e=>e.name===row.name&&e.day===row.day)||state.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
+function migrateLogSnapshot(snapshot){let changed=false;for(const row of snapshot.log){
+  if(!row.exerciseId){const ex=snapshot.program.find(e=>e.name===row.name&&e.day===row.day)||snapshot.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
   const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
+function migrateLog(){return migrateLogSnapshot(state)}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
@@ -1526,11 +1594,18 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     blockPromptDismissedId}}
 function isImportableState(s){return isValidStateShape(s)}
+function normalizeProgramHistory(history){
+  return(Array.isArray(history)?history:[]).map(entry=>{
+    const normalized=cloneSnapshot(entry);
+    if(Object.prototype.hasOwnProperty.call(normalized,"program"))
+      normalized.program=new Program(normalized.program).toJSON();
+    return normalized})}
 function normalizeLoaded(s){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid RepForge state");
-  const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
-    programHistory:Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[]};
+  const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
+    program:new Program(s.program).toJSON(),log:cloneSnapshot(s.log),
+    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[])};
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
@@ -1539,11 +1614,12 @@ function proposalFromImport(incoming){
   return normalizeLoaded(stripStorageMeta(incoming))}
 async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"replaceImportedState");
+  const transition=programTransitionPrecondition(state);
   const proposal=proposalFromImport(incoming);
   delete proposal[STORAGE_FOLLOWUP];
+  migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,io,{replace:true,effect});
-  if(result.localOk||result.idbOk)migrateLog();
+  const result=await commitProposedState(proposal,io,{replace:true,effect,...transition});
   return result}
 async function mergeImportedLog(incoming,io=storageIO){
   requireAdapter(io,"mergeImportedLog");
@@ -1555,24 +1631,27 @@ async function mergeImportedLog(incoming,io=storageIO){
   if(!added)return{revision:readRevision(state),localOk:true,idbOk:true,added:0};
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.concat(cloneSnapshot(add));
+  migrateLogSnapshot(proposal);
   const result=await commitProposedState(proposal,io);
   result.added=added;
-  if(result.localOk||result.idbOk)migrateLog();
   return result}
 function applyState(s){return replaceImportedState(s)}
-function persistProgramMeta(partial={}){if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  if(partial.name!==undefined)state.programMeta.name=String(partial.name??"").trim();
-  if(partial.started!==undefined){const v=partial.started;state.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
-  if(partial.goal!==undefined)state.programMeta.goal=partial.goal;
-  if(partial.experience!==undefined)state.programMeta.experience=partial.experience;
-  if(partial.daysPerWeek!==undefined)state.programMeta.daysPerWeek=partial.daysPerWeek;
-  if(partial.splitType!==undefined)state.programMeta.splitType=partial.splitType;
-  if(partial.equipment!==undefined)state.programMeta.equipment=partial.equipment;
-  if(partial.priorityMuscles!==undefined)state.programMeta.priorityMuscles=partial.priorityMuscles;
-  if(partial.sessionLength!==undefined)state.programMeta.sessionLength=partial.sessionLength;
-  if(partial.mesocycleStatus!==undefined)state.programMeta.mesocycleStatus=partial.mesocycleStatus;
-  if(partial.onboarded!==undefined)state.programMeta.onboarded=partial.onboarded;
-  state.programMeta.updated=new Date().toISOString();save()}
+async function persistProgramMeta(partial={}){
+  const proposal=cloneSnapshot(state);
+  if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
+  if(partial.name!==undefined)proposal.programMeta.name=String(partial.name??"").trim();
+  if(partial.started!==undefined){const v=partial.started;proposal.programMeta.started=v&&/^\d{4}-\d{2}-\d{2}$/.test(v)?v:null}
+  if(partial.goal!==undefined)proposal.programMeta.goal=partial.goal;
+  if(partial.experience!==undefined)proposal.programMeta.experience=partial.experience;
+  if(partial.daysPerWeek!==undefined)proposal.programMeta.daysPerWeek=partial.daysPerWeek;
+  if(partial.splitType!==undefined)proposal.programMeta.splitType=partial.splitType;
+  if(partial.equipment!==undefined)proposal.programMeta.equipment=partial.equipment;
+  if(partial.priorityMuscles!==undefined)proposal.programMeta.priorityMuscles=partial.priorityMuscles;
+  if(partial.sessionLength!==undefined)proposal.programMeta.sessionLength=partial.sessionLength;
+  if(partial.mesocycleStatus!==undefined)proposal.programMeta.mesocycleStatus=partial.mesocycleStatus;
+  if(partial.onboarded!==undefined)proposal.programMeta.onboarded=partial.onboarded;
+  proposal.programMeta.updated=new Date().toISOString();
+  return commitProposedState(proposal)}
 function programAdherence(){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   const cutoff=daysAgo(6),programDaySet=new Set(prog.days()),loggedDays=new Set();
   for(const x of state.log){if(String(x.date)<cutoff)continue;if(programDaySet.has(x.day))loggedDays.add(x.day)}
@@ -1752,7 +1831,7 @@ function successorProgramList(strategy,list){
   return src}
 function capturePendingBlock(strategy,review){
   return{oldProgramId:state.programMeta?.id,oldMeta:cloneSnapshot(state.programMeta),oldProgram:cloneSnapshot(prog.toJSON()),
-    review:cloneSnapshot(review||blockReviewCurrent),strategy}}
+    programFingerprint:draftProgramFingerprint(state),review:cloneSnapshot(review||blockReviewCurrent),strategy}}
 function archiveCapturedBlock(proposal,cap){
   if(!cap?.oldProgramId)return proposal;
   const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
@@ -1807,7 +1886,8 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
     proposal.programMeta=nextMeta;
     proposal.program=nextProgram;
-    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId,effect});
+    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId,
+      expectedProgramFingerprint:cap.programFingerprint,effect});
     const kind=persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed";
     const result=blockTransitionResult(kind,persisted);
     if(result.committed){
@@ -1839,12 +1919,14 @@ function promptEndBlock(){
   $("#endBlockGo").onclick=()=>{
     openBlockReview(buildBlockReview(state.programMeta,state.program,state.log),{handoff:true,returnFocus:opener})};
   $("#endBlockCancel").onclick=()=>closeModal(d)}
-function dismissBlockPrompt(){
-  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  state.programMeta.blockPromptDismissedId=state.programMeta.id;
-  state.programMeta.updated=new Date().toISOString();
-  save();
-  renderBlockPrompt()}
+async function dismissBlockPrompt(){
+  const proposal=cloneSnapshot(state);
+  if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
+  proposal.programMeta.blockPromptDismissedId=proposal.programMeta.id;
+  proposal.programMeta.updated=new Date().toISOString();
+  const result=await commitProposedState(proposal);
+  if(result.localOk||result.idbOk)renderBlockPrompt();
+  return result}
 function renderBlockPrompt(){const mc=mesocycleWeek();
   const id=state.programMeta?.id;
   const dismissed=!!(id&&state.programMeta?.blockPromptDismissedId===id);
@@ -1854,7 +1936,7 @@ function renderBlockPrompt(){const mc=mesocycleWeek();
   for(const sel of["#logBlockBanner","#programBlockBanner"]){const el=$(sel);if(!el)continue;
     el.classList.toggle("hidden",!show);if(show){el.innerHTML=html;
       const btn=el.querySelector(".blockprompt__act");if(btn)btn.onclick=promptEndBlock;
-      const dismiss=el.querySelector(".blockprompt__dismiss");if(dismiss)dismiss.onclick=e=>{e.stopPropagation();dismissBlockPrompt()}}}}
+      const dismiss=el.querySelector(".blockprompt__dismiss");if(dismiss)dismiss.onclick=async e=>{e.stopPropagation();await dismissBlockPrompt()}}}}
 function programProgressionHealth(){const withHistory=prog.exercises.filter(ex=>sessionsFor(ex).length>0);
   if(!withHistory.length)return null;
   const hot=withHistory.filter(ex=>{const st=recommendation(ex).status;return st==="add"||st==="add2"}).length;
@@ -1884,7 +1966,7 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   const liveBase=cloneSnapshot(state);
   const snapshot=cloneSnapshot(proposal);
   const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
-  if(result.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true});
+  if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
@@ -3270,7 +3352,7 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.concat(cloneSnapshot(rows));
   const effect=consumedDraftClearEffect(rawDraft);
-  const result=await commitProposedState(proposal,io||storageIO,{effect});
+  const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
   if(!(result.localOk||result.idbOk))return result;
   resetDraftSessionState();
   resetSessionContextFields();
@@ -4079,8 +4161,11 @@ function renderProgramHeader(){
     `</div>`;
   renderProgramChips();
   const nameInp=$("#programName"),startInp=$("#programStarted");
-  nameInp.oninput=()=>persistProgramMeta({name:nameInp.value});
-  startInp.onchange=()=>{persistProgramMeta({started:startInp.value||null});renderProgramChips()};
+  nameInp.oninput=async()=>{const captured=nameInp.value,result=await persistProgramMeta({name:captured});
+    if(!(result.localOk||result.idbOk)&&nameInp.value===captured)nameInp.value=state.programMeta?.name||""};
+  startInp.onchange=async()=>{const captured=startInp.value,result=await persistProgramMeta({started:captured||null});
+    if(result.localOk||result.idbOk)renderProgramChips();
+    else if(startInp.value===captured)startInp.value=state.programMeta?.started||""};
 }
 
 // Collapsed program days live in UI prefs so the state survives reloads without touching training data.
@@ -4140,12 +4225,31 @@ function exCard(e,i,n){
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
-    inp.oninput=()=>{const e=prog.find(inp.dataset.id);if(!e)return;
-      if(inp.dataset.field==="sets"){
-        const next=Exercise.posInt(inp.value,e.sets);
-        if(draftHasProgressInRemovedSets(e.id,next,e.sets)){
-          inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}
-      prog.update(inp.dataset.id,inp.dataset.field,inp.value);persistProgram();renderVolume();updateGauge();updateSaveMeta()};
+    inp.oninput=async()=>{const e=prog.find(inp.dataset.id);if(!e)return;
+      const captured=inp.value,field=inp.dataset.field,priorValue=String(e[field]??"");
+      let effect=null;
+      if(field==="sets"){
+        const next=Exercise.posInt(captured,e.sets);
+        if(next<e.sets){
+          const draftRaw=readDraftRaw();
+          let draft={};
+          try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}
+          catch{}
+          if(draftHasProgressInRemovedSets(e.id,next,e.sets,draft)){
+            inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}
+          effect=draftPreservationEffect(draftRaw);
+          if(effect.status!==DRAFT_EFFECT_VALID){
+            inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}}
+      const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+      nextProgram.update(inp.dataset.id,field,captured);proposal.program=nextProgram.toJSON();
+      const result=await commitProposedState(proposal,storageIO,{effect});
+      if(!(result.localOk||result.idbOk)){
+        if(inp.value===captured)inp.value=prog.find(inp.dataset.id)?.[field]??captured;
+        if(effect)toast(t("toast.set_count_locked_draft"));
+        return}
+      if(inp.value===captured||inp.value===priorValue)
+        inp.value=String(prog.find(inp.dataset.id)?.[field]??captured);
+      renderVolume();updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
       inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
@@ -4158,9 +4262,8 @@ function bindEditor(){
       if(!nextProgram.renameDay(old,next)){
         inp.value=old;toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
       proposal.program=nextProgram.toJSON();
-      for(const row of proposal.log)if(row.day===old)row.day=next;
       const effect=draftDayReplacementEffect(old,next);
-      const result=await commitProposedState(proposal,storageIO,{effect});
+      const result=await commitProposedState(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
       if(!(result.localOk||result.idbOk)){inp.value=old;return}
       renameCollapsedDay(old,next);
       if(day===old)day=next;
@@ -4176,7 +4279,11 @@ async function editorAction(act,ds){
     const btn=card.querySelector(".pday__caret");
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
       const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
-  else if(act==="addEx"){prog.addExercise(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast(t("toast.exercise_added"))}
+  else if(act==="addEx"){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.addExercise(ds.day);proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal);
+    if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}
   else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
@@ -4185,8 +4292,11 @@ async function editorAction(act,ds){
     const effect=destructiveDraftClearEffect(discardDraftRaw);
     const result=await commitProposedState(proposal,storageIO,{effect});
     if(result.localOk||result.idbOk){resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
-  else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
-  else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
+  else if(act==="up"||act==="down"){
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    nextProgram.move(ds.id,act==="up"?-1:1);proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal);
+    if(result.localOk||result.idbOk)render()}
   else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
     if(confirm(t(key,{day:ds.day}))){
@@ -4206,9 +4316,12 @@ function renderVolume(){
 }
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
-function persistProgram(){state.program=prog.toJSON();save()}
+function persistProgram(nextProgram=prog){
+  const proposal=cloneSnapshot(state);proposal.program=new Program(nextProgram.toJSON()).toJSON();
+  return commitProposedState(proposal)}
 
 async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
+  const transition=programTransitionPrecondition(state);
   const byId=new Map(prog.exercises.map(e=>[e.id,e]));
   for(const row of parsed){if(row.id&&byId.has(row.id))continue;
     const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
@@ -4217,10 +4330,11 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
   const proposal=cloneSnapshot(state);
   proposal.program=new Program(parsed).toJSON();
+  migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,storageIO,{effect});
+  const result=await commitProposedState(proposal,storageIO,{effect,...transition});
   if(!(result.localOk||result.idbOk))return result;
-  resetDraftSessionState();day=prog.days()[0]||"Day 1";if(migrateLog())await save();render();toast(t("toast.program_saved"));
+  resetDraftSessionState();day=prog.days()[0]||"Day 1";render();toast(t("toast.program_saved"));
   return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
@@ -4228,9 +4342,10 @@ let notifyIntentGen=0,notifyWanted=false,notifyPending=false,notifyRequestInFlig
 function notifyPermission(){return window.RepForgeNotify?RepForgeNotify.permission():"unsupported"}
 function notifyEffective(){return!!state.settings.notify?.enabled&&notifyPermission()==="granted"}
 function persistNotifyEnabled(enabled){
-  if(!state.settings.notify)state.settings.notify=normalizeNotify();
-  state.settings.notify=normalizeNotify({...state.settings.notify,enabled:!!enabled});
-  return persist()}
+  const proposal=cloneSnapshot(state);
+  if(!proposal.settings.notify)proposal.settings.notify=normalizeNotify();
+  proposal.settings.notify=normalizeNotify({...proposal.settings.notify,enabled:!!enabled});
+  return commitProposedState(proposal)}
 function notifyStatusText(){
   const perm=notifyPermission();
   if(notifyPending)return t("settings.notifications.status.pending");
@@ -4266,7 +4381,7 @@ function reconcileNotifyPermission(){
     notifyIntentGen++;
     notifyWanted=false;
     notifyPending=false;
-    persistNotifyEnabled(false);
+    void persistNotifyEnabled(false);
     return}
   if(notifyPending&&(perm==="denied"||perm==="unsupported")){
     notifyIntentGen++;
@@ -4278,7 +4393,7 @@ async function setNotificationsEnabled(wanted){
   if(!wanted){
     notifyIntentGen++;
     notifyPending=false;
-    persistNotifyEnabled(false);
+    await persistNotifyEnabled(false);
     paintNotifyControls();
     return}
   if(notifyPending&&notifyRequestInFlight)return notifyRequestInFlight;
@@ -4297,7 +4412,7 @@ async function setNotificationsEnabled(wanted){
     const perm=notifyPermission();
     const granted=result==="granted"&&perm==="granted";
     notifyPending=false;
-    persistNotifyEnabled(granted);
+    await persistNotifyEnabled(granted);
     if(!granted)notifyWanted=false;
     paintNotifyControls()}
   finally{if(notifyRequestInFlight===request)notifyRequestInFlight=null}}
@@ -4324,21 +4439,27 @@ function renderSettings(){
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
 }
 
-function commitSettings(silent){const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
+async function commitSettings(silent){const editRevision=settingsEditRevision;
+  const num=(sel,def,min)=>{const n=parseDec($(sel).value);return Number.isFinite(n)&&n>=min?n:def};
   const oldUnit=state.settings.unit,newUnit=$("#unit").value==="lb"?"lb":"kg",oldLang=state.settings.lang,newLang=I18N?.normalizeLang($("#lang")?.value)||oldLang;
   const newRirMode=$('input[name="rirMode"]:checked')?.value==="effort"?"effort":"numeric";
-  if(!changeRirMode(newRirMode)) return;
-  if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
-    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
+  if(!changeRirMode(newRirMode))return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const rsEl=$("#restSec");let restSec;
   const restN=parseDec(rsEl?.value);
   if(Number.isFinite(restN)&&restN>=0&&!Number.isInteger(restN)){
     if(rsEl){rsEl.value=String(state.settings.restSec);rsEl.setAttribute("aria-invalid","true");try{rsEl.focus()}catch{}}
     toast(t("validation.rest_frac"));restSec=state.settings.restSec}
   else{rsEl?.removeAttribute("aria-invalid");restSec=rsEl?num("#restSec",120,0):state.settings.restSec}
-  state.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  const proposal=cloneSnapshot(state);
+  proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
+  const result=await commitProposedState(proposal);
+  if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
+  if(oldUnit!==newUnit){convertDraftUnits(oldUnit,newUnit);
+    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
-  save();render();if(!silent)toast(t("toast.settings_saved"));}
+  if(editRevision===settingsEditRevision)render();
+  if(!silent)toast(t("toast.settings_saved"));
+  return result}
 
 function table(rows){if(!rows.length)return`<div class="empty">${esc(t("stats.table.no_data"))}</div>`;const h=Object.keys(rows[0]);
   return`<table><thead><tr>${h.map(x=>`<th>${esc(x)}</th>`).join("")}</tr></thead><tbody>${rows.map(r=>`<tr>${h.map(x=>`<td>${esc(r[x])}</td>`).join("")}</tr>`).join("")}</tbody></table>`}
@@ -4362,9 +4483,13 @@ function exportCsv(){
     ...state.log.map(r=>cols.map(c=>q(c[1](r))).join(","))].join("\n");
   download(csv,`repforge_log_${today()}.csv`,"text/csv");
 }
-function exportJson(){state.settings.lastExport=new Date().toISOString();save();
+async function exportJson(){
+  const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
+  const result=await commitProposedState(proposal);
+  if(!(result.localOk||result.idbOk))return result;
   const text=JSON.stringify(exportableState(state),null,2),name=`repforge_backup_${today()}.json`;
-  shareOrDownload(text,name,"application/json");renderSettings()}
+  shareOrDownload(text,name,"application/json");renderSettings();
+  return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
   const slug=fileSlug(state.programMeta?.name);
@@ -4383,16 +4508,18 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
       await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",
         io:adapter,draftConfirmed,discardDraftRaw})}
     else{
+      const transition=programTransitionPrecondition(state);
       const proposal=cloneSnapshot(state);
       const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
       if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())meta.name=imp.meta.name.trim();
       meta.updated=new Date().toISOString();
       proposal.programMeta=meta;proposal.program=new Program(list).toJSON();
+      migrateLogSnapshot(proposal);
       const effect=destructiveDraftClearEffect(discardDraftRaw);
-      const result=await commitProposedState(proposal,adapter,{effect});
+      const result=await commitProposedState(proposal,adapter,{effect,...transition});
       if(result.localOk||result.idbOk){
         resetDraftSessionState();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
-        if(migrateLog())save();render();toast(t("toast.program_saved"))}}
+        render();toast(t("toast.program_saved"))}}
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
@@ -4430,11 +4557,12 @@ function mergeLog(s){return mergeImportedLog(s)}
 function switchToBeginnerProgram(discardDraftRaw){return applyProgramTemplate(storageIO,{discardDraftRaw})}
 async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"applyProgramTemplate");
+  const transition=programTransitionPrecondition(state);
   const proposal=cloneSnapshot(state);
   proposal.program=new Program(cloneSnapshot(programBeginner)).toJSON();
   proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
   const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,io,{effect});
+  const result=await commitProposedState(proposal,io,{effect,...transition});
   if(result.localOk||result.idbOk){resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
   return result}
 
@@ -4527,7 +4655,9 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
-  const expectedProgramId=blockCap?.oldProgramId||null;
+  const transition=blockCap
+    ?{expectedProgramId:blockCap.oldProgramId,expectedProgramFingerprint:blockCap.programFingerprint}
+    :programTransitionPrecondition(state);
   const draftActive=draftHasProgress();
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
@@ -4535,7 +4665,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const proposal=cloneSnapshot(state);
   if(originEff==="block"){
     if(!blockCap)return blockTransitionResult("failed");
-    if(proposal.programMeta?.id!==expectedProgramId)return blockTransitionResult("duplicate");
+    if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
     archiveCapturedBlock(proposal,blockCap)}
   const meta=buildProgramMeta({name,answers:answers||onbAnswers});
   proposal.programMeta=meta;
@@ -4543,7 +4673,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
-  const persisted=await commitProposedState(proposal,adapter,{expectedProgramId,effect});
+  const persisted=await commitProposedState(proposal,adapter,{...transition,effect});
   const result=originEff==="block"
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
@@ -4821,7 +4951,9 @@ function init(){
   const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>setDisclosure(dataBackup,$("#dataBackupPanel"),!$("#dataBackupPanel")?.classList.contains("is-open"));
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
   [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
-  const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitSettings(true)}};
+  const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
+  $("#settings").addEventListener("input",()=>{settingsEditRevision++});
+  const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
@@ -4853,7 +4985,11 @@ function init(){
   $("#saveProgram").onclick=saveProgram;
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
-  $("#addDay").onclick=()=>{day=prog.addDay();persistProgram();render();toast(t("toast.day_added"))};
+  $("#addDay").onclick=async()=>{
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const nextDay=nextProgram.addDay();proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal);
+    if(result.localOk||result.idbOk){day=nextDay;render();toast(t("toast.day_added"))}};
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{
@@ -4863,12 +4999,12 @@ function init(){
   $("#createProgram").onclick=()=>startOnboarding("settings");
   $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
   $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
-  ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=()=>commitSettings(true));
-  $$('input[name="rirMode"]').forEach(r=>r.onchange=()=>commitSettings(true));
-  const vi=$("#voiceInputEnabled");if(vi)vi.onchange=()=>commitSettings(true);
+  ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=commitChangedSettings);
+  $$('input[name="rirMode"]').forEach(r=>r.onchange=commitChangedSettings);
+  const vi=$("#voiceInputEnabled");if(vi)vi.onchange=commitChangedSettings;
   const ne=$("#notifyEnabled");
   if(ne)ne.onchange=()=>setNotificationsEnabled(!!ne.checked);
-  ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=()=>commitSettings(true)});
+  ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=commitChangedSettings});
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
@@ -5043,6 +5179,12 @@ async function resolveBootReplicas(candidate=null){
         if(!closed.settled)
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         continue}
+      if(journal.expectedProgramFingerprint&&
+        draftProgramFingerprint(head)!==journal.expectedProgramFingerprint){
+        const closed=closePendingDraftRecord(record,{transactionId:journal.id});
+        if(!closed.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
       const coordinated=draftEffectRequiresCoordination(journal.effectOutcome);
       if(coordinated&&!DraftStore.beginClose(journal.id))
         return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
@@ -5054,7 +5196,8 @@ async function resolveBootReplicas(candidate=null){
         draftConflict=true;
         continue}
       const journalHead=head||cloneSnapshot(journal.base);
-      const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,{replace:journal.replace});
+      const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,
+        {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,dayRenames:journal.dayRenames});
       const prepared=preparePendingDraftTransaction(snapshot,journalHead,journal.effectOutcome,journal.id);
       const result=await writeSnapshot(prepared,storageIO);
       const postWriteEffectState=pendingJournalEffectState(journal.effectOutcome);
