@@ -24,7 +24,21 @@ async function idbDel(key){const db=await idbOpen();
   finally{db.close()}}
 const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp";
 function cloneSnapshot(s){return s==null?s:JSON.parse(JSON.stringify(s))}
-function isValidStateShape(s){return!!(s&&typeof s==="object"&&Array.isArray(s.program)&&Array.isArray(s.log))}
+function isPlainStateObject(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return false;
+  const proto=Object.getPrototypeOf(value);
+  return proto===Object.prototype||proto===null}
+function isSafeProgramHistoryEntry(entry){
+  if(!isPlainStateObject(entry))return false;
+  if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
+  return Array.isArray(entry.program)&&entry.program.every(isPlainStateObject)}
+function isValidStateShape(s){
+  try{
+    if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
+      !Array.isArray(s.log)||!s.log.every(isPlainStateObject))return false;
+    if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
+    return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
+  catch{return false}}
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
 function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];return o}
 function exportableState(s){return stripStorageMeta(s)}
@@ -1120,15 +1134,17 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     blockPromptDismissedId}}
-function isImportableState(s){return!!(s&&Array.isArray(s.program)&&Array.isArray(s.log))}
-function normalizeLoaded(s){try{if(isImportableState(s)){
+function isImportableState(s){return isValidStateShape(s)}
+function normalizeLoaded(s){
+  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0};
+  if(!isValidStateShape(s))throw new TypeError("Invalid RepForge state");
   const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),program:s.program,log:s.log,
-    programHistory:Array.isArray(s.programHistory)?s.programHistory:[]};
+    programHistory:Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[]};
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
-  return out}}catch{}return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0}}
+  return out}
 function proposalFromImport(incoming){
-  if(!isImportableState(incoming))throw new TypeError("Invalid RepForge backup");
+  if(!isValidStateShape(incoming))throw new TypeError("Invalid RepForge backup");
   return normalizeLoaded(stripStorageMeta(incoming))}
 async function replaceImportedState(incoming,io=storageIO){
   requireAdapter(io,"replaceImportedState");
@@ -1139,6 +1155,7 @@ async function replaceImportedState(incoming,io=storageIO){
   return result}
 async function mergeImportedLog(incoming,io=storageIO){
   requireAdapter(io,"mergeImportedLog");
+  if(!isValidStateShape(incoming))throw new TypeError("Invalid RepForge backup");
   const rows=(incoming.log||[]).filter(r=>r&&r.session);
   const have=new Set(state.log.map(r=>r.session));
   const add=rows.filter(r=>!have.has(r.session));
@@ -3959,7 +3976,8 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{const s=JSON.parse(await f.text());if(!isImportableState(s))throw Error();
+  try{const s=JSON.parse(await f.text());
+    if(!isImportableState(s))throw Error();
     const inSessions=new Set(s.log.map(r=>r.session)).size,inSets=s.log.length;
     const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
     const have=new Set(state.log.map(r=>r.session));

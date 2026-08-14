@@ -412,6 +412,58 @@ try {
   }
 
   // ---------------------------------------------------------------------------
+  // 2b. Malformed entity entries in either replica enter recovery
+  // ---------------------------------------------------------------------------
+  {
+    console.log("\nmalformed entity replicas");
+    const malformedReplicas = [
+      ["program [null]", { ...sampleState({ name: "Bad program", revision: 2 }), program: [null] }],
+      ["log [null]", { ...sampleState({ name: "Bad log", revision: 2 }), log: [null] }],
+      [
+        "programHistory nested program [null]",
+        {
+          ...sampleState({ name: "Bad history", revision: 2 }),
+          programHistory: [{ id: "old-program", program: [null] }],
+        },
+      ],
+    ];
+    for (const [label, malformed] of malformedReplicas) {
+      const { context, page } = await freshContext(browser);
+      await bootThenClear(page);
+      const pageErrors = [];
+      page.on("pageerror", (error) => pageErrors.push(String(error)));
+      await page.evaluate(({ k, blob }) => localStorage.setItem(k, JSON.stringify(blob)), {
+        k: KEY,
+        blob: malformed,
+      });
+      await idbPut(page, JSON.parse(JSON.stringify(malformed)));
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await page
+        .waitForFunction(
+          () => {
+            const recovery = document.querySelector("#storageRecovery");
+            return !!(recovery && recovery.open);
+          },
+          null,
+          { timeout: 3000 }
+        )
+        .catch(() => {});
+      assert(
+        (await recoveryOpen(page)) && pageErrors.length === 0,
+        `${label} replicas open recovery without crashing`,
+        JSON.stringify({ recoveryOpen: await recoveryOpen(page), pageErrors })
+      );
+      const both = await readBoth(page);
+      assert(
+        JSON.stringify(both.local) === JSON.stringify(malformed) &&
+          JSON.stringify(both.idb) === JSON.stringify(malformed),
+        `${label} recovery writes neither malformed replica`
+      );
+      await context.close();
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // 3. Divergent revisionless replicas recover, export, and heal on each choice
   // ---------------------------------------------------------------------------
   {
@@ -932,6 +984,51 @@ try {
         JSON.stringify(afterInvalidReplace.idb) === JSON.stringify(beforeInvalidReplace.idb),
       "Rejected malformed Replace leaves both replicas byte-equivalent"
     );
+    const malformedEntityCases = [
+      ["program [null]", { ...local, program: [null] }],
+      ["log [null]", { ...local, log: [null] }],
+      ["programHistory [null]", { ...local, programHistory: [null] }],
+      [
+        "programHistory nested program [null]",
+        { ...local, programHistory: [{ id: "old-program", program: [null] }] },
+      ],
+    ];
+    for (const [label, incomingState] of malformedEntityCases) {
+      const before = await readBoth(page);
+      const rejected = await page.evaluate(async (incoming) => {
+        const calls = { local: 0, idb: 0 };
+        const io = {
+          writeLocal() {
+            calls.local++;
+          },
+          writeIdb() {
+            calls.idb++;
+          },
+        };
+        try {
+          await window.__repforgeStorage.replaceImport(incoming, io);
+          return { rejected: false, calls, error: null };
+        } catch (error) {
+          return {
+            rejected: /invalid repforge backup/i.test(String(error)),
+            calls,
+            error: String(error),
+          };
+        }
+      }, incomingState);
+      assert(
+        rejected.rejected && rejected.calls.local === 0 && rejected.calls.idb === 0,
+        `Replace rejects ${label} before invoking either storage adapter`,
+        JSON.stringify(rejected)
+      );
+      const after = await readBoth(page);
+      assert(
+        JSON.stringify(after.local) === JSON.stringify(before.local) &&
+          JSON.stringify(after.idb) === JSON.stringify(before.idb),
+        `Rejected ${label} Replace leaves both replicas byte-equivalent`
+      );
+      await reloadForApp(page);
+    }
 
     const incoming = sampleState({
       name: "Incoming999",
@@ -1182,6 +1279,58 @@ try {
         assert(retry.added === 1, "Merge retry after total failure still adds the session once", JSON.stringify(retry));
       }
     }
+
+    await clearStores(page);
+    const sparseBase = sampleState({ name: "Sparse base", revision: 4 });
+    await page.evaluate(({ k, blob }) => localStorage.setItem(k, JSON.stringify(blob)), {
+      k: KEY,
+      blob: sparseBase,
+    });
+    await idbPut(page, JSON.parse(JSON.stringify(sparseBase)));
+    await reloadForApp(page);
+    const sparseLegacy = { program: [{}], log: [{}] };
+    const sparseResult = await replaceWith(sparseLegacy, { localOk: true, idbOk: true });
+    assert(
+      sparseResult.result.localOk && sparseResult.result.idbOk,
+      "Replace accepts a sparse legacy domain object",
+      JSON.stringify(sparseResult.result)
+    );
+    await reloadForApp(page);
+    both = await readBoth(page);
+    assert(
+      both.local?.program?.[0]?.name === "Exercise" &&
+        both.local?.program?.[0]?.day === "Day 1" &&
+        both.local?.program?.[0]?.sets === 2 &&
+        both.local?.log?.[0]?.load === 0 &&
+        both.local?.log?.[0]?.reps === 0 &&
+        both.local?.settings?.jumpPct === 2.5 &&
+        Array.isArray(both.local?.programHistory) &&
+        both.local.programHistory.length === 0,
+      "Sparse legacy entities retain supported default normalization",
+      JSON.stringify(both.local)
+    );
+    assert(
+      JSON.stringify(both.local) === JSON.stringify(both.idb),
+      "Sparse legacy normalization heals both replicas identically"
+    );
+
+    const emptyResult = await replaceWith(
+      { program: [], log: [], programHistory: [] },
+      { localOk: true, idbOk: true }
+    );
+    assert(
+      emptyResult.result.localOk && emptyResult.result.idbOk,
+      "Replace accepts valid empty domain arrays",
+      JSON.stringify(emptyResult.result)
+    );
+    both = await readBoth(page);
+    assert(
+      both.local?.program?.length === 0 &&
+        both.local?.log?.length === 0 &&
+        both.local?.programHistory?.length === 0,
+      "Valid empty domain arrays remain empty after normalization",
+      JSON.stringify(both.local)
+    );
     await context.close();
   }
 

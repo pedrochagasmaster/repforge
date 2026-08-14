@@ -1617,6 +1617,83 @@ async function main() {
       "Settings → Export backup JSON → inspect file"
     );
 
+    const malformedBackups = [
+      ["program [null]", { ...exported, program: [null] }],
+      ["log [null]", { ...exported, log: [null] }],
+      ["programHistory [null]", { ...exported, programHistory: [null] }],
+      [
+        "programHistory nested program [null]",
+        { ...exported, programHistory: [{ id: "old-program", program: [null] }] },
+      ],
+    ];
+    for (const [label, malformed] of malformedBackups) {
+      const malformedPath = join(tmpDir, `invalid-${label.replace(/[^a-z]+/gi, "-").toLowerCase()}.json`);
+      writeFileSync(malformedPath, JSON.stringify(malformed));
+      await flushStorage(page);
+      const beforeInvalid = await readReplicasAndDraft(page);
+      await page.evaluate(() => {
+        const toast = document.querySelector("#toast");
+        if (toast) {
+          toast.textContent = "";
+          toast.classList.add("hidden");
+        }
+      });
+      await page.setInputFiles("#importJson", malformedPath);
+      await page.waitForFunction(
+        () => {
+          const toast = document.querySelector("#toast");
+          const choice = document.querySelector("#importChoice");
+          return !!(
+            (toast && !toast.classList.contains("hidden") && toast.textContent.trim()) ||
+            (choice && choice.open && !choice.classList.contains("hidden"))
+          );
+        },
+        { timeout: 3000 }
+      );
+      const choiceOpened = await page.locator("#importChoice").evaluate(
+        (element) => element.open && !element.classList.contains("hidden")
+      );
+      if (choiceOpened) {
+        await page.click("#importReplace");
+        await flushStorage(page);
+      }
+      const toastText = await page.locator("#toast").textContent();
+      const afterInvalid = await readReplicasAndDraft(page);
+      const storesUnchanged =
+        stableStringify(afterInvalid.local) === stableStringify(beforeInvalid.local) &&
+        stableStringify(afterInvalid.idb) === stableStringify(beforeInvalid.idb) &&
+        afterInvalid.draft === beforeInvalid.draft;
+      assert(
+        !choiceOpened && /valid|válid/i.test(toastText || ""),
+        `Invalid backup with ${label} shows an error and never offers Replace`,
+        JSON.stringify({ choiceOpened, toastText }),
+        `Settings → Import backup containing ${label}`
+      );
+      assert(
+        storesUnchanged,
+        `Invalid backup with ${label} cannot mutate either replica or the draft`,
+        JSON.stringify({
+          beforeRevision: canonicalDomain(beforeInvalid.local).revision,
+          afterLocalRevision: canonicalDomain(afterInvalid.local).revision,
+          afterIdbRevision: canonicalDomain(afterInvalid.idb).revision,
+        }),
+        `Settings → Import backup containing ${label} → Replace if offered`
+      );
+      if (choiceOpened || !storesUnchanged) {
+        await persistState(page, beforeInvalid.local);
+        await page.evaluate(
+          ({ key, raw }) => {
+            if (raw == null) localStorage.removeItem(key);
+            else localStorage.setItem(key, raw);
+          },
+          { key: DRAFT, raw: beforeInvalid.draft }
+        );
+        await reloadApp(page);
+        await nav(page, "settings");
+        await page.evaluate(() => document.querySelector("#dataBackupPanel")?.classList.add("is-open"));
+      }
+    }
+
     // Cancel import preserves current state
     const beforeCancel = await getState(page);
     const cancelPayload = JSON.parse(readFileSync(jsonPath, "utf8"));
