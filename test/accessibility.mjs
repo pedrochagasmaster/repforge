@@ -407,6 +407,84 @@ async function runLocalizedHistoryAndTourChecks(browser) {
   }
 }
 
+export async function runWorkoutValidationFocusCheck(browser, check = assert) {
+  console.log("\nWorkout validation focus");
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await clearState(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+
+  await page.click("#startWorkout");
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+  await page.evaluate(() => setLogMode("full"));
+
+  const load = page.locator('#workout input[data-k$="_load"]').first();
+  const loadKey = await load.getAttribute("data-k");
+  const setKey = loadKey?.replace(/_load$/, "");
+  const reps = page.locator(`[data-k="${setKey}_reps"]`);
+  const rir = page.locator(`[data-k="${setKey}_rir"]`);
+
+  await load.fill("60");
+  await reps.fill("8");
+  await reps.fill("");
+  await rir.fill("1");
+
+  const finish = page.locator("#logForm .btn--save");
+  await finish.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForFunction(() => {
+    const form = document.querySelector("#logForm");
+    return (
+      !!form?.querySelector("[aria-invalid='true']") &&
+      !form.inert &&
+      form.getAttribute("aria-busy") !== "true"
+    );
+  });
+
+  const rejected = await page.evaluate((expectedKey) => {
+    const form = document.querySelector("#logForm");
+    const invalid = [...form.querySelectorAll("[aria-invalid='true']")];
+    const first = invalid[0];
+    const finishButton = form.querySelector(".btn--save");
+    return {
+      activeKey: document.activeElement?.dataset?.k || document.activeElement?.id || null,
+      expectedKey,
+      firstInvalidKey: first?.dataset?.k || first?.id || null,
+      invalidCount: invalid.length,
+      focusOnFirstInvalid: document.activeElement === first,
+      formInert: !!form.inert,
+      formBusy: form.getAttribute("aria-busy"),
+      finishDisabled: !!finishButton?.disabled,
+    };
+  }, `${setKey}_reps`);
+  await page.keyboard.type("8");
+  const afterEdit = await page.evaluate((expectedKey) => {
+    const repsInput = document.querySelector(`[data-k="${expectedKey}"]`);
+    return {
+      activeKey: document.activeElement?.dataset?.k || document.activeElement?.id || null,
+      repsValue: repsInput?.value ?? null,
+    };
+  }, `${setKey}_reps`);
+
+  check(
+    rejected.firstInvalidKey === rejected.expectedKey &&
+      rejected.invalidCount === 1 &&
+      rejected.focusOnFirstInvalid &&
+      !rejected.formInert &&
+      rejected.formBusy == null &&
+      !rejected.finishDisabled &&
+      afterEdit.activeKey === rejected.expectedKey &&
+      afterEdit.repsValue === "8",
+    "Rejected Finish focuses the first invalid field and leaves the workout form operable",
+    JSON.stringify({ rejected, afterEdit })
+  );
+
+  await context.close();
+}
+
 async function runAccessibleInteractions(browser) {
 console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
 
@@ -2022,7 +2100,10 @@ async function main() {
     await runHistoryResponsiveLayoutChecks(browser);
   } else if (process.argv.includes("--dimmed-states")) {
     await runDimmedStateAccessibility(browser);
+  } else if (process.argv.includes("--workout-validation-focus")) {
+    await runWorkoutValidationFocusCheck(browser);
   } else {
+    await runWorkoutValidationFocusCheck(browser);
     await runAccessibleInteractions(browser);
     await runHistoryResponsiveLayoutChecks(browser);
     await runLocalizedHistoryAndTourChecks(browser);

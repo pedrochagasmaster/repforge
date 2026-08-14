@@ -3320,13 +3320,13 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day,done,planned}):(entered?t("log.save_meta.entered",{day,entered,planned}):t("log.save_meta.planned",{day,planned}));}
 
 async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
+  const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
+  if(applyFieldError(check))return;
+  if(!keys.length){toast(t("toast.enter_weight_before_save"));return}
   const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
   saving=true;
   if(form){form.inert=true;form.setAttribute("aria-busy","true")}
-  try{const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
-  if(applyFieldError(check))return;
-  if(!keys.length){toast(t("toast.enter_weight_before_save"));return}
-  const date=check.values.date,bw=check.values.bodyweight,session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
+  try{const date=check.values.date,bw=check.values.bodyweight,session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
   for(const ex of exercises()){if(skipped.has(ex.id))continue;
     const exNote=currentExerciseNote(ex.id);
     for(let n=1;n<=ex.sets;n++){
