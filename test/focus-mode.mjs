@@ -389,6 +389,32 @@ async function main() {
     "the note sheet is a named modal dialog", JSON.stringify(sheet));
   assert(sheet.onScreen && sheet.scrim && sheet.focused && sheet.forName,
     "it rises from the bottom, dims the card and takes the caret", JSON.stringify(sheet));
+  // The software keyboard shrinks the visual viewport but not dvh, and iOS also
+  // scrolls the visual viewport down to reveal the field (offsetTop). Sizing the
+  // sheet against 100dvh made it that much taller than the band left on screen,
+  // so its header sat above the top edge until the lifter swiped back down.
+  const withKeyboard = await page.evaluate(() => {
+    const root = document.documentElement;
+    // visualViewport: height 516, offsetTop 120 inside an 852-tall layout viewport.
+    const vvh = 516, offsetTop = 120;
+    const kb = Math.max(0, window.innerHeight - vvh - offsetTop);
+    root.style.setProperty("--kb", `${kb}px`);
+    root.style.setProperty("--vvh", `${vvh}px`);
+    const box = (sel) => {
+      const r = document.querySelector(sel).getBoundingClientRect();
+      // Client coords are layout-viewport relative; the band on screen is
+      // [offsetTop, offsetTop + vvh].
+      return { top: Math.round(r.top - offsetTop), bottom: Math.round(r.bottom - offsetTop) };
+    };
+    const sheet = box("#exNoteSheet"), head = box("#exNoteSheet .sheet__head");
+    root.style.removeProperty("--kb");
+    root.style.removeProperty("--vvh");
+    return { vvh, sheet, head };
+  });
+  assert(withKeyboard.sheet.top >= 0 && withKeyboard.head.bottom <= withKeyboard.vvh &&
+    Math.abs(withKeyboard.sheet.bottom - withKeyboard.vvh) <= 1,
+    "with the keyboard up the sheet sits in the visible band with its header on screen",
+    JSON.stringify(withKeyboard));
   const sheetModal = await page.evaluate(() => ({
     main: !!document.querySelector("main")?.inert,
     nav: !!document.querySelector("nav")?.inert,
