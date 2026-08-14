@@ -1616,6 +1616,9 @@ input[type=checkbox],input[type=radio]{
 .program-day__link,.program-footer__link,.recblock__link{
   min-width:44px;min-height:44px;
 }
-.cal__cell,.cal-grid__day,.weekstrip__day{
+.cal__cell,.weekstrip__day{
   min-width:44px;min-height:44px;
+}
+.cal-grid__day{
+  min-width:0;min-height:44px;
 }

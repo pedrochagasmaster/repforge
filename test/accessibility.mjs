@@ -1451,6 +1451,72 @@ async function showView(page, view) {
   if (view !== "settings") await page.waitForSelector(`#${view}.view.active`);
 }
 
+export async function runHistoryResponsiveLayoutChecks(browser, check = assert) {
+  console.log("\nResponsive History layout (320×568)");
+  const context = await browser.newContext({ viewport: { width: 320, height: 568 } });
+  const page = await context.newPage();
+  await installVisualHooks(context);
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await clearState(page);
+  await seedLangUnit(page, "en", "kg", true);
+  await showView(page, "history");
+  await page.waitForSelector("#history.view.active");
+  await page.waitForSelector("#sessions [data-sess]");
+  await page.waitForFunction(() => document.querySelectorAll(".cal-grid__day").length >= 28);
+
+  const sessionCount = await page.locator("#sessions [data-sess]").count();
+  const layout = await page.evaluate(() => {
+    const root = document.documentElement;
+    const history = document.querySelector("#history");
+    const calendar = document.querySelector(".cal-grid");
+    const days = [...document.querySelectorAll(".cal-grid__day")];
+    const measure = (el) => ({
+      clientWidth: el?.clientWidth || 0,
+      scrollWidth: el?.scrollWidth || 0,
+    });
+    const columns = calendar ? getComputedStyle(calendar).gridTemplateColumns : "";
+    return {
+      viewport: { innerWidth: window.innerWidth, clientWidth: root.clientWidth },
+      document: measure(root),
+      history: measure(history),
+      calendar: {
+        ...measure(calendar),
+        columns,
+        columnCount: columns.split(/\s+/).filter(Boolean).length,
+        dayCount: days.length,
+        dowCount: document.querySelectorAll(".cal-grid__dow").length,
+        minDayHeight: Math.min(...days.map((day) => day.getBoundingClientRect().height)),
+      },
+    };
+  });
+
+  const fits = (measurement) => measurement.scrollWidth <= measurement.clientWidth;
+
+  check(sessionCount === 2, "320px History opens with two seeded sessions", `count=${sessionCount}`);
+  check(
+    fits(layout.document),
+    "320px populated History does not overflow the document",
+    JSON.stringify({ viewport: layout.viewport, document: layout.document })
+  );
+  check(
+    fits(layout.history),
+    "320px populated History fits its own content box",
+    JSON.stringify(layout.history)
+  );
+  check(
+    fits(layout.calendar) &&
+      layout.calendar.columnCount === 7 &&
+      layout.calendar.dowCount === 7 &&
+      layout.calendar.dayCount >= 28 &&
+      layout.calendar.minDayHeight >= 44,
+    "320px History calendar keeps seven columns without horizontal overflow",
+    JSON.stringify(layout.calendar)
+  );
+
+  await context.close();
+}
+
 async function visitSurfaces(page) {
   await showView(page, "log");
   await page.evaluate(() => toast("audit toast"));
@@ -1739,18 +1805,24 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
 
 async function main() {
   const browser = await launchChromium();
-  await runAccessibleInteractions(browser);
-  console.log("\nAccessibility / History index");
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-  const page = await context.newPage();
-  page.on("dialog", (dialog) => dialog.accept());
-  await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await clearState(page);
-  await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForApp(page);
-  await runHistoryIndexChecks(page, assert);
-  await runHistoryOperabilityChecks(page, assert);
-  await runVisualAccessibility(browser);
+  if (process.argv.includes("--history-320")) {
+    await runHistoryResponsiveLayoutChecks(browser);
+  } else {
+    await runAccessibleInteractions(browser);
+    console.log("\nAccessibility / History index");
+    const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+    const page = await context.newPage();
+    page.on("dialog", (dialog) => dialog.accept());
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await clearState(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await runHistoryIndexChecks(page, assert);
+    await runHistoryOperabilityChecks(page, assert);
+    await context.close();
+    await runHistoryResponsiveLayoutChecks(browser);
+    await runVisualAccessibility(browser);
+  }
   await browser.close();
   console.log(`\n${results.passed} passed, ${results.failed} failed`);
   process.exit(results.failed > 0 ? 1 : 0);
