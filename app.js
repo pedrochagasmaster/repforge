@@ -1625,6 +1625,9 @@ function generateProgramFromOnboarding(answers){
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
+// restPaused holds the milliseconds left while the clock is held (null while it
+// runs); restLength is the length the current or next rest is armed at.
+let restPaused=null,restLength=0;
 function announceRestDone(){
   if(restAnnounced)return;
   restAnnounced=true;
@@ -2649,16 +2652,20 @@ function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math
  *  workout header for Focus — where it must never sit over a control.
  *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
 function paintRest(text,done,over=0){
+  paintRestSheet();
   const b=$("#restBar");
   if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
     b.classList.toggle("is-done",!!done);
-    b.classList.toggle("is-over",over>0)}
+    b.classList.toggle("is-over",over>0);
+    b.classList.toggle("is-paused",restPaused!=null)}
   const chip=$("#woRest");if(!chip)return;
   const el=chip.querySelector(".wo-rest__time");if(el)el.textContent=text;
   chip.classList.toggle("is-done",!!done);
   chip.classList.toggle("is-over",over>0);
+  chip.classList.toggle("is-paused",restPaused!=null);
   const running=chip.classList.contains("is-running");
   if(!running)chip.setAttribute("aria-label",t("focus.rest.start_aria"));
+  else if(restPaused!=null)chip.setAttribute("aria-label",t("focus.rest.paused_aria",{time:text}));
   else if(over>0)chip.setAttribute("aria-label",t("focus.rest.over_aria",{time:fmtClock(over)}));
   else chip.setAttribute("aria-label",t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text}))}
 /** Show or hide the header chip, and keep the floating bar out of Focus. */
@@ -2681,10 +2688,10 @@ function updateRestChrome(){
       const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
       if(!restEnd){chip.classList.remove("is-done","is-over");
         chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
-    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over")}
+    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over","is-paused")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restAnnounced=false;
+function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
   $("#restBar")?.classList.add("hidden");paintRest("—",false);
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
@@ -2693,7 +2700,13 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
  *  says how long the set has been waiting. It stops climbing after an hour —
  *  by then the number has stopped meaning anything. */
 const REST_OVERTIME_MAX=60*60;
-function restOvertimeSec(){return restEnd?Math.round((Date.now()-restEnd)/1000):0}
+/** Milliseconds left on the clock: frozen while held, and negative once the
+ *  rest has run past the bell. Idle, it reads as the length the next rest
+ *  would run for — which is what the sheet shows before anything is armed. */
+function restLeftMs(){
+  if(restPaused!=null)return restPaused;
+  return restEnd?restEnd-Date.now():restPlanSec()*1000}
+function restOvertimeSec(){return restEnd?Math.round(-restLeftMs()/1000):0}
 /** One-shot side effects at zero: the live-region line, buzz, or OS notice. */
 function ringRest(){
   announceRestDone();
@@ -2702,14 +2715,24 @@ function ringRest(){
   if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"})}
-function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
+function tickRest(){const left=Math.round(restLeftMs()/1000);
   if(left>0){paintRest(fmtClock(left),false);return}
   const over=Math.min(-left,REST_OVERTIME_MAX);
   paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over);
   if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
   ringRest()}
 function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
-function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
+/** Repaint every rest surface from the clock as it stands, without waiting for
+ *  the next tick — a held clock has no tick, and a nudged one should read the
+ *  new number the moment the button is released. */
+function syncRest(){
+  if(!restEnd){paintRest("—",false);updateRestChrome();return}
+  const left=Math.round(restLeftMs()/1000);
+  if(left>0)paintRest(fmtClock(left),false);
+  else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over)}
+  updateRestChrome()}
+function startRest(sec){const s=sec||restPlanSec();if(s<=0)return;
+  restLength=s;restPaused=null;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
@@ -2717,13 +2740,122 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
 window.__repforgeRest={
   expire(){
     if(!restEnd)return false;
-    restEnd=Date.now()-1;
+    restEnd=Date.now()-1;restPaused=null;
     if(restTick){clearInterval(restTick);restTick=null}
     return true}};
+
+/* ---- Rest timer sheet ---- */
+/* Tapping a running clock used to end the rest — the one thing a lifter with a
+   bar still in hand never means by it. The clock opens this sheet instead, and
+   every edit to the rest lives here: hold it, nudge it 30s either way, restart
+   it at another length, or end it deliberately. */
+const REST_PRESETS=[60,90,180,300];
+const REST_NUDGE=30;
+const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
+let restSheetReturn=null;
+/** The length this rest was armed at — the ring's full turn, and the length the
+ *  next one starts at until Settings changes the default again. */
+function restPlanSec(){
+  if(restLength>0)return restLength;
+  return normalizeRestSec(state?.settings?.restSec)}
+const clampRestSec=s=>Math.min(REST_MAX_SEC,Math.max(REST_MIN_SEC,Math.round(s)||0));
+function restPresetSecs(){
+  const secs=new Set(REST_PRESETS);
+  const dflt=normalizeRestSec(state?.settings?.restSec);
+  if(dflt>0)secs.add(dflt);
+  return [...secs].sort((a,b)=>a-b)}
+function renderRestPresets(){
+  const host=$("#restPresets");if(!host)return;
+  host.innerHTML=restPresetSecs().map(s=>
+    `<button type="button" class="restpreset" data-restpreset="${s}" aria-pressed="false" aria-label="${esc(t("rest.sheet.preset_aria",{time:fmtClock(s)}))}">${esc(fmtClock(s))}</button>`).join("");
+  $$("#restPresets [data-restpreset]").forEach(b=>{b.onclick=()=>setRestLength(+b.dataset.restpreset)})}
+/** The dial reads remaining-over-armed, so a rest nudged longer keeps a ring
+ *  that still means something. */
+function paintRestSheet(){
+  const sheet=$("#restSheet");if(!sheet||sheet.hidden)return;
+  const left=Math.round(restLeftMs()/1000);
+  const over=left<0?Math.min(-left,REST_OVERTIME_MAX):0;
+  const clock=$("#restSheetClock");
+  if(clock)clock.textContent=over>0?`-${fmtClock(over)}`:fmtClock(Math.max(0,left));
+  const arc=$("#restDialArc");
+  if(arc){
+    const c=2*Math.PI*(Number(arc.getAttribute("r"))||0);
+    const frac=Math.max(0,Math.min(1,left/Math.max(1,restPlanSec())));
+    arc.style.strokeDasharray=String(c);
+    arc.style.strokeDashoffset=String(c*(1-frac))}
+  const running=!!restEnd&&restPaused==null;
+  sheet.classList.toggle("is-idle",!restEnd);
+  sheet.classList.toggle("is-paused",restPaused!=null);
+  sheet.classList.toggle("is-over",over>0);
+  const play=$("#restPlayPause");
+  if(play)play.setAttribute("aria-label",t(running?"rest.sheet.pause_aria":restEnd?"rest.sheet.resume_aria":"rest.sheet.start_aria"));
+  const armed=restPlanSec();
+  $$("#restPresets [data-restpreset]").forEach(b=>{
+    const on=+b.dataset.restpreset===armed;
+    b.classList.toggle("is-active",on);
+    b.setAttribute("aria-pressed",on?"true":"false")});
+  const reset=$("#restReset");if(reset)reset.disabled=!restEnd;
+  const stop=$("#restStop");if(stop)stop.disabled=!restEnd}
+function openRestSheet(){
+  const sheet=$("#restSheet"),scrim=$("#restSheetScrim");
+  if(!sheet)return;
+  restSheetReturn=document.activeElement;
+  renderRestPresets();
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#restPlayPause"),
+    returnFocus:restSheetReturn,
+    onEscape:closeRestSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  paintRestSheet();
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeRestSheet(){
+  const sheet=$("#restSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  restSheetReturn=null;
+  return closeModal(sheet)}
+/** Picking a length restarts the rest at it; idle, it only sets what the next
+ *  one will run for. */
+function setRestLength(sec){
+  const s=clampRestSec(sec);
+  restLength=s;
+  if(restEnd)startRest(s);
+  else syncRest();
+  paintRestSheet()}
+/** ±30s moves the clock, not the plan — except when the nudge pushes past the
+ *  length it was armed at, which becomes the new full turn of the ring. */
+function nudgeRest(delta){
+  if(!restEnd){setRestLength(restPlanSec()+delta);return}
+  const next=Math.min(REST_MAX_SEC*1000,Math.max(-REST_OVERTIME_MAX*1000,restLeftMs()+delta*1000));
+  if(restPaused!=null)restPaused=next;else restEnd=Date.now()+next;
+  const left=Math.ceil(next/1000);
+  if(left>restLength)restLength=Math.min(REST_MAX_SEC,left);
+  // Time added past the bell puts the rest back on the clock, so the line, the
+  // buzz and the OS notice all have to be able to fire again.
+  if(next>0){
+    restNotified=false;restAnnounced=false;
+    const ra=$("#restAnnounce");if(ra)ra.textContent="";
+    if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+    if(restPaused==null&&!restTick)armRestTick()}
+  syncRest()}
+function toggleRestHold(){
+  if(!restEnd){startRest(restPlanSec());return}
+  if(restPaused!=null){
+    restEnd=Date.now()+restPaused;restPaused=null;
+    if(restOvertimeSec()<REST_OVERTIME_MAX)armRestTick()}
+  else{
+    restPaused=restEnd-Date.now();
+    if(restTick){clearInterval(restTick);restTick=null}}
+  syncRest()}
+function resetRest(){if(!restEnd)return;startRest(restPlanSec())}
+function endRestFromSheet(){stopRest();closeRestSheet()}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
-  if(restEnd&&Date.now()>=restEnd){
+  if(restEnd&&restPaused==null&&Date.now()>=restEnd){
     // Background throttling freezes the tick; repaint from the clock, then let
     // the count-up carry on unless it has already run out its overtime.
     tickRest();
@@ -5133,12 +5265,16 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;
     if(rsEl){rsEl.value=String(state.settings.restSec);rsEl.setAttribute("aria-invalid","true");try{rsEl.focus()}catch{}}
     toast(t("validation.rest_frac"));restSec=state.settings.restSec}
   else{rsEl?.removeAttribute("aria-invalid");restSec=rsEl?num("#restSec",120,0):state.settings.restSec}
+  const oldRestSec=state.settings.restSec;
   const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
   const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
   const proposal=cloneSnapshot(state);
   proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
+  // A length picked in the timer sheet holds for the session, but a new default
+  // in Settings is the lifter saying it plainly — it wins.
+  if(oldRestSec!==state.settings.restSec)restLength=0;
   if(oldUnit!==newUnit){
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
@@ -5637,9 +5773,17 @@ function init(){
   $("#tourSkip").onclick=()=>endTour(false);
   $("#replayTour").onclick=()=>startTour("replay");
   $("#installApp").onclick=triggerInstall;
-  $("#restBar").onclick=stopRest;
-  // One rest control in the workout header: start it when idle, stop it when running.
-  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?stopRest():startRest()};
+  $("#restBar").onclick=openRestSheet;
+  // One rest control in the workout header: it starts the clock when idle, and
+  // opens the timer sheet once it is running rather than ending the rest.
+  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?openRestSheet():startRest()};
+  const restClose=$("#restSheetClose");if(restClose)restClose.onclick=closeRestSheet;
+  const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
+  const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);
+  const restPlus=$("#restPlus");if(restPlus)restPlus.onclick=()=>nudgeRest(REST_NUDGE);
+  const restPlay=$("#restPlayPause");if(restPlay)restPlay.onclick=toggleRestHold;
+  const restReset=$("#restReset");if(restReset)restReset.onclick=resetRest;
+  const restStop=$("#restStop");if(restStop)restStop.onclick=endRestFromSheet;
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;

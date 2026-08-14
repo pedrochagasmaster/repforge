@@ -4144,7 +4144,35 @@ async function main() {
     "restBar still hidden after tapping ⏱",
     "Log → tap ⏱ on an exercise → rest timer appears"
   );
+  // The floating clock opens the timer sheet; it never ends the rest on its own.
   await page.click("#restBar");
+  await page.waitForTimeout(350);
+  const restSheet = await page.evaluate(() => {
+    const el = document.querySelector("#restSheet");
+    return {
+      open: !el.hidden && el.classList.contains("is-open"),
+      running: !document.querySelector("#restBar").classList.contains("hidden"),
+      clock: document.querySelector("#restSheetClock").textContent.trim(),
+    };
+  });
+  assert(
+    restSheet.open && restSheet.running && /^\d+:\d\d$/.test(restSheet.clock),
+    "Tapping the floating clock opens the rest timer instead of ending it",
+    JSON.stringify(restSheet),
+    "Log → tap the floating clock → the rest timer sheet opens with the rest still running"
+  );
+  await page.click("#restStop");
+  await page.waitForTimeout(350);
+  assert(
+    await page.evaluate(
+      () =>
+        document.querySelector("#restSheet").hidden &&
+        document.querySelector("#restBar").classList.contains("hidden")
+    ),
+    "Stop in the rest sheet ends the rest and closes it",
+    "sheet or floating clock still showing",
+    "Rest timer → Stop → the sheet closes and the clock is gone"
+  );
 
   // Glossary explains RIR on tap
   await page.click("#workout .term[data-term='RIR']");
@@ -4828,12 +4856,24 @@ async function main() {
     "Log → Focus → tap the header timer → it becomes a counting pill above the card"
   );
   await page.click("#woRest");
-  await page.waitForTimeout(150);
+  await page.waitForTimeout(350);
+  const restChipTap = await page.evaluate(() => ({
+    sheet: !document.querySelector("#restSheet").hidden,
+    running: document.querySelector("#woRest").classList.contains("is-running"),
+  }));
+  assert(
+    restChipTap.sheet && restChipTap.running,
+    "tapping the running rest chip opens the timer rather than ending the rest",
+    JSON.stringify(restChipTap),
+    "Focus → tap the counting pill → the rest timer opens with the clock still running"
+  );
+  await page.click("#restStop");
+  await page.waitForTimeout(350);
   assert(
     await page.evaluate(() => !document.querySelector("#woRest").classList.contains("is-running")),
-    "tapping the running rest chip stops it",
+    "Stop in the rest sheet returns the stopwatch chip",
     `running=${await page.evaluate(() => document.querySelector("#woRest").classList.contains("is-running"))}`,
-    "Focus → tap the counting pill → rest stops and the stopwatch returns"
+    "Rest timer → Stop → rest ends and the stopwatch returns"
   );
 
   // Focus mode is a swipeable card deck: no fixed dock, and the card owns the
