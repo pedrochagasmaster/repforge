@@ -1316,50 +1316,46 @@ function archiveCapturedBlock(proposal,cap){
   history.push({id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
     completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)});
   proposal.programHistory=history;return proposal}
-function completeCurrentProgram(review){
-  if(!state.programMeta)state.programMeta=defaultProgramMeta(state.log);
-  if(!Array.isArray(state.programHistory))state.programHistory=[];
-  if(!state.programHistory.some(h=>h.id===state.programMeta.id)){
-    state.programHistory.push({id:state.programMeta.id,meta:{...state.programMeta},program:prog.toJSON(),
-      completedAt:new Date().toISOString(),review})}
-  state.programMeta.mesocycleStatus="completed";
-  state.programMeta.completedAt=new Date().toISOString();
-  state.programMeta.updated=new Date().toISOString();
-  save()}
 function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
   toast(t(msg[strategy]||"toast.new_block_started"))}
+function blockTransitionResult(kind,result={}){
+  const committed=kind==="committed";
+  const revision=Number.isInteger(result.revision)&&result.revision>=0?result.revision:readRevision(state);
+  return{...result,kind,committed,deferred:kind==="deferred",duplicate:kind==="duplicate",
+    revision,localOk:committed&&!!result.localOk,idbOk:committed&&!!result.idbOk}}
 function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   requireAdapter(io,"commitNextBlock");
   const liveId=state.programMeta?.id;
   const oldId=expectedOldId||liveId;
-  if(!liveId||!oldId)return Promise.resolve({revision:readRevision(state),localOk:false,idbOk:false});
+  if(!liveId||!oldId)return Promise.resolve(blockTransitionResult("failed"));
   if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
-  if(liveId!==oldId)return Promise.resolve({revision:readRevision(state),localOk:false,idbOk:false,duplicate:true});
+  if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
   const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
     ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
-  if(state.programMeta.id!==cap.oldProgramId)return Promise.resolve({revision:readRevision(state),localOk:false,idbOk:false});
+  if(state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
   if(strategy==="onboarding"){
     pendingBlockTransition=cap;
     closeBlockReview();
     startOnboarding("block");
-    return Promise.resolve({revision:readRevision(state),localOk:true,idbOk:true,deferred:true})}
+    return Promise.resolve(blockTransitionResult("deferred"))}
   const task=(async()=>{
     const proposal=cloneSnapshot(state);
     archiveCapturedBlock(proposal,cap);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
     proposal.programMeta=nextMeta;
     proposal.program=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
-    const result=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId});
-    if(result.localOk||result.idbOk){
+    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId});
+    const kind=persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed";
+    const result=blockTransitionResult(kind,persisted);
+    if(result.committed){
       pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
     return result})();
   blockCommitInFlight={oldProgramId:oldId,promise:task};
   const clear=()=>{if(blockCommitInFlight?.promise===task)blockCommitInFlight=null};
   task.then(clear,clear);
   return task}
-async function startNextMesocycle(strategy,io=storageIO,expectedOldId=null){return commitNextBlock(strategy,io,expectedOldId)}
 function finishBlockAndStart(strategy,expectedOldId){return commitNextBlock(strategy,storageIO,expectedOldId)}
 function openBlockReview(review,opts={}){
   blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
@@ -3017,8 +3013,6 @@ window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,c
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
 window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
-window.__repforgeCompleteProgram=completeCurrentProgram;
-window.__repforgeStartNextMeso=startNextMesocycle;
 window.__repforgeCommitNextBlock=commitNextBlock;
 window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
 window.__repforgeApplyProgramTemplate=applyProgramTemplate;

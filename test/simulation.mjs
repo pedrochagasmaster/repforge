@@ -5152,78 +5152,87 @@ async function main() {
   await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
 
   beginPhase("Phase: P9 next-block flow");
-  await page.waitForFunction(() => typeof window.__repforgeCompleteProgram === "function");
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await page.waitForFunction(() => typeof window.__repforgeCommitNextBlock === "function");
   const p9Before = await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem("repforge_v1"));
     return {
+      revision: s._storageRevision || 0,
       historyLen: s.programHistory.length,
       metaId: s.programMeta.id,
-      sets: s.program.map((e) => e.sets),
+      status: s.programMeta.mesocycleStatus,
+      sets: s.program.map((e) => ({ sets: e.sets, maxSets: e.maxSets || 6 })),
     };
   });
-  const p9Review = await page.evaluate(() =>
-    window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
+  const p9LegacyHooks = await page.evaluate(() => ({
+    complete: typeof window.__repforgeCompleteProgram,
+    start: typeof window.__repforgeStartNextMeso,
+  }));
+  assert(
+    p9LegacyHooks.complete === "undefined" && p9LegacyHooks.start === "undefined",
+    "P9: commitNextBlock is the only exposed next-block transition",
+    JSON.stringify(p9LegacyHooks),
+    "legacy two-step test hooks are absent"
   );
-  await page.evaluate((review) => window.__repforgeCompleteProgram(review), p9Review);
+  const p9Result = await page.evaluate(() => window.__repforgeCommitNextBlock("increase_volume"));
   await page.evaluate(() => window.__repforgeStorage.flush());
-  const p9AfterComplete = await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem("repforge_v1"));
-    return { historyLen: s.programHistory.length, status: s.programMeta.mesocycleStatus };
-  });
-  assert(
-    p9AfterComplete.historyLen === p9Before.historyLen + 1,
-    "P9: completeCurrentProgram appends programHistory entry",
-    `history ${p9Before.historyLen} → ${p9AfterComplete.historyLen}`,
-    "__repforgeCompleteProgram(review) → programHistory.length +1"
-  );
-  assert(
-    p9AfterComplete.status === "completed",
-    "P9: completeCurrentProgram sets mesocycleStatus completed",
-    `status=${p9AfterComplete.status}`,
-    "__repforgeCompleteProgram → programMeta.mesocycleStatus === completed"
-  );
-  await page.evaluate(() => window.__repforgeStartNextMeso("increase_volume"));
   const p9Today = new Date().toISOString().slice(0, 10);
-  const p9AfterStart = await page.evaluate((todayStr) => {
+  const p9After = await page.evaluate((oldId) => {
     const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    const archived = s.programHistory.find((entry) => entry.id === oldId);
     return {
+      revision: s._storageRevision || 0,
       historyLen: s.programHistory.length,
+      archivedCount: s.programHistory.filter((entry) => entry.id === oldId).length,
+      archivedMetaId: archived?.meta?.id,
+      archivedSets: archived?.program?.map((e) => e.sets),
+      archivedReviewProgramId: archived?.review?.programId,
       metaId: s.programMeta.id,
       status: s.programMeta.mesocycleStatus,
       started: s.programMeta.started,
       sets: s.program.map((e) => e.sets),
     };
-  }, p9Today);
+  }, p9Before.metaId);
   assert(
-    p9AfterStart.metaId !== p9Before.metaId,
-    "P9: startNextMesocycle mints new programMeta.id",
-    `id ${p9Before.metaId} → ${p9AfterStart.metaId}`,
-    "__repforgeStartNextMeso → new programMeta.id"
+    p9Before.status === "active" &&
+      p9Result.kind === "committed" &&
+      p9Result.committed === true &&
+      p9Result.localOk === true &&
+      p9Result.idbOk === true &&
+      p9Result.revision === p9Before.revision + 1 &&
+      p9After.revision === p9Result.revision,
+    "P9: canonical next-block commit reports one accepted revision",
+    JSON.stringify({ before: p9Before.revision, result: p9Result, after: p9After.revision }),
+    "__repforgeCommitNextBlock(increase_volume) → accepted local/idb result at revision +1"
   );
   assert(
-    p9AfterStart.status === "active",
-    "P9: startNextMesocycle sets mesocycleStatus active",
-    `status=${p9AfterStart.status}`,
-    "__repforgeStartNextMeso → mesocycleStatus === active"
+    p9After.historyLen === p9Before.historyLen + 1 &&
+      p9After.archivedCount === 1 &&
+      p9After.archivedMetaId === p9Before.metaId &&
+      p9After.archivedReviewProgramId === p9Before.metaId &&
+      p9After.metaId !== p9Before.metaId &&
+      p9After.status === "active" &&
+      p9After.started === p9Today,
+    "P9: one atomic transition archives the old block and activates its successor",
+    JSON.stringify({
+      history: `${p9Before.historyLen} → ${p9After.historyLen}`,
+      archivedCount: p9After.archivedCount,
+      oldId: p9Before.metaId,
+      newId: p9After.metaId,
+      status: p9After.status,
+      started: p9After.started,
+    }),
+    "commitNextBlock proposal contains old archive plus active successor"
   );
   assert(
-    p9AfterStart.started === p9Today,
-    "P9: startNextMesocycle sets started to today",
-    `started=${p9AfterStart.started} today=${p9Today}`,
-    "__repforgeStartNextMeso → started === today()"
-  );
-  assert(
-    p9AfterStart.historyLen === p9AfterComplete.historyLen,
-    "P9: programHistory preserved across startNextMesocycle",
-    `historyLen=${p9AfterStart.historyLen}`,
-    "startNextMesocycle does not clear programHistory"
-  );
-  assert(
-    p9AfterStart.sets.length === p9Before.sets.length &&
-      p9AfterStart.sets.every((n, i) => n === p9Before.sets[i] + 1),
-    "P9: increase_volume adds one set per exercise",
-    `before=${p9Before.sets.join(",")} after=${p9AfterStart.sets.join(",")}`,
-    "__repforgeStartNextMeso(increase_volume) → each exercise sets +1"
+    Array.isArray(p9After.archivedSets) &&
+      p9After.archivedSets.length === p9Before.sets.length &&
+      p9After.archivedSets.every((n, i) => n === p9Before.sets[i].sets) &&
+      p9After.sets.length === p9Before.sets.length &&
+      p9After.sets.every((n, i) => n === Math.min(p9Before.sets[i].sets + 1, p9Before.sets[i].maxSets)),
+    "P9: atomic increase_volume preserves archived sets and caps successor sets",
+    `archived=${p9After.archivedSets.join(",")} successor=${p9After.sets.join(",")}`,
+    "commitNextBlock(increase_volume) → archive unchanged, successor +1 up to maxSets"
   );
 
   beginPhase("Phase: P5 program generation");
@@ -6784,13 +6793,22 @@ async function main() {
 
   const histBeforeBlock = (await getState(page)).programHistory?.length || 0;
   const idBeforeBlock = (await getState(page)).programMeta?.id;
-  await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  const revisionBeforeBlock = (await getState(page))._storageRevision || 0;
+  const onboardingDeferred = await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  const stateWhileOnboarding = await getState(page);
   assert(
-    (await getState(page)).programMeta?.id === idBeforeBlock &&
-      ((await getState(page)).programHistory?.length || 0) === histBeforeBlock,
-    "Block-review onboarding does not archive before Save",
-    "id or history changed while onboarding is open",
+    onboardingDeferred.kind === "deferred" &&
+      onboardingDeferred.deferred === true &&
+      onboardingDeferred.committed === false &&
+      onboardingDeferred.localOk === false &&
+      onboardingDeferred.idbOk === false &&
+      onboardingDeferred.revision === revisionBeforeBlock &&
+      stateWhileOnboarding._storageRevision === revisionBeforeBlock &&
+      stateWhileOnboarding.programMeta?.id === idBeforeBlock &&
+      (stateWhileOnboarding.programHistory?.length || 0) === histBeforeBlock,
+    "Block-review onboarding is explicitly deferred without a revision change",
+    JSON.stringify({ result: onboardingDeferred, before: revisionBeforeBlock, after: stateWhileOnboarding._storageRevision }),
     "commitNextBlock(onboarding) → pending only"
   );
   await page.click("#onbCancel");
@@ -6804,7 +6822,21 @@ async function main() {
     "Block onboarding → Cancel"
   );
 
-  await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  const revisionBeforeBlockSave = (await getState(page))._storageRevision || 0;
+  const onboardingDeferredForSave = await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  const stateBeforeBlockSave = await getState(page);
+  assert(
+    onboardingDeferredForSave.kind === "deferred" &&
+      onboardingDeferredForSave.deferred === true &&
+      onboardingDeferredForSave.committed === false &&
+      onboardingDeferredForSave.localOk === false &&
+      onboardingDeferredForSave.idbOk === false &&
+      onboardingDeferredForSave.revision === revisionBeforeBlockSave &&
+      stateBeforeBlockSave._storageRevision === revisionBeforeBlockSave,
+    "Block onboarding remains deferred until the eventual Save",
+    JSON.stringify({ result: onboardingDeferredForSave, before: revisionBeforeBlockSave, after: stateBeforeBlockSave._storageRevision }),
+    "commitNextBlock(onboarding) → inspect result and revision before finalizeProgramSetup"
+  );
   const blockSave = await page.evaluate(async () => {
     const cur = JSON.parse(localStorage.getItem("repforge_v1"));
     return window.__repforgeFinalizeProgramSetup({
@@ -6818,7 +6850,11 @@ async function main() {
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
   const afterBlockSave = await getState(page);
   assert(
-    blockSave.localOk && afterBlockSave.programMeta?.id !== idBeforeBlock &&
+    (blockSave.localOk || blockSave.idbOk) &&
+      blockSave.deferred !== true &&
+      blockSave.revision === revisionBeforeBlockSave + 1 &&
+      afterBlockSave._storageRevision === blockSave.revision &&
+      afterBlockSave.programMeta?.id !== idBeforeBlock &&
       afterBlockSave.programMeta?.onboarded === true &&
       (afterBlockSave.programHistory || []).some((h) => h.id === idBeforeBlock) &&
       (afterBlockSave.programHistory || []).filter((h) => h.id === idBeforeBlock).length === 1,
@@ -6855,12 +6891,35 @@ async function main() {
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
   const afterRepeatedBlock = await getState(page);
   assert(
-    repeatedBlock.duplicate === true &&
+    repeatedBlock.kind === "duplicate" &&
+      repeatedBlock.committed === false &&
+      repeatedBlock.duplicate === true &&
       afterRepeatedBlock.programMeta.id === settledId &&
       afterRepeatedBlock.programHistory.length === settledHistory,
     "A settled block-review activation cannot create another successor",
     JSON.stringify({ repeatedBlock, settledId, afterId: afterRepeatedBlock.programMeta.id }),
     `commitNextBlock(repeat, expected=${idForDup}) after settlement`
+  );
+  const beforeFailedBlock = await getState(page);
+  const failedBlock = await page.evaluate(async (oldId) => {
+    const io = {
+      async writeLocal() { throw new Error("ls fail"); },
+      async writeIdb() { throw new Error("idb fail"); },
+    };
+    return window.__repforgeCommitNextBlock("repeat", io, oldId);
+  }, beforeFailedBlock.programMeta.id);
+  const afterFailedBlock = await getState(page);
+  assert(
+    failedBlock.kind === "failed" &&
+      failedBlock.committed === false &&
+      failedBlock.localOk === false &&
+      failedBlock.idbOk === false &&
+      afterFailedBlock._storageRevision === beforeFailedBlock._storageRevision &&
+      afterFailedBlock.programMeta.id === beforeFailedBlock.programMeta.id &&
+      afterFailedBlock.programHistory.length === beforeFailedBlock.programHistory.length,
+    "A total storage failure reports failed and does not commit",
+    JSON.stringify({ failedBlock, beforeRevision: beforeFailedBlock._storageRevision, afterRevision: afterFailedBlock._storageRevision }),
+    "commitNextBlock(repeat) with false/false storage adapter"
   );
 
   const adapterOutcomes4 = [[true, true], [true, false], [false, true], [false, false]];
