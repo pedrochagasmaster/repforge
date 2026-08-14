@@ -1461,7 +1461,7 @@ Expected results are part of each row:
 | Settings/notifications/delete: assigned permission states and pending races stay truthful; disclosures work; deletion preserves program/Settings | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | Tour: every step matches its preview; focus is contained; disabled-rest/all-skipped cases work; Skip and Done obey origin-specific restoration | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 | Accessibility: modal lifecycle, visible focus, zoom/pinch, rapid taps, 44×44 targets, contrast, repeated toast, destructive alert and one rest completion announcement all pass | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
-| PWA: v56 controls, install copy is current, all four tabs work offline from the worker, and both stores/draft are byte-equivalent after reconnect | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
+| PWA: v66 controls, install copy is current, all four tabs work offline from the worker, and both stores/draft are byte-equivalent after reconnect | [ ] | [ ] | [ ] | [ ] | [ ] | [ ] |
 
 Use VoiceOver for every C2/C5 live-region cell and TalkBack for every C3/C6
 live-region cell; the Chromium accessibility tree is supplementary in C1/C4.
