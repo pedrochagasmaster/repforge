@@ -1094,7 +1094,10 @@ function openModal(el,opts={}){
   activeModal=rec;
   const focusEl=typeof opts.initialFocus==="function"?opts.initialFocus():opts.initialFocus;
   const toFocus=focusEl||modalFocusables(el)[0];
-  if(toFocus)toFocus.focus();
+  // Modals are fixed overlays, so scrolling one into view only shifts the page
+  // beneath them — on iOS that drags the visual viewport and takes the sheet
+  // header with it.
+  if(toFocus){try{toFocus.focus({preventScroll:true})}catch{try{toFocus.focus()}catch{}}}
   return true}
 function closeModal(el){
   const rec=activeModal;
@@ -1791,6 +1794,13 @@ let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
 let focusEdit=null;
+/** Focus mode — the set just committed: {exId,n}. Set on the commit that
+ *  logs a set and consumed by the render it triggers, which is the only one
+ *  that plays the landing animation. Every later render draws the same card
+ *  still, so a re-render for an unrelated reason never replays it. */
+let focusLogged=null;
+/** True while the card being written is the one that just gained a set. */
+const focusIsFresh=(ex,peek)=>!peek&&!!focusLogged&&focusLogged.exId===ex.id;
 /** Exercises whose older logged sets the lifter unfolded from behind the
  *  disclosure row. Folding is the default once a session gets long. */
 const focusUnfolded=new Set();
@@ -2628,18 +2638,21 @@ function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);i
   else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar for List, and the chip in the
- *  workout header for Focus — where it must never sit over a control. */
-function paintRest(text,done){
+ *  workout header for Focus — where it must never sit over a control.
+ *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
+function paintRest(text,done,over=0){
   const b=$("#restBar");
   if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
-    b.classList.toggle("is-done",!!done)}
+    b.classList.toggle("is-done",!!done);
+    b.classList.toggle("is-over",over>0)}
   const chip=$("#woRest");if(!chip)return;
   const el=chip.querySelector(".wo-rest__time");if(el)el.textContent=text;
   chip.classList.toggle("is-done",!!done);
+  chip.classList.toggle("is-over",over>0);
   const running=chip.classList.contains("is-running");
-  chip.setAttribute("aria-label",running
-    ?t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text})
-    :t("focus.rest.start_aria"))}
+  if(!running)chip.setAttribute("aria-label",t("focus.rest.start_aria"));
+  else if(over>0)chip.setAttribute("aria-label",t("focus.rest.over_aria",{time:fmtClock(over)}));
+  else chip.setAttribute("aria-label",t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text}))}
 /** Show or hide the header chip, and keep the floating bar out of Focus. */
 function updateRestChrome(){
   const focus=workoutActive&&logMode==="focus";
@@ -2658,9 +2671,9 @@ function updateRestChrome(){
       hint.textContent=t("tour.rest_preview_hint");hint.hidden=false}
     else{
       const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
-      if(!restEnd){chip.classList.remove("is-done");
+      if(!restEnd){chip.classList.remove("is-done","is-over");
         chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
-    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done")}
+    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restAnnounced=false;
@@ -2668,22 +2681,31 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest")}
+/** Past the bell the clock keeps running as a negative count-up, so a glance
+ *  says how long the set has been waiting. It stops climbing after an hour —
+ *  by then the number has stopped meaning anything. */
+const REST_OVERTIME_MAX=60*60;
+function restOvertimeSec(){return restEnd?Math.round((Date.now()-restEnd)/1000):0}
+/** One-shot side effects at zero: the live-region line, buzz, or OS notice. */
+function ringRest(){
+  announceRestDone();
+  if(restNotified)return;
+  restNotified=true;
+  if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
+  if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
+  else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"})}
 function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
-  if(left<=0){
-    paintRest("0:00",true);clearInterval(restTick);restTick=null;
-    announceRestDone();
-    if(restNotified)return;
-    restNotified=true;
-    if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
-    if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
-    else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"});
-    return}
-  paintRest(fmtClock(left),false)}
+  if(left>0){paintRest(fmtClock(left),false);return}
+  const over=Math.min(-left,REST_OVERTIME_MAX);
+  paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over);
+  if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
+  ringRest()}
+function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
 function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
-  clearInterval(restTick);restTick=setInterval(tickRest,250)}
+  armRestTick()}
 window.__repforgeRest={
   expire(){
     if(!restEnd)return false;
@@ -2694,9 +2716,10 @@ window.__repforgeRest={
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
   if(restEnd&&Date.now()>=restEnd){
-    paintRest("0:00",true);
-    if(restTick){clearInterval(restTick);restTick=null}
-    announceRestDone();
+    // Background throttling freezes the tick; repaint from the clock, then let
+    // the count-up carry on unless it has already run out its overtime.
+    tickRest();
+    if(!restTick&&restOvertimeSec()<REST_OVERTIME_MAX)armRestTick();
   }
   reconcileNotifyPermission();
   paintNotifyControls();
@@ -2800,11 +2823,14 @@ async function saveExNoteSheet(){
     renderWorkout();
     const trigger=$$("#workout [data-exnote-open]").find(b=>b.dataset.exnoteOpen===id);
     if(trigger){try{trigger.focus({preventScroll:true})}catch{try{trigger.focus()}catch{}}}}}
-/** Keep the sheet above the software keyboard rather than behind it. */
+/** Keep the sheet above the software keyboard rather than behind it, and inside
+ *  the band the keyboard leaves visible so its header stays on screen. */
 function trackSheetViewport(){
   const vv=window.visualViewport;if(!vv)return;
+  const root=document.documentElement;
   const apply=()=>{const inset=Math.max(0,window.innerHeight-vv.height-vv.offsetTop);
-    document.documentElement.style.setProperty("--kb",`${Math.round(inset)}px`)};
+    root.style.setProperty("--kb",`${Math.round(inset)}px`);
+    root.style.setProperty("--vvh",`${Math.round(vv.height)}px`)};
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);apply()}
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
@@ -3077,11 +3103,11 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
     :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
   return{load,reps:String(repsVal),eff}}
 
-function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false}){
+function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false,fresh=false}){
   const cells=`<span class="ledger__n">${n}</span><span class="ledger__load">${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
     `<span class="${effortMode?"ledger__eff":""}">${esc(vals.eff)}</span>`+
     `<span class="ledger__check" aria-hidden="true"></span>`;
-  return `<button type="button" class="ledger__row${editing?" is-editing":""}"${peek?dead()
+  return `<button type="button" class="ledger__row${editing?" is-editing":""}${fresh?" is-fresh":""}"${peek?dead()
     :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}`+
     `${editing?' aria-current="true"':""}>${cells}</button>`}
 
@@ -3106,17 +3132,20 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     return top(head())+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
       `<span class="ledger__dash" aria-hidden="true">—</span><span></span></div>`}
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
+  // The set that just landed is drawn once as fresh, so it arrives instead of
+  // appearing. Folding always keeps the newest rows, so it is never hidden.
+  const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const open=focusUnfolded.has(ex.id);
   const folds=done.length>=FOCUS_FOLD_MIN&&!open;
   const hidden=folds?done.slice(0,done.length-FOCUS_FOLD_KEEP):[];
   const shown=folds?done.slice(done.length-FOCUS_FOLD_KEEP):done;
   const rowsFor=list=>list.map(n=>focusLedgerRow(ex,n,focusRowVals(ex,n,r,draft,prev,effortMode),
-    {effortMode,editing:n===editN,peek})).join("");
+    {effortMode,editing:n===editN,peek,fresh:n===freshN})).join("");
   // A long session leads with a count and a run of ticks, so the sets that
   // scrolled behind the fold are still accounted for at a glance.
   const summary=done.length>=FOCUS_FOLD_MIN
     ?`<p class="ledger__count">${esc(t("focus.ledger.done_count",{n:done.length}))}</p>`+
-      `<div class="ledger__ticks" aria-hidden="true">${done.map(()=>`<span class="ledger__tick"></span>`).join("")}</div>`
+      `<div class="ledger__ticks" aria-hidden="true">${done.map(n=>`<span class="ledger__tick${n===freshN?" is-fresh":""}"></span>`).join("")}</div>`
     :"";
   let disclosure="";
   if(done.length>=FOCUS_FOLD_MIN){
@@ -3178,6 +3207,9 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
 function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const n=focusActiveSet(ex);
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
+  // The well re-arms on the set that just landed: the cue and the numbers of
+  // the next set settle in, or — on the last set — the completion mark does.
+  const fresh=focusIsFresh(ex,peek)?" is-fresh":"";
   if(!n){
     const done=focusDoneSets(ex).length;
     const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
@@ -3187,7 +3219,7 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     const cta=allDone||!hasNext
       ?`<button type="button" class="btn btn--cta btn--noarrow"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
       :`<button type="button" class="btn btn--cta"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
-    return `<div class="focus-well is-done">`+
+    return `<div class="focus-well is-done${fresh}">`+
       `<div class="focus-done"><span class="focus-done__mark" aria-hidden="true"></span>`+
       `<div class="focus-done__text"><p class="focus-done__title">${esc(title)}</p>`+
       `<p class="focus-done__sub">${esc(sub)}</p></div></div>`+
@@ -3199,7 +3231,7 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     ?`<button type="button" class="focus-well__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`+
       commit(t("focus.save_edit"))
     :commit(t("today.log_set"));
-  return `<div class="focus-well${editing?" is-editing":""}">`+
+  return `<div class="focus-well${editing?" is-editing":""}${fresh}">`+
     `<p class="focus-cue is-${cue.kind}"><span class="focus-cue__bolt" aria-hidden="true"></span>`+
     `<b class="focus-cue__lab">${esc(cue.label)}</b><span class="focus-cue__sep" aria-hidden="true">·</span>`+
     `<span class="focus-cue__text">${esc(cue.text)}</span></p>`+
@@ -3220,6 +3252,9 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
     `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
   const setNo=n||ex.sets;
+  // The counter only ticks when it actually moved: the last set of an exercise
+  // leaves it on the total it already read.
+  const setofFresh=n&&focusIsFresh(ex,peek)?" is-fresh":"";
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
   const tools=`<div class="focus-ex__tools">`+
     `<button type="button" class="focus-tool${noteVal?" has-note":""}"`+
@@ -3239,7 +3274,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
     `<span class="focus-ex__muscle">${esc(ex.primary)}</span>`+
-    `<span class="focus-ex__setof">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
+    `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
     `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
     `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
     `</div>${tools}</div></div>`+
@@ -3265,7 +3300,7 @@ function focusDeckHtml(ex,r,draft,prev,{fl,at}){
     peek(at+1,"next")+
     `</div></div>`}
 function renderWorkout(){
-  if(!workoutActive){updateGauge();updateSessionBanner();return}
+  if(!workoutActive){focusLogged=null;updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null||mc.isComplete?programWeekContext(nm,mc):t("log.context.today")}
   const draft=hydrateWorkoutDraft();
@@ -3277,7 +3312,7 @@ function renderWorkout(){
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
   const at=logMode==="focus"&&fl.length?Math.min(focusIndex,fl.length-1):0;
-  const wk=$("#workout");if(!wk)return;wk.classList.toggle("is-focus",logMode==="focus");
+  const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.toggle("is-focus",logMode==="focus");
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     // Focus renders the current exercise as its own full-height card; the rest
@@ -3334,6 +3369,9 @@ function renderWorkout(){
       noteHtml+
       `</article>`;
   }).join("");
+  // The landing animation belongs to this render alone: the markup that plays
+  // it has been written, so the next render draws the same card at rest.
+  focusLogged=null;
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -3487,6 +3525,11 @@ function bindWorkout(){
     if(editing)focusEdit=null;
     saveDraft();updateSaveMeta();
     const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
+    // A set landing is the one beat of Focus worth marking. The exercise id can
+    // hold underscores, so the set number comes off the end of the key by
+    // length rather than by splitting it.
+    if(logMode==="focus"&&exId&&committed.has(key)&&!editing)
+      focusLogged={exId,n:+key.slice(exId.length+1)};
     if(committed.has(key)&&!editing){startRest();armUnfinishedWatch()}
     if(editing)toast(t("toast.set_updated"));
     if(logMode==="focus")renderWorkout();
@@ -4442,6 +4485,9 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
     `<button type="button" class="listrow" id="seeVolumeAudit"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
     `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
+    // Nothing to read out when the program has no days left, so the row waits for one.
+    (ds.length?`<button type="button" class="listrow" id="exportProgramText"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
+      `<div class="listrow__sub">${esc(t("program.export_text.sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
     `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
     const cur=new Set(openDays);
@@ -4450,6 +4496,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
   $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
+  const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
 
 function openDayInEditor(d){if(!d||!prog.days().includes(d))return;
@@ -4817,6 +4864,63 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`repforge_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
+
+/* ---- Plain-text program export ----
+ * The program as something a lifter can read or paste into a chat: the name and
+ * how many days it runs, then each training day with its muscles and its
+ * exercise templates numbered in order, "3× 6-10" for sets × rep range.
+ * Lossy by design — ids, muscles per exercise, notes, and alternates stay in the
+ * JSON export, which is the one that can be imported back. */
+const programTextReps=e=>e.min===e.max?`${e.min}`:`${e.min}-${e.max}`;
+function programText(){
+  const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
+  const up=s=>String(s??"").toLocaleUpperCase(locTag());
+  const lines=[`${up(meta.name||t("untitled_program"))} (${t("program.export_text.days_per_week",{n:ds.length})})`];
+  for(const d of ds){
+    const mus=dayMuscles(d).map(muscleLabel);
+    lines.push("",`${up(d)}${mus.length?` — ${mus.join(" · ")}`:""}`);
+    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name} — ${e.sets}× ${programTextReps(e)}`))}
+  return lines.join("\n")}
+const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
+  return `repforge_program_${slug?`${slug}_`:""}${today()}.txt`};
+let programTextReturn=null;
+function openProgramTextSheet(){
+  const sheet=$("#programTextSheet"),scrim=$("#programTextScrim"),out=$("#programTextOut");
+  if(!sheet||!out)return;
+  out.textContent=programText();
+  out.scrollTop=0;
+  const sub=$("#programTextFor");if(sub)sub.textContent=state.programMeta?.name||t("untitled_program");
+  programTextReturn=document.activeElement;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#programTextCopy"),
+    returnFocus:programTextReturn,
+    onEscape:closeProgramTextSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeProgramTextSheet(){
+  const sheet=$("#programTextSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  programTextReturn=null;
+  return closeModal(sheet)}
+/** Clipboard first; the hidden-textarea path covers browsers that refuse the
+ *  async clipboard, and only a genuine failure of both surfaces a toast. */
+async function copyProgramText(){
+  const text=$("#programTextOut")?.textContent||programText();
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);
+    toast(t("toast.program_text_copied"));return true}}catch{}
+  try{const ta=document.createElement("textarea");
+    ta.value=text;ta.setAttribute("readonly","");
+    ta.style.cssText="position:fixed;top:0;left:0;opacity:0";
+    document.body.append(ta);ta.select();
+    const ok=document.execCommand("copy");ta.remove();
+    if(ok){toast(t("toast.program_text_copied"));return true}}catch{}
+  toast(t("toast.program_text_copy_failed"));return false}
+function shareProgramText(){
+  return shareOrDownload($("#programTextOut")?.textContent||programText(),programTextName(),"text/plain")}
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
@@ -5224,6 +5328,10 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
+  const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
+  const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
+  const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
+  const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
