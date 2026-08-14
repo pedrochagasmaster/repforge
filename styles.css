@@ -61,6 +61,11 @@ body{
 h1,h2,h3,p{margin:0}
 button,input,select,textarea{font:inherit;color:inherit}
 a{color:inherit;text-decoration:none}
+button,a[href],summary,input:not([type=hidden]),select,textarea,
+[role=button],[role=tab],[role=switch],[role=checkbox],
+[tabindex]:not([tabindex="-1"]),.term[data-term]{
+  min-width:44px;min-height:44px;
+}
 main{
   width:min(100%,var(--maxw));margin:0 auto;
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) 36px max(16px,env(safe-area-inset-left));
@@ -166,7 +171,7 @@ input:not(:where([type=checkbox],[type=radio])),select,textarea{
   font-size:16px;letter-spacing:normal;text-transform:none;transition:border-color .15s ease,box-shadow .15s ease;
 }
 input[type=checkbox],input[type=radio]{
-  width:auto;margin:0;padding:0;accent-color:var(--accent);
+  width:44px;height:44px;min-width:44px;min-height:44px;margin:0;padding:0;accent-color:var(--accent);
   background:none;border:0;border-radius:0;box-shadow:none;
 }
 input[type=number]::-webkit-outer-spin-button,input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
@@ -1566,7 +1571,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .cal-summary{text-align:center;font-size:13px;color:var(--ink-soft);margin-bottom:12px}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px 0;text-align:center}
 .cal-grid__dow{font-size:11px;color:var(--ink-faint);font-weight:500;padding:4px 0}
-.cal-grid__day{padding:6px 0 10px;font-size:14px;color:var(--ink);min-height:42px;position:relative}
+.cal-grid__day{padding:6px 0 10px;font-size:14px;color:var(--ink);min-height:44px;position:relative}
 .cal-grid__day.is-out{color:var(--ink-faint)}
 .cal-grid__mark{display:block;margin:4px auto 0;font-size:10px;line-height:10px}
 .cal-grid__mark.is-check{color:var(--ink)}
@@ -1598,25 +1603,3 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .prog-overview__meta{font-size:14px;color:var(--ink-soft);margin-bottom:12px}
 .prog-overview__week{font-size:14px;font-weight:600;margin-top:8px}
 .prog-overview__started{font-size:13px;color:var(--ink-soft);margin:8px 0 4px}
-
-/* A11Y-02: every visible action is at least 44×44 CSS pixels. */
-button,a[href],summary,input:not([type=hidden]),select,textarea,
-[role=button],[role=tab],[role=switch],[role=checkbox],
-[tabindex]:not([tabindex="-1"]),.term[data-term]{
-  min-width:44px;min-height:44px;box-sizing:border-box;
-}
-input[type=checkbox],input[type=radio]{
-  width:44px;height:44px;min-width:44px;min-height:44px;
-  flex:none;accent-color:var(--accent);
-}
-.tour__skip,.installbanner__close,.blockprompt__act,.fatigue__trim,.copylast,
-.session__edit,.exnote__toggle,.range-quiet,.text-link,.link-accent,.back-link,
-.program-day__link,.program-footer__link,.recblock__link{
-  min-width:44px;min-height:44px;
-}
-.cal__cell,.weekstrip__day{
-  min-width:44px;min-height:44px;
-}
-.cal-grid__day{
-  min-width:0;min-height:44px;
-}
