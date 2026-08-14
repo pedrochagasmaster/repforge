@@ -19,8 +19,11 @@
 
 import { launchChromium } from "./browser.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
-import { join } from "path";
+import { dirname, join } from "path";
+import { fileURLToPath } from "url";
 import { tmpdir } from "os";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -112,6 +115,92 @@ async function persistState(page, state) {
     },
     { k: KEY, blob: state }
   );
+}
+
+function readServiceWorkerMeta() {
+  const src = readFileSync(join(ROOT, "sw.js"), "utf8");
+  const cache = src.match(/const CACHE\s*=\s*"([^"]+)"/)?.[1];
+  if (!cache) throw new Error("sw.js CACHE string not found");
+  const shellRaw = src.match(/const SHELL\s*=\s*new Set\(\[([^\]]*)\]\)/)?.[1] || "";
+  const shell = [...shellRaw.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  if (!shell.length) throw new Error("sw.js SHELL set not found");
+  return { cache, shell };
+}
+
+function pwaOriginFromBase() {
+  const u = new URL(BASE);
+  return `http://127.0.0.1:${u.port || "80"}/`;
+}
+
+function stableStringify(v) {
+  if (v === null || typeof v !== "object") return JSON.stringify(v);
+  if (Array.isArray(v)) return `[${v.map(stableStringify).join(",")}]`;
+  const keys = Object.keys(v).sort();
+  return `{${keys.map((k) => `${JSON.stringify(k)}:${stableStringify(v[k])}`).join(",")}}`;
+}
+
+function canonicalDomain(snapshot) {
+  if (snapshot == null) return { revision: null, domain: null };
+  const copy = JSON.parse(JSON.stringify(snapshot));
+  const revision = Object.prototype.hasOwnProperty.call(copy, "_storageRevision") ? copy._storageRevision : 0;
+  delete copy._storageRevision;
+  delete copy._storageFollowUp;
+  return { revision, domain: stableStringify(copy) };
+}
+
+async function readReplicasAndDraft(page) {
+  return page.evaluate(async ({ k, d }) => {
+    const localRaw = localStorage.getItem(k);
+    let local = null;
+    try {
+      local = localRaw ? JSON.parse(localRaw) : null;
+    } catch {
+      local = { __parseError: true, raw: localRaw };
+    }
+    const draft = localStorage.getItem(d);
+    let idb = null;
+    try {
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      idb = await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readonly").objectStore("kv").get(k);
+        tx.onsuccess = () => res(tx.result === undefined ? null : tx.result);
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    } catch {
+      idb = { __readError: true };
+    }
+    return { local, idb, draft };
+  }, { k: KEY, d: DRAFT });
+}
+
+function replicasAgree(bundle) {
+  const a = canonicalDomain(bundle.local);
+  const b = canonicalDomain(bundle.idb);
+  return a.domain === b.domain && a.domain != null;
+}
+
+async function wipePwaOrigin(page, context) {
+  await page.evaluate(async ({ k, d }) => {
+    const regs = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(regs.map((r) => r.unregister()));
+    const keys = await caches.keys();
+    await Promise.all(keys.map((c) => caches.delete(c)));
+    localStorage.removeItem(k);
+    localStorage.removeItem(d);
+    sessionStorage.clear();
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    });
+  }, { k: KEY, d: DRAFT });
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("Network.clearBrowserCache");
 }
 
 /** Bulk-inject a year of training history (fast path for stats/history coverage). */
@@ -302,8 +391,14 @@ async function fillExerciseSets(page, exId, sets, load, reps, rir) {
 
 async function saveWorkout(page, { expectNewRows = true } = {}) {
   const beforeLen = (await getState(page))?.log?.length ?? 0;
-  // Submit via DOM — Focus mode docks may cover / restyle .btn--save.
-  await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+  await page.evaluate(async () => {
+    if (typeof window.__repforgeSaveWorkout === "function") {
+      await window.__repforgeSaveWorkout();
+      return;
+    }
+    document.querySelector("#logForm")?.requestSubmit();
+    if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
+  });
   if (!expectNewRows) {
     await page.waitForTimeout(120);
     return;
@@ -322,6 +417,64 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
     { k: KEY, len: beforeLen },
     { timeout: 8000 }
   );
+}
+
+async function flushStorage(page) {
+  await page.evaluate(async () => {
+    if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
+  });
+}
+
+async function saveSettingsAndFlush(page) {
+  await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#saveSettings")?.click());
+  await flushStorage(page);
+}
+
+async function stopRestIfRunning(page) {
+  await page.evaluate(() => {
+    const bar = document.querySelector("#restBar");
+    if (bar && !bar.classList.contains("hidden")) bar.click();
+  });
+}
+
+async function setWorkoutField(page, selector, value) {
+  await page.evaluate(
+    ({ selector, value }) => {
+      const el = document.querySelector(selector);
+      if (!el) throw new Error(`missing ${selector}`);
+      el.value = String(value);
+      el.dispatchEvent(new Event("input", { bubbles: true }));
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+    },
+    { selector, value }
+  );
+}
+
+async function setLogDateRaw(page, value) {
+  await page.evaluate((v) => {
+    const el = document.querySelector("#date");
+    if (!el) throw new Error("#date missing");
+    el.setAttribute("type", "text");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  }, value);
+}
+
+async function openSessionEditor(page, sid) {
+  await nav(page, "history");
+  if (await page.locator(`.session--edit[data-editing="${sid}"]`).count()) return;
+  const editBtn = page.locator(`[data-edit="${sid}"]`);
+  if (await editBtn.count()) {
+    await editBtn.click();
+    await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
+    return;
+  }
+  await page.locator(`#sessions .hist-row[data-sess="${sid}"]`).click();
+  await page.locator(`[data-edit="${sid}"]`).waitFor({ state: "visible", timeout: 5000 });
+  await page.click(`[data-edit="${sid}"]`);
+  await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
 }
 
 async function waitForSetting(page, path, value) {
@@ -500,11 +653,18 @@ async function main() {
   const context = await browser.newContext({
     acceptDownloads: true,
     viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
   });
   const page = await context.newPage();
 
+  let dialogMode = "accept";
   page.on("dialog", async (dialog) => {
-    await dialog.accept();
+    try {
+      if (dialogMode === "dismiss") await dialog.dismiss();
+      else await dialog.accept();
+    } catch {
+      /* already handled */
+    }
   });
 
   const consoleErrors = [];
@@ -578,14 +738,26 @@ async function main() {
     "Log tab → fill one set → Save workout"
   );
 
-  // Zero-load set is skipped on save (week-10 regression)
+  // Zero-load set on a touched row rejects the whole Finish (UX-03)
   await setLogDate(page, isoDateFromWeeksAgo(1));
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
   await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
-  await saveWorkout(page);
-  sessionCount++;
-  uiSaveCount++;
+  const logLenBeforeZero = (await getState(page)).log.length;
+  const draftBeforeZero = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await saveWorkout(page, { expectNewRows: false });
+  assert(
+    (await getState(page)).log.length === logLenBeforeZero,
+    "Zero-load touched set rejects Finish (no new rows)",
+    `Log grew from ${logLenBeforeZero}`,
+    "Log tab → enter 0 kg/reps on a touched set → Save workout"
+  );
+  assert(
+    (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === draftBeforeZero,
+    "Rejected zero-load Finish keeps the exact draft",
+    "Draft string changed after rejected Finish",
+    "Log tab → 0 kg set → Save workout → draft unchanged"
+  );
 
   // Empty kg field is skipped (week-20 regression)
   await setLogDate(page, isoDateFromWeeksAgo(2));
@@ -794,10 +966,10 @@ async function main() {
     };
   });
   assert(
-    /\bmaximum-scale=1\b/.test(zoomPolicy.meta) && /\buser-scalable=no\b/.test(zoomPolicy.meta),
-    "Viewport meta pins the scale, so the page cannot be zoomed",
+    !/\bmaximum-scale\b/.test(zoomPolicy.meta) && !/\buser-scalable\s*=\s*no\b/i.test(zoomPolicy.meta),
+    "Viewport meta allows pinch zoom",
     JSON.stringify(zoomPolicy),
-    "Inspect <meta name=viewport> → maximum-scale=1, user-scalable=no"
+    "Inspect <meta name=viewport> → no maximum-scale or user-scalable=no"
   );
   assert(
     zoomPolicy.root === "manipulation" &&
@@ -1445,6 +1617,93 @@ async function main() {
       "Settings → Export backup JSON → inspect file"
     );
 
+    const malformedBackups = [
+      ["program [null]", { ...exported, program: [null] }],
+      ["log [null]", { ...exported, log: [null] }],
+      ["programHistory [null]", { ...exported, programHistory: [null] }],
+      [
+        "programHistory nested program [null]",
+        { ...exported, programHistory: [{ id: "old-program", program: [null] }] },
+      ],
+      [
+        "log rows with object performedName",
+        {
+          ...exported,
+          log: [
+            { session: "unsafe-a", date: "2026-08-14", performedName: {} },
+            { session: "unsafe-b", date: "2026-08-14", performedName: {} },
+          ],
+        },
+      ],
+    ];
+    for (const [label, malformed] of malformedBackups) {
+      const malformedPath = join(tmpDir, `invalid-${label.replace(/[^a-z]+/gi, "-").toLowerCase()}.json`);
+      writeFileSync(malformedPath, JSON.stringify(malformed));
+      await flushStorage(page);
+      const beforeInvalid = await readReplicasAndDraft(page);
+      await page.evaluate(() => {
+        const toast = document.querySelector("#toast");
+        if (toast) {
+          toast.textContent = "";
+          toast.classList.add("hidden");
+        }
+      });
+      await page.setInputFiles("#importJson", malformedPath);
+      await page.waitForFunction(
+        () => {
+          const toast = document.querySelector("#toast");
+          const choice = document.querySelector("#importChoice");
+          return !!(
+            (toast && !toast.classList.contains("hidden") && toast.textContent.trim()) ||
+            (choice && choice.open && !choice.classList.contains("hidden"))
+          );
+        },
+        { timeout: 3000 }
+      );
+      const choiceOpened = await page.locator("#importChoice").evaluate(
+        (element) => element.open && !element.classList.contains("hidden")
+      );
+      if (choiceOpened) {
+        await page.click("#importReplace");
+        await flushStorage(page);
+      }
+      const toastText = await page.locator("#toast").textContent();
+      const afterInvalid = await readReplicasAndDraft(page);
+      const storesUnchanged =
+        stableStringify(afterInvalid.local) === stableStringify(beforeInvalid.local) &&
+        stableStringify(afterInvalid.idb) === stableStringify(beforeInvalid.idb) &&
+        afterInvalid.draft === beforeInvalid.draft;
+      assert(
+        !choiceOpened && /valid|válid/i.test(toastText || ""),
+        `Invalid backup with ${label} shows an error and never offers Replace`,
+        JSON.stringify({ choiceOpened, toastText }),
+        `Settings → Import backup containing ${label}`
+      );
+      assert(
+        storesUnchanged,
+        `Invalid backup with ${label} cannot mutate either replica or the draft`,
+        JSON.stringify({
+          beforeRevision: canonicalDomain(beforeInvalid.local).revision,
+          afterLocalRevision: canonicalDomain(afterInvalid.local).revision,
+          afterIdbRevision: canonicalDomain(afterInvalid.idb).revision,
+        }),
+        `Settings → Import backup containing ${label} → Replace if offered`
+      );
+      if (choiceOpened || !storesUnchanged) {
+        await persistState(page, beforeInvalid.local);
+        await page.evaluate(
+          ({ key, raw }) => {
+            if (raw == null) localStorage.removeItem(key);
+            else localStorage.setItem(key, raw);
+          },
+          { key: DRAFT, raw: beforeInvalid.draft }
+        );
+        await reloadApp(page);
+        await nav(page, "settings");
+        await page.evaluate(() => document.querySelector("#dataBackupPanel")?.classList.add("is-open"));
+      }
+    }
+
     // Cancel import preserves current state
     const beforeCancel = await getState(page);
     const cancelPayload = JSON.parse(readFileSync(jsonPath, "utf8"));
@@ -1727,6 +1986,14 @@ async function main() {
     writeFileSync(progPath, JSON.stringify(progExercises));
   }
   const metaBeforeImport = (await getState(page)).programMeta;
+  const importDraft = await page.evaluate((k) => {
+    const raw = JSON.stringify({
+      __sessionNotes: "unfinished before program import",
+      __contextTouched: { sessionNotes: true },
+    });
+    localStorage.setItem(k, raw);
+    return raw;
+  }, DRAFT);
   await page.setInputFiles("#importProgram", progPath);
   await page.waitForFunction(
     ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
@@ -1758,6 +2025,12 @@ async function main() {
     "Program import leaves the log untouched",
     `log ${logBefore} → ${stAfter.log.length}`,
     "Import program JSON → History unchanged"
+  );
+  assert(
+    importDraft && (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) == null,
+    "Accepted program import clears the confirmed unfinished draft",
+    "draft remained after accepted program replacement",
+    "Seed active draft → Import program JSON → confirm"
   );
 
   // Legacy array-only import still works
@@ -1981,6 +2254,23 @@ async function main() {
     "Invalid import shows error toast",
     `Toast: "${badToast}"`,
     "Settings → Import non-RepForge JSON file"
+  );
+  const malformedProgramPath = join(tmpDir, "bad-program-shape.json");
+  writeFileSync(malformedProgramPath, JSON.stringify({ ...state, program: { not: "an array" } }));
+  await page.setInputFiles("#importJson", malformedProgramPath);
+  await page.waitForTimeout(200);
+  const malformedProgramImport = await page.evaluate(() => ({
+    toast: document.querySelector("#toast")?.textContent || "",
+    chooserOpen: !document.querySelector("#importChoice")?.classList.contains("hidden"),
+    programIsArray: Array.isArray(JSON.parse(localStorage.getItem("repforge_v1") || "null")?.program),
+  }));
+  assert(
+    !malformedProgramImport.chooserOpen &&
+      malformedProgramImport.programIsArray &&
+      /valid|backup/i.test(malformedProgramImport.toast),
+    "Backup import rejects an object-shaped program before offering Replace",
+    JSON.stringify(malformedProgramImport),
+    "Settings → Import backup with program object instead of array"
   );
 
   // ── Phase 12: All-tier upgrades ──────────────────────────────────
@@ -3789,6 +4079,7 @@ async function main() {
 
   beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
+  const metaBeforeBeginner = (await getState(page)).programMeta;
   await page.click("#beginnerProgram");
   await page.waitForTimeout(200);
   await nav(page, "log");
@@ -3799,6 +4090,20 @@ async function main() {
     "Beginner program shows plain exercise names",
     `name="${begName}"`,
     "Settings → Use beginner-friendly program → Log Day 1"
+  );
+  const begAfter = await getState(page);
+  assert(
+    begAfter.programMeta?.onboarded === true &&
+      begAfter.programMeta?.id !== metaBeforeBeginner.id &&
+      begAfter.programMeta?.name === "Beginner program" &&
+      begAfter.programMeta?.mesocycleStatus === "active",
+    "Beginner replacement mints a localized identity and start",
+    JSON.stringify({
+      id: begAfter.programMeta?.id,
+      name: begAfter.programMeta?.name,
+      onboarded: begAfter.programMeta?.onboarded,
+    }),
+    "Settings → beginner template → new programMeta id/name/onboarded"
   );
   const begSetup = await cardInfo(page, 0);
   assert(
@@ -4083,10 +4388,10 @@ async function main() {
   });
   assert(
     scrollPolicy.overflows === scrollPolicy.marked &&
-      scrollPolicy.touch === "pan-y" && !scrollPolicy.wellScrolls,
+      scrollPolicy.touch === "pan-y pinch-zoom" && !scrollPolicy.wellScrolls,
     "the ledger is the only scrolling region of the card",
     JSON.stringify(scrollPolicy),
-    "Focus → vertical gestures scroll the ledger; the well never scrolls"
+    "Focus → vertical gestures scroll the ledger; pinch zoom remains available"
   );
   while ((await page.evaluate(() => document.querySelector("#woPrev")?.disabled)) === false) {
     await page.click("#woPrev");
@@ -4691,7 +4996,7 @@ async function main() {
   assert(
     state.programMeta.mesocycleLengthWeeks === 6 &&
       state.programMeta.mesocycleStatus === "active" &&
-      state.programMeta.onboarded === false,
+      state.programMeta.onboarded === true,
     "P4: programMeta phase-2 defaults",
     JSON.stringify({
       mesocycleLengthWeeks: state.programMeta.mesocycleLengthWeeks,
@@ -4950,77 +5255,87 @@ async function main() {
   await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
 
   beginPhase("Phase: P9 next-block flow");
-  await page.waitForFunction(() => typeof window.__repforgeCompleteProgram === "function");
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await page.waitForFunction(() => typeof window.__repforgeCommitNextBlock === "function");
   const p9Before = await page.evaluate(() => {
     const s = JSON.parse(localStorage.getItem("repforge_v1"));
     return {
+      revision: s._storageRevision || 0,
       historyLen: s.programHistory.length,
       metaId: s.programMeta.id,
-      sets: s.program.map((e) => e.sets),
+      status: s.programMeta.mesocycleStatus,
+      sets: s.program.map((e) => ({ sets: e.sets, maxSets: e.maxSets || 6 })),
     };
   });
-  const p9Review = await page.evaluate(() =>
-    window.__repforgeBuildBlockReview(state.programMeta, state.program, state.log)
-  );
-  await page.evaluate((review) => window.__repforgeCompleteProgram(review), p9Review);
-  const p9AfterComplete = await page.evaluate(() => {
-    const s = JSON.parse(localStorage.getItem("repforge_v1"));
-    return { historyLen: s.programHistory.length, status: s.programMeta.mesocycleStatus };
-  });
+  const p9LegacyHooks = await page.evaluate(() => ({
+    complete: typeof window.__repforgeCompleteProgram,
+    start: typeof window.__repforgeStartNextMeso,
+  }));
   assert(
-    p9AfterComplete.historyLen === p9Before.historyLen + 1,
-    "P9: completeCurrentProgram appends programHistory entry",
-    `history ${p9Before.historyLen} → ${p9AfterComplete.historyLen}`,
-    "__repforgeCompleteProgram(review) → programHistory.length +1"
+    p9LegacyHooks.complete === "undefined" && p9LegacyHooks.start === "undefined",
+    "P9: commitNextBlock is the only exposed next-block transition",
+    JSON.stringify(p9LegacyHooks),
+    "legacy two-step test hooks are absent"
   );
-  assert(
-    p9AfterComplete.status === "completed",
-    "P9: completeCurrentProgram sets mesocycleStatus completed",
-    `status=${p9AfterComplete.status}`,
-    "__repforgeCompleteProgram → programMeta.mesocycleStatus === completed"
-  );
-  await page.evaluate(() => window.__repforgeStartNextMeso("increase_volume"));
+  const p9Result = await page.evaluate(() => window.__repforgeCommitNextBlock("increase_volume"));
+  await page.evaluate(() => window.__repforgeStorage.flush());
   const p9Today = new Date().toISOString().slice(0, 10);
-  const p9AfterStart = await page.evaluate((todayStr) => {
+  const p9After = await page.evaluate((oldId) => {
     const s = JSON.parse(localStorage.getItem("repforge_v1"));
+    const archived = s.programHistory.find((entry) => entry.id === oldId);
     return {
+      revision: s._storageRevision || 0,
       historyLen: s.programHistory.length,
+      archivedCount: s.programHistory.filter((entry) => entry.id === oldId).length,
+      archivedMetaId: archived?.meta?.id,
+      archivedSets: archived?.program?.map((e) => e.sets),
+      archivedReviewProgramId: archived?.review?.programId,
       metaId: s.programMeta.id,
       status: s.programMeta.mesocycleStatus,
       started: s.programMeta.started,
       sets: s.program.map((e) => e.sets),
     };
-  }, p9Today);
+  }, p9Before.metaId);
   assert(
-    p9AfterStart.metaId !== p9Before.metaId,
-    "P9: startNextMesocycle mints new programMeta.id",
-    `id ${p9Before.metaId} → ${p9AfterStart.metaId}`,
-    "__repforgeStartNextMeso → new programMeta.id"
+    p9Before.status === "active" &&
+      p9Result.kind === "committed" &&
+      p9Result.committed === true &&
+      p9Result.localOk === true &&
+      p9Result.idbOk === true &&
+      p9Result.revision === p9Before.revision + 1 &&
+      p9After.revision === p9Result.revision,
+    "P9: canonical next-block commit reports one accepted revision",
+    JSON.stringify({ before: p9Before.revision, result: p9Result, after: p9After.revision }),
+    "__repforgeCommitNextBlock(increase_volume) → accepted local/idb result at revision +1"
   );
   assert(
-    p9AfterStart.status === "active",
-    "P9: startNextMesocycle sets mesocycleStatus active",
-    `status=${p9AfterStart.status}`,
-    "__repforgeStartNextMeso → mesocycleStatus === active"
+    p9After.historyLen === p9Before.historyLen + 1 &&
+      p9After.archivedCount === 1 &&
+      p9After.archivedMetaId === p9Before.metaId &&
+      p9After.archivedReviewProgramId === p9Before.metaId &&
+      p9After.metaId !== p9Before.metaId &&
+      p9After.status === "active" &&
+      p9After.started === p9Today,
+    "P9: one atomic transition archives the old block and activates its successor",
+    JSON.stringify({
+      history: `${p9Before.historyLen} → ${p9After.historyLen}`,
+      archivedCount: p9After.archivedCount,
+      oldId: p9Before.metaId,
+      newId: p9After.metaId,
+      status: p9After.status,
+      started: p9After.started,
+    }),
+    "commitNextBlock proposal contains old archive plus active successor"
   );
   assert(
-    p9AfterStart.started === p9Today,
-    "P9: startNextMesocycle sets started to today",
-    `started=${p9AfterStart.started} today=${p9Today}`,
-    "__repforgeStartNextMeso → started === today()"
-  );
-  assert(
-    p9AfterStart.historyLen === p9AfterComplete.historyLen,
-    "P9: programHistory preserved across startNextMesocycle",
-    `historyLen=${p9AfterStart.historyLen}`,
-    "startNextMesocycle does not clear programHistory"
-  );
-  assert(
-    p9AfterStart.sets.length === p9Before.sets.length &&
-      p9AfterStart.sets.every((n, i) => n === p9Before.sets[i] + 1),
-    "P9: increase_volume adds one set per exercise",
-    `before=${p9Before.sets.join(",")} after=${p9AfterStart.sets.join(",")}`,
-    "__repforgeStartNextMeso(increase_volume) → each exercise sets +1"
+    Array.isArray(p9After.archivedSets) &&
+      p9After.archivedSets.length === p9Before.sets.length &&
+      p9After.archivedSets.every((n, i) => n === p9Before.sets[i].sets) &&
+      p9After.sets.length === p9Before.sets.length &&
+      p9After.sets.every((n, i) => n === Math.min(p9Before.sets[i].sets + 1, p9Before.sets[i].maxSets)),
+    "P9: atomic increase_volume preserves archived sets and caps successor sets",
+    `archived=${p9After.archivedSets.join(",")} successor=${p9After.sets.join(",")}`,
+    "commitNextBlock(increase_volume) → archive unchanged, successor +1 up to maxSets"
   );
 
   beginPhase("Phase: P5 program generation");
@@ -5160,6 +5475,12 @@ async function main() {
     "P6: Save program sets onboarded=true",
     `onboarded=${state.programMeta?.onboarded}`,
     "Complete onboarding → Save program"
+  );
+  assert(
+    state.programMeta?.name === "Untitled program",
+    "P6: generated programs receive the localized fallback name",
+    `name=${state.programMeta?.name}`,
+    "Complete onboarding → Save program → inspect program name"
   );
   assert(
     onbDays.length === state.programMeta?.daysPerWeek,
@@ -5797,6 +6118,1776 @@ async function main() {
     "NOTE_TEXT missing from CSV body",
     "Log a note → Settings → Export log CSV"
   );
+
+  beginPhase("Phase: complete workout draft persistence (UX-01, UX-19)");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const draftMeta = await getExerciseMeta(page, "Day 1");
+  const draftExA = draftMeta[0];
+  const draftExSkip = draftMeta[1];
+  const subIds = await page.evaluate(() => [...document.querySelectorAll(".subst__pick")].map((s) => s.dataset.sub));
+  const draftExB = draftMeta.find((ex) => ex.id !== draftExA.id && ex.id !== draftExSkip.id && subIds.includes(ex.id)) || draftMeta.find((ex) => subIds.includes(ex.id) && ex.id !== draftExA.id) || draftMeta[2];
+  const otherDay = await page.evaluate(() =>
+    [...document.querySelectorAll("#dayTabs button")].map((b) => b.dataset.day).find((d) => d !== "Day 1")
+  );
+  const sessionNote = "Draft session note";
+  const nonToday = "2024-02-29";
+  await page.evaluate((v) => {
+    const el = document.querySelector("#notes");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, sessionNote);
+  await page.evaluate((v) => {
+    const el = document.querySelector("#bodyweight");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, "82.5");
+  await setLogDate(page, nonToday);
+  await fillExerciseSets(page, draftExA.id, 1, 77, 6, 1);
+  await fillExerciseSets(page, draftExB.id, 1, 40, 8, 1);
+  await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
+  const altName = await page.evaluate((id) => {
+    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
+    if (!sel) return "";
+    const opt = [...sel.options].find((o) => o.value && o.value !== "__other__");
+    if (!opt) return "";
+    sel.value = opt.value;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    return opt.value;
+  }, draftExA.id);
+  const customName = "Custom swap 80 cap check";
+  await page.evaluate(({ id, name }) => {
+    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
+    if (!sel) return;
+    sel.value = "__other__";
+    const orig = window.prompt;
+    window.prompt = () => name;
+    sel.dispatchEvent(new Event("change", { bubbles: true }));
+    window.prompt = orig;
+  }, { id: draftExB.id, name: customName });
+  await page.waitForTimeout(80);
+  const draftBeforeLeave = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await reloadApp(page);
+  await page.waitForSelector("#workoutShell:not(.hidden), #workout .exercise", { timeout: 5000 });
+  const autoResumed = await page.evaluate(() => !document.querySelector("#workoutShell")?.classList.contains("hidden"));
+  if (!autoResumed) {
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  }
+  const resumed = await page.evaluate(({ a, skip, b, k }) => {
+    const d = JSON.parse(localStorage.getItem(k) || "{}");
+    return {
+      load: document.querySelector(`[data-k="${a}_1_load"]`)?.value,
+      note: document.querySelector("#notes")?.value,
+      bw: document.querySelector("#bodyweight")?.value,
+      date: document.querySelector("#date")?.value,
+      skipped: d.__skipped?.includes(skip) || document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+      subA: d.__substituted?.[a],
+      subB: d.__substituted?.[b],
+      day: d.__day,
+    };
+  }, { a: draftExA.id, skip: draftExSkip.id, b: draftExB.id, k: DRAFT });
+  assert(
+    resumed.load === "77" && resumed.note === sessionNote && resumed.bw === "82.5" && resumed.date === nonToday,
+    "Resumed list draft keeps set, note, bodyweight, and date",
+    JSON.stringify(resumed),
+    "Log values + leave + reload + Continue"
+  );
+  assert(
+    resumed.skipped && resumed.subA === altName && resumed.subB === customName && resumed.day === "Day 1",
+    "Resumed list draft keeps skip and substitutions",
+    JSON.stringify(resumed),
+    "Skip + sub + reload + Continue"
+  );
+
+  const beforeFinish = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const afterFinish = await getState(page);
+  const newSess = [...new Set(afterFinish.log.map((r) => r.session))].filter((s) => !beforeFinish.has(s));
+  const newRows = afterFinish.log.filter((r) => newSess.includes(r.session));
+  assert(
+    !newRows.some((r) => r.exerciseId === draftExSkip.id),
+    "Finished resumed workout omits skipped exercise rows",
+    newRows.map((r) => r.exerciseId).join(","),
+    "Resume skipped draft → Finish"
+  );
+  assert(
+    newRows.some((r) => r.exerciseId === draftExA.id && r.performedName === altName) &&
+      newRows.some((r) => r.exerciseId === draftExB.id && r.performedName === customName),
+    "Finished resumed workout keeps performedName on substitutions",
+    JSON.stringify(newRows.filter((r) => r.performedName)),
+    "Resume substituted draft → Finish"
+  );
+
+  const afterFinishDraft = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  const fresh = await page.evaluate(({ a, b, skip }) => ({
+    subA: document.querySelector(`.subst__pick[data-sub="${a}"]`)?.value || "",
+    skipped: document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+    note: document.querySelector("#notes")?.value,
+    date: document.querySelector("#date")?.value,
+    draft: localStorage.getItem("repforge_draft_v1"),
+  }), { a: draftExA.id, b: draftExB.id, skip: draftExSkip.id });
+  assert(
+    !afterFinishDraft && !fresh.skipped && !fresh.subA && !fresh.note && fresh.date === (await page.evaluate(() => {
+      const d = new Date();
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    })),
+    "Accepted finish clears substitution/date/note context for the next workout",
+    JSON.stringify(fresh),
+    "Finish → stay on Log → next workout is clean"
+  );
+
+  async function clickRir(mode) {
+    await nav(page, "settings");
+    await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
+    await page.evaluate(async (m) => {
+      const el = document.querySelector(`input[name="rirMode"][value="${m}"]`);
+      el.checked = true;
+      el.dispatchEvent(new Event("change", { bubbles: true }));
+      await window.__repforgeStorage.flush();
+    }, mode);
+  }
+  async function rirState() {
+    return page.evaluate((k) => ({
+      mode: JSON.parse(localStorage.getItem(k) || "{}")?.settings?.rirMode,
+      radio: document.querySelector('input[name="rirMode"]:checked')?.value,
+      draft: localStorage.getItem("repforge_draft_v1"),
+    }), KEY);
+  }
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await clickRir("effort");
+  let rs = await rirState();
+  assert(rs.mode === "effort" && rs.radio === "effort", "RIR change with no draft succeeds", JSON.stringify(rs), "Settings → effort with empty draft");
+  await clickRir("numeric");
+
+  const rirCases = [
+    ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await page.click(`[data-save="${draftExA.id}_1"]`); }],
+    ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`[data-warm="${draftExA.id}_1"]`); }],
+    ["substitution-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate((id) => { const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`); if (!sel) return; const opt = [...sel.options].find((o) => o.value && o.value !== "__other__"); if (!opt) return; sel.value = opt.value; sel.dispatchEvent(new Event("change", { bubbles: true })); }, draftExA.id); }],
+    ["note-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "only"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+    ["bodyweight-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#bodyweight"); el.value = "70"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+    ["date-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await setLogDate(page, "2026-01-15"); }],
+    ["day-only", async () => { await nav(page, "log"); await selectDay(page, otherDay); }],
+    ["skip-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`); }],
+    ["cleared-context", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "x"; el.dispatchEvent(new Event("input", { bubbles: true })); el.value = ""; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+  ];
+  for (const [name, setup] of rirCases) {
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await setup();
+    const raw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    await clickRir("effort");
+    rs = await rirState();
+    assert(
+      rs.mode !== "effort" && rs.radio === "numeric" && rs.draft === raw,
+      `RIR change with ${name} progress is refused and preserves the raw draft`,
+      JSON.stringify({ name, mode: rs.mode, radio: rs.radio, same: rs.draft === raw, rawLen: raw?.length }),
+      `Seed ${name} progress → Settings → effort`
+    );
+  }
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await selectDay(page, otherDay);
+  const dayOnlyRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  dialogMode = "dismiss";
+  await page.click('#dayTabs button[data-day="Day 1"]');
+  dialogMode = "accept";
+  const dayAfterCancel = await page.evaluate((k) => ({
+    raw: localStorage.getItem(k),
+    active: document.querySelector("#dayTabs button.active")?.dataset.day,
+  }), DRAFT);
+  assert(
+    dayAfterCancel.active === otherDay && dayAfterCancel.raw === dayOnlyRaw,
+    "Day-only progress asks before switching and Cancel preserves the exact draft/day",
+    JSON.stringify({ active: dayAfterCancel.active, same: dayAfterCancel.raw === dayOnlyRaw }),
+    `${otherDay} day-only draft → Day 1 → Cancel`
+  );
+  await page.click('#dayTabs button[data-day="Day 1"]');
+  await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
+  const dayAfterConfirm = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DRAFT);
+  assert(
+    dayAfterConfirm.__day === "Day 1" && dayAfterConfirm.__contextTouched?.day === true,
+    "Confirming a day-only transition discards the old context and saves the new day",
+    JSON.stringify(dayAfterConfirm),
+    `${otherDay} day-only draft → Day 1 → Confirm`
+  );
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  assert(
+    await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id),
+    "Direct skip survives reload",
+    "skip class missing",
+    "Skip → reload"
+  );
+  if (await page.locator(".skipbar__show").count()) await page.click(".skipbar__show");
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  assert(
+    !(await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id)),
+    "Show all survives reload as unskipped",
+    "still skipped",
+    "Show all → reload"
+  );
+
+  if (otherDay) {
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 55, 5, 1);
+    const rawDay = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const currentDay = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
+    dialogMode = "dismiss";
+    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await page.waitForTimeout(80);
+    dialogMode = "accept";
+    const cancelled = await page.evaluate((k) => ({
+      draft: localStorage.getItem(k),
+      day: document.querySelector("#dayTabs button.active")?.dataset.day,
+    }), DRAFT);
+    assert(
+      cancelled.draft === rawDay && cancelled.day === currentDay,
+      "Day-tab Cancel keeps the raw draft and current day",
+      JSON.stringify(cancelled),
+      "Fill Day 1 → other day tab → Cancel"
+    );
+    dialogMode = "accept";
+    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
+    const confirmed = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DRAFT);
+    await reloadApp(page);
+    const after = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
+    assert(
+      confirmed.__day === otherDay && !Object.keys(confirmed).some((k) => /_load$/.test(k) && +confirmed[k] === 55) && after === otherDay,
+      "Day-tab Confirm clears the old draft, selects the new day, and survives reload",
+      JSON.stringify({ confirmed, after }),
+      "Fill Day 1 → other day tab → Confirm → reload"
+    );
+
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 56, 5, 1);
+    const rawUp = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+    dialogMode = "dismiss";
+    await page.click("#upNextBtn");
+    const upCancel = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    assert(upCancel === rawUp, "Up next Cancel preserves the raw draft", "draft changed", "Up next → Cancel");
+    dialogMode = "accept";
+    await page.click("#upNextBtn");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    assert(
+      (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
+      "Up next Confirm selects the next day",
+      "day unchanged",
+      "Up next → Confirm"
+    );
+
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 57, 5, 1);
+    const rawEnter = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    dialogMode = "dismiss";
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    assert(
+      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === rawEnter,
+      "enterWorkout({day}) Cancel preserves the raw draft",
+      "draft changed",
+      "enterWorkout other day → Cancel"
+    );
+    dialogMode = "accept";
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    assert(
+      (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
+      "enterWorkout({day}) Confirm selects the new day",
+      "day unchanged",
+      "enterWorkout other day → Confirm"
+    );
+
+    const otherEx = await page.evaluate((d) => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.day === d)?.id, otherDay);
+    if (otherEx) {
+      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await reloadApp(page);
+      await nav(page, "log");
+      await selectDay(page, "Day 1");
+      await fillExerciseSets(page, draftExA.id, 1, 58, 5, 1);
+      const rawGo = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      dialogMode = "dismiss";
+      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      assert(
+        (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === rawGo,
+        "Deep-link Cancel preserves the raw draft",
+        "draft changed",
+        "goToLogExercise → Cancel"
+      );
+      dialogMode = "accept";
+      await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
+      assert(
+        (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
+        "Deep-link Confirm selects the destination day",
+        "day unchanged",
+        "goToLogExercise → Confirm"
+      );
+    }
+  }
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await page.evaluate(() => {
+    const el = document.querySelector("#bodyweight");
+    el.value = "80";
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await fillExerciseSets(page, draftExA.id, 1, 60, 5, 1);
+  await nav(page, "settings");
+  await page.selectOption("#unit", "lb");
+  await page.waitForTimeout(80);
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  const bwDisp = await page.evaluate(() => document.querySelector("#bodyweight")?.value);
+  const beforeBw = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  const bwRow = (await getState(page)).log.find((r) => !beforeBw.has(r.session) && r.bodyweight);
+  assert(
+    bwRow && Math.abs(+bwRow.bodyweight - 80) < 0.05,
+    "kg → lb → reload → finish preserves canonical stored bodyweight",
+    `display=${bwDisp} stored=${bwRow?.bodyweight}`,
+    "Bodyweight 80kg → unit lb → reload → Finish"
+  );
+  await nav(page, "settings");
+  await page.selectOption("#unit", "kg");
+
+  const adapterOutcomes = [[true, true], [true, false], [false, true], [false, false]];
+  for (const [localOk, idbOk] of adapterOutcomes) {
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await fillExerciseSets(page, draftExA.id, 1, 61, 5, 1);
+    const raw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const beforeLen = (await getState(page)).log.length;
+    const result = await page.evaluate(async ({ localOk, idbOk }) => {
+      const io = {
+        async writeLocal(data) {
+          if (!localOk) throw new Error("ls fail");
+          localStorage.setItem("repforge_v1", JSON.stringify(data));
+        },
+        async writeIdb(data) {
+          if (!idbOk) throw new Error("idb fail");
+          const db = await new Promise((res, rej) => {
+            const r = indexedDB.open("repforge", 1);
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+          });
+          await new Promise((res, rej) => {
+            const tx = db.transaction("kv", "readwrite");
+            tx.objectStore("kv").put(data, "repforge_v1");
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+          });
+          db.close();
+        },
+      };
+      return window.__repforgeSaveWorkout(io);
+    }, { localOk, idbOk });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    if (localOk || idbOk) {
+      await reloadApp(page);
+      const afterLen = (await getState(page)).log.length;
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      assert(
+        afterLen > beforeLen && !draftNow && result.localOk === localOk && result.idbOk === idbOk,
+        `Finish (${localOk},${idbOk}) commits one session and clears the draft`,
+        JSON.stringify({ result, beforeLen, afterLen, draftNow }),
+        `Adapter ${localOk}/${idbOk} finish`
+      );
+    } else {
+      const afterLen = (await getState(page)).log.length;
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      assert(
+        afterLen === beforeLen && draftNow === raw,
+        "Finish total failure keeps zero new rows and the exact draft",
+        JSON.stringify({ result, beforeLen, afterLen, same: draftNow === raw }),
+        "Adapter false/false finish"
+      );
+      await saveWorkout(page);
+      const retried = (await getState(page)).log.length;
+      assert(retried === beforeLen + 1 || retried > beforeLen, "Total failure retry does not duplicate after a later accepted save", `len ${retried} vs ${beforeLen}`, "Retry finish after total failure");
+    }
+  }
+
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const legacyEx = (await getExerciseMeta(page, "Day 1"))[0];
+  await page.evaluate(({ id, k }) => {
+    const d = {};
+    d[`${id}_1_load`] = "66";
+    d[`${id}_1_reps`] = "6";
+    d[`${id}_1_rir`] = "1";
+    d.__done = [`${id}_1`];
+    d.__touched = [`${id}_1`];
+    d.__warm = [];
+    localStorage.setItem(k, JSON.stringify(d));
+  }, { id: legacyEx.id, k: DRAFT });
+  await reloadApp(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  const beforeLegacy = (await getState(page)).log.length;
+  await saveWorkout(page);
+  assert(
+    (await getState(page)).log.length > beforeLegacy,
+    "A legacy draft finishes successfully",
+    "no new rows",
+    "Inject legacy draft → Finish"
+  );
+
+  beginPhase("Phase: atomic set validation and rest seconds (UX-03, UX-10)");
+  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await reloadApp(page);
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  const valMeta = await getExerciseMeta(page, "Day 1");
+  const valEx = valMeta[0];
+  const valExB = valMeta[1] || valMeta[0];
+  const valKey = `${valEx.id}_1`;
+  const fillValidCandidate = async () => {
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await setLogDate(page, "2024-02-29");
+    await fillExerciseSets(page, valEx.id, 1, 80, 8, 1);
+    await setWorkoutField(page, "#bodyweight", "");
+  };
+  const assertRejectedFinish = async (name, mutate, fieldSel) => {
+    await fillValidCandidate();
+    await mutate();
+    const logBefore = JSON.stringify((await getState(page)).log);
+    const draftBefore = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    await stopRestIfRunning(page);
+    await saveWorkout(page, { expectNewRows: false });
+    assert(
+      JSON.stringify((await getState(page)).log) === logBefore,
+      `${name} adds zero log rows`,
+      "log changed after rejected Finish",
+      `Fill a valid set → ${name} → Finish workout`
+    );
+    assert(
+      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === draftBefore,
+      `${name} keeps the exact draft`,
+      "draft string changed",
+      `Fill a valid set → ${name} → Finish workout`
+    );
+    if (fieldSel) {
+      const marked = await page.evaluate((s) => document.querySelector(s)?.getAttribute("aria-invalid") === "true", fieldSel);
+      assert(marked, `${name} marks the first bad field`, `aria-invalid missing on ${fieldSel}`, name);
+    }
+  };
+
+  await assertRejectedFinish("negative load", () => setWorkoutField(page, `[data-k="${valKey}_load"]`, "-5"), `[data-k="${valKey}_load"]`);
+  await assertRejectedFinish("blank load", () => setWorkoutField(page, `[data-k="${valKey}_load"]`, ""), `[data-k="${valKey}_load"]`);
+  await assertRejectedFinish("non-numeric load", () => setWorkoutField(page, `[data-k="${valKey}_load"]`, "abc"), `[data-k="${valKey}_load"]`);
+  await assertRejectedFinish("zero reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, "0"), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("negative reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, "-1"), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("fractional reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, "8.5"), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("blank reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, ""), `[data-k="${valKey}_reps"]`);
+  await assertRejectedFinish("negative RIR", () => setWorkoutField(page, `[data-k="${valKey}_rir"]`, "-0.5"), `[data-k="${valKey}_rir"]`);
+  await assertRejectedFinish("blank RIR", () => setWorkoutField(page, `[data-k="${valKey}_rir"]`, ""), `[data-k="${valKey}_rir"]`);
+  await assertRejectedFinish("invalid bodyweight", () => setWorkoutField(page, "#bodyweight", "0"), "#bodyweight");
+  await assertRejectedFinish("blank date", () => setLogDateRaw(page, ""), "#date");
+  await assertRejectedFinish("malformed date", () => setLogDateRaw(page, "not-a-date"), "#date");
+  await assertRejectedFinish("impossible date", () => setLogDateRaw(page, "2024-02-30"), "#date");
+  await assertRejectedFinish("invalid leap-day date", () => setLogDateRaw(page, "2023-02-29"), "#date");
+
+  await fillValidCandidate();
+  await setWorkoutField(page, `[data-k="${valKey}_load"]`, "-9");
+  const surviveLog = JSON.stringify((await getState(page)).log);
+  const surviveDraft = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await stopRestIfRunning(page);
+  await saveWorkout(page, { expectNewRows: false });
+  await saveSettingsAndFlush(page);
+  await reloadApp(page);
+  assert(
+    JSON.stringify((await getState(page)).log) === surviveLog,
+    "Failed Finish log is unchanged after Settings save, flush, and reload",
+    "log drifted after unrelated Settings save",
+    "Invalid Finish → Settings save → flush → reload"
+  );
+  const surviveDraftAfter = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  assert(
+    !!surviveDraftAfter && JSON.parse(surviveDraftAfter)[`${valKey}_load`] === "-9",
+    "Failed Finish draft survives Settings save, flush, and reload",
+    `draft=${surviveDraftAfter}`,
+    "Invalid Finish → Settings save → flush → reload → draft still has -9 load"
+  );
+  void surviveDraft;
+
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await fillValidCandidate();
+  await stopRestIfRunning(page);
+  await setWorkoutField(page, `[data-k="${valKey}_load"]`, "");
+  const restHiddenBefore = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
+  const doneBefore = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
+  await page.click(`[data-save="${valKey}"]`);
+  await page.waitForTimeout(80);
+  const restHiddenAfter = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
+  const doneAfter = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
+  const draftDone = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}").__done || [], DRAFT);
+  assert(
+    restHiddenAfter && restHiddenBefore && doneAfter === doneBefore && !draftDone.includes(valKey),
+    "Failed Save set does not commit, start rest, or arm unfinished",
+    `restHidden=${restHiddenAfter} done=${doneAfter} __done=${JSON.stringify(draftDone)}`,
+    "Clear kg → Save set → rest stays off and set is not committed"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#lang", "en");
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-02-29");
+  await fillExerciseSets(page, valEx.id, 1, "90.5", 8, "1.5");
+  const beforeEn = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const enRow = (await getState(page)).log.find((r) => !beforeEn.has(r.session) && r.exerciseId === valEx.id);
+  assert(
+    enRow && Math.abs(+enRow.load - 90.5) < 0.001 && Math.abs(+enRow.rir - 1.5) < 0.001,
+    "EN decimal load and RIR finish",
+    JSON.stringify(enRow && { load: enRow.load, rir: enRow.rir }),
+    "Log 90.5 kg @ 1.5 RIR → Finish"
+  );
+
+  await nav(page, "settings");
+  await page.selectOption("#lang", "pt");
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-02-29");
+  await setWorkoutField(page, `[data-k="${valKey}_load"]`, "90,5");
+  await setWorkoutField(page, `[data-k="${valKey}_reps"]`, "7");
+  await setWorkoutField(page, `[data-k="${valKey}_rir"]`, "2,5");
+  const beforePt = new Set((await getState(page)).log.map((r) => r.session));
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const ptRow = (await getState(page)).log.find((r) => !beforePt.has(r.session) && r.exerciseId === valEx.id);
+  assert(
+    ptRow && Math.abs(+ptRow.load - 90.5) < 0.001 && Math.abs(+ptRow.rir - 2.5) < 0.001,
+    "PT decimal load and RIR finish",
+    JSON.stringify(ptRow && { load: ptRow.load, rir: ptRow.rir }),
+    "Log 90,5 kg @ 2,5 RIR in PT → Finish"
+  );
+  await nav(page, "settings");
+  await page.selectOption("#lang", "en");
+
+  const beforeHist = new Set((await getState(page)).log.map((r) => r.session));
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-03-01");
+  if (valEx.sets >= 2) await fillExerciseSets(page, valEx.id, 2, 70, 6, 1);
+  else {
+    await fillExerciseSets(page, valEx.id, 1, 70, 6, 1);
+    await fillExerciseSets(page, valExB.id, 1, 40, 10, 1);
+  }
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const histSid = (await getState(page)).log.find((r) => !beforeHist.has(r.session)).session;
+  const histSnap = () => getState(page).then((s) => s.log.filter((r) => r.session === histSid));
+
+  await openSessionEditor(page, histSid);
+  await page.evaluate((v) => {
+    const el = document.querySelector('.session--edit [data-ed="date"]');
+    el.setAttribute("type", "text");
+    el.value = v;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+  }, "");
+  const histBeforeBlank = JSON.stringify(await histSnap());
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histBeforeBlank,
+    "History Save rejects a blank date",
+    "session rows changed",
+    "History editor → clear date → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.evaluate((v) => {
+    const el = document.querySelector('.session--edit [data-ed="date"]');
+    el.setAttribute("type", "text");
+    el.value = v;
+  }, "2024-02-30");
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histBeforeBlank,
+    "History Save rejects an impossible date",
+    "session rows changed",
+    "History editor → 2024-02-30 → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.evaluate((v) => {
+    const el = document.querySelector('.session--edit [data-ed="date"]');
+    el.setAttribute("type", "text");
+    el.value = v;
+  }, "2023-02-29");
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histBeforeBlank,
+    "History Save rejects an invalid leap-day",
+    "session rows changed",
+    "History editor → 2023-02-29 → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.fill('.session--edit [data-ek="load|0"]', "-3");
+  const histInvalid = JSON.stringify(await histSnap());
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await histSnap()) === histInvalid,
+    "History invalid load leaves the session unchanged",
+    "session rows changed",
+    "History editor → negative load → Save changes"
+  );
+  await saveSettingsAndFlush(page);
+  await reloadApp(page);
+  assert(
+    JSON.stringify(await histSnap()) === histInvalid,
+    "History invalid edit stays deep-equal after Settings save, flush, and reload",
+    "session drifted",
+    "Invalid History save → Settings save → flush → reload"
+  );
+
+  await openSessionEditor(page, histSid);
+  const histCount = (await histSnap()).length;
+  await page.click('[data-edrm="1"]');
+  assert(
+    await page.evaluate(() => document.querySelector('.edrow[data-edidx="1"]')?.classList.contains("is-removed")),
+    "History Remove set stages a row without writing",
+    "row not marked is-removed",
+    "History editor → Remove set on row 2"
+  );
+  await page.click('[data-edrm="1"]');
+  assert(
+    !(await page.evaluate(() => document.querySelector('.edrow[data-edidx="1"]')?.classList.contains("is-removed"))),
+    "History Undo remove restores the staged row",
+    "row still removed",
+    "History editor → Remove set → Undo remove"
+  );
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    (await histSnap()).length === histCount,
+    "History remove + undo + save keeps every row",
+    `count=${(await histSnap()).length}`,
+    "History editor → remove → undo → Save changes"
+  );
+
+  await openSessionEditor(page, histSid);
+  await page.click('[data-edrm="1"]');
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    (await histSnap()).length === histCount - 1,
+    "History remove + save drops the staged row",
+    `count=${(await histSnap()).length} expected ${histCount - 1}`,
+    "History editor → Remove set → Save changes"
+  );
+
+  const beforeSibling = new Set((await getState(page)).log.map((r) => r.session));
+  await nav(page, "log");
+  await selectDay(page, "Day 1");
+  await setLogDate(page, "2024-03-02");
+  if (valEx.sets >= 2) await fillExerciseSets(page, valEx.id, 2, 65, 5, 1);
+  else {
+    await fillExerciseSets(page, valEx.id, 1, 65, 5, 1);
+    await fillExerciseSets(page, valExB.id, 1, 35, 8, 1);
+  }
+  await saveWorkout(page);
+  sessionCount++;
+  uiSaveCount++;
+  const sibSid = (await getState(page)).log.find((r) => !beforeSibling.has(r.session)).session;
+  const sibSnap = () => getState(page).then((s) => s.log.filter((r) => r.session === sibSid));
+  const sibBefore = JSON.stringify(await sibSnap());
+  await openSessionEditor(page, sibSid);
+  await page.fill('.session--edit [data-ek="load|0"]', "nope");
+  await page.click('[data-edrm="1"]');
+  await page.evaluate(() => window.__repforgeSaveSessionEdit(document.querySelector("[data-edsave]").dataset.edsave));
+  await page.waitForTimeout(80);
+  assert(
+    JSON.stringify(await sibSnap()) === sibBefore,
+    "History invalid sibling + remove commits nothing",
+    "session changed despite invalid remaining row",
+    "History editor → invalidate row 1 → remove row 2 → Save changes"
+  );
+
+  await nav(page, "settings");
+  const priorRest = (await getState(page)).settings.restSec;
+  await page.evaluate(() => {
+    const el = document.querySelector("#restSec");
+    el.value = "90.5";
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+  });
+  await page.waitForTimeout(80);
+  const restUser = await getState(page);
+  const restInvalid = await page.evaluate(() => document.querySelector("#restSec")?.getAttribute("aria-invalid") === "true");
+  assert(
+    restUser.settings.restSec === priorRest && restInvalid,
+    "Fractional rest user input is rejected and announced",
+    `stored=${restUser.settings.restSec} aria-invalid=${restInvalid}`,
+    "Settings → restSec 90.5 → change"
+  );
+
+  const st = await getState(page);
+  st.settings.restSec = 90.5;
+  await persistState(page, st);
+  await reloadApp(page);
+  await nav(page, "settings");
+  const restShown = (await page.textContent("#restSecDisplay"))?.trim();
+  const restInput = await page.inputValue("#restSec");
+  assert(
+    /^\d+:\d{2}$/.test(restShown) && restShown === "1:31" && restInput === "91",
+    "Legacy 90.5 rest seconds normalize once and display as M:SS",
+    `display=${restShown} input=${restInput}`,
+    "Seed settings.restSec=90.5 → reload → Settings rest display"
+  );
+
+  beginPhase("Phase: transactional onboarding and block succession (UX-02, UX-08, UX-09)");
+  await page.evaluate(() => localStorage.removeItem("repforge_ui_v1"));
+  const beforeCreate = await getState(page);
+  await nav(page, "settings");
+  await page.click("#createProgram");
+  await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  await page.click("#onbCancel");
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
+  const afterCreateCancel = await getState(page);
+  assert(
+    afterCreateCancel.programMeta?.id === beforeCreate.programMeta?.id &&
+      afterCreateCancel.programHistory?.length === beforeCreate.programHistory?.length,
+    "Settings → Create program → Cancel is a lifecycle no-op",
+    JSON.stringify({ before: beforeCreate.programMeta?.id, after: afterCreateCancel.programMeta?.id }),
+    "Settings → Create new program → Cancel"
+  );
+
+  const histBeforeBlock = (await getState(page)).programHistory?.length || 0;
+  const idBeforeBlock = (await getState(page)).programMeta?.id;
+  const revisionBeforeBlock = (await getState(page))._storageRevision || 0;
+  const onboardingDeferred = await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  const stateWhileOnboarding = await getState(page);
+  assert(
+    onboardingDeferred.kind === "deferred" &&
+      onboardingDeferred.deferred === true &&
+      onboardingDeferred.committed === false &&
+      onboardingDeferred.localOk === false &&
+      onboardingDeferred.idbOk === false &&
+      onboardingDeferred.revision === revisionBeforeBlock &&
+      stateWhileOnboarding._storageRevision === revisionBeforeBlock &&
+      stateWhileOnboarding.programMeta?.id === idBeforeBlock &&
+      (stateWhileOnboarding.programHistory?.length || 0) === histBeforeBlock,
+    "Block-review onboarding is explicitly deferred without a revision change",
+    JSON.stringify({ result: onboardingDeferred, before: revisionBeforeBlock, after: stateWhileOnboarding._storageRevision }),
+    "commitNextBlock(onboarding) → pending only"
+  );
+  await page.click("#onbCancel");
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
+  assert(
+    (await getState(page)).programMeta?.id === idBeforeBlock &&
+      ((await getState(page)).programHistory?.length || 0) === histBeforeBlock &&
+      (await page.evaluate(() => window.__repforgePendingBlock())) == null,
+    "Block onboarding Cancel leaves the old block active",
+    "pending leftover or history changed",
+    "Block onboarding → Cancel"
+  );
+
+  const revisionBeforeBlockSave = (await getState(page))._storageRevision || 0;
+  const onboardingDeferredForSave = await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  const stateBeforeBlockSave = await getState(page);
+  assert(
+    onboardingDeferredForSave.kind === "deferred" &&
+      onboardingDeferredForSave.deferred === true &&
+      onboardingDeferredForSave.committed === false &&
+      onboardingDeferredForSave.localOk === false &&
+      onboardingDeferredForSave.idbOk === false &&
+      onboardingDeferredForSave.revision === revisionBeforeBlockSave &&
+      stateBeforeBlockSave._storageRevision === revisionBeforeBlockSave,
+    "Block onboarding remains deferred until the eventual Save",
+    JSON.stringify({ result: onboardingDeferredForSave, before: revisionBeforeBlockSave, after: stateBeforeBlockSave._storageRevision }),
+    "commitNextBlock(onboarding) → inspect result and revision before finalizeProgramSetup"
+  );
+  const blockSave = await page.evaluate(async () => {
+    const cur = JSON.parse(localStorage.getItem("repforge_v1"));
+    return window.__repforgeFinalizeProgramSetup({
+      exercises: cur.program,
+      name: "Block successor",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "block",
+    });
+  });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const afterBlockSave = await getState(page);
+  assert(
+    (blockSave.localOk || blockSave.idbOk) &&
+      blockSave.deferred !== true &&
+      blockSave.revision === revisionBeforeBlockSave + 1 &&
+      afterBlockSave._storageRevision === blockSave.revision &&
+      afterBlockSave.programMeta?.id !== idBeforeBlock &&
+      afterBlockSave.programMeta?.onboarded === true &&
+      (afterBlockSave.programHistory || []).some((h) => h.id === idBeforeBlock) &&
+      (afterBlockSave.programHistory || []).filter((h) => h.id === idBeforeBlock).length === 1,
+    "Block onboarding Save archives the captured block once",
+    JSON.stringify({
+      result: blockSave,
+      newId: afterBlockSave.programMeta?.id,
+      hist: (afterBlockSave.programHistory || []).map((h) => h.id),
+    }),
+    "pending block → finalizeProgramSetup origin=block"
+  );
+
+  const idForDup = afterBlockSave.programMeta.id;
+  const histForDup = afterBlockSave.programHistory.length;
+  await page.evaluate(async () => {
+    await Promise.all([window.__repforgeCommitNextBlock("repeat"), window.__repforgeCommitNextBlock("repeat")]);
+  });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const afterDup = await getState(page);
+  assert(
+    afterDup.programMeta.id !== idForDup &&
+      afterDup.programHistory.length === histForDup + 1 &&
+      afterDup.programHistory.filter((h) => h.id === idForDup).length === 1,
+    "Double next-block commit archives the old id once",
+    `hist ${histForDup} → ${afterDup.programHistory.length} id=${afterDup.programMeta.id}`,
+    "Promise.all commitNextBlock(repeat) ×2"
+  );
+  const settledId = afterDup.programMeta.id;
+  const settledHistory = afterDup.programHistory.length;
+  const repeatedBlock = await page.evaluate(
+    (oldId) => window.__repforgeCommitNextBlock("repeat", undefined, oldId),
+    idForDup
+  );
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const afterRepeatedBlock = await getState(page);
+  assert(
+    repeatedBlock.kind === "duplicate" &&
+      repeatedBlock.committed === false &&
+      repeatedBlock.duplicate === true &&
+      afterRepeatedBlock.programMeta.id === settledId &&
+      afterRepeatedBlock.programHistory.length === settledHistory,
+    "A settled block-review activation cannot create another successor",
+    JSON.stringify({ repeatedBlock, settledId, afterId: afterRepeatedBlock.programMeta.id }),
+    `commitNextBlock(repeat, expected=${idForDup}) after settlement`
+  );
+  const beforeFailedBlock = await getState(page);
+  const failedBlock = await page.evaluate(async (oldId) => {
+    const io = {
+      async writeLocal() { throw new Error("ls fail"); },
+      async writeIdb() { throw new Error("idb fail"); },
+    };
+    return window.__repforgeCommitNextBlock("repeat", io, oldId);
+  }, beforeFailedBlock.programMeta.id);
+  const afterFailedBlock = await getState(page);
+  assert(
+    failedBlock.kind === "failed" &&
+      failedBlock.committed === false &&
+      failedBlock.localOk === false &&
+      failedBlock.idbOk === false &&
+      afterFailedBlock._storageRevision === beforeFailedBlock._storageRevision &&
+      afterFailedBlock.programMeta.id === beforeFailedBlock.programMeta.id &&
+      afterFailedBlock.programHistory.length === beforeFailedBlock.programHistory.length,
+    "A total storage failure reports failed and does not commit",
+    JSON.stringify({ failedBlock, beforeRevision: beforeFailedBlock._storageRevision, afterRevision: afterFailedBlock._storageRevision }),
+    "commitNextBlock(repeat) with false/false storage adapter"
+  );
+
+  const adapterOutcomes4 = [[true, true], [true, false], [false, true], [false, false]];
+  for (const [localOk, idbOk] of adapterOutcomes4) {
+    const beforeTpl = await getState(page);
+    const draftRaw = await page.evaluate((k) => {
+      const raw = JSON.stringify({
+        __sessionNotes: "template transition draft",
+        __contextTouched: { sessionNotes: true },
+      });
+      localStorage.setItem(k, raw);
+      return raw;
+    }, DRAFT);
+    const result = await page.evaluate(async ({ localOk, idbOk }) => {
+      const io = {
+        async writeLocal(data) {
+          if (!localOk) throw new Error("ls fail");
+          localStorage.setItem("repforge_v1", JSON.stringify(data));
+        },
+        async writeIdb(data) {
+          if (!idbOk) throw new Error("idb fail");
+          const db = await new Promise((res, rej) => {
+            const r = indexedDB.open("repforge", 1);
+            r.onsuccess = () => res(r.result);
+            r.onerror = () => rej(r.error);
+          });
+          await new Promise((res, rej) => {
+            const tx = db.transaction("kv", "readwrite");
+            tx.objectStore("kv").put(data, "repforge_v1");
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+          });
+          db.close();
+        },
+      };
+      return window.__repforgeApplyProgramTemplate(io);
+    }, { localOk, idbOk });
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    if (localOk || idbOk) {
+      await reloadApp(page);
+      const after = await getState(page);
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      assert(
+        after.programMeta?.name === "Beginner program" &&
+          after.programMeta?.id !== beforeTpl.programMeta.id &&
+          after.log.length === beforeTpl.log.length &&
+          result.localOk === localOk &&
+          draftNow == null,
+        `Beginner template (${localOk},${idbOk}) commits a new identity and preserves the log`,
+        JSON.stringify({ result, name: after.programMeta?.name, logs: after.log.length, draftNow }),
+        `applyProgramTemplate adapter ${localOk}/${idbOk}`
+      );
+    } else {
+      const after = await getState(page);
+      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      assert(
+        after.programMeta?.id === beforeTpl.programMeta.id &&
+          after.log.length === beforeTpl.log.length &&
+          draftNow === draftRaw,
+        "Beginner template total failure rolls back and keeps the draft",
+        JSON.stringify({ result, id: after.programMeta?.id }),
+        "applyProgramTemplate false/false"
+      );
+    }
+  }
+
+  const setupDraftRaw = await page.evaluate((k) => {
+    const raw = JSON.stringify({
+      __sessionNotes: "settings onboarding transition draft",
+      __contextTouched: { sessionNotes: true },
+    });
+    localStorage.setItem(k, raw);
+    return raw;
+  }, DRAFT);
+  const setupBeforeFailure = await getState(page);
+  const setupFailure = await page.evaluate(async (program) => {
+    const io = {
+      async writeLocal() { throw new Error("ls fail"); },
+      async writeIdb() { throw new Error("idb fail"); },
+    };
+    return window.__repforgeFinalizeProgramSetup({
+      exercises: program,
+      name: "Rejected replacement",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "settings",
+      draftConfirmed: true,
+    }, io);
+  }, setupBeforeFailure.program);
+  const setupAfterFailure = await getState(page);
+  const setupDraftAfterFailure = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  assert(
+    !setupFailure.localOk &&
+      !setupFailure.idbOk &&
+      setupAfterFailure.programMeta.id === setupBeforeFailure.programMeta.id &&
+      setupDraftAfterFailure === setupDraftRaw,
+    "Rejected Settings onboarding replacement preserves live state and exact draft",
+    JSON.stringify({ setupFailure, sameId: setupAfterFailure.programMeta.id === setupBeforeFailure.programMeta.id }),
+    "finalizeProgramSetup false/false with active draft"
+  );
+  const setupAccepted = await page.evaluate((program) => window.__repforgeFinalizeProgramSetup({
+    exercises: program,
+    name: "Accepted replacement",
+    answers: { goal: "hypertrophy" },
+    destination: "log",
+    origin: "settings",
+    draftConfirmed: true,
+  }), setupBeforeFailure.program);
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+  const setupAfterAccepted = await getState(page);
+  assert(
+    (setupAccepted.localOk || setupAccepted.idbOk) &&
+      setupAfterAccepted.programMeta.id !== setupBeforeFailure.programMeta.id &&
+      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) == null,
+    "Accepted Settings onboarding replacement clears the confirmed draft",
+    JSON.stringify({ setupAccepted, newId: setupAfterAccepted.programMeta.id }),
+    "finalizeProgramSetup accepted with active draft"
+  );
+
+  await page.evaluate(() => localStorage.removeItem("repforge_ui_v1"));
+  await clearState(page);
+  await reloadApp(page, { dismissOnboarding: false });
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
+  await page.click("#onbNext");
+  await page.waitForSelector("#onbEdit", { timeout: 5000 });
+  await page.click("#onbEdit");
+  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 8000 });
+  const editState = await getState(page);
+  assert(
+    editState.programMeta?.onboarded === true &&
+      Object.prototype.hasOwnProperty.call(editState, "_storageFollowUp") &&
+      !(await page.locator("#tour:not(.hidden)").count()),
+    "Onboarding Edit finalizes metadata and stores a one-shot follow-up marker",
+    JSON.stringify({ onboarded: editState.programMeta?.onboarded, follow: editState._storageFollowUp }),
+    "First-run onboarding → Edit before saving"
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
+  const resumedEdit = await page.evaluate(() => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    return {
+      marker: state._storageFollowUp,
+      programActive: document.querySelector("#program")?.classList.contains("active"),
+      editorVisible: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      tourVisible: !document.querySelector("#tour")?.classList.contains("hidden"),
+      installVisible: !document.querySelector("#installBanner")?.classList.contains("hidden"),
+    };
+  });
+  assert(
+    resumedEdit.marker?.kind === "onboarding-edit" &&
+      resumedEdit.programActive &&
+      resumedEdit.editorVisible &&
+      !resumedEdit.tourVisible &&
+      !resumedEdit.installVisible,
+    "Reload resumes the pending Program edit without starting follow-up UI",
+    JSON.stringify(resumedEdit),
+    "First-run onboarding → Edit before saving → reload"
+  );
+  const tog = page.locator("#programEditToggle");
+  await tog.click();
+  await page.waitForTimeout(120);
+  const afterDone = await getState(page);
+  assert(
+    !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
+    "Program Done clears the onboarding follow-up marker once",
+    JSON.stringify({ follow: afterDone._storageFollowUp }),
+    "Edit onboarding → Program Done"
+  );
+  await page.evaluate(() => {
+    if (typeof window.closeTour === "function") window.closeTour();
+  });
+
+  beginPhase("Honest affordances, tour, and deletion copy");
+  await nav(page, "log");
+  const firstExId = await page.evaluate(() => {
+    const b = document.querySelector("#todayExList [data-exopen], #workout [data-exopen]");
+    return b?.getAttribute("data-exopen") || "";
+  });
+  if (!firstExId) {
+    await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  }
+  const exId = firstExId || (await page.evaluate(() => document.querySelector("#workout [data-exopen]")?.getAttribute("data-exopen") || ""));
+  if (exId) {
+    await page.evaluate((id) => {
+      const b = document.querySelector(`[data-exopen="${id}"]`);
+      if (b) b.click();
+      else window.openExerciseView?.(id, "log");
+    }, exId);
+    await page.waitForSelector("#exercise.view.active, body.is-exercise", { timeout: 5000 });
+    const residue = await page.evaluate(() => {
+      const range = document.querySelector("#exDetail .range-static, #exDetail .range-quiet");
+      const records = [...document.querySelectorAll("#exDetail .listrow")].filter((el) => !el.id && !el.closest("#exSeePrs"));
+      const actionable = (el) => {
+        if (!el) return null;
+        const cs = getComputedStyle(el);
+        return {
+          tag: el.tagName,
+          role: el.getAttribute("role"),
+          tabindex: el.getAttribute("tabindex"),
+          cursor: cs.cursor,
+          cls: el.className,
+          hasOnclick: typeof el.onclick === "function",
+          caret: !!el.querySelector(".caret, .chevron"),
+        };
+      };
+      return { range: actionable(range), records: records.map(actionable), seePrs: !!document.querySelector("#exSeePrs") };
+    });
+    assert(
+      residue.range &&
+        residue.range.tag !== "BUTTON" &&
+        residue.range.role !== "button" &&
+        residue.range.cursor !== "pointer" &&
+        !residue.range.caret &&
+        !/\bbtn\b|\brange-quiet\b|\blink-/.test(residue.range.cls),
+      "Exercise 12-week range is static text without action residue",
+      JSON.stringify(residue.range)
+    );
+    assert(
+      residue.records.every(
+        (r) => r.tag !== "BUTTON" && r.role !== "button" && r.cursor !== "pointer" && !r.caret && !r.hasOnclick
+      ),
+      "Exercise record rows are static without chevrons or handlers",
+      JSON.stringify(residue.records)
+    );
+    const before = await page.evaluate((d) => ({
+      view: document.querySelector(".view.active")?.id,
+      draft: localStorage.getItem(d),
+      log: JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.length,
+    }), DRAFT);
+    await page.evaluate(() => {
+      const els = [...document.querySelectorAll("#exDetail .range-static, #exDetail .listrow--static")];
+      for (const el of els) {
+        el.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true }));
+        el.dispatchEvent(new KeyboardEvent("keydown", { key: " ", bubbles: true }));
+      }
+    });
+    const after = await page.evaluate((d) => ({
+      view: document.querySelector(".view.active")?.id,
+      draft: localStorage.getItem(d),
+      log: JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.length,
+    }), DRAFT);
+    assert(
+      before.view === after.view && before.draft === after.draft && before.log === after.log,
+      "Clicking static range/records does not change route, draft, or log",
+      JSON.stringify({ before, after })
+    );
+    await page.click("#exBack");
+  } else {
+    assert(false, "Exercise detail opened for static-affordance checks", "no exercise id");
+  }
+
+  const statsPeriodGone = await page.evaluate(() => !document.querySelector("#statsPeriod"));
+  assert(statsPeriodGone, "#statsPeriod is absent; volume window stays on #volWindow", "statsPeriod still in DOM");
+  await nav(page, "stats");
+  const volWindow = await page.locator("#volWindow").count();
+  assert(volWindow === 1, "Completed hard sets still has the 7/28-day control", `volWindow=${volWindow}`);
+
+  const positioning = await page.evaluate(async () => {
+    const manifest = await (await fetch("./manifest.webmanifest")).json();
+    const readme = await (await fetch("./README.md")).text();
+    const blob = `${manifest.description}\n${readme}`;
+    return {
+      description: manifest.description,
+      machine: /machine-only/i.test(blob),
+      localOnlyStorage: /localStorage-only/i.test(blob),
+      equipment: /machines/i.test(blob) && /cables/i.test(blob) && /dumbbells/i.test(blob) && /barbells/i.test(blob) && /bodyweight/i.test(blob),
+    };
+  });
+  assert(
+    positioning.equipment && !positioning.machine && !positioning.localOnlyStorage,
+    "Manifest and README name broad equipment and drop machine-only/localStorage-only claims",
+    JSON.stringify(positioning)
+  );
+
+  const deleteCopy = await page.evaluate(() => ({
+    label: window.RepForgeI18n.t("settings.delete_all"),
+    confirm: window.RepForgeI18n.t("confirm.delete_log"),
+    lede: window.RepForgeI18n.t("settings.danger_lede"),
+  }));
+  assert(
+    /workout history/i.test(deleteCopy.label) &&
+      /draft/i.test(deleteCopy.confirm) &&
+      /program/i.test(deleteCopy.confirm) &&
+      /settings/i.test(deleteCopy.confirm),
+    "Deletion copy names workout history and retained program/Settings",
+    JSON.stringify(deleteCopy)
+  );
+
+  const stateBeforeDelete = await getState(page);
+  await page.evaluate((d) => localStorage.setItem(d, JSON.stringify({ note: "keep-me-not" })), DRAFT);
+  await nav(page, "settings");
+  const progLen = stateBeforeDelete.program.length;
+  const settingsUnit = stateBeforeDelete.settings.unit;
+  await page.click("#reset");
+  await page.waitForTimeout(100);
+  const afterDelete = await getState(page);
+  const draftGone = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
+  assert(
+    afterDelete.log.length === 0 &&
+      !draftGone &&
+      afterDelete.program.length === progLen &&
+      afterDelete.settings.unit === settingsUnit,
+    "Delete workout history clears log and draft but keeps program and Settings",
+    `log=${afterDelete.log.length} draft=${draftGone} program=${afterDelete.program.length}`
+  );
+
+  const tourCopy = await page.evaluate(() => {
+    const en = window.RepForgeI18n.STRINGS.en;
+    const pt = window.RepForgeI18n.STRINGS.pt;
+    return {
+      en3: en["tour.3.body"],
+      pt3: pt["tour.3.body"],
+      en4: en["tour.4.body"],
+      pt4: pt["tour.4.body"],
+    };
+  });
+  assert(
+    /header arrows|swipe/i.test(tourCopy.en3) &&
+      /setas do cabeçalho|deslize/i.test(tourCopy.pt3) &&
+      !/bottom/i.test(tourCopy.en3) &&
+      /header rest/i.test(tourCopy.en4),
+    "Tour step 3/4 copy teaches swipe, header chevrons, and header rest in both languages",
+    JSON.stringify(tourCopy)
+  );
+
+  await page.evaluate(() => window.startTour("first-run"));
+  await page.waitForSelector("#tour:not(.hidden)", { timeout: 3000 });
+  const tourModal = await page.evaluate(() => {
+    const tour = document.querySelector("#tour");
+    const focused = document.activeElement?.id;
+    const inertMain = document.querySelector("main")?.inert;
+    return { modal: tour?.getAttribute("aria-modal"), focused, inertMain, hidden: tour?.classList.contains("hidden") };
+  });
+  assert(
+    tourModal.modal === "true" && tourModal.focused === "tourSkip" && tourModal.inertMain === true,
+    "Tour is aria-modal with Skip focused and the preview surface inert",
+    JSON.stringify(tourModal)
+  );
+
+  const stepAt = async (n) => {
+    await page.evaluate((i) => {
+      while (window.__repforgeUi && document.querySelector("#tour:not(.hidden)")) {
+        const eyebrow = document.querySelector("#tourEyebrow")?.textContent || "";
+        const cur = +(eyebrow.match(/(\d+)/) || [])[1] || 1;
+        if (cur - 1 === i) break;
+        if (cur - 1 < i) document.querySelector("#tourNext")?.click();
+        else document.querySelector("#tourBack")?.click();
+        break;
+      }
+    }, n);
+    for (let i = 0; i < 12; i++) {
+      const cur = await page.evaluate(() => {
+        const t = document.querySelector("#tourEyebrow")?.textContent || "";
+        return +(t.match(/(\d+)/) || [])[1] || 1;
+      });
+      if (cur - 1 === n) break;
+      if (cur - 1 < n) await page.click("#tourNext");
+      else await page.click("#tourBack");
+    }
+    return page.evaluate(() => ({
+      view: document.querySelector(".view.active")?.id,
+      workout: document.body.classList.contains("is-workout"),
+      focus: document.body.classList.contains("is-focus-wo"),
+      overflow: !document.querySelector("#woOverflow")?.classList.contains("hidden"),
+      arrows: !!document.querySelector("#woPrev"),
+      rest: !document.querySelector("#woRest")?.classList.contains("hidden"),
+      finishInView: !!document.querySelector("#logForm .btn--save"),
+    }));
+  };
+  const s0 = await stepAt(0);
+  assert(s0.view === "log" && !s0.workout, "Tour step 0 shows the Today dashboard", JSON.stringify(s0));
+  const s1 = await stepAt(1);
+  assert(s1.workout && !s1.focus && s1.overflow, "Tour step 1 is List with overflow open", JSON.stringify(s1));
+  const s2 = await stepAt(2);
+  assert(s2.workout && !s2.focus && s2.overflow, "Tour step 2 keeps List overflow open for layout controls", JSON.stringify(s2));
+  const s3 = await stepAt(3);
+  assert(s3.workout && s3.focus && !s3.overflow && s3.arrows, "Tour step 3 is Focus with header arrows and overflow closed", JSON.stringify(s3));
+  const s4 = await stepAt(4);
+  assert(s4.workout && s4.focus && s4.rest, "Tour step 4 shows the header rest control", JSON.stringify(s4));
+  const s5 = await stepAt(5);
+  assert(s5.workout && !s5.focus && s5.finishInView, "Tour step 5 is List with Finish workout in view", JSON.stringify(s5));
+  const s6 = await stepAt(6);
+  assert(s6.view === "stats", "Tour step 6 opens Progress", JSON.stringify(s6));
+
+  const draftDuring = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
+  const logDuring = (await getState(page)).log.length;
+  await page.click("#tourSkip");
+  const firstRunExit = await page.evaluate(() => ({
+    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
+    view: document.querySelector(".view.active")?.id,
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.activeElement?.id,
+    tourDone: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").tourDone,
+  }));
+  assert(
+    firstRunExit.hidden && firstRunExit.view === "log" && !firstRunExit.workout && firstRunExit.focus === "startWorkout" && firstRunExit.tourDone,
+    "First-run Skip ends on Today with focus on Start workout",
+    JSON.stringify(firstRunExit)
+  );
+  assert(draftDuring == null || draftDuring === (await page.evaluate((d) => localStorage.getItem(d), DRAFT)), "Tour preview does not write a draft", draftDuring);
+
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.waitForTimeout(80);
+  const replaySnap = await page.evaluate(() => ({
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.body.classList.contains("is-focus-wo"),
+    day: document.querySelector("#woDayTitle")?.textContent || "",
+  }));
+  await page.evaluate(() => window.startTour("replay"));
+  await page.waitForSelector("#tour:not(.hidden)");
+  await page.click("#tourNext");
+  await page.click("#tourSkip");
+  const replaySkip = await page.evaluate(() => ({
+    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.body.classList.contains("is-focus-wo"),
+    focused: document.activeElement?.id,
+  }));
+  assert(
+    replaySkip.hidden && replaySkip.workout === replaySnap.workout && replaySkip.focus === replaySnap.focus,
+    "Replay Skip restores the pre-tour workout snapshot",
+    JSON.stringify({ replaySnap, replaySkip })
+  );
+
+  await page.evaluate(() => window.startTour("replay"));
+  await page.waitForSelector("#tour:not(.hidden)");
+  for (let i = 0; i < 12; i++) {
+    const last = await page.evaluate(() => document.querySelector("#tourNext")?.textContent || "");
+    await page.click("#tourNext");
+    if (/done|concluir|pronto/i.test(last)) break;
+  }
+  const replayDone = await page.evaluate(() => ({
+    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
+    workout: document.body.classList.contains("is-workout"),
+    focus: document.body.classList.contains("is-focus-wo"),
+  }));
+  assert(
+    replayDone.hidden && replayDone.workout === replaySnap.workout && replayDone.focus === replaySnap.focus,
+    "Replay Done restores the pre-tour snapshot",
+    JSON.stringify(replayDone)
+  );
+
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => {
+    document.querySelectorAll("#workout [data-skip]").forEach((b) => b.click());
+  });
+  const skippedBefore = await page.evaluate(() => document.querySelectorAll("#workout .exercise.is-skipped, #workout .skipbar").length);
+  const logBeforeSkipTour = (await getState(page)).log.length;
+  await page.evaluate(() => window.startTour("replay"));
+  await stepAt(3);
+  const previewName = await page.evaluate(() => document.querySelector("#workout .focus-ex__name")?.textContent || "");
+  const skippedUnchanged = await page.evaluate(() => {
+    window.closeTour();
+    return document.querySelectorAll("#workout [data-skip]").length;
+  });
+  assert(!!previewName, "All-skipped Focus preview still shows the first program exercise", `name=${previewName}`);
+  assert((await getState(page)).log.length === logBeforeSkipTour, "All-skipped tour preview does not mutate the log", "");
+
+  await nav(page, "settings");
+  await page.evaluate(() => document.querySelector("#restSecPanel")?.classList.add("is-open"));
+  await page.fill("#restSec", "0");
+  await page.evaluate(() => document.querySelector("#restSec")?.dispatchEvent(new Event("change", { bubbles: true })));
+  await page.waitForTimeout(50);
+  await page.evaluate(() => window.startTour("replay"));
+  await stepAt(4);
+  const restPreview = await page.evaluate(() => ({
+    visible: !document.querySelector("#woRest")?.classList.contains("hidden"),
+    disabled: !!document.querySelector("#woRest")?.disabled,
+    hint: document.querySelector("#woRestPreviewHint")?.textContent || "",
+    running: document.querySelector("#woRest")?.classList.contains("is-running"),
+  }));
+  await page.click("#tourSkip");
+  assert(
+    restPreview.visible && restPreview.disabled && restPreview.hint && !restPreview.running,
+    "Disabled-rest tour preview shows the header control without starting a timer",
+    JSON.stringify(restPreview)
+  );
+
+  beginPhase("Coaching counts and destinations");
+  {
+    const dates = await page.evaluate(() => {
+      const iso = (d) =>
+        `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const add = (isoDate, n) => {
+        const d = new Date(`${isoDate}T12:00:00`);
+        d.setDate(d.getDate() + n);
+        return iso(d);
+      };
+      const todayIso = iso(new Date());
+      const wr = window.__repforgeWeek.weekRange(todayIso);
+      return {
+        today: todayIso,
+        thisWeek: wr.start,
+        lastWeek: add(wr.start, -7),
+        stale: add(todayIso, -20),
+        recentOffWeek: add(todayIso, -8),
+      };
+    });
+    const mkEx = (id, day, order, name, extra = {}) => ({
+      id,
+      day,
+      order,
+      name,
+      sets: extra.sets ?? 2,
+      min: extra.min ?? 6,
+      max: extra.max ?? 10,
+      primary: extra.primary,
+      secondary: "",
+    });
+    const mkRows = ({ id, name, day, date, session, load, reps, rir, sets = 2, primary }) =>
+      Array.from({ length: sets }, (_, i) => ({
+        session,
+        date,
+        day,
+        name,
+        exerciseId: id,
+        set: i + 1,
+        load,
+        reps,
+        rir,
+        notes: "",
+        created: `${date}T12:00:0${i}Z`,
+        primary,
+        secondary: "",
+      }));
+    const program = [
+      mkEx("ex-improved", "Day 1", 1, "Coach Improved", { primary: "Chest" }),
+      mkEx("ex-flat", "Day 1", 2, "Coach Flat", { primary: "Quads" }),
+      mkEx("ex-regressed", "Day 1", 3, "Coach Regressed", { primary: "Lats" }),
+      mkEx("ex-oneshot", "Day 1", 4, "Coach Oneshot", { primary: "Hamstrings" }),
+      mkEx("ex-untrained", "Day 1", 5, "Coach Untrained", { primary: "Glutes" }),
+      mkEx("ex-stale", "Day 1", 6, "Coach Stale", { primary: "Side delts" }),
+      mkEx("ex-ready", "Day 1", 7, "Coach Ready", { min: 6, max: 8, primary: "Triceps" }),
+      mkEx("ex-reduce", "Day 1", 8, "Coach Reduce", { min: 8, max: 12, primary: "Biceps" }),
+      mkEx("ex-vol", "Day 1", 9, "Coach Volume", { sets: 4, primary: "Forearms" }),
+      mkEx("ex-fatigue", "Day 1", 10, "Coach Fatigue", { min: 6, max: 12, primary: "Calves" }),
+      mkEx("curl-a", "Day 1", 11, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
+      mkEx("curl-b", "Day 2", 1, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
+    ];
+    const log = [
+      ...mkRows({ id: "ex-improved", name: "Coach Improved", day: "Day 1", date: dates.lastWeek, session: "s-imp-prev", load: 80, reps: 6, rir: 1, primary: "Chest" }),
+      ...mkRows({ id: "ex-improved", name: "Coach Improved", day: "Day 1", date: dates.thisWeek, session: "s-imp-cur", load: 85, reps: 8, rir: 1, primary: "Chest" }),
+      ...mkRows({ id: "ex-flat", name: "Coach Flat", day: "Day 1", date: dates.lastWeek, session: "s-flat-prev", load: 70, reps: 8, rir: 1, primary: "Quads" }),
+      ...mkRows({ id: "ex-flat", name: "Coach Flat", day: "Day 1", date: dates.thisWeek, session: "s-flat-cur", load: 70, reps: 8, rir: 1, primary: "Quads" }),
+      ...mkRows({ id: "ex-regressed", name: "Coach Regressed", day: "Day 1", date: dates.lastWeek, session: "s-reg-prev", load: 100, reps: 8, rir: 1, primary: "Lats" }),
+      ...mkRows({ id: "ex-regressed", name: "Coach Regressed", day: "Day 1", date: dates.thisWeek, session: "s-reg-cur", load: 80, reps: 5, rir: 1, primary: "Lats" }),
+      ...mkRows({ id: "ex-oneshot", name: "Coach Oneshot", day: "Day 1", date: dates.thisWeek, session: "s-one-cur", load: 60, reps: 8, rir: 1, primary: "Hamstrings" }),
+      ...mkRows({ id: "ex-stale", name: "Coach Stale", day: "Day 1", date: dates.stale, session: "s-stale", load: 70, reps: 8, rir: 1, primary: "Side delts" }),
+      ...mkRows({ id: "ex-ready", name: "Coach Ready", day: "Day 1", date: dates.lastWeek, session: "s-rdy-prev", load: 80, reps: 6, rir: 1, primary: "Triceps" }),
+      ...mkRows({ id: "ex-ready", name: "Coach Ready", day: "Day 1", date: dates.thisWeek, session: "s-rdy-cur", load: 80, reps: 8, rir: 1, primary: "Triceps" }),
+      ...mkRows({ id: "ex-reduce", name: "Coach Reduce", day: "Day 1", date: dates.lastWeek, session: "s-red-prev", load: 90, reps: 10, rir: 1, primary: "Biceps" }),
+      ...mkRows({ id: "ex-reduce", name: "Coach Reduce", day: "Day 1", date: dates.thisWeek, session: "s-red-cur", load: 90, reps: 3, rir: 1, primary: "Biceps" }),
+      ...mkRows({ id: "ex-vol", name: "Coach Volume", day: "Day 1", date: dates.recentOffWeek, session: "s-vol", load: 70, reps: 7, rir: 1, sets: 2, primary: "Forearms" }),
+      ...mkRows({ id: "ex-fatigue", name: "Coach Fatigue", day: "Day 1", date: dates.lastWeek, session: "s-fat-prev", load: 80, reps: 8, rir: 0, primary: "Calves" }),
+      ...mkRows({ id: "ex-fatigue", name: "Coach Fatigue", day: "Day 1", date: dates.thisWeek, session: "s-fat-cur", load: 80, reps: 7, rir: 0, primary: "Calves" }),
+    ];
+    const prior = await getState(page);
+    await persistState(page, {
+      ...prior,
+      program,
+      log,
+      programMeta: { ...(prior.programMeta || {}), onboarded: true, name: "Coach fixture" },
+    });
+    await reloadApp(page);
+    await nav(page, "stats");
+
+    const snap = await page.evaluate(() => {
+      const w = window.__repforgeWeeklySnapshot();
+      const groups = window.__repforgeAttention();
+      const stableDom = document.querySelector('#thisWeek [data-week-metric="stable"] .statrow__val')?.textContent?.trim();
+      const dest = {
+        details: window.RepForgeI18n.t("stats.dest.details"),
+        log: window.RepForgeI18n.t("stats.dest.log"),
+        trend: window.RepForgeI18n.t("stats.dest.trend"),
+      };
+      const ready = [...document.querySelectorAll("#readyList [data-ready]")].map((el) => ({
+        id: el.getAttribute("data-ready"),
+        dest: el.getAttribute("data-dest"),
+        text: el.textContent,
+        name: el.getAttribute("aria-label") || el.textContent,
+      }));
+      const chips = [...document.querySelectorAll("#attention [data-attn]")].map((el) => ({
+        id: el.getAttribute("data-attn"),
+        group: el.getAttribute("data-attngo"),
+        dest: el.getAttribute("data-dest"),
+        text: el.textContent,
+      }));
+      return { w, groups: groups.map((g) => ({ key: g.key, ids: g.items.map((i) => i.ex.id) })), stableDom, dest, ready, chips };
+    });
+    assert(
+      snap.w.flatLifts === 1 && snap.stableDom === "1",
+      "Stable count equals exact flat comparisons from this week",
+      JSON.stringify({ flatLifts: snap.w.flatLifts, stableDom: snap.stableDom, improved: snap.w.improvedLifts })
+    );
+    assert(
+      snap.w.improvedLifts >= 1 && snap.w.regressedLifts >= 1,
+      "Fixture includes improved and regressed comparisons this week",
+      JSON.stringify({ improved: snap.w.improvedLifts, regressed: snap.w.regressedLifts })
+    );
+    const readyRow = snap.ready.find((r) => r.id === "ex-ready");
+    assert(
+      readyRow && readyRow.dest === "details" && readyRow.text.includes(snap.dest.details),
+      "Ready to progress shows the Details destination in the accessible name",
+      JSON.stringify(readyRow)
+    );
+    const expectChip = (id, group, destKey) => {
+      const chip = snap.chips.find((c) => c.id === id);
+      const label = snap.dest[destKey];
+      assert(
+        chip && chip.group === group && chip.dest === destKey && chip.text.includes(label),
+        `${id} is a ${group} row labeled ${label}`,
+        JSON.stringify(chip)
+      );
+    };
+    expectChip("ex-untrained", "new", "log");
+    expectChip("ex-stale", "stale", "log");
+    expectChip("ex-reduce", "reduce", "trend");
+    expectChip("ex-vol", "vol", "trend");
+    expectChip("ex-fatigue", "fatigue", "trend");
+    expectChip("curl-a", "new", "log");
+    expectChip("curl-b", "new", "log");
+    assert(
+      snap.chips.every((c) => c.id && !["Coach Curl", "Coach Untrained"].includes(c.id)),
+      "Coaching rows store exercise IDs, not display names",
+      snap.chips.map((c) => c.id).join(",")
+    );
+
+    await page.click('#readyList [data-ready="ex-ready"]');
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    const readyLanded = await page.evaluate(() => ({
+      view: document.querySelector("#exercise")?.classList.contains("active"),
+      title: document.querySelector("#exName, #exercise h2, #exDetail")?.textContent || "",
+    }));
+    assert(
+      readyLanded.view && /Coach Ready/i.test(readyLanded.title),
+      "Details destination opens Exercise detail for the ready lift",
+      JSON.stringify(readyLanded)
+    );
+    await page.click("#exBack");
+    await nav(page, "stats");
+
+    const landLog = async (id, day) => {
+      await page.click(`#attention [data-attn="${id}"]`);
+      await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
+      return page.evaluate(
+        ({ id, day }) => {
+          const card = document.querySelector(`#workout [data-ex="${id}"]`);
+          const tab = document.querySelector("#dayTabs button.active");
+          return {
+            log: document.querySelector("#log")?.classList.contains("active"),
+            card: !!card,
+            day: tab?.dataset.day || "",
+            want: day,
+          };
+        },
+        { id, day }
+      );
+    };
+    const untrainedLand = await landLog("ex-untrained", "Day 1");
+    assert(untrainedLand.log && untrainedLand.card, "New-lift Log destination opens the Log card for that ID", JSON.stringify(untrainedLand));
+    await nav(page, "stats");
+    const curlA = await landLog("curl-a", "Day 1");
+    assert(curlA.card && curlA.day === "Day 1", "Duplicate name on Day 1 routes by exercise ID", JSON.stringify(curlA));
+    await nav(page, "stats");
+    const curlB = await landLog("curl-b", "Day 2");
+    assert(curlB.card && curlB.day === "Day 2", "Duplicate name on Day 2 routes by exercise ID", JSON.stringify(curlB));
+    await nav(page, "stats");
+
+    await page.click('#attention [data-attn="ex-reduce"]');
+    const trendLand = await page.evaluate(() => ({
+      deep: !!document.querySelector("#statsDeep")?.open,
+      sel: document.querySelector("#statExercise")?.value || "",
+      stats: document.querySelector("#stats")?.classList.contains("active"),
+    }));
+    assert(
+      trendLand.deep && trendLand.sel === "ex-reduce" && trendLand.stats,
+      "View trend destination opens the stats chart for that exercise ID",
+      JSON.stringify(trendLand)
+    );
+  }
+
+  beginPhase("Phase: PWA cache, offline shell, replica agreement");
+  {
+    const swMeta = readServiceWorkerMeta();
+    const origin = pwaOriginFromBase();
+    const pwaContext = await browser.newContext({
+      viewport: { width: 390, height: 844 },
+      serviceWorkers: "allow",
+    });
+    const pwaPage = await pwaContext.newPage();
+    await pwaPage.goto(origin, { waitUntil: "domcontentloaded" });
+    await wipePwaOrigin(pwaPage, pwaContext);
+    const seedState = await getState(page);
+    if (!seedState) throw new Error("PWA phase needs canonical state from the main simulation page");
+    await persistState(pwaPage, seedState);
+    const draftRaw = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
+    if (draftRaw) {
+      await pwaPage.evaluate(({ d, raw }) => localStorage.setItem(d, raw), { d: DRAFT, raw: draftRaw });
+    }
+    await pwaPage.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(pwaPage);
+    await pwaPage.waitForFunction(
+      async ({ cacheName, shell }) => {
+        if (!("serviceWorker" in navigator)) return false;
+        await navigator.serviceWorker.ready;
+        if (!navigator.serviceWorker.controller) return false;
+        const names = await caches.keys();
+        if (!names.includes(cacheName)) return false;
+        const cache = await caches.open(cacheName);
+        const reqs = await cache.keys();
+        if (!reqs.length) return false;
+        const paths = new Set(reqs.map((r) => new URL(r.url).pathname));
+        return shell.every((path) => {
+          if (path === "/") return paths.has("/") || paths.has("/index.html");
+          return paths.has(path);
+        });
+      },
+      { cacheName: swMeta.cache, shell: swMeta.shell },
+      { timeout: 20000 }
+    );
+
+    const beforeStores = await readReplicasAndDraft(pwaPage);
+    assert(
+      replicasAgree(beforeStores),
+      "Before offline, both durable replicas agree on canonical domain state",
+      `localRev=${canonicalDomain(beforeStores.local).revision} idbRev=${canonicalDomain(beforeStores.idb).revision}`,
+      "PWA origin → seed both stores → boot → compare localStorage vs IndexedDB"
+    );
+
+    const shellChecks = await pwaPage.evaluate(
+      async ({ origin, cacheName, shell }) => {
+        const cache = await caches.open(cacheName);
+        const reqs = await cache.keys();
+        const cacheUrls = reqs.map((r) => r.url);
+        const results = [];
+        for (const path of shell) {
+          const url = new URL(path, origin).href;
+          const net = await fetch(url, { cache: "reload" });
+          const netBuf = new Uint8Array(await net.arrayBuffer());
+          let cached = await cache.match(url);
+          if (!cached) {
+            for (const req of reqs) {
+              const u = new URL(req.url);
+              const target = new URL(url);
+              if (u.pathname === target.pathname || (path === "/" && /\/index\.html$/.test(u.pathname))) {
+                cached = await cache.match(req);
+                if (cached) break;
+              }
+            }
+          }
+          if (!cached) {
+            results.push({
+              path,
+              ok: false,
+              reason: "cache-miss",
+              cacheUrls: cacheUrls.slice(0, 12),
+            });
+            continue;
+          }
+          const cachedBuf = new Uint8Array(await cached.arrayBuffer());
+          const netType = net.headers.get("content-type") || "";
+          const cachedType = cached.headers.get("content-type") || "";
+          const bytesEqual = netBuf.length === cachedBuf.length && netBuf.every((b, i) => b === cachedBuf[i]);
+          results.push({
+            path,
+            ok: net.ok && bytesEqual && netType === cachedType,
+            netOk: net.ok,
+            bytesEqual,
+            netType,
+            cachedType,
+            netBytes: netBuf.length,
+            cachedBytes: cachedBuf.length,
+          });
+        }
+        return { cacheNamePresent: (await caches.keys()).includes(cacheName), results };
+      },
+      { origin, cacheName: swMeta.cache, shell: swMeta.shell }
+    );
+    assert(
+      shellChecks.cacheNamePresent,
+      `CacheStorage contains the live sw.js cache (${swMeta.cache})`,
+      JSON.stringify({ cache: swMeta.cache, present: shellChecks.cacheNamePresent }),
+      "Register service worker → caches.keys() includes CACHE from sw.js"
+    );
+    const shellFail = shellChecks.results.filter((r) => !r.ok);
+    assert(
+      shellFail.length === 0,
+      "Each SHELL asset matches CacheStorage bytes and content-type after cache-bypass fetch",
+      JSON.stringify(shellFail.slice(0, 3)),
+      "Online fetch({cache:'reload'}) vs caches.open(CACHE).match"
+    );
+
+    const cdp = await pwaContext.newCDPSession(pwaPage);
+    await cdp.send("Network.clearBrowserCache");
+    await pwaContext.setOffline(true);
+
+    const offlineNav = await pwaPage.goto(origin, { waitUntil: "domcontentloaded" });
+    assert(
+      !!offlineNav && offlineNav.fromServiceWorker(),
+      "Offline navigation is served from the service worker",
+      `fromSW=${offlineNav?.fromServiceWorker?.()} status=${offlineNav?.status()}`,
+      "Clear HTTP cache, stay offline, reload /"
+    );
+
+    const offlineShell = [];
+    for (const path of swMeta.shell.filter((p) => p !== "/")) {
+      const url = new URL(path, origin).href;
+      const [resp] = await Promise.all([
+        pwaPage.waitForResponse((r) => r.url() === url, { timeout: 8000 }).catch(() => null),
+        pwaPage.evaluate((u) => fetch(u), url),
+      ]);
+      offlineShell.push({ path, fromSW: resp?.fromServiceWorker?.() === true, status: resp?.status() });
+    }
+    assert(
+      offlineShell.every((r) => r.fromSW),
+      "Offline SHELL fetches report fromServiceWorker()",
+      JSON.stringify(offlineShell),
+      "While offline, fetch each SHELL path"
+    );
+
+    for (const view of ["log", "stats", "history", "program"]) {
+      await nav(pwaPage, view);
+      const active = await pwaPage.locator(`#${view}.view.active`).count();
+      assert(active === 1, `Offline navigation opens the ${view} tab`, `active=${active}`, `Offline → nav ${view}`);
+    }
+
+    const offlineStores = await readReplicasAndDraft(pwaPage);
+    assert(
+      replicasAgree(offlineStores) &&
+        canonicalDomain(offlineStores.local).domain === canonicalDomain(beforeStores.local).domain &&
+        offlineStores.draft === beforeStores.draft,
+      "While offline, both replicas and the draft stay byte-equivalent to the pre-offline snapshot",
+      `draftEqual=${offlineStores.draft === beforeStores.draft}`,
+      "Read localStorage + IndexedDB + draft while offline"
+    );
+
+    await pwaContext.setOffline(false);
+    await pwaPage.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(pwaPage);
+    const afterStores = await readReplicasAndDraft(pwaPage);
+    assert(
+      replicasAgree(afterStores) &&
+        canonicalDomain(afterStores.local).domain === canonicalDomain(beforeStores.local).domain &&
+        afterStores.draft === beforeStores.draft,
+      "After reconnect, both replicas and the draft remain canonically identical",
+      `rev local=${canonicalDomain(afterStores.local).revision} idb=${canonicalDomain(afterStores.idb).revision}`,
+      "Go online → reload → compare both stores and draft"
+    );
+
+    await pwaContext.close();
+  }
 
   // Console errors
   assert(

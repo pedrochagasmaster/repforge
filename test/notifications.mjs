@@ -77,8 +77,17 @@ async function persistState(page, state) {
 
 async function freshPage(browser) {
   const context = await browser.newContext();
-  const origin = new URL(BASE).origin;
-  await context.grantPermissions(["notifications"], { origin });
+  await context.addInitScript(() => {
+    let perm = "granted";
+    window.__repforgeNotifyAdapter = {
+      canUse() { return true; },
+      permission() { return perm; },
+      async request() { return perm; },
+    };
+    window.__repforgeNotifyTest = {
+      setPermission(p) { perm = p; },
+    };
+  });
   const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
@@ -150,34 +159,14 @@ console.log("\nNotification surfaces");
 // 1. Settings persist
 // ---------------------------------------------------------------------------
 {
-  const { context, page } = await freshPage(browser);
-  await page.click('#openSettings'); await page.waitForSelector('#settings.view.active');
-  await page.waitForSelector("#notifyEnabled");
+  const { context, page } = await notifyContext(browser, { permission: "granted", mode: "auto", autoResult: "granted" });
+  await openNotifySettings(page);
 
   await page.locator("#notifyToggle").click();
-  // Let the master-toggle save (and its async IDB write) finish before changing
-  // a type flag — rapid back-to-back commits can race on IndexedDB.
-  await page.waitForFunction(async () => {
-    const ls = JSON.parse(localStorage.getItem("repforge_v1") || "{}")?.settings?.notify;
-    if (!ls?.enabled) return false;
-    try {
-      const idb = await new Promise((res, rej) => {
-        const r = indexedDB.open("repforge", 1);
-        r.onsuccess = () => {
-          const db = r.result;
-          const tx = db.transaction("kv", "readonly");
-          const g = tx.objectStore("kv").get("repforge_v1");
-          g.onsuccess = () => { db.close(); res(g.result); };
-          g.onerror = () => { db.close(); rej(g.error); };
-        };
-        r.onerror = () => rej(r.error);
-      });
-      return idb?.settings?.notify?.enabled === true;
-    } catch {
-      return false;
-    }
-  });
-  await page.evaluate(() => document.querySelector("#notifyTypes")?.classList.add("is-open"));
+  await waitNotifyIdle(page);
+  await page.waitForFunction(() => document.querySelector("#notifyMissed") && !document.querySelector("#notifyMissed").disabled);
+
+  await page.locator("#notifyConfigRow").click();
   await page.waitForSelector("#notifyTypes.is-open", { timeout: 3000 });
   await page.uncheck("#notifyMissed");
   await page.waitForFunction(async () => {
@@ -204,8 +193,7 @@ console.log("\nNotification surfaces");
 
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.click('#openSettings'); await page.waitForSelector('#settings.view.active');
-  await page.waitForSelector("#notifyEnabled");
+  await openNotifySettings(page);
 
   const checks = await page.evaluate(() => ({
     enabled: document.querySelector("#notifyEnabled")?.checked,
@@ -459,6 +447,311 @@ let unfinishedPage = null;
     JSON.stringify({ meta: again.meta, draftAt: again.draft.__lastCommitAt })
   );
   await unfinishedCtx.close();
+}
+
+async function notifyContext(browser, adapter) {
+  const context = await browser.newContext();
+  await context.addInitScript((opts) => {
+    let perm = opts.permission;
+    let requestCount = 0;
+    const waiters = [];
+    window.__repforgeNotifyAdapter = {
+      canUse() {
+        return perm !== "unsupported";
+      },
+      permission() {
+        return perm === "unsupported" ? "unsupported" : perm;
+      },
+      async request() {
+        const generation = ++requestCount;
+        if (perm === "unsupported") return "unsupported";
+        if (opts.mode === "auto") {
+          perm = opts.autoResult;
+          return opts.autoResult;
+        }
+        return new Promise((resolve) => {
+          waiters.push({ generation, resolve });
+        });
+      },
+    };
+    window.__repforgeNotifyTest = {
+      requestCount() {
+        return requestCount;
+      },
+      setPermission(p) {
+        perm = p;
+      },
+      resolve(p) {
+        perm = p;
+        const q = waiters.splice(0);
+        q.forEach(({ resolve }) => resolve(p));
+      },
+      resolveGeneration(generation, p) {
+        const index = waiters.findIndex((waiter) => waiter.generation === generation);
+        if (index < 0) return false;
+        perm = p;
+        const [{ resolve }] = waiters.splice(index, 1);
+        resolve(p);
+        return true;
+      },
+      pending() {
+        return waiters.length;
+      },
+      pendingGenerations() {
+        return waiters.map((waiter) => waiter.generation);
+      },
+    };
+  }, adapter);
+  const page = await context.newPage();
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await clearState(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  return { context, page };
+}
+
+async function openNotifySettings(page) {
+  await page.click("#openSettings");
+  await page.waitForSelector("#settings.view.active");
+  await page.waitForSelector("#notifyToggle");
+}
+
+async function notifyUi(page) {
+  await page.evaluate(async () => {
+    if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
+  });
+  return page.evaluate(async () => {
+    const stored = JSON.parse(localStorage.getItem("repforge_v1") || "{}")?.settings?.notify || {};
+    let idbNotify = null;
+    try {
+      const idb = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onsuccess = () => {
+          const db = r.result;
+          const tx = db.transaction("kv", "readonly");
+          const g = tx.objectStore("kv").get("repforge_v1");
+          g.onsuccess = () => {
+            db.close();
+            res(g.result);
+          };
+          g.onerror = () => {
+            db.close();
+            rej(g.error);
+          };
+        };
+        r.onerror = () => rej(r.error);
+      });
+      idbNotify = idb?.settings?.notify || null;
+    } catch {
+      idbNotify = null;
+    }
+    const tog = document.querySelector("#notifyToggle");
+    const types = [...document.querySelectorAll("#notifyTypes input")];
+    return {
+      storedEnabled: !!stored.enabled,
+      storedMissed: stored.missed !== false,
+      storedTimer: stored.timer !== false,
+      storedSession: stored.session !== false,
+      storedUnfinished: stored.unfinished !== false,
+      idbEnabled: idbNotify ? !!idbNotify.enabled : null,
+      idbMissed: idbNotify ? idbNotify.missed !== false : null,
+      pressed: tog?.getAttribute("aria-pressed"),
+      busy: tog?.getAttribute("aria-busy"),
+      name: tog?.getAttribute("aria-label") || "",
+      typesDisabled: types.length > 0 && types.every((i) => i.disabled),
+      status: document.querySelector("#notifyPermStatus")?.textContent || "",
+      requestCount: window.__repforgeNotifyTest?.requestCount?.() ?? null,
+      pending: window.__repforgeNotifyTest?.pending?.() ?? null,
+      pendingGenerations: window.__repforgeNotifyTest?.pendingGenerations?.() ?? [],
+    };
+  });
+}
+
+async function waitNotifyIdle(page) {
+  await page.waitForFunction(() => document.querySelector("#notifyToggle")?.getAttribute("aria-busy") !== "true", {
+    timeout: 8000,
+  });
+  await page.evaluate(async () => {
+    if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
+  });
+}
+
+console.log("\nNotification permission truth (UX-04)");
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "unsupported", mode: "auto", autoResult: "unsupported" });
+  await openNotifySettings(page);
+  const before = await notifyUi(page);
+  assert(before.storedEnabled === false && before.pressed === "false" && before.typesDisabled, "unsupported: starts off with types disabled", JSON.stringify(before));
+  assert(before.name.trim().length > 0, "unsupported: toggle has an accessible name", JSON.stringify(before));
+  await page.locator("#notifyToggle").click();
+  await waitNotifyIdle(page);
+  const after = await notifyUi(page);
+  const next = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.next.unsupported"));
+  assert(after.storedEnabled === false && after.idbEnabled === false && after.pressed === "false" && after.typesDisabled, "unsupported: enable does not persist on", JSON.stringify(after));
+  assert(typeof next === "string" && next && after.status.includes(next), "unsupported: status shows next-step copy", JSON.stringify({ status: after.status, next }));
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "default", mode: "auto", autoResult: "default" });
+  await openNotifySettings(page);
+  await page.locator("#notifyToggle").click();
+  await waitNotifyIdle(page);
+  const after = await notifyUi(page);
+  const next = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.next.prompt"));
+  assert(after.storedEnabled === false && after.pressed === "false" && after.typesDisabled, "default: request result does not persist enabled", JSON.stringify(after));
+  assert(typeof next === "string" && next && after.status.includes(next), "default: status shows prompt next-step copy", JSON.stringify({ status: after.status, next }));
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "default", mode: "auto", autoResult: "denied" });
+  let seeded = await enableNotify(await readDefaultState(page), { enabled: false, missed: false });
+  seeded.settings.notify.enabled = false;
+  seeded.settings.notify.missed = false;
+  await persistState(page, seeded);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await openNotifySettings(page);
+  const before = await notifyUi(page);
+  assert(before.storedMissed === false && before.storedEnabled === false, "denied setup: missed off while master off", JSON.stringify(before));
+  await page.locator("#notifyToggle").click();
+  await waitNotifyIdle(page);
+  const after = await notifyUi(page);
+  const next = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.next.denied"));
+  assert(after.storedEnabled === false && after.pressed === "false" && after.typesDisabled, "denied: request result stores disabled", JSON.stringify(after));
+  assert(after.storedMissed === false && after.idbMissed === false, "denied: reminder-type preference survives failed permission", JSON.stringify(after));
+  assert(typeof next === "string" && next && after.status.includes(next), "denied: status shows denied next-step copy", JSON.stringify({ status: after.status, next }));
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "default", mode: "auto", autoResult: "granted" });
+  await openNotifySettings(page);
+  await page.locator("#notifyToggle").click();
+  await waitNotifyIdle(page);
+  const after = await notifyUi(page);
+  const granted = await page.evaluate(() => window.RepForgeI18n?.t("settings.notifications.status.granted"));
+  assert(after.storedEnabled === true && after.idbEnabled === true && after.pressed === "true" && after.typesDisabled === false, "granted: stores enabled and unlocks types", JSON.stringify(after));
+  assert(after.busy !== "true", "granted: pending busy clears", JSON.stringify(after));
+  assert(typeof granted === "string" && granted && after.status.toLowerCase().includes(granted.toLowerCase()), "granted: status names granted permission", JSON.stringify({ status: after.status, granted }));
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "granted", mode: "auto", autoResult: "granted" });
+  let state = await enableNotify(await readDefaultState(page), { missed: false });
+  await persistState(page, state);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await openNotifySettings(page);
+  const on = await notifyUi(page);
+  assert(on.storedEnabled === true && on.pressed === "true" && on.storedMissed === false && on.typesDisabled === false, "revocation setup: enabled with missed off", JSON.stringify(on));
+  await page.evaluate(() => {
+    window.__repforgeNotifyTest.setPermission("denied");
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}")?.settings?.notify?.enabled === false);
+  const off = await notifyUi(page);
+  assert(off.storedEnabled === false && off.idbEnabled === false && off.pressed === "false" && off.typesDisabled, "revocation: visibilitychange turns effective enabled off", JSON.stringify(off));
+  assert(off.storedMissed === false && off.idbMissed === false, "revocation: reminder-type choices are preserved", JSON.stringify(off));
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "default", mode: "manual" });
+  await openNotifySettings(page);
+  await page.locator("#notifyToggle").click();
+  await page.waitForFunction(
+    () => window.__repforgeNotifyTest?.pendingGenerations?.().join(",") === "1"
+  );
+
+  await page.locator("#notifyToggle").click();
+  await page.locator("#notifyToggle").click();
+  await page.waitForFunction(
+    () =>
+      window.__repforgeNotifyTest?.requestCount?.() === 1 &&
+      document.querySelector("#notifyToggle")?.getAttribute("aria-busy") === "true"
+  );
+  const reused = await notifyUi(page);
+  assert(
+    reused.busy === "true" &&
+      reused.requestCount === 1 &&
+      reused.pendingGenerations.join(",") === "1",
+    "overlap setup: off/on reuses one pending browser permission request",
+    JSON.stringify(reused)
+  );
+
+  await page.locator("#notifyToggle").click();
+  await page.locator("#notifyToggle").click();
+  const afterNextClick = await notifyUi(page);
+  assert(
+    afterNextClick.busy === "true" &&
+      afterNextClick.requestCount === 1 &&
+      afterNextClick.pendingGenerations.join(",") === "1",
+    "overlap: another off/on cannot start another permission request",
+    JSON.stringify(afterNextClick)
+  );
+
+  await page.evaluate(async () => {
+    if (!window.__repforgeNotifyTest.resolveGeneration(1, "granted"))
+      throw new Error("permission request generation 1 was not pending");
+    await new Promise(requestAnimationFrame);
+  });
+  const afterSharedSettles = await notifyUi(page);
+  assert(
+    afterSharedSettles.storedEnabled === true &&
+      afterSharedSettles.idbEnabled === true &&
+      afterSharedSettles.pressed === "true" &&
+      afterSharedSettles.busy === "false" &&
+      afterSharedSettles.requestCount === 1 &&
+      afterSharedSettles.pending === 0,
+    "overlap: shared late grant follows the latest on intent",
+    JSON.stringify(afterSharedSettles)
+  );
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "default", mode: "manual" });
+  await openNotifySettings(page);
+  await page.evaluate(() => {
+    const c = document.querySelector("#notifyEnabled");
+    c.checked = true;
+    c.dispatchEvent(new Event("change"));
+    c.dispatchEvent(new Event("change"));
+  });
+  await page.waitForFunction(() => window.__repforgeNotifyTest?.pending?.() >= 1);
+  const pending = await notifyUi(page);
+  assert(
+    pending.storedEnabled === false && pending.pressed === "false" && pending.busy === "true" && pending.requestCount === 1,
+    "pending: does not persist enabled, exposes aria-busy, and coalesces duplicate on clicks",
+    JSON.stringify(pending)
+  );
+  await page.locator("#notifyToggle").click();
+  await page.evaluate(() => window.__repforgeNotifyTest.resolve("granted"));
+  await waitNotifyIdle(page);
+  const after = await notifyUi(page);
+  assert(after.storedEnabled === false && after.pressed === "false" && after.busy !== "true", "late grant after off does not turn the setting back on", JSON.stringify(after));
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "default", mode: "manual" });
+  await openNotifySettings(page);
+  await page.locator("#notifyToggle").click();
+  await page.waitForFunction(() => window.__repforgeNotifyTest?.pending?.() === 1);
+  await page.evaluate(() => {
+    window.__repforgeNotifyTest.setPermission("denied");
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.evaluate(() => window.__repforgeNotifyTest.resolve("granted"));
+  await waitNotifyIdle(page);
+  const after = await notifyUi(page);
+  assert(after.storedEnabled === false && after.pressed === "false", "revocation during pending: late grant stays off", JSON.stringify(after));
+  await context.close();
 }
 
 await browser.close();

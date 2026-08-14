@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#F4F2EF">
   <meta name="description" content="RepForge is a local-only progressive overload tracker for calm, focused training. All data stays on this device.">
   <meta name="mobile-web-app-capable" content="yes">
@@ -36,7 +36,7 @@
 </head>
 <body>
   <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
-  <button id="restBar" type="button" class="restbar hidden" aria-live="polite" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to stop">
+  <button id="restBar" type="button" class="restbar hidden" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to stop">
     <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
   </button>
   <button id="heatGauge" type="button" class="visually-hidden" data-i18n-title="top.heat_title" title="Session heat — how many lifts are ready to add load" tabindex="-1">
@@ -97,8 +97,8 @@
             <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="woOverflow"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
             <div id="woOverflow" class="wo-overflow hidden">
               <div class="modeswitch" role="group" data-i18n-aria="log.layout_aria" aria-label="Log layout">
-                <button type="button" id="modeFull" class="active" data-i18n="log.mode.list">List</button>
-                <button type="button" id="modeFocus" data-i18n="log.mode.focus">Focus</button>
+                <button type="button" id="modeFull" class="active" aria-pressed="true" data-i18n="log.mode.list">List</button>
+                <button type="button" id="modeFocus" aria-pressed="false" data-i18n="log.mode.focus">Focus</button>
               </div>
               <label class="datepick"><span data-i18n="log.date">Date</span><input id="date" type="date"></label>
               <button type="button" id="voiceBtn" class="wo-overflow__item hidden" data-i18n="log.command.voice">Voice input</button>
@@ -130,9 +130,7 @@
         <div class="pagehead__titles">
           <h2 class="page-title" data-i18n="stats.title">Progress</h2>
         </div>
-        <div class="pagehead__actions">
-          <span class="text-link" id="statsPeriod" data-i18n="stats.window.28_days">28 days</span>
-        </div>
+        <div class="pagehead__actions"></div>
       </div>
       <div id="statsSeg" class="seg seg--stats" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true" data-i18n="stats.overview">Overview</button>
@@ -204,12 +202,13 @@
           <h2 class="page-title" data-i18n="history.title">History</h2>
         </div>
         <div class="pagehead__actions">
-          <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search">⌕</button>
+          <button type="button" class="icon-btn icon-btn--ghost" id="historySearchBtn" data-i18n-aria="history.search_aria" aria-label="Search" aria-expanded="false" aria-controls="historySearchWrap">⌕</button>
           <button type="button" class="icon-btn icon-btn--ghost" id="historyExportBtn" data-i18n-aria="history.export_aria" aria-label="Export CSV">▤</button>
         </div>
       </div>
       <div id="historySearchWrap" class="hist-search hidden">
-        <input id="historySearch" type="search" data-i18n-placeholder="history.search_placeholder" placeholder="Filter sessions…" autocomplete="off">
+        <input id="historySearch" type="search" data-i18n-placeholder="history.search_placeholder" data-i18n-aria="history.search_input_aria" placeholder="Filter sessions…" aria-label="Filter sessions by day or exercise" autocomplete="off">
+        <button type="button" id="historySearchClear" class="link-accent" data-i18n="history.search_clear">Clear</button>
       </div>
       <div id="historyCalendar" class="cal"></div>
       <p class="section-label" data-i18n="history.recent">Recent</p>
@@ -275,12 +274,13 @@
           <div class="settings-identity__name">RepForge</div>
           <div class="settings-identity__cap" data-i18n="settings.local_data">Data saved on this device</div>
           <p class="lede" id="storageNote" style="margin:6px 0 0"></p>
+          <p class="settings-warn hidden" id="storageDegraded" hidden></p>
         </div>
       </div>
 
       <p class="settings-group__label" data-i18n="settings.group.training">Training</p>
       <div class="settings-group">
-        <button type="button" class="settings-row" id="restSecRow">
+        <button type="button" class="settings-row" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel">
           <span class="settings-row__label" data-i18n="settings.rest_timer_short">Rest timer</span>
           <span class="settings-row__value"><span id="restSecDisplay">2:00</span> <span class="chevron" aria-hidden="true"></span></span>
         </button>
@@ -291,7 +291,7 @@
           <span class="settings-row__label" data-i18n="settings.units">Units</span>
           <span class="settings-row__value"><select id="unit" class="select-flat"><option value="kg">kg</option><option value="lb">lb</option></select></span>
         </label>
-        <button type="button" class="settings-row" id="rirModeRow">
+        <button type="button" class="settings-row" id="rirModeRow" aria-expanded="false" aria-controls="rirModePanel">
           <span class="settings-row__label" data-i18n="settings.rir_logging">RIR logging</span>
           <span class="settings-row__value"><span id="rirModeDisplay">Numbers</span> <span class="chevron" aria-hidden="true"></span></span>
         </button>
@@ -320,10 +320,10 @@
             <span class="settings-row__label" data-i18n="settings.notifications">Notifications</span>
             <span class="settings-row__cap" data-i18n="settings.notifications.caption">Timer, today's session and unfinished workout</span>
           </span>
-          <button type="button" class="toggle" id="notifyToggle" aria-pressed="false"></button>
+          <button type="button" class="toggle" id="notifyToggle" aria-pressed="false" data-i18n-aria="settings.notifications.toggle_aria" aria-label="Notifications"></button>
           <input type="checkbox" id="notifyEnabled" class="visually-hidden">
         </div>
-        <button type="button" class="settings-row" id="notifyConfigRow">
+        <button type="button" class="settings-row" id="notifyConfigRow" aria-expanded="false" aria-controls="notifyTypes">
           <span class="settings-row__label" data-i18n="settings.notifications.configure">Configure reminders</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
@@ -366,7 +366,7 @@
           <span class="settings-row__label" data-i18n="settings.beginner_program">Use beginner-friendly program</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
-        <button type="button" class="settings-row" id="progressionRow">
+        <button type="button" class="settings-row" id="progressionRow" aria-expanded="false" aria-controls="progressionDetails">
           <span>
             <span class="settings-row__label" data-i18n="settings.advanced_progression_short">Progression controls</span>
             <span class="settings-row__cap" data-i18n="settings.progression_defaults">Recommended defaults active</span>
@@ -389,7 +389,7 @@
 
       <p class="settings-group__label" data-i18n="settings.group.data">Data</p>
       <div class="settings-group">
-        <button type="button" class="settings-row" id="dataBackupRow">
+        <button type="button" class="settings-row" id="dataBackupRow" aria-expanded="false" aria-controls="dataBackupPanel">
           <span class="settings-row__label" data-i18n="settings.backup_export">Backup &amp; export</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
@@ -399,7 +399,7 @@
             <button id="exportCsv" class="btn btn--steel" data-i18n="settings.export_log_csv">Export log CSV</button>
           </div>
         </div>
-        <button type="button" class="settings-row" id="dataImportRow">
+        <button type="button" class="settings-row" id="dataImportRow" aria-expanded="false" aria-controls="dataImportPanel">
           <span class="settings-row__label" data-i18n="settings.import_data">Import data</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
@@ -413,9 +413,9 @@
       </div>
 
       <button type="button" class="settings-row is-danger" id="reset">
-        <span class="settings-row__label" data-i18n="settings.delete_all">Delete all data</span>
+        <span class="settings-row__label" data-i18n="settings.delete_all">Delete workout history</span>
       </button>
-      <p class="visually-hidden" data-i18n="settings.danger_lede">This clears every logged set on this device. Export a backup first.</p>
+      <p class="visually-hidden" data-i18n="settings.danger_lede">Removes the saved log and any unfinished workout draft. Program and Settings stay. Export a backup first.</p>
       <p class="settings-footer" data-i18n="settings.footer">RepForge · Made for training, not distraction.</p>
     </section>
 
@@ -475,7 +475,7 @@
       <button type="button" id="endBlockCancel" class="btn btn--steel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </div>
-  <div id="tour" class="tour hidden" role="dialog" aria-modal="false" data-i18n-aria="tour.aria" aria-label="Feature tour">
+  <div id="tour" class="tour hidden" role="dialog" aria-modal="true" data-i18n-aria="tour.aria" aria-label="Feature tour">
     <div class="tour__card">
       <div class="tour__head">
         <p class="tour__eyebrow" id="tourEyebrow" data-i18n="tour.eyebrow">Tour</p>
@@ -516,7 +516,16 @@
     </div>
     <p class="sheet__foot" data-i18n="focus.note.carry">Visible in your next session</p>
   </div>
-  <div id="toast" class="toast hidden"></div>
+  <dialog id="storageRecovery" class="storage-recovery" aria-modal="true" aria-labelledby="storageRecoveryTitle" data-i18n-aria="dialog.storage_recovery.aria">
+    <h2 id="storageRecoveryTitle" class="importchoice__title" tabindex="-1"></h2>
+    <p id="storageRecoveryLead" class="importchoice__body"></p>
+    <div id="storageRecoveryCopies"></div>
+    <div id="storageRecoveryActions" class="btnrow"></div>
+  </dialog>
+  <div id="announcementHost" class="announce-host">
+    <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+    <div id="restAnnounce" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
+  </div>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
   <script src="i18n.js"></script>

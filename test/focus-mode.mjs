@@ -391,7 +391,10 @@ async function main() {
     "it rises from the bottom, dims the card and takes the caret", JSON.stringify(sheet));
   await page.fill("#exNoteText", "Seat 4, feet high.");
   await page.click("#exNoteSave");
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#exNoteSheet");
+    return !s || s.hidden || s.classList.contains("hidden");
+  }, { timeout: 2000 });
   const noteSaved = await page.evaluate((d) => ({
     draft: JSON.parse(localStorage.getItem(d) || "{}").__exnotes || {},
     marked: !!document.querySelector(".focus-tool.has-note"),
@@ -403,7 +406,10 @@ async function main() {
   await page.locator("[data-exnote-open]").first().click();
   await page.waitForTimeout(250);
   await page.keyboard.press("Escape");
-  await page.waitForTimeout(250);
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#exNoteSheet");
+    return !s || s.hidden || s.classList.contains("hidden");
+  }, { timeout: 2000 });
   assert(await page.evaluate(() => document.querySelector("#exNoteSheet").hidden),
     "Escape closes the note sheet");
 
@@ -634,9 +640,9 @@ async function main() {
       marked: ledger.classList.contains("is-scrollable"),
     };
   });
-  assert(grip.card === "pan-y" && grip.ledger === (grip.scrolls ? "pan-y" : "none") &&
+  assert(grip.card === "pan-y pinch-zoom" && grip.ledger === (grip.scrolls ? "pan-y pinch-zoom" : "pinch-zoom") &&
     grip.scrolls === grip.marked,
-    "the ledger only takes vertical gestures when it has something to scroll",
+    "the ledger only takes vertical gestures when it has something to scroll, and pinch zoom stays available",
     JSON.stringify(grip));
   // Drag from three heights: header, middle of the ledger, and the well.
   for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["well", 0.86]]) {
@@ -765,6 +771,116 @@ async function main() {
       `${name}: no clipped labels, no stray scrolling`, JSON.stringify(fit));
     await vpCtx.close();
   }
+
+  phase("Complete draft resume (UX-19)");
+  const draftCtx = await browser.newContext({
+    viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true,
+    serviceWorkers: "block",
+  });
+  const draftPage = await draftCtx.newPage();
+  draftPage.on("pageerror", (error) => errors.push(error.message));
+  draftPage.on("console", (message) => {
+    if (message.type() === "error") errors.push(message.text());
+  });
+  await draftPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await settle(draftPage);
+  const focusIds = await draftPage.evaluate(() => window.__repforgeFocus.list().map((e) => ({ id: e.id, name: e.name, day: e.day })));
+  const skipEx = focusIds[1] || focusIds[0];
+  const keepEx = focusIds[0];
+  const alt = await draftPage.evaluate((id) => {
+    const ex = (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.id === id);
+    return (ex?.alternates && ex.alternates[0]) || "Leg press";
+  }, keepEx.id);
+  const resumedSets = await draftPage.evaluate(({ keep, skip, alt, d }) => {
+    const draft = { __done: [], __touched: [], __skipped: [skip.id], __substituted: { [keep.id]: alt } };
+    const sets = (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.id === keep.id)?.sets || 2;
+    for (let n = 1; n <= sets; n++) {
+      const key = `${keep.id}_${n}`;
+      draft[`${key}_load`] = "70";
+      draft[`${key}_reps`] = "8";
+      draft[`${key}_rir`] = "1";
+      draft.__done.push(key);
+      draft.__touched.push(key);
+    }
+    localStorage.setItem(d, JSON.stringify(draft));
+    return sets;
+  }, { keep: keepEx, skip: skipEx, alt, d: DRAFT });
+  await reload(draftPage);
+  await enterFocus(draftPage, 0);
+  const deck = await draftPage.evaluate(() => {
+    const list = window.__repforgeFocus.list();
+    const name = document.querySelector("#workout .exercise.is-current .focus-ex__name")?.textContent?.trim();
+    return { count: list.length, name, ids: list.map((e) => e.id) };
+  });
+  assert(
+    !deck.ids.includes(skipEx.id) && deck.count === focusIds.length - 1,
+    "Focus reload drops a skipped exercise from the deck",
+    JSON.stringify(deck),
+  );
+  assert(
+    deck.name.includes(alt),
+    "Focus reload shows the substitution name on the deck",
+    JSON.stringify({ deck, alt }),
+  );
+  const beforeSave = await draftPage.evaluate((k) => ({
+    href: location.href,
+    logLength: (JSON.parse(localStorage.getItem(k) || "{}").log || []).length,
+  }), KEY);
+  let finishFrameNavigations = 0;
+  let finishNavigationRequests = 0;
+  const onFinishFrameNavigation = (frame) => {
+    if (frame === draftPage.mainFrame()) finishFrameNavigations++;
+  };
+  const onFinishNavigationRequest = (request) => {
+    if (request.isNavigationRequest() && request.frame() === draftPage.mainFrame()) finishNavigationRequests++;
+  };
+  draftPage.on("framenavigated", onFinishFrameNavigation);
+  draftPage.on("request", onFinishNavigationRequest);
+  const resumedSave = await draftPage.evaluate(async ({ k, d, exerciseId, performedName }) => {
+    const result = await window.__repforgeSaveWorkout();
+    await window.__repforgeStorage.flush();
+    const log = JSON.parse(localStorage.getItem(k) || "{}").log || [];
+    const matchingRows = log.filter((row) => row.exerciseId === exerciseId && row.performedName === performedName);
+    return {
+      href: location.href,
+      result,
+      logLength: log.length,
+      draftCleared: localStorage.getItem(d) === null,
+      sessions: [...new Set(matchingRows.map((row) => row.session))],
+      matchingRows: matchingRows.map((row) => ({
+        exerciseId: row.exerciseId,
+        performedName: row.performedName,
+        session: row.session,
+        set: row.set,
+      })),
+    };
+  }, { k: KEY, d: DRAFT, exerciseId: keepEx.id, performedName: alt });
+  draftPage.off("framenavigated", onFinishFrameNavigation);
+  draftPage.off("request", onFinishNavigationRequest);
+  const finishNavigation = {
+    requests: finishNavigationRequests,
+    frames: finishFrameNavigations,
+    beforeUrl: beforeSave.href,
+    afterUrl: draftPage.url(),
+  };
+  assert(
+    finishNavigation.requests === 0 && finishNavigation.frames === 0 && finishNavigation.afterUrl === finishNavigation.beforeUrl,
+    "Focus finish completes without navigation",
+    JSON.stringify(finishNavigation),
+  );
+  assert(
+    (resumedSave.result.localOk || resumedSave.result.idbOk) &&
+      resumedSave.draftCleared &&
+      resumedSave.logLength - beforeSave.logLength === resumedSets &&
+      resumedSave.matchingRows.length === resumedSets &&
+      resumedSave.sessions.length === 1 &&
+      resumedSave.matchingRows.every((row, index) =>
+        row.exerciseId === keepEx.id && row.performedName === alt && row.set === index + 1
+      ),
+    "Focus finish saves the resumed substitution exactly once",
+    JSON.stringify({ resumedSets, beforeSave, saved: resumedSave }),
+  );
+  await draftCtx.close();
 
   phase("Console");
   assert(errors.length === 0, "no page errors during the focus run", errors.join(" | "));
