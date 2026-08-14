@@ -101,6 +101,9 @@ const storageIO={
 };
 const STORAGE_LOCK="repforge:state-write";
 const PENDING_EFFECT_MAX_RAW=1000000;
+const DRAFT_PRECONDITION_MATCH_ONLY="match-only";
+const DRAFT_PRECONDITION_ABORT_CHANGED="abort-changed";
+const DRAFT_PRECONDITION_ABORT_SAME_DAY="abort-same-day";
 let persistTail=Promise.resolve();
 let persistHead=null,mutationBase=null;
 let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
@@ -223,21 +226,58 @@ function unversionedSnapshot(snapshot){
   if(out&&typeof out==="object")delete out[STORAGE_REV];
   return out}
 function pendingJournalEffect(effect){
-  if(typeof effect?.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
-  if(effect.kind==="clear-draft")return{kind:"clear-draft",expectedRaw:effect.expectedRaw};
+  if(!effect||typeof effect!=="object")return null;
+  const precondition=effect.precondition??DRAFT_PRECONDITION_MATCH_ONLY;
+  if(precondition!==DRAFT_PRECONDITION_MATCH_ONLY&&precondition!==DRAFT_PRECONDITION_ABORT_CHANGED&&
+    precondition!==DRAFT_PRECONDITION_ABORT_SAME_DAY)return null;
+  if(effect.kind==="clear-draft"){
+    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY)return null;
+    if(effect.expectedRaw!==null&&
+      (typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW))return null;
+    if(effect.expectedRaw===null&&precondition!==DRAFT_PRECONDITION_ABORT_CHANGED)return null;
+    return{kind:"clear-draft",expectedRaw:effect.expectedRaw,precondition}}
   if(effect.kind==="replace-draft"&&typeof effect.replacementRaw==="string"&&
-    effect.replacementRaw.length<=PENDING_EFFECT_MAX_RAW)
-    return{kind:"replace-draft",expectedRaw:effect.expectedRaw,replacementRaw:effect.replacementRaw};
+    effect.replacementRaw.length<=PENDING_EFFECT_MAX_RAW){
+    if(typeof effect.expectedRaw!=="string"||effect.expectedRaw.length>PENDING_EFFECT_MAX_RAW)return null;
+    if(precondition===DRAFT_PRECONDITION_ABORT_CHANGED)return null;
+    const receipt={kind:"replace-draft",expectedRaw:effect.expectedRaw,replacementRaw:effect.replacementRaw,precondition};
+    if(precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
+      if(typeof effect.conflictDay!=="string"||!effect.conflictDay||effect.conflictDay.length>200)return null;
+      receipt.conflictDay=effect.conflictDay}
+    return receipt}
   return null}
-function applyPendingJournalEffect(effect){
+function pendingJournalEffectState(effect){
   const receipt=pendingJournalEffect(effect);
-  if(!receipt)return false;
+  if(!receipt)return{receipt:null,status:"none"};
   try{
-    if(localStorage.getItem(DRAFT)!==receipt.expectedRaw)return false;
+    const currentRaw=localStorage.getItem(DRAFT);
+    if(currentRaw===receipt.expectedRaw)return{receipt,currentRaw,status:"exact"};
+    if(currentRaw==null)return{receipt,currentRaw,status:"missing"};
+    if(receipt.precondition===DRAFT_PRECONDITION_ABORT_CHANGED)
+      return{receipt,currentRaw,status:"conflict"};
+    if(receipt.precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
+      try{
+        const current=JSON.parse(currentRaw);
+        if(current&&typeof current==="object"&&!Array.isArray(current)&&current.__day===receipt.conflictDay)
+          return{receipt,currentRaw,status:"conflict"}}
+      catch{}}
+    return{receipt,currentRaw,status:"mismatch"}}
+  catch{
+    return{receipt,currentRaw:null,status:receipt.precondition===DRAFT_PRECONDITION_MATCH_ONLY?"mismatch":"conflict"}}}
+function applyPendingJournalEffect(effect){
+  const checked=pendingJournalEffectState(effect),receipt=checked.receipt;
+  if(!receipt||checked.status!=="exact")return false;
+  try{
     if(receipt.kind==="clear-draft")localStorage.removeItem(DRAFT);
     else localStorage.setItem(DRAFT,receipt.replacementRaw);
     return true}
   catch{return false}}
+function readDraftRaw(){
+  try{return localStorage.getItem(DRAFT)}
+  catch{return null}}
+function destructiveDraftClearEffect(expectedRaw){
+  return pendingJournalEffect({kind:"clear-draft",expectedRaw,
+    precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
 function draftDayReplacementEffect(oldDay,newDay){
   try{
     const expectedRaw=localStorage.getItem(DRAFT);
@@ -245,7 +285,8 @@ function draftDayReplacementEffect(oldDay,newDay){
     const draft=JSON.parse(expectedRaw);
     if(!draft||typeof draft!=="object"||Array.isArray(draft)||draft.__day!==oldDay)return null;
     draft.__day=newDay;
-    return pendingJournalEffect({kind:"replace-draft",expectedRaw,replacementRaw:JSON.stringify(draft)})}
+    return pendingJournalEffect({kind:"replace-draft",expectedRaw,replacementRaw:JSON.stringify(draft),
+      precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay})}
   catch{return null}}
 let pendingJournalSeq=0,pendingJournalClock=0;
 function pendingJournalUuid(){
@@ -316,10 +357,20 @@ function clearPendingJournal(record){
 function clearAllPendingJournal(){
   const records=readPendingJournal();
   for(const record of [...records.entries,...records.invalid])clearPendingJournal(record)}
+function reconcileCandidateLogDays(snapshot){
+  if(!Array.isArray(snapshot?.program)||!Array.isArray(snapshot?.log))return snapshot;
+  const currentDays=new Map();
+  for(const exercise of snapshot.program){
+    if(exercise&&typeof exercise.id==="string"&&exercise.id)currentDays.set(exercise.id,exercise.day)}
+  for(const row of snapshot.log){
+    if(!row||typeof row.exerciseId!=="string"||!currentDays.has(row.exerciseId))continue;
+    row.day=currentDays.get(row.exerciseId)}
+  return snapshot}
 function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false}={}){
   const durableHead=cloneSnapshot(head||base);
   const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
   const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
+  reconcileCandidateLogDays(snapshot);
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
   return snapshot}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,effect=null}={}){
@@ -340,6 +391,9 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
       clearPendingJournal(pendingRecord);
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(pendingJournalEffectState(frozenEffect).status==="conflict"){
+      clearPendingJournal(pendingRecord);
+      return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true}}
     const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,{replace});
     const result=await writeSnapshot(snapshot,io);
     if(result.localOk||result.idbOk){
@@ -1146,11 +1200,12 @@ function normalizeLoaded(s){
 function proposalFromImport(incoming){
   if(!isValidStateShape(incoming))throw new TypeError("Invalid RepForge backup");
   return normalizeLoaded(stripStorageMeta(incoming))}
-async function replaceImportedState(incoming,io=storageIO){
+async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"replaceImportedState");
   const proposal=proposalFromImport(incoming);
   delete proposal[STORAGE_FOLLOWUP];
-  const result=await commitProposedState(proposal,io,{replace:true});
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,io,{replace:true,effect});
   if(result.localOk||result.idbOk)migrateLog();
   return result}
 async function mergeImportedLog(incoming,io=storageIO){
@@ -1475,13 +1530,15 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   const liveBase=cloneSnapshot(state);
   const snapshot=cloneSnapshot(proposal);
   const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
+  if(result.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
-async function deleteTrainingLog(io=storageIO){
+async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
   proposal.log=[];
-  const result=await commitProposedState(proposal,io);
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,io,{effect});
   if(result.localOk||result.idbOk){
-    clearDraft();render();toast(t("toast.log_deleted"))}
+    resetDraftSessionState();render();toast(t("toast.log_deleted"))}
   return result}
 window.__repforgeStorage={
   flush:flushStorage,
@@ -1490,7 +1547,7 @@ window.__repforgeStorage={
     requireAdapter(io,"writeWithAdapter");
     return enqueueWrite(()=>writeSnapshot(cloneSnapshot(snapshot),io))},
   health(){return Object.assign({},storageHealth)},
-  replaceImport(incoming,io){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io)},
+  replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
   mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
@@ -3764,22 +3821,24 @@ async function editorAction(act,ds){
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
       const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
   else if(act==="addEx"){prog.addExercise(ds.day);setDayCollapsed(ds.day,false);persistProgram();render();toast(t("toast.exercise_added"))}
-  else if(act==="delEx"){const draftActive=draftHasProgress();
+  else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
     const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
     nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal,storageIO);
-    if(result.localOk||result.idbOk){if(draftActive)clearDraft();render();toast(t("toast.exercise_removed"))}}}
+    const effect=destructiveDraftClearEffect(discardDraftRaw);
+    const result=await commitProposedState(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
   else if(act==="up"){prog.move(ds.id,-1);persistProgram();render()}
   else if(act==="down"){prog.move(ds.id,1);persistProgram();render()}
-  else if(act==="delDay"){const draftActive=draftHasProgress();
+  else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
     if(confirm(t(key,{day:ds.day}))){
     const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
     nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal,storageIO);
-    if(result.localOk||result.idbOk){if(draftActive)clearDraft();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
+    const effect=destructiveDraftClearEffect(discardDraftRaw);
+    const result=await commitProposedState(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
 function renderVolume(){
@@ -3798,12 +3857,14 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   for(const row of parsed){if(row.id&&byId.has(row.id))continue;
     const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
     if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
-  if(draftHasProgress()&&!confirm(t("confirm.replace_program_discard_draft")))return;
+  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
   const proposal=cloneSnapshot(state);
   proposal.program=new Program(parsed).toJSON();
-  const result=await commitProposedState(proposal,storageIO);
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,storageIO,{effect});
   if(!(result.localOk||result.idbOk))return result;
-  clearDraft();day=prog.days()[0]||"Day 1";if(migrateLog())await save();render();toast(t("toast.program_saved"));
+  resetDraftSessionState();day=prog.days()[0]||"Day 1";if(migrateLog())await save();render();toast(t("toast.program_saved"));
   return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
@@ -3957,21 +4018,24 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
     if(!imp?.exercises?.length)throw Error();
     const list=imp.exercises;
     const draftConfirmed=draftHasProgress();
+    const discardDraftRaw=readDraftRaw();
     const confirmKey=draftConfirmed?"confirm.replace_program_discard_draft":"confirm.import_program_replace";
     if(!confirm(t(confirmKey,{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
     const adapter=io||storageIO;
     if($("#onboarding")?.classList.contains("active")){
       const name=typeof imp.meta?.name==="string"?imp.meta.name.trim():"";
-      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed})}
+      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",
+        io:adapter,draftConfirmed,discardDraftRaw})}
     else{
       const proposal=cloneSnapshot(state);
       const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
       if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())meta.name=imp.meta.name.trim();
       meta.updated=new Date().toISOString();
       proposal.programMeta=meta;proposal.program=new Program(list).toJSON();
-      const result=await commitProposedState(proposal,adapter);
+      const effect=destructiveDraftClearEffect(discardDraftRaw);
+      const result=await commitProposedState(proposal,adapter,{effect});
       if(result.localOk||result.idbOk){
-        clearDraft();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
+        resetDraftSessionState();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
         if(migrateLog())save();render();toast(t("toast.program_saved"))}}
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
@@ -3995,8 +4059,9 @@ function openImportChoice(ctx){const d=$("#importChoice");
   $("#importCancel").onclick=()=>{if(importBusy)return;close();toast(t("toast.import_cancelled"))};
   $("#importReplace").onclick=async()=>{
     if(importBusy)return;importBusy=true;
-    try{const result=await replaceImportedState(ctx.s);
-      if(result.localOk||result.idbOk){close();clearDraft();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
+    const discardDraftRaw=readDraftRaw();
+    try{const result=await replaceImportedState(ctx.s,storageIO,{discardDraftRaw});
+      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
     finally{importBusy=false}};
   $("#importMerge").onclick=async()=>{
     if(importBusy)return;importBusy=true;
@@ -4006,14 +4071,15 @@ function openImportChoice(ctx){const d=$("#importChoice");
     finally{importBusy=false}}}
 function mergeLog(s){return mergeImportedLog(s)}
 
-function switchToBeginnerProgram(){return applyProgramTemplate(storageIO)}
-async function applyProgramTemplate(io=storageIO){
+function switchToBeginnerProgram(discardDraftRaw){return applyProgramTemplate(storageIO,{discardDraftRaw})}
+async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"applyProgramTemplate");
   const proposal=cloneSnapshot(state);
   proposal.program=new Program(cloneSnapshot(programBeginner)).toJSON();
   proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
-  const result=await commitProposedState(proposal,io);
-  if(result.localOk||result.idbOk){clearDraft();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,io,{effect});
+  if(result.localOk||result.idbOk){resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
   return result}
 
 const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
@@ -4101,12 +4167,14 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
   const expectedProgramId=blockCap?.oldProgramId||null;
-  if(draftHasProgress()&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
+  const draftActive=draftHasProgress();
+  const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
+  if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
   const proposal=cloneSnapshot(state);
   if(originEff==="block"){
@@ -4118,12 +4186,13 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   proposal.program=new Program(exercises).toJSON();
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
-  const persisted=await commitProposedState(proposal,adapter,{expectedProgramId});
+  const effect=destructiveDraftClearEffect(confirmedDraftRaw);
+  const persisted=await commitProposedState(proposal,adapter,{expectedProgramId,effect});
   const result=originEff==="block"
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
-  clearDraft();
+  resetDraftSessionState();
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeOnboarding();
   if(destination==="program-edit"){
@@ -4432,8 +4501,9 @@ function init(){
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{
-    const key=draftHasProgress()?"confirm.replace_program_discard_draft":"confirm.replace_program_template";
-    if(confirm(t(key)))switchToBeginnerProgram()};
+    const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+    const key=draftActive?"confirm.replace_program_discard_draft":"confirm.replace_program_template";
+    if(confirm(t(key)))switchToBeginnerProgram(discardDraftRaw)};
   $("#createProgram").onclick=()=>startOnboarding("settings");
   $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
   $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
@@ -4447,7 +4517,9 @@ function init(){
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
-  $("#reset").onclick=async()=>{if(confirm(t("confirm.delete_log")))await deleteTrainingLog()};
+  $("#reset").onclick=async()=>{
+    const discardDraftRaw=readDraftRaw();
+    if(confirm(t("confirm.delete_log")))await deleteTrainingLog(storageIO,{discardDraftRaw})};
   $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;workoutLeft=true;
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
@@ -4580,13 +4652,17 @@ async function resolveBootReplicas(candidate=null){
       if(!recoveryChoiceMatches(candidate,decision))return decision;
       decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
         heal:candidate.source==="local"?"idb":"local"}}
-    let head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot),replayed=false;
+    let head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot),replayed=false,draftConflict=false;
     const pending=readPendingJournal();
     for(const invalid of pending.invalid)clearPendingJournal(invalid);
     for(const record of pending.entries){
       const journal=record.journal;
       if(journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId){
         clearPendingJournal(record);
+        continue}
+      if(pendingJournalEffectState(journal.effect).status==="conflict"){
+        clearPendingJournal(record);
+        draftConflict=true;
         continue}
       const journalHead=head||cloneSnapshot(journal.base);
       const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,{replace:journal.replace});
@@ -4595,9 +4671,9 @@ async function resolveBootReplicas(candidate=null){
       applyPendingJournalEffect(journal.effect);
       clearPendingJournal(record);
       head=snapshot;replayed=true}
-    if(replayed)return{kind:"chosen",snapshot:head,source:"pending"};
+    if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict};
     if(decision.kind==="chosen"&&decision.heal)await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
-    return decision})}
+    return Object.assign({},decision,{draftConflict})})}
 async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
@@ -4619,5 +4695,6 @@ async function boot(){
   await applyBootDecision(decision);
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
-  init()}
+  init();
+  if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
 boot();

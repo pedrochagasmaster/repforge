@@ -136,6 +136,47 @@ function progressDraft() {
   };
 }
 
+function raceFixture() {
+  const state = fixture();
+  state._storageRevision = 40;
+  state.log = [
+    {
+      session: "archived-session",
+      date: "2026-07-01",
+      day: "Archived Day",
+      name: "Archived press",
+      exerciseId: "archived-press",
+      set: 1,
+      load: 50,
+      reps: 10,
+      rir: 2,
+      notes: "",
+      created: "2026-07-01T12:00:00.000Z",
+      primary: "Chest",
+      secondary: "Triceps",
+    },
+  ];
+  state.programHistory = [
+    {
+      id: "archived-program",
+      program: [
+        {
+          id: "archived-press",
+          name: "Archived press",
+          day: "Archived Day",
+          order: 1,
+          sets: 1,
+          min: 8,
+          max: 12,
+          primary: "Chest",
+          secondary: "Triceps",
+        },
+      ],
+    },
+  ];
+  return state;
+}
+
 function renameDraftRaw(raw, nextDay) {
   const draft = JSON.parse(raw);
   draft.__day = nextDay;
@@ -200,12 +241,12 @@ async function ensureWorkoutOpen(page) {
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 }
 
-async function seedScenario(page, draftRaw) {
-  const state = fixture();
+async function seedScenario(page, draftRaw, state = fixture()) {
   await page.evaluate(
     async ({ key, draftKey, pendingKey, dbName, storeName, state, draftRaw }) => {
       localStorage.setItem(key, JSON.stringify(state));
-      localStorage.setItem(draftKey, draftRaw);
+      if (draftRaw == null) localStorage.removeItem(draftKey);
+      else localStorage.setItem(draftKey, draftRaw);
       for (let index = localStorage.length - 1; index >= 0; index--) {
         const storageKey = localStorage.key(index);
         if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
@@ -335,6 +376,25 @@ async function waitForPendingStorageLock(page) {
     STORAGE_LOCK,
     { timeout: 10000 }
   );
+}
+
+async function waitForPendingStorageLocks(page, count) {
+  await page.waitForFunction(
+    async ({ lockName, count }) => {
+      const lockState = await navigator.locks.query();
+      return lockState.pending.filter((lock) => lock.name === lockName).length >= count;
+    },
+    { lockName: STORAGE_LOCK, count },
+    { timeout: 10000 }
+  );
+}
+
+async function fillRaceWorkout(page, load) {
+  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).fill(String(load));
+  await page.locator(`[data-k="${EXERCISE_ID}_1_reps"]`).fill("8");
+  await page.locator(`[data-k="${EXERCISE_ID}_1_rir"]`).fill("1");
+  await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
 }
 
 async function runAcceptedRename(browser) {
@@ -680,6 +740,307 @@ async function runNewerDraftRace(browser) {
   }
 }
 
+async function runSameDayDraftConflict(browser) {
+  console.log("\n4. A newer same-day draft aborts the rename");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const writer = await openApp(context);
+    const draftRaw = JSON.stringify(progressDraft());
+    await seedScenario(writer, draftRaw);
+    const locker = await openApp(context);
+    await holdStorageLock(locker);
+    await openProgramEditor(writer);
+    const before = await readRuntime(writer);
+    await dispatchRename(writer, "Day 1", "Push Day");
+    await waitForPendingStorageLock(locker);
+    const blocked = await readRuntime(writer);
+
+    const newerDraft = progressDraft();
+    newerDraft.__sessionNotes = "newer-same-day-cross-tab-marker";
+    newerDraft[`${SET_KEY}_load`] = "97.5";
+    const newerDraftRaw = JSON.stringify(newerDraft);
+    await locker.evaluate(
+      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
+      { draftKey: DRAFT, raw: newerDraftRaw }
+    );
+
+    await releaseStorageLock(locker);
+    await writer.evaluate(() => window.__repforgeStorage.flush());
+    const final = await readRuntime(writer);
+    const toastText = await writer.locator("#toast").innerText();
+
+    check(
+      final.localRaw === before.localRaw &&
+        JSON.stringify(final.idb) === JSON.stringify(before.idb) &&
+        final.draftRaw === newerDraftRaw,
+      "same-old-day compare miss aborts program and log rename while preserving newer draft bytes",
+      {
+        localChanged: final.localRaw !== before.localRaw,
+        idbChanged: JSON.stringify(final.idb) !== JSON.stringify(before.idb),
+        draftMatchesNewer: final.draftRaw === newerDraftRaw,
+      }
+    );
+    check(
+      final.pendingEntries.length === 0,
+      "same-day draft conflict clears only the stale rename journal",
+      final.pendingEntries
+    );
+    check(
+      /retry|try again/i.test(toastText),
+      "same-day draft conflict shows retry guidance",
+      toastText
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runBootSameDayDraftConflict(browser) {
+  console.log("\n5. Boot replay aborts a retained rename for a newer same-day draft");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const page = await openApp(context);
+    const draftRaw = JSON.stringify(progressDraft());
+    await seedScenario(page, draftRaw);
+    await openProgramEditor(page);
+    const before = await readRuntime(page);
+    await page.evaluate(
+      async ({ key, oldDay, nextDay }) => {
+        const originalSetItem = Storage.prototype.setItem;
+        const originalPut = IDBObjectStore.prototype.put;
+        Storage.prototype.setItem = function (candidate) {
+          if (candidate === key) throw new Error("audit: reject boot-conflict rename local replica");
+          return originalSetItem.apply(this, arguments);
+        };
+        IDBObjectStore.prototype.put = function (_value, candidate) {
+          if (candidate === key) throw new Error("audit: reject boot-conflict rename IDB replica");
+          return originalPut.apply(this, arguments);
+        };
+        try {
+          const input = [...document.querySelectorAll('[data-act="renameDay"]')].find(
+            (candidate) => candidate.dataset.day === oldDay
+          );
+          input.value = nextDay;
+          input.dispatchEvent(new Event("change", { bubbles: true }));
+          await window.__repforgeStorage.flush();
+        } finally {
+          Storage.prototype.setItem = originalSetItem;
+          IDBObjectStore.prototype.put = originalPut;
+        }
+      },
+      { key: KEY, oldDay: "Day 1", nextDay: "Push Day" }
+    );
+    const retained = await readRuntime(page);
+    const newerDraft = progressDraft();
+    newerDraft.__sessionNotes = "newer-boot-same-day-marker";
+    newerDraft[`${SET_KEY}_load`] = "105";
+    const newerDraftRaw = JSON.stringify(newerDraft);
+    await page.evaluate(
+      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
+      { draftKey: DRAFT, raw: newerDraftRaw }
+    );
+
+    check(
+      retained.pendingEntries.length === 1 &&
+        retained.pendingEntries[0].value?.effect?.precondition === "abort-same-day",
+      "precondition: total failure retains the same-day rename policy",
+      retained.pendingEntries.map((entry) => entry.value?.effect)
+    );
+
+    await reloadApp(page);
+    const replayed = await readRuntime(page);
+    const toastText = await page.locator("#toast").innerText();
+    check(
+      replayed.localRaw === before.localRaw &&
+        JSON.stringify(replayed.idb) === JSON.stringify(before.idb) &&
+        replayed.draftRaw === newerDraftRaw,
+      "boot replay aborts rename and preserves durable state plus newer same-day draft",
+      {
+        localChanged: replayed.localRaw !== before.localRaw,
+        idbChanged: JSON.stringify(replayed.idb) !== JSON.stringify(before.idb),
+        draftMatchesNewer: replayed.draftRaw === newerDraftRaw,
+      }
+    );
+    check(
+      replayed.pendingEntries.length === 0,
+      "boot conflict drains only the stale retained rename journal",
+      replayed.pendingEntries
+    );
+    check(/try again/i.test(toastText), "boot conflict shows localized retry guidance", toastText);
+  } finally {
+    await context.close();
+  }
+}
+
+async function runWorkoutThenRenameRace(browser) {
+  console.log("\n6. Workout queued before rename keeps program and log days aligned");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const workout = await openApp(context);
+    const seededState = raceFixture();
+    await seedScenario(workout, null, seededState);
+    const renamer = await openApp(context);
+    const locker = await openApp(context);
+    await openProgramEditor(renamer);
+    await fillRaceWorkout(workout, 107.5);
+    const before = await readRuntime(workout);
+    await holdStorageLock(locker);
+    await workout.evaluate(() => {
+      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout();
+    });
+    await waitForPendingStorageLocks(locker, 1);
+    await dispatchRename(renamer, "Day 1", "Push Day");
+    await waitForPendingStorageLocks(locker, 2);
+    await releaseStorageLock(locker);
+    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);
+    await Promise.all([
+      workout.evaluate(() => window.__repforgeStorage.flush()),
+      renamer.evaluate(() => window.__repforgeStorage.flush()),
+    ]);
+    const final = await readRuntime(locker);
+    await reloadApp(locker);
+    const weekly = await locker.evaluate(() => window.__repforgeWeeklySnapshot("2026-08-14"));
+    const activeRows = final.local?.log?.filter((row) => row.exerciseId === EXERCISE_ID) || [];
+    const archived = final.local?.log?.find((row) => row.exerciseId === "archived-press");
+
+    check(
+      final.local?._storageRevision === before.local._storageRevision + 2 &&
+        final.idb?._storageRevision === before.local._storageRevision + 2 &&
+        workoutResult?.revision === before.local._storageRevision + 1,
+      "workout-first ordering advances revisions monotonically",
+      {
+        before: before.local._storageRevision,
+        workoutResult,
+        localRevision: final.local?._storageRevision,
+        idbRevision: final.idb?._storageRevision,
+      }
+    );
+    check(
+      final.local?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day === "Push Day" &&
+        final.idb?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day === "Push Day" &&
+        activeRows.length === 1 &&
+        activeRows[0].day === "Push Day" &&
+        final.idb?.log?.find((row) => row.exerciseId === EXERCISE_ID)?.day === "Push Day",
+      "workout-first ordering aligns the saved row with the renamed exercise",
+      {
+        localProgramDay: final.local?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day,
+        idbProgramDay: final.idb?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day,
+        localRowDays: activeRows.map((row) => row.day),
+        idbRowDays: final.idb?.log?.filter((row) => row.exerciseId === EXERCISE_ID).map((row) => row.day),
+      }
+    );
+    check(
+      new Set(activeRows.map((row) => row.session)).size === 1,
+      "workout-first ordering persists exactly one active session",
+      activeRows.map((row) => row.session)
+    );
+    check(
+      archived?.day === "Archived Day" &&
+        final.idb?.log?.find((row) => row.exerciseId === "archived-press")?.day === "Archived Day",
+      "reconciliation does not rewrite an archived row whose exercise ID is absent",
+      { localDay: archived?.day, idbDay: final.idb?.log?.find((row) => row.exerciseId === "archived-press")?.day }
+    );
+    check(
+      weekly.completedDays === 1 && weekly.plannedDays === 2,
+      "aligned workout remains eligible for weekly adherence",
+      weekly
+    );
+  } finally {
+    await context.close();
+  }
+}
+
+async function runRenameThenWorkoutRace(browser) {
+  console.log("\n7. Rename queued before stale workout keeps program and log days aligned");
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    serviceWorkers: "block",
+  });
+  try {
+    const workout = await openApp(context);
+    const seededState = raceFixture();
+    await seedScenario(workout, null, seededState);
+    const renamer = await openApp(context);
+    const locker = await openApp(context);
+    await openProgramEditor(renamer);
+    await fillRaceWorkout(workout, 110);
+    const before = await readRuntime(workout);
+    await holdStorageLock(locker);
+    await dispatchRename(renamer, "Day 1", "Push Day");
+    await waitForPendingStorageLocks(locker, 1);
+    await workout.evaluate(() => {
+      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout();
+    });
+    await waitForPendingStorageLocks(locker, 2);
+    await releaseStorageLock(locker);
+    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);
+    await Promise.all([
+      workout.evaluate(() => window.__repforgeStorage.flush()),
+      renamer.evaluate(() => window.__repforgeStorage.flush()),
+    ]);
+    const final = await readRuntime(locker);
+    await reloadApp(locker);
+    const weekly = await locker.evaluate(() => window.__repforgeWeeklySnapshot("2026-08-14"));
+    const activeRows = final.local?.log?.filter((row) => row.exerciseId === EXERCISE_ID) || [];
+    const archived = final.local?.log?.find((row) => row.exerciseId === "archived-press");
+
+    check(
+      final.local?._storageRevision === before.local._storageRevision + 2 &&
+        final.idb?._storageRevision === before.local._storageRevision + 2 &&
+        workoutResult?.revision === before.local._storageRevision + 2,
+      "rename-first ordering advances revisions monotonically",
+      {
+        before: before.local._storageRevision,
+        workoutResult,
+        localRevision: final.local?._storageRevision,
+        idbRevision: final.idb?._storageRevision,
+      }
+    );
+    check(
+      final.local?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day === "Push Day" &&
+        final.idb?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day === "Push Day" &&
+        activeRows.length === 1 &&
+        activeRows[0].day === "Push Day" &&
+        final.idb?.log?.find((row) => row.exerciseId === EXERCISE_ID)?.day === "Push Day",
+      "rename-first ordering reconciles the stale workout row to the current exercise day",
+      {
+        localProgramDay: final.local?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day,
+        idbProgramDay: final.idb?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.day,
+        localRowDays: activeRows.map((row) => row.day),
+        idbRowDays: final.idb?.log?.filter((row) => row.exerciseId === EXERCISE_ID).map((row) => row.day),
+      }
+    );
+    check(
+      new Set(activeRows.map((row) => row.session)).size === 1,
+      "rename-first ordering persists exactly one active session",
+      activeRows.map((row) => row.session)
+    );
+    check(
+      archived?.day === "Archived Day" &&
+        final.idb?.log?.find((row) => row.exerciseId === "archived-press")?.day === "Archived Day",
+      "rename-first reconciliation leaves archived absent-ID rows unchanged",
+      { localDay: archived?.day, idbDay: final.idb?.log?.find((row) => row.exerciseId === "archived-press")?.day }
+    );
+    check(
+      weekly.completedDays === 1 && weekly.plannedDays === 2,
+      "rename-first aligned workout remains eligible for weekly adherence",
+      weekly
+    );
+    check(final.pendingEntries.length === 0, "both rename-first journals drain exactly", final.pendingEntries);
+  } finally {
+    await context.close();
+  }
+}
+
 async function runScenario(name, scenario) {
   try {
     await scenario();
@@ -699,6 +1060,10 @@ async function main() {
     await runScenario("accepted rename", () => runAcceptedRename(browser));
     await runScenario("total storage failure", () => runTotalFailure(browser));
     await runScenario("newer draft race", () => runNewerDraftRace(browser));
+    await runScenario("same-day draft conflict", () => runSameDayDraftConflict(browser));
+    await runScenario("boot same-day draft conflict", () => runBootSameDayDraftConflict(browser));
+    await runScenario("workout then rename race", () => runWorkoutThenRenameRace(browser));
+    await runScenario("rename then workout race", () => runRenameThenWorkoutRace(browser));
   } finally {
     await browser.close();
   }

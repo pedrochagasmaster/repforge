@@ -496,10 +496,12 @@ Implement a storage-only revision without wrapping the existing state shape:
    tail. Boot rereads/repairs under the same lock, migrates an old un-suffixed
    `repforge_pending_v1` entry first, and replays all surviving valid entries
    before initializing the app. An entry may carry only a bounded draft receipt:
-   Finish uses `clear-draft`, while a transactional day rename uses
-   `replace-draft`; both contain the exact captured draft bytes and apply after
-   one or both stores accept, including replay, only while the current draft
-   bytes still match so a newer cross-tab draft survives. Make
+   Finish uses match-only `clear-draft`; destructive program/log changes use
+   abort-on-change `clear-draft`; and a transactional day rename uses
+   same-day-conflict `replace-draft`. Enforce each receipt before the durable
+   write and apply it after one or both stores accept, including replay, so a
+   newer cross-tab draft either survives with the state change rejected or
+   remains unrelated and usable. Make
    `save()`/`persist()` return the individual
    result promise containing `{ revision, localOk, idbOk }` so transactional
    callers can distinguish one accepted replica from total failure.
@@ -1357,6 +1359,7 @@ node test/recover-gate.mjs
 node test/accessibility.mjs
 node test/history.mjs
 node test/focus-mode.mjs
+node test/program-draft-conflicts.mjs
 node test/program-draft-set-reduction.mjs
 node test/program-draft-day-rename.mjs
 node test/workout-day-context-discard.mjs

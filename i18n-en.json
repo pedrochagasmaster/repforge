@@ -644,6 +644,7 @@
   "toast.installing": "Installing RepForge…",
   "toast.storage_full": "Couldn't save to this browser — storage may be full. Export a backup now.",
   "toast.storage_degraded": "Saved in one browser store only. Export a backup — the other copy could not be updated.",
+  "toast.draft_conflict_retry": "A newer unfinished workout was saved in another tab. Your change wasn't applied. Review it and try again.",
   "toast.rir_locked_draft": "Finish or discard this workout before changing effort mode.",
   "toast.set_count_locked_draft": "Finish or discard this workout before reducing sets you've started.",
   "toast.chart_missing_lift": "Log this lift to chart it.",
