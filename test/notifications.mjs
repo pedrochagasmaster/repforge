@@ -463,14 +463,14 @@ async function notifyContext(browser, adapter) {
         return perm === "unsupported" ? "unsupported" : perm;
       },
       async request() {
-        requestCount += 1;
+        const generation = ++requestCount;
         if (perm === "unsupported") return "unsupported";
         if (opts.mode === "auto") {
           perm = opts.autoResult;
           return opts.autoResult;
         }
         return new Promise((resolve) => {
-          waiters.push(resolve);
+          waiters.push({ generation, resolve });
         });
       },
     };
@@ -484,10 +484,21 @@ async function notifyContext(browser, adapter) {
       resolve(p) {
         perm = p;
         const q = waiters.splice(0);
-        q.forEach((fn) => fn(p));
+        q.forEach(({ resolve }) => resolve(p));
+      },
+      resolveGeneration(generation, p) {
+        const index = waiters.findIndex((waiter) => waiter.generation === generation);
+        if (index < 0) return false;
+        perm = p;
+        const [{ resolve }] = waiters.splice(index, 1);
+        resolve(p);
+        return true;
       },
       pending() {
         return waiters.length;
+      },
+      pendingGenerations() {
+        return waiters.map((waiter) => waiter.generation);
       },
     };
   }, adapter);
@@ -552,6 +563,7 @@ async function notifyUi(page) {
       status: document.querySelector("#notifyPermStatus")?.textContent || "",
       requestCount: window.__repforgeNotifyTest?.requestCount?.() ?? null,
       pending: window.__repforgeNotifyTest?.pending?.() ?? null,
+      pendingGenerations: window.__repforgeNotifyTest?.pendingGenerations?.() ?? [],
     };
   });
 }
@@ -645,6 +657,60 @@ console.log("\nNotification permission truth (UX-04)");
   const off = await notifyUi(page);
   assert(off.storedEnabled === false && off.idbEnabled === false && off.pressed === "false" && off.typesDisabled, "revocation: visibilitychange turns effective enabled off", JSON.stringify(off));
   assert(off.storedMissed === false && off.idbMissed === false, "revocation: reminder-type choices are preserved", JSON.stringify(off));
+  await context.close();
+}
+
+{
+  const { context, page } = await notifyContext(browser, { permission: "default", mode: "manual" });
+  await openNotifySettings(page);
+  await page.locator("#notifyToggle").click();
+  await page.waitForFunction(
+    () => window.__repforgeNotifyTest?.pendingGenerations?.().join(",") === "1"
+  );
+
+  await page.locator("#notifyToggle").click();
+  await page.locator("#notifyToggle").click();
+  await page.waitForFunction(
+    () =>
+      window.__repforgeNotifyTest?.requestCount?.() === 1 &&
+      document.querySelector("#notifyToggle")?.getAttribute("aria-busy") === "true"
+  );
+  const reused = await notifyUi(page);
+  assert(
+    reused.busy === "true" &&
+      reused.requestCount === 1 &&
+      reused.pendingGenerations.join(",") === "1",
+    "overlap setup: off/on reuses one pending browser permission request",
+    JSON.stringify(reused)
+  );
+
+  await page.locator("#notifyToggle").click();
+  await page.locator("#notifyToggle").click();
+  const afterNextClick = await notifyUi(page);
+  assert(
+    afterNextClick.busy === "true" &&
+      afterNextClick.requestCount === 1 &&
+      afterNextClick.pendingGenerations.join(",") === "1",
+    "overlap: another off/on cannot start another permission request",
+    JSON.stringify(afterNextClick)
+  );
+
+  await page.evaluate(async () => {
+    if (!window.__repforgeNotifyTest.resolveGeneration(1, "granted"))
+      throw new Error("permission request generation 1 was not pending");
+    await new Promise(requestAnimationFrame);
+  });
+  const afterSharedSettles = await notifyUi(page);
+  assert(
+    afterSharedSettles.storedEnabled === true &&
+      afterSharedSettles.idbEnabled === true &&
+      afterSharedSettles.pressed === "true" &&
+      afterSharedSettles.busy === "false" &&
+      afterSharedSettles.requestCount === 1 &&
+      afterSharedSettles.pending === 0,
+    "overlap: shared late grant follows the latest on intent",
+    JSON.stringify(afterSharedSettles)
+  );
   await context.close();
 }
 

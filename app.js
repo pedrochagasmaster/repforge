@@ -3735,18 +3735,22 @@ async function setNotificationsEnabled(wanted){
   const gen=notifyIntentGen;
   notifyPending=true;
   paintNotifyControls();
-  notifyRequestInFlight=(async()=>{
+  const request=notifyRequestInFlight||(async()=>{
     let result="unsupported";
     try{result=window.RepForgeNotify?await RepForgeNotify.request():"unsupported"}
     catch{result=notifyPermission()}
-    if(gen!==notifyIntentGen||!notifyWanted){notifyPending=false;paintNotifyControls();return}
+    return result})();
+  notifyRequestInFlight=request;
+  try{
+    const result=await request;
+    if(gen!==notifyIntentGen||!notifyWanted)return;
     const perm=notifyPermission();
     const granted=result==="granted"&&perm==="granted";
     notifyPending=false;
     persistNotifyEnabled(granted);
     if(!granted)notifyWanted=false;
-    paintNotifyControls()})();
-  try{await notifyRequestInFlight}finally{notifyRequestInFlight=null}}
+    paintNotifyControls()}
+  finally{if(notifyRequestInFlight===request)notifyRequestInFlight=null}}
 
 function renderSettings(){
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
