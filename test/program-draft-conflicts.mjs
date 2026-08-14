@@ -278,6 +278,17 @@ async function waitForPendingStorageLock(page) {
   );
 }
 
+async function waitForNoPendingStorageLock(page) {
+  await page.waitForFunction(
+    async (lockName) => {
+      const locks = await navigator.locks.query();
+      return !locks.pending.some((lock) => lock.name === lockName);
+    },
+    STORAGE_LOCK,
+    { timeout: 10000 }
+  );
+}
+
 async function openProgramEditor(page) {
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.click('nav button[data-view="program"]');
@@ -892,7 +903,7 @@ async function runIndependentlyRemovedDraft(browser) {
 }
 
 async function runBootDestructiveConflict(browser) {
-  console.log("\n11. Boot replay aborts a retained destructive clear for a newer draft");
+  console.log("\n11. Boot replay aborts an unloaded destructive clear for a newer draft");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
@@ -901,31 +912,16 @@ async function runBootDestructiveConflict(browser) {
     const page = await openApp(context);
     const confirmedDraftRaw = JSON.stringify(draft("retained-destructive-draft", "101.25"));
     await seedScenario(page, confirmedDraftRaw);
+    const locker = await openApp(context);
     const before = await readRuntime(page);
-    await page.evaluate(
-      async ({ key }) => {
-        const originalSetItem = Storage.prototype.setItem;
-        const originalPut = IDBObjectStore.prototype.put;
-        Storage.prototype.setItem = function (candidate) {
-          if (candidate === key) throw new Error("audit: reject destructive local replica");
-          return originalSetItem.apply(this, arguments);
-        };
-        IDBObjectStore.prototype.put = function (_value, candidate) {
-          if (candidate === key) throw new Error("audit: reject destructive IDB replica");
-          return originalPut.apply(this, arguments);
-        };
-        try {
-          return await window.__repforgeApplyProgramTemplate();
-        } finally {
-          Storage.prototype.setItem = originalSetItem;
-          IDBObjectStore.prototype.put = originalPut;
-        }
-      },
-      { key: KEY }
-    );
+    await holdStorageLock(locker);
+    await page.evaluate(() => {
+      window.__bootDestructivePending = window.__repforgeApplyProgramTemplate();
+    });
+    await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
     const newerDraftRaw = JSON.stringify(draft("newer-boot-destructive-draft", "116.25"));
-    await page.evaluate(
+    await locker.evaluate(
       ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
       { draftKey: DRAFT, raw: newerDraftRaw }
     );
@@ -934,14 +930,17 @@ async function runBootDestructiveConflict(browser) {
       retained.pendingEntries.length === 1 &&
         retained.pendingEntries[0].value?.effect?.precondition === "abort-changed" &&
         retained.pendingEntries[0].value.effect.expectedRaw === confirmedDraftRaw,
-      "precondition: total failure retains the exact destructive clear receipt",
+      "precondition: unload leaves the exact destructive clear receipt",
       retained.pendingEntries.map((entry) => entry.value?.effect)
     );
 
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
-    const final = await readRuntime(page);
-    const toastText = await page.locator("#toast").innerText();
+    await page.close();
+    await waitForNoPendingStorageLock(locker);
+    await releaseStorageLock(locker);
+    await locker.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(locker);
+    const final = await readRuntime(locker);
+    const toastText = await locker.locator("#toast").innerText();
     check(
       final.localRaw === before.localRaw &&
         JSON.stringify(final.idb) === JSON.stringify(before.idb) &&
@@ -1092,28 +1091,13 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
     const confirmedDraftRaw = JSON.stringify(draft("confirmed-boot-write-race", "103.75"));
     const newerDraftRaw = JSON.stringify(draft("newer-boot-write-race", "123.75"));
     await seedScenario(page, confirmedDraftRaw);
+    const locker = await openApp(context);
     const before = await readRuntime(page);
-    await page.evaluate(
-      async ({ key }) => {
-        const originalSetItem = Storage.prototype.setItem;
-        const originalPut = IDBObjectStore.prototype.put;
-        Storage.prototype.setItem = function (candidate) {
-          if (candidate === key) throw new Error("audit: retain destructive receipt for boot race");
-          return originalSetItem.apply(this, arguments);
-        };
-        IDBObjectStore.prototype.put = function (_value, candidate) {
-          if (candidate === key) throw new Error("audit: retain destructive IDB receipt for boot race");
-          return originalPut.apply(this, arguments);
-        };
-        try {
-          return await window.__repforgeApplyProgramTemplate();
-        } finally {
-          Storage.prototype.setItem = originalSetItem;
-          IDBObjectStore.prototype.put = originalPut;
-        }
-      },
-      { key: KEY }
-    );
+    await holdStorageLock(locker);
+    await page.evaluate(() => {
+      window.__bootWriteRacePending = window.__repforgeApplyProgramTemplate();
+    });
+    await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
     check(
       retained.pendingEntries.length === 1 &&
@@ -1122,6 +1106,8 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
       retained.pendingEntries.map((entry) => entry.value?.effect)
     );
 
+    await page.close();
+    await waitForNoPendingStorageLock(locker);
     await context.addInitScript(
       ({ key, draftKey, newerDraftRaw }) => {
         const originalSetItem = Storage.prototype.setItem;
@@ -1137,10 +1123,10 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
       },
       { key: KEY, draftKey: DRAFT, newerDraftRaw }
     );
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(page);
-    const final = await readRuntime(page);
-    const toastText = await page.locator("#toast").innerText();
+    await releaseStorageLock(locker);
+    const recovered = await openApp(context);
+    const final = await readRuntime(recovered);
+    const toastText = await recovered.locator("#toast").innerText();
 
     check(
       domainSnapshot(final.local) === domainSnapshot(before.local) &&

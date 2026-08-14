@@ -1103,8 +1103,8 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
   }
 }
 
-async function scenarioTotalFinishFailureRetainsReceiptAndDraft(browser) {
-  console.log("\n10. Total Finish failure retains its journal and exact draft");
+async function scenarioTotalFinishFailureIsDurablyRejected(browser) {
+  console.log("\n10. Total Finish failure is durably rejected");
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const page = await openApp(context);
@@ -1138,7 +1138,6 @@ async function scenarioTotalFinishFailureRetainsReceiptAndDraft(browser) {
       { key: KEY }
     );
     const failed = await readBoth(page);
-    const retained = failed.pendingEntries[0];
 
     check(
       result?.localOk === false &&
@@ -1149,25 +1148,30 @@ async function scenarioTotalFinishFailureRetainsReceiptAndDraft(browser) {
       { result, replicas: summary(failed) }
     );
     check(
-      failed.pendingEntries.length === 1 &&
-        retained.key.startsWith(`${PENDING}:`) &&
-        retained.value?.effect?.kind === "clear-draft" &&
-        retained.value.effect.expectedRaw === capturedDraftRaw &&
-        failed.draftRaw === capturedDraftRaw,
-      "total failure retains both the exact Finish journal and exact draft",
+      failed.pendingEntries.length === 0 && failed.draftRaw === capturedDraftRaw,
+      "total failure drains the rejected Finish intent and preserves the exact draft",
       {
         pendingCount: failed.pendingEntries.length,
-        effect: retained.value?.effect,
         draftMatches: failed.draftRaw === capturedDraftRaw,
       }
+    );
+    await reloadApp(page);
+    const reloaded = await readBoth(page);
+    check(
+      (reloaded.local?.log?.length ?? 0) === 0 &&
+        (reloaded.idb?.log?.length ?? 0) === 0 &&
+        reloaded.pendingEntries.length === 0 &&
+        reloaded.draftRaw === capturedDraftRaw,
+      "a Finish reported as rejected cannot commit on boot",
+      { replicas: summary(reloaded), draftMatches: reloaded.draftRaw === capturedDraftRaw }
     );
   } finally {
     await context.close();
   }
 }
 
-async function scenarioLegacyAndCorruptEffectsAreIgnored(browser) {
-  console.log("\n11. Legacy and corrupt journal effects are ignored");
+async function scenarioLegacyNoEffectAndMalformedRequiredEffect(browser) {
+  console.log("\n11. Legacy no-effect replay and malformed required v2 rejection");
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const setup = await openApp(context);
@@ -1202,7 +1206,7 @@ async function scenarioLegacyAndCorruptEffectsAreIgnored(browser) {
           proposal: corruptProposal,
           replace: false,
           expectedProgramId: null,
-          effect: { kind: "clear-draft", expectedRaw: { not: "raw bytes" } },
+          effect: { required: true, kind: "clear-draft", expectedRaw: { not: "raw bytes" } },
         };
         const corruptKey = `${pendingKey}:${corrupt.id}`;
         localStorage.setItem(draftKey, draftRaw);
@@ -1219,15 +1223,15 @@ async function scenarioLegacyAndCorruptEffectsAreIgnored(browser) {
     check(
       final.local?.settings?.jumpPct === 3.75 &&
         final.idb?.settings?.jumpPct === 3.75 &&
-        final.local?.settings?.minJump === 1.25 &&
-        final.idb?.settings?.minJump === 1.25 &&
+        final.local?.settings?.minJump === 2.5 &&
+        final.idb?.settings?.minJump === 2.5 &&
         final.pendingEntries.length === 0,
-      "legacy and corrupt-effect journals still replay state and drain normally",
+      "legacy no-effect state replays while malformed required v2 state fails closed",
       { replicas: summary(final), pending: final.pendingEntries, seeded }
     );
     check(
       final.draftRaw === seeded.draftRaw,
-      "legacy and corrupt effect metadata cannot clear a draft",
+      "legacy metadata and a malformed required effect cannot clear a draft",
       { draftMatches: final.draftRaw === seeded.draftRaw }
     );
     check(
@@ -1414,11 +1418,11 @@ try {
   await runScenario("in-page Finish preserves newer draft", () =>
     scenarioInPageFinishPreservesNewerDraft(browser)
   );
-  await runScenario("total Finish failure retains receipt and draft", () =>
-    scenarioTotalFinishFailureRetainsReceiptAndDraft(browser)
+  await runScenario("total Finish failure is durably rejected", () =>
+    scenarioTotalFinishFailureIsDurablyRejected(browser)
   );
-  await runScenario("legacy and corrupt effects are ignored", () =>
-    scenarioLegacyAndCorruptEffectsAreIgnored(browser)
+  await runScenario("legacy no-effect and malformed required effect", () =>
+    scenarioLegacyNoEffectAndMalformedRequiredEffect(browser)
   );
   await runScenario("deferred onboarding cannot supersede Repeat", () =>
     scenarioDeferredOnboardingCannotSupersedeRepeat(browser)

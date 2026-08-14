@@ -390,6 +390,17 @@ async function waitForPendingStorageLocks(page, count) {
   );
 }
 
+async function waitForNoPendingStorageLock(page) {
+  await page.waitForFunction(
+    async (lockName) => {
+      const lockState = await navigator.locks.query();
+      return !lockState.pending.some((lock) => lock.name === lockName);
+    },
+    STORAGE_LOCK,
+    { timeout: 10000 }
+  );
+}
+
 async function fillRaceWorkout(page, load) {
   await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
   await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).fill(String(load));
@@ -570,7 +581,6 @@ async function runTotalFailure(browser) {
   try {
     const page = await openApp(context);
     const draftRaw = JSON.stringify(progressDraft());
-    const replacementRaw = renameDraftRaw(draftRaw, "Push Day");
     await seedScenario(page, draftRaw);
     await openProgramEditor(page);
     const before = await readRuntime(page);
@@ -611,8 +621,6 @@ async function runTotalFailure(browser) {
         value: input.value,
       })),
     }));
-    const retained = failed.pendingEntries[0]?.value;
-
     check(
       failed.localRaw === before.localRaw && JSON.stringify(failed.idb) === JSON.stringify(before.idb),
       "total failure leaves durable program and log unchanged",
@@ -634,11 +642,8 @@ async function runTotalFailure(browser) {
       ui
     );
     check(
-      failed.pendingEntries.length === 1 &&
-        retained?.effect?.kind === "replace-draft" &&
-        retained.effect.expectedRaw === draftRaw &&
-        retained.effect.replacementRaw === replacementRaw,
-      "total failure retains one journal with the bounded compare-and-replace receipt",
+      failed.pendingEntries.length === 0,
+      "total failure drains the rejected compare-and-replace intent",
       failed.pendingEntries.map((entry) => ({ key: entry.key, effect: entry.value?.effect }))
     );
     check(
@@ -652,26 +657,22 @@ async function runTotalFailure(browser) {
 
     await reloadApp(page);
     const replayed = await readRuntime(page);
-    const replayRevision = (before.local?._storageRevision ?? 0) + 1;
     check(
-      renamedSnapshot(replayed.local) &&
-        renamedSnapshot(replayed.idb) &&
-        replayed.local?._storageRevision === replayRevision &&
-        replayed.idb?._storageRevision === replayRevision &&
+      replayed.localRaw === before.localRaw &&
+        JSON.stringify(replayed.idb) === JSON.stringify(before.idb) &&
         replayed.pendingEntries.length === 0,
-      "boot replay commits the retained rename exactly once and drains its journal",
+      "boot cannot commit a rename that was reported as rejected",
       {
-        replayRevision,
         localRevision: replayed.local?._storageRevision,
         idbRevision: replayed.idb?._storageRevision,
         pendingCount: replayed.pendingEntries.length,
       }
     );
     check(
-      replayed.draftRaw === replacementRaw,
-      "boot replay applies the retained exact draft replacement",
+      replayed.draftRaw === draftRaw,
+      "boot preserves the exact draft for a rejected rename",
       {
-        expected: replacementRaw,
+        expected: draftRaw,
         actual: replayed.draftRaw,
       }
     );
@@ -838,40 +839,18 @@ async function runBootSameDayDraftConflict(browser) {
     const page = await openApp(context);
     const draftRaw = JSON.stringify(progressDraft());
     await seedScenario(page, draftRaw);
+    const locker = await openApp(context);
     await openProgramEditor(page);
     const before = await readRuntime(page);
-    await page.evaluate(
-      async ({ key, oldDay, nextDay }) => {
-        const originalSetItem = Storage.prototype.setItem;
-        const originalPut = IDBObjectStore.prototype.put;
-        Storage.prototype.setItem = function (candidate) {
-          if (candidate === key) throw new Error("audit: reject boot-conflict rename local replica");
-          return originalSetItem.apply(this, arguments);
-        };
-        IDBObjectStore.prototype.put = function (_value, candidate) {
-          if (candidate === key) throw new Error("audit: reject boot-conflict rename IDB replica");
-          return originalPut.apply(this, arguments);
-        };
-        try {
-          const input = [...document.querySelectorAll('[data-act="renameDay"]')].find(
-            (candidate) => candidate.dataset.day === oldDay
-          );
-          input.value = nextDay;
-          input.dispatchEvent(new Event("change", { bubbles: true }));
-          await window.__repforgeStorage.flush();
-        } finally {
-          Storage.prototype.setItem = originalSetItem;
-          IDBObjectStore.prototype.put = originalPut;
-        }
-      },
-      { key: KEY, oldDay: "Day 1", nextDay: "Push Day" }
-    );
+    await holdStorageLock(locker);
+    await dispatchRename(page, "Day 1", "Push Day");
+    await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
     const newerDraft = progressDraft();
     newerDraft.__sessionNotes = "newer-boot-same-day-marker";
     newerDraft[`${SET_KEY}_load`] = "105";
     const newerDraftRaw = JSON.stringify(newerDraft);
-    await page.evaluate(
+    await locker.evaluate(
       ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
       { draftKey: DRAFT, raw: newerDraftRaw }
     );
@@ -879,13 +858,16 @@ async function runBootSameDayDraftConflict(browser) {
     check(
       retained.pendingEntries.length === 1 &&
         retained.pendingEntries[0].value?.effect?.precondition === "abort-same-day",
-      "precondition: total failure retains the same-day rename policy",
+      "precondition: unload retains the same-day rename policy",
       retained.pendingEntries.map((entry) => entry.value?.effect)
     );
 
-    await reloadApp(page);
-    const replayed = await readRuntime(page);
-    const toastText = await page.locator("#toast").innerText();
+    await page.close();
+    await waitForNoPendingStorageLock(locker);
+    await releaseStorageLock(locker);
+    await reloadApp(locker);
+    const replayed = await readRuntime(locker);
+    const toastText = await locker.locator("#toast").innerText();
     check(
       replayed.localRaw === before.localRaw &&
         JSON.stringify(replayed.idb) === JSON.stringify(before.idb) &&
@@ -973,35 +955,12 @@ async function runBootAbsentDraftConflict(browser) {
     const writer = await openApp(context);
     await seedScenario(writer, null);
     const staleWorkout = await openApp(context);
+    const locker = await openApp(context);
     await openProgramEditor(writer);
     const before = await readRuntime(writer);
-    await writer.evaluate(
-      async ({ key, oldDay, nextDay }) => {
-        const originalSetItem = Storage.prototype.setItem;
-        const originalPut = IDBObjectStore.prototype.put;
-        Storage.prototype.setItem = function (candidate) {
-          if (candidate === key) throw new Error("audit: reject absent-draft rename local replica");
-          return originalSetItem.apply(this, arguments);
-        };
-        IDBObjectStore.prototype.put = function (_value, candidate) {
-          if (candidate === key) throw new Error("audit: reject absent-draft rename IDB replica");
-          return originalPut.apply(this, arguments);
-        };
-        try {
-          const input = [...document.querySelectorAll('[data-act="renameDay"]')].find(
-            (candidate) => candidate.dataset.day === oldDay
-          );
-          if (!input) throw new Error(`rename input missing for ${oldDay}`);
-          input.value = nextDay;
-          input.dispatchEvent(new Event("change", { bubbles: true }));
-          await window.__repforgeStorage.flush();
-        } finally {
-          Storage.prototype.setItem = originalSetItem;
-          IDBObjectStore.prototype.put = originalPut;
-        }
-      },
-      { key: KEY, oldDay: "Day 1", nextDay: "Push Day" }
-    );
+    await holdStorageLock(locker);
+    await dispatchRename(writer, "Day 1", "Push Day");
+    await waitForPendingStorageLock(locker);
     const retained = await readRuntime(writer);
     const effect = retained.pendingEntries[0]?.value?.effect;
 
@@ -1012,7 +971,7 @@ async function runBootAbsentDraftConflict(browser) {
         effect?.conflictDay === "Day 1" &&
         retained.localRaw === before.localRaw &&
         JSON.stringify(retained.idb) === JSON.stringify(before.idb),
-      "total failure retains the absent-draft same-day guard without changing replicas",
+      "unload retains the absent-draft same-day guard without changing replicas",
       {
         effect,
         localChanged: retained.localRaw !== before.localRaw,
@@ -1022,6 +981,8 @@ async function runBootAbsentDraftConflict(browser) {
 
     await fillRaceWorkout(staleWorkout, 83.75);
     await writer.close();
+    await waitForNoPendingStorageLock(locker);
+    await releaseStorageLock(locker);
     await reloadApp(staleWorkout);
     const replayed = await readRuntime(staleWorkout);
 

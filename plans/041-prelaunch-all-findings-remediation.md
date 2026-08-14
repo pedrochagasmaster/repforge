@@ -368,11 +368,21 @@ permission to mark browser verification as passed.
 - `test/notifications.mjs`
 - `test/focus-mode.mjs`
 - `test/persistence.mjs` (new)
+- `test/persistence-race.mjs` (new)
+- `test/thermonuclear-races.mjs` (new)
 - `test/accessibility.mjs` (new)
+- `test/history.mjs` (new)
 - `test/i18n.mjs` (new)
+- `test/adversarial-draft-transactions.mjs` (new)
+- `test/program-draft-conflicts.mjs` (new)
+- `test/program-draft-day-rename.mjs` (new)
+- `test/program-draft-set-reduction.mjs` (new)
+- `test/workout-day-context-discard.mjs` (new)
 - `test/manual-matrix.mjs` (new; deterministic fixture/reset helper only)
 - `.github/workflows/simulation.yml`
 - `plans/README.md` (status plus factual verification/setup corrections only)
+- `plans/041-prelaunch-all-findings-remediation.md` (audited scope, gate,
+  and release-evidence corrections only)
 
 **Out of scope**:
 
@@ -1296,6 +1306,7 @@ Expected: exit 0 and `FAILED: 0`.
    - `test/persistence.mjs`;
    - `test/persistence-race.mjs`;
    - `test/thermonuclear-races.mjs`;
+   - `test/adversarial-draft-transactions.mjs`;
    - `test/notifications.mjs`;
    - `test/recover-gate.mjs`;
    - `test/accessibility.mjs`;
@@ -1310,12 +1321,12 @@ Expected: exit 0 and `FAILED: 0`.
 2. Increase the job timeout explicitly (start at 30 minutes and adjust only from
    measured green-run evidence). Do not hide failures with `continue-on-error`.
 3. Advance the implementation branch's `sw.js` cache version after the final
-   shell edits (the audited final value is `repforge-v60`). Confirm every
+   shell edits (the audited final value is `repforge-v61`). Confirm every
    changed runtime asset remains in `ASSETS`/`SHELL`.
 4. Extend PWA assertions from a new browser context and one canonical
    `http://127.0.0.1:8000` origin. Unregister workers, delete CacheStorage,
    clear origin storage and the browser HTTP cache, seed canonical training
-   state, register/wait for `repforge-v60`, then:
+   state, register/wait for `repforge-v61`, then:
    - fetch each shell asset online with cache bypass and compare its bytes and
      content type with the matching CacheStorage response;
    - clear the HTTP cache again without deleting CacheStorage, switch the
@@ -1357,6 +1368,7 @@ node test/i18n.mjs
 node test/persistence.mjs
 node test/persistence-race.mjs
 node test/thermonuclear-races.mjs
+node test/adversarial-draft-transactions.mjs
 node test/notifications.mjs
 node test/recover-gate.mjs
 node test/accessibility.mjs

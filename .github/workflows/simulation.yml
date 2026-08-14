@@ -95,6 +95,7 @@ jobs:
         env:
           REPFORGE_URL: http://localhost:8000/
         run: |
+          node test/adversarial-draft-transactions.mjs
           node test/program-draft-conflicts.mjs
           node test/program-draft-set-reduction.mjs
           node test/program-draft-day-rename.mjs
