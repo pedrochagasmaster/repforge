@@ -765,6 +765,189 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   check(!remaining.includes("ui-b") && remaining.includes("ui-a"), "Delete removes only the targeted session", JSON.stringify(remaining));
 }
 
+async function readLogModeControls(page) {
+  return page.evaluate(() => {
+    const controls = [
+      { mode: "list", element: document.querySelector("#modeFull") },
+      { mode: "focus", element: document.querySelector("#modeFocus") },
+    ];
+    const active = controls.filter(({ element }) => element?.classList.contains("active")).map(({ mode }) => mode);
+    const pressed = controls.filter(({ element }) => element?.getAttribute("aria-pressed") === "true").map(({ mode }) => mode);
+    return {
+      active,
+      pressed,
+      same: active.length === 1 && pressed.length === 1 && active[0] === pressed[0],
+      attributes: controls.map(({ mode, element }) => ({
+        mode,
+        active: !!element?.classList.contains("active"),
+        pressed: element?.getAttribute("aria-pressed") || null,
+      })),
+    };
+  });
+}
+
+function expectedTourMode(step, originMode) {
+  if (step === 0) return originMode;
+  return step === 3 || step === 4 ? "focus" : "list";
+}
+
+async function readLogicalFocus(page, selector) {
+  return page.evaluate((sel) => {
+    const element = document.querySelector(sel);
+    const style = element ? getComputedStyle(element) : null;
+    const rect = element?.getBoundingClientRect();
+    const visible = !!(
+      element?.isConnected &&
+      !element.closest("[inert],[hidden],.hidden,.is-hidden") &&
+      style?.display !== "none" &&
+      style?.visibility !== "hidden" &&
+      Number(style?.opacity) !== 0 &&
+      rect &&
+      rect.width > 0 &&
+      rect.height > 0
+    );
+    return {
+      selector: sel,
+      active: document.activeElement?.id || document.activeElement?.tagName || null,
+      isTarget: document.activeElement === element,
+      connected: !!element?.isConnected,
+      visible,
+    };
+  }, selector);
+}
+
+async function prepareReplayTour(page, originMode) {
+  await showView(page, "log");
+  const entry = originMode === "focus" ? "#startWorkout" : "#viewExercises";
+  await page.locator(entry).focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+  const entered = await readLogModeControls(page);
+  await page.locator("#leaveWorkout").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#todayDash:not(.hidden)");
+  await page.locator("#openSettings").focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#settings.view.active");
+  await page.locator("#replayTour").focus();
+  const ready = await readLogModeControls(page);
+  return { entered, ready };
+}
+
+async function runReplayTourScenario(browser, originMode, exitKind) {
+  const { context, page } = await freshPage(browser);
+  const origin = await prepareReplayTour(page, originMode);
+  assert(
+    origin.entered.same &&
+      origin.entered.active[0] === originMode &&
+      origin.ready.same &&
+      origin.ready.active[0] === originMode,
+    `Replay Tour ${exitKind}: ${originMode} is reachable and synchronized before replay`,
+    JSON.stringify(origin)
+  );
+
+  await page.keyboard.press("Enter");
+  await page.waitForSelector("#tour:not(.hidden)");
+  const total = await page.locator("#tourDots .tour__dot").count();
+  const lastStep = exitKind === "cancel" ? Math.min(3, total - 1) : total - 1;
+  const trace = [];
+  for (let step = 0; step <= lastStep; step++) {
+    if (step > 0) {
+      await page.locator("#tourNext").focus();
+      await page.keyboard.press("Enter");
+    }
+    const controls = await readLogModeControls(page);
+    trace.push({ step, expected: expectedTourMode(step, originMode), ...controls });
+  }
+  const violations = trace.filter(
+    ({ expected, active, pressed, same }) =>
+      !same || active[0] !== expected || pressed[0] !== expected
+  );
+  assert(
+    violations.length === 0,
+    `Replay Tour ${exitKind}: every ${originMode} transition keeps one matching active/pressed mode`,
+    JSON.stringify(violations)
+  );
+
+  if (exitKind === "cancel") {
+    await page.keyboard.press("Escape");
+  } else {
+    await page.locator("#tourNext").focus();
+    await page.keyboard.press("Enter");
+  }
+  await page.waitForFunction(() => document.querySelector("#tour")?.classList.contains("hidden"));
+  await page.waitForSelector("#settings.view.active");
+  const restored = await readLogModeControls(page);
+  const focus = await readLogicalFocus(page, "#replayTour");
+  assert(
+    restored.same &&
+      restored.active[0] === originMode &&
+      restored.pressed[0] === originMode,
+    `Replay Tour ${exitKind}: restores snapshotted ${originMode} mode`,
+    JSON.stringify(restored)
+  );
+  assert(
+    focus.isTarget && focus.connected && focus.visible,
+    `Replay Tour ${exitKind}: restores focus to the live visible Replay Tour origin (${originMode})`,
+    JSON.stringify(focus)
+  );
+  await context.close();
+}
+
+async function runLocalizedHistoryAndTourChecks(browser) {
+  console.log("\nLocalized History controls and feature-tour invariants");
+  {
+    const { context, page } = await freshPage(browser);
+    const expected = {
+      en: { previous: "Previous month", next: "Next month" },
+      pt: { previous: "Mês anterior", next: "Próximo mês" },
+    };
+    for (const lang of ["en", "pt"]) {
+      await seedLangUnit(page, lang, "kg", true);
+      await showView(page, "history");
+      await page.waitForSelector("#history.view.active #calPrev");
+      const rendered = await page.evaluate(() => ({
+        previous: document.querySelector("#calPrev")?.getAttribute("aria-label") || "",
+        next: document.querySelector("#calNext")?.getAttribute("aria-label") || "",
+      }));
+      assert(
+        rendered.previous === expected[lang].previous && rendered.next === expected[lang].next,
+        `History calendar renders localized previous/next button names (${lang})`,
+        JSON.stringify({ expected: expected[lang], rendered })
+      );
+    }
+    await context.close();
+  }
+
+  for (const originMode of ["list", "focus"]) {
+    for (const exitKind of ["cancel", "complete"]) {
+      await runReplayTourScenario(browser, originMode, exitKind);
+    }
+  }
+
+  {
+    const { context, page } = await freshPage(browser);
+    await showView(page, "log");
+    await page.evaluate(() => window.startTour("first-run"));
+    await page.waitForSelector("#tour:not(.hidden)");
+    const total = await page.locator("#tourDots .tour__dot").count();
+    for (let step = 1; step < total; step++) {
+      await page.locator("#tourNext").focus();
+      await page.keyboard.press("Enter");
+    }
+    await page.locator("#tourNext").focus();
+    await page.keyboard.press("Enter");
+    await page.waitForFunction(() => document.querySelector("#tour")?.classList.contains("hidden"));
+    const focus = await readLogicalFocus(page, "#startWorkout");
+    assert(
+      focus.isTarget && focus.connected && focus.visible,
+      "First-run tour completion keeps focus on visible Start Workout",
+      JSON.stringify(focus)
+    );
+    await context.close();
+  }
+}
+
 async function runAccessibleInteractions(browser) {
 console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
 
@@ -2348,7 +2531,9 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
 
 async function main() {
   const browser = await launchChromium();
-  if (process.argv.includes("--history-320")) {
+  if (process.argv.includes("--history-tour")) {
+    await runLocalizedHistoryAndTourChecks(browser);
+  } else if (process.argv.includes("--history-320")) {
     await runHistoryResponsiveLayoutChecks(browser);
   } else if (process.argv.includes("--dimmed-states")) {
     await runDimmedStateAccessibility(browser);
@@ -2366,6 +2551,7 @@ async function main() {
     await runHistoryOperabilityChecks(page, assert);
     await context.close();
     await runHistoryResponsiveLayoutChecks(browser);
+    await runLocalizedHistoryAndTourChecks(browser);
     await runDimmedStateAccessibility(browser);
     await runVisualAccessibility(browser);
   }

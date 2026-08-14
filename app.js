@@ -416,9 +416,10 @@ function setDisclosure(button,panel,open){
   panel.classList.toggle("is-open",on);
   panel.setAttribute("aria-hidden",on?"false":"true");
   const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on)}
-function syncLogModePressed(){
-  $("#modeFull")?.setAttribute("aria-pressed",logMode==="full"?"true":"false");
-  $("#modeFocus")?.setAttribute("aria-pressed",logMode==="focus"?"true":"false")}
+function syncLogModeControls(){
+  const list=logMode==="full",full=$("#modeFull"),focus=$("#modeFocus");
+  if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
+  if(focus){focus.classList.toggle("active",!list);focus.setAttribute("aria-pressed",list?"false":"true")}}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
@@ -1522,7 +1523,7 @@ function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
 function closeWorkoutOverflow(){setWorkoutOverflow(false)}
 function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
-function setLogMode(m){logMode=m;document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;$("#modeFull").classList.toggle("active",m==="full");$("#modeFocus").classList.toggle("active",m==="focus");syncLogModePressed();closeWorkoutOverflow();renderWorkout()}
+function setLogMode(m){logMode=m;syncLogModeControls();document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;closeWorkoutOverflow();renderWorkout()}
 function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   if(!requestWorkoutDay(ex.day))return;
@@ -2040,9 +2041,9 @@ function focusDragEnd(e){
 function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return;
   workoutLeft=false;setWorkoutActive(true);
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
-  if(opts.focus===true){logMode="focus";$("#modeFull")?.classList.remove("active");$("#modeFocus")?.classList.add("active")}
-  else if(opts.focus===false){logMode="full";$("#modeFocus")?.classList.remove("active");$("#modeFull")?.classList.add("active")}
-  syncLogModePressed();
+  if(opts.focus===true)logMode="focus";
+  else if(opts.focus===false)logMode="full";
+  syncLogModeControls();
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0})}
 function leaveWorkout(){workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
@@ -3364,9 +3365,9 @@ function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)retu
     let mark="";if(info?.pr)mark=`<span class="cal-grid__mark is-pr"></span>`;else if(info)mark=`<span class="cal-grid__mark is-check">✓</span>`;else if(isToday)mark=`<span class="cal-grid__mark is-today"></span>`;
     cells+=`<div class="cal-grid__day${out?" is-out":""}">${dayNum}${mark}</div>`;
     if(i===41)break;if(i>=startDow+daysInMonth-1&&(i+1)%7===0)break}
-  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="Previous">‹</button>`+
+  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="${esc(t("history.calendar_prev_aria"))}">‹</button>`+
     `<div class="cal-head__title">${esc(t("history.month_title",{month:(()=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s})(),year:y}))}</div>`+
-    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="Next">›</button></div>`+
+    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="${esc(t("history.calendar_next_aria"))}">›</button></div>`+
     `<div class="cal-summary">${esc(t("history.month_summary",{sessions:sessCount,sets:setCount}))}</div>`+
     `<div class="cal-grid">${cells}</div>`;
   $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistory()};
@@ -4084,7 +4085,7 @@ const TOUR=[
   {view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},
   {view:"stats"},{view:"history"},{view:"program"},{view:"settings"},{view:"settings",install:true}
 ];
-let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourInertPrev=null;
+let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourInertPrev=null,tourFocusOrigin=null;
 function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
 function tourFocusables(){return $$("#tour button, #tour [href], #tour input, #tour select, #tour textarea").filter(el=>!el.disabled&&el.offsetParent!==null)}
 function snapshotTourUi(){
@@ -4098,6 +4099,7 @@ function restoreTourUi(snap){
   if(!snap)return;
   tourPreview=null;day=snap.day;if($("#date")&&snap.date!=null)$("#date").value=snap.date;
   logMode=snap.logMode;focusIndex=snap.focusIndex;focusEdit=snap.focusEdit;programEditMode=snap.programEditMode;
+  syncLogModeControls();
   workoutLeft=snap.workoutLeft;
   if(snap.statsSeg)setStatsSeg(snap.statsSeg);
   document.body.classList.remove("is-settings","is-exercise","is-onboarding");
@@ -4125,7 +4127,7 @@ function applyTourChoreography(step){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
     logMode=focus?"focus":"full";
-    $("#modeFull")?.classList.toggle("active",!focus);$("#modeFocus")?.classList.toggle("active",focus);
+    syncLogModeControls();
     setWorkoutActive(true);renderTabs();renderWorkout();renderToday();setWorkoutOverflow(overflow);
     if(step===5)$("#logForm .btn--save")?.scrollIntoView({block:"center"});return}
   setWorkoutActive(false);
@@ -4139,6 +4141,14 @@ function openTourOverlay(){
   })}
 function closeTourOverlay(){
   closeModal($("#tour"))}
+function focusAfterTour(origin,original){
+  const sameId=original?.id?document.getElementById(original.id):null;
+  const stable=origin==="first-run"?$("#startWorkout"):origin==="replay"?$("#replayTour"):null;
+  const fallback=origin==="replay"?$("#settingsBack"):$('nav button[data-view="log"]');
+  for(const candidate of origin==="first-run"?[stable,original,sameId,fallback]:[original,sameId,stable,fallback]){
+    const target=resolveReturnFocus(candidate);
+    if(target){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}return true}}
+  return false}
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
@@ -4163,6 +4173,7 @@ window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
 function startTour(origin){
   tourOrigin=origin==="replay"?"replay":"first-run";
+  tourFocusOrigin=document.activeElement instanceof Element?document.activeElement:null;
   tourSnapshot=tourOrigin==="replay"?snapshotTourUi():null;
   tourStep=0;tourActive=true;hideInstallBanner(false);openTourOverlay();renderTour()}
 function renderTour(){
@@ -4183,11 +4194,12 @@ function renderTour(){
   if(tourStep!==5)window.scrollTo({top:0});
 }
 function endTour(completed){
-  const origin=tourOrigin,snap=tourSnapshot;
-  closeTourOverlay();tourActive=false;tourPreview=null;tourOrigin=null;tourSnapshot=null;
-  if(origin==="first-run"){setUiPref("tourDone",true);setWorkoutActive(false);navTo("log");$("#startWorkout")?.focus()}
-  else if(origin==="replay"){restoreTourUi(snap);$("#replayTour")?.focus()}
+  const origin=tourOrigin,snap=tourSnapshot,focusOrigin=tourFocusOrigin;
+  closeTourOverlay();tourActive=false;tourPreview=null;tourOrigin=null;tourSnapshot=null;tourFocusOrigin=null;
+  if(origin==="first-run"){setUiPref("tourDone",true);setWorkoutActive(false);navTo("log")}
+  else if(origin==="replay")restoreTourUi(snap);
   else{setUiPref("tourDone",true);if(completed)navTo("log")}
+  focusAfterTour(origin,focusOrigin);
   maybeShowInstallBanner()}
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
@@ -4310,7 +4322,7 @@ function init(){
   updateBodyweightField();
   $("#modeFull").onclick=()=>setLogMode("full");
   $("#modeFocus").onclick=()=>setLogMode("focus");
-  syncLogModePressed();
+  syncLogModeControls();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});

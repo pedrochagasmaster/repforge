@@ -756,6 +756,8 @@
   "history.search_aria": "Search sessions",
   "history.export_aria": "Export CSV",
   "history.search_placeholder": "Filter sessions…",
+  "history.calendar_prev_aria": "Previous month",
+  "history.calendar_next_aria": "Next month",
   "history.month_title": "{month} {year}",
   "history.month_summary": "{sessions} sessions · {sets} sets",
   "history.session_eyebrow": "{weekday} · {day} {month}",
