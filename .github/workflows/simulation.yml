@@ -81,6 +81,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/accessibility.mjs
 
+      - name: History
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/history.mjs
+
       - name: Focus mode
         env:
           REPFORGE_URL: http://localhost:8000/

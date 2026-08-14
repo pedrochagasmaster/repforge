@@ -22,7 +22,6 @@ import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import { tmpdir } from "os";
-import { runHistoryIndexChecks, runHistoryOperabilityChecks } from "./accessibility.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -7614,14 +7613,6 @@ async function main() {
       JSON.stringify(trendLand)
     );
   }
-
-  beginPhase("History index and operability");
-  await runHistoryOperabilityChecks(page, (cond, name, detail) =>
-    assert(cond, name, detail, "History tab → search / expand / edit / delete")
-  );
-  await runHistoryIndexChecks(page, (cond, name, detail) =>
-    assert(cond, name, detail, "History index large fixture + renderWithSource")
-  );
 
   beginPhase("Phase: PWA cache, offline shell, replica agreement");
   {

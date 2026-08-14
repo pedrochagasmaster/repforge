@@ -1350,6 +1350,7 @@ node test/thermonuclear-races.mjs
 node test/notifications.mjs
 node test/recover-gate.mjs
 node test/accessibility.mjs
+node test/history.mjs
 node test/focus-mode.mjs
 node test/program-draft-set-reduction.mjs
 node test/workout-day-context-discard.mjs
