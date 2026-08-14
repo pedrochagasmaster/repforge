@@ -139,7 +139,8 @@ async function seedScenario(page, draftRaw, state = fixture()) {
   await page.evaluate(
     async ({ key, draftKey, pendingKey, dbName, storeName, state, draftRaw }) => {
       localStorage.setItem(key, JSON.stringify(state));
-      localStorage.setItem(draftKey, draftRaw);
+      if (draftRaw == null) localStorage.removeItem(draftKey);
+      else localStorage.setItem(draftKey, draftRaw);
       for (let index = localStorage.length - 1; index >= 0; index--) {
         const storageKey = localStorage.key(index);
         if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
