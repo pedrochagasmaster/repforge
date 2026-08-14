@@ -711,6 +711,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   background:var(--danger);animation:restover-dot 1.5s ease-in-out infinite;
 }
 .restbar.is-over .restbar__time{min-width:3.4em}
+/* Held in the timer sheet: the clock is frozen, so the live dot goes quiet. */
+.wo-rest.is-paused .wo-rest__dot,.restbar.is-paused .restbar__dot{background:var(--ink-faint)}
 @media (prefers-reduced-motion:reduce){
   /* Colour alone carries overtime; the dot holds at half strength so it still
      differs from the steady countdown dot. */
@@ -1003,6 +1005,67 @@ body.is-sheet-open{overflow:hidden}
 }
 .sheet__foot{flex:none;padding:12px 16px 16px;font-size:13px;color:var(--ink-faint)}
 .sheet__foot--actions{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--rule)}
+/* A head with nothing on the left still needs its first grid cell, or the title
+   slides out of the middle. */
+.sheet__spacer{display:block;min-width:44px}
+.sheet__act--icon{justify-self:end;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft)}
+
+/* ---- Rest timer sheet ---- */
+/* Tapping a running clock used to end the rest, which is the one thing a lifter
+   mid-set never means. The clock opens this instead: hold it, nudge it, restart
+   it at another length, or end it deliberately. */
+.sheet--rest{height:auto}
+.restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}
+.restdial{position:relative;width:min(56vw,210px);flex:none;aspect-ratio:1}
+.restdial__svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
+.restdial__track{fill:none;stroke:var(--rule);stroke-width:7}
+.restdial__arc{
+  fill:none;stroke:var(--accent);stroke-width:7;stroke-linecap:round;
+  transition:stroke-dashoffset .25s linear,stroke .2s ease;
+}
+.restdial__clock{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:600;font-size:clamp(32px,10vw,42px);
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+}
+/* Held: the ring goes quiet so a frozen clock never reads as a running one. */
+.sheet--rest.is-paused .restdial__arc{stroke:var(--rule-strong)}
+.sheet--rest.is-paused .restdial__clock{color:var(--ink-soft)}
+/* Past the bell, the same red the chip and the bar use for overtime. */
+.sheet--rest.is-over .restdial__arc{stroke:var(--danger)}
+.sheet--rest.is-over .restdial__clock{color:var(--danger)}
+.restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.restpreset{
+  min-width:0;padding:0 12px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-soft);
+  font-family:var(--mono);font-size:14px;line-height:1;
+}
+.restpreset.is-active{border-color:var(--accent);color:var(--accent-deep);background:var(--well)}
+.restsheet__controls{display:flex;align-items:center;justify-content:center;gap:4px;width:100%}
+.restctl{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  flex:1 1 0;min-width:0;padding:6px 2px;border:0;background:none;cursor:pointer;
+  color:var(--ink-soft);font-size:12px;line-height:1;
+}
+.restctl:disabled{opacity:.35;cursor:default}
+.restctl__label{white-space:nowrap}
+.restctl--primary{
+  flex:none;width:68px;height:68px;border-radius:50%;
+  background:var(--accent);color:var(--cta-ink);
+}
+.restctl--primary .icon-mask{width:26px;height:26px}
+/* Idle or held, the button offers to start; running, it offers to hold. */
+.restctl--primary .restctl__pause{display:none}
+.sheet--rest:not(.is-idle):not(.is-paused) .restctl--primary .restctl__play{display:none}
+.sheet--rest:not(.is-idle):not(.is-paused) .restctl--primary .restctl__pause{display:inline-block}
+/* Short screens: the dial gives up the room the presets and controls need. */
+@media (max-height:640px){
+  .restsheet{gap:14px;padding-top:14px}
+  .restdial{width:min(44vw,152px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .restdial__arc{transition:none}
+}
 
 /* Narrow phones: tighter gutters and a set column the ledger can still line up. */
 @media (max-width:360px){
@@ -1777,6 +1840,12 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
 }
 .icon-mask--sm{width:16px;height:16px}
+.icon-mask--minus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E")}
+.icon-mask--plus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E")}
+.icon-mask--play{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E")}
+.icon-mask--pause{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E")}
+.icon-mask--stop{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E")}
+.icon-mask--reset{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E")}
 .icon-mask--chev-down{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
 .icon-mask--overflow{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E")}
 .icon-mask--note{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E")}
