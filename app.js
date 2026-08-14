@@ -4294,9 +4294,9 @@ function renderHistory(source=state.log){
     if(removing){
       const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
       if(left.length<=1){toast(t("history.edit.keep_one"));return}
-      row.classList.add("is-removed");b.textContent=t("history.edit.undo_remove");
+      row.classList.add("is-removed");setEdrowRmState(b,true);
       row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
-    else{row.classList.remove("is-removed");b.textContent=t("history.edit.remove_set");
+    else{row.classList.remove("is-removed");setEdrowRmState(b,false);
       row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
   const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
@@ -4328,13 +4328,22 @@ function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)retu
   $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistory()}}
 
 
+const EDROW_RM_GLYPH={remove:"×",undo:"↺"};
+// The per-row remove control is icon-only, so its state lives in the glyph plus
+// the accessible name rather than visible copy.
+function setEdrowRmState(btn,removed){
+  const label=t(removed?"history.edit.undo_remove":"history.edit.remove_set");
+  btn.setAttribute("aria-label",label);btn.title=label;btn.classList.toggle("is-undo",removed);
+  const glyph=btn.querySelector(".edrow__rm-glyph")||btn;
+  glyph.textContent=removed?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}
+
 function sessionEditor(s,sets){
   const rows=sets.map((r,i)=>{
     return `<div class="edrow" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
       `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
       `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
       `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
-      `<button type="button" class="link-accent edrow__rm" data-edrm="${i}">${esc(t("history.edit.remove_set"))}</button></div>`}).join("");
+      `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
     `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+

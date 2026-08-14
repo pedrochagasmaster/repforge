@@ -1470,7 +1470,14 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .edrow__name{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .edrow__name small{color:var(--ink-faint)}
 .edrow__in{margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
-.edrow__rm{justify-self:end;font-size:12px;padding:4px 0;white-space:nowrap}
+.edrow__rm{
+  justify-self:end;display:inline-flex;align-items:center;justify-content:center;
+  width:40px;height:40px;flex:none;padding:0;cursor:pointer;
+  border:1px solid var(--rule-strong);border-radius:10px;background:var(--surface);
+  color:var(--ink-soft);font:inherit;font-size:19px;line-height:1;
+}
+.edrow__rm.is-undo{color:var(--accent-deep);border-color:var(--accent);font-size:16px}
+.edrow__rm-glyph{display:block;pointer-events:none}
 .edrow.is-removed .edrow__name{text-decoration:line-through;text-decoration-color:var(--ink-faint)}
 .edrow.is-removed .edrow__in{visibility:hidden}
 input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
