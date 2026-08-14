@@ -1791,6 +1791,13 @@ let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
 let focusEdit=null;
+/** Focus mode — the set just committed: {exId,n}. Set on the commit that
+ *  logs a set and consumed by the render it triggers, which is the only one
+ *  that plays the landing animation. Every later render draws the same card
+ *  still, so a re-render for an unrelated reason never replays it. */
+let focusLogged=null;
+/** True while the card being written is the one that just gained a set. */
+const focusIsFresh=(ex,peek)=>!peek&&!!focusLogged&&focusLogged.exId===ex.id;
 /** Exercises whose older logged sets the lifter unfolded from behind the
  *  disclosure row. Folding is the default once a session gets long. */
 const focusUnfolded=new Set();
@@ -3077,11 +3084,11 @@ function focusRowVals(ex,n,r,draft,prev,effortMode){
     :(()=>{const v=parseDec(rirVal);return Number.isFinite(v)?fmt(v):rirVal})();
   return{load,reps:String(repsVal),eff}}
 
-function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false}){
+function focusLedgerRow(ex,n,vals,{effortMode,editing=false,peek=false,fresh=false}){
   const cells=`<span class="ledger__n">${n}</span><span class="ledger__load">${esc(vals.load)}</span><span>${esc(vals.reps)}</span>`+
     `<span class="${effortMode?"ledger__eff":""}">${esc(vals.eff)}</span>`+
     `<span class="ledger__check" aria-hidden="true"></span>`;
-  return `<button type="button" class="ledger__row${editing?" is-editing":""}"${peek?dead()
+  return `<button type="button" class="ledger__row${editing?" is-editing":""}${fresh?" is-fresh":""}"${peek?dead()
     :` data-editex="${esc(ex.id)}" data-editn="${n}" aria-label="${esc(t("focus.edit_set_aria",{n}))}"`}`+
     `${editing?' aria-current="true"':""}>${cells}</button>`}
 
@@ -3106,17 +3113,20 @@ function focusLedgerHtml(ex,r,draft,prev,{effortMode,peek=false}){
     return top(head())+`<div class="ledger__row is-empty"><span class="ledger__empty">${esc(t("focus.ledger.empty"))}</span>`+
       `<span class="ledger__dash" aria-hidden="true">—</span><span></span></div>`}
   const editN=focusEdit&&focusEdit.exId===ex.id?focusEdit.n:0;
+  // The set that just landed is drawn once as fresh, so it arrives instead of
+  // appearing. Folding always keeps the newest rows, so it is never hidden.
+  const freshN=focusIsFresh(ex,peek)?focusLogged.n:0;
   const open=focusUnfolded.has(ex.id);
   const folds=done.length>=FOCUS_FOLD_MIN&&!open;
   const hidden=folds?done.slice(0,done.length-FOCUS_FOLD_KEEP):[];
   const shown=folds?done.slice(done.length-FOCUS_FOLD_KEEP):done;
   const rowsFor=list=>list.map(n=>focusLedgerRow(ex,n,focusRowVals(ex,n,r,draft,prev,effortMode),
-    {effortMode,editing:n===editN,peek})).join("");
+    {effortMode,editing:n===editN,peek,fresh:n===freshN})).join("");
   // A long session leads with a count and a run of ticks, so the sets that
   // scrolled behind the fold are still accounted for at a glance.
   const summary=done.length>=FOCUS_FOLD_MIN
     ?`<p class="ledger__count">${esc(t("focus.ledger.done_count",{n:done.length}))}</p>`+
-      `<div class="ledger__ticks" aria-hidden="true">${done.map(()=>`<span class="ledger__tick"></span>`).join("")}</div>`
+      `<div class="ledger__ticks" aria-hidden="true">${done.map(n=>`<span class="ledger__tick${n===freshN?" is-fresh":""}"></span>`).join("")}</div>`
     :"";
   let disclosure="";
   if(done.length>=FOCUS_FOLD_MIN){
@@ -3178,6 +3188,9 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
 function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
   const n=focusActiveSet(ex);
   const editing=!!(focusEdit&&focusEdit.exId===ex.id&&n);
+  // The well re-arms on the set that just landed: the cue and the numbers of
+  // the next set settle in, or — on the last set — the completion mark does.
+  const fresh=focusIsFresh(ex,peek)?" is-fresh":"";
   if(!n){
     const done=focusDoneSets(ex).length;
     const title=allDone?t("focus.wo_done_title"):t("focus.ex_done_title");
@@ -3187,7 +3200,7 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     const cta=allDone||!hasNext
       ?`<button type="button" class="btn btn--cta btn--noarrow"${peek?dead():" data-ffinish"}>${esc(t("log.finish"))}</button>`
       :`<button type="button" class="btn btn--cta"${peek?dead():" data-fnext"}>${esc(t("focus.next_ex"))}</button>`;
-    return `<div class="focus-well is-done">`+
+    return `<div class="focus-well is-done${fresh}">`+
       `<div class="focus-done"><span class="focus-done__mark" aria-hidden="true"></span>`+
       `<div class="focus-done__text"><p class="focus-done__title">${esc(title)}</p>`+
       `<p class="focus-done__sub">${esc(sub)}</p></div></div>`+
@@ -3199,7 +3212,7 @@ function focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek=false}){
     ?`<button type="button" class="focus-well__cancel"${peek?dead():" data-fcancel"}>${esc(t("focus.cancel_edit"))}</button>`+
       commit(t("focus.save_edit"))
     :commit(t("today.log_set"));
-  return `<div class="focus-well${editing?" is-editing":""}">`+
+  return `<div class="focus-well${editing?" is-editing":""}${fresh}">`+
     `<p class="focus-cue is-${cue.kind}"><span class="focus-cue__bolt" aria-hidden="true"></span>`+
     `<b class="focus-cue__lab">${esc(cue.label)}</b><span class="focus-cue__sep" aria-hidden="true">·</span>`+
     `<span class="focus-cue__text">${esc(cue.text)}</span></p>`+
@@ -3220,6 +3233,9 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
     `${peek?dead():` data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name}))}"`}>${esc(name)}</button></h3>`;
   const setNo=n||ex.sets;
+  // The counter only ticks when it actually moved: the last set of an exercise
+  // leaves it on the total it already read.
+  const setofFresh=n&&focusIsFresh(ex,peek)?" is-fresh":"";
   const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
   const tools=`<div class="focus-ex__tools">`+
     `<button type="button" class="focus-tool${noteVal?" has-note":""}"`+
@@ -3239,7 +3255,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
     `<span class="focus-ex__muscle">${esc(ex.primary)}</span>`+
-    `<span class="focus-ex__setof">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
+    `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
     `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
     `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
     `</div>${tools}</div></div>`+
@@ -3265,7 +3281,7 @@ function focusDeckHtml(ex,r,draft,prev,{fl,at}){
     peek(at+1,"next")+
     `</div></div>`}
 function renderWorkout(){
-  if(!workoutActive){updateGauge();updateSessionBanner();return}
+  if(!workoutActive){focusLogged=null;updateGauge();updateSessionBanner();return}
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null||mc.isComplete?programWeekContext(nm,mc):t("log.context.today")}
   const draft=hydrateWorkoutDraft();
@@ -3277,7 +3293,7 @@ function renderWorkout(){
   if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
   const at=logMode==="focus"&&fl.length?Math.min(focusIndex,fl.length-1):0;
-  const wk=$("#workout");if(!wk)return;wk.classList.toggle("is-focus",logMode==="focus");
+  const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.toggle("is-focus",logMode==="focus");
   wk.innerHTML=banner+exercises().map(ex=>{
     const r=recommendation(ex),prev=last(ex);
     // Focus renders the current exercise as its own full-height card; the rest
@@ -3334,6 +3350,9 @@ function renderWorkout(){
       noteHtml+
       `</article>`;
   }).join("");
+  // The landing animation belongs to this render alone: the markup that plays
+  // it has been written, so the next render draws the same card at rest.
+  focusLogged=null;
   bindWorkout();
   updateGauge();updateSaveMeta();renderFatigue();
   updateBodyweightField();
@@ -3487,6 +3506,11 @@ function bindWorkout(){
     if(editing)focusEdit=null;
     saveDraft();updateSaveMeta();
     const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
+    // A set landing is the one beat of Focus worth marking. The exercise id can
+    // hold underscores, so the set number comes off the end of the key by
+    // length rather than by splitting it.
+    if(logMode==="focus"&&exId&&committed.has(key)&&!editing)
+      focusLogged={exId,n:+key.slice(exId.length+1)};
     if(committed.has(key)&&!editing){startRest();armUnfinishedWatch()}
     if(editing)toast(t("toast.set_updated"));
     if(logMode==="focus")renderWorkout();
