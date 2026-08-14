@@ -122,12 +122,12 @@ async function seedPrev(page, i, sets) {
 async function logSets(page, n, { load = 100, reps = 4 } = {}) {
   let done = 0;
   for (let i = 0; i < n; i++) {
-    const loadInput = page.locator(".focus-well .curset__val[data-k$='_load']");
+    const loadInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_load']");
     if (!(await loadInput.count())) break;
     await loadInput.first().fill(String(load));
-    const repsInput = page.locator(".focus-well .curset__val[data-k$='_reps']");
+    const repsInput = page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']");
     if (await repsInput.count()) await repsInput.first().fill(String(reps));
-    await page.locator(".focus-well .saveset").first().click();
+    await page.locator("#workout .exercise.is-current .focus-well .saveset").first().click();
     await page.waitForTimeout(140);
     done++;
   }
@@ -227,7 +227,7 @@ async function main() {
   assert(/now/i.test(st.cueLabel) && /\d/.test(st.cueText),
     "the cue names the load to work at", JSON.stringify(st));
   const ledgerTopLabel = await page.evaluate(
-    () => document.querySelector(".ledger__lab")?.textContent?.trim() || ""
+    () => document.querySelector("#workout .exercise.is-current .ledger__lab")?.textContent?.trim() || ""
   );
   assert(/last session/i.test(ledgerTopLabel),
     "the previous session is labelled as such", ledgerTopLabel);
@@ -287,7 +287,7 @@ async function main() {
   assert(loggedInset != null && loggedInset >= 18,
     "logged set numbers also sit in from the card edge", String(loggedInset));
   const rirCell = await page.evaluate(
-    () => !!document.querySelector('.focus-well [data-k$="_rir"]')
+    () => !!document.querySelector('#workout .exercise.is-current .focus-well [data-k$="_rir"]')
   );
   assert(rirCell, "the well's third column is a numeric RIR field", String(rirCell));
 
@@ -338,8 +338,8 @@ async function main() {
   assert(st.cancel && /save changes/i.test(st.ctaText) && st.ctaArrow === false,
     "editing is reversible and commits without an arrow", JSON.stringify(st));
   assert(st.ledgerRows === 3, "no row disappears while it is being edited", JSON.stringify(st));
-  await page.locator(".focus-well .curset__val[data-k$='_reps']").first().fill("9");
-  await page.locator(".focus-well .saveset").click();
+  await page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']").first().fill("9");
+  await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
   await page.waitForTimeout(250);
   const afterEdit = await page.evaluate((d) => {
     const draft = JSON.parse(localStorage.getItem(d) || "{}");
@@ -356,7 +356,7 @@ async function main() {
   // …and cancelling puts the set back exactly as it was.
   await page.locator(".ledger__row[data-editn]").nth(1).click();
   await page.waitForTimeout(180);
-  await page.locator(".focus-well .curset__val[data-k$='_reps']").first().fill("2");
+  await page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']").first().fill("2");
   await page.locator("[data-fcancel]").click();
   await page.waitForTimeout(250);
   const afterCancel = await page.evaluate(() =>
@@ -411,7 +411,7 @@ async function main() {
   }, { timeout: 2000 });
   const noteSaved = await page.evaluate((d) => ({
     draft: JSON.parse(localStorage.getItem(d) || "{}").__exnotes || {},
-    marked: !!document.querySelector(".focus-tool.has-note"),
+    marked: !!document.querySelector("#workout .exercise.is-current .focus-tool.has-note"),
     closed: document.querySelector("#exNoteSheet").hidden,
   }), DRAFT);
   assert(Object.values(noteSaved.draft).includes("Seat 4, feet high.") && noteSaved.closed,
@@ -439,7 +439,7 @@ async function main() {
   await logSets(page, 4, { load: 7.5, reps: 4 });
   st = await cardState(page);
   const effort = await page.evaluate(() => {
-    const spin = document.querySelector(".focus-well [data-effspin]");
+    const spin = document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]");
     const head = [...document.querySelectorAll("#workout .exercise.is-current .ledger__head > span")].map((s) => s.textContent.trim());
     const row = document.querySelector(".ledger__row[data-editn]");
     return {
@@ -447,10 +447,10 @@ async function main() {
       label: spin?.getAttribute("aria-label") || "",
       valueText: spin?.getAttribute("aria-valuetext") || "",
       valueNow: spin?.getAttribute("aria-valuenow") || "",
-      hint: document.querySelector(".focus-well .curset__hint")?.textContent?.trim() || "",
+      hint: document.querySelector("#workout .exercise.is-current .focus-well .effortpop__hint")?.textContent?.trim() || "",
       head,
       rowEffort: row ? [...row.querySelectorAll("span")][3]?.textContent?.trim() : "",
-      rirField: !!document.querySelector('.focus-well [data-k$="_rir"]'),
+      rirField: !!document.querySelector('#workout .exercise.is-current .focus-well [data-k$="_rir"]'),
     };
   });
   assert(effort.role === "spinbutton" && effort.label && effort.valueText && effort.valueNow,
@@ -460,7 +460,7 @@ async function main() {
   assert(/^(easy|hard|max)$/i.test(effort.rowEffort) && effort.hint,
     "a logged set reads back as the word that was tapped", JSON.stringify(effort));
   const wellAlign = await page.evaluate(() => {
-    const cells = [...document.querySelectorAll(".exercise.is-current .focus-well .curset__cell")];
+    const cells = [...document.querySelectorAll("#workout .exercise.is-current .focus-well .curset__cell")];
     const band = (sel) => cells.map((c) => {
       const el = c.querySelector(sel);
       return el ? Math.round(el.getBoundingClientRect().top) : null;
@@ -483,26 +483,77 @@ async function main() {
     "effort, load and reps share one baseline in the well", JSON.stringify(wellAlign));
   assert(st.ledgerRows === 4 && !st.fold,
     "four logged sets still show in full", JSON.stringify(st));
+  // The reps-left shorthand is a pill off the word, not a caption under the steppers.
+  const popClosed = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    const steps = document.querySelector(".focus-well .curset__cell.is-effort .curset__steps");
+    const p = pop?.getBoundingClientRect(), s = steps?.getBoundingClientRect();
+    return { present: !!pop, open: !!pop?.classList.contains("is-open"),
+      inCell: !!pop?.closest(".curset__cell.is-effort"),
+      // Nothing of it may sit under the ± buttons any more.
+      belowSteps: !!(p && s) && p.top > s.bottom };
+  });
+  assert(popClosed.present && popClosed.inCell && !popClosed.open && !popClosed.belowSteps,
+    "the effort shorthand starts closed and clear of the steppers", JSON.stringify(popClosed));
+  await page.locator(".focus-well [data-effspin]").click();
+  await page.waitForTimeout(420);
+  const popOpen = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    const spin = document.querySelector(".focus-well [data-effspin]");
+    const pill = pop?.querySelector(".effortpop__hint");
+    const c = pill.getBoundingClientRect(), s = spin.getBoundingClientRect();
+    const well = document.querySelector(".focus-well").getBoundingClientRect();
+    return {
+      open: pop.classList.contains("is-open"),
+      text: pill.textContent.trim(),
+      above: Math.round(s.top - c.bottom),
+      // Centred on the word it explains, and inside the well.
+      offCentre: Math.round(Math.abs((c.left + c.right) / 2 - (s.left + s.right) / 2)),
+      inside: c.left >= well.left - 1 && c.right <= well.right + 1,
+      opacity: +getComputedStyle(pill).opacity,
+    };
+  });
+  assert(popOpen.open && popOpen.text && popOpen.above >= 0 && popOpen.above <= 60 &&
+    popOpen.offCentre <= 2 && popOpen.inside && popOpen.opacity > .9,
+    "tapping the effort word pops its shorthand open just above it", JSON.stringify(popOpen));
+  // Stepping the word under an open pill rewrites the pill rather than closing it.
+  await page.locator(".exercise.is-current .focus-well [data-effstep]").last().click();
+  await page.waitForTimeout(300);
+  const popStepped = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    return { open: pop.classList.contains("is-open"),
+      text: pop.querySelector(".effortpop__hint")?.textContent?.trim() || "" };
+  });
+  assert(popStepped.open && popStepped.text && popStepped.text !== popOpen.text,
+    "the open shorthand follows the effort word as it steps", JSON.stringify(popStepped));
+  await page.locator(".exercise.is-current .focus-ex__muscle").click();
+  await page.waitForTimeout(400);
+  const popDismissed = await page.evaluate(() => {
+    const pop = document.querySelector(".focus-well .effortpop");
+    return { open: pop.classList.contains("is-open"), opacity: +getComputedStyle(pop).opacity };
+  });
+  assert(!popDismissed.open && popDismissed.opacity < .05,
+    "a tap outside dismisses the explainer", JSON.stringify(popDismissed));
   // Keyboard operation of the spinner.
-  await page.focus(".focus-well [data-effspin]");
-  const effBefore = await page.evaluate(() => document.querySelector(".focus-well [data-effspin]").dataset.e);
+  await page.focus("#workout .exercise.is-current .focus-well [data-effspin]");
+  const effBefore = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]").dataset.e);
   await page.keyboard.press("ArrowDown");
   await page.waitForTimeout(120);
-  const effAfter = await page.evaluate(() => document.querySelector(".focus-well [data-effspin]").dataset.e);
+  const effAfter = await page.evaluate(() => document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]").dataset.e);
   assert(effBefore !== effAfter, "arrow keys move the effort spinner", `${effBefore} -> ${effAfter}`);
   // Editing a logged set in effort mode reopens the word it was logged with.
   await page.locator(".ledger__row[data-editn]").first().click();
   await page.waitForTimeout(200);
   const editEffort = await page.evaluate(() => ({
-    spin: document.querySelector(".focus-well [data-effspin]")?.dataset.e,
+    spin: document.querySelector("#workout .exercise.is-current .focus-well [data-effspin]")?.dataset.e,
     row: [...document.querySelector(".ledger__row.is-editing").querySelectorAll("span")][3]?.textContent?.trim(),
     editing: document.querySelectorAll(".ledger__row.is-editing").length,
   }));
   assert(editEffort.editing === 1 && !!editEffort.spin &&
     editEffort.row?.toLowerCase().startsWith(editEffort.spin.slice(0, 3)),
     "editing an effort set reopens the word it was logged with", JSON.stringify(editEffort));
-  await page.click(".focus-well [data-effstep][data-dir='-1']");
-  await page.locator(".focus-well .saveset").click();
+  await page.click("#workout .exercise.is-current .focus-well [data-effstep][data-dir='-1']");
+  await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
   await page.waitForTimeout(250);
   const savedEffort = await page.evaluate((d) => {
     const draft = JSON.parse(localStorage.getItem(d) || "{}");
@@ -526,14 +577,14 @@ async function main() {
     "the fold carries no explanatory blurb");
   assert(st.wellHeight >= 150 && st.spill <= 1,
     "a long session never shrinks the well or spills the card", JSON.stringify(st));
-  await page.click(".ledger__more");
+  await page.click("#workout .exercise.is-current .ledger__more");
   await page.waitForTimeout(220);
   const unfolded = await cardState(page);
   assert(unfolded.ledgerRows === 8 && unfolded.foldExpanded === "true",
     "expanding the disclosure reveals every set", JSON.stringify(unfolded));
   assert(unfolded.wellHeight === st.wellHeight,
     "unfolding does not move the well", `${st.wellHeight} -> ${unfolded.wellHeight}`);
-  await page.click(".ledger__more");
+  await page.click("#workout .exercise.is-current .ledger__more");
   await page.waitForTimeout(220);
   assert((await cardState(page)).ledgerRows === 2, "the disclosure folds back");
 
@@ -621,31 +672,68 @@ async function main() {
     await page.mouse.move(x + step, y);
     await page.waitForTimeout(20);
   }
-  const midSwipe = await page.evaluate(() => {
+  // Whatever the peek shows mid-swipe is what the card must show once it lands:
+  // a control that appears — or a box that changes height — on arrival is a card
+  // rebuilding itself under the lifter's thumb.
+  const shape = (root) => {
+    const card = root.matches(".exercise--focus") ? root : root.querySelector(".exercise--focus");
+    const box = (sel) => {
+      const el = card.querySelector(sel);
+      return el ? Math.round(el.getBoundingClientRect().height) : 0;
+    };
+    return {
+      name: card.querySelector(".focus-ex__name")?.textContent?.trim() || "",
+      tools: card.querySelectorAll(".focus-ex__tools .focus-tool").length,
+      steppers: card.querySelectorAll(".curset__steps .stepbtn").length,
+      cta: card.querySelector(".focus-well .btn--cta")?.textContent?.trim() || "",
+      rows: card.querySelectorAll(".ledger__row").length,
+      head: box(".fcard__head"),
+      ledger: box(".fcard__ledger"),
+      well: box(".focus-well"),
+    };
+  };
+  const midSwipe = await page.evaluate(`(${shape})(document.querySelector(".deck__slot--next"))`);
+  const midState = await page.evaluate(() => {
     const peek = document.querySelector(".deck__slot--next");
     const track = document.querySelector("#focusTrack");
     const card = document.querySelector("#workout .exercise.is-current");
     return {
       peekVisible: getComputedStyle(peek).visibility === "visible",
-      peekName: peek.querySelector(".focus-ex__name")?.textContent?.trim() || "",
       peekHasWell: !!peek.querySelector(".focus-well"),
-      peekInert: !peek.querySelector("input, button"),
+      // Composed, not wired: a peek carries no draft field and no hook that a
+      // handler could fire on the neighbour's behalf.
+      peekWired: !!peek.querySelector("[data-k], [data-save], [data-skip], [data-fold], [data-step]," +
+        "[data-effstep], [data-effspin], [data-editn], [data-exopen], [data-exnote-open], [data-fnext], [data-ffinish]"),
+      peekInert: !!peek.querySelector(".exercise--focus[inert]"),
+      peekTabbable: [...peek.querySelectorAll("button, input, textarea")]
+        .filter((el) => el.tabIndex >= 0).length,
       trackMoved: getComputedStyle(track).transform !== "none",
       cardUpright: getComputedStyle(card).transform === "none",
       stacked: document.querySelectorAll(".deck__layer").length,
       pageScrollsX: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     };
   });
-  assert(midSwipe.trackMoved && midSwipe.peekVisible && midSwipe.peekName && midSwipe.peekHasWell,
-    "the neighbouring card rides in fully composed", JSON.stringify(midSwipe));
-  assert(midSwipe.cardUpright && midSwipe.stacked === 0,
-    "the cards travel flat and upright, with no stack behind them", JSON.stringify(midSwipe));
-  assert(midSwipe.peekInert && !midSwipe.pageScrollsX,
-    "the peek holds no controls and the page never scrolls sideways", JSON.stringify(midSwipe));
+  assert(midState.trackMoved && midState.peekVisible && midSwipe.name && midState.peekHasWell,
+    "the neighbouring card rides in fully composed", JSON.stringify({ ...midState, ...midSwipe }));
+  assert(midSwipe.tools >= 1 && midSwipe.steppers === 6 && !!midSwipe.cta,
+    "the card riding in already carries its tools, steppers and action",
+    JSON.stringify(midSwipe));
+  assert(midState.cardUpright && midState.stacked === 0,
+    "the cards travel flat and upright, with no stack behind them", JSON.stringify(midState));
+  assert(!midState.peekWired && midState.peekInert && midState.peekTabbable === 0 &&
+    !midState.pageScrollsX,
+    "the peek holds no hooks or tab stops and the page never scrolls sideways",
+    JSON.stringify(midState));
   await page.mouse.up();
   await page.waitForTimeout(450);
   assert((await page.evaluate(() => window.__repforgeFocus.at())) === 1,
     "a swipe past the threshold advances the deck");
+  const landed = await page.evaluate(`(${shape})(document.querySelector("#workout .exercise.is-current"))`);
+  const same = ["name", "tools", "steppers", "cta", "rows", "head", "ledger", "well"]
+    .filter((k) => landed[k] !== midSwipe[k]);
+  assert(same.length === 0,
+    "the card that landed is the one that rode in — nothing pops in, nothing reflows",
+    JSON.stringify({ peek: midSwipe, landed, differs: same }));
   // The whole card is a handle, not just its header. A scroll container that
   // has nothing to scroll must not claim the touch and cancel the gesture.
   const grip = await page.evaluate(() => {
