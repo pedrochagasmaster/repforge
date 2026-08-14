@@ -274,6 +274,28 @@ async function main() {
   const phBad = enKeys.filter((k) => placeholders(en[k]).join(",") !== placeholders(pt[k]).join(","));
   assert(!phBad.length, "EN/PT placeholder names match for every key", phBad.slice(0, 8).join(", "));
 
+  const exerciseTemplatePromptKeys = [
+    "confirm.remove_exercise",
+    "confirm.remove_exercise_discard_draft",
+    "confirm.delete_day",
+    "confirm.delete_day_discard_draft",
+    "confirm.import_program_replace",
+  ];
+  const enTerminologyMisses = exerciseTemplatePromptKeys.filter((k) => !/\bexercise templates?\b/i.test(en[k]));
+  const ptTerminologyMisses = exerciseTemplatePromptKeys.filter((k) => !/\bmodelos? de exercício\b/i.test(pt[k]));
+  assert(!enTerminologyMisses.length, "Destructive EN program prompts use exercise-template terminology", enTerminologyMisses.join(", "));
+  assert(!ptTerminologyMisses.length, "Destructive PT program prompts use exercise-template terminology", ptTerminologyMisses.join(", "));
+  assert(
+    !/\bprogram template\b/i.test(en["confirm.replace_program_template"]) &&
+      !/\bmodelo de programa\b/i.test(pt["confirm.replace_program_template"]),
+    "Whole-program replacement prompts call the object a program"
+  );
+
+  const ptCopy = Object.values(pt).join("\n").toLowerCase();
+  const awkwardPtPhrases = ["esforço conhecido", "data de calendário real", "depósito deste navegador"];
+  const retainedPtCalques = awkwardPtPhrases.filter((phrase) => ptCopy.includes(phrase));
+  assert(!retainedPtCalques.length, "PT copy avoids audited literal calques", retainedPtCalques.join(", "));
+
   const html = readFileSync(join(ROOT, "index.html"), "utf8");
   const domKeys = htmlI18nKeys(html);
   const missingDom = [...domKeys].filter((k) => !(k in en) || !(k in pt));
