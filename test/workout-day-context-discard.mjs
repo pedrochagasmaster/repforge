@@ -4,11 +4,14 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import {
+  clearPersistenceArtifacts,
+  inventoryPersistenceArtifacts,
+} from "./persistence-artifacts.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
-const PENDING = "repforge_pending_v1";
 const DB = "repforge";
 const STORE = "kv";
 const DAY_1_EXERCISE = "context-day-1";
@@ -108,11 +111,12 @@ async function reloadApp(page) {
 }
 
 async function writeFixture(page, state) {
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await clearPersistenceArtifacts(page);
   await page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName, state }) => {
+    async ({ key, draftKey, dbName, storeName, state }) => {
       localStorage.setItem(key, JSON.stringify(state));
       localStorage.removeItem(draftKey);
-      localStorage.removeItem(pendingKey);
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
@@ -127,7 +131,7 @@ async function writeFixture(page, state) {
       });
       db.close();
     },
-    { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE, state }
+    { key: KEY, draftKey: DRAFT, dbName: DB, storeName: STORE, state }
   );
 }
 
@@ -231,6 +235,7 @@ async function main() {
       (key) => JSON.parse(localStorage.getItem(key) || "{}").log || [],
       KEY
     );
+    const savedArtifacts = await inventoryPersistenceArtifacts(page);
     const savedRow = savedRows[0];
     check(
       savedRows.length === 1 &&
@@ -238,9 +243,10 @@ async function main() {
         savedRow?.exerciseId === DAY_2_EXERCISE &&
         savedRow?.date === freshDate &&
         savedRow?.notes === "" &&
-        !Object.prototype.hasOwnProperty.call(savedRow, "bodyweight"),
+        !Object.prototype.hasOwnProperty.call(savedRow, "bodyweight") &&
+        savedArtifacts.keys.length === 0,
       "Saved Day-2 row uses fresh session context after confirmed discard",
-      { freshDate, savedRow, dialogs }
+      { freshDate, savedRow, dialogs, artifacts: savedArtifacts.keys }
     );
   } finally {
     await browser.close();

@@ -4,14 +4,15 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import {
+  clearPersistenceArtifacts,
+  inventoryPersistenceArtifacts,
+} from "./persistence-artifacts.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const PENDING = "repforge_pending_v1";
-const PENDING_PREFIX = `${PENDING}:`;
-const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
-const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -113,14 +114,11 @@ async function reloadApp(page) {
 }
 
 async function writeReplicas(page, { local, idb, clearDraft = true }) {
+  if (clearDraft) await clearPersistenceArtifacts(page);
   await page.evaluate(
     async ({
       key,
       draftKey,
-      pendingKey,
-      pendingPrefix,
-      draftPendingPrefix,
-      draftClosePrefix,
       dbName,
       storeName,
       local,
@@ -129,20 +127,7 @@ async function writeReplicas(page, { local, idb, clearDraft = true }) {
     }) => {
       if (local == null) localStorage.removeItem(key);
       else localStorage.setItem(key, JSON.stringify(local));
-      if (clearDraft) {
-        localStorage.removeItem(draftKey);
-        for (let i = localStorage.length - 1; i >= 0; i--) {
-          const storageKey = localStorage.key(i);
-          if (
-            storageKey === pendingKey ||
-            storageKey?.startsWith(pendingPrefix) ||
-            storageKey?.startsWith(draftPendingPrefix) ||
-            storageKey?.startsWith(draftClosePrefix)
-          ) {
-            localStorage.removeItem(storageKey);
-          }
-        }
-      }
+      if (clearDraft) localStorage.removeItem(draftKey);
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
@@ -162,10 +147,6 @@ async function writeReplicas(page, { local, idb, clearDraft = true }) {
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
-      pendingPrefix: PENDING_PREFIX,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      draftClosePrefix: DRAFT_CLOSE_PREFIX,
       dbName: DB,
       storeName: STORE,
       local,
@@ -179,8 +160,7 @@ async function writeReplicas(page, { local, idb, clearDraft = true }) {
     JSON.stringify(seeded.idb) !== JSON.stringify(idb) ||
     (clearDraft &&
       (seeded.draftRaw !== null ||
-        seeded.pendingEntries.length !== 0 ||
-        seeded.draftArtifacts.length !== 0))
+        seeded.persistenceArtifacts.length !== 0))
   ) {
     throw new Error(`isolated replica seed failed: ${JSON.stringify(summary(seeded))}`);
   }
@@ -210,16 +190,8 @@ async function writeIdb(page, value) {
 }
 
 async function readBoth(page) {
-  return page.evaluate(
-    async ({
-      key,
-      draftKey,
-      pendingKey,
-      draftPendingPrefix,
-      draftClosePrefix,
-      dbName,
-      storeName,
-    }) => {
+  const runtime = await page.evaluate(
+    async ({ key, draftKey, dbName, storeName }) => {
       const localRaw = localStorage.getItem(key);
       const local = localRaw == null ? null : JSON.parse(localRaw);
       const db = await new Promise((resolve, reject) => {
@@ -241,55 +213,39 @@ async function readBoth(page) {
       } catch {
         draft = { __invalid: true };
       }
-      const pendingItems = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const storageKey = localStorage.key(i);
-        if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
-          pendingItems.push({ key: storageKey, raw: localStorage.getItem(storageKey) });
-        }
-      }
-      pendingItems.sort((a, b) => a.key.localeCompare(b.key));
-      const pendingRaw = pendingItems.length ? pendingItems.map((item) => item.raw).join("\n") : null;
-      const parsedPending = pendingItems.map((item) => {
-        try {
-          return { key: item.key, value: JSON.parse(item.raw) };
-        } catch {
-          return { key: item.key, value: { __invalid: true } };
-        }
-      });
-      const pending = parsedPending.length === 1 ? parsedPending[0].value : parsedPending;
-      const draftArtifacts = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const storageKey = localStorage.key(i);
-        if (
-          storageKey?.startsWith(draftPendingPrefix) ||
-          storageKey?.startsWith(draftClosePrefix)
-        ) {
-          draftArtifacts.push(storageKey);
-        }
-      }
-      draftArtifacts.sort();
       return {
         local,
         idb,
         draftRaw,
         draft,
-        pendingRaw,
-        pending,
-        pendingEntries: parsedPending,
-        draftArtifacts,
       };
     },
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      draftClosePrefix: DRAFT_CLOSE_PREFIX,
       dbName: DB,
       storeName: STORE,
     }
   );
+  const artifacts = await inventoryPersistenceArtifacts(page);
+  const pendingRaw = artifacts.pendingEntries.length
+    ? artifacts.pendingEntries.map((entry) => entry.raw).join("\n")
+    : null;
+  const pending =
+    artifacts.pendingEntries.length === 1
+      ? artifacts.pendingEntries[0].value
+      : artifacts.pendingEntries;
+  return {
+    ...runtime,
+    pendingRaw,
+    pending,
+    pendingEntries: artifacts.pendingEntries,
+    draftPendingEntries: artifacts.draftPendingEntries,
+    closingMarkerEntries: artifacts.closingMarkerEntries,
+    draftArtifacts: artifacts.draftArtifacts.map((entry) => entry.key),
+    persistenceArtifactEntries: artifacts.entries,
+    persistenceArtifacts: artifacts.keys,
+  };
 }
 
 function summary(both) {
@@ -423,9 +379,9 @@ async function scenarioUnloadWithTwoPendingIntents(browser) {
       { replicas: summary(final), draft: final.draft }
     );
     check(
-      final.pendingRaw === null,
+      final.persistenceArtifacts.length === 0,
       "successful boot replay drains the pending intents",
-      { replicas: summary(final), pending: final.pending }
+      { replicas: summary(final), pending: final.pending, artifacts: final.persistenceArtifacts }
     );
   } finally {
     await context.close();
@@ -476,9 +432,9 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
       { beforeRevision, accepted, replicas: summary(oneSided) }
     );
     check(
-      oneSided.draftRaw === null && oneSided.pendingEntries.length === 0,
+      oneSided.draftRaw === null && oneSided.persistenceArtifacts.length === 0,
       "one-store Finish acceptance applies its draft receipt and clears only its record",
-      { accepted, replicas: summary(oneSided), pending: oneSided.pendingEntries }
+      { accepted, replicas: summary(oneSided), artifacts: oneSided.persistenceArtifacts }
     );
 
     await holdStorageLock(writer);
@@ -536,9 +492,9 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
         afterRecovery.idb?.settings?.hardRir === 5 &&
         afterRecovery.local?.log?.some((row) => row.session === session) &&
         afterRecovery.idb?.log?.some((row) => row.session === session) &&
-        afterRecovery.pendingRaw === null,
+        afterRecovery.persistenceArtifacts.length === 0,
       "boot replays and clears the unversioned journal left by an unloaded writer",
-      { replicas: summary(afterRecovery), session }
+      { replicas: summary(afterRecovery), session, artifacts: afterRecovery.persistenceArtifacts }
     );
   } finally {
     await context.close();
@@ -762,21 +718,13 @@ async function scenarioDoubleBlockCompletion(browser) {
     const acceptedCount = [firstResult, secondResult].filter(
       (result) => result?.localOk || result?.idbOk
     ).length;
-    const pendingAfter = await locker.evaluate(
-      ({ pendingKey, v2Key }) => {
-        const keys = [];
-        for (let i = 0; i < localStorage.length; i++) {
-          const key = localStorage.key(i);
-          if (key === pendingKey || key?.startsWith(`${pendingKey}:`)) keys.push(key);
-        }
-        return {
-          legacyRaw: localStorage.getItem(pendingKey),
-          v2Raw: localStorage.getItem(v2Key),
-          keys: keys.sort(),
-        };
-      },
-      { pendingKey: PENDING, v2Key: survivors.v2Key }
-    );
+    const artifactsAfter = await inventoryPersistenceArtifacts(locker);
+    const pendingAfter = {
+      legacyRaw: artifactsAfter.entries.find((entry) => entry.key === PENDING)?.raw ?? null,
+      v2Raw:
+        artifactsAfter.entries.find((entry) => entry.key === survivors.v2Key)?.raw ?? null,
+      keys: artifactsAfter.keys,
+    };
 
     check(
       firstResult?.localOk || firstResult?.idbOk,
@@ -875,7 +823,7 @@ async function scenarioAcceptedCleanupOverlappingBoot(browser) {
         final.idb?._storageRevision === beforeRevision + 1 &&
         final.local?.settings?.jumpPct === 3.75 &&
         final.idb?.settings?.jumpPct === 3.75 &&
-        final.pendingRaw === null,
+        final.persistenceArtifacts.length === 0,
       "a boot queued behind an accepted writer cannot replay that writer's intent",
       {
         beforeRevision,
@@ -883,6 +831,7 @@ async function scenarioAcceptedCleanupOverlappingBoot(browser) {
         overlap: summary(overlap),
         final: summary(final),
         pending: final.pending,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {
@@ -975,13 +924,13 @@ async function scenarioReplayReturnsAcceptedHeadBeforeFailedTail(browser) {
         minJump: Number(document.querySelector("#minJump")?.value),
       };
     });
-    const pendingAfter = await booting.evaluate(
-      ({ firstKey, secondKey }) => ({
-        first: localStorage.getItem(firstKey),
-        second: localStorage.getItem(secondKey),
-      }),
-      journals
-    );
+    const artifactsAfter = await inventoryPersistenceArtifacts(booting);
+    const pendingAfter = {
+      first: artifactsAfter.entries.find((entry) => entry.key === journals.firstKey)?.raw ?? null,
+      second:
+        artifactsAfter.entries.find((entry) => entry.key === journals.secondKey)?.raw ?? null,
+      keys: artifactsAfter.keys,
+    };
 
     check(
       final.local?._storageRevision === baseRevision + 1 &&
@@ -993,7 +942,9 @@ async function scenarioReplayReturnsAcceptedHeadBeforeFailedTail(browser) {
         live.jumpPct === 3.75 &&
         live.minJump === base.settings.minJump &&
         pendingAfter.first === null &&
-        pendingAfter.second !== null,
+        pendingAfter.second !== null &&
+        pendingAfter.keys.length === 1 &&
+        pendingAfter.keys[0] === journals.secondKey,
       "ordered replay returns the accepted head and retains the totally failed tail",
       {
         baseRevision,
@@ -1002,6 +953,7 @@ async function scenarioReplayReturnsAcceptedHeadBeforeFailedTail(browser) {
         pendingAfter: {
           firstPresent: pendingAfter.first !== null,
           secondPresent: pendingAfter.second !== null,
+          keys: pendingAfter.keys,
         },
       }
     );
@@ -1071,9 +1023,13 @@ async function scenarioBootReplayFinishClearsCapturedDraft(browser) {
       { replicas: summary(replayed), localSessions: [...localSessions], idbSessions: [...idbSessions] }
     );
     check(
-      replayed.draftRaw === null && replayed.pendingEntries.length === 0,
+      replayed.draftRaw === null && replayed.persistenceArtifacts.length === 0,
       "boot replay clears the exact captured draft and its accepted record",
-      { replicas: summary(replayed), pending: replayed.pendingEntries, draft: replayed.draftRaw }
+      {
+        replicas: summary(replayed),
+        artifacts: replayed.persistenceArtifacts,
+        draft: replayed.draftRaw,
+      }
     );
 
     await enterWorkout(recovered);
@@ -1087,12 +1043,13 @@ async function scenarioBootReplayFinishClearsCapturedDraft(browser) {
         idbSessionsAfter.size === 1 &&
         localSessionsAfter.has(savedSession) &&
         idbSessionsAfter.has(savedSession) &&
-        afterNormalFinish.pendingEntries.length === 0,
+        afterNormalFinish.persistenceArtifacts.length === 0,
       "the normal Finish flow cannot save the replayed session again",
       {
         replicas: summary(afterNormalFinish),
         localSessions: [...localSessionsAfter],
         idbSessions: [...idbSessionsAfter],
+        artifacts: afterNormalFinish.persistenceArtifacts,
       }
     );
   } finally {
@@ -1158,9 +1115,9 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
       (finishResult?.localOk || finishResult?.idbOk) &&
         final.local?.log?.length === 1 &&
         final.idb?.log?.length === 1 &&
-        final.pendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "precondition: the captured Finish is accepted and only its record is cleaned",
-      { finishResult, replicas: summary(final), pending: final.pendingEntries }
+      { finishResult, replicas: summary(final), artifacts: final.persistenceArtifacts }
     );
     check(
       final.draftRaw === newerDraftRaw,
@@ -1239,11 +1196,12 @@ async function scenarioTotalFinishFailureIsDurablyRejected(browser) {
       { result, replicas: summary(failed) }
     );
     check(
-      failed.pendingEntries.length === 0 && failed.draftRaw === capturedDraftRaw,
+      failed.persistenceArtifacts.length === 0 && failed.draftRaw === capturedDraftRaw,
       "total failure drains the rejected Finish intent and preserves the exact draft",
       {
         pendingCount: failed.pendingEntries.length,
         draftMatches: failed.draftRaw === capturedDraftRaw,
+        artifacts: failed.persistenceArtifacts,
       }
     );
     await reloadApp(page);
@@ -1251,10 +1209,14 @@ async function scenarioTotalFinishFailureIsDurablyRejected(browser) {
     check(
       (reloaded.local?.log?.length ?? 0) === 0 &&
         (reloaded.idb?.log?.length ?? 0) === 0 &&
-        reloaded.pendingEntries.length === 0 &&
+        reloaded.persistenceArtifacts.length === 0 &&
         reloaded.draftRaw === capturedDraftRaw,
       "a Finish reported as rejected cannot commit on boot",
-      { replicas: summary(reloaded), draftMatches: reloaded.draftRaw === capturedDraftRaw }
+      {
+        replicas: summary(reloaded),
+        draftMatches: reloaded.draftRaw === capturedDraftRaw,
+        artifacts: reloaded.persistenceArtifacts,
+      }
     );
   } finally {
     await context.close();
@@ -1316,9 +1278,9 @@ async function scenarioLegacyNoEffectAndMalformedRequiredEffect(browser) {
         final.idb?.settings?.jumpPct === 3.75 &&
         final.local?.settings?.minJump === 2.5 &&
         final.idb?.settings?.minJump === 2.5 &&
-        final.pendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "legacy no-effect state replays while malformed required v2 state fails closed",
-      { replicas: summary(final), pending: final.pendingEntries, seeded }
+      { replicas: summary(final), artifacts: final.persistenceArtifacts, seeded }
     );
     check(
       final.draftRaw === seeded.draftRaw,
@@ -1416,15 +1378,13 @@ async function scenarioDeferredOnboardingCannotSupersedeRepeat(browser) {
       oldProgramId: window.__repforgePendingBlock()?.oldProgramId ?? null,
       onboardingActive: document.querySelector("#onboarding")?.classList.contains("active") === true,
     }));
-    const pendingAfter = await locker.evaluate(
-      ({ survivorKey }) => ({
-        survivorRaw: localStorage.getItem(survivorKey),
-        keys: Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
-          .filter((key) => key === "repforge_pending_v1" || key?.startsWith("repforge_pending_v1:"))
-          .sort(),
-      }),
-      recovery
-    );
+    const artifactsAfter = await inventoryPersistenceArtifacts(locker);
+    const pendingAfter = {
+      survivorRaw:
+        artifactsAfter.entries.find((entry) => entry.key === recovery.survivorKey)?.raw ??
+        null,
+      keys: artifactsAfter.keys,
+    };
     const staleJournalKeys = pendingAfter.keys.filter((key) => key !== recovery.survivorKey);
 
     check(
@@ -1525,7 +1485,7 @@ async function scenarioConcurrentWholeProgramReplacements(browser) {
         final.local?.program?.length === 18 &&
         final.idb?.program?.length === 18 &&
         new Set(semanticSlots).size === 18 &&
-        final.pendingEntries.length === 0,
+        final.persistenceArtifacts.length === 0,
       "only one same-base whole-program replacement commits",
       {
         firstResult,
@@ -1534,7 +1494,7 @@ async function scenarioConcurrentWholeProgramReplacements(browser) {
         localRows: final.local?.program?.length,
         idbRows: final.idb?.program?.length,
         semanticSlots: new Set(semanticSlots).size,
-        pending: final.pendingEntries,
+        artifacts: final.persistenceArtifacts,
       }
     );
   } finally {

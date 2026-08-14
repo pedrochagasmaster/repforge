@@ -4,12 +4,14 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import {
+  clearPersistenceArtifacts,
+  inventoryPersistenceArtifacts,
+} from "./persistence-artifacts.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
-const PENDING = "repforge_pending_v1";
-const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -243,17 +245,13 @@ async function ensureWorkoutOpen(page) {
 }
 
 async function seedScenario(page, draftRaw, state = fixture()) {
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await clearPersistenceArtifacts(page);
   await page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName, state, draftRaw }) => {
+    async ({ key, draftKey, dbName, storeName, state, draftRaw }) => {
       localStorage.setItem(key, JSON.stringify(state));
       if (draftRaw == null) localStorage.removeItem(draftKey);
       else localStorage.setItem(draftKey, draftRaw);
-      for (let index = localStorage.length - 1; index >= 0; index--) {
-        const storageKey = localStorage.key(index);
-        if (storageKey === pendingKey || storageKey?.startsWith(`${pendingKey}:`)) {
-          localStorage.removeItem(storageKey);
-        }
-      }
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
@@ -271,7 +269,6 @@ async function seedScenario(page, draftRaw, state = fixture()) {
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
       dbName: DB,
       storeName: STORE,
       state,
@@ -282,8 +279,8 @@ async function seedScenario(page, draftRaw, state = fixture()) {
 }
 
 async function readRuntime(page) {
-  return page.evaluate(
-    async ({ key, draftKey, pendingKey, dbName, storeName }) => {
+  const runtime = await page.evaluate(
+    async ({ key, draftKey, dbName, storeName }) => {
       const localRaw = localStorage.getItem(key);
       const local = localRaw == null ? null : JSON.parse(localRaw);
       const draftRaw = localStorage.getItem(draftKey);
@@ -300,24 +297,20 @@ async function readRuntime(page) {
         request.onerror = () => reject(request.error);
       });
       db.close();
-      const pendingEntries = [];
-      for (let index = 0; index < localStorage.length; index++) {
-        const storageKey = localStorage.key(index);
-        if (storageKey !== pendingKey && !storageKey?.startsWith(`${pendingKey}:`)) continue;
-        const raw = localStorage.getItem(storageKey);
-        let value;
-        try {
-          value = JSON.parse(raw);
-        } catch {
-          value = { __invalid: true };
-        }
-        pendingEntries.push({ key: storageKey, raw, value });
-      }
-      pendingEntries.sort((a, b) => a.key.localeCompare(b.key));
-      return { localRaw, local, idb, draftRaw, draft, pendingEntries };
+      return { localRaw, local, idb, draftRaw, draft };
     },
-    { key: KEY, draftKey: DRAFT, pendingKey: PENDING, dbName: DB, storeName: STORE }
+    { key: KEY, draftKey: DRAFT, dbName: DB, storeName: STORE }
   );
+  const artifacts = await inventoryPersistenceArtifacts(page);
+  return {
+    ...runtime,
+    pendingEntries: artifacts.pendingEntries,
+    draftPendingEntries: artifacts.draftPendingEntries,
+    closingMarkerEntries: artifacts.closingMarkerEntries,
+    draftArtifacts: artifacts.draftArtifacts.map((entry) => entry.key),
+    persistenceArtifactEntries: artifacts.entries,
+    persistenceArtifacts: artifacts.keys,
+  };
 }
 
 async function openProgramEditor(page) {
@@ -401,41 +394,42 @@ async function waitForNoPendingStorageLock(page) {
   );
 }
 
+async function waitForRaceDraft(page, load, timeout = 10000) {
+  const expectedLoad = String(load);
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    const [canonicalRaw, artifacts] = await Promise.all([
+      page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT),
+      inventoryPersistenceArtifacts(page),
+    ]);
+    const raws = [
+      canonicalRaw,
+      ...artifacts.draftSidecarEntries.map((entry) => entry.value?.raw ?? null),
+    ];
+    const found = raws.some((raw) => {
+      try {
+        const candidate = JSON.parse(raw || "null");
+        return (
+          candidate?.__day === "Day 1" &&
+          candidate?.[`${SET_KEY}_load`] === expectedLoad &&
+          candidate?.__touched?.includes(SET_KEY)
+        );
+      } catch {
+        return false;
+      }
+    });
+    if (found) return;
+    await page.waitForTimeout(25);
+  }
+  throw new Error(`timed out waiting for race draft load ${expectedLoad}`);
+}
+
 async function fillRaceWorkout(page, load) {
   await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
   await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).fill(String(load));
   await page.locator(`[data-k="${EXERCISE_ID}_1_reps"]`).fill("8");
   await page.locator(`[data-k="${EXERCISE_ID}_1_rir"]`).fill("1");
-  await page.waitForFunction(
-    ({ draftKey, pendingPrefix, setKey, expectedLoad }) => {
-      const raws = [localStorage.getItem(draftKey)];
-      for (let index = 0; index < localStorage.length; index++) {
-        const key = localStorage.key(index);
-        if (!key?.startsWith(pendingPrefix)) continue;
-        try {
-          raws.push(JSON.parse(localStorage.getItem(key))?.raw ?? null);
-        } catch {}
-      }
-      return raws.some((raw) => {
-        try {
-          const draft = JSON.parse(raw || "null");
-          return (
-            draft?.__day === "Day 1" &&
-            draft?.[`${setKey}_load`] === expectedLoad &&
-            draft?.__touched?.includes(setKey)
-          );
-        } catch {
-          return false;
-        }
-      });
-    },
-    {
-      draftKey: DRAFT,
-      pendingPrefix: DRAFT_PENDING_PREFIX,
-      setKey: SET_KEY,
-      expectedLoad: String(load),
-    }
-  );
+  await waitForRaceDraft(page, load);
 }
 
 async function runAcceptedRename(browser) {
@@ -494,9 +488,9 @@ async function runAcceptedRename(browser) {
       }
     );
     check(
-      accepted.pendingEntries.length === 0,
+      accepted.persistenceArtifacts.length === 0,
       "accepted rename drains its single pending journal",
-      accepted.pendingEntries
+      accepted.persistenceArtifacts
     );
     check(
       !stateHasEffectMetadata(accepted.local) && !stateHasEffectMetadata(accepted.idb),
@@ -558,13 +552,14 @@ async function runAcceptedRename(browser) {
       afterNoops.localRaw === beforeNoops.localRaw &&
         JSON.stringify(afterNoops.idb) === JSON.stringify(beforeNoops.idb) &&
         afterNoops.draftRaw === beforeNoops.draftRaw &&
-        afterNoops.pendingEntries.length === 0,
+        afterNoops.persistenceArtifacts.length === 0,
       "duplicate and blank day renames are persistence no-ops",
       {
         localChanged: afterNoops.localRaw !== beforeNoops.localRaw,
         idbChanged: JSON.stringify(afterNoops.idb) !== JSON.stringify(beforeNoops.idb),
         draftChanged: afterNoops.draftRaw !== beforeNoops.draftRaw,
         pendingCount: afterNoops.pendingEntries.length,
+        artifacts: afterNoops.persistenceArtifacts,
       }
     );
   } finally {
@@ -642,9 +637,9 @@ async function runTotalFailure(browser) {
       ui
     );
     check(
-      failed.pendingEntries.length === 0,
+      failed.persistenceArtifacts.length === 0,
       "total failure drains the rejected compare-and-replace intent",
-      failed.pendingEntries.map((entry) => ({ key: entry.key, effect: entry.value?.effect }))
+      failed.persistenceArtifacts
     );
     check(
       !stateHasEffectMetadata(failed.local) && !stateHasEffectMetadata(failed.idb),
@@ -660,12 +655,13 @@ async function runTotalFailure(browser) {
     check(
       replayed.localRaw === before.localRaw &&
         JSON.stringify(replayed.idb) === JSON.stringify(before.idb) &&
-        replayed.pendingEntries.length === 0,
+        replayed.persistenceArtifacts.length === 0,
       "boot cannot commit a rename that was reported as rejected",
       {
         localRevision: replayed.local?._storageRevision,
         idbRevision: replayed.idb?._storageRevision,
         pendingCount: replayed.pendingEntries.length,
+        artifacts: replayed.persistenceArtifacts,
       }
     );
     check(
@@ -754,9 +750,9 @@ async function runNewerDraftRace(browser) {
       }
     );
     check(
-      accepted.pendingEntries.length === 0,
+      accepted.persistenceArtifacts.length === 0,
       "accepted rename drains its journal even when the draft compare fails",
-      accepted.pendingEntries
+      accepted.persistenceArtifacts
     );
     check(
       !stateHasEffectMetadata(accepted.local) && !stateHasEffectMetadata(accepted.idb),
@@ -815,9 +811,9 @@ async function runSameDayDraftConflict(browser) {
       }
     );
     check(
-      final.pendingEntries.length === 0,
+      final.persistenceArtifacts.length === 0,
       "same-day draft conflict clears only the stale rename journal",
-      final.pendingEntries
+      final.persistenceArtifacts
     );
     check(
       /retry|try again/i.test(toastText),
@@ -880,9 +876,9 @@ async function runBootSameDayDraftConflict(browser) {
       }
     );
     check(
-      replayed.pendingEntries.length === 0,
+      replayed.persistenceArtifacts.length === 0,
       "boot conflict drains only the stale retained rename journal",
-      replayed.pendingEntries
+      replayed.persistenceArtifacts
     );
     check(/try again/i.test(toastText), "boot conflict shows localized retry guidance", toastText);
   } finally {
@@ -936,9 +932,9 @@ async function runAbsentDraftConflict(browser) {
       }
     );
     check(
-      final.pendingEntries.length === 0,
+      final.persistenceArtifacts.length === 0,
       "absent-draft conflict drains only the stale rename journal",
-      final.pendingEntries
+      final.persistenceArtifacts
     );
   } finally {
     await context.close();
@@ -999,9 +995,9 @@ async function runBootAbsentDraftConflict(browser) {
       }
     );
     check(
-      replayed.pendingEntries.length === 0,
+      replayed.persistenceArtifacts.length === 0,
       "boot absent-draft conflict drains only the stale rename journal",
-      replayed.pendingEntries
+      replayed.persistenceArtifacts
     );
   } finally {
     await context.close();
@@ -1165,7 +1161,11 @@ async function runRenameThenWorkoutRace(browser) {
       "rename-first aligned workout remains eligible for weekly adherence",
       weekly
     );
-    check(final.pendingEntries.length === 0, "both rename-first journals drain exactly", final.pendingEntries);
+    check(
+      final.persistenceArtifacts.length === 0,
+      "both rename-first journals drain exactly",
+      final.persistenceArtifacts
+    );
   } finally {
     await context.close();
   }

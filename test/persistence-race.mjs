@@ -1,14 +1,15 @@
 #!/usr/bin/env node
 /** Deterministic repro for an accepted workout racing an ordinary Settings persist. */
 import { launchChromium } from "./browser.mjs";
+import {
+  clearPersistenceArtifacts,
+  inventoryPersistenceArtifacts,
+} from "./persistence-artifacts.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
-const PENDING = "repforge_pending_v1";
-const PENDING_PREFIX = `${PENDING}:`;
-const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
-const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
+const PENDING_PREFIX = "repforge_pending_v1:";
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -117,31 +118,17 @@ async function flushStorage(page) {
 
 async function putBoth(page, snapshot) {
   await flushStorage(page);
+  await clearPersistenceArtifacts(page);
   await page.evaluate(
     async ({
       key,
       draftKey,
-      pendingKey,
-      pendingPrefix,
-      draftPendingPrefix,
-      draftClosePrefix,
       dbName,
       storeName,
       snapshot,
     }) => {
       localStorage.setItem(key, JSON.stringify(snapshot));
       localStorage.removeItem(draftKey);
-      for (let index = localStorage.length - 1; index >= 0; index--) {
-        const storageKey = localStorage.key(index);
-        if (
-          storageKey === pendingKey ||
-          storageKey?.startsWith(pendingPrefix) ||
-          storageKey?.startsWith(draftPendingPrefix) ||
-          storageKey?.startsWith(draftClosePrefix)
-        ) {
-          localStorage.removeItem(storageKey);
-        }
-      }
       const db = await new Promise((resolve, reject) => {
         const req = indexedDB.open(dbName, 1);
         req.onupgradeneeded = () => req.result.createObjectStore(storeName);
@@ -159,53 +146,23 @@ async function putBoth(page, snapshot) {
     {
       key: KEY,
       draftKey: DRAFT,
-      pendingKey: PENDING,
-      pendingPrefix: PENDING_PREFIX,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      draftClosePrefix: DRAFT_CLOSE_PREFIX,
       dbName: DB,
       storeName: STORE,
       snapshot,
     }
   );
   const seeded = await readBoth(page);
-  const artifacts = await persistenceArtifactKeys(page);
+  const artifacts = await inventoryPersistenceArtifacts(page);
   if (
     JSON.stringify(seeded.local) !== JSON.stringify(snapshot) ||
     JSON.stringify(seeded.idb) !== JSON.stringify(snapshot) ||
     seeded.draft !== null ||
-    artifacts.length !== 0
+    artifacts.keys.length !== 0
   ) {
     throw new Error(
       `persistence-race baseline seed failed: ${JSON.stringify({ seeded, artifacts })}`
     );
   }
-}
-
-async function persistenceArtifactKeys(page) {
-  return page.evaluate(
-    ({ pendingKey, pendingPrefix, draftPendingPrefix, draftClosePrefix }) => {
-      const keys = [];
-      for (let index = 0; index < localStorage.length; index++) {
-        const storageKey = localStorage.key(index);
-        if (
-          storageKey === pendingKey ||
-          storageKey?.startsWith(pendingPrefix) ||
-          storageKey?.startsWith(draftPendingPrefix) ||
-          storageKey?.startsWith(draftClosePrefix)
-        ) {
-          keys.push(storageKey);
-        }
-      }
-      return keys.sort();
-    },
-    {
-      pendingKey: PENDING,
-      pendingPrefix: PENDING_PREFIX,
-      draftPendingPrefix: DRAFT_PENDING_PREFIX,
-      draftClosePrefix: DRAFT_CLOSE_PREFIX,
-    }
-  );
 }
 
 async function readBoth(page) {
@@ -548,14 +505,14 @@ try {
         toast: document.querySelector("#toast")?.textContent || "",
         health: window.__repforgeStorage.health(),
       }));
-      const ordinaryArtifacts = await persistenceArtifactKeys(writer);
+      const ordinaryArtifacts = await inventoryPersistenceArtifacts(writer);
       check(
         ordinary.local?.settings?.jumpPct === 2.5 &&
           ordinary.idb?.settings?.jumpPct === 2.5 &&
           ordinaryUi.jumpPct === 2.5 &&
           !/settings saved/i.test(ordinaryUi.toast) &&
           ordinaryUi.health.lastResult?.journalFailed === true &&
-          ordinaryArtifacts.length === 0,
+          ordinaryArtifacts.keys.length === 0,
         "ordinary mutation fails before optimistic state when its journal cannot be written",
         { ordinaryUi, ordinaryArtifacts }
       );
@@ -571,7 +528,7 @@ try {
         toast: document.querySelector("#toast")?.textContent || "",
         health: window.__repforgeStorage.health(),
       }));
-      const requiredArtifacts = await persistenceArtifactKeys(writer);
+      const requiredArtifacts = await inventoryPersistenceArtifacts(writer);
       check(
         requiredResult?.journalFailed === true &&
           requiredResult?.localOk === false &&
@@ -581,7 +538,7 @@ try {
           !/newer unfinished workout/i.test(requiredUi.toast) &&
           required.local?.programMeta?.id === baseline.programMeta.id &&
           required.idb?.programMeta?.id === baseline.programMeta.id &&
-          requiredArtifacts.length === 0,
+          requiredArtifacts.keys.length === 0,
         "required-effect mutation also fails closed without an unload journal",
         { requiredResult, requiredUi, requiredArtifacts }
       );

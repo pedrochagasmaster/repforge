@@ -58,6 +58,11 @@ jobs:
       - name: i18n parity
         run: node test/i18n.mjs
 
+      - name: Persistence artifact helper self-test
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/persistence-artifacts.mjs --self-test
+
       - name: Persistence
         env:
           REPFORGE_URL: http://localhost:8000/
