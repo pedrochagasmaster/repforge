@@ -863,9 +863,9 @@ async function main() {
       marked: ledger.classList.contains("is-scrollable"),
     };
   });
-  assert(grip.card === "pan-y pinch-zoom" && grip.ledger === (grip.scrolls ? "pan-y pinch-zoom" : "pinch-zoom") &&
+  assert(grip.card === "pan-y" && grip.ledger === (grip.scrolls ? "pan-y" : "none") &&
     grip.scrolls === grip.marked,
-    "the ledger only takes vertical gestures when it has something to scroll, and pinch zoom stays available",
+    "the ledger only takes vertical gestures when it has something to scroll, and no gesture zooms",
     JSON.stringify(grip));
   // Drag from three heights: header, middle of the ledger, and the well.
   for (const [where, frac] of [["header", 0.08], ["ledger", 0.45], ["well", 0.86]]) {
