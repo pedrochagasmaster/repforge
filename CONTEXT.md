@@ -1,6 +1,6 @@
-# RepForge
+# Taurifer
 
-RepForge is a local-only progressive-overload tracker. Training data lives on the device; the app helps lifters log sets, follow a program template, and see whether they are progressing.
+Taurifer (formerly RepForge; internal storage keys and globals keep the `repforge` codename) is a local-only progressive-overload tracker. Training data lives on the device; the app helps lifters log sets, follow a program template, and see whether they are progressing.
 
 ## Language
 
