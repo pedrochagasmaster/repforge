@@ -1044,6 +1044,9 @@ function canTakeFocus(el){
     if(st.display==="none"||st.visibility==="hidden")return false}
   return true}
 function resolveReturnFocus(target){
+  // A callback lets a caller name its return target before the view that owns it
+  // has rendered, which is how boot-time dialogs reach a Today control.
+  if(typeof target==="function")target=target();
   if(typeof target==="string")target=$(target);
   if(!(target instanceof Element)||!target.isConnected)return null;
   if(canTakeFocus(target))return target;
@@ -1331,7 +1334,7 @@ const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
 function resetDraftSessionState(){
   clearUnfinishedWatch();
-  lastCommitAt=0;
+  lastCommitAt=0;sessionStartedAt=0;
   committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
   const el=$("#unfinishedBanner");
@@ -1622,6 +1625,9 @@ function generateProgramFromOnboarding(answers){
 
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
+// restPaused holds the milliseconds left while the clock is held (null while it
+// runs); restLength is the length the current or next rest is armed at.
+let restPaused=null,restLength=0;
 function announceRestDone(){
   if(restAnnounced)return;
   restAnnounced=true;
@@ -1630,6 +1636,10 @@ function announceRestDone(){
   requestAnimationFrame(()=>requestAnimationFrame(()=>{el.textContent=t("rest.complete")}))}
 let unfinishedTimer=null;
 let lastCommitAt=0;             // module-level; hydrated from draft at boot
+// When the first set of the open session landed. Only ever used to tell the
+// lifter how long the session ran, so a resumed draft keeps the original stamp
+// and a session that spans a reload still reads as one stretch of work.
+let sessionStartedAt=0;         // module-level; hydrated from draft at boot
 const UNFINISHED_MS=15*60*1000;
 
 function clearUnfinishedWatch(){
@@ -1700,6 +1710,7 @@ function contextFlagsFromDraft(d){
   return {day:!!flags.day,date:!!flags.date,sessionNotes:!!flags.sessionNotes,bodyweight:!!flags.bodyweight}}
 function hydrateDraftCollections(d){
   const known=knownExerciseIds();
+  sessionStartedAt=+d.__startedAt||0;
   committed.clear();retainSetKeys(d.__done,known).forEach(k=>committed.add(k));
   touched.clear();retainSetKeys(d.__touched,known).forEach(k=>touched.add(k));
   warmups.clear();retainSetKeys(d.__warm,known).forEach(k=>warmups.add(k));
@@ -2641,16 +2652,20 @@ function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math
  *  workout header for Focus — where it must never sit over a control.
  *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
 function paintRest(text,done,over=0){
+  paintRestSheet();
   const b=$("#restBar");
   if(b){const el=b.querySelector(".restbar__time");if(el)el.textContent=text;
     b.classList.toggle("is-done",!!done);
-    b.classList.toggle("is-over",over>0)}
+    b.classList.toggle("is-over",over>0);
+    b.classList.toggle("is-paused",restPaused!=null)}
   const chip=$("#woRest");if(!chip)return;
   const el=chip.querySelector(".wo-rest__time");if(el)el.textContent=text;
   chip.classList.toggle("is-done",!!done);
   chip.classList.toggle("is-over",over>0);
+  chip.classList.toggle("is-paused",restPaused!=null);
   const running=chip.classList.contains("is-running");
   if(!running)chip.setAttribute("aria-label",t("focus.rest.start_aria"));
+  else if(restPaused!=null)chip.setAttribute("aria-label",t("focus.rest.paused_aria",{time:text}));
   else if(over>0)chip.setAttribute("aria-label",t("focus.rest.over_aria",{time:fmtClock(over)}));
   else chip.setAttribute("aria-label",t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text}))}
 /** Show or hide the header chip, and keep the floating bar out of Focus. */
@@ -2673,10 +2688,10 @@ function updateRestChrome(){
       const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
       if(!restEnd){chip.classList.remove("is-done","is-over");
         chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
-    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over")}
+    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over","is-paused")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
-function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restAnnounced=false;
+function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
   $("#restBar")?.classList.add("hidden");paintRest("—",false);
   updateRestChrome();
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
@@ -2685,7 +2700,13 @@ function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0
  *  says how long the set has been waiting. It stops climbing after an hour —
  *  by then the number has stopped meaning anything. */
 const REST_OVERTIME_MAX=60*60;
-function restOvertimeSec(){return restEnd?Math.round((Date.now()-restEnd)/1000):0}
+/** Milliseconds left on the clock: frozen while held, and negative once the
+ *  rest has run past the bell. Idle, it reads as the length the next rest
+ *  would run for — which is what the sheet shows before anything is armed. */
+function restLeftMs(){
+  if(restPaused!=null)return restPaused;
+  return restEnd?restEnd-Date.now():restPlanSec()*1000}
+function restOvertimeSec(){return restEnd?Math.round(-restLeftMs()/1000):0}
 /** One-shot side effects at zero: the live-region line, buzz, or OS notice. */
 function ringRest(){
   announceRestDone();
@@ -2694,14 +2715,24 @@ function ringRest(){
   if(!window.RepForgeNotify||!RepForgeNotify.enabledFor(state.settings,"timer"))return;
   if(document.visibilityState==="visible")navigator.vibrate?.([200,100,200]);
   else RepForgeNotify.fireOS({title:t("notify.title"),body:t("notify.rest.body"),tag:"repforge-rest",url:"./index.html"})}
-function tickRest(){const left=Math.round((restEnd-Date.now())/1000);
+function tickRest(){const left=Math.round(restLeftMs()/1000);
   if(left>0){paintRest(fmtClock(left),false);return}
   const over=Math.min(-left,REST_OVERTIME_MAX);
   paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over);
   if(over>=REST_OVERTIME_MAX&&restTick){clearInterval(restTick);restTick=null}
   ringRest()}
 function armRestTick(){clearInterval(restTick);restTick=setInterval(tickRest,250)}
-function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
+/** Repaint every rest surface from the clock as it stands, without waiting for
+ *  the next tick — a held clock has no tick, and a nudged one should read the
+ *  new number the moment the button is released. */
+function syncRest(){
+  if(!restEnd){paintRest("—",false);updateRestChrome();return}
+  const left=Math.round(restLeftMs()/1000);
+  if(left>0)paintRest(fmtClock(left),false);
+  else{const over=Math.min(-left,REST_OVERTIME_MAX);paintRest(over>0?`-${fmtClock(over)}`:"0:00",true,over)}
+  updateRestChrome()}
+function startRest(sec){const s=sec||restPlanSec();if(s<=0)return;
+  restLength=s;restPaused=null;
   restEnd=Date.now()+s*1000;restNotified=false;restAnnounced=false;if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
   const ra=$("#restAnnounce");if(ra)ra.textContent="";
   $("#restBar")?.classList.remove("hidden");updateRestChrome();paintRest(fmtClock(s),false);
@@ -2709,13 +2740,122 @@ function startRest(sec){const s=sec||+state.settings.restSec||0;if(s<=0)return;
 window.__repforgeRest={
   expire(){
     if(!restEnd)return false;
-    restEnd=Date.now()-1;
+    restEnd=Date.now()-1;restPaused=null;
     if(restTick){clearInterval(restTick);restTick=null}
     return true}};
+
+/* ---- Rest timer sheet ---- */
+/* Tapping a running clock used to end the rest — the one thing a lifter with a
+   bar still in hand never means by it. The clock opens this sheet instead, and
+   every edit to the rest lives here: hold it, nudge it 30s either way, restart
+   it at another length, or end it deliberately. */
+const REST_PRESETS=[60,90,180,300];
+const REST_NUDGE=30;
+const REST_MIN_SEC=15,REST_MAX_SEC=60*60;
+let restSheetReturn=null;
+/** The length this rest was armed at — the ring's full turn, and the length the
+ *  next one starts at until Settings changes the default again. */
+function restPlanSec(){
+  if(restLength>0)return restLength;
+  return normalizeRestSec(state?.settings?.restSec)}
+const clampRestSec=s=>Math.min(REST_MAX_SEC,Math.max(REST_MIN_SEC,Math.round(s)||0));
+function restPresetSecs(){
+  const secs=new Set(REST_PRESETS);
+  const dflt=normalizeRestSec(state?.settings?.restSec);
+  if(dflt>0)secs.add(dflt);
+  return [...secs].sort((a,b)=>a-b)}
+function renderRestPresets(){
+  const host=$("#restPresets");if(!host)return;
+  host.innerHTML=restPresetSecs().map(s=>
+    `<button type="button" class="restpreset" data-restpreset="${s}" aria-pressed="false" aria-label="${esc(t("rest.sheet.preset_aria",{time:fmtClock(s)}))}">${esc(fmtClock(s))}</button>`).join("");
+  $$("#restPresets [data-restpreset]").forEach(b=>{b.onclick=()=>setRestLength(+b.dataset.restpreset)})}
+/** The dial reads remaining-over-armed, so a rest nudged longer keeps a ring
+ *  that still means something. */
+function paintRestSheet(){
+  const sheet=$("#restSheet");if(!sheet||sheet.hidden)return;
+  const left=Math.round(restLeftMs()/1000);
+  const over=left<0?Math.min(-left,REST_OVERTIME_MAX):0;
+  const clock=$("#restSheetClock");
+  if(clock)clock.textContent=over>0?`-${fmtClock(over)}`:fmtClock(Math.max(0,left));
+  const arc=$("#restDialArc");
+  if(arc){
+    const c=2*Math.PI*(Number(arc.getAttribute("r"))||0);
+    const frac=Math.max(0,Math.min(1,left/Math.max(1,restPlanSec())));
+    arc.style.strokeDasharray=String(c);
+    arc.style.strokeDashoffset=String(c*(1-frac))}
+  const running=!!restEnd&&restPaused==null;
+  sheet.classList.toggle("is-idle",!restEnd);
+  sheet.classList.toggle("is-paused",restPaused!=null);
+  sheet.classList.toggle("is-over",over>0);
+  const play=$("#restPlayPause");
+  if(play)play.setAttribute("aria-label",t(running?"rest.sheet.pause_aria":restEnd?"rest.sheet.resume_aria":"rest.sheet.start_aria"));
+  const armed=restPlanSec();
+  $$("#restPresets [data-restpreset]").forEach(b=>{
+    const on=+b.dataset.restpreset===armed;
+    b.classList.toggle("is-active",on);
+    b.setAttribute("aria-pressed",on?"true":"false")});
+  const reset=$("#restReset");if(reset)reset.disabled=!restEnd;
+  const stop=$("#restStop");if(stop)stop.disabled=!restEnd}
+function openRestSheet(){
+  const sheet=$("#restSheet"),scrim=$("#restSheetScrim");
+  if(!sheet)return;
+  restSheetReturn=document.activeElement;
+  renderRestPresets();
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#restPlayPause"),
+    returnFocus:restSheetReturn,
+    onEscape:closeRestSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  paintRestSheet();
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeRestSheet(){
+  const sheet=$("#restSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  restSheetReturn=null;
+  return closeModal(sheet)}
+/** Picking a length restarts the rest at it; idle, it only sets what the next
+ *  one will run for. */
+function setRestLength(sec){
+  const s=clampRestSec(sec);
+  restLength=s;
+  if(restEnd)startRest(s);
+  else syncRest();
+  paintRestSheet()}
+/** ±30s moves the clock, not the plan — except when the nudge pushes past the
+ *  length it was armed at, which becomes the new full turn of the ring. */
+function nudgeRest(delta){
+  if(!restEnd){setRestLength(restPlanSec()+delta);return}
+  const next=Math.min(REST_MAX_SEC*1000,Math.max(-REST_OVERTIME_MAX*1000,restLeftMs()+delta*1000));
+  if(restPaused!=null)restPaused=next;else restEnd=Date.now()+next;
+  const left=Math.ceil(next/1000);
+  if(left>restLength)restLength=Math.min(REST_MAX_SEC,left);
+  // Time added past the bell puts the rest back on the clock, so the line, the
+  // buzz and the OS notice all have to be able to fire again.
+  if(next>0){
+    restNotified=false;restAnnounced=false;
+    const ra=$("#restAnnounce");if(ra)ra.textContent="";
+    if(window.RepForgeNotify)RepForgeNotify.closeTag("repforge-rest");
+    if(restPaused==null&&!restTick)armRestTick()}
+  syncRest()}
+function toggleRestHold(){
+  if(!restEnd){startRest(restPlanSec());return}
+  if(restPaused!=null){
+    restEnd=Date.now()+restPaused;restPaused=null;
+    if(restOvertimeSec()<REST_OVERTIME_MAX)armRestTick()}
+  else{
+    restPaused=restEnd-Date.now();
+    if(restTick){clearInterval(restTick);restTick=null}}
+  syncRest()}
+function resetRest(){if(!restEnd)return;startRest(restPlanSec())}
+function endRestFromSheet(){stopRest();closeRestSheet()}
 /** Shared visibility handler — rest-timer catch-up + session banner. */
 function onAppVisible(){
   if(document.visibilityState!=="visible")return;
-  if(restEnd&&Date.now()>=restEnd){
+  if(restEnd&&restPaused==null&&Date.now()>=restEnd){
     // Background throttling freezes the tick; repaint from the clock, then let
     // the count-up carry on unless it has already run out its overtime.
     tickRest();
@@ -2942,6 +3082,51 @@ function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN
     return s?s.charAt(0).toUpperCase()+s.slice(1):s}
   catch{return iso}}
 function weekdayLetters(){return state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
+/** Sessions saved today, in the order they were logged. */
+function sessionsToday(){const iso=today(),by=new Map();
+  for(const r of state.log){if(String(r.date)!==iso)continue;
+    const k=String(r.session||iso);
+    let s=by.get(k);if(!s){s={session:k,day:r.day,rows:[]};by.set(k,s)}
+    s.rows.push(r)}
+  return [...by.values()]}
+/** What today already holds, or null when nothing is logged yet. Today swaps its
+ *  whole session block for this: a finished day is not one to start again. */
+function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)return null;
+  const iso=today(),work=sessions.flatMap(s=>s.rows).filter(isWork);
+  const doneDays=[...new Set(sessions.map(s=>s.day).filter(Boolean))];
+  // A lift's first appearance sets its bests without beating anything, so only
+  // events carrying a delta are records the lifter actually broke today.
+  const prLifts=new Set((week?.prs||[])
+    .filter(ev=>String(ev.date)===iso&&(ev.deltaLoad!=null||ev.deltaReps!=null||ev.deltaE1rm!=null))
+    .map(ev=>ev.exerciseId||ev.exerciseName));
+  return{sessions,days:doneDays,lastDay:sessions.at(-1).day||day,
+    muscles:[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
+    sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size}}
+/** The program day that follows `from`, or null when the split has only one. */
+function nextDayAfter(from){const ds=days();if(!ds.length)return null;
+  const i=ds.indexOf(from);if(i<0)return ds[0];
+  return ds.length>1?ds[(i+1)%ds.length]:null}
+/** The program day that follows the last one trained today. */
+function dayAfterTrainedToday(){const done=sessionsToday();
+  return nextDayAfter(done.length?done.at(-1).day:day)}
+function todayDoneHtml(recap){
+  return `<div class="today-done">`+
+    `<div class="today-session__name today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
+    `${esc(recap.days.join(" · ")||t("today.done_title"))}</div>`+
+    (recap.muscles.length?`<div class="today-session__muscles">${esc(recap.muscles.join(" · "))}</div>`:"")+
+    `<div class="today-session__meta">${esc(t("today.done_meta",{sets:recap.sets,setword:tp(recap.sets,"set"),vol:kfmt(toDisplay(recap.volume)),unit:unitLabel()}))}</div>`+
+    (recap.prs?`<p class="today-done__pr">${esc(recap.prs===1?t("today.done_pr_one"):t("today.done_prs",{n:recap.prs}))}</p>`:"")+
+    `<p class="today-done__note">${esc(t("today.done_note"))}</p></div>`}
+/** Whichever action Today is currently leading with — the start CTA, or the
+ *  recap's review action once the day's session is saved. */
+function todayPrimaryControl(){
+  for(const sel of["#startWorkout","#reviewTodaySession"]){const el=$(sel);if(el&&canTakeFocus(el))return el}
+  return $("#todayDash .page-title")}
+/** Today's recap hands off to History, opened on the session it describes. */
+function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
+  expandedSession=done.at(-1).session;histQuery="";
+  navTo("history");
+  $$("#sessions [data-sess]").find(el=>el.dataset.sess===expandedSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
 // The day's exercises, previewed on Today: sets × rep range per row, the rest
 // behind a "+N" disclosure. Tapping a row opens that exercise's page.
 function todayExListHtml(exs){if(!exs.length)return"";
@@ -2966,12 +3151,20 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`+
       (week.plannedDays?`<div class="today-prog__done">${esc(t("today.sessions_done",{done:week.completedDays,planned:week.plannedDays}))}</div>`:"")}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
-  const sess=$("#todaySession");if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
+  // A saved session means today is spent: Today recaps it instead of offering the
+  // day again. An unsaved draft still outranks it — that session is not over.
+  const inProgress=draftHasProgress(),recap=inProgress?null:todayRecap(week);
+  const sessLabel=$("#todaySessionLabel");if(sessLabel){const key=recap?"today.done_label":"today.session_label";
+    sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
+  const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
+  else if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
     sess.innerHTML=`<div class="today-session__name">${esc(day)}</div>`+
       (mus.length?`<div class="today-session__muscles">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
       (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
       todayExListHtml(exs)}
+    for(const[sel,shown]of[["#startWorkout",!recap],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+      const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
     const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
       if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}
@@ -2979,7 +3172,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
   const cta=$("#startWorkout")?.querySelector("span");
-  if(cta){const key=draftHasProgress()?"today.continue":"today.start";
+  if(cta){const key=inProgress?"today.continue":"today.start";
     cta.setAttribute("data-i18n",key);cta.textContent=t(key)}
   const weekEl=$("#todayWeek");if(weekEl){const w=week,{start}=weekRange(today()),letters=weekdayLetters();
     const trained=new Set(state.log.filter(r=>String(r.date)>=start&&String(r.date)<=today()).map(r=>String(r.date)));
@@ -2989,13 +3182,15 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
       return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
     weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
-  const up=$("#todayUpNext");if(up){const ds=days(),idx=Math.max(0,ds.indexOf(day)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(next)}</div>`+
         `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
       $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
     else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
-  const lastEl=$("#todayLast");if(lastEl){const dates=state.log.map(r=>String(r.date)).filter(Boolean).sort();
+  // The recap above already says today was trained; the footer would only echo it.
+  const lastEl=$("#todayLast");if(lastEl&&recap)lastEl.innerHTML="";
+  else if(lastEl){const dates=state.log.map(r=>String(r.date)).filter(Boolean).sort();
     if(dates.length){const lastD=dates.at(-1),n=Math.max(0,Math.round((new Date(`${today()}T12:00:00`)-new Date(`${lastD}T12:00:00`))/86400000));
       lastEl.innerHTML=`<span class="today-footer__icon" aria-hidden="true">⏱</span>${esc(n===0?t("today.last_trained_today"):n===1?t("today.last_trained_one"):t("today.last_trained",{n}))}`}
     else lastEl.innerHTML=""}
@@ -3447,6 +3642,8 @@ function saveDraft(opts){
   d.__skipped=[...skipped];d.__substituted=Object.fromEntries(substituted);
   if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
   else delete d.__lastCommitAt;
+  if(sessionStartedAt&&committed.size)d.__startedAt=sessionStartedAt;
+  else delete d.__startedAt;
   const hasWork=committed.size||touched.size||warmups.size||skipped.size||substituted.size
     ||contextTouched.day||contextTouched.date||contextTouched.sessionNotes||contextTouched.bodyweight
     ||d.__done.length||d.__touched.length||d.__warm.length||d.__skipped.length||Object.keys(d.__substituted).length;
@@ -3521,7 +3718,7 @@ function bindWorkout(){
     if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
       if(row.classList.contains("setrow"))b.setAttribute("aria-pressed",committed.has(key)?"true":"false");
       updateNextMarker(row.closest(".exercise"))}
-    if(committed.has(key)&&!editing)lastCommitAt=Date.now();
+    if(committed.has(key)&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt}
     if(editing)focusEdit=null;
     saveDraft();updateSaveMeta();
     const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
@@ -3662,6 +3859,85 @@ function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercise
     $("#fatigue .fatigue__trim").onclick=()=>applyFatigueTrim()}
   else el.className="fatigue hidden",el.innerHTML="";}
 
+/* ============================================================
+   The end of a session
+   The work is already in the log by the time any of this runs: nothing here
+   computes a judgement, it only reads back what the session actually did.
+   Every number is one the app already trusts elsewhere — the same PR rule as
+   the ledger, the same hard-set rule as the volume audit, the same week as
+   Today — so the summary can never disagree with the screen it sends you to.
+   ============================================================ */
+
+/** The strongest record one lift set, judged only against the log as it stood
+ *  before this session. A lift with no history sets none: the first session is
+ *  the baseline every later one is measured against, not a record over nothing.
+ *  Load beats reps beats e1RM, so a lift reports its best claim once. */
+function liftPR(mine,past){
+  if(!mine.length||!past.length)return null;
+  const bestLoad=Math.max(...past.map(x=>+x.load));
+  const bestReps=Math.max(0,...past.filter(x=>sameLoad(+x.load,bestLoad)).map(x=>+x.reps));
+  const bestE=Math.max(...past.map(x=>e1rm(+x.load,+x.reps)));
+  const top=Math.max(...mine.map(x=>+x.load));
+  if(top>bestLoad&&!sameLoad(top,bestLoad)){
+    const row=mine.filter(x=>sameLoad(+x.load,top)).sort((a,b)=>+b.reps-+a.reps)[0];
+    return{kind:"load",load:top,reps:+row.reps,delta:top-bestLoad}}
+  if(sameLoad(top,bestLoad)){
+    const reps=Math.max(...mine.filter(x=>sameLoad(+x.load,top)).map(x=>+x.reps));
+    if(reps>bestReps)return{kind:"reps",load:top,reps,delta:reps-bestReps}}
+  const best=mine.reduce((a,b)=>e1rm(+b.load,+b.reps)>e1rm(+a.load,+a.reps)?b:a);
+  const e=e1rm(+best.load,+best.reps);
+  if(e>bestE)return{kind:"e1rm",load:+best.load,reps:+best.reps,delta:e-bestE};
+  return null}
+
+/** One record line per lift that set one, strongest claim first. */
+function sessionPRs(rows,prevLog){
+  const past=new Map();
+  for(const x of workingRows(prevLog)){const k=liftKey(x);if(!past.has(k))past.set(k,[]);past.get(k).push(x)}
+  const mineBy=new Map();
+  for(const r of workingRows(rows)){const k=liftKey(r);if(!mineBy.has(k))mineBy.set(k,[]);mineBy.get(k).push(r)}
+  const out=[];
+  for(const[k,mine]of mineBy){
+    const pr=liftPR(mine,past.get(k)||[]);
+    if(pr)out.push({...pr,name:displayName(mine[0])})}
+  // Heaviest claim first: a load record outranks reps at the old load, which
+  // outranks an e1RM that no single set actually lifted.
+  const rank={load:0,reps:1,e1rm:2};
+  return out.sort((a,b)=>rank[a.kind]-rank[b.kind]||b.delta-a.delta||a.name.localeCompare(b.name))}
+
+/** Hard sets this session put into each muscle — the volume audit's counting
+ *  rule (direct 1, partial ½, RIR within the ceiling), scoped to one session. */
+function sessionMuscleWork(rows){
+  const hr=+state.settings.hardRir,m=new Map();
+  for(const x of rows){
+    if(!isWork(x)||!(+x.load>0&&+x.reps>0&&+x.rir<=hr))continue;
+    const mus=rowMuscles(x);
+    for(const p of muscles(mus.primary))addVol(m,p,1,0);
+    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  // Equal shares break toward the muscle that took the direct work: two sets
+  // trained head-on outrank two halves picked up as an assister.
+  return[...m].map(([name,v])=>({name,sets:v.d+v.p,direct:v.d})).filter(x=>x.sets>0)
+    .sort((a,b)=>b.sets-a.sets||b.direct-a.direct||a.name.localeCompare(b.name))}
+
+/** Everything the finished session earns the right to say about itself. */
+function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
+  const work=workingRows(rows);
+  const meso=mesocycleWeek(),week=weeklySnapshot(date);
+  const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  // A clock only earns a slot when it plausibly measured this session: a draft
+  // resumed the next morning would otherwise report a nine-hour workout.
+  const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
+  return{session,date,day:sessDay,
+    sets:rows.length,
+    volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),
+    lifts:new Set(work.map(liftKey)).size,
+    minutes:mins>=1&&mins<=480?mins:null,
+    prs:sessionPRs(rows,prevLog),
+    delta:sessionDeltaCounts(rows),
+    muscles:sessionMuscleWork(rows),
+    week:{done:week.completedDays,planned:week.plannedDays},
+    meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
+    next:next?{day:next,exercises:exercises(next).length}:null}}
+
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const done=[...committed].length;
   const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
@@ -3689,13 +3965,9 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
     if(bw>0)row.bodyweight=bw;
     rows.push(row)}}
   if(!rows.length){toast(t("toast.enter_weight_before_save"));return}
-  const prevLog=state.log,prLifts=[];
-  for(const ex of exercises()){if(skipped.has(ex.id))continue;
-    const mine=rows.filter(r=>r.exerciseId===ex.id&&!r.warmup);if(!mine.length)continue;
-    const newTop=Math.max(...mine.map(r=>+r.load));
-    const match=matchLift(ex);
-    const prevTop=Math.max(0,...prevLog.filter(x=>match(x)&&isWork(x)).map(r=>+r.load));
-    if(newTop>prevTop&&prevTop>0)prLifts.push(`${ex.name} ${fmtLoad(newTop)} ${unitLabel()}`)}
+  // The log as it stood before this session: what every record below is judged
+  // against. Copied, because committing replaces the live snapshot.
+  const prevLog=state.log.slice(),startedAt=sessionStartedAt;
   const rawDraft=DraftStore.readRaw();
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.concat(cloneSnapshot(rows));
@@ -3704,15 +3976,183 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   if(!(result.localOk||result.idbOk))return result;
   resetDraftSessionState();
   resetSessionContextFields();
+  // Nothing left to rest for. Left running, the clock would count down behind
+  // the summary and ring for a set that is never coming.
+  stopRest();
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
-  const delta=sessionDeltaCounts(rows),deltaTxt=formatDeltaCounts(delta,{sep:", "});
-  let msg=t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")});
-  if(prLifts.length)msg+=` ${t("toast.workout_pr",{items:prLifts.join(", ")})}`;
-  if(deltaTxt)msg+=` ${deltaTxt}.`;
-  toast(msg);render();
+  const summary=buildSessionSummary({rows,prevLog,session,date,day,startedAt});
+  render();
+  // The summary is the receipt. The toast only stands in for it when the screen
+  // cannot open — another dialog already holds the app, or the host is stripped.
+  if(!openSessionSummary(summary)){
+    const deltaTxt=formatDeltaCounts(summary.delta,{sep:", "});
+    let msg=t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")});
+    if(summary.prs.length)msg+=` ${t("toast.workout_pr",{items:summary.prs.map(p=>`${p.name} ${fmtLoad(p.load)} ${unitLabel()}`).join(", ")})}`;
+    if(deltaTxt)msg+=` ${deltaTxt}.`;
+    toast(msg)}
   return result}finally{
     if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
     saving=false}}
+
+/** Records worth a line of their own before the rest become a count. */
+const SUMMARY_PR_MAX=3;
+/** One PR line: what kind of record, on what lift, and by how much. */
+function sessionPRHtml(p){
+  const unit=unitLabel();
+  const badge=p.kind==="load"?t("stats.pr_filter.load")
+    :p.kind==="reps"?t("stats.pr_filter.reps"):t("stats.pr_filter.e1rm");
+  const over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
+    :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
+    :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
+  return `<li class="sum-pr"><span class="sum-pr__badge">${esc(badge)}</span>`+
+    `<span class="sum-pr__text"><span class="sum-pr__name">${esc(p.name)}</span>`+
+    `<span class="sum-pr__over">${esc(over)}</span></span>`+
+    `<span class="sum-pr__val">${esc(t("summary.pr.value",{load:fmtLoad(p.load),unit,reps:fmt(p.reps)}))}</span></li>`}
+
+function sessionSummaryHtml(s){
+  const unit=unitLabel(),out=[];
+  out.push(`<div class="sum-crest" aria-hidden="true"><span class="sum-crest__mark"></span></div>`);
+  out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
+  out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(s.day)}</h2>`);
+  const sub=[];
+  if(s.meso.current!=null)sub.push(t("today.week_short",{n:s.meso.current}));
+  sub.push(formatLongDate(s.date));
+  out.push(`<p class="sum-sub">${esc(sub.join(" · "))}</p>`);
+  // What the work itself was — sets, load moved, lifts touched — plus the clock
+  // when it measured this session rather than a draft left open overnight.
+  // `data-ramp` carries the finished number so the row can spin up to it.
+  const cell=(n,cap,k)=>`<div class="statrow__cell"><div class="statrow__val" data-ramp="${esc(n)}"`+
+    `${k?' data-kfmt="1"':""}>${esc(k?kfmt(n):fmt(n))}</div>`+
+    `<div class="statrow__cap">${esc(cap)}</div></div>`;
+  const cells=[cell(s.sets,tp(s.sets,"logged set")),
+    cell(toDisplay(s.volume),t("summary.stat.moved",{unit}),true),
+    cell(s.lifts,tp(s.lifts,"lift"))];
+  if(s.minutes!=null)cells.push(cell(s.minutes,tp(s.minutes,"minute")));
+  out.push(`<div class="statrow${cells.length>3?" statrow--4":""} sum-stats">${cells.join("")}</div>`);
+  // Records first: they are the one thing a lifter came back for. A week where
+  // everything moves would bury the best of them in its own list, so only the
+  // strongest few get a line and the rest are counted.
+  if(s.prs.length){
+    const shown=s.prs.slice(0,SUMMARY_PR_MAX),rest=s.prs.length-shown.length;
+    out.push(`<p class="section-label section-label--accent">${esc(t("summary.prs.title"))}</p>`+
+      `<ul class="sum-prs">${shown.map(sessionPRHtml).join("")}</ul>`+
+      (rest?`<p class="sum-more">${esc(t("summary.prs.more",{n:rest}))}</p>`:""))}
+  // Nothing in this session had a past to be read against, so counting "1 new
+  // lift" would be the whole story told as arithmetic. Say what it is instead —
+  // but only when there was working weight to call a baseline in the first
+  // place, since a session of nothing but warmups is not a first attempt.
+  const noHistory=s.lifts>0&&!s.prs.length&&!s.delta.improved&&!s.delta.flat&&!s.delta.regressed;
+  if(noHistory)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
+  else{
+    // Good news reads first, but nothing is left out: the same four counts the
+    // History row shows, in the order a lifter wants to hear them.
+    const chips=[];
+    if(s.delta.improved)chips.push({cls:"is-up",text:t("delta.count.improved",{n:s.delta.improved})});
+    if(s.delta.new)chips.push({cls:"is-new",text:t("delta.count.new_lifts",{n:s.delta.new,lifts:tp(s.delta.new,"lift")})});
+    if(s.delta.flat)chips.push({cls:"",text:t("delta.count.flat",{n:s.delta.flat})});
+    if(s.delta.regressed)chips.push({cls:"",text:t("delta.count.regressed",{n:s.delta.regressed})});
+    if(chips.length)
+      out.push(`<p class="section-label">${esc(t("summary.lifts.title"))}</p>`+
+        `<div class="sum-chips">${chips.map(c=>`<span class="sum-chip ${c.cls}">${esc(c.text)}</span>`).join("")}</div>`)}
+  if(s.muscles.length){
+    const top=s.muscles.slice(0,4),max=Math.max(...top.map(m=>m.sets),1);
+    out.push(`<p class="section-label">${esc(t("summary.muscles.title"))}</p>`+
+      `<div class="volume sum-muscles">`+top.map(m=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
+        `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span>`+
+        `<span class="vrow__bar"><span class="vrow__fill" style="width:${Math.max(4,Math.round(m.sets/max*100))}%"></span></span></div>`).join("")+
+      `</div>`)}
+  // Where the session leaves the week — the reason to come back on Thursday.
+  if(s.week.planned){
+    const segs=Math.max(s.week.planned,s.week.done,1),done=Math.min(s.week.done,segs);
+    out.push(`<p class="section-label">${esc(t("summary.week.title"))}</p>`+
+      `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
+      `<div class="segbar sum-segbar" aria-hidden="true">`+
+      Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`)}
+  if(s.next)
+    out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
+      `<span class="sum-next__day">${esc(s.next.day)}</span>`+
+      `<span class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</span></div>`);
+  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button>`+
+    `<button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
+  return out.join("")}
+
+/** The stat row spins up to its numbers instead of printing them. They are the
+ *  reward, so they are the one thing on the screen that moves by itself — and
+ *  the ramp always lands on exactly the figure the markup already rendered, so
+ *  a reader who never sees the motion reads the same page. */
+function rampSessionStats(root,delayMs=0){
+  const cells=[...(root?.querySelectorAll("[data-ramp]")||[])];
+  if(!cells.length)return;
+  const targets=cells.map(el=>({el,to:+el.dataset.ramp||0,k:el.dataset.kfmt==="1"}));
+  const paint=e=>{for(const{el,to,k}of targets)el.textContent=k?kfmt(to*e):fmt(Math.round(to*e))};
+  // Reduced motion — or a tab with no screen to animate onto — keeps the
+  // finished numbers the markup already carries.
+  if(document.hidden||window.matchMedia?.("(prefers-reduced-motion:reduce)").matches)return;
+  paint(0);
+  const dur=520,start=performance.now()+delayMs;
+  // rAF stops in a backgrounded tab. This timer is what guarantees the numbers
+  // are never left sitting at zero for a lifter who looks back at the screen.
+  const land=setTimeout(()=>paint(1),delayMs+dur+400);
+  const step=now=>{
+    if(now<start)return requestAnimationFrame(step);
+    const p=Math.min(1,(now-start)/dur);
+    paint(1-Math.pow(1-p,3));
+    if(p<1)requestAnimationFrame(step);
+    else clearTimeout(land)};
+  requestAnimationFrame(step)}
+
+let sessionSummaryCurrent=null;
+function renderSessionSummary(s){
+  const body=$("#sessionSummaryBody");if(!body)return;
+  body.innerHTML=sessionSummaryHtml(s);
+  // Each block carries its reading position, so the stylesheet can stagger
+  // however many blocks this particular session earned.
+  [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
+  const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
+  const see=$("#sumSee");if(see)see.onclick=()=>{
+    expandedSession=s.session;
+    closeSessionSummary({nav:"history"})}}
+
+/** The screen the lifter earns by finishing. It opens over the workout, so
+ *  leaving it is what actually ends the session and returns to Today. */
+function openSessionSummary(s){
+  const el=$("#sessionSummary");if(!el)return false;
+  sessionSummaryCurrent=s;
+  renderSessionSummary(s);
+  el.classList.remove("is-played");
+  const ok=openModal(el,{initialFocus:()=>$("#sumTitle"),onEscape:()=>closeSessionSummary()});
+  if(!ok){sessionSummaryCurrent=null;return false}
+  // One beat, played on the frame after the panel is up so the strike is seen
+  // rather than missed. `prefers-reduced-motion` turns every step of it off.
+  requestAnimationFrame(()=>{
+    if(activeModal?.el!==el)return;
+    el.classList.add("is-played");
+    // The numbers wait for their own block to arrive before they start. The
+    // stylesheet owns the stagger, so the delay is read off it rather than
+    // duplicated here.
+    const stats=el.querySelector(".sum-stats");
+    rampSessionStats(stats,stats?parseFloat(getComputedStyle(stats).animationDelay)*1000||0:0)});
+  el.scrollTop=0;
+  return true}
+
+function closeSessionSummary(opts={}){
+  const el=$("#sessionSummary");
+  sessionSummaryCurrent=null;
+  if(el&&activeModal?.el===el)closeModal(el);
+  el?.classList.remove("is-played");
+  // Finishing a session ends it: the shell steps back to Today either way.
+  leaveWorkout();
+  if(opts.nav)navTo(opts.nav);
+  else render();
+  // The control that opened this is gone with the workout, so focus lands on
+  // whatever Today now leads with rather than falling back to the body. Saving
+  // the day's session swaps the start CTA for the recap, so the target is read
+  // off the rendered dashboard instead of assumed to be the CTA.
+  if(!opts.nav){const next=resolveReturnFocus(todayPrimaryControl);
+    if(next){try{next.focus({preventScroll:true})}catch{}}}}
+window.__repforgeSessionSummary={
+  open:openSessionSummary,close:closeSessionSummary,
+  build:buildSessionSummary,current:()=>sessionSummaryCurrent};
 
 function summaries(){const m=new Map();
   for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
@@ -4294,9 +4734,9 @@ function renderHistory(source=state.log){
     if(removing){
       const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
       if(left.length<=1){toast(t("history.edit.keep_one"));return}
-      row.classList.add("is-removed");b.textContent=t("history.edit.undo_remove");
+      row.classList.add("is-removed");setEdrowRmState(b,true);
       row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
-    else{row.classList.remove("is-removed");b.textContent=t("history.edit.remove_set");
+    else{row.classList.remove("is-removed");setEdrowRmState(b,false);
       row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
   const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
@@ -4328,13 +4768,22 @@ function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)retu
   $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistory()}}
 
 
+const EDROW_RM_GLYPH={remove:"×",undo:"↺"};
+// The per-row remove control is icon-only, so its state lives in the glyph plus
+// the accessible name rather than visible copy.
+function setEdrowRmState(btn,removed){
+  const label=t(removed?"history.edit.undo_remove":"history.edit.remove_set");
+  btn.setAttribute("aria-label",label);btn.title=label;btn.classList.toggle("is-undo",removed);
+  const glyph=btn.querySelector(".edrow__rm-glyph")||btn;
+  glyph.textContent=removed?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}
+
 function sessionEditor(s,sets){
   const rows=sets.map((r,i)=>{
     return `<div class="edrow" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
       `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
       `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
       `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
-      `<button type="button" class="link-accent edrow__rm" data-edrm="${i}">${esc(t("history.edit.remove_set"))}</button></div>`}).join("");
+      `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
     `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
@@ -4818,12 +5267,16 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;
     if(rsEl){rsEl.value=String(state.settings.restSec);rsEl.setAttribute("aria-invalid","true");try{rsEl.focus()}catch{}}
     toast(t("validation.rest_frac"));restSec=state.settings.restSec}
   else{rsEl?.removeAttribute("aria-invalid");restSec=rsEl?num("#restSec",120,0):state.settings.restSec}
+  const oldRestSec=state.settings.restSec;
   const originalDraftRaw=oldUnit===newUnit?null:readDraftRaw();
   const unitEffect=draftUnitConversionEffect(originalDraftRaw,oldUnit,newUnit);
   const proposal=cloneSnapshot(state);
   proposal.settings=normalizeSettings({jumpPct:num("#jumpPct",2.5,0),minJump:(()=>{const n=parseDec($("#minJump").value);return Number.isFinite(n)&&n>0?n:2.5})(),rirHigh:num("#rirHigh",2,0),hardRir:num("#hardRir",4,0),restSec,lastExport:state.settings.lastExport,unit:newUnit,lang:newLang,rirMode:newRirMode,voiceInputEnabled:!!$("#voiceInputEnabled")?.checked,notify:normalizeNotify({enabled:!!state.settings.notify?.enabled,timer:!!$("#notifyTimer")?.checked,session:!!$("#notifySession")?.checked,unfinished:!!$("#notifyUnfinished")?.checked,missed:!!$("#notifyMissed")?.checked})});
   const result=await commitProposedState(proposal,storageIO,{effect:unitEffect});
   if(!(result.localOk||result.idbOk)){if(editRevision===settingsEditRevision)renderSettings();return result}
+  // A length picked in the timer sheet holds for the session, but a new default
+  // in Settings is the lifter saying it plainly — it wins.
+  if(oldRestSec!==state.settings.restSec)restLength=0;
   if(oldUnit!==newUnit){
     const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
@@ -5322,9 +5775,17 @@ function init(){
   $("#tourSkip").onclick=()=>endTour(false);
   $("#replayTour").onclick=()=>startTour("replay");
   $("#installApp").onclick=triggerInstall;
-  $("#restBar").onclick=stopRest;
-  // One rest control in the workout header: start it when idle, stop it when running.
-  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?stopRest():startRest()};
+  $("#restBar").onclick=openRestSheet;
+  // One rest control in the workout header: it starts the clock when idle, and
+  // opens the timer sheet once it is running rather than ending the rest.
+  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?openRestSheet():startRest()};
+  const restClose=$("#restSheetClose");if(restClose)restClose.onclick=closeRestSheet;
+  const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
+  const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);
+  const restPlus=$("#restPlus");if(restPlus)restPlus.onclick=()=>nudgeRest(REST_NUDGE);
+  const restPlay=$("#restPlayPause");if(restPlay)restPlay.onclick=toggleRestHold;
+  const restReset=$("#restReset");if(restReset)restReset.onclick=resetRest;
+  const restStop=$("#restStop");if(restStop)restStop.onclick=endRestFromSheet;
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
@@ -5337,6 +5798,10 @@ function init(){
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
   const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
+  const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
+  // Training twice in a day is the lifter's call, never Today's suggestion, so it
+  // opens the day that follows the one already done rather than repeating it.
+  const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day,focus:true});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
   const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
@@ -5569,7 +6034,7 @@ function presentStorageRecovery(decision){
       if(!d.open)d.showModal();
       openModal(d,{
         initialFocus:$("#storageExportA")||$("#storageRetry")||title,
-        returnFocus:$("#startWorkout")||$("#todayDash .page-title"),
+        returnFocus:todayPrimaryControl,
         onEscape:null
       });
       bump();

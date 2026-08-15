@@ -80,6 +80,10 @@ _Avoid_: Prompt (the persona/system text), data dump
 A structured, validated program change emitted by the coach and applied only by an explicit user tap. Proposals target the program (templates and metadata), never the log.
 _Avoid_: Auto-adjustment, AI edit, recommendation (reserved for the deterministic engine)
 
+**Session summary**:
+The full-screen close of a finished session, opened by Finish workout. Reads back what the session did — sets, load moved, lifts, any personal records, how the lifts moved, hard sets per muscle, where the week now stands — and returns to Today when dismissed. Every figure is one an existing surface already computes, so it can never disagree with History or Progress. Deterministic and offline; unrelated to the coach.
+_Avoid_: Score, rating, streak, badge, points, celebration screen
+
 **Session review**:
-A coach conversation seeded with the just-saved session and its previous comparable session, offered (never auto-opened) after Save workout.
+A coach conversation seeded with the just-saved session and its previous comparable session, offered (never auto-opened) after Save workout. Distinct from the session summary, which is deterministic and always shown.
 _Avoid_: Workout grade, post-workout report

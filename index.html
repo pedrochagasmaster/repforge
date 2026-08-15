@@ -36,7 +36,7 @@
 </head>
 <body>
   <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
-  <button id="restBar" type="button" class="restbar hidden" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to stop">
+  <button id="restBar" type="button" class="restbar hidden" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to open">
     <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
   </button>
   <button id="heatGauge" type="button" class="visually-hidden" data-i18n-title="top.heat_title" title="Session heat — how many lifts are ready to add load" tabindex="-1">
@@ -61,10 +61,12 @@
           </div>
         </div>
         <div id="todayProgram" class="today-prog hidden"></div>
-        <p class="section-label" data-i18n="today.session_label">Today's session</p>
+        <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
         <button type="button" class="text-link text-link--center" id="viewExercises" data-i18n="today.view_exercises">View exercises</button>
+        <button type="button" class="btn btn--steel hidden" id="reviewTodaySession" data-i18n="today.done_review">View today's session</button>
+        <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
         <p class="section-label" data-i18n="today.this_week">This week</p>
         <div id="todayWeek" class="today-week"></div>
         <p class="section-label" data-i18n="today.up_next">Up next</p>
@@ -534,12 +536,58 @@
       <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
     </div>
   </div>
+  <div id="restSheetScrim" class="sheet-scrim hidden"></div>
+  <div id="restSheet" class="sheet sheet--rest hidden" role="dialog" aria-modal="true" aria-labelledby="restSheetTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <span class="sheet__spacer" aria-hidden="true"></span>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="restSheetTitle" data-i18n="rest.sheet.title">Rest timer</p>
+      </div>
+      <button type="button" class="sheet__act sheet__act--icon" id="restSheetClose" data-i18n-aria="rest.sheet.close_aria" aria-label="Close rest timer"><span class="icon-mask icon-mask--close" aria-hidden="true"></span></button>
+    </div>
+    <div class="sheet__body restsheet">
+      <div class="restdial">
+        <svg class="restdial__svg" viewBox="0 0 120 120" aria-hidden="true" focusable="false">
+          <circle class="restdial__track" cx="60" cy="60" r="54"></circle>
+          <circle class="restdial__arc" id="restDialArc" cx="60" cy="60" r="54"></circle>
+        </svg>
+        <p class="restdial__clock" id="restSheetClock" role="timer">0:00</p>
+      </div>
+      <div class="restsheet__presets" id="restPresets" role="group" data-i18n-aria="rest.sheet.presets_aria" aria-label="Rest length"></div>
+      <div class="restsheet__controls">
+        <button type="button" class="restctl" id="restMinus" data-i18n-aria="rest.sheet.minus_aria" aria-label="Take 30 seconds off">
+          <span class="icon-mask icon-mask--minus" aria-hidden="true"></span>
+          <span class="restctl__label" data-i18n="rest.sheet.minus">-30s</span>
+        </button>
+        <button type="button" class="restctl" id="restPlus" data-i18n-aria="rest.sheet.plus_aria" aria-label="Add 30 seconds">
+          <span class="icon-mask icon-mask--plus" aria-hidden="true"></span>
+          <span class="restctl__label" data-i18n="rest.sheet.plus">+30s</span>
+        </button>
+        <button type="button" class="restctl restctl--primary" id="restPlayPause" data-i18n-aria="rest.sheet.start_aria" aria-label="Start rest">
+          <span class="icon-mask icon-mask--play restctl__play" aria-hidden="true"></span>
+          <span class="icon-mask icon-mask--pause restctl__pause" aria-hidden="true"></span>
+        </button>
+        <button type="button" class="restctl" id="restReset" data-i18n-aria="rest.sheet.reset_aria" aria-label="Restart rest">
+          <span class="icon-mask icon-mask--reset" aria-hidden="true"></span>
+          <span class="restctl__label" data-i18n="rest.sheet.reset">Reset</span>
+        </button>
+        <button type="button" class="restctl" id="restStop" data-i18n-aria="rest.sheet.stop_aria" aria-label="End rest">
+          <span class="icon-mask icon-mask--stop" aria-hidden="true"></span>
+          <span class="restctl__label" data-i18n="rest.sheet.stop">Stop</span>
+        </button>
+      </div>
+    </div>
+  </div>
   <dialog id="storageRecovery" class="storage-recovery" aria-modal="true" aria-labelledby="storageRecoveryTitle" data-i18n-aria="dialog.storage_recovery.aria">
     <h2 id="storageRecoveryTitle" class="importchoice__title" tabindex="-1"></h2>
     <p id="storageRecoveryLead" class="importchoice__body"></p>
     <div id="storageRecoveryCopies"></div>
     <div id="storageRecoveryActions" class="btnrow"></div>
   </dialog>
+  <div id="sessionSummary" class="sumsheet hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.session_summary.aria" aria-label="Session summary" hidden>
+    <div id="sessionSummaryBody" class="sumsheet__body"></div>
+  </div>
   <div id="announcementHost" class="announce-host">
     <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="restAnnounce" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>

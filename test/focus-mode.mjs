@@ -63,7 +63,11 @@ async function persist(page, src) {
 }
 
 async function settle(page) {
-  await page.waitForFunction(() => typeof window.closeOnboarding === "function", { timeout: 10000 });
+  // `closeOnboarding` is a hoisted declaration, so it exists as soon as app.js
+  // parses — long before boot has read storage and assigned state. Rendered day
+  // tabs are the first thing that cannot appear until it has, which is what the
+  // rest of this file then reaches into. Same gate as every other suite.
+  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     if (el?.classList.contains("active")) window.closeOnboarding();
@@ -352,15 +356,64 @@ async function main() {
     "rest never covers the card's controls and leaves the card alone", JSON.stringify(rest));
   assert(/\d+:\d\d/.test(rest.label) && rest.tap >= 44,
     "the chip is named and at least 44px", JSON.stringify(rest));
+  // Tapping a running clock opens the timer sheet; ending the rest is a
+  // deliberate choice inside it, never the side effect of a stray tap.
   await page.click("#woRest");
-  await page.waitForTimeout(150);
-  assert(await page.evaluate(() => !document.querySelector("#woRest").classList.contains("is-running")),
-    "tapping the running chip stops rest");
+  await page.waitForTimeout(350);
+  const restSheet = await page.evaluate(() => {
+    const el = document.querySelector("#restSheet");
+    return {
+      open: !el.hidden && el.classList.contains("is-open"),
+      stillRunning: document.querySelector("#woRest").classList.contains("is-running"),
+      clock: document.querySelector("#restSheetClock").textContent.trim(),
+      presets: document.querySelectorAll("#restPresets [data-restpreset]").length,
+      armed: document.querySelectorAll("#restPresets .is-active").length,
+    };
+  });
+  assert(restSheet.open && restSheet.stillRunning && /^\d+:\d\d$/.test(restSheet.clock),
+    "tapping the running chip opens the timer with the rest still running", JSON.stringify(restSheet));
+  assert(restSheet.presets >= 4 && restSheet.armed === 1,
+    "the sheet offers rest lengths and marks the one this rest is armed at", JSON.stringify(restSheet));
+  await page.click("#restPlayPause");
+  await page.waitForTimeout(700);
+  const heldOnce = await page.evaluate(() => document.querySelector("#restSheetClock").textContent.trim());
+  await page.waitForTimeout(700);
+  const heldTwice = await page.evaluate(() => ({
+    clock: document.querySelector("#restSheetClock").textContent.trim(),
+    chip: document.querySelector("#woRest").getAttribute("aria-label") || "",
+  }));
+  assert(heldOnce === heldTwice.clock && /held/i.test(heldTwice.chip),
+    "the hold freezes the clock and the chip says so", `${heldOnce} → ${JSON.stringify(heldTwice)}`);
+  await page.click("#restPlayPause");
+  // Long enough that the rounded second has to have moved on, whichever side of
+  // a tick the hold froze it.
+  await page.waitForTimeout(1600);
+  assert(await page.evaluate(() => document.querySelector("#restSheetClock").textContent.trim()) !== heldOnce,
+    "releasing the hold puts the clock back on the move");
+  const nudged = await page.evaluate(async () => {
+    const read = () => {
+      const [m, s] = document.querySelector("#restSheetClock").textContent.trim().split(":");
+      return +m * 60 + +s;
+    };
+    const before = read();
+    document.querySelector("#restPlus").click();
+    return { before, after: read() };
+  });
+  assert(nudged.after - nudged.before >= 29, "+30s adds half a minute to the clock", JSON.stringify(nudged));
+  await page.click("#restStop");
+  await page.waitForTimeout(400);
+  const ended = await page.evaluate(() => ({
+    hidden: document.querySelector("#restSheet").hidden,
+    running: document.querySelector("#woRest").classList.contains("is-running"),
+    focused: document.activeElement?.id || "",
+  }));
+  assert(ended.hidden && !ended.running && ended.focused === "woRest",
+    "Stop ends the rest, closes the sheet and hands focus back to the chip", JSON.stringify(ended));
   await page.click("#woRest");
   await page.waitForTimeout(200);
   assert(await page.evaluate(() => document.querySelector("#woRest").classList.contains("is-running")),
     "tapping the idle chip starts rest again");
-  await page.click("#woRest");
+  await page.evaluate(() => window.stopRest());
   await page.waitForTimeout(150);
 
   // ---- 06 — editing a logged set --------------------------------------------

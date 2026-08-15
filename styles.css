@@ -26,7 +26,18 @@
   --cta-ink:#FFFFFF;
   --danger:#C93A2B;
   --radius:14px;
-  --nav:72px;
+  /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
+     safe area, inset --dock-inset from each edge. --nav stays the single
+     "space the dock claims at the bottom" token every other floating element
+     (rest bar, toast, tour, FAB) already measures itself against. */
+  --dock-h:62px;
+  --dock-gap:10px;
+  --dock-inset:14px;
+  --nav:calc(var(--dock-h) + var(--dock-gap));
+  --dock-glass:rgba(250,248,245,.8);
+  --dock-edge:rgba(27,26,23,.10);
+  --dock-sheen:rgba(255,255,255,.7);
+  --dock-pill:rgba(255,255,255,.82);
   --maxw:560px;
 
   --display:"Plex Sans",system-ui,sans-serif;
@@ -700,6 +711,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   background:var(--danger);animation:restover-dot 1.5s ease-in-out infinite;
 }
 .restbar.is-over .restbar__time{min-width:3.4em}
+/* Held in the timer sheet: the clock is frozen, so the live dot goes quiet. */
+.wo-rest.is-paused .wo-rest__dot,.restbar.is-paused .restbar__dot{background:var(--ink-faint)}
 @media (prefers-reduced-motion:reduce){
   /* Colour alone carries overtime; the dot holds at half strength so it still
      differs from the steady countdown dot. */
@@ -992,6 +1005,67 @@ body.is-sheet-open{overflow:hidden}
 }
 .sheet__foot{flex:none;padding:12px 16px 16px;font-size:13px;color:var(--ink-faint)}
 .sheet__foot--actions{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--rule)}
+/* A head with nothing on the left still needs its first grid cell, or the title
+   slides out of the middle. */
+.sheet__spacer{display:block;min-width:44px}
+.sheet__act--icon{justify-self:end;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft)}
+
+/* ---- Rest timer sheet ---- */
+/* Tapping a running clock used to end the rest, which is the one thing a lifter
+   mid-set never means. The clock opens this instead: hold it, nudge it, restart
+   it at another length, or end it deliberately. */
+.sheet--rest{height:auto}
+.restsheet{flex-direction:column;align-items:center;gap:20px;padding:20px 16px calc(20px + env(safe-area-inset-bottom))}
+.restdial{position:relative;width:min(56vw,210px);flex:none;aspect-ratio:1}
+.restdial__svg{display:block;width:100%;height:100%;transform:rotate(-90deg)}
+.restdial__track{fill:none;stroke:var(--rule);stroke-width:7}
+.restdial__arc{
+  fill:none;stroke:var(--accent);stroke-width:7;stroke-linecap:round;
+  transition:stroke-dashoffset .25s linear,stroke .2s ease;
+}
+.restdial__clock{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-weight:600;font-size:clamp(32px,10vw,42px);
+  font-variant-numeric:tabular-nums;letter-spacing:-.02em;
+}
+/* Held: the ring goes quiet so a frozen clock never reads as a running one. */
+.sheet--rest.is-paused .restdial__arc{stroke:var(--rule-strong)}
+.sheet--rest.is-paused .restdial__clock{color:var(--ink-soft)}
+/* Past the bell, the same red the chip and the bar use for overtime. */
+.sheet--rest.is-over .restdial__arc{stroke:var(--danger)}
+.sheet--rest.is-over .restdial__clock{color:var(--danger)}
+.restsheet__presets{display:flex;flex-wrap:wrap;justify-content:center;gap:6px}
+.restpreset{
+  min-width:0;padding:0 12px;border-radius:999px;cursor:pointer;
+  border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-soft);
+  font-family:var(--mono);font-size:14px;line-height:1;
+}
+.restpreset.is-active{border-color:var(--accent);color:var(--accent-deep);background:var(--well)}
+.restsheet__controls{display:flex;align-items:center;justify-content:center;gap:4px;width:100%}
+.restctl{
+  display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
+  flex:1 1 0;min-width:0;padding:6px 2px;border:0;background:none;cursor:pointer;
+  color:var(--ink-soft);font-size:12px;line-height:1;
+}
+.restctl:disabled{opacity:.35;cursor:default}
+.restctl__label{white-space:nowrap}
+.restctl--primary{
+  flex:none;width:68px;height:68px;border-radius:50%;
+  background:var(--accent);color:var(--cta-ink);
+}
+.restctl--primary .icon-mask{width:26px;height:26px}
+/* Idle or held, the button offers to start; running, it offers to hold. */
+.restctl--primary .restctl__pause{display:none}
+.sheet--rest:not(.is-idle):not(.is-paused) .restctl--primary .restctl__play{display:none}
+.sheet--rest:not(.is-idle):not(.is-paused) .restctl--primary .restctl__pause{display:inline-block}
+/* Short screens: the dial gives up the room the presets and controls need. */
+@media (max-height:640px){
+  .restsheet{gap:14px;padding-top:14px}
+  .restdial{width:min(44vw,152px)}
+}
+@media (prefers-reduced-motion:reduce){
+  .restdial__arc{transition:none}
+}
 
 /* Narrow phones: tighter gutters and a set column the ledger can still line up. */
 @media (max-width:360px){
@@ -1215,22 +1289,73 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-footer{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid var(--rule);margin-top:8px}
 .program-footer__link{color:var(--accent-deep);background:none;border:0;cursor:pointer;font-size:15px;padding:8px 0}
 
-/* ---- Bottom nav ---- */
+/* ---- Bottom nav — floating glass dock ----
+   A capsule that hovers over the page rather than capping it, so the content
+   stays visible (blurred) underneath: the edge highlight and the drop shadow
+   are what read as glass, and the blur is what keeps the labels legible over
+   whatever scrolls behind. Content still stops at the dock's top edge —
+   body's padding-bottom reserves --nav — so nothing important sits under it. */
 nav{
-  position:fixed;left:0;right:0;bottom:0;z-index:25;
-  height:calc(var(--nav) + env(safe-area-inset-bottom));
+  position:fixed;z-index:25;
+  left:50%;transform:translateX(-50%);
+  bottom:calc(var(--dock-gap) + env(safe-area-inset-bottom));
+  width:min(
+    calc(100% - env(safe-area-inset-left) - env(safe-area-inset-right) - 2*var(--dock-inset)),
+    var(--maxw)
+  );
+  height:var(--dock-h);
   display:grid;grid-template-columns:repeat(4,1fr);
-  padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));gap:2px;
-  background:rgba(244,242,239,.92);
-  backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);border-top:1px solid var(--rule);
+  padding:6px;gap:2px;
+  border:1px solid var(--dock-edge);border-radius:calc(var(--dock-h)/2);
+  background:var(--dock-glass);
+  backdrop-filter:blur(30px) saturate(180%);-webkit-backdrop-filter:blur(30px) saturate(180%);
+  box-shadow:
+    inset 0 1px 0 var(--dock-sheen),
+    inset 0 -1px 0 rgba(27,26,23,.05),
+    0 10px 30px rgba(27,26,23,.13),
+    0 2px 8px rgba(27,26,23,.07);
+}
+/* Without backdrop-filter the panel is a plain translucent sheet and the page
+   shows through sharp, so pay for legibility with opacity instead. */
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
+  nav{--dock-glass:rgba(250,248,245,.97)}
 }
 nav button{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  background:transparent;border:0;color:var(--ink-soft);cursor:pointer;border-radius:12px;
+  background:transparent;border:0;color:var(--ink-soft);cursor:pointer;
+  border-radius:calc(var(--dock-h)/2 - 6px);
   font-weight:500;letter-spacing:0;font-size:11px;text-transform:none;
-  transition:color .2s ease;min-height:44px;
+  transition:color .2s ease,transform .18s ease;min-height:44px;
 }
-nav button.active{color:var(--accent-deep)}
+nav button:active{transform:scale(.93)}
+nav button:focus-visible{outline-offset:-3px}
+/* The selected tab sits in a lighter lens. This one is painted on the button
+   itself and is the fallback: where :has can name the live tab, the block below
+   swaps it for a single pill that slides between the four. */
+nav button.active{
+  color:var(--accent-deep);
+  background:var(--dock-pill);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 1px 3px rgba(27,26,23,.08);
+}
+@supports selector(:has(*)){
+  nav button.active{background:transparent;box-shadow:none}
+  nav::before{
+    content:"";position:absolute;z-index:-1;
+    top:6px;bottom:6px;left:6px;
+    /* One of four columns of the padding box, gaps discounted. */
+    width:calc((100% - 12px - 6px)/4);
+    /* A step is one column plus one gap, and 100% here is the pill's own width. */
+    transform:translateX(calc(var(--dock-i,0) * (100% + 2px)));
+    border-radius:calc(var(--dock-h)/2 - 6px);
+    background:var(--dock-pill);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 1px 3px rgba(27,26,23,.09);
+    transition:transform .38s cubic-bezier(.32,.72,0,1);
+  }
+  nav:has(button:nth-child(1).active){--dock-i:0}
+  nav:has(button:nth-child(2).active){--dock-i:1}
+  nav:has(button:nth-child(3).active){--dock-i:2}
+  nav:has(button:nth-child(4).active){--dock-i:3}
+}
 .nav__icon{width:22px;height:22px;background:currentColor;
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain}
 nav button.active .nav__icon{background:var(--accent)}
@@ -1323,6 +1448,115 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .blockprogress{margin:0 0 16px;padding:12px 0;border:0;border-radius:0;background:transparent}
 .blockprogress__title{font-weight:600;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
 .review__summary{margin:0;font-size:14px;line-height:1.55;color:var(--ink)}
+
+/* ============================================================
+   Session summary — the screen a finished session earns
+   Full-bleed over the app: the work is done, so nothing else competes for the
+   page. One column, the evidence in the order it matters — records, how the
+   lifts moved, what the muscles took, where the week now stands.
+   Motion is one beat. `is-played` is set a frame after the panel is up, so the
+   strike is seen rather than missed, and every block settles in behind it in
+   reading order. The animations only exist under `is-played`, so a panel that
+   never gets there is a fully legible page rather than a blank one.
+   ============================================================ */
+.sumsheet{
+  position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;
+  background:var(--bg);
+  padding:calc(30px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
+    calc(30px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+}
+.sumsheet.hidden{display:none!important}
+.sumsheet__body{width:min(100%,var(--maxw));margin:0 auto}
+
+/* The strike: the same mark a finished exercise draws, at the size the end of
+   a whole session deserves, under a ring that opens once and goes. */
+.sum-crest{display:flex;justify-content:center}
+.sum-crest__mark{
+  position:relative;width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);
+}
+.sum-crest__mark::after{
+  content:"";position:absolute;inset:0;background:var(--accent);
+  -webkit-mask:var(--check) no-repeat center/30px;mask:var(--check) no-repeat center/30px;
+}
+.sumsheet.is-played .sum-crest__mark{animation:sum-strike .5s cubic-bezier(.2,1.25,.4,1) both}
+.sumsheet.is-played .sum-crest__mark::before{
+  content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--accent);
+  animation:sum-ring .8s .1s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes sum-strike{
+  0%{opacity:0;transform:scale(.5)}
+  55%{opacity:1;transform:scale(1.12)}
+  100%{opacity:1;transform:scale(1)}
+}
+@keyframes sum-ring{from{opacity:.55;transform:scale(1)}to{opacity:0;transform:scale(1.7)}}
+/* Each block carries its own index, so the stagger follows the reading order
+   however many blocks this particular session earned. */
+.sumsheet.is-played .sumsheet__body>*:not(.sum-crest){
+  animation:sum-settle .4s cubic-bezier(.2,.7,.2,1) both;
+  animation-delay:calc(var(--i,0) * 55ms);
+}
+@keyframes sum-settle{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+.sum-eyebrow{
+  margin-top:16px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--accent-deep);
+}
+/* The heading takes focus so a screen reader is read the session before the
+   controls, not because it is one. A ring here would draw a box around a title
+   nobody can act on, so it stays off — every actual control keeps its own. */
+.sum-hero{margin-top:6px;text-align:center;font-size:34px;font-weight:650;letter-spacing:-.02em;line-height:1.05}
+.sum-hero:focus,.sum-hero:focus-visible{outline:none}
+.sum-sub{margin-top:6px;text-align:center;font-size:14px;color:var(--ink-soft)}
+.sum-stats{margin-top:22px}
+
+/* A record reads as one line: what kind, on what, by how much, at what. */
+.sum-prs{list-style:none;margin:0;padding:0}
+.sum-pr{
+  display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px 11px;
+  padding:12px 0;border-bottom:1px solid var(--rule);
+}
+.sum-pr:first-child{border-top:1px solid var(--rule)}
+.sum-pr__badge{
+  font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
+  color:var(--cta-ink);background:var(--accent-deep);border-radius:999px;padding:4px 8px;white-space:nowrap;
+}
+.sum-pr__text{min-width:0}
+/* The lift is the point of the line, so a long name wraps rather than being cut
+   off — an ellipsis on "Chest-supported machine row" hides which lift it was. */
+.sum-pr__name{display:block;font-size:15px;font-weight:600;color:var(--ink);line-height:1.25}
+.sum-pr__over{display:block;margin-top:2px;font-size:12px;color:var(--accent-deep)}
+.sum-pr__val{font-family:var(--mono);font-size:13px;color:var(--ink-soft);white-space:nowrap;align-self:center}
+.sum-more{margin-top:10px;font-size:13px;color:var(--ink-faint)}
+
+.sum-chips{display:flex;flex-wrap:wrap;gap:8px}
+.sum-chip{
+  font-size:13px;color:var(--ink-soft);background:var(--surface);
+  border:1px solid var(--rule);border-radius:999px;padding:7px 12px;
+}
+.sum-chip.is-up{color:var(--positive);border-color:rgba(47,125,51,.35)}
+.sum-chip.is-new{color:var(--accent-deep);border-color:rgba(224,78,20,.35)}
+
+.sum-baseline{
+  margin-top:24px;padding-left:14px;border-left:2px solid var(--accent);
+  font-size:15px;line-height:1.55;color:var(--ink-soft);
+}
+.sum-week{font-size:15px;color:var(--ink)}
+.sum-segbar{margin-top:10px}
+.sum-next{
+  display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:26px;padding:14px 0;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+}
+.sum-next__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.sum-next__day{font-size:17px;font-weight:600}
+.sum-next__meta{margin-left:auto;font-size:13px;color:var(--ink-soft)}
+.sum-actions{margin-top:28px}
+
+@media (prefers-reduced-motion:reduce){
+  /* The panel still arrives as a full screen; it just stops moving to do it. */
+  .sumsheet.is-played .sum-crest__mark,
+  .sumsheet.is-played .sumsheet__body>*:not(.sum-crest){animation:none}
+  .sumsheet.is-played .sum-crest__mark::before{content:none}
+}
 
 .importchoice{
   position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
@@ -1470,7 +1704,14 @@ body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-are
 .edrow__name{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .edrow__name small{color:var(--ink-faint)}
 .edrow__in{margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
-.edrow__rm{justify-self:end;font-size:12px;padding:4px 0;white-space:nowrap}
+.edrow__rm{
+  justify-self:end;display:inline-flex;align-items:center;justify-content:center;
+  width:44px;height:44px;flex:none;padding:0;cursor:pointer;
+  border:1px solid var(--rule-strong);border-radius:10px;background:var(--surface);
+  color:var(--ink-soft);font:inherit;font-size:19px;line-height:1;
+}
+.edrow__rm.is-undo{color:var(--accent-deep);border-color:var(--accent);font-size:16px}
+.edrow__rm-glyph{display:block;pointer-events:none}
 .edrow.is-removed .edrow__name{text-decoration:line-through;text-decoration-color:var(--ink-faint)}
 .edrow.is-removed .edrow__in{visibility:hidden}
 input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
@@ -1563,8 +1804,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 @media (min-width:680px){
   .metrics,.statrow--4,.statband--4{grid-template-columns:repeat(4,minmax(0,1fr))}
   .page-title,h2{font-size:32px}
-  nav{width:min(100%,var(--maxw));left:50%;transform:translateX(-50%);
-    border-radius:18px 18px 0 0;border-left:1px solid var(--rule);border-right:1px solid var(--rule)}
 }
 @media (max-width:360px){
   /* A 288px row cannot hold the set action, a three-part load control, reps,
@@ -1601,6 +1840,12 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
 }
 .icon-mask--sm{width:16px;height:16px}
+.icon-mask--minus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E")}
+.icon-mask--plus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E")}
+.icon-mask--play{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E")}
+.icon-mask--pause{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E")}
+.icon-mask--stop{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E")}
+.icon-mask--reset{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E")}
 .icon-mask--chev-down{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
 .icon-mask--overflow{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E")}
 .icon-mask--note{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E")}
@@ -1619,6 +1864,17 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .today-prog__week{font-size:14px;color:var(--ink-soft);margin-top:4px}
 .today-prog .segbar{margin-top:12px}
 .today-prog__done{margin-top:10px;text-align:right;font-size:13px;color:var(--ink-soft)}
+
+/* Today, once a session is saved: a recap stands where the start CTA would be. */
+.today-done{padding:4px 0 8px}
+.today-done__name{display:flex;align-items:center;gap:10px}
+.today-done__check{
+  width:22px;height:22px;flex:none;background:var(--accent);
+  -webkit-mask:var(--check) no-repeat center/contain;mask:var(--check) no-repeat center/contain;
+}
+.today-done__pr{margin:10px 0 0;font-size:15px;color:var(--ink)}
+.today-done__note{margin:10px 0 0;font-size:14px;color:var(--ink-soft)}
+#reviewTodaySession{width:100%;min-height:52px;margin-top:28px;font-size:16px}
 
 /* Today's exercise preview — hairline rows, first few visible, rest disclosed. */
 .today-exlist{margin-top:10px;border-top:1px solid var(--rule)}
