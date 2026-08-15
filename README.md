@@ -1,8 +1,6 @@
 # Taurifer
 
-> **taurĭfer** *(Latin, adj.)* — bull-bearing.
-
-Taurifer is a local-only mobile PWA for tracking load progression and progressive overload. From calf to bull: like Milo of Croton carrying the same calf every day as it grew, you carry a little more each session until the calf is a bull.
+Taurifer is a local-only mobile PWA for tracking load progression and progressive overload.
 
 The name is new; the repository slug, GitHub Pages URL, and on-device storage keys keep the historical `repforge` prefix so existing installs and training data are untouched.
 
