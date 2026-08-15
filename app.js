@@ -37,11 +37,17 @@ function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
   return!Object.prototype.hasOwnProperty.call(entry,"performedName")||
     entry.performedName==null||typeof entry.performedName==="string"}
+function isSafeCustomExercise(entry){
+  if(!isPlainStateObject(entry))return false;
+  return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
 function isValidStateShape(s){
   try{
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
+    // Optional: backups written before custom exercises existed stay importable.
+    if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
+      !(Array.isArray(s.customExercises)&&s.customExercises.every(isSafeCustomExercise)))return false;
     if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
     return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
   catch{return false}}
@@ -156,7 +162,8 @@ function changeObject(v){return!!(v&&typeof v==="object"&&!Array.isArray(v))}
 function changeEntityKey(root,value,index){
   if(!value||typeof value!=="object")return`${root}:value:${index}:${JSON.stringify(canonicalize(value))}`;
   if(root==="log")return value.session?`session:${value.session}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
-  if(root==="program"||root==="programHistory")return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
+  if(root==="program"||root==="programHistory"||root==="customExercises")
+    return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
   return null}
 function changeGroups(list,root){
   const order=[],map=new Map();
@@ -1494,51 +1501,35 @@ const DAY_TYPES={full_body:["squat","hinge","press","pull","delts","arms"],upper
   pull:["row","pulldown","rear_delt","curl"],legs:["squat","hinge","leg_curl","leg_extension","adduction","calves"]};
 const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
 const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
-const EXERCISE_CATALOG=[
-  {id:"sq_bb",name:"Barbell back squat",pattern:"squat",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:false},
-  {id:"sq_sm",name:"Smith machine squat",pattern:"squat",equipment:["smith","machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
-  {id:"sq_lp",name:"Leg press",pattern:"squat",equipment:["machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true,notes:"Feet low on the platform, back flat against the pad."},
-  {id:"sq_db",name:"Goblet squat",pattern:"squat",equipment:["dumbbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
-  {id:"hg_bb",name:"Barbell Romanian deadlift",pattern:"hinge",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:false},
-  {id:"hg_sm",name:"Smith machine RDL",pattern:"hinge",equipment:["smith","machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
-  {id:"hg_mc",name:"Romanian deadlift machine",pattern:"hinge",equipment:["machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
-  {id:"pr_bb",name:"Barbell bench press",pattern:"press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
-  {id:"pr_db",name:"Dumbbell bench press",pattern:"press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"pr_mc",name:"Chest press machine",pattern:"press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"ip_db",name:"Dumbbell incline press",pattern:"incline_press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"ip_mc",name:"Incline chest press machine",pattern:"incline_press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"ip_bb",name:"Barbell incline press",pattern:"incline_press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
-  {id:"sp_bb",name:"Barbell overhead press",pattern:"shoulder_press",equipment:["barbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:false},
-  {id:"sp_mc",name:"Shoulder press machine",pattern:"shoulder_press",equipment:["machine"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
-  {id:"sp_db",name:"Dumbbell shoulder press",pattern:"shoulder_press",equipment:["dumbbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
-  {id:"rw_bb",name:"Barbell row",pattern:"row",equipment:["barbell"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:false},
-  {id:"rw_mc",name:"Seated row machine",pattern:"row",equipment:["machine"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
-  {id:"rw_cb",name:"Cable seated row",pattern:"row",equipment:["cable"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
-  {id:"pd_mc",name:"Lat pulldown",pattern:"pulldown",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
-  {id:"pd_bw",name:"Assisted pull-up",pattern:"pulldown",equipment:["machine"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
-  {id:"pl_cb",name:"Cable pullover",pattern:"pull",equipment:["cable","machine"],primary:"Lats",secondary:"Mid/upper back",beginnerFriendly:true},
-  {id:"pl_mc",name:"Neutral-grip pulldown",pattern:"pull",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
-  {id:"dl_mc",name:"Lateral raise machine",pattern:"delts",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"dl_db",name:"Dumbbell lateral raise",pattern:"delts",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"dl_cb",name:"Cable lateral raise",pattern:"delts",equipment:["cable"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"lr_db",name:"Dumbbell lateral raise",pattern:"lateral_raise",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"lr_mc",name:"Lateral raise machine",pattern:"lateral_raise",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"rd_mc",name:"Reverse pec deck",pattern:"rear_delt",equipment:["machine"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
-  {id:"rd_db",name:"Rear delt fly",pattern:"rear_delt",equipment:["dumbbell"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
-  {id:"ci_mc",name:"Pec deck",pattern:"chest_iso",equipment:["machine"],primary:"Chest",secondary:"",beginnerFriendly:true},
-  {id:"ci_cb",name:"Cable fly",pattern:"chest_iso",equipment:["cable"],primary:"Chest",secondary:"",beginnerFriendly:true},
-  {id:"ar_mc",name:"Preacher curl machine",pattern:"arms",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"ar_db",name:"Dumbbell curl",pattern:"arms",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"cu_mc",name:"Preacher curl machine",pattern:"curl",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"cu_db",name:"Dumbbell curl",pattern:"curl",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"cu_cb",name:"Cable curl",pattern:"curl",equipment:["cable"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"tr_cb",name:"Cable pressdown",pattern:"triceps",equipment:["cable"],primary:"Triceps",secondary:"",beginnerFriendly:true},
-  {id:"tr_mc",name:"Machine triceps extension",pattern:"triceps",equipment:["machine"],primary:"Triceps",secondary:"",beginnerFriendly:true},
-  {id:"lc_mc",name:"Seated leg curl",pattern:"leg_curl",equipment:["machine"],primary:"Hamstrings",secondary:"",beginnerFriendly:true},
-  {id:"le_mc",name:"Leg extension",pattern:"leg_extension",equipment:["machine"],primary:"Quads",secondary:"",beginnerFriendly:true},
-  {id:"cv_mc",name:"Standing calf raise machine",pattern:"calves",equipment:["machine"],primary:"Calves",secondary:"",beginnerFriendly:true},
-  {id:"ad_mc",name:"Hip adduction machine",pattern:"adduction",equipment:["machine"],primary:"Adductors",secondary:"",beginnerFriendly:true}
-];
+/* The exercise library. exercises.js is generated (see tools/README.md) and
+   loads before this file; the fallback keeps app.js parseable and the app
+   usable if that script is ever missing, rather than throwing at boot. */
+const LIBRARY_SOURCE=(typeof window!=="undefined"&&window.RepForgeExercises)||{library:[],legacyIds:{}};
+const EXERCISE_LIBRARY=Array.isArray(LIBRARY_SOURCE.library)?LIBRARY_SOURCE.library:[];
+const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
+const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
+
+/* Custom exercises a lifter created. They live in state so they survive across
+   programs and show up in every picker beside the built-ins; the "custom:"
+   prefix keeps their ids from ever colliding with a library id, including a
+   library id added by a future regeneration. */
+const CUSTOM_ID_PREFIX="custom:";
+const isCustomLibraryId=id=>String(id||"").startsWith(CUSTOM_ID_PREFIX);
+function customExercises(snapshot=state){
+  const list=snapshot?.customExercises;
+  return Array.isArray(list)?list:[]}
+/* Ids merged into a single entry still sit in saved programs; resolve through
+   the alias table before giving up on one. */
+function libraryEntry(id,snapshot=state){
+  if(id==null)return null;
+  const key=String(id);
+  if(isCustomLibraryId(key))return customExercises(snapshot).find(e=>e.id===key)||null;
+  return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}
+/* Everything a picker can offer: the lifter's own movements first, because a
+   custom entry exists precisely because the library did not have it. */
+function pickableExercises(snapshot=state){
+  return customExercises(snapshot).concat(EXERCISE_LIBRARY)}
+const libraryName=e=>!e?"":(state?.settings?.lang==="pt"&&e.namePt)||e.name;
 function resolveSplit(daysPerWeek,splitType){
   const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
   if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
@@ -1550,10 +1541,12 @@ function resolveSplit(daysPerWeek,splitType){
 function exerciseSlotsForDay(dayType,answers){return[...(DAY_TYPES[dayType]||DAY_TYPES.full_body)]}
 function catalogForSlot(slot,equipment,experience){
   const eq=new Set((equipment||[]).map(s=>String(s).toLowerCase()));
-  let pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
+  let pool=EXERCISE_LIBRARY.filter(e=>e.patterns.includes(slot));
   if(eq.size)pool=pool.filter(e=>e.equipment.some(x=>eq.has(String(x).toLowerCase())));
   if(experience==="beginner"){const bf=pool.filter(e=>e.beginnerFriendly);if(bf.length)pool=bf}
-  return pool.sort((a,b)=>a.id.localeCompare(b.id))}
+  // Rank first, id second: the staple for a slot leads, and the rest stay in a
+  // stable order so the same answers keep generating the same program.
+  return pool.sort((a,b)=>(a.rank??50)-(b.rank??50)||a.id.localeCompare(b.id))}
 function rotateCatalog(pool,occurrence){
   if(!pool.length)return pool;
   const n=pool.length,i=((occurrence%n)+n)%n;
@@ -1562,8 +1555,19 @@ function chooseExercise(slot,equipment,experience,usedIds,occurrence){
   // Rotate the equipment-filtered pool across repeated day types; never reuse a within-day id.
   const pool=rotateCatalog(catalogForSlot(slot,equipment,experience),occurrence||0).filter(e=>!usedIds.has(e.id));
   return pool[0]||null}
+/* Whether a day type is worth generating on this equipment. One fillable slot
+   used to be enough, which was fine when the catalogue was small: a slot with
+   no candidates meant the equipment genuinely could not train that pattern. A
+   267-movement library finds a candidate for almost anything — cables alone
+   satisfy a lower day through pull-throughs and calf raises — so "any slot" now
+   waves through days nobody would want to train. Require enough of the day to
+   fill instead, and the wizard keeps steering people to equipment that can
+   actually carry the split. */
 function dayTypeHasPrimary(dayType,equipment,experience){
-  return exerciseSlotsForDay(dayType).some(slot=>catalogForSlot(slot,equipment,experience).length>0)}
+  const slots=exerciseSlotsForDay(dayType);
+  if(!slots.length)return false;
+  const fillable=slots.filter(slot=>catalogForSlot(slot,equipment,experience).length>0).length;
+  return fillable*2>=slots.length}
 function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
   return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
 function repScheme(experience,goal,slot){
@@ -1865,6 +1869,28 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     blockPromptDismissedId}}
 function isImportableState(s){return isValidStateShape(s)}
+/* A custom exercise is a library entry the lifter authored, so it is normalised
+   into the same shape the built-ins have — the pickers and the copy-into-template
+   path then cannot tell the two apart. */
+function normalizeCustomExercises(list){
+  const out=[],seen=new Set();
+  for(const entry of Array.isArray(list)?list:[]){
+    if(!isPlainStateObject(entry))continue;
+    const id=String(entry.id||"");
+    if(!id.startsWith(CUSTOM_ID_PREFIX)||seen.has(id))continue;
+    const name=String(entry.name??"").trim();
+    if(!name)continue;
+    seen.add(id);
+    const equipment=(Array.isArray(entry.equipment)?entry.equipment:[])
+      .map(x=>String(x).trim().toLowerCase()).filter(Boolean);
+    out.push({id,name,namePt:String(entry.namePt??name).trim()||name,
+      equipment:equipment.length?equipment:["machine"],
+      primary:String(entry.primary??"").trim(),
+      secondary:String(entry.secondary??"").trim(),
+      notes:String(entry.notes??"").trim(),
+      patterns:[],beginnerFriendly:true,custom:true,
+      created:typeof entry.created==="string"?entry.created:new Date().toISOString()})}
+  return out}
 function normalizeProgramHistory(history){
   return(Array.isArray(history)?history:[]).map(entry=>{
     const normalized=cloneSnapshot(entry);
@@ -1872,11 +1898,12 @@ function normalizeProgramHistory(history){
       normalized.program=new Program(normalized.program).toJSON();
     return normalized})}
 function normalizeLoaded(s){
-  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0};
+  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
     program:new Program(s.program).toJSON(),log:cloneSnapshot(s.log),
-    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[])};
+    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[]),
+    customExercises:normalizeCustomExercises(s.customExercises)};
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
@@ -1923,6 +1950,36 @@ async function persistProgramMeta(partial={}){
   if(partial.onboarded!==undefined)proposal.programMeta.onboarded=partial.onboarded;
   proposal.programMeta.updated=new Date().toISOString();
   return commitProposedState(proposal)}
+/* Creates or edits one of the lifter's own movements. Returns the stored entry
+   so a caller can drop it straight into a program slot — creating a custom
+   exercise is almost always the first half of "put this in my program". */
+async function saveCustomExercise(draft,io=storageIO){
+  const name=String(draft?.name??"").trim();
+  if(!name)return{result:null,entry:null};
+  const id=isCustomLibraryId(draft?.id)?String(draft.id):`${CUSTOM_ID_PREFIX}${uid()}`;
+  const existing=customExercises().find(e=>e.id===id);
+  const entry={id,name,namePt:name,
+    equipment:Array.isArray(draft.equipment)&&draft.equipment.length?draft.equipment:["machine"],
+    primary:String(draft.primary??"").trim(),
+    secondary:String(draft.secondary??"").trim(),
+    notes:String(draft.notes??"").trim(),
+    created:existing?.created||new Date().toISOString()};
+  const proposal=cloneSnapshot(state);
+  const list=Array.isArray(proposal.customExercises)?proposal.customExercises:[];
+  proposal.customExercises=normalizeCustomExercises(
+    existing?list.map(e=>e.id===id?entry:e):list.concat(entry));
+  const result=await commitProposedState(proposal,io);
+  return{result,entry:proposal.customExercises.find(e=>e.id===id)||null}}
+/* Custom exercises are removable only while nothing points at them: a program
+   slot or a logged set keeps its movement's definition alive. */
+function customExerciseInUse(id){
+  if((state.program||[]).some(e=>e.libraryId===id))return true;
+  return(state.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
+async function deleteCustomExercise(id,io=storageIO){
+  if(!isCustomLibraryId(id)||customExerciseInUse(id))return null;
+  const proposal=cloneSnapshot(state);
+  proposal.customExercises=customExercises(proposal).filter(e=>e.id!==id);
+  return commitProposedState(proposal,io)}
 function programAdherence(asOf=today()){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   // Inclusive rolling [asOf-6, asOf] — distinct planned days; future rows excluded.
   const end=asOf,start=shiftDate(end,-6),programDaySet=new Set(prog.days()),loggedDays=new Set();
@@ -4446,7 +4503,10 @@ window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeCatalogForSlot=catalogForSlot;
 window.__repforgeChooseExercise=chooseExercise;
 window.__repforgeResolveSplit=resolveSplit;
-window.__repforgeExerciseCatalog=EXERCISE_CATALOG;
+window.__repforgeExerciseCatalog=EXERCISE_LIBRARY;
+window.__repforgeExerciseLibrary=EXERCISE_LIBRARY;
+window.__repforgeLibraryEntry=libraryEntry;
+window.__repforgePickableExercises=()=>pickableExercises();
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);

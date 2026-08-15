@@ -6616,10 +6616,10 @@ async function main() {
       catalog
         .filter(
           (e) =>
-            e.pattern === slot &&
+            e.patterns.includes(slot) &&
             e.equipment.some((x) => equipment.includes(String(x).toLowerCase()))
         )
-        .sort((a, b) => a.id.localeCompare(b.id));
+        .sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50) || a.id.localeCompare(b.id));
     const pickFromSlot = (slot, equipment, used, occ) => {
       const pool = slotPool(slot, equipment);
       if (!pool.length) return null;
@@ -6628,8 +6628,14 @@ async function main() {
       const rotated = pool.slice(i).concat(pool.slice(0, i)).filter((e) => !used.has(e.id));
       return rotated[0] || null;
     };
-    const dayHasPrimary = (dayType, equipment) =>
-      (DAY_SLOTS[dayType] || []).some((slot) => slotPool(slot, equipment).length > 0);
+    // Mirrors dayTypeHasPrimary: a day type counts as supported only when at
+    // least half its slots have candidates, not merely one.
+    const dayHasPrimary = (dayType, equipment) => {
+      const slots = DAY_SLOTS[dayType] || [];
+      if (!slots.length) return false;
+      const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
+      return fillable * 2 >= slots.length;
+    };
     const splitSupported = (dayTypes, equipment) =>
       dayTypes.every((dt) => dayHasPrimary(dt, equipment));
     const expectedFullDay = (dayType, equipment, occ, sessionLength) => {
@@ -6734,9 +6740,17 @@ async function main() {
         const expectedNames = Array.from({ length: daysPerWeek }, (_, i) => `Day ${i + 1}`);
         if (!ok) {
           blocked++;
-          if (days.length === daysPerWeek && days.every((d) => d.length)) {
-            failures.push(`${label}: blocked combo still produced every training day`);
-          }
+          // Blocking is the wizard's job — Continue stays disabled — not the
+          // generator's. Back when a day type was unsupported only if no slot
+          // at all could be filled, a blocked combo necessarily produced an
+          // empty day; now it produces a thin one. What has to hold is that
+          // the combo really is thin: some day type cannot fill half its slots.
+          const thin = dayTypes.some((dt) => {
+            const slots = DAY_SLOTS[dt] || [];
+            const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
+            return fillable * 2 < slots.length;
+          });
+          if (!thin) failures.push(`${label}: blocked combo fills every day type`);
           continue;
         }
         generated++;
@@ -6779,11 +6793,16 @@ async function main() {
             const pool = slotPool(slot, equipment);
             if (!pool.length) continue;
             const modeled = idxs.map((di) => expectedDays[di].picks.filter((p) => p.slot === slot).map((p) => p.id));
-            const actual = idxs.map((di) =>
-              days[di]
-                .map((e) => e.libraryId)
-                .filter((id) => catalogById.get(id)?.pattern === slot)
-            );
+            // A library entry can serve several slots — a preacher curl is both
+            // "curl" and "arms" — so pattern membership cannot say which slot a
+            // pick filled. Attribute by position instead: compare what the app
+            // actually put where the model assigned this slot.
+            const actual = idxs.map((di) => {
+              const ids = days[di].map((e) => e.libraryId);
+              return expectedDays[di].picks
+                .map((p, i) => (p.slot === slot ? ids[i] : null))
+                .filter((id) => id != null);
+            });
             for (let k = 0; k < idxs.length; k++) {
               if (modeled[k].join("|") !== actual[k].join("|")) {
                 failures.push(
