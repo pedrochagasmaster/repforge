@@ -2106,16 +2106,20 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
 
 {
   const { context, page } = await freshPage(browser);
+  // Zoom is off by decision: the layout is fixed to the phone and worked
+  // one-handed mid-set, so the meta pins the scale and the root takes panning
+  // only. Text size is what has to carry legibility instead, which is why the
+  // font-size floors below are the assertions that matter here.
   const meta = await page.evaluate(() => {
     const content = document.querySelector('meta[name="viewport"]')?.content || "";
     return {
       content,
-      blocks: /\bmaximum-scale\b/.test(content) || /\buser-scalable\s*=\s*no\b/i.test(content),
+      blocks: /\bmaximum-scale\s*=\s*1\b/.test(content) && /\buser-scalable\s*=\s*no\b/i.test(content),
       root: getComputedStyle(document.documentElement).touchAction,
     };
   });
-  assert(!meta.blocks && /width=device-width/.test(meta.content) && /initial-scale=1/.test(meta.content), "viewport does not prohibit zoom", JSON.stringify(meta));
-  assert(meta.root === "manipulation", "root retains touch-action:manipulation", meta.root);
+  assert(meta.blocks && /width=device-width/.test(meta.content) && /initial-scale=1/.test(meta.content), "viewport pins the scale at 1", JSON.stringify(meta));
+  assert(meta.root === "pan-x pan-y", "root takes panning only, never a zoom", meta.root);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
   const fonts = await page.evaluate(() => {
@@ -2143,8 +2147,8 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       scrolls: ledger ? ledger.scrollHeight > ledger.clientHeight + 1 : false,
     };
   });
-  const wantLedger = grip.scrolls ? "pan-y pinch-zoom" : "pinch-zoom";
-  assert(grip.card === "pan-y pinch-zoom" && grip.ledger === wantLedger, "Focus card/ledger allow pinch zoom", JSON.stringify(grip));
+  const wantLedger = grip.scrolls ? "pan-y" : "none";
+  assert(grip.card === "pan-y" && grip.ledger === wantLedger, "Focus card/ledger take panning only, never a zoom", JSON.stringify(grip));
   await context.close();
 }
 

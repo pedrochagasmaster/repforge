@@ -2,7 +2,12 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <!-- The layout is fixed to the phone and worked one-handed mid-set, so every
+       scale but 1 is an accident: pinch, double-tap, and the zoom iOS applies
+       when a small field takes focus. `maximum-scale`/`user-scalable` shut the
+       last one and cover the browsers that honour them; `touch-action` in
+       styles.css and the gesture listeners in app.js close the rest. -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#F4F2EF">
   <meta name="description" content="Taurifer is a local-only progressive overload tracker for calm, focused training. All data stays on this device.">
   <meta name="mobile-web-app-capable" content="yes">

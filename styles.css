@@ -52,12 +52,13 @@
 *{box-sizing:border-box}
 /* Nudging load or reps means tapping the same 44px target several times in a row,
    and a browser reads two of those taps as double-tap-to-zoom: the page jumps
-   mid-set and there is no way back one-handed. `manipulation` drops the
-   double-tap gesture while leaving taps, scrolling and pinch alone, and it is
-   what stops the zoom in iOS Safari, which ignores `user-scalable=no`. Panning
-   policies set further in (the focus card's `touch-action:pan-y pinch-zoom`) still win,
-   because the browser intersects this with theirs. */
-html{-webkit-text-size-adjust:100%;touch-action:manipulation}
+   mid-set and there is no way back one-handed. A pinch, or a second finger
+   landing while the first drags a card, does the same. `pan-x pan-y` leaves the
+   browser scrolling and takes both zoom gestures away, and it is what stops them
+   in iOS Safari, which ignores `user-scalable=no`. Panning policies set further
+   in (the focus card's `touch-action:pan-y`) still win, because the browser
+   intersects this with theirs. */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:pan-x pan-y}
 button,input,select,textarea,label,summary,a,[role=button]{touch-action:manipulation}
 body{
   margin:0;
@@ -570,7 +571,7 @@ article.exercise--focus{
   display:flex;flex-direction:column;overflow:hidden;
   background:var(--surface);border:1px solid var(--rule);border-radius:18px;
   padding:0;box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.10);
-  touch-action:pan-y pinch-zoom;
+  touch-action:pan-y;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none;
 }
 article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
@@ -605,11 +606,11 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 /* ---- Ledger: the only scrolling region of the card ---- */
 .fcard__ledger{
   flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
-  touch-action:pinch-zoom;
+  touch-action:none;
   padding:0 20px 6px;margin-top:18px;
   scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
 }
-.fcard__ledger.is-scrollable{touch-action:pan-y pinch-zoom}
+.fcard__ledger.is-scrollable{touch-action:pan-y}
 .fcard__ledger::-webkit-scrollbar{width:4px}
 .fcard__ledger::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:4px}
 .fcard__ledger::-webkit-scrollbar-track{background:transparent}
@@ -1329,7 +1330,9 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .pmeta__name{flex:1;min-width:12rem;margin-top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 .pmeta__name input{margin-top:5px;font-weight:600;font-size:16px;text-transform:none;letter-spacing:normal;padding:10px 11px;background:var(--surface)}
 .pmeta__started{flex:none;margin-top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
-.pmeta__started input{margin-top:5px;font-size:14px;padding:9px 11px;background:var(--surface);color-scheme:light}
+/* 16px, like every other field: below that iOS zooms the page in on focus and
+   leaves it there. */
+.pmeta__started input{margin-top:5px;font-size:16px;padding:9px 11px;background:var(--surface);color-scheme:light}
 .pmeta__chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-left:auto}
 .pmeta__chip{font-size:12px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:6px 10px;white-space:nowrap}
 .pmeta__chip--status{color:var(--ink);border-color:var(--rule-strong);font-weight:600}
@@ -1359,13 +1362,13 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .peditor__addday{width:100%;margin-top:14px;font-size:14px}
 .pex{background:var(--bg);border:1px solid var(--rule);border-radius:12px;padding:12px}
 .pex__head{display:flex;align-items:center;gap:8px}
-.pex__name{flex:1;margin-top:0;font-weight:600;font-size:15px;padding:10px 11px}
+.pex__name{flex:1;margin-top:0;font-weight:600;font-size:16px;padding:10px 11px}
 .pex__move{flex:none;display:flex;gap:5px}
 .pex__nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}
 .pex__num,.pex__mus{display:block;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:600;color:var(--ink-soft)}
 .pex__num input{margin-top:5px;text-align:center;font-weight:500;padding:9px 4px;background:var(--surface)}
 .pex__mus{margin-top:11px}
-.pex__mus input{margin-top:5px;padding:10px 11px;font-size:14px;background:var(--surface)}
+.pex__mus input{margin-top:5px;padding:10px 11px;font-size:16px;background:var(--surface)}
 .iconbtn{flex:none;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;
   border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:9px;cursor:pointer;font-size:12px;line-height:1}
 .iconbtn:hover:not(:disabled){color:var(--ink);border-color:var(--ink-soft)}

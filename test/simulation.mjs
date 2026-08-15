@@ -1166,18 +1166,18 @@ async function main() {
     };
   });
   assert(
-    !/\bmaximum-scale\b/.test(zoomPolicy.meta) && !/\buser-scalable\s*=\s*no\b/i.test(zoomPolicy.meta),
-    "Viewport meta allows pinch zoom",
+    /\bmaximum-scale\s*=\s*1\b/.test(zoomPolicy.meta) && /\buser-scalable\s*=\s*no\b/i.test(zoomPolicy.meta),
+    "Viewport meta pins the scale at 1",
     JSON.stringify(zoomPolicy),
-    "Inspect <meta name=viewport> → no maximum-scale or user-scalable=no"
+    "Inspect <meta name=viewport> → maximum-scale=1 and user-scalable=no"
   );
   assert(
-    zoomPolicy.root === "manipulation" &&
+    zoomPolicy.root === "pan-x pan-y" &&
       zoomPolicy.step === "manipulation" &&
       zoomPolicy.field === "manipulation",
-    "Controls drop the double-tap gesture, so repeated ± taps cannot zoom",
+    "The page takes scrolling only, so no tap or pinch can zoom",
     JSON.stringify(zoomPolicy),
-    "Log tab → computed touch-action on a ± step button and a set field"
+    "Log tab → computed touch-action on the root, a ± step button and a set field"
   );
   assert(
     zoomPolicy.fieldFont >= 16,
@@ -5059,10 +5059,10 @@ async function main() {
   });
   assert(
     scrollPolicy.overflows === scrollPolicy.marked &&
-      scrollPolicy.touch === "pan-y pinch-zoom" && !scrollPolicy.wellScrolls,
+      scrollPolicy.touch === "pan-y" && !scrollPolicy.wellScrolls,
     "the ledger is the only scrolling region of the card",
     JSON.stringify(scrollPolicy),
-    "Focus → vertical gestures scroll the ledger; pinch zoom remains available"
+    "Focus → vertical gestures scroll the ledger; nothing else is claimed"
   );
   while ((await page.evaluate(() => document.querySelector("#woPrev")?.disabled)) === false) {
     await page.click("#woPrev");

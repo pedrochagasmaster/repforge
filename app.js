@@ -2975,6 +2975,28 @@ function trackSheetViewport(){
     root.style.setProperty("--kb",`${Math.round(inset)}px`);
     root.style.setProperty("--vvh",`${Math.round(vv.height)}px`)};
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);apply()}
+/* ---- Zoom is off everywhere ---- */
+/* The layout is already sized to the phone, and it is worked one-handed between
+ * sets: a zoom is never asked for and always in the way, because the hand that
+ * would pinch back out is holding a dumbbell. `touch-action` in styles.css and
+ * the viewport meta take the touch gestures and the focus zoom; these listeners
+ * take what neither reaches — iOS Safari's own pinch gestures, a trackpad pinch
+ * or ctrl+wheel, and the browser zoom shortcuts. Every one needs `passive:false`
+ * to be allowed to cancel. */
+function blockZoomGestures(){
+  const stop=e=>{if(e.cancelable)e.preventDefault()};
+  // Safari reports a pinch as its own gesture, outside `touch-action`.
+  for(const type of ["gesturestart","gesturechange","gestureend"])
+    document.addEventListener(type,stop,{passive:false});
+  // Nothing here is driven by two fingers, so a second one is always a pinch.
+  document.addEventListener("touchmove",e=>{if(e.touches.length>1)stop(e)},{passive:false});
+  // A trackpad pinch arrives as a wheel event with ctrlKey set, as does ctrl+wheel.
+  window.addEventListener("wheel",e=>{if(e.ctrlKey)stop(e)},{passive:false});
+  // Ctrl/Cmd with +, -, or 0 — including the numpad keys and the unshifted "=".
+  window.addEventListener("keydown",e=>{
+    if(!(e.ctrlKey||e.metaKey)||e.altKey)return;
+    if(["+","-","=","_","0"].includes(e.key))stop(e)},{passive:false});
+}
 /* ---- Swipe down to dismiss (every bottom sheet) ---- */
 /* The grab handle promises a sheet that can be pushed back down, so the gesture
  * has to answer: the sheet follows the thumb, and past a real commitment it
@@ -5906,6 +5928,7 @@ function init(){
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
   const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
+  blockZoomGestures();
   // Every bottom sheet is dismissed the way its grab handle says it is: pushed
   // back down. Delegated, so a sheet added later is dragged without new wiring.
   document.addEventListener("pointerdown",sheetDragStart);
