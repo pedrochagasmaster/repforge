@@ -412,7 +412,7 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
         /* ignore */
       }
       const toast = document.querySelector("#toast:not(.hidden)")?.textContent || "";
-      return /forged|Enter weight/i.test(toast);
+      return /carried|carregado|Enter weight/i.test(toast);
     },
     { k: KEY, len: beforeLen },
     { timeout: 8000 }

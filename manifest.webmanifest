@@ -1,6 +1,6 @@
 {
-  "name": "RepForge",
-  "short_name": "RepForge",
+  "name": "Taurifer",
+  "short_name": "Taurifer",
   "description": "Local-only progressive overload tracker for machines, cables, dumbbells, barbells, and bodyweight.",
   "start_url": "./index.html",
   "scope": "./",

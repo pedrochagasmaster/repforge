@@ -1185,7 +1185,7 @@ const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return Stri
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
-    if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"RepForge backup"});return}}}catch{}
+    if(navigator.canShare({files:[file]})){await navigator.share({files:[file],title:"Taurifer backup"});return}}}catch{}
   download(text,name,type)}
 const EFFORT_RIR={easy:3,hard:1,max:0};
 const EFFORT_STEPS=["easy","hard","max"];
@@ -1859,7 +1859,7 @@ function normalizeProgramHistory(history){
     return normalized})}
 function normalizeLoaded(s){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0};
-  if(!isValidStateShape(s))throw new TypeError("Invalid RepForge state");
+  if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
     program:new Program(s.program).toJSON(),log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[])};
@@ -1867,7 +1867,7 @@ function normalizeLoaded(s){
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
 function proposalFromImport(incoming){
-  if(!isValidStateShape(incoming))throw new TypeError("Invalid RepForge backup");
+  if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
   return normalizeLoaded(stripStorageMeta(incoming))}
 async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"replaceImportedState");
@@ -1880,7 +1880,7 @@ async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readD
   return result}
 async function mergeImportedLog(incoming,io=storageIO){
   requireAdapter(io,"mergeImportedLog");
-  if(!isValidStateShape(incoming))throw new TypeError("Invalid RepForge backup");
+  if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
   const rows=(incoming.log||[]).filter(r=>r&&r.session);
   const have=new Set(state.log.map(r=>r.session));
   const add=rows.filter(r=>!have.has(r.session));
@@ -4851,19 +4851,19 @@ function exportCsv(){
   const q=v=>`"${String(v??"").replaceAll('"','""')}"`;
   const csv=[cols.map(c=>c[0]).join(","),
     ...state.log.map(r=>cols.map(c=>q(c[1](r))).join(","))].join("\n");
-  download(csv,`repforge_log_${today()}.csv`,"text/csv");
+  download(csv,`taurifer_log_${today()}.csv`,"text/csv");
 }
 async function exportJson(){
   const proposal=cloneSnapshot(state);proposal.settings.lastExport=new Date().toISOString();
   const result=await commitProposedState(proposal);
   if(!(result.localOk||result.idbOk))return result;
-  const text=JSON.stringify(exportableState(state),null,2),name=`repforge_backup_${today()}.json`;
+  const text=JSON.stringify(exportableState(state),null,2),name=`taurifer_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");renderSettings();
   return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
   const slug=fileSlug(state.programMeta?.name);
-  download(JSON.stringify(payload,null,2),`repforge_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
+  download(JSON.stringify(payload,null,2),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
 
 /* ---- Plain-text program export ----
  * The program as something a lifter can read or paste into a chat: the name and
@@ -4882,7 +4882,7 @@ function programText(){
     prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name} — ${e.sets}× ${programTextReps(e)}`))}
   return lines.join("\n")}
 const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
-  return `repforge_program_${slug?`${slug}_`:""}${today()}.txt`};
+  return `taurifer_program_${slug?`${slug}_`:""}${today()}.txt`};
 let programTextReturn=null;
 function openProgramTextSheet(){
   const sheet=$("#programTextSheet"),scrim=$("#programTextScrim"),out=$("#programTextOut");
@@ -5530,8 +5530,8 @@ function presentStorageRecovery(decision){
         add("storageExportRaw","btn--steel","dialog.storage_recovery.export_raw");
         add("storageStartFresh","btn--danger","dialog.storage_recovery.start_fresh")}
       actions.innerHTML=btns.join("");
-      $("#storageExportA").onclick=()=>exportRecoveryRaw(decision.local?.raw,"repforge_copy_a.json");
-      $("#storageExportB").onclick=()=>exportRecoveryRaw(decision.idb?.raw,"repforge_copy_b.json");
+      $("#storageExportA").onclick=()=>exportRecoveryRaw(decision.local?.raw,"taurifer_copy_a.json");
+      $("#storageExportB").onclick=()=>exportRecoveryRaw(decision.idb?.raw,"taurifer_copy_b.json");
       $("#storageRetry").onclick=async()=>{
         if(retryBusy)return;retryBusy=true;d.dataset.busy="1";
         try{const local=readLocalStatus(),idb=await readIdbStatus(),next=chooseSnapshot(local,idb);
@@ -5548,8 +5548,8 @@ function presentStorageRecovery(decision){
         finish({kind:"chosen",snapshot:winner,source:heal==="idb"?"local":"idb",heal})};
       const exportRaw=$("#storageExportRaw");
       if(exportRaw)exportRaw.onclick=()=>{
-        exportRecoveryRaw(decision.local?.raw,"repforge_copy_a.json");
-        exportRecoveryRaw(decision.idb?.raw,"repforge_copy_b.json")};
+        exportRecoveryRaw(decision.local?.raw,"taurifer_copy_a.json");
+        exportRecoveryRaw(decision.idb?.raw,"taurifer_copy_b.json")};
       const fresh=$("#storageStartFresh");
       if(fresh)fresh.onclick=async()=>{
         if(retryBusy)return;
