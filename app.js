@@ -5040,10 +5040,27 @@ function exCard(e,i,n){
   `</div>`;
 }
 
+/* Free-text editor fields. Their model values are normalised on the way in
+   (trimmed, split on commas), so the stored string routinely differs from what
+   is legitimately half-typed in the box — mirroring the model back mid-edit
+   would eat trailing spaces and re-fill a field the lifter is still clearing.
+   These echo on blur instead; see bindEditor. */
+const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes","alternates"]);
+const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
+function commitEditorField(id,field,value,effect){
+  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+  nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
+  return commitProposedState(proposal,storageIO,{effect})}
+
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
+    const field=inp.dataset.field,isText=EDITOR_TEXT_FIELDS.has(field);
     inp.oninput=async()=>{const e=prog.find(inp.dataset.id);if(!e)return;
-      const captured=inp.value,field=inp.dataset.field,priorValue=String(e[field]??"");
+      const captured=inp.value,priorValue=String(e[field]??"");
+      // A blank name is a stage of typing, not a rename: hold the committed name
+      // until something non-blank arrives, so the Exercise fallback never lands
+      // in the box under the cursor. Blur puts a name back if none does.
+      if(field==="name"&&!captured.trim())return;
       let effect=null;
       if(field==="sets"){
         const next=Exercise.posInt(captured,e.sets);
@@ -5057,20 +5074,42 @@ function bindEditor(){
           effect=draftPreservationEffect(draftRaw);
           if(effect.status!==DRAFT_EFFECT_VALID){
             inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}}
-      const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
-      nextProgram.update(inp.dataset.id,field,captured);proposal.program=nextProgram.toJSON();
-      const result=await commitProposedState(proposal,storageIO,{effect});
+      const result=await commitEditorField(inp.dataset.id,field,captured,effect);
       if(!(result.localOk||result.idbOk)){
-        if(inp.value===captured)inp.value=prog.find(inp.dataset.id)?.[field]??captured;
+        const cur=prog.find(inp.dataset.id);
+        if(inp.value===captured)inp.value=cur?(isText?editorFieldText(cur,field):cur[field]):captured;
         if(effect)toast(t("toast.set_count_locked_draft"));
         return}
-      if(inp.value===captured||inp.value===priorValue)
+      if(!isText&&(inp.value===captured||inp.value===priorValue))
         inp.value=String(prog.find(inp.dataset.id)?.[field]??captured);
       renderVolume();updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
       inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
         (card?card.querySelectorAll('input[type="number"][data-field]'):[inp]).forEach(x=>x.value=e[x.dataset.field])};
+    }
+    else if(isText){
+      // Every keystroke commits, so by the time a name box is empty the model holds
+      // whatever single letter survived the backspacing. Remember what was in the
+      // box on focus and put that back — clearing a name and walking away is an
+      // abandoned edit, not a rename to a fragment.
+      let onFocusText=null;
+      inp.onfocus=()=>{const e=prog.find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
+      // Blur is where the box catches up with the model: stray whitespace goes and
+      // alternates regain their ", " spacing.
+      inp.onchange=async()=>{
+        if(field==="name"&&!inp.value.trim()&&onFocusText){
+          // Backspacing leaves a keystroke commit per character still in flight, and
+          // a proposal built on a state they have not landed in yet diffs to nothing.
+          // Let the queue drain so the restore is a real change against the model.
+          await flushStorage();
+          if(prog.find(inp.dataset.id)?.name!==onFocusText)
+            await commitEditorField(inp.dataset.id,field,onFocusText);}
+        const e=prog.find(inp.dataset.id);if(!e)return;
+        const shown=editorFieldText(e,field);
+        if(inp.value!==shown)inp.value=shown;
+        onFocusText=null;
+        renderVolume();updateGauge();updateSaveMeta()};
     }
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
