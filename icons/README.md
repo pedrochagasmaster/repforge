@@ -1,6 +1,6 @@
-# RepForge icon assets
+# Taurifer icon assets
 
-`icon.svg` is the high-fidelity source of truth for RepForge's app identity.
+`icon.svg` is the flat vector source of truth for Taurifer's app identity: a charcoal bull-horn T — a yoke beam with upturned horn tips over a tapered stem — carrying a copper load line, on warm paper.
 
 - `favicon-32.png` is the browser fallback favicon.
 - `icon-192.png`, `icon-512.png`, and `icon-1024.png` are install and notification assets.
