@@ -1,0 +1,2241 @@
+[
+  {
+    "id": "pr_bb",
+    "src": "exdb:0025",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "barbell bench press",
+    "name": "Barbell bench press",
+    "beginnerFriendly": false
+  },
+  {
+    "id": "ip_bb",
+    "src": "exdb:0047",
+    "patterns": [
+      "incline_press"
+    ],
+    "_srcName": "barbell incline bench press",
+    "name": "Barbell incline press",
+    "beginnerFriendly": false
+  },
+  {
+    "id": "dp_bb",
+    "src": "exdb:0033",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "barbell decline bench press"
+  },
+  {
+    "id": "pr_db",
+    "src": "exdb:0289",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "dumbbell bench press",
+    "name": "Dumbbell bench press"
+  },
+  {
+    "id": "ip_db",
+    "src": "exdb:0314",
+    "patterns": [
+      "incline_press"
+    ],
+    "_srcName": "dumbbell incline bench press",
+    "name": "Dumbbell incline press"
+  },
+  {
+    "id": "dp_db",
+    "src": "exdb:0301",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "dumbbell decline bench press"
+  },
+  {
+    "id": "cf_db",
+    "src": "exdb:0308",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "dumbbell fly"
+  },
+  {
+    "id": "cfi_db",
+    "src": "exdb:0319",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "dumbbell incline fly"
+  },
+  {
+    "id": "pv_db",
+    "src": "exdb:0375",
+    "patterns": [
+      "pull"
+    ],
+    "_srcName": "dumbbell pullover"
+  },
+  {
+    "id": "pr_mc",
+    "src": "exdb:0577",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "lever chest press",
+    "name": "Chest press machine"
+  },
+  {
+    "id": "ip_mc",
+    "src": "exdb:1299",
+    "patterns": [
+      "incline_press"
+    ],
+    "_srcName": "lever incline chest press",
+    "name": "Incline chest press machine"
+  },
+  {
+    "id": "dp_mc",
+    "src": "exdb:1300",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "lever decline chest press"
+  },
+  {
+    "id": "ci_mc",
+    "src": "exdb:0596",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "lever seated fly",
+    "name": "Pec deck"
+  },
+  {
+    "id": "icp_mc",
+    "src": "exdb:1301",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "machine inner chest press"
+  },
+  {
+    "id": "pr_sm",
+    "src": "exdb:0748",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "smith bench press"
+  },
+  {
+    "id": "ip_sm",
+    "src": "exdb:0757",
+    "patterns": [
+      "incline_press"
+    ],
+    "_srcName": "smith incline bench press"
+  },
+  {
+    "id": "dp_sm",
+    "src": "exdb:0753",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "smith decline bench press"
+  },
+  {
+    "id": "pr_cb",
+    "src": "exdb:0151",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "cable bench press"
+  },
+  {
+    "id": "ip_cb",
+    "src": "exdb:0169",
+    "patterns": [
+      "incline_press"
+    ],
+    "_srcName": "cable incline bench press"
+  },
+  {
+    "id": "prs_cb",
+    "src": "exdb:2144",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "cable seated chest press"
+  },
+  {
+    "id": "cx_cb",
+    "src": "exdb:0155",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "cable cross-over variation",
+    "name": "Cable crossover"
+  },
+  {
+    "id": "cfi_cb",
+    "src": "exdb:0171",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "cable incline fly"
+  },
+  {
+    "id": "clf_cb",
+    "src": "exdb:0179",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "cable low fly"
+  },
+  {
+    "id": "ci_cb",
+    "src": "exdb:0188",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "cable middle fly",
+    "name": "Cable fly"
+  },
+  {
+    "id": "cdf_cb",
+    "src": "exdb:0158",
+    "patterns": [
+      "chest_iso"
+    ],
+    "_srcName": "cable decline fly"
+  },
+  {
+    "id": "pu_bw",
+    "src": "exdb:0662",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "push-up"
+  },
+  {
+    "id": "ipu_bw",
+    "src": "exdb:0493",
+    "patterns": [
+      "incline_press"
+    ],
+    "_srcName": "incline push-up"
+  },
+  {
+    "id": "dpu_bw",
+    "src": "exdb:0279",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "decline push-up"
+  },
+  {
+    "id": "cd_bw",
+    "src": "exdb:0251",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "chest dip"
+  },
+  {
+    "id": "cd_mc",
+    "src": "exdb:0009",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "assisted chest dip (kneeling)"
+  },
+  {
+    "id": "wpu_bw",
+    "src": "exdb:1311",
+    "patterns": [
+      "press"
+    ],
+    "_srcName": "wide hand push up"
+  },
+  {
+    "id": "rw_bb",
+    "src": "exdb:0027",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "barbell bent over row",
+    "name": "Barbell row",
+    "beginnerFriendly": false
+  },
+  {
+    "id": "pdl_bb",
+    "src": "exdb:3017",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "barbell pendlay row"
+  },
+  {
+    "id": "rwr_bb",
+    "src": "exdb:0118",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "barbell reverse grip bent over row"
+  },
+  {
+    "id": "rw1_bb",
+    "src": "exdb:0064",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "barbell one arm bent over row"
+  },
+  {
+    "id": "rw_db",
+    "src": "exdb:0293",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "dumbbell bent over row"
+  },
+  {
+    "id": "rw1_db",
+    "src": "exdb:0292",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "dumbbell one arm bent-over row"
+  },
+  {
+    "id": "rwi_db",
+    "src": "exdb:0327",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "dumbbell incline row"
+  },
+  {
+    "id": "rw_mc",
+    "src": "exdb:1350",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "lever seated row",
+    "name": "Seated row machine"
+  },
+  {
+    "id": "rwn_mc",
+    "src": "exdb:0588",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "lever narrow grip seated row"
+  },
+  {
+    "id": "hr_mc",
+    "src": "exdb:0581",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "lever high row",
+    "name": "High row machine"
+  },
+  {
+    "id": "tb_mc",
+    "src": "exdb:0606",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "lever t bar row"
+  },
+  {
+    "id": "tbr_mc",
+    "src": "exdb:1349",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "lever reverse t-bar row"
+  },
+  {
+    "id": "rwu_mc",
+    "src": "exdb:1313",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "lever unilateral row"
+  },
+  {
+    "id": "rwv_mc",
+    "src": "exdb:3200",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "lever bent-over row with v-bar"
+  },
+  {
+    "id": "rw_cb",
+    "src": "exdb:0861",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "cable seated row",
+    "name": "Cable seated row"
+  },
+  {
+    "id": "rww_cb",
+    "src": "exdb:0218",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "cable seated wide-grip row"
+  },
+  {
+    "id": "rwl_cb",
+    "src": "exdb:0180",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "cable low seated row"
+  },
+  {
+    "id": "rw1_cb",
+    "src": "exdb:0189",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "cable one arm bent over row"
+  },
+  {
+    "id": "rwv_cb",
+    "src": "exdb:0234",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "cable standing row (v-bar)"
+  },
+  {
+    "id": "hr_cb",
+    "src": "exdb:0167",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "cable high row (kneeling)"
+  },
+  {
+    "id": "rw_sm",
+    "src": "exdb:1359",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "smith bent over row"
+  },
+  {
+    "id": "irw_bw",
+    "src": "exdb:0499",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "inverted row"
+  },
+  {
+    "id": "srw_bw",
+    "src": "exdb:0808",
+    "patterns": [
+      "row"
+    ],
+    "_srcName": "suspended row"
+  },
+  {
+    "id": "pd_mc",
+    "src": "exdb:0198",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "cable pulldown",
+    "name": "Lat pulldown"
+  },
+  {
+    "id": "pdu_cb",
+    "src": "exdb:0245",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "cable underhand pulldown"
+  },
+  {
+    "id": "pdr_cb",
+    "src": "exdb:0177",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "cable lateral pulldown (with rope attachment)"
+  },
+  {
+    "id": "pdv_cb",
+    "src": "exdb:2616",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "cable lateral pulldown with v-bar"
+  },
+  {
+    "id": "pdf_mc",
+    "src": "exdb:0579",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "lever front pulldown"
+  },
+  {
+    "id": "pdrg_mc",
+    "src": "exdb:2736",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "lever reverse grip lateral pulldown"
+  },
+  {
+    "id": "pl_mc",
+    "src": "exdb:0818",
+    "patterns": [
+      "pull",
+      "pulldown"
+    ],
+    "_srcName": "twin handle parallel grip lat pulldown",
+    "name": "Neutral-grip pulldown"
+  },
+  {
+    "id": "pd_bw",
+    "src": "exdb:0017",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "assisted pull-up",
+    "name": "Assisted pull-up"
+  },
+  {
+    "id": "pup_bw",
+    "src": "exdb:0652",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "pull-up"
+  },
+  {
+    "id": "chn_bw",
+    "src": "exdb:1326",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "chin-up"
+  },
+  {
+    "id": "chnc_bw",
+    "src": "exdb:1327",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "close grip chin-up"
+  },
+  {
+    "id": "pupn_bw",
+    "src": "exdb:0651",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "pull up (neutral grip)"
+  },
+  {
+    "id": "pupw_bw",
+    "src": "exdb:1429",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "wide grip pull-up"
+  },
+  {
+    "id": "pupw_wt",
+    "src": "exdb:0841",
+    "patterns": [
+      "pulldown"
+    ],
+    "_srcName": "weighted pull-up"
+  },
+  {
+    "id": "pl_cb",
+    "src": "exdb:0238",
+    "patterns": [
+      "pull"
+    ],
+    "_srcName": "cable straight arm pulldown",
+    "name": "Cable pullover"
+  },
+  {
+    "id": "plr_cb",
+    "src": "exdb:0237",
+    "patterns": [
+      "pull"
+    ],
+    "_srcName": "cable straight arm pulldown (with rope)"
+  },
+  {
+    "id": "pv_mc",
+    "src": "exdb:2285",
+    "patterns": [
+      "pull"
+    ],
+    "_srcName": "lever pullover"
+  },
+  {
+    "id": "pv_bb",
+    "src": "exdb:0073",
+    "patterns": [
+      "pull"
+    ],
+    "_srcName": "barbell pullover"
+  },
+  {
+    "id": "sh_bb",
+    "src": "exdb:0095",
+    "patterns": [
+      "traps"
+    ],
+    "_srcName": "barbell shrug"
+  },
+  {
+    "id": "sh_db",
+    "src": "exdb:0406",
+    "patterns": [
+      "traps"
+    ],
+    "_srcName": "dumbbell shrug"
+  },
+  {
+    "id": "sh_cb",
+    "src": "exdb:0220",
+    "patterns": [
+      "traps"
+    ],
+    "_srcName": "cable shrug"
+  },
+  {
+    "id": "sh_mc",
+    "src": "exdb:0604",
+    "patterns": [
+      "traps"
+    ],
+    "_srcName": "lever shrug"
+  },
+  {
+    "id": "sh_sm",
+    "src": "exdb:0767",
+    "patterns": [
+      "traps"
+    ],
+    "_srcName": "smith shrug"
+  },
+  {
+    "id": "sp_bb",
+    "src": "exdb:0091",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "barbell seated overhead press",
+    "name": "Barbell overhead press",
+    "beginnerFriendly": false
+  },
+  {
+    "id": "spc_bb",
+    "src": "exdb:1456",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "barbell standing close grip military press"
+  },
+  {
+    "id": "sp_db",
+    "src": "exdb:0426",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "dumbbell standing overhead press",
+    "name": "Dumbbell shoulder press"
+  },
+  {
+    "id": "sps_db",
+    "src": "exdb:0405",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "dumbbell seated shoulder press"
+  },
+  {
+    "id": "spp_db",
+    "src": "exdb:0404",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "dumbbell seated shoulder press (parallel grip)"
+  },
+  {
+    "id": "arn_db",
+    "src": "exdb:2137",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "dumbbell arnold press"
+  },
+  {
+    "id": "sp_mc",
+    "src": "exdb:0603",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "lever shoulder press",
+    "name": "Shoulder press machine"
+  },
+  {
+    "id": "spm_mc",
+    "src": "exdb:0587",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "lever military press"
+  },
+  {
+    "id": "sp1_mc",
+    "src": "exdb:0590",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "lever one arm shoulder press"
+  },
+  {
+    "id": "sp_sm",
+    "src": "exdb:0766",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "smith shoulder press"
+  },
+  {
+    "id": "sp_cb",
+    "src": "exdb:0219",
+    "patterns": [
+      "shoulder_press"
+    ],
+    "_srcName": "cable shoulder press"
+  },
+  {
+    "id": "lr_db",
+    "src": "exdb:0334",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "dumbbell lateral raise",
+    "name": "Dumbbell lateral raise"
+  },
+  {
+    "id": "lrs_db",
+    "src": "exdb:0396",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "dumbbell seated lateral raise"
+  },
+  {
+    "id": "lr1_db",
+    "src": "exdb:0355",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "dumbbell one arm lateral raise"
+  },
+  {
+    "id": "lrf_db",
+    "src": "exdb:0311",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "dumbbell full can lateral raise"
+  },
+  {
+    "id": "dl_cb",
+    "src": "exdb:0178",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "cable lateral raise",
+    "name": "Cable lateral raise"
+  },
+  {
+    "id": "lr1_cb",
+    "src": "exdb:0192",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "cable one arm lateral raise"
+  },
+  {
+    "id": "lr_mc",
+    "src": "exdb:0584",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "lever lateral raise",
+    "name": "Lateral raise machine"
+  },
+  {
+    "id": "lr_lm",
+    "src": "exdb:3237",
+    "patterns": [
+      "lateral_raise",
+      "delts"
+    ],
+    "_srcName": "landmine lateral raise"
+  },
+  {
+    "id": "fr_db",
+    "src": "exdb:0310",
+    "patterns": [
+      "delts"
+    ],
+    "_srcName": "dumbbell front raise"
+  },
+  {
+    "id": "fr_cb",
+    "src": "exdb:0162",
+    "patterns": [
+      "delts"
+    ],
+    "_srcName": "cable front raise"
+  },
+  {
+    "id": "fr_bb",
+    "src": "exdb:0041",
+    "patterns": [
+      "delts"
+    ],
+    "_srcName": "barbell front raise"
+  },
+  {
+    "id": "rd_db",
+    "src": "exdb:0383",
+    "patterns": [
+      "rear_delt"
+    ],
+    "_srcName": "dumbbell reverse fly",
+    "name": "Rear delt fly"
+  },
+  {
+    "id": "rdr_db",
+    "src": "exdb:2292",
+    "patterns": [
+      "rear_delt"
+    ],
+    "_srcName": "dumbbell rear delt raise"
+  },
+  {
+    "id": "rdi_db",
+    "src": "exdb:0326",
+    "patterns": [
+      "rear_delt"
+    ],
+    "_srcName": "dumbbell incline rear lateral raise"
+  },
+  {
+    "id": "rd_mc",
+    "src": "exdb:0602",
+    "patterns": [
+      "rear_delt"
+    ],
+    "_srcName": "lever seated reverse fly",
+    "name": "Reverse pec deck"
+  },
+  {
+    "id": "rdp_mc",
+    "src": "exdb:0601",
+    "patterns": [
+      "rear_delt"
+    ],
+    "_srcName": "lever seated reverse fly (parallel grip)"
+  },
+  {
+    "id": "rd_cb",
+    "src": "exdb:0154",
+    "patterns": [
+      "rear_delt"
+    ],
+    "_srcName": "cable cross-over revers fly"
+  },
+  {
+    "id": "rds_cb",
+    "src": "exdb:0240",
+    "patterns": [
+      "rear_delt"
+    ],
+    "_srcName": "cable supine reverse fly"
+  },
+  {
+    "id": "rdrw_cb",
+    "src": "exdb:0203",
+    "patterns": [
+      "rear_delt",
+      "row"
+    ],
+    "_srcName": "cable rear delt row (with rope)"
+  },
+  {
+    "id": "rdrw_sm",
+    "src": "exdb:0762",
+    "patterns": [
+      "rear_delt",
+      "row"
+    ],
+    "_srcName": "smith rear delt row"
+  },
+  {
+    "id": "rdrw_bb",
+    "src": "exdb:0076",
+    "patterns": [
+      "rear_delt",
+      "row"
+    ],
+    "_srcName": "barbell rear delt row"
+  },
+  {
+    "id": "ur_bb",
+    "src": "exdb:0120",
+    "patterns": [
+      "delts"
+    ],
+    "_srcName": "barbell upright row"
+  },
+  {
+    "id": "ur_db",
+    "src": "exdb:0437",
+    "patterns": [
+      "delts"
+    ],
+    "_srcName": "dumbbell upright row"
+  },
+  {
+    "id": "ur_cb",
+    "src": "exdb:0246",
+    "patterns": [
+      "delts"
+    ],
+    "_srcName": "cable upright row"
+  },
+  {
+    "id": "cu_bb",
+    "src": "exdb:0031",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "barbell curl"
+  },
+  {
+    "id": "cup_bb",
+    "src": "exdb:0070",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "barbell preacher curl"
+  },
+  {
+    "id": "cur_bb",
+    "src": "exdb:0080",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "barbell reverse curl"
+  },
+  {
+    "id": "cu_ez",
+    "src": "exdb:0447",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "ez barbell curl"
+  },
+  {
+    "id": "cuc_ez",
+    "src": "exdb:0446",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "ez barbell close-grip curl"
+  },
+  {
+    "id": "cur_ez",
+    "src": "exdb:0451",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "ez barbell reverse grip curl"
+  },
+  {
+    "id": "cus_ez",
+    "src": "exdb:0454",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "ez barbell spider curl"
+  },
+  {
+    "id": "cu_db",
+    "src": "exdb:0294",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell biceps curl",
+    "name": "Dumbbell curl"
+  },
+  {
+    "id": "cua_db",
+    "src": "exdb:0285",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell alternate biceps curl"
+  },
+  {
+    "id": "cuh_db",
+    "src": "exdb:0313",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell hammer curl"
+  },
+  {
+    "id": "cuc_db",
+    "src": "exdb:0297",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell concentration curl"
+  },
+  {
+    "id": "cui_db",
+    "src": "exdb:0318",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell incline curl"
+  },
+  {
+    "id": "cuih_db",
+    "src": "exdb:0320",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell incline hammer curl"
+  },
+  {
+    "id": "cup_db",
+    "src": "exdb:0372",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell preacher curl"
+  },
+  {
+    "id": "cux_db",
+    "src": "exdb:0298",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell cross body hammer curl"
+  },
+  {
+    "id": "cuz_db",
+    "src": "exdb:0439",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "dumbbell zottman curl"
+  },
+  {
+    "id": "cu_cb",
+    "src": "exdb:0868",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "cable curl",
+    "name": "Cable curl"
+  },
+  {
+    "id": "cuh_cb",
+    "src": "exdb:0165",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "cable hammer curl (with rope)"
+  },
+  {
+    "id": "cup_cb",
+    "src": "exdb:0195",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "cable preacher curl"
+  },
+  {
+    "id": "cu1_cb",
+    "src": "exdb:0190",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "cable one arm curl"
+  },
+  {
+    "id": "cur_cb",
+    "src": "exdb:0206",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "cable reverse curl"
+  },
+  {
+    "id": "cud_cb",
+    "src": "exdb:1632",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "cable drag curl"
+  },
+  {
+    "id": "cub_mc",
+    "src": "exdb:0575",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "lever bicep curl"
+  },
+  {
+    "id": "cu_mc",
+    "src": "exdb:0592",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "lever preacher curl",
+    "name": "Preacher curl machine"
+  },
+  {
+    "id": "cuhp_mc",
+    "src": "exdb:1615",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "lever hammer grip preacher curl"
+  },
+  {
+    "id": "cu_sm",
+    "src": "exdb:1683",
+    "patterns": [
+      "curl",
+      "arms"
+    ],
+    "_srcName": "smith machine bicep curl"
+  },
+  {
+    "id": "tr_cb",
+    "src": "exdb:0201",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "cable pushdown",
+    "name": "Cable pressdown"
+  },
+  {
+    "id": "trr_cb",
+    "src": "exdb:0200",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "cable pushdown (with rope attachment)",
+    "name": "Triceps pushdown (rope)"
+  },
+  {
+    "id": "trv_cb",
+    "src": "exdb:0241",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "cable triceps pushdown (v-bar)"
+  },
+  {
+    "id": "trrg_cb",
+    "src": "exdb:0207",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "cable reverse-grip pushdown"
+  },
+  {
+    "id": "tro_cb",
+    "src": "exdb:0194",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "cable overhead triceps extension (rope attachment)"
+  },
+  {
+    "id": "trk_cb",
+    "src": "exdb:0860",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "cable kickback"
+  },
+  {
+    "id": "trc_bb",
+    "src": "exdb:0030",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "barbell close-grip bench press"
+  },
+  {
+    "id": "trs_bb",
+    "src": "exdb:0060",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "barbell lying triceps extension skull crusher",
+    "name": "Barbell skull crusher"
+  },
+  {
+    "id": "tro_bb",
+    "src": "exdb:0109",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "barbell standing overhead triceps extension"
+  },
+  {
+    "id": "tros_ez",
+    "src": "exdb:0453",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "ez barbell seated triceps extension"
+  },
+  {
+    "id": "trc_ez",
+    "src": "exdb:2432",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "ez-bar close-grip bench press"
+  },
+  {
+    "id": "tri_ez",
+    "src": "exdb:0449",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "ez barbell incline triceps extension"
+  },
+  {
+    "id": "trk_db",
+    "src": "exdb:0333",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "dumbbell kickback"
+  },
+  {
+    "id": "trl_db",
+    "src": "exdb:0351",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "dumbbell lying triceps extension"
+  },
+  {
+    "id": "tro_db",
+    "src": "exdb:0430",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "dumbbell standing triceps extension"
+  },
+  {
+    "id": "trs_db",
+    "src": "exdb:2188",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "dumbbell seated triceps extension"
+  },
+  {
+    "id": "trcp_db",
+    "src": "exdb:0296",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "dumbbell close-grip press"
+  },
+  {
+    "id": "tr_mc",
+    "src": "exdb:0607",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "lever triceps extension",
+    "name": "Machine triceps extension"
+  },
+  {
+    "id": "trd_mc",
+    "src": "exdb:1451",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "lever seated dip"
+  },
+  {
+    "id": "trd_as",
+    "src": "exdb:0019",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "assisted triceps dip (kneeling)"
+  },
+  {
+    "id": "trd_bw",
+    "src": "exdb:0814",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "triceps dip"
+  },
+  {
+    "id": "trb_bw",
+    "src": "exdb:0129",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "bench dip (knees bent)"
+  },
+  {
+    "id": "trdm_bw",
+    "src": "exdb:0283",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "diamond push-up"
+  },
+  {
+    "id": "trcg_bw",
+    "src": "exdb:0259",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "close-grip push-up"
+  },
+  {
+    "id": "trc_sm",
+    "src": "exdb:0751",
+    "patterns": [
+      "triceps"
+    ],
+    "_srcName": "smith close-grip bench press"
+  },
+  {
+    "id": "sq_bb",
+    "src": "exdb:0043",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell full squat",
+    "name": "Barbell back squat",
+    "beginnerFriendly": false
+  },
+  {
+    "id": "sqh_bb",
+    "src": "exdb:1436",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell high bar squat"
+  },
+  {
+    "id": "sql_bb",
+    "src": "exdb:1435",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell low bar squat"
+  },
+  {
+    "id": "sqf_bb",
+    "src": "exdb:0042",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell front squat"
+  },
+  {
+    "id": "sqk_bb",
+    "src": "exdb:0046",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell hack squat"
+  },
+  {
+    "id": "lg_bb",
+    "src": "exdb:0054",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell lunge"
+  },
+  {
+    "id": "su_bb",
+    "src": "exdb:0114",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell step-up"
+  },
+  {
+    "id": "ss_bb",
+    "src": "exdb:0099",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell single leg split squat"
+  },
+  {
+    "id": "sqz_bb",
+    "src": "exdb:0127",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell zercher squat"
+  },
+  {
+    "id": "sqd_db",
+    "src": "exdb:0413",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "dumbbell squat"
+  },
+  {
+    "id": "sq_db",
+    "src": "exdb:1760",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "dumbbell goblet squat",
+    "name": "Goblet squat"
+  },
+  {
+    "id": "lg_db",
+    "src": "exdb:0336",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "dumbbell lunge"
+  },
+  {
+    "id": "lgr_db",
+    "src": "exdb:0381",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "dumbbell rear lunge"
+  },
+  {
+    "id": "ss_db",
+    "src": "exdb:0410",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "dumbbell single leg split squat"
+  },
+  {
+    "id": "su_db",
+    "src": "exdb:0431",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "dumbbell step-up"
+  },
+  {
+    "id": "sq_sm",
+    "src": "exdb:0770",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "smith squat",
+    "name": "Smith machine squat"
+  },
+  {
+    "id": "sqk_sm",
+    "src": "exdb:0755",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "smith hack squat"
+  },
+  {
+    "id": "lp_sm",
+    "src": "exdb:0760",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "smith leg press"
+  },
+  {
+    "id": "sqc_sm",
+    "src": "exdb:0750",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "smith chair squat"
+  },
+  {
+    "id": "sq_lp",
+    "src": "exdb:0739",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "sled 45в° leg press",
+    "name": "Leg press"
+  },
+  {
+    "id": "sqk_mc",
+    "src": "exdb:0743",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "sled hack squat",
+    "name": "Hack squat machine"
+  },
+  {
+    "id": "lp1_mc",
+    "src": "exdb:1425",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "sled 45 degrees one leg press",
+    "name": "Single-leg leg press"
+  },
+  {
+    "id": "lph_mc",
+    "src": "exdb:2611",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "lever horizontal one leg press",
+    "name": "Horizontal leg press"
+  },
+  {
+    "id": "le_mc",
+    "src": "exdb:0585",
+    "patterns": [
+      "leg_extension"
+    ],
+    "_srcName": "lever leg extension",
+    "name": "Leg extension"
+  },
+  {
+    "id": "sqg_kb",
+    "src": "exdb:0534",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "kettlebell goblet squat"
+  },
+  {
+    "id": "sqs_bw",
+    "src": "exdb:1489",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "sissy squat"
+  },
+  {
+    "id": "ss_bw",
+    "src": "exdb:2368",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "split squats"
+  },
+  {
+    "id": "dl_bb",
+    "src": "exdb:0032",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "barbell deadlift",
+    "name": "Barbell deadlift",
+    "beginnerFriendly": false
+  },
+  {
+    "id": "hg_bb",
+    "src": "exdb:0085",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "barbell romanian deadlift",
+    "name": "Barbell Romanian deadlift",
+    "beginnerFriendly": false
+  },
+  {
+    "id": "sldl_bb",
+    "src": "exdb:0116",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "barbell straight leg deadlift"
+  },
+  {
+    "id": "gm_bb",
+    "src": "exdb:0044",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "barbell good morning"
+  },
+  {
+    "id": "rp_bb",
+    "src": "exdb:0074",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "barbell rack pull"
+  },
+  {
+    "id": "gb_bb",
+    "src": "exdb:1409",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "barbell glute bridge"
+  },
+  {
+    "id": "dlt_bb",
+    "src": "exdb:0811",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "trap bar deadlift"
+  },
+  {
+    "id": "hg_db",
+    "src": "exdb:1459",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "dumbbell romanian deadlift",
+    "name": "Dumbbell Romanian deadlift"
+  },
+  {
+    "id": "sldl_db",
+    "src": "exdb:0432",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "dumbbell stiff leg deadlift"
+  },
+  {
+    "id": "dld_db",
+    "src": "exdb:0300",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "dumbbell deadlift"
+  },
+  {
+    "id": "sldl1_db",
+    "src": "exdb:1757",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "dumbbell single leg deadlift"
+  },
+  {
+    "id": "hg_sm",
+    "src": "exdb:0752",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "smith deadlift",
+    "name": "Smith machine deadlift"
+  },
+  {
+    "id": "gm_sm",
+    "src": "exdb:0749",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "smith bent knee good morning"
+  },
+  {
+    "id": "dld_mc",
+    "src": "exdb:0578",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "lever deadlift"
+  },
+  {
+    "id": "gm_mc",
+    "src": "exdb:3759",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "lever seated good morning"
+  },
+  {
+    "id": "dld_cb",
+    "src": "exdb:0157",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "cable deadlift"
+  },
+  {
+    "id": "pt_cb",
+    "src": "exdb:0196",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "cable pull through (with rope)"
+  },
+  {
+    "id": "he_cb",
+    "src": "exdb:0228",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "cable standing hip extension"
+  },
+  {
+    "id": "sw_kb",
+    "src": "exdb:0549",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "kettlebell swing"
+  },
+  {
+    "id": "lcl_mc",
+    "src": "exdb:0586",
+    "patterns": [
+      "leg_curl"
+    ],
+    "_srcName": "lever lying leg curl",
+    "name": "Lying leg curl"
+  },
+  {
+    "id": "lc_mc",
+    "src": "exdb:0599",
+    "patterns": [
+      "leg_curl"
+    ],
+    "_srcName": "lever seated leg curl",
+    "name": "Seated leg curl"
+  },
+  {
+    "id": "lck_mc",
+    "src": "exdb:0582",
+    "patterns": [
+      "leg_curl"
+    ],
+    "_srcName": "lever kneeling leg curl"
+  },
+  {
+    "id": "ghr_bw",
+    "src": "exdb:3193",
+    "patterns": [
+      "leg_curl"
+    ],
+    "_srcName": "glute-ham raise"
+  },
+  {
+    "id": "ilc_bw",
+    "src": "exdb:0496",
+    "patterns": [
+      "leg_curl"
+    ],
+    "_srcName": "inverse leg curl (bench support)"
+  },
+  {
+    "id": "lf_db",
+    "src": "exdb:0339",
+    "patterns": [
+      "leg_curl"
+    ],
+    "_srcName": "dumbbell lying femoral"
+  },
+  {
+    "id": "he_mc",
+    "src": "exdb:2286",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "lever hip extension v. 2"
+  },
+  {
+    "id": "rh_mc",
+    "src": "exdb:0593",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "lever reverse hyperextension"
+  },
+  {
+    "id": "be_mc",
+    "src": "exdb:0573",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "lever back extension"
+  },
+  {
+    "id": "hx_bw",
+    "src": "exdb:0489",
+    "patterns": [
+      "hinge"
+    ],
+    "_srcName": "hyperextension"
+  },
+  {
+    "id": "cv_mc",
+    "src": "exdb:0605",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "lever standing calf raise",
+    "name": "Standing calf raise machine"
+  },
+  {
+    "id": "cvs_mc",
+    "src": "exdb:0594",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "lever seated calf raise",
+    "name": "Seated calf raise machine"
+  },
+  {
+    "id": "cvp_mc",
+    "src": "exdb:2335",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "lever seated calf press"
+  },
+  {
+    "id": "cvd_mc",
+    "src": "exdb:1253",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "lever donkey calf raise"
+  },
+  {
+    "id": "cvl_mc",
+    "src": "exdb:1391",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "sled calf press on leg press",
+    "name": "Calf press on leg press",
+    "namePt": "Panturrilha no leg press"
+  },
+  {
+    "id": "cvh_mc",
+    "src": "exdb:1383",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "hack calf raise"
+  },
+  {
+    "id": "cv_db",
+    "src": "exdb:0417",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "dumbbell standing calf raise"
+  },
+  {
+    "id": "cvs_db",
+    "src": "exdb:1379",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "dumbbell seated calf raise"
+  },
+  {
+    "id": "cv1_db",
+    "src": "exdb:0409",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "dumbbell single leg calf raise"
+  },
+  {
+    "id": "cv_bb",
+    "src": "exdb:1372",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "barbell standing calf raise"
+  },
+  {
+    "id": "cvs_bb",
+    "src": "exdb:1371",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "barbell seated calf raise"
+  },
+  {
+    "id": "cv_sm",
+    "src": "exdb:0773",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "smith standing leg calf raise"
+  },
+  {
+    "id": "cv_cb",
+    "src": "exdb:1375",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "cable standing calf raise"
+  },
+  {
+    "id": "cv_bw",
+    "src": "exdb:1373",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "bodyweight standing calf raise"
+  },
+  {
+    "id": "cvd_bw",
+    "src": "exdb:0284",
+    "patterns": [
+      "calves"
+    ],
+    "_srcName": "donkey calf raise"
+  },
+  {
+    "id": "ad_mc",
+    "src": "exdb:0598",
+    "patterns": [
+      "adduction"
+    ],
+    "_srcName": "lever seated hip adduction",
+    "name": "Hip adduction machine"
+  },
+  {
+    "id": "ab_mc",
+    "src": "exdb:0597",
+    "patterns": [
+      "abduction"
+    ],
+    "_srcName": "lever seated hip abduction",
+    "name": "Hip abduction machine"
+  },
+  {
+    "id": "ad_cb",
+    "src": "exdb:0168",
+    "patterns": [
+      "adduction"
+    ],
+    "_srcName": "cable hip adduction"
+  },
+  {
+    "id": "ab_cb",
+    "src": "exdb:0175",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "cable kneeling crunch"
+  },
+  {
+    "id": "abs_cb",
+    "src": "exdb:0212",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "cable seated crunch"
+  },
+  {
+    "id": "abst_cb",
+    "src": "exdb:0226",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "cable standing crunch"
+  },
+  {
+    "id": "abr_cb",
+    "src": "exdb:0873",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "cable reverse crunch"
+  },
+  {
+    "id": "abt_cb",
+    "src": "exdb:0243",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "cable twist"
+  },
+  {
+    "id": "absb_cb",
+    "src": "exdb:0222",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "cable side bend"
+  },
+  {
+    "id": "abc_mc",
+    "src": "exdb:1452",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "lever seated crunch"
+  },
+  {
+    "id": "ablr_mc",
+    "src": "exdb:0600",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "lever seated leg raise crunch"
+  },
+  {
+    "id": "abt_mc",
+    "src": "exdb:0583",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "lever kneeling twist"
+  },
+  {
+    "id": "ab_wt",
+    "src": "exdb:0832",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "weighted crunch"
+  },
+  {
+    "id": "abrt_wt",
+    "src": "exdb:0846",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "weighted russian twist"
+  },
+  {
+    "id": "ablr_wt",
+    "src": "exdb:0866",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "weighted hanging leg-hip raise"
+  },
+  {
+    "id": "ablr_bw",
+    "src": "exdb:0472",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "hanging leg raise"
+  },
+  {
+    "id": "ablrs_bw",
+    "src": "exdb:0475",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "hanging straight leg raise"
+  },
+  {
+    "id": "abok_bw",
+    "src": "exdb:1761",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "hanging oblique knee raise"
+  },
+  {
+    "id": "ab_bw",
+    "src": "exdb:0274",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "crunch floor"
+  },
+  {
+    "id": "abr_bw",
+    "src": "exdb:0872",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "reverse crunch"
+  },
+  {
+    "id": "abrt_bw",
+    "src": "exdb:0687",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "russian twist"
+  },
+  {
+    "id": "abdb_bw",
+    "src": "exdb:0276",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "dead bug"
+  },
+  {
+    "id": "absb_db",
+    "src": "exdb:0407",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "dumbbell side bend"
+  },
+  {
+    "id": "abd_bw",
+    "src": "exdb:0277",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "decline crunch"
+  },
+  {
+    "id": "abds_bw",
+    "src": "exdb:0282",
+    "patterns": [
+      "abs"
+    ],
+    "_srcName": "decline sit-up"
+  },
+  {
+    "id": "wc_bb",
+    "src": "exdb:0126",
+    "patterns": [
+      "forearms"
+    ],
+    "_srcName": "barbell wrist curl"
+  },
+  {
+    "id": "wcr_bb",
+    "src": "exdb:0082",
+    "patterns": [
+      "forearms"
+    ],
+    "_srcName": "barbell reverse wrist curl"
+  },
+  {
+    "id": "wc_db",
+    "src": "exdb:0364",
+    "patterns": [
+      "forearms"
+    ],
+    "_srcName": "dumbbell one arm wrist curl"
+  },
+  {
+    "id": "wcr_db",
+    "src": "exdb:0385",
+    "patterns": [
+      "forearms"
+    ],
+    "_srcName": "dumbbell reverse wrist curl"
+  },
+  {
+    "id": "wc_cb",
+    "src": "exdb:0247",
+    "patterns": [
+      "forearms"
+    ],
+    "_srcName": "cable wrist curl"
+  },
+  {
+    "id": "wcr_cb",
+    "src": "exdb:0210",
+    "patterns": [
+      "forearms"
+    ],
+    "_srcName": "cable reverse wrist curl"
+  },
+  {
+    "id": "gr_mc",
+    "src": "exdb:2288",
+    "patterns": [
+      "forearms"
+    ],
+    "_srcName": "lever gripper hands"
+  },
+  {
+    "id": "hg_mc",
+    "patterns": [
+      "hinge"
+    ],
+    "name": "Romanian deadlift machine",
+    "namePt": "Levantamento terra romeno na máquina",
+    "equipment": [
+      "machine"
+    ],
+    "primary": "Hamstrings,Glutes",
+    "secondary": "Spinal erectors",
+    "beginnerFriendly": true
+  }
+]
