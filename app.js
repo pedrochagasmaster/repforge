@@ -1028,6 +1028,9 @@ function detachModalListeners(rec){
   if(rec.onPointer)document.removeEventListener("pointerdown",rec.onPointer,true)}
 function hideModalElement(rec){
   if(!rec?.el)return;
+  // A sheet closed out from under a live drag (Escape, a save, a tour step) still
+  // carries the thumb's inline transform, and would reopen part-way down.
+  if(sheetDrag?.rec===rec){sheetDrag=null;sheetDragRelease(rec)}
   const el=rec.el;
   if(el.tagName==="DIALOG"){if(typeof el.close==="function"&&el.open)el.close()}
   else{el.classList.add("hidden");el.hidden=true}
@@ -2972,6 +2975,76 @@ function trackSheetViewport(){
     root.style.setProperty("--kb",`${Math.round(inset)}px`);
     root.style.setProperty("--vvh",`${Math.round(vv.height)}px`)};
   vv.addEventListener("resize",apply);vv.addEventListener("scroll",apply);apply()}
+/* ---- Swipe down to dismiss (every bottom sheet) ---- */
+/* The grab handle promises a sheet that can be pushed back down, so the gesture
+ * has to answer: the sheet follows the thumb, and past a real commitment it
+ * keeps going and closes instead of springing back. A completed swipe runs the
+ * sheet's own dismiss — the same one Escape and a tap on the scrim run — so it
+ * can never save or copy something a tap wouldn't. */
+let sheetDrag=null;
+const SHEET_DRAG_LOCK=8;
+/** True when the gesture belongs to a scroller inside the sheet: something the
+ *  lifter has already scrolled down keeps the drag, and scrolls back up. */
+function sheetScrollHeld(target,sheet){
+  for(let n=target;n instanceof Element&&n!==sheet;n=n.parentElement){
+    if(n.scrollHeight>n.clientHeight+1&&n.scrollTop>0)return true}
+  return false}
+function sheetDragStart(e){
+  if(sheetDrag)return;
+  if(e.pointerType==="mouse"&&e.button!==0)return;
+  const rec=activeModal;
+  if(!rec||rec.closing||typeof rec.onEscape!=="function")return;
+  if(!rec.el?.classList.contains("sheet"))return;
+  const target=e.target instanceof Element?e.target:null;
+  if(!target||!rec.el.contains(target))return;
+  // A mouse inside a text field is selecting, not swiping. A thumb in one has no
+  // other use for a downward drag once the field is already at its top.
+  if(e.pointerType==="mouse"&&target.closest("input,select,textarea,[contenteditable]"))return;
+  if(sheetScrollHeld(target,rec.el))return;
+  sheetDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dy:0,live:false,rec,
+    vy:0,lastY:e.clientY,lastT:e.timeStamp||performance.now()}}
+function sheetDragMove(e){
+  if(!sheetDrag||e.pointerId!==sheetDrag.id)return;
+  const rec=sheetDrag.rec;
+  if(activeModal!==rec||rec.closing){sheetDragEnd();return}
+  const dy=e.clientY-sheetDrag.y,dx=e.clientX-sheetDrag.x;
+  if(!sheetDrag.live){
+    // Upwards or sideways is somebody else's gesture; only a downward push takes
+    // the sheet, and only once it has cleared the slop a resting thumb wanders.
+    if(dy<=-SHEET_DRAG_LOCK||(Math.abs(dx)>=SHEET_DRAG_LOCK&&Math.abs(dx)>Math.abs(dy))){sheetDrag=null;return}
+    if(dy<SHEET_DRAG_LOCK)return;
+    sheetDrag.live=true;
+    rec.el.classList.add("is-dragging");
+    rec.scrim?.classList.add("is-dragging");
+    // Anchor where the drag was recognised, so the sheet doesn't jump by the slop.
+    sheetDrag.y=e.clientY-SHEET_DRAG_LOCK}
+  const now=e.timeStamp||performance.now(),dt=now-sheetDrag.lastT;
+  if(dt>0){sheetDrag.vy=(e.clientY-sheetDrag.lastY)/dt;sheetDrag.lastY=e.clientY;sheetDrag.lastT=now}
+  sheetDrag.dy=Math.max(0,e.clientY-sheetDrag.y);
+  rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
+  // The scrim thins as the sheet leaves, so the page behind is already coming back.
+  if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}
+/** Hand the sheet back to the stylesheet. Dropping the inline transform in the
+ *  same tick as the class restores the transition from wherever the thumb left
+ *  it, so the sheet either springs back or carries on down — never cuts. */
+function sheetDragRelease(rec){
+  rec.el.classList.remove("is-dragging");
+  rec.el.style.transform="";
+  rec.scrim?.classList.remove("is-dragging");
+  if(rec.scrim)rec.scrim.style.opacity=""}
+function sheetDragEnd(e){
+  if(!sheetDrag||(e&&e.pointerId!=null&&e.pointerId!==sheetDrag.id))return;
+  const{rec,dy,vy,live}=sheetDrag;sheetDrag=null;
+  if(!live)return;
+  // The drag ends over whatever the thumb started on, so a button under it must
+  // not also fire.
+  if(dy>SHEET_DRAG_LOCK)swallowNextClick();
+  sheetDragRelease(rec);
+  if(activeModal!==rec||rec.closing)return;
+  // A deliberate throw counts as much as a long push (0.5px/ms is a flick), and
+  // anything short of either is the lifter changing their mind.
+  const flick=vy>=.5&&dy>=32;
+  if(flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32)))rec.onEscape()}
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
@@ -5833,6 +5906,12 @@ function init(){
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
   const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
+  // Every bottom sheet is dismissed the way its grab handle says it is: pushed
+  // back down. Delegated, so a sheet added later is dragged without new wiring.
+  document.addEventListener("pointerdown",sheetDragStart);
+  window.addEventListener("pointermove",sheetDragMove,{passive:true});
+  window.addEventListener("pointerup",sheetDragEnd);
+  window.addEventListener("pointercancel",sheetDragEnd);
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
