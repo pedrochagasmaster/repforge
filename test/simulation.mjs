@@ -2135,7 +2135,7 @@ async function main() {
     "Program → Advanced → Export program JSON"
   );
   assert(
-    /^repforge_program_.+\.json$/.test(progDl.suggestedFilename()),
+    /^taurifer_program_.+\.json$/.test(progDl.suggestedFilename()),
     "Program export filename carries a slug segment",
     `filename=${progDl.suggestedFilename()}`,
     "Program → Advanced → Export program JSON with a named program"
