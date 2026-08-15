@@ -108,6 +108,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/program-text-export.mjs
 
+      - name: Sheet swipe dismiss
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/sheet-swipe-dismiss.mjs
+
       - name: Session summary
         env:
           REPFORGE_URL: http://localhost:8000/
