@@ -4535,6 +4535,7 @@ window.__repforgeOpenPicker=opts=>openExercisePicker(opts);
 window.__repforgeSaveCustomExercise=draft=>saveCustomExercise(draft);
 window.__repforgeCustomExercises=()=>customExercises();
 window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
+window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
@@ -5720,6 +5721,10 @@ function renderPickerList(){
     if(isCustomLibraryId(e.id)||e.nameOnly)custom.push(e);
     else if(inProgram.has(e.id)||logged.has(foldSearch(e.name)))known.push(e);
     else rest.push(e)}
+  // Rank before name. Alphabetical alone answers "row" with four barbell
+  // variants before plain Barbell row, and opens the library on an assisted
+  // kneeling dip — the staple for a movement should lead its own results.
+  rest.sort((a,b)=>(a.rank??50)-(b.rank??50)||libraryName(a).localeCompare(libraryName(b)));
   const section=(key,list)=>list.length
     ?`<p class="pick__section">${esc(t(key))}</p>`+list.map(e=>pickerRow(e,{selected:selected.has(e.id),checkbox:multi})).join("")
     :"";

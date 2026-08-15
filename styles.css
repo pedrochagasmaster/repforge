@@ -1161,6 +1161,8 @@ body.is-sheet-open{overflow:hidden}
   text-transform:uppercase;color:var(--ink-faint);
 }
 .pick__empty{padding:28px 4px;text-align:center;color:var(--ink-soft);font-size:14px}
+/* Opaque, or the row the list is scrolled to shows through behind the button. */
+.sheet--pick .sheet__foot--actions{background:var(--surface)}
 .pickrow{
   display:flex;align-items:center;gap:10px;width:100%;
   padding:11px 2px;border:0;border-bottom:1px solid var(--rule);
@@ -1189,6 +1191,9 @@ body.is-sheet-open{overflow:hidden}
 /* ---- Custom exercise sheet ---- */
 .custom__form{width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
 .custom__lab{margin:16px 0 8px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+/* Tagging muscles means reading all nineteen, not swiping a rail to find
+   Calves. The form scrolls vertically, so these wrap instead. */
+.custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0;padding:0}
 .custom__delete{margin-top:22px;width:100%;color:var(--danger)}
 .custom__note{margin-top:16px;font-size:13px;color:var(--ink-faint)}
 

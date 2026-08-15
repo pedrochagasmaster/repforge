@@ -14,6 +14,8 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 - Session summary at the end of a workout: records, lift movement, hard sets per muscle, and the week
 - Stats dashboard with top-load chart
 - Training history and session deletion
+- Exercise library of 267 movements with English and Portuguese names, searchable by either
+- Custom exercises you create yourself, reusable across programs
 - Visual program editor (add/reorder/remove days and exercises), with raw-JSON advanced mode
 - Volume audit with direct and partial set counting
 - JSON backup/import
@@ -51,11 +53,15 @@ https://pedrochagasmaster.github.io/repforge/
 index.html
 styles.css
 app.js
+exercises.js            # generated exercise library (see tools/README.md)
 manifest.webmanifest
 sw.js
 icons/                  # SVG source, PWA icons, Apple touch icon, and iOS launch images
+tools/                  # offline generators; nothing here runs in the browser
 .nojekyll
 ```
+
+Exercise data derives from a third-party dataset; see [NOTICE.md](NOTICE.md).
 
 ## Development
 
