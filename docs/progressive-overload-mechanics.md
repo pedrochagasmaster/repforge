@@ -18,7 +18,7 @@ that — suggestions. Anything you type over them wins, always.
 
 Muscles grow when they are asked to do slightly more than last time.
 "Slightly more" can mean more weight on the bar or more repetitions with the
-same weight. RepForge uses the classic **double progression** scheme to
+same weight. Taurifer uses the classic **double progression** scheme to
 combine the two:
 
 1. Every exercise has a **rep range** you chose for it — say 6 to 8.
