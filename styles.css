@@ -842,7 +842,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 
 .subst{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px}
 .subst__lab{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;font-size:10px;flex:none}
-.subst__pick{flex:1;margin:0;padding:6px 9px;font-size:16px;background:var(--surface);border:1px solid var(--rule);border-radius:8px}
+.subst__pick{flex:1;min-width:0;margin:0;padding:6px 9px;font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:8px;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Effort picker — the Easy / Hard / Max face of RIR. One control in two shapes:
    a compact line under a set row, a stacked band under the current set. Three
@@ -1110,6 +1110,87 @@ body.is-sheet-open{overflow:hidden}
    slides out of the middle. */
 .sheet__spacer{display:block;min-width:44px}
 .sheet__act--icon{justify-self:end;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft)}
+
+/* The in-workout swap control. It was a <select> of the template's alternates;
+   it is a button onto the full library now, and it reads back what is actually
+   being performed. */
+.subst__pick.is-swapped{border-style:solid;border-color:var(--accent-deep);color:var(--accent-deep)}
+
+/* ---- Program editor: library affordances ---- */
+.pex__swap{flex:none;color:var(--ink-soft)}
+/* A slot with no library link is the one worth pointing at: it came from an
+   import or predates the picker, and one tap adopts a real movement. */
+.pex__swap.is-unlinked{color:var(--accent-deep)}
+.pex__alts{display:flex;align-items:baseline;gap:8px;margin:10px 0 0}
+.pex__altlab{flex:none;font-size:12px;font-weight:600;color:var(--ink-soft)}
+.pex__altpick{
+  flex:1;min-width:0;padding:7px 10px;border:1px dashed var(--rule-strong);border-radius:10px;
+  background:none;font:inherit;font-size:13px;color:var(--ink);text-align:left;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* ---- Exercise picker sheet ---- */
+/* Search and filters sit outside .sheet__body so the list is the only thing
+   that scrolls: a lifter refining a search should never have to scroll back up
+   to reach the box they are typing in. */
+.pick__tools{flex:none;padding:10px 16px 0;display:flex;flex-direction:column;gap:10px}
+.pick__search{
+  width:100%;padding:11px 14px;border:1px solid var(--rule-strong);border-radius:12px;
+  background:var(--well);color:var(--ink);font:inherit;font-size:16px;
+}
+.pick__search:focus{outline:none;border-color:var(--accent-deep)}
+.pick__search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+/* The filter row scrolls sideways rather than wrapping to three lines and
+   eating the list it is meant to narrow. */
+.pick__filters{
+  display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;
+  margin:0 -16px;padding:0 16px 2px;
+}
+.pick__filters::-webkit-scrollbar{display:none}
+.pchip{
+  flex:none;padding:7px 13px;border:1px solid var(--rule-strong);border-radius:999px;
+  background:var(--surface);color:var(--ink-soft);font:inherit;font-size:13px;font-weight:600;
+  cursor:pointer;white-space:nowrap;
+}
+.pchip.is-active{background:var(--cta);border-color:var(--cta);color:var(--cta-ink)}
+.pick__body{padding-top:10px;flex-direction:column;overflow:hidden}
+.pick__list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.pick__section{
+  position:sticky;top:0;z-index:1;background:var(--surface);
+  padding:10px 0 6px;font-size:12px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-faint);
+}
+.pick__empty{padding:28px 4px;text-align:center;color:var(--ink-soft);font-size:14px}
+.pickrow{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 2px;border:0;border-bottom:1px solid var(--rule);
+  background:none;font:inherit;text-align:left;cursor:pointer;
+}
+.pickrow:last-child{border-bottom:0}
+.pickrow__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pickrow__name{font-size:15px;font-weight:600;color:var(--ink)}
+.pickrow__meta{font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pickrow__eq{
+  flex:none;padding:3px 8px;border-radius:999px;background:var(--well);
+  border:1px solid var(--rule);font-size:11px;font-weight:600;color:var(--ink-faint);
+}
+/* The tick only takes space once a row can be selected, so single-pick lists
+   are not padded for a control they never show. */
+.pickrow__tick{flex:none;width:0;transition:width .12s ease}
+.pickrow[role="checkbox"] .pickrow__tick{
+  width:20px;height:20px;border:2px solid var(--rule-strong);border-radius:6px;
+}
+.pickrow[role="checkbox"].is-selected .pickrow__tick{
+  background:var(--cta);border-color:var(--cta);
+  background-image:linear-gradient(45deg,transparent 42%,var(--cta-ink) 42%,var(--cta-ink) 56%,transparent 56%),
+    linear-gradient(-45deg,transparent 60%,var(--cta-ink) 60%,var(--cta-ink) 74%,transparent 74%);
+}
+
+/* ---- Custom exercise sheet ---- */
+.custom__form{width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
+.custom__lab{margin:16px 0 8px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+.custom__delete{margin-top:22px;width:100%;color:var(--danger)}
+.custom__note{margin-top:16px;font-size:13px;color:var(--ink-faint)}
 
 /* ---- Rest timer sheet ---- */
 /* Tapping a running clock used to end the rest, which is the one thing a lifter

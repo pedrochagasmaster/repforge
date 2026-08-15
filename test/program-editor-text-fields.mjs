@@ -273,21 +273,34 @@ async function main() {
       { value: await primary.inputValue(), stored: (await storedExercise(page))?.primary }
     );
 
-    // 7. A comma-separated alternates list can be typed with its spaces.
-    const alternates = fieldInput(page, "alternates");
-    await alternates.click();
-    await alternates.pressSequentially("Hack squat, Pendulum squat", { delay: 20 });
-    check(
-      (await alternates.inputValue()) === "Hack squat, Pendulum squat",
-      "alternates accept spaces after the comma",
-      { value: await alternates.inputValue() }
-    );
-    await alternates.blur();
+    // 7. Alternates are no longer typed: the row is a button onto the picker,
+    //    so it reads back the stored list rather than holding a half-typed one.
+    const altBtn = page.locator('#programEditor [data-act="pickAlternates"][data-id="text-field-press"]');
+    check(await altBtn.count() === 1, "alternates are a picker control, not a text box", {
+      count: await altBtn.count(),
+      leftoverInput: await page.locator('#programEditor input[data-field="alternates"]').count(),
+    });
+    await altBtn.click();
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await page.fill("#exPickSearch", "Pec deck");
+    await page.waitForTimeout(150);
+    await page.evaluate(() => {
+      const rows = [...document.querySelectorAll("#exPickList .pickrow")];
+      rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim() === "Pec deck")?.click();
+    });
+    await page.click("#exPickDone");
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForTimeout(250);
     const stored = await storedExercise(page);
     check(
-      JSON.stringify(stored?.alternates) === JSON.stringify(["Hack squat", "Pendulum squat"]),
-      "alternates split into trimmed entries",
+      JSON.stringify(stored?.alternates) === JSON.stringify(["Pec deck"]),
+      "picked alternates are stored as names",
       { stored: stored?.alternates }
+    );
+    check(
+      ((await altBtn.textContent()) || "").trim() === "Pec deck",
+      "the alternates control reads back what is stored",
+      { label: (await altBtn.textContent() || "").trim() }
     );
 
     // 8. The edits survive a reload.

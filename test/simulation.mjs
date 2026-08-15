@@ -1371,18 +1371,30 @@ async function main() {
     "Rename exercise → Log tab → previous session should still display"
   );
 
-  // Add exercise
+  // Add exercise — now via the library picker rather than a blank row
   await nav(page, "program");
   const exCountBefore = state.program.filter((e) => e.day === "Push Day").length;
   await page.click('[data-act="addEx"][data-day="Push Day"]');
-  await page.waitForTimeout(100);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  await page.fill("#exPickSearch", "pec deck");
+  await page.waitForTimeout(120);
+  const pickedName = ((await page.locator("#exPickList .pickrow__name").first().textContent()) || "").trim();
+  await page.click("#exPickList .pickrow");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
   state = await getState(page);
-  const exCountAfter = state.program.filter((e) => e.day === "Push Day").length;
+  const pushRows = state.program.filter((e) => e.day === "Push Day");
+  const added = pushRows.find((e) => e.name === pickedName);
   assert(
-    exCountAfter === exCountBefore + 1,
+    pushRows.length === exCountBefore + 1,
     "Add exercise to day",
-    `Before ${exCountBefore}, after ${exCountAfter}`,
-    "Program tab → + Add exercise on a day"
+    `Before ${exCountBefore}, after ${pushRows.length}`,
+    "Program tab → + Add exercise → pick from the library"
+  );
+  assert(
+    !!added && added.libraryId === "ci_mc" && added.primary === "Chest",
+    "Picked exercise arrives linked, named and muscle-tagged",
+    `added=${JSON.stringify(added)}`,
+    "Program tab → + Add exercise → search 'pec deck' → tap the row"
   );
 
   // Reorder — move second exercise down (swaps with third)
@@ -1406,8 +1418,8 @@ async function main() {
     );
   }
 
-  // Remove added exercise (last one named "New exercise")
-  const newEx = state.program.find((e) => e.name === "New exercise" && e.day === "Push Day");
+  // Remove the exercise added above
+  const newEx = state.program.find((e) => e.name === pickedName && e.day === "Push Day");
   if (newEx) {
     await page.click(`button[data-act="delEx"][data-id="${newEx.id}"]`);
     await page.waitForTimeout(100);
@@ -4210,8 +4222,46 @@ async function main() {
   await nav(page, "program");
   let subState = await getState(page);
   const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
-  await page.fill(`[data-id="${d1First.id}"][data-field="alternates"]`, "Leg press, Pendulum squat");
-  await page.waitForTimeout(100);
+  // Search matches loosely ("leg press" also finds the single-leg and calf
+  // variants), so rows are chosen by their exact displayed name.
+  const pickExact = async (name) => {
+    await page.fill("#exPickSearch", name);
+    await page.waitForTimeout(150);
+    return page.evaluate((n) => {
+      const rows = [...document.querySelectorAll("#exPickList .pickrow")];
+      const row = rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim().toLowerCase() === n.toLowerCase());
+      if (!row) return false;
+      row.click();
+      return true;
+    }, name);
+  };
+  // Alternates are picked from the library now, not typed as a comma string.
+  // This slot ships with "Leg press" (a library movement) and "Pendulum squat"
+  // (which the library has no row for) — both must come back preselected, or
+  // opening the picker would quietly delete whichever it could not match.
+  const altsBefore = (subState.program.find((e) => e.id === d1First.id)?.alternates || []).slice();
+  await page.click(`[data-act="pickAlternates"][data-id="${d1First.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  const preselected = await page.evaluate(() => (window.__repforgePickerSelection?.() || []).length);
+  assert(
+    preselected === altsBefore.length && altsBefore.length >= 2,
+    "Existing alternates come back preselected, library-matched or not",
+    `preselected=${preselected} existing=${JSON.stringify(altsBefore)}`,
+    "Program tab → alternates row"
+  );
+  const altPicked = await pickExact("Pec deck");
+  await page.click("#exPickDone");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await page.waitForTimeout(250);
+  subState = await getState(page);
+  const altRow = subState.program.find((e) => e.id === d1First.id);
+  assert(
+    altPicked && (altRow?.alternates || []).includes("Pec deck") &&
+      altsBefore.every((n) => (altRow?.alternates || []).includes(n)),
+    "Adding an alternate keeps the ones already there",
+    `alternates=${JSON.stringify(altRow?.alternates)} before=${JSON.stringify(altsBefore)}`,
+    "Program tab → alternates row → search 'Pec deck' → Done"
+  );
   await nav(page, "log");
   const subDay = d1First.day;
   await selectDay(page, subDay);
@@ -4221,12 +4271,12 @@ async function main() {
     if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
   }, d1First.id);
   await page.waitForTimeout(80);
-  await page.evaluate(({ id, val }) => {
-    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
-    if (!sel) return;
-    sel.value = val;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-  }, { id: d1First.id, val: "Leg press" });
+  await page.click(`.subst__pick[data-sub="${d1First.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  const swapped = await pickExact("Leg press");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  assert(swapped, "Mid-session swap opens the library picker", "Leg press row not found in picker",
+    "Log → an exercise's swap control → search 'Leg press'");
   await page.waitForTimeout(80);
   await page.evaluate(({ id, load, reps, rir }) => {
     const set = (k, v) => {
@@ -4249,7 +4299,7 @@ async function main() {
     subRow && subRow.performedName === "Leg press",
     "Substituted session saves performedName",
     JSON.stringify(subRow),
-    "Program alternates → Log pick Leg press → save"
+    "Log → swap control → pick Leg press → save"
   );
   assert(
     subRow && subRow.name === d1First.name,
@@ -7730,25 +7780,39 @@ async function main() {
   await fillExerciseSets(page, draftExA.id, 1, 77, 6, 1);
   await fillExerciseSets(page, draftExB.id, 1, 40, 8, 1);
   await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
-  const altName = await page.evaluate((id) => {
-    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
-    if (!sel) return "";
-    const opt = [...sel.options].find((o) => o.value && o.value !== "__other__");
-    if (!opt) return "";
-    sel.value = opt.value;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-    return opt.value;
-  }, draftExA.id);
+  // Swap from the library.
+  await page.click(`.subst__pick[data-sub="${draftExA.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  const altName = await page.evaluate(() => {
+    const slot = (document.querySelector("#exPickFor")?.textContent || "").trim();
+    const rows = [...document.querySelectorAll("#exPickList .pickrow")];
+    const row = rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim() !== slot);
+    if (!row) return "";
+    const name = (row.querySelector(".pickrow__name")?.textContent || "").trim();
+    row.click();
+    return name;
+  });
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  // Swap to something the library has never heard of. The typed search carries
+  // into the custom sheet, which is the path that replaced the old prompt().
   const customName = "Custom swap 80 cap check";
-  await page.evaluate(({ id, name }) => {
-    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
-    if (!sel) return;
-    sel.value = "__other__";
-    const orig = window.prompt;
-    window.prompt = () => name;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-    window.prompt = orig;
-  }, { id: draftExB.id, name: customName });
+  await page.click(`.subst__pick[data-sub="${draftExB.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+  await page.fill("#exPickSearch", customName);
+  await page.waitForTimeout(120);
+  await page.click("#exPickCustom");
+  await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+  const customPrefilled = await page.inputValue("#exCustomName");
+  await page.click("#exCustomSave");
+  await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+  await page.waitForTimeout(250);
+  const savedCustom = await page.evaluate(() => window.__repforgeCustomExercises?.() || []);
+  assert(
+    customPrefilled === customName && savedCustom.some((e) => e.name === customName),
+    "Creating a custom exercise from a failed search stores it and applies it",
+    `prefilled="${customPrefilled}" stored=${JSON.stringify(savedCustom.map((e) => e.name))}`,
+    "Log → swap → search a name the library lacks → + Create custom exercise → Save"
+  );
   await page.waitForTimeout(80);
   const draftBeforeLeave = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
@@ -7851,7 +7915,17 @@ async function main() {
   const rirCases = [
     ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await page.click(`[data-save="${draftExA.id}_1"]`); }],
     ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`[data-warm="${draftExA.id}_1"]`); }],
-    ["substitution-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate((id) => { const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`); if (!sel) return; const opt = [...sel.options].find((o) => o.value && o.value !== "__other__"); if (!opt) return; sel.value = opt.value; sel.dispatchEvent(new Event("change", { bubbles: true })); }, draftExA.id); }],
+    ["substitution-only", async () => {
+      await nav(page, "log"); await selectDay(page, "Day 1");
+      await page.click(`.subst__pick[data-sub="${draftExA.id}"]`);
+      await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+      await page.evaluate(() => {
+        const slot = (document.querySelector("#exPickFor")?.textContent || "").trim();
+        const rows = [...document.querySelectorAll("#exPickList .pickrow")];
+        (rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim() !== slot) || rows[0])?.click();
+      });
+      await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    }],
     ["note-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "only"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
     ["bodyweight-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#bodyweight"); el.value = "70"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
     ["date-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await setLogDate(page, "2026-01-15"); }],

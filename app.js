@@ -1426,6 +1426,14 @@ const programBeginner=[
   if(x[2]==="Lat pulldown")ex.alternates=["Assisted pull-up","Neutral-grip pulldown"];
   return ex});
 
+/* The single crossing from library entry to program template. Muscles and
+   setup notes are copied rather than looked up through libraryId, so the audit
+   and every other reader keep reading the template exactly as before — and the
+   lifter stays free to edit any of it afterwards without detaching the slot. */
+function exerciseFieldsFromLibrary(entry){
+  return{name:libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||"",
+    notes:entry.notes||"",libraryId:entry.id}}
+
 /* ============================================================
    Program model
    Exercise — one movement: day, sequence, rep range, muscles.
@@ -1480,8 +1488,16 @@ class Program{
     else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
     else if(field==="alternates")e.alternates=String(value??"").split(",").map(s=>s.trim()).filter(Boolean);
     else if(field==="name"||field==="primary"||field==="secondary"||field==="notes")e[field]=String(value??"").trim();}
-  addExercise(day){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
-    const e=new Exercise({day,order,name:"New exercise",sets:3,min:6,max:10});this.exercises.push(e);return e}
+  addExercise(day,entry=null){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
+    const e=new Exercise(Object.assign({day,order,name:"New exercise",sets:3,min:6,max:10},
+      entry?exerciseFieldsFromLibrary(entry):null));this.exercises.push(e);return e}
+  /* Repoints a slot at another movement. The slot keeps its id, so its logged
+     history, recommendations and volume roll-up follow the swap — which is the
+     whole reason substitution lives on the template rather than the log. */
+  replaceExercise(id,entry){const e=this.find(id);if(!e||!entry)return null;
+    Object.assign(e,exerciseFieldsFromLibrary(entry));
+    if(e.max<e.min)e.max=e.min;
+    return e}
   removeExercise(id){this.exercises=this.exercises.filter(e=>e.id!==id);this.renumber()}
   move(id,dir){const e=this.find(id);if(!e)return;const list=this.forDay(e.day),i=list.indexOf(e),j=i+dir;
     if(j<0||j>=list.length)return;[list[i].order,list[j].order]=[list[j].order,list[i].order]}
@@ -1802,6 +1818,17 @@ function applyCustomSub(id,raw){
   if(!name||name===progName) substituted.delete(id);
   else{substituted.set(id,name);skipped.delete(id)}
   saveDraft();renderWorkout()}
+/* Mid-session swap. The slot's own movement stays in the list, and picking it
+   is how a lifter undoes a swap — the alternative was a "back to X" row that
+   means nothing until you already know what X was. */
+function openSubstitutePicker(id){
+  const ex=prog.find(id);if(!ex)return;
+  const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e]));
+  const self=(ex.libraryId&&libraryEntry(ex.libraryId))||byName.get(foldSearch(ex.name))||null;
+  openExercisePicker({title:t("picker.title_substitute"),subtitle:ex.name,
+    onPick:entry=>{
+      if(self&&entry.id===self.id)applyPredefinedSub(id,"");
+      else applyCustomSub(id,libraryName(entry))}})}
 function applyFatigueTrim(){
   const exs=exercises();
   skipped.clear();
@@ -3685,10 +3712,10 @@ function renderWorkout(){
       `<span class="exnote__lab">${esc(t("log.note"))}</span><span class="exnote__preview">${notePreview}</span></button>`+
       `<textarea class="exnote__input hidden" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" rows="2" `+
       `placeholder="${esc(t("log.note.placeholder"))}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}">${esc(noteVal)}</textarea></div>`;
-    const subPick=ex.alternates?.length?`<div class="subst"><span class="subst__lab">${esc(t("log.substitute.label"))}</span><select class="subst__pick" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:ex.name}))}">`+
-      `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
-      ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
-      `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>${esc(t("log.substitute.other"))}</option></select></div>`:"";
+    // Every slot can be swapped now, not just the ones that happen to carry
+    // alternates: the machine being taken does not check the program first.
+    const subPick=`<div class="subst"><span class="subst__lab">${esc(t("log.substitute.label"))}</span>`+
+      `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:ex.name}))}">${esc(perf||ex.name)}</button></div>`;
     const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
     const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
       `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
@@ -3908,11 +3935,7 @@ function bindWorkout(){
     saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $w(".ex__rest").forEach(b=>b.onclick=()=>startRest());
   $w(".ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
-  $w(".subst__pick").forEach(sel=>{sel.onchange=()=>{const id=sel.dataset.sub;
-    if(sel.value==="__other__"){const v=prompt(t("prompt.alternate_exercise_name"),substituted.get(id)||"");
-      if(v==null){renderWorkout();return}
-      applyCustomSub(id,v);
-    }else applyPredefinedSub(id,sel.value)}});
+  $w(".subst__pick").forEach(b=>b.onclick=()=>openSubstitutePicker(b.dataset.sub));
   $w(".effort__btn").forEach(b=>{
     b.onclick=()=>{const key=b.dataset.eff;
       setEffortPick(key,b.dataset.e);touched.add(key);
@@ -4507,6 +4530,11 @@ window.__repforgeExerciseCatalog=EXERCISE_LIBRARY;
 window.__repforgeExerciseLibrary=EXERCISE_LIBRARY;
 window.__repforgeLibraryEntry=libraryEntry;
 window.__repforgePickableExercises=()=>pickableExercises();
+window.__repforgeLinkImported=linkImportedExercises;
+window.__repforgeOpenPicker=opts=>openExercisePicker(opts);
+window.__repforgeSaveCustomExercise=draft=>saveCustomExercise(draft);
+window.__repforgeCustomExercises=()=>customExercises();
+window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
@@ -5178,9 +5206,13 @@ function dayCard(d){
 
 function exCard(e,i,n){
   const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"></label>`;
+  // The name stays an editable field — a slot can be renamed to what the plate
+  // on the machine says — with the library one tap away beside it.
+  const linked=e.libraryId?libraryEntry(e.libraryId):null;
   return `<div class="pex" data-id="${esc(e.id)}">`+
     `<div class="pex__head">`+
       `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t("program.exercise.name_aria"))}">`+
+      `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:e.name}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
         `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="${esc(t("program.exercise.move_down"))}">▼</button>`+
@@ -5191,7 +5223,12 @@ function exCard(e,i,n){
     `<label class="pex__mus">${esc(t("program.exercise.primary"))}<input data-id="${esc(e.id)}" data-field="primary" value="${esc(e.primary)}" placeholder="${esc(t("program.exercise.primary_placeholder"))}"></label>`+
     `<label class="pex__mus">${esc(t("program.exercise.secondary"))}<input data-id="${esc(e.id)}" data-field="secondary" value="${esc(e.secondary)}" placeholder="${esc(t("program.exercise.secondary_placeholder"))}"></label>`+
     `<label class="pex__mus">${esc(t("program.exercise.setup_notes"))}<input data-id="${esc(e.id)}" data-field="notes" value="${esc(e.notes)}" placeholder="${esc(t("program.exercise.setup_notes_placeholder"))}"></label>`+
-    `<label class="pex__mus">${esc(t("program.exercise.alternates"))}<input data-id="${esc(e.id)}" data-field="alternates" value="${esc((e.alternates||[]).join(", "))}" placeholder="${esc(t("program.exercise.alternates_placeholder"))}"></label>`+
+    `<div class="pex__alts">`+
+      `<span class="pex__altlab">${esc(t("program.exercise.alternates"))}</span>`+
+      `<button type="button" class="pex__altpick" data-act="pickAlternates" data-id="${esc(e.id)}">`+
+        `${esc((e.alternates||[]).join(", ")||t("program.exercise.alternates_empty"))}`+
+      `</button>`+
+    `</div>`+
   `</div>`;
 }
 
@@ -5199,8 +5236,10 @@ function exCard(e,i,n){
    (trimmed, split on commas), so the stored string routinely differs from what
    is legitimately half-typed in the box — mirroring the model back mid-edit
    would eat trailing spaces and re-fill a field the lifter is still clearing.
-   These echo on blur instead; see bindEditor. */
-const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes","alternates"]);
+   These echo on blur instead; see bindEditor. Alternates are no longer typed —
+   they are picked — so they are committed whole and are not in this set,
+   though Program.update still parses the string form for imported programs. */
+const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
 const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
 function commitEditorField(id,field,value,effect){
   const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
@@ -5291,10 +5330,41 @@ async function editorAction(act,ds){
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
       const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
   else if(act==="addEx"){
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
-    nextProgram.addExercise(ds.day);proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal);
-    if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}
+    // Everything already on the day is excluded: a day with the same movement
+    // twice is a mistake every time, and hiding it beats explaining it after.
+    openExercisePicker({subtitle:ds.day,
+      exclude:prog.forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
+      onPick:async entry=>{
+        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        nextProgram.addExercise(ds.day,entry);proposal.program=nextProgram.toJSON();
+        const result=await commitProposedState(proposal);
+        if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
+  else if(act==="changeEx"){
+    const ex=prog.find(ds.id);if(!ex)return;
+    openExercisePicker({title:t("picker.title_change"),subtitle:ex.name,
+      exclude:prog.forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
+      onPick:async entry=>{
+        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        if(!nextProgram.replaceExercise(ds.id,entry))return;
+        proposal.program=nextProgram.toJSON();
+        const result=await commitProposedState(proposal);
+        if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
+  else if(act==="pickAlternates"){
+    const ex=prog.find(ds.id);if(!ex)return;
+    // Alternates were a comma-separated string of whatever got typed. They are
+    // still stored as names, so older programs keep working, but they are now
+    // chosen from the library — which is what makes a one-tap swap possible.
+    const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e.id]));
+    const extras=[],preselected=[];
+    for(const n of ex.alternates||[]){
+      const hit=byName.get(foldSearch(n));
+      if(hit){preselected.push(hit);continue}
+      const extra=nameOnlyEntry(n);extras.push(extra);preselected.push(extra.id)}
+    openExercisePicker({title:t("picker.title_alternates"),subtitle:ex.name,mode:"multi",
+      selected:preselected,extras,exclude:[ex.libraryId].filter(Boolean),
+      onPick:async entries=>{
+        const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
+        if(result.localOk||result.idbOk){render();toast(t("toast.alternates_saved"))}}})}
   else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
@@ -5553,6 +5623,255 @@ function closeProgramTextSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
+/* ============================================================
+   Exercise picker
+   One sheet, four callers: the program editor's add and change
+   paths, the alternates field, and the log-tab substitution.
+   Callers hand it a mode and a callback and get library entries
+   back — they never touch the library themselves, so a movement
+   arrives in a program slot the same way from every surface.
+   ============================================================ */
+
+/* Search is accent- and case-blind, and reads both languages at once: a
+   Portuguese lifter still types "bench press" for a machine whose plate says
+   so, and an English one still finds "supino". */
+const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const MUSCLE_TOKENS=["Chest","Lats","Mid/upper back","Traps","Front delts","Side delts","Rear delts",
+  "Biceps","Triceps","Forearms","Quads","Hamstrings","Glutes","Adductors","Abductors","Calves",
+  "Spinal erectors","Abs","Obliques"];
+const PICKER_EQUIPMENT=["machine","cable","dumbbell","barbell","smith","bodyweight"];
+/* Muscle filters lifters actually think in, each covering the tokens under it. */
+const PICKER_MUSCLE_GROUPS=[
+  ["chest",["Chest"]],["back",["Lats","Mid/upper back","Traps"]],
+  ["shoulders",["Front delts","Side delts","Rear delts"]],
+  ["arms",["Biceps","Triceps","Forearms"]],
+  ["legs",["Quads","Hamstrings","Glutes","Adductors","Abductors","Calves"]],
+  ["core",["Abs","Obliques","Spinal erectors"]]];
+
+let pickerState=null,pickerReturn=null,customState=null,customReturn=null;
+
+const exerciseSearchText=e=>foldSearch(`${e.name} ${e.namePt||""} ${e.primary||""} ${e.secondary||""}`);
+function exerciseMatches(e,query,muscleGroup,equipment){
+  if(equipment&&!(e.equipment||[]).includes(equipment))return false;
+  if(muscleGroup){
+    const group=PICKER_MUSCLE_GROUPS.find(g=>g[0]===muscleGroup);
+    const tokens=`${e.primary||""},${e.secondary||""}`.split(",");
+    if(group&&!tokens.some(x=>group[1].includes(x)))return false}
+  if(!query)return true;
+  const hay=exerciseSearchText(e);
+  return foldSearch(query).split(/\s+/).filter(Boolean).every(w=>hay.includes(w))}
+
+/* Library ids already in the program, and names already logged. Both float to
+   the top of the list: the movement somebody wants next is usually one they
+   have met before. */
+function programLibraryIds(){
+  const ids=new Set();
+  for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
+  return ids}
+function loggedExerciseNames(){
+  const names=new Set();
+  for(const r of state.log||[]){
+    if(r?.performedName)names.add(foldSearch(r.performedName));
+    if(r?.name)names.add(foldSearch(r.name))}
+  return names}
+
+function pickerRow(e,{selected=false,checkbox=false}={}){
+  const muscles=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean);
+  const shown=muscles.slice(0,3).map(muscleLabel);
+  const eq=(e.equipment||[])[0]||null;
+  return `<button type="button" class="pickrow${selected?" is-selected":""}" data-pick="${esc(e.id)}"`+
+    (checkbox?` role="checkbox" aria-checked="${selected?"true":"false"}"`:"")+`>`+
+    `<span class="pickrow__main">`+
+      `<span class="pickrow__name">${esc(libraryName(e))}</span>`+
+      `<span class="pickrow__meta">${esc(shown.join(" · "))}</span>`+
+    `</span>`+
+    (eq?`<span class="pickrow__eq">${esc(t("picker.equipment."+eq))}</span>`:"")+
+    `<span class="pickrow__tick" aria-hidden="true"></span>`+
+  `</button>`}
+
+function renderPickerFilters(){
+  const el=$("#exPickFilters");if(!el||!pickerState)return;
+  const chip=(kind,val,label,active)=>
+    `<button type="button" class="pchip${active?" is-active":""}" data-filter="${kind}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
+  const parts=[chip("clear","",t("picker.filter_all"),!pickerState.muscle&&!pickerState.equipment)];
+  for(const [key] of PICKER_MUSCLE_GROUPS)
+    parts.push(chip("muscle",key,t("picker.group."+key),pickerState.muscle===key));
+  for(const eq of PICKER_EQUIPMENT)
+    parts.push(chip("equipment",eq,t("picker.equipment."+eq),pickerState.equipment===eq));
+  el.innerHTML=parts.join("");
+  $$("#exPickFilters .pchip").forEach(b=>b.onclick=()=>{
+    const kind=b.dataset.filter;
+    if(kind==="clear"){pickerState.muscle=null;pickerState.equipment=null}
+    else if(kind==="muscle")pickerState.muscle=pickerState.muscle===b.dataset.val?null:b.dataset.val;
+    else pickerState.equipment=pickerState.equipment===b.dataset.val?null:b.dataset.val;
+    renderPickerFilters();renderPickerList()})}
+
+const pickerCandidates=()=>(pickerState?.extras||[]).concat(pickableExercises());
+const pickerEntry=id=>pickerCandidates().find(e=>e.id===id)||libraryEntry(id);
+
+function renderPickerList(){
+  const el=$("#exPickList");if(!el||!pickerState)return;
+  const {query,muscle,equipment,mode,selected,exclude}=pickerState;
+  const multi=mode==="multi";
+  const all=pickerCandidates().filter(e=>!exclude.has(e.id)&&exerciseMatches(e,query,muscle,equipment));
+  const inProgram=programLibraryIds(),logged=loggedExerciseNames();
+  const custom=[],known=[],rest=[];
+  for(const e of all){
+    if(isCustomLibraryId(e.id)||e.nameOnly)custom.push(e);
+    else if(inProgram.has(e.id)||logged.has(foldSearch(e.name)))known.push(e);
+    else rest.push(e)}
+  const section=(key,list)=>list.length
+    ?`<p class="pick__section">${esc(t(key))}</p>`+list.map(e=>pickerRow(e,{selected:selected.has(e.id),checkbox:multi})).join("")
+    :"";
+  const html=section("picker.section_custom",custom)+
+    section("picker.section_known",known)+
+    section("picker.section_all",rest);
+  el.innerHTML=html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`;
+  $$("#exPickList .pickrow").forEach(b=>b.onclick=()=>choosePicked(b.dataset.pick));
+  const done=$("#exPickDone");
+  if(done)done.textContent=multi&&selected.size?t("picker.done_count",{n:selected.size}):t("dialog.done")}
+
+function choosePicked(id){
+  if(!pickerState)return;
+  const entry=pickerEntry(id);
+  if(!entry)return;
+  if(pickerState.mode==="multi"){
+    if(pickerState.selected.has(id))pickerState.selected.delete(id);
+    else pickerState.selected.add(id);
+    renderPickerList();return}
+  const handler=pickerState.onPick;
+  closeExercisePicker().then(()=>handler&&handler(entry))}
+
+/* mode "single" fires onPick with one entry and closes; "multi" collects and
+   fires once on Done with the entries in selection order. */
+/* Pseudo-entries for names that exist only in somebody's program — a legacy or
+   imported alternate the library has no row for. They are listed and selectable
+   like anything else, so opening the picker can neither drop them silently nor
+   strand them as something the lifter can see but not remove. */
+const NAME_ONLY_PREFIX="name:";
+const nameOnlyEntry=name=>({id:`${NAME_ONLY_PREFIX}${foldSearch(name)}`,name,namePt:name,
+  equipment:[],primary:"",secondary:"",patterns:[],nameOnly:true});
+function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null}={}){
+  const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
+  if(!sheet)return;
+  pickerState={query:"",muscle:null,equipment:null,mode,onPick,
+    selected:new Set(selected.filter(Boolean).map(String)),
+    exclude:new Set(exclude.filter(Boolean).map(String)),
+    extras:extras.filter(Boolean),
+    // Kept so the custom-exercise detour can put this exact picker back.
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick}};
+  pickerReturn=document.activeElement;
+  $("#exPickTitle").textContent=title||t("picker.title");
+  const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
+  if(search)search.value="";
+  const done=$("#exPickDone");
+  if(done)done.classList.toggle("hidden",mode!=="multi");
+  renderPickerFilters();renderPickerList();
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:search,returnFocus:pickerReturn,onEscape:closeExercisePicker,scrim,
+    delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+
+function closeExercisePicker(){
+  const sheet=$("#exPickSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  pickerReturn=null;
+  return closeModal(sheet)}
+
+function confirmPickerSelection(){
+  if(!pickerState||pickerState.mode!=="multi")return;
+  const handler=pickerState.onPick;
+  const picked=[...pickerState.selected].map(pickerEntry).filter(Boolean);
+  closeExercisePicker().then(()=>handler&&handler(picked))}
+
+/* ---- custom exercise editor ---- */
+
+function renderCustomChips(){
+  if(!customState)return;
+  const chip=(val,label,active)=>
+    `<button type="button" class="pchip${active?" is-active":""}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
+  const eq=$("#exCustomEquip");
+  if(eq){
+    eq.innerHTML=PICKER_EQUIPMENT.map(x=>chip(x,t("picker.equipment."+x),customState.equipment.has(x))).join("");
+    $$("#exCustomEquip .pchip").forEach(b=>b.onclick=()=>{
+      const v=b.dataset.val;
+      customState.equipment.has(v)?customState.equipment.delete(v):customState.equipment.add(v);
+      renderCustomChips()})}
+  for(const [sel,key] of [["#exCustomPrimary","primary"],["#exCustomSecondary","secondary"]]){
+    const box=$(sel);if(!box)continue;
+    box.innerHTML=MUSCLE_TOKENS.map(m=>chip(m,muscleLabel(m),customState[key].has(m))).join("");
+    $$(`${sel} .pchip`).forEach(b=>b.onclick=()=>{
+      const v=b.dataset.val;
+      if(customState[key].has(v))customState[key].delete(v);
+      else{customState[key].add(v);
+        // A muscle cannot be both; picking a side moves it.
+        customState[key==="primary"?"secondary":"primary"].delete(v)}
+      renderCustomChips()})}}
+
+function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false}={}){
+  const sheet=$("#exCustomSheet"),scrim=$("#exCustomScrim"),name=$("#exCustomName");
+  if(!sheet)return;
+  const inUse=entry?customExerciseInUse(entry.id):false;
+  customState={id:entry?.id||null,onSave,
+    equipment:new Set(entry?.equipment||["machine"]),
+    primary:new Set(String(entry?.primary||"").split(",").filter(Boolean)),
+    secondary:new Set(String(entry?.secondary||"").split(",").filter(Boolean))};
+  customReturn=document.activeElement;
+  if(name)name.value=entry?.name||"";
+  const notes=$("#exCustomNotes");if(notes)notes.value=entry?.notes||"";
+  const del=$("#exCustomDelete");
+  if(del)del.classList.toggle("hidden",!entry||inUse);
+  const used=$("#exCustomInUse");
+  if(used)used.classList.toggle("hidden",!(entry&&inUse));
+  customState.onCancel=onCancel;
+  renderCustomChips();
+  document.body.classList.add("is-sheet-open");
+  // handoff lets this open over the picker: openModal stands the picker down
+  // rather than refusing a second modal.
+  openModal(sheet,{initialFocus:name,returnFocus:customReturn,onEscape:cancelCustomExerciseSheet,scrim,
+    handoff,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+
+function closeCustomExerciseSheet(){
+  const sheet=$("#exCustomSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  customReturn=null;
+  return closeModal(sheet)}
+/* Backing out of the custom form returns to the picker it came from, with the
+   search and any multi-selection intact. Dropping the lifter back to the
+   program instead would throw away a browse they never finished. */
+async function cancelCustomExerciseSheet(){
+  const back=customState?.onCancel;
+  await closeCustomExerciseSheet();
+  if(back)back()}
+
+async function saveCustomExerciseSheet(){
+  if(!customState)return;
+  const name=String($("#exCustomName")?.value||"").trim();
+  if(!name){toast(t("toast.custom_needs_name"));return}
+  const handler=customState.onSave;
+  const editing=!!customState.id;
+  const {result,entry}=await saveCustomExercise({id:customState.id,name,
+    equipment:[...customState.equipment],
+    primary:[...customState.primary].join(","),
+    secondary:[...customState.secondary].join(","),
+    notes:String($("#exCustomNotes")?.value||"").trim()});
+  if(result&&!(result.localOk||result.idbOk)){toast(t("toast.custom_save_failed"));return}
+  await closeCustomExerciseSheet();
+  toast(t(editing?"toast.custom_saved":"toast.custom_created"));
+  if(handler&&entry)handler(entry);
+  else if(pickerState)renderPickerList()}
+
+async function deleteCustomExerciseSheet(){
+  if(!customState?.id)return;
+  const result=await deleteCustomExercise(customState.id);
+  if(!result){toast(t("toast.custom_in_use"));return}
+  await closeCustomExerciseSheet();
+  toast(t("toast.custom_deleted"));
+  if(pickerState)renderPickerList()}
+
 /** Clipboard first; the hidden-textarea path covers browsers that refuse the
  *  async clipboard, and only a genuine failure of both surfaces a toast. */
 async function copyProgramText(){
@@ -5568,10 +5887,41 @@ async function copyProgramText(){
   toast(t("toast.program_text_copy_failed"));return false}
 function shareProgramText(){
   return shareOrDownload($("#programTextOut")?.textContent||programText(),programTextName(),"text/plain")}
+/* An imported split arrives as names. Matching them to the library is what
+   turns it from a list of strings into something the app can reason about:
+   muscle tags for the volume audit, and a link the swap picker can work from.
+   Names that find no match keep exactly what was imported — the program is the
+   lifter's, not the library's — and their slots show an accented swap button
+   in the editor so linking them by hand is one tap. */
+function linkImportedExercises(list){
+  const byName=new Map();
+  for(const entry of pickableExercises()){
+    for(const n of [entry.name,entry.namePt]){
+      const key=foldSearch(n);
+      if(key&&!byName.has(key))byName.set(key,entry)}}
+  let linked=0;
+  for(const ex of list){
+    if(!ex||typeof ex!=="object")continue;
+    // A Taurifer export already carries links; only repoint ids the library
+    // has since merged, and never overwrite a link that still resolves.
+    if(ex.libraryId){
+      const known=libraryEntry(ex.libraryId);
+      if(known){ex.libraryId=known.id;linked++;continue}
+      delete ex.libraryId}
+    const match=byName.get(foldSearch(ex.name));
+    if(!match)continue;
+    ex.libraryId=match.id;
+    if(!String(ex.primary??"").trim())ex.primary=match.primary||"";
+    if(!String(ex.secondary??"").trim())ex.secondary=match.secondary||"";
+    if(!String(ex.notes??"").trim()&&match.notes)ex.notes=match.notes;
+    linked++}
+  return{linked,total:list.length}}
+
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
     if(!imp?.exercises?.length)throw Error();
     const list=imp.exercises;
+    const matched=linkImportedExercises(list);
     const draftConfirmed=draftHasProgress();
     const discardDraftRaw=readDraftRaw();
     const confirmKey=draftConfirmed?"confirm.replace_program_discard_draft":"confirm.import_program_replace";
@@ -5593,7 +5943,12 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
       const result=await commitProposedState(proposal,adapter,{effect,...transition});
       if(result.localOk||result.idbOk){
         resetDraftSessionState();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
-        render();toast(t("toast.program_saved"))}}
+        render();
+        // Say what the match pass did rather than leaving it to be discovered:
+        // unlinked slots behave differently in the swap picker and the audit.
+        toast(matched.linked<matched.total
+          ?t("toast.program_imported_partial",{n:matched.linked,total:matched.total})
+          :t("toast.program_saved"))}}
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
@@ -5983,6 +6338,38 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
+  const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
+  const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
+  const pkDone=$("#exPickDone");if(pkDone)pkDone.onclick=confirmPickerSelection;
+  const pkSearch=$("#exPickSearch");
+  if(pkSearch)pkSearch.oninput=()=>{if(pickerState){pickerState.query=pkSearch.value;renderPickerList()}};
+  // Creating a custom exercise is the tail of a search that found nothing, so
+  // it opens over the picker and hands the new movement straight back to it.
+  // Creating a custom exercise is the tail of a search that found nothing, so
+  // the typed text becomes the new movement's name and the picker is handed
+  // over rather than stacked under a second sheet.
+  const pkCustom=$("#exPickCustom");
+  if(pkCustom)pkCustom.onclick=()=>{
+    const reopen=pickerState?.reopen;
+    const selectedNow=pickerState?[...pickerState.selected]:[];
+    const multi=pickerState?.mode==="multi";
+    const onPick=pickerState?.onPick;
+    const typed=String($("#exPickSearch")?.value||"").trim();
+    const backToPicker=extraId=>{
+      if(!reopen)return;
+      openExercisePicker(Object.assign({},reopen,
+        {selected:extraId?selectedNow.concat(extraId):selectedNow}))};
+    openCustomExerciseSheet({entry:typed?{name:typed}:null,handoff:true,
+      onCancel:()=>backToPicker(null),
+      onSave:entry=>{
+        // A multi-pick is still being assembled, so the picker comes back with
+        // the new movement already ticked; a single pick is finished by it.
+        if(multi){backToPicker(entry.id);return}
+        if(onPick)onPick(entry)}})};
+  const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
+  const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
+  const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;
+  const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;

@@ -541,6 +541,55 @@
       <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
     </div>
   </div>
+  <div id="exPickScrim" class="sheet-scrim hidden"></div>
+  <div id="exPickSheet" class="sheet sheet--pick hidden" role="dialog" aria-modal="true" aria-labelledby="exPickTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <button type="button" class="sheet__act" id="exPickCancel" data-i18n="dialog.cancel">Cancel</button>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="exPickTitle" data-i18n="picker.title">Choose exercise</p>
+        <p class="sheet__sub" id="exPickFor"></p>
+      </div>
+      <button type="button" class="sheet__act sheet__act--accent hidden" id="exPickDone" data-i18n="dialog.done">Done</button>
+    </div>
+    <div class="pick__tools">
+      <input id="exPickSearch" type="search" class="pick__search" data-i18n-placeholder="picker.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search exercises…" aria-label="Search exercises" autocomplete="off" enterkeyhint="search">
+      <div id="exPickFilters" class="pick__filters" role="group" data-i18n-aria="picker.filters_aria" aria-label="Filter exercises"></div>
+    </div>
+    <div class="sheet__body pick__body">
+      <div id="exPickList" class="pick__list"></div>
+    </div>
+    <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--steel" id="exPickCustom" data-i18n="picker.create_custom">+ Create custom exercise</button>
+    </div>
+  </div>
+  <div id="exCustomScrim" class="sheet-scrim hidden"></div>
+  <div id="exCustomSheet" class="sheet sheet--custom hidden" role="dialog" aria-modal="true" aria-labelledby="exCustomTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <button type="button" class="sheet__act" id="exCustomCancel" data-i18n="dialog.cancel">Cancel</button>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="exCustomTitle" data-i18n="custom.title">Custom exercise</p>
+      </div>
+      <button type="button" class="sheet__act sheet__act--accent" id="exCustomSave" data-i18n="dialog.save">Save</button>
+    </div>
+    <div class="sheet__body pick__body">
+      <div class="custom__form">
+        <label class="field"><span data-i18n="custom.name">Name</span>
+          <input id="exCustomName" type="text" data-i18n-placeholder="custom.name_placeholder" placeholder="Hammer Strength row" autocomplete="off"></label>
+        <p class="custom__lab" data-i18n="custom.equipment">Equipment</p>
+        <div id="exCustomEquip" class="pick__filters" role="group" data-i18n-aria="custom.equipment" aria-label="Equipment"></div>
+        <p class="custom__lab" data-i18n="custom.primary">Primary muscles</p>
+        <div id="exCustomPrimary" class="pick__filters" role="group" data-i18n-aria="custom.primary" aria-label="Primary muscles"></div>
+        <p class="custom__lab" data-i18n="custom.secondary">Secondary muscles</p>
+        <div id="exCustomSecondary" class="pick__filters" role="group" data-i18n-aria="custom.secondary" aria-label="Secondary muscles"></div>
+        <label class="field"><span data-i18n="custom.notes">Setup notes</span>
+          <input id="exCustomNotes" type="text" data-i18n-placeholder="custom.notes_placeholder" placeholder="Seat 4, handles at chest height" autocomplete="off"></label>
+        <button type="button" class="btn btn--steel custom__delete hidden" id="exCustomDelete" data-i18n="custom.delete">Delete exercise</button>
+        <p class="custom__note hidden" id="exCustomInUse" data-i18n="custom.in_use">In use by your program — remove it there first.</p>
+      </div>
+    </div>
+  </div>
   <div id="restSheetScrim" class="sheet-scrim hidden"></div>
   <div id="restSheet" class="sheet sheet--rest hidden" role="dialog" aria-modal="true" aria-labelledby="restSheetTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
