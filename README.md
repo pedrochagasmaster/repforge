@@ -1,6 +1,6 @@
-# RepForge
+# Taurifer
 
-RepForge is a local-only mobile PWA for tracking load progression and progressive overload.
+Taurifer is a local-only mobile PWA for tracking load progression and progressive overload.
 
 ## Features
 

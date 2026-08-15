@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * RepForge year-of-usage browser simulation.
+ * Taurifer year-of-usage browser simulation.
  * Run: node test/simulation.mjs
  * Requires: python3 -m http.server 8000 serving /workspace
  *
@@ -816,7 +816,7 @@ function scenarioRows({ day, ex, sessions }) {
 }
 
 async function main() {
-  console.log("RepForge year-of-usage simulation");
+  console.log("Taurifer year-of-usage simulation");
   console.log(`Target: ${BASE}\n`);
 
   const browser = await launchChromium();
@@ -2170,7 +2170,7 @@ async function main() {
     "Program → Advanced → Export program JSON"
   );
   assert(
-    /^repforge_program_.+\.json$/.test(progDl.suggestedFilename()),
+    /^taurifer_program_.+\.json$/.test(progDl.suggestedFilename()),
     "Program export filename carries a slug segment",
     `filename=${progDl.suggestedFilename()}`,
     "Program → Advanced → Export program JSON with a named program"
@@ -2454,7 +2454,7 @@ async function main() {
     badToast.includes("valid") || badToast.includes("backup"),
     "Invalid import shows error toast",
     `Toast: "${badToast}"`,
-    "Settings → Import non-RepForge JSON file"
+    "Settings → Import non-Taurifer JSON file"
   );
   const malformedProgramPath = join(tmpDir, "bad-program-shape.json");
   writeFileSync(malformedProgramPath, JSON.stringify({ ...state, program: { not: "an array" } }));

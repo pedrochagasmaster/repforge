@@ -64,12 +64,12 @@
     const reg = await swRegistration();
     if (reg && reg.showNotification) {
       try {
-        await reg.showNotification(title || "RepForge", opts);
+        await reg.showNotification(title || "Taurifer", opts);
         return true;
       } catch (e) { console.warn("showNotification failed", e); }
     }
     try {
-      new Notification(title || "RepForge", opts);
+      new Notification(title || "Taurifer", opts);
       return true;
     } catch (e) {
       console.warn("Notification constructor failed", e);
