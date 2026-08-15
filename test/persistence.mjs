@@ -8,6 +8,15 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const DB = "repforge";
 const STORE = "kv";
+// The shape validator throws a message carrying the user-facing brand name,
+// which is not a codename and does change. Match the message's stable shape.
+const INVALID_BACKUP_ERROR = /invalid .+ backup/i;
+
+// Import attempts report the raw error text out of the page; the page cannot
+// close over this regex, so the match happens here.
+function rejectedAsInvalidBackup(result) {
+  return INVALID_BACKUP_ERROR.test(String(result.error));
+}
 
 const results = { passed: 0, failed: 0 };
 
@@ -966,14 +975,14 @@ try {
           { settings: {}, programMeta: {}, program: { not: "an array" }, log: [] },
           io
         );
-        return { rejected: false, calls };
+        return { calls, error: null };
       } catch (error) {
-        return { rejected: /invalid repforge backup/i.test(String(error)), calls };
+        return { calls, error: String(error) };
       }
     });
     const afterInvalidReplace = await readBoth(page);
     assert(
-      invalidReplace.rejected &&
+      rejectedAsInvalidBackup(invalidReplace) &&
         invalidReplace.calls.local === 0 &&
         invalidReplace.calls.idb === 0,
       "Replace rejects a malformed program before invoking either storage adapter",
@@ -1017,17 +1026,13 @@ try {
         };
         try {
           await window.__repforgeStorage.replaceImport(incoming, io);
-          return { rejected: false, calls, error: null };
+          return { calls, error: null };
         } catch (error) {
-          return {
-            rejected: /invalid repforge backup/i.test(String(error)),
-            calls,
-            error: String(error),
-          };
+          return { calls, error: String(error) };
         }
       }, incomingState);
       assert(
-        rejected.rejected && rejected.calls.local === 0 && rejected.calls.idb === 0,
+        rejectedAsInvalidBackup(rejected) && rejected.calls.local === 0 && rejected.calls.idb === 0,
         `Replace rejects ${label} before invoking either storage adapter`,
         JSON.stringify(rejected)
       );
