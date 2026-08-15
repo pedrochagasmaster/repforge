@@ -448,7 +448,7 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
         /* ignore */
       }
       const toast = document.querySelector("#toast:not(.hidden)")?.textContent || "";
-      return /forged|Enter weight/i.test(toast);
+      return /saved|salvo|Enter weight/i.test(toast);
     },
     { k: KEY, len: beforeLen },
     { timeout: 8000 }
@@ -2170,7 +2170,7 @@ async function main() {
     "Program → Advanced → Export program JSON"
   );
   assert(
-    /^repforge_program_.+\.json$/.test(progDl.suggestedFilename()),
+    /^taurifer_program_.+\.json$/.test(progDl.suggestedFilename()),
     "Program export filename carries a slug segment",
     `filename=${progDl.suggestedFilename()}`,
     "Program → Advanced → Export program JSON with a named program"

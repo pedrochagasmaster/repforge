@@ -1,6 +1,6 @@
-# RepForge icon assets
+# Taurifer icon assets
 
-`icon.svg` is the high-fidelity source of truth for RepForge's app identity.
+`icon.svg` is the high-fidelity source of truth for Taurifer's app identity.
 
 - `favicon-32.png` is the browser fallback favicon.
 - `icon-192.png`, `icon-512.png`, and `icon-1024.png` are install and notification assets.

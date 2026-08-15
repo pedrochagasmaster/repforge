@@ -168,7 +168,7 @@ async function run() {
     page.click("#programTextShare"),
   ]).then(([d]) => d);
   const filename = download.suggestedFilename();
-  assert(/^repforge_program_treino-cecela_\d{4}-\d{2}-\d{2}\.txt$/.test(filename), "the saved file is a named .txt", filename);
+  assert(/^taurifer_program_treino-cecela_\d{4}-\d{2}-\d{2}\.txt$/.test(filename), "the saved file is a named .txt", filename);
 
   await page.keyboard.press("Escape");
   await page.waitForTimeout(500);

@@ -1,5 +1,5 @@
 /* ============================================================
-   RepForge — light editorial
+   Taurifer — light editorial
    Cream surfaces, near-black ink, burnt-orange accent.
    Separation via hairline rules and whitespace — not cards.
    ============================================================ */
@@ -766,7 +766,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .effort__btn:not(.active):hover{color:var(--ink);background:var(--bg)}
 .effort__btn:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
 .effort__btn.active{color:#fff;background:var(--accent-deep)}
-/* Until the lifter picks, the highlighted word is RepForge's guess from the
+/* Until the lifter picks, the highlighted word is Taurifer's guess from the
    last session: it reads as a tint, so a confirmed set never looks the same. */
 .effort--suggested .effort__btn.active{color:var(--accent-deep);background:rgba(224,78,20,.09)}
 .rirmode{border:0;padding:0;margin:0 0 14px}

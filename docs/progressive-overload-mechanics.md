@@ -1,7 +1,7 @@
-# How RepForge decides what you should lift next
+# How Taurifer decides what you should lift next
 
 This document explains, in plain language, the complete progressive-overload
-mechanic built into RepForge: what the app measures, what it learns about
+mechanic built into Taurifer: what the app measures, what it learns about
 you, and every rule it uses to suggest the next weight and rep target —
 between workouts and live during one. There is no code here and as little
 jargon as possible; where a term is unavoidable, it is defined the first

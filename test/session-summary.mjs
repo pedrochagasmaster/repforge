@@ -250,7 +250,7 @@ async function run() {
   let s = await readSummary(page);
 
   assert(s.open, "finishing opens the session summary", JSON.stringify({ open: s.open }));
-  assert(/session forged/i.test(s.eyebrow), "the screen names the moment", s.eyebrow);
+  assert(/session saved/i.test(s.eyebrow), "the screen names the moment", s.eyebrow);
   assert(s.hero === "Day 1", "the hero is the training day just finished", s.hero);
   assert(s.statVals[0] === "5" && /^sets logged$/.test(s.statCaps[0]), "sets logged leads the stat row", JSON.stringify(s.statVals));
   // 62.5×8 + 62.5×7 + 50×10 + 50×9 + 10×8 = 1967.5 kg through the hands.
@@ -377,7 +377,7 @@ async function run() {
     };
   });
   assert(fallback.logged === 1, "the session is saved either way", JSON.stringify(fallback));
-  assert(/forged/i.test(fallback.toast), "the toast stands in for the screen", fallback.toast);
+  assert(/saved/i.test(fallback.toast), "the toast stands in for the screen", fallback.toast);
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 
