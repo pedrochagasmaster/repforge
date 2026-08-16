@@ -2407,11 +2407,48 @@ function programStatusLabel(adherence,health){
   const hasLog=state.log.some(isWork);if(!hasLog)return t("status.getting_started");
   const adRatio=adherence.ratio,hRatio=health?.ratio??0;
   if(adRatio>=1&&hRatio>=0.4)return t("status.on_track");if(adRatio>=0.5)return t("status.partial_week");return t("status.rebuilding")}
+/* Accepts v3, v2, a bare exercise array, and {program:[…]} — every shape
+   Taurifer has ever written. customExercises only exists in v3. */
 function parseProgramImport(parsed){
-  if(Array.isArray(parsed))return{exercises:parsed,meta:null};
-  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null};
-  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null};
+  const custom=Array.isArray(parsed?.customExercises)?parsed.customExercises:[];
+  if(Array.isArray(parsed))return{exercises:parsed,meta:null,customExercises:[]};
+  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null,customExercises:custom};
+  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null,customExercises:custom};
   return null}
+
+/* Merges an import's custom definitions into the lifter's own library.
+
+   An id can already be taken by a different definition — two devices both mint
+   "custom:<uuid>", or the same program is imported twice after a local edit. An
+   identical definition is reused, a colliding one is minted a fresh id, and the
+   templates that referenced it are repointed. Nothing local is overwritten. */
+function mergeImportedCustomExercises(incoming,exercises,snapshot){
+  const normalized=normalizeCustomExercises(incoming);
+  if(!normalized.length)return{customExercises:customExercises(snapshot).map(cloneSnapshot),added:0,remapped:0};
+  const mine=customExercises(snapshot).map(cloneSnapshot);
+  const byId=new Map(mine.map(e=>[e.id,e]));
+  const sameDefinition=(a,b)=>foldSearch(a.name)===foldSearch(b.name)&&
+    a.primary===b.primary&&a.secondary===b.secondary&&
+    a.equipment.join(",")===b.equipment.join(",");
+  const remap=new Map();
+  let added=0,remapped=0;
+  for(const entry of normalized){
+    const existing=byId.get(entry.id);
+    if(existing){
+      if(sameDefinition(existing,entry))continue;
+      // Same id, different movement: keep theirs, give this one a new identity.
+      const minted=Object.assign(cloneSnapshot(entry),{id:`${CUSTOM_ID_PREFIX}${uid()}`});
+      mine.push(minted);byId.set(minted.id,minted);
+      remap.set(entry.id,minted.id);added++;remapped++;
+      continue}
+    // A definition we already hold under another id is reused rather than doubled.
+    const twin=mine.find(e=>sameDefinition(e,entry));
+    if(twin){if(twin.id!==entry.id)remap.set(entry.id,twin.id);continue}
+    mine.push(entry);byId.set(entry.id,entry);added++}
+  if(remap.size)
+    for(const ex of exercises||[])
+      if(ex&&remap.has(ex.libraryId))ex.libraryId=remap.get(ex.libraryId);
+  return{customExercises:mine,added,remapped}}
 function save(){return persist()}
 function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
@@ -4626,6 +4663,14 @@ window.__repforgeCustomExercises=()=>customExercises();
 window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
 window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
 window.__repforgeRowMuscles=row=>rowMuscles(row);
+window.__repforgeParseProgramSource=(text,name)=>parseProgramSource(text,name);
+window.__repforgeImportDraft=()=>importDraft&&{
+  fileName:importDraft.fileName,format:importDraft.format,
+  counts:importCounts(importDraft),
+  rows:importDraft.rows.map(r=>({name:r.raw.name,status:r.status,decision:r.decision,
+    reviewed:r.reviewed,match:r.match?r.match.id:null}))};
+window.__repforgeCommitImport=io=>commitImportReview(io||storageIO);
+window.__repforgeReferencedCustom=list=>referencedCustomExercises(list);
 window.__repforgeCompletedVolume=(windowDays=7)=>volMapToObj(completedHardSets(windowDays));
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
@@ -5682,7 +5727,18 @@ async function exportJson(){
   shareOrDownload(text,name,"application/json");renderSettings();
   return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
-function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
+/* A program-only export carries its own custom definitions. Without them a
+   template arriving on another device points at a "custom:…" id that device has
+   never seen: the movement survives as copied strings but stops being a
+   reusable exercise. Only definitions this program actually references travel;
+   the rest of the lifter's library is not this file's business. */
+function referencedCustomExercises(list){
+  const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
+  return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
+function exportProgram(){
+  const exercises=prog.toJSON();
+  const payload={version:3,meta:state.programMeta,exercises,
+    customExercises:referencedCustomExercises(exercises)};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
 
@@ -5784,12 +5840,30 @@ function loggedExerciseRefs(){
   for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
   return{ids,names}}
 
+/* ---- Exercise artwork ----
+   Twenty-four movements have licensed illustrations; every other built-in and
+   every custom exercise renders a deliberately empty tile. The empty state is
+   an element with no src, not an <img> pointing at a file that is not there:
+   a broken-image request is both a wasted fetch and a visible glyph. Both
+   shapes are the same size so a mixed list stays aligned. */
+const exerciseMedia=e=>(e&&typeof e.media==="string"&&e.media)||null;
+const emptyThumb=({size="md"}={})=>
+  `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"></span>`;
+function exerciseThumb(e,{size="md"}={}){
+  const src=exerciseMedia(e);
+  if(!src)return emptyThumb({size});
+  // alt is empty on purpose: the exercise name sits next to it in every list,
+  // so describing the drawing again would only repeat the row to a screen reader.
+  return `<img class="exthumb exthumb--${esc(size)}" src="${esc(src)}" alt="" `+
+    `loading="lazy" decoding="async" width="768" height="768">`}
+
 function pickerRow(e,{selected=false,checkbox=false}={}){
   const muscles=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean);
   const shown=muscles.slice(0,3).map(muscleLabel);
   const eq=(e.equipment||[])[0]||null;
   return `<button type="button" class="pickrow${selected?" is-selected":""}" data-pick="${esc(e.id)}"`+
     (checkbox?` role="checkbox" aria-checked="${selected?"true":"false"}"`:"")+`>`+
+    exerciseThumb(e,{size:"sm"})+
     `<span class="pickrow__main">`+
       `<span class="pickrow__name">${esc(libraryName(e))}</span>`+
       `<span class="pickrow__meta">${esc(shown.join(" · "))}</span>`+
@@ -5924,11 +5998,13 @@ function renderCustomChips(){
         customState[key==="primary"?"secondary":"primary"].delete(v)}
       renderCustomChips()})}}
 
-function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false}={}){
+/* stageOnly builds the definition without writing it: import review needs the
+   entry to show, but nothing durable may move before the final Import. */
+function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false,stageOnly=false}={}){
   const sheet=$("#exCustomSheet"),scrim=$("#exCustomScrim"),name=$("#exCustomName");
   if(!sheet)return;
   const inUse=entry?customExerciseInUse(entry.id):false;
-  customState={id:entry?.id||null,onSave,
+  customState={id:entry?.id||null,onSave,stageOnly,
     equipment:new Set(entry?.equipment||["machine"]),
     primary:new Set(String(entry?.primary||"").split(",").filter(Boolean)),
     secondary:new Set(String(entry?.secondary||"").split(",").filter(Boolean))};
@@ -5968,6 +6044,15 @@ async function saveCustomExerciseSheet(){
   if(!name){toast(t("toast.custom_needs_name"));return}
   const handler=customState.onSave;
   const editing=!!customState.id;
+  if(customState.stageOnly){
+    const staged=normalizeCustomExercises([{id:customState.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
+      equipment:[...customState.equipment],
+      primary:[...customState.primary].join(","),
+      secondary:[...customState.secondary].join(","),
+      notes:String($("#exCustomNotes")?.value||"").trim()}])[0];
+    await closeCustomExerciseSheet();
+    if(handler&&staged)handler(staged);
+    return}
   const {result,entry}=await saveCustomExercise({id:customState.id,name,
     equipment:[...customState.equipment],
     primary:[...customState.primary].join(","),
@@ -6032,40 +6117,270 @@ function linkImportedExercises(list){
     linked++}
   return{linked,total:list.length}}
 
+/* ============================================================
+   Program import — staged, reviewed, then written
+   Parsing produces a transient model only. Nothing durable moves
+   until the lifter presses Import, so a file that turns out to be
+   wrong costs them nothing. Names are classified rather than
+   guessed at: an exact hit links itself, a likely one has to be
+   looked at, and anything else keeps exactly what was imported.
+   ============================================================ */
+
+const IMPORT_EXACT="exact",IMPORT_ALIAS="alias",IMPORT_PROBABLE="probable",IMPORT_UNMATCHED="unmatched";
+let importDraft=null,importReturn=null;
+
+/* Taurifer's own text export, read back. The grammar is the one programText()
+   writes: a title line, then "DAY NAME — muscles", then "1. Exercise — 3× 6-10".
+   Anything that does not look like that is rejected rather than guessed at —
+   this parses one known format, it does not read prose. */
+/* The text export shouts day names ("DAY 1", "TREINO A") for legibility, so a
+   round-trip would otherwise bring the shouting back into the program. A label
+   with no lowercase at all was uppercased on the way out; anything else is left
+   exactly as written. */
+function restoreExportCase(label){
+  if(label!==label.toLocaleUpperCase(locTag())||!/[a-z]/i.test(label))return label;
+  return label.toLocaleLowerCase(locTag()).replace(/(^|\s)(\p{L})/gu,(m,sp,ch)=>sp+ch.toLocaleUpperCase(locTag()))}
+function parseProgramTextExport(text){
+  const lines=String(text||"").split(/\r?\n/);
+  const days=[];let current=null,title="";
+  const exRe=/^\s*(\d+)\.\s*(.+?)\s*[—-]\s*(\d+)\s*[×x]\s*(\d+)(?:\s*[–-]\s*(\d+))?\s*$/;
+  for(const raw of lines){
+    const line=raw.trim();
+    if(!line)continue;
+    const ex=line.match(exRe);
+    if(ex){
+      if(!current){current={day:`Day ${days.length+1}`,rows:[]};days.push(current)}
+      const min=+ex[4],max=ex[5]?+ex[5]:min;
+      current.rows.push({name:ex[2].trim(),sets:+ex[3],min,max});
+      continue}
+    // A non-exercise line starts a day, except the first which is the title.
+    const label=line.split(/\s+[—-]\s+/)[0].trim();
+    if(!label)continue;
+    if(!title&&!days.length){title=label;continue}
+    current={day:restoreExportCase(label),rows:[]};days.push(current)}
+  const exercises=[];
+  for(const d of days)
+    d.rows.forEach((r,i)=>exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max}));
+  if(!exercises.length)return null;
+  return{exercises,meta:title?{name:title}:null,customExercises:[]}}
+
+/* Reads whatever the file turns out to be. JSON first, then the text export. */
+function parseProgramSource(text,fileName=""){
+  const trimmed=String(text||"").trim();
+  if(trimmed.startsWith("{")||trimmed.startsWith("[")){
+    let parsed=null;
+    try{parsed=JSON.parse(trimmed)}catch{return null}
+    const imp=parseProgramImport(parsed);
+    return imp?.exercises?.length?Object.assign({format:"json"},imp):null}
+  const text2=parseProgramTextExport(trimmed);
+  return text2?Object.assign({format:"text"},text2):null}
+
+/* How close two movement names are, 0..1, on shared words. Deliberately dumb:
+   it only has to be good enough to say "look at this one", never to decide. */
+function nameAffinity(a,b){
+  const wa=foldSearch(a).split(/[^a-z0-9]+/).filter(w=>w.length>2);
+  const wb=new Set(foldSearch(b).split(/[^a-z0-9]+/).filter(w=>w.length>2));
+  if(!wa.length||!wb.size)return 0;
+  const hits=wa.filter(w=>wb.has(w)).length;
+  return hits/Math.max(wa.length,wb.size)}
+
+const IMPORT_PROBABLE_MIN=0.5;
+
+/* Classifies one imported row against the library plus the definitions that
+   travelled with the file. */
+function classifyImportRow(row,candidates){
+  const name=String(row.name??"").trim();
+  if(row.libraryId){
+    const known=candidates.find(e=>e.id===row.libraryId)||libraryEntry(row.libraryId);
+    if(known)return{status:IMPORT_EXACT,match:known}}
+  const folded=foldSearch(name);
+  if(!folded)return{status:IMPORT_UNMATCHED,match:null};
+  const exact=candidates.find(e=>foldSearch(e.name)===folded);
+  if(exact)return{status:IMPORT_EXACT,match:exact};
+  // The same movement written in the other language is a match, but one the
+  // lifter should still see, since the name in their file will change.
+  const alias=candidates.find(e=>foldSearch(e.namePt||"")===folded);
+  if(alias)return{status:IMPORT_ALIAS,match:alias};
+  let best=null,bestScore=0;
+  for(const e of candidates){
+    const score=Math.max(nameAffinity(name,e.name),nameAffinity(name,e.namePt||""));
+    if(score>bestScore){bestScore=score;best=e}}
+  if(best&&bestScore>=IMPORT_PROBABLE_MIN)return{status:IMPORT_PROBABLE,match:best,score:bestScore};
+  return{status:IMPORT_UNMATCHED,match:null}}
+
+/* Builds the review model. Exact and alias hits arrive decided; a probable one
+   arrives undecided and blocks Import until it is looked at. */
+function buildImportDraft(source,fileName){
+  const candidates=source.customExercises?.length
+    ? normalizeCustomExercises(source.customExercises).concat(pickableExercises())
+    : pickableExercises();
+  const rows=source.exercises.map((raw,i)=>{
+    const {status,match}=classifyImportRow(raw,candidates);
+    return{key:`imp${i}`,raw:cloneSnapshot(raw),status,match,
+      decision:status===IMPORT_EXACT||status===IMPORT_ALIAS?"link":"raw",
+      reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
+  return{fileName:String(fileName||""),format:source.format||"json",
+    meta:source.meta||null,customExercises:source.customExercises||[],rows}}
+
+const importCounts=draft=>{
+  const linked=draft.rows.filter(r=>r.decision==="link").length;
+  const review=draft.rows.filter(r=>!r.reviewed).length;
+  const custom=draft.rows.filter(r=>r.decision==="custom").length;
+  return{linked,review,custom,total:draft.rows.length}};
+
+/* Turns reviewed rows into program templates. A linked row takes the
+   definition's identity; a raw row keeps precisely what the file said. */
+function importDraftExercises(draft){
+  return draft.rows.map(r=>{
+    const base=cloneSnapshot(r.raw);
+    delete base.libraryId;delete base.displayName;
+    if(r.decision==="link"&&r.match)
+      return Object.assign(base,exerciseFieldsFromLibrary(r.match));
+    if(r.decision==="custom"&&r.createdCustomId)
+      return Object.assign(base,{libraryId:r.createdCustomId});
+    return base})}
+
+/* Definitions that have to exist before the templates can resolve: the ones
+   that travelled in a v3 file, plus any created during review. */
+function importDraftCustomDefinitions(draft){
+  const out=[];
+  for(const e of normalizeCustomExercises(draft.customExercises))out.push(e);
+  for(const r of draft.rows)if(r.createdCustom)out.push(r.createdCustom);
+  return out}
+
+/* ---- Import review screen ---- */
+
+const importStatusKey={[IMPORT_EXACT]:"import.status.exact",[IMPORT_ALIAS]:"import.status.alias",
+  [IMPORT_PROBABLE]:"import.status.probable",[IMPORT_UNMATCHED]:"import.status.unmatched"};
+
+function renderImportReview(){
+  if(!importDraft)return;
+  const counts=importCounts(importDraft);
+  const file=$("#importFile");
+  if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total});
+  const countsEl=$("#importCounts");
+  if(countsEl)countsEl.innerHTML=
+    `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
+    `<span class="impcount"><b>${counts.review}</b>${esc(t("import.count_review"))}</span>`+
+    `<span class="impcount"><b>${counts.custom}</b>${esc(t("import.count_custom"))}</span>`;
+  const rows=$("#importRows");
+  if(rows){
+    // Rows still needing a decision come first: they are the only reason this
+    // screen exists, and a twelve-exercise split should not hide them.
+    const ordered=[...importDraft.rows].sort((a,b)=>(a.reviewed?1:0)-(b.reviewed?1:0));
+    rows.innerHTML=ordered.map(importRowHtml).join("");
+    $$("#importRows [data-imp-act]").forEach(b=>b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey));
+  }
+  const commit=$("#importCommit");
+  if(commit){
+    commit.disabled=counts.review>0;
+    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("import.commit")}
+}
+
+function importRowHtml(row){
+  const target=row.decision==="link"&&row.match?libraryName(row.match)
+    :row.decision==="custom"?t("import.target_custom")
+    :t("import.target_raw");
+  const badge=row.reviewed
+    ?`<span class="impbadge is-done">${esc(t("import.status.confirmed"))}</span>`
+    :`<span class="impbadge is-open">${esc(t(importStatusKey[row.status]||"import.status.unmatched"))}</span>`;
+  const art=row.decision==="link"&&row.match?exerciseThumb(row.match,{size:"sm"}):emptyThumb({size:"sm"});
+  return `<div class="improw${row.reviewed?"":" is-open"}" data-imp-row="${esc(row.key)}">`+
+    `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
+    `<span class="improw__arrow" aria-hidden="true">→</span>`+
+    art+
+    `<div class="improw__to"><p class="improw__name">${esc(target)}</p>${badge}</div>`+
+    `<div class="improw__acts">`+
+      (row.match&&row.decision!=="link"
+        ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"")+
+      `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
+      // Shown while a row still needs a decision even when "keep" is already
+      // the standing choice: an unmatched row has to be acknowledged, not just
+      // defaulted, or there is no way to clear it off the review list.
+      (row.decision!=="raw"||!row.reviewed
+        ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
+      (row.decision!=="custom"
+        ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"")+
+    `</div>`+
+  `</div>`}
+
+function importRowAction(act,key){
+  const row=importDraft?.rows.find(r=>r.key===key);
+  if(!row)return;
+  if(act==="link"&&row.match){row.decision="link";row.reviewed=true;renderImportReview();return}
+  if(act==="raw"){row.decision="raw";row.reviewed=true;renderImportReview();return}
+  if(act==="choose"){
+    openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
+      onPick:entry=>{row.match=entry;row.decision="link";row.reviewed=true;renderImportReview()}});
+    return}
+  if(act==="custom"){
+    // Creating the definition here rather than at commit time means the lifter
+    // sees exactly what will exist before anything is written.
+    openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
+      stageOnly:true,
+      onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
+        row.decision="custom";row.reviewed=true;renderImportReview()}})}}
+
+function openImportReview(draft){
+  importDraft=draft;
+  importReturn=document.activeElement;
+  document.body.classList.add("is-import");
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="importReview"));
+  window.scrollTo({top:0});
+  renderImportReview();
+  $("#importCommit")?.focus({preventScroll:true})}
+
+function closeImportReview({toProgram=true}={}){
+  importDraft=null;
+  document.body.classList.remove("is-import");
+  const back=resolveReturnFocus(importReturn);
+  importReturn=null;
+  if(toProgram)navTo("program");
+  if(back)try{back.focus({preventScroll:true})}catch{}}
+
+/* The only place an import touches durable state. Custom definitions land
+   first, so the templates that reference them resolve on the way in. */
+async function commitImportReview(io=storageIO){
+  if(!importDraft)return null;
+  const counts=importCounts(importDraft);
+  if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review}));return null}
+  const draft=importDraft;
+  const exercises=importDraftExercises(draft);
+  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  const adapter=io||storageIO;
+  const transition=programTransitionPrecondition(state);
+  const proposal=cloneSnapshot(state);
+  const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
+  proposal.customExercises=merged.customExercises;
+  const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
+  if(typeof draft.meta?.name==="string"&&draft.meta.name.trim())meta.name=draft.meta.name.trim();
+  meta.updated=new Date().toISOString();
+  proposal.programMeta=meta;
+  proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  migrateLogSnapshot(proposal);
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,adapter,{effect,...transition});
+  if(!(result.localOk||result.idbOk)){toast(t("toast.program_import_failed"));return result}
+  resetDraftSessionState();
+  const jsonBox=$("#programJson");if(jsonBox)jsonBox.value=JSON.stringify(proposal.program,null,2);
+  day=days()[0]||"Day 1";
+  closeImportReview({toProgram:true});
+  render();
+  toast(t("toast.program_imported",{n:counts.total}));
+  return result}
+
+/* Reading a file no longer changes anything: it opens the review screen. The
+   old path linked names and wrote the program behind one confirm(), which meant
+   a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
-  try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
-    if(!imp?.exercises?.length)throw Error();
-    const list=imp.exercises;
-    const matched=linkImportedExercises(list);
-    const draftConfirmed=draftHasProgress();
-    const discardDraftRaw=readDraftRaw();
-    const confirmKey=draftConfirmed?"confirm.replace_program_discard_draft":"confirm.import_program_replace";
-    if(!confirm(t(confirmKey,{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
-    const adapter=io||storageIO;
-    if($("#onboarding")?.classList.contains("active")){
-      const name=typeof imp.meta?.name==="string"?imp.meta.name.trim():"";
-      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",
-        io:adapter,draftConfirmed,discardDraftRaw})}
-    else{
-      const transition=programTransitionPrecondition(state);
-      const proposal=cloneSnapshot(state);
-      const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
-      if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())meta.name=imp.meta.name.trim();
-      meta.updated=new Date().toISOString();
-      proposal.programMeta=meta;proposal.program=new Program(list).toJSON();
-      migrateLogSnapshot(proposal);
-      const effect=destructiveDraftClearEffect(discardDraftRaw);
-      const result=await commitProposedState(proposal,adapter,{effect,...transition});
-      if(result.localOk||result.idbOk){
-        resetDraftSessionState();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
-        render();
-        // Say what the match pass did rather than leaving it to be discovered:
-        // unlinked slots behave differently in the swap picker and the audit.
-        toast(matched.linked<matched.total
-          ?t("toast.program_imported_partial",{n:matched.linked,total:matched.total})
-          :t("toast.program_saved"))}}
+  try{
+    const source=parseProgramSource(await f.text(),f.name);
+    if(!source?.exercises?.length)throw Error();
+    pendingImportIo=io||null;
+    openImportReview(buildImportDraft(source,f.name));
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
+let pendingImportIo=null;
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{const s=JSON.parse(await f.text());
     if(!isImportableState(s))throw Error();
@@ -6488,6 +6803,11 @@ function init(){
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
+  const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
+  const impCancel=$("#importCancel");
+  if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
+  const impCommit=$("#importCommit");
+  if(impCommit)impCommit.onclick=()=>commitImportReview(pendingImportIo||storageIO);
   const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
   blockZoomGestures();

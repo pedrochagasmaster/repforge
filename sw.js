@@ -1,10 +1,16 @@
-const CACHE = "repforge-v78";
+const CACHE = "repforge-v79";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
+  "./assets/exercises/ab_mc.webp", "./assets/exercises/cu_cb.webp", "./assets/exercises/cu_db.webp", "./assets/exercises/dl_cb.webp",
+  "./assets/exercises/fp_cb.webp", "./assets/exercises/hg_bb.webp", "./assets/exercises/ht_bb.webp", "./assets/exercises/ht_mc.webp",
+  "./assets/exercises/hx_bw.webp", "./assets/exercises/lc_mc.webp", "./assets/exercises/lcl_mc.webp", "./assets/exercises/le_mc.webp",
+  "./assets/exercises/lr_mc.webp", "./assets/exercises/pd_mc.webp", "./assets/exercises/pl_mc.webp", "./assets/exercises/rd_mc.webp",
+  "./assets/exercises/rw_mc.webp", "./assets/exercises/sps_db.webp", "./assets/exercises/sq_lp.webp", "./assets/exercises/sq_sm.webp",
+  "./assets/exercises/sqk_mc.webp", "./assets/exercises/ss_db.webp", "./assets/exercises/trr_cb.webp", "./assets/exercises/trs_db.webp",
   "./fonts/plexsans.woff2",
   "./fonts/plexmono-400.woff2", "./fonts/plexmono-500.woff2", "./fonts/plexmono-600.woff2"
 ];

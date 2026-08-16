@@ -2237,5 +2237,47 @@
     "primary": "Hamstrings,Glutes",
     "secondary": "Spinal erectors",
     "beginnerFriendly": true
+  },
+  {
+    "id": "ht_bb",
+    "patterns": [
+      "hinge"
+    ],
+    "name": "Barbell hip thrust",
+    "namePt": "Elevação pélvica com barra",
+    "equipment": [
+      "barbell"
+    ],
+    "primary": "Glutes",
+    "secondary": "Hamstrings",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "ht_mc",
+    "patterns": [
+      "hinge"
+    ],
+    "name": "Hip thrust machine",
+    "namePt": "Elevação pélvica na máquina",
+    "equipment": [
+      "machine"
+    ],
+    "primary": "Glutes",
+    "secondary": "Hamstrings",
+    "beginnerFriendly": true
+  },
+  {
+    "id": "fp_cb",
+    "patterns": [
+      "rear_delt"
+    ],
+    "name": "Face pull",
+    "namePt": "Face pull na polia",
+    "equipment": [
+      "cable"
+    ],
+    "primary": "Rear delts",
+    "secondary": "Mid/upper back,Traps",
+    "beginnerFriendly": true
   }
 ]

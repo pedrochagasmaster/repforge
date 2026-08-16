@@ -1138,6 +1138,42 @@ body.is-sheet-open{overflow:hidden}
 }
 .pex__mus input[readonly]{color:var(--ink-soft);background:var(--well)}
 
+/* ---- Import review ---- */
+/* A full view rather than a sheet: reviewing a twelve-exercise split is not a
+   glance, and nothing is written until Import is pressed. */
+.impreview{padding:0 16px calc(28px + var(--nav) + env(safe-area-inset-bottom))}
+.impreview__file{margin:14px 0 0;font-size:13px;color:var(--ink-faint)}
+.impreview__head{margin:6px 0 4px;font-size:26px;font-weight:650;letter-spacing:-.01em}
+.impcounts{display:flex;gap:0;margin:16px 0 6px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.impcount{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:12px 4px;font-size:12px;color:var(--ink-soft);text-align:center;
+}
+.impcount+.impcount{border-left:1px solid var(--rule)}
+.impcount b{font-size:20px;font-weight:650;color:var(--accent-deep);font-family:var(--mono)}
+.improw{
+  display:grid;grid-template-columns:1fr auto auto 1.1fr;align-items:center;gap:8px;
+  padding:12px 0;border-bottom:1px solid var(--rule);
+}
+.improw__from{margin:0;font-size:14px;color:var(--ink)}
+.improw__arrow{color:var(--ink-faint);font-size:13px}
+.improw__to{min-width:0}
+.improw__name{margin:0;font-size:14px;font-weight:600;color:var(--ink)}
+.impbadge{display:inline-block;margin-top:4px;font-size:11px;font-weight:600}
+.impbadge.is-done{color:var(--ink-faint)}
+.impbadge.is-open{color:var(--accent-deep)}
+/* The actions belong to the row above them and wrap under it on a narrow
+   screen rather than squeezing the two names into nothing. */
+.improw__acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.improw__btn{
+  min-height:36px;padding:7px 12px;border:1px solid var(--rule-strong);border-radius:999px;
+  background:var(--surface);font:inherit;font-size:13px;color:var(--ink);cursor:pointer;
+}
+.improw.is-open{background:transparent}
+.improw.is-open .improw__btn:first-child{border-color:var(--accent-deep);color:var(--accent-deep)}
+.impreview__safe{margin:20px 0 12px;text-align:center;font-size:13px;color:var(--ink-faint)}
+#importCommit[disabled]{opacity:.5;cursor:not-allowed}
+
 /* ---- Exercise picker sheet ---- */
 /* Search and filters sit outside .sheet__body so the list is the only thing
    that scrolls: a lifter refining a search should never have to scroll back up
@@ -1162,6 +1198,18 @@ body.is-sheet-open{overflow:hidden}
   cursor:pointer;white-space:nowrap;
 }
 .pchip.is-active{background:var(--cta);border-color:var(--cta);color:var(--cta-ink)}
+/* Artwork tiles. The empty variant is the same box with nothing in it — no
+   glyph, no initials, no shimmer — so illustrated and plain rows line up and a
+   missing illustration never looks like a failure. */
+.exthumb{
+  flex:none;display:block;border-radius:10px;background:var(--well);
+  border:1px solid var(--rule);object-fit:cover;
+}
+.exthumb--sm{width:52px;height:52px}
+.exthumb--md{width:72px;height:72px}
+.exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:14px}
+.exthumb--empty{background:var(--well)}
+
 .pick__body{padding-top:10px;flex-direction:column;overflow:hidden}
 .pick__list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
 .pick__section{

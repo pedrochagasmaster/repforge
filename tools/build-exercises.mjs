@@ -15,7 +15,7 @@
    data). Its images/ and videos/ are NOT MIT — they belong to Gym visual and
    are licensed to that repository alone, so nothing here reads or ships media. */
 
-import { readFileSync, writeFileSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -502,6 +502,18 @@ function equipmentFrom(row) {
   return eq ? [...eq] : null;
 }
 
+/* The only exercises allowed to show artwork. Twenty-four illustrations were
+   licensed for this app; everything else — built-in or custom — renders a
+   deliberately empty tile. Keyed by stable library id, never by display name,
+   locale or filename slug, and validated against the files on disk so a
+   regeneration cannot silently ship a broken image request. */
+const MEDIA_DIR = "assets/exercises";
+const MEDIA_IDS = [
+  "ab_mc", "cu_cb", "cu_db", "dl_cb", "fp_cb", "hg_bb", "ht_bb", "ht_mc",
+  "hx_bw", "lc_mc", "lcl_mc", "le_mc", "lr_mc", "pd_mc", "pl_mc", "rd_mc",
+  "rw_mc", "sps_db", "sq_lp", "sq_sm", "sqk_mc", "ss_db", "trr_cb", "trs_db"
+];
+
 /* The generator picks the first candidate in a slot's pool, so the pool's order
    decides what a generated program actually contains. These are the movements
    Taurifer programmed before the library existed — the obvious pick for their
@@ -535,8 +547,12 @@ if (srcRoot) {
   for (const row of rows) dataset.set(`exdb:${row.id}`, row);
 }
 
+const mediaSet = new Set(MEDIA_IDS);
 const problems = [];
 const gaps = [];
+for (const id of MEDIA_IDS)
+  if (!existsSync(join(ROOT, MEDIA_DIR, `${id}.webp`)))
+    problems.push(`media file missing for ${id}: ${MEDIA_DIR}/${id}.webp`);
 const entries = [];
 const ids = new Set();
 
@@ -599,6 +615,7 @@ for (const item of curation) {
     secondary,
     patterns: item.patterns || [],
     rank: item.rank !== undefined ? item.rank : (STAPLE_IDS.has(item.id) ? 0 : 50),
+    media: mediaSet.has(item.id) ? `${MEDIA_DIR}/${item.id}.webp` : null,
     beginnerFriendly: item.beginnerFriendly !== undefined
       ? item.beginnerFriendly
       : beginnerFriendly(equipment, name)
@@ -624,6 +641,14 @@ if (problems.length) {
   process.exit(1);
 }
 
+for (const id of MEDIA_IDS)
+  if (!entries.some(e => e.id === id)) problems.push(`media maps ${id}, which is not in the library`);
+if (problems.length) {
+  console.error(`${problems.length} problems — nothing written:`);
+  for (const p of problems) console.error("  " + p);
+  process.exit(1);
+}
+
 entries.sort((a, b) => a.name.localeCompare(b.name, "en"));
 
 const line = e => {
@@ -638,6 +663,7 @@ const line = e => {
     `rank:${e.rank}`,
     `beginnerFriendly:${e.beginnerFriendly}`
   ];
+  if (e.media) parts.push(`media:${JSON.stringify(e.media)}`);
   if (e.notes) parts.push(`notes:${JSON.stringify(e.notes)}`);
   if (e.src) parts.push(`src:${JSON.stringify(e.src)}`);
   return "  {" + parts.join(",") + "}";

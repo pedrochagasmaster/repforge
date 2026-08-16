@@ -9,7 +9,7 @@
 import { createRequire } from "module";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
-import { readFileSync } from "fs";
+import { existsSync, readFileSync, readdirSync } from "fs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
@@ -165,6 +165,43 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   const raw = readFileSync(join(ROOT, "exercises.js"), "utf8");
   assert(!/images\/|videos\/|\.gif|gymvisual/i.test(raw),
     "library ships no upstream media references");
+}
+
+/* ---- artwork ----
+   Exactly 24 illustrations are licensed. More than that means something was
+   invented; fewer means a mapping was lost. Every mapped path must exist, or
+   the app issues a request for a file that is not there. */
+{
+  const mapped = EXERCISE_LIBRARY.filter(e => e.media);
+  assert(mapped.length === 24, "exactly 24 exercises carry artwork", `${mapped.length} mapped`);
+
+  const missing = mapped.filter(e => !existsSync(join(ROOT, e.media)));
+  assert(missing.length === 0, "every mapped illustration exists on disk",
+    missing.map(e => `${e.id} → ${e.media}`).join(", "));
+
+  const stray = mapped.filter(e => e.media !== `assets/exercises/${e.id}.webp`);
+  assert(stray.length === 0, "artwork is keyed by library id, not by name or slug",
+    stray.map(e => `${e.id} → ${e.media}`).join(", "));
+
+  const files = readdirSync(join(ROOT, "assets", "exercises")).filter(f => f.endsWith(".webp"));
+  assert(files.length === 24, "no unreferenced artwork ships", `${files.length} files`);
+  const unmapped = files.filter(f => !mapped.some(e => e.media.endsWith(`/${f}`)));
+  assert(unmapped.length === 0, "every shipped file is mapped to a library id", unmapped.join(", "));
+
+  // Everything else must render the empty tile — which means carrying no media
+  // path at all, so no request is ever issued for it.
+  const bogus = EXERCISE_LIBRARY.filter(e => e.media !== undefined && e.media !== null && !mapped.includes(e));
+  assert(bogus.length === 0, "unmapped exercises carry no media path", bogus.map(e => e.id).join(", "));
+}
+
+{
+  // Offline: the shell has to carry the artwork, or an installed app shows
+  // empty tiles for the 24 the moment it loses connectivity.
+  const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
+  const mapped = EXERCISE_LIBRARY.filter(e => e.media);
+  const uncached = mapped.filter(e => !sw.includes(`./${e.media}`));
+  assert(uncached.length === 0, "every illustration is precached by the service worker",
+    uncached.map(e => e.id).join(", "));
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);
