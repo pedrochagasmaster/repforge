@@ -6086,7 +6086,12 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
   if(quick)renderQuickTabs();
   renderPickerFilters();renderPickerList();
   document.body.classList.add("is-sheet-open");
-  openModal(sheet,{initialFocus:search,returnFocus:pickerReturn,onEscape:closeExercisePicker,scrim,
+  // The sheet takes focus, not the search box: focusing an input raises the
+  // software keyboard, which covers half the phone before the lifter has asked
+  // to type — and browsing the list is the common move, typing the rarer one.
+  // The dialog element carries tabindex="-1" so it can hold focus without
+  // joining the tab order, and Tab from it lands on the sheet's first control.
+  openModal(sheet,{initialFocus:sheet,returnFocus:pickerReturn,onEscape:closeExercisePicker,scrim,
     delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 

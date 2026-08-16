@@ -1298,6 +1298,17 @@ body.is-sheet-open{overflow:hidden}
 .exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:14px}
 .exthumb--empty{background:var(--well)}
 
+/* Browsing a library is not a confirmation prompt: the picker takes the whole
+   visible viewport instead of the default 74dvh band, so search, filters and
+   footer can all stay put and the list still has rows to show. --vvh is the
+   band the software keyboard leaves visible, so a full-height picker with the
+   keyboard up is still a picker rather than a header with two rows under it.
+   Safe-area padding at the top because a sheet this tall reaches the status
+   bar once the app is installed and running standalone. */
+.sheet--pick{
+  height:var(--vvh,100dvh);max-height:var(--vvh,100dvh);
+  padding-top:env(safe-area-inset-top);
+}
 .pick__body{padding-top:10px;flex-direction:column;overflow:hidden}
 .pick__list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
 .pick__section{
