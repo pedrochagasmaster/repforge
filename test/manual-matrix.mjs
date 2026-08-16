@@ -23,7 +23,7 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const DB = "repforge";
 const STORE = "kv";
-const DEFAULT_ORIGIN = process.env.REPFORGE_URL || "http://127.0.0.1:8000/";
+const DEFAULT_ORIGIN = "http://127.0.0.1:8000/";
 
 const FIXTURE_NAMES = [
   "clean",
@@ -516,8 +516,13 @@ function parseArgs(argv) {
   return out;
 }
 
+/* Both origins come off the injected env, never off module scope. Reading
+   REPFORGE_URL at import time made the `env` seam a half-truth: a caller could
+   hand in an environment and still get whatever the shell happened to export,
+   which is exactly how the self-test started failing for anyone who had set
+   REPFORGE_URL to run the browser suites. */
 function resolvePrepareOrigin(args, cell, env = process.env) {
-  const raw = args.origin || (cell.headed ? DEFAULT_ORIGIN : env.REPFORGE_RC_ORIGIN);
+  const raw = args.origin || (cell.headed ? env.REPFORGE_URL || DEFAULT_ORIGIN : env.REPFORGE_RC_ORIGIN);
   if (!raw) {
     throw new Error(`${cell.id} requires REPFORGE_RC_ORIGIN or --origin with the branch-addressable HTTPS release candidate`);
   }
@@ -594,6 +599,10 @@ function runSelfTest() {
   assert(CELLS.C6.locale === "pt" && CELLS.C6.platform === "android-chrome", "C6 is 430×932 / pt / lb Android");
   assert(CELLS.C1.headed && CELLS.C4.headed && !CELLS.C2.headed && !CELLS.C3.headed, "only C1/C4 are headed desktop cells");
   assert(resolvePrepareOrigin({ origin: null }, CELLS.C1, {}) === "http://127.0.0.1:8000", "desktop cells default to loopback HTTP");
+  assert(
+    resolvePrepareOrigin({ origin: null }, CELLS.C1, { REPFORGE_URL: "http://localhost:8000/" }) === "http://localhost:8000",
+    "a desktop cell still follows REPFORGE_URL when the environment sets one"
+  );
   assert(
     resolvePrepareOrigin({ origin: null }, CELLS.C2, { REPFORGE_RC_ORIGIN: "https://preview.example/branch" }) === "https://preview.example",
     "physical cells consume REPFORGE_RC_ORIGIN"
