@@ -6746,13 +6746,14 @@ function importRowHtml(row){
     ?`<span class="impbadge is-done">${esc(t("import.status.confirmed"))}</span>`
     :`<span class="impbadge is-open">${esc(t(importStatusKey[row.status]||"import.status.unmatched"))}</span>`;
   const art=shown?exerciseThumb(shown,{size:"sm"}):emptyThumb({size:"sm"});
-  return `<div class="improw${row.reviewed?"":" is-open"}" data-imp-row="${esc(row.key)}">`+
-    `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
-    `<span class="improw__arrow" aria-hidden="true">→</span>`+
-    art+
-    `<div class="improw__to"><p class="improw__name">${esc(target)}</p>${badge}</div>`+
-    `<div class="improw__acts">`+
-      (row.match&&row.decision!=="link"
+  // A settled row keeps its name, its target, its art and its badge, and trades
+  // its three remaining alternatives for one quiet way back in. Most settled
+  // rows were matched by the importer rather than chosen by the lifter, so the
+  // alternatives are noise on the screen you read before replacing a program.
+  const folded=row.reviewed&&!row.expanded;
+  const acts=folded
+    ?`<button type="button" class="improw__btn improw__btn--change" data-imp-act="expand" data-imp-key="${esc(row.key)}">${esc(t("import.action_change"))}</button>`
+    :(row.match&&row.decision!=="link"
         ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"")+
       `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
       // Shown while a row still needs a decision even when "keep" is already
@@ -6761,18 +6762,29 @@ function importRowHtml(row){
       (row.decision!=="raw"||!row.reviewed
         ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
       (row.decision!=="custom"
-        ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"")+
-    `</div>`+
+        ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
+  return `<div class="improw${row.reviewed?"":" is-open"}${folded?" is-folded":""}" data-imp-row="${esc(row.key)}">`+
+    `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
+    `<span class="improw__arrow" aria-hidden="true">→</span>`+
+    art+
+    `<div class="improw__to"><p class="improw__name">${esc(target)}</p>${badge}</div>`+
+    `<div class="improw__acts">${acts}</div>`+
   `</div>`}
 
 function importRowAction(act,key){
   const row=importDraft?.rows.find(r=>r.key===key);
   if(!row)return;
-  if(act==="link"&&row.match){row.decision="link";row.reviewed=true;renderImportReview();return}
-  if(act==="raw"){row.decision="raw";row.reviewed=true;renderImportReview();return}
+  // Change only reopens the row: the decision it already carries is untouched,
+  // so a lifter who taps it and changes their mind still imports what they saw.
+  // The render replaces the row's markup, so the caret is put back on the
+  // controls the tap was asking for rather than dropped to the document.
+  if(act==="expand"){row.expanded=true;renderImportReview();
+    $(`#importRows [data-imp-row="${esc(row.key)}"] [data-imp-act]`)?.focus({preventScroll:true});return}
+  if(act==="link"&&row.match){row.decision="link";settleImportRow(row);return}
+  if(act==="raw"){row.decision="raw";settleImportRow(row);return}
   if(act==="choose"){
     openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
-      onPick:entry=>{row.match=entry;row.decision="link";row.reviewed=true;renderImportReview()}});
+      onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row)}});
     return}
   if(act==="custom"){
     // Creating the definition here rather than at commit time means the lifter
@@ -6780,7 +6792,9 @@ function importRowAction(act,key){
     openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
       stageOnly:true,
       onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
-        row.decision="custom";row.reviewed=true;renderImportReview()}})}}
+        row.decision="custom";settleImportRow(row)}})}}
+/** A decided row folds back down: the alternatives have done their job. */
+function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportReview()}
 
 function openImportReview(draft){
   importDraft=draft;

@@ -1253,6 +1253,10 @@ body.is-sheet-open{overflow:hidden}
   min-height:36px;padding:7px 12px;border:1px solid var(--rule-strong);border-radius:999px;
   background:var(--surface);font:inherit;font-size:13px;color:var(--ink);cursor:pointer;
 }
+/* A settled row carries one quiet chip instead of three alternatives, so the
+   screen you read before replacing a program is the list, not the controls. */
+.improw.is-folded{padding:10px 0}
+.improw__btn--change{border-color:var(--rule);color:var(--ink-soft)}
 .improw.is-open{background:transparent}
 .improw.is-open .improw__btn:first-child{border-color:var(--accent-deep);color:var(--accent-deep)}
 .impreview__safe{margin:20px 0 12px;text-align:center;font-size:13px;color:var(--ink-faint)}

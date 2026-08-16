@@ -174,6 +174,91 @@ async function main() {
     );
     assert(await page.locator("#importCommit").isDisabled(), "Import stays blocked while rows need review");
 
+    // ---- a settled row folds its alternatives away ----
+    // Most settled rows were matched by the importer, not chosen by the lifter.
+    // Carrying three alternatives each turns the screen you read before
+    // replacing a program into a wall of controls, so a settled row shows one
+    // way back in and keeps everything that identifies it.
+    const foldShape = await page.evaluate(() => {
+      const shape = (name) => {
+        const row = [...document.querySelectorAll("#importRows .improw")]
+          .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === name);
+        if (!row) return null;
+        return {
+          folded: row.classList.contains("is-folded"),
+          acts: [...row.querySelectorAll("[data-imp-act]")].map((b) => b.dataset.impAct),
+          changeLabel: row.querySelector('[data-imp-act="expand"]')?.textContent?.trim() || "",
+          keepsIdentity: !!row.querySelector(".improw__from") && !!row.querySelector(".improw__name") &&
+            !!row.querySelector(".impbadge.is-done"),
+        };
+      };
+      return { settled: shape("Puxada frontal"), pending: shape("Zerbulator 9000") };
+    });
+    assert(
+      foldShape.settled?.folded &&
+        JSON.stringify(foldShape.settled.acts) === JSON.stringify(["expand"]) &&
+        foldShape.settled.changeLabel.length > 0 &&
+        foldShape.settled.keepsIdentity,
+      "a settled row shows one Change action and still reads as itself",
+      JSON.stringify(foldShape.settled)
+    );
+    assert(
+      foldShape.pending && !foldShape.pending.folded &&
+        foldShape.pending.acts.includes("choose") && foldShape.pending.acts.includes("custom"),
+      "a row still needing a decision keeps every action on screen",
+      JSON.stringify(foldShape.pending)
+    );
+
+    const expanded = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#importRows .improw")]
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
+      row.querySelector('[data-imp-act="expand"]').click();
+      const now = [...document.querySelectorAll("#importRows .improw")]
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
+      return {
+        acts: [...now.querySelectorAll("[data-imp-act]")].map((b) => b.dataset.impAct),
+        stillFolded: now.classList.contains("is-folded"),
+        focusedAct: document.activeElement?.getAttribute("data-imp-act"),
+        focusedRow: document.activeElement?.closest(".improw")?.querySelector(".improw__from")?.textContent?.trim(),
+      };
+    });
+    assert(
+      !expanded.stillFolded && expanded.acts.includes("choose") && expanded.acts.includes("custom") &&
+        !expanded.acts.includes("expand"),
+      "Change reopens the alternatives on that row",
+      JSON.stringify(expanded)
+    );
+    assert(
+      expanded.focusedAct && expanded.focusedRow === "Puxada frontal",
+      "Change moves focus onto the controls it reveals",
+      JSON.stringify(expanded)
+    );
+    model = await draftModel(page);
+    assert(
+      model.rows.find((r) => r.name === "Puxada frontal")?.reviewed === true && model.counts.review === 2,
+      "reopening a settled row does not push it back onto the review list",
+      JSON.stringify(model.counts)
+    );
+
+    await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#importRows .improw")]
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
+      row.querySelector('[data-imp-act="raw"]').click();
+    });
+    await settle(page, 200);
+    const refolded = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#importRows .improw")]
+        .find((r) => r.querySelector(".improw__from")?.textContent?.trim() === "Puxada frontal");
+      return { folded: row.classList.contains("is-folded"), acts: [...row.querySelectorAll("[data-imp-act]")].map((b) => b.dataset.impAct) };
+    });
+    model = await draftModel(page);
+    assert(
+      refolded.folded && JSON.stringify(refolded.acts) === JSON.stringify(["expand"]) &&
+        model.rows.find((r) => r.name === "Puxada frontal")?.decision === "raw",
+      "choosing from a reopened row applies the change and folds it back",
+      JSON.stringify({ refolded, decision: model.rows.find((r) => r.name === "Puxada frontal")?.decision })
+    );
+
     // ---- cancelling writes nothing ----
     await page.click("#importReviewCancel");
     await settle(page);

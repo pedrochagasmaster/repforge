@@ -636,6 +636,7 @@
   "import.action_choose": "Escolher…",
   "import.action_keep": "Manter o nome",
   "import.action_custom": "Criar personalizado",
+  "import.action_change": "Alterar",
   "import.pick_title": "Vincular exercício",
   "import.safe": "Seu histórico não será alterado.",
   "import.commit": "Importar programa",
