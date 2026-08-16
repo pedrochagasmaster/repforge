@@ -11,6 +11,11 @@
  * embeds the custom definitions the program references, and importing them
  * cannot overwrite a different local definition that happens to share an id.
  *
+ * And what happens when the file is not a program at all: a full backup
+ * dropped on this door used to import its exercises and drop its sessions
+ * without a word, so a restore looked like it had worked and left History
+ * empty. The backup is recognised and the restore offered instead.
+ *
  * Run: node test/program-import-review.mjs   (requires the app served over HTTP)
  */
 import { pathToFileURL } from "url";
@@ -499,6 +504,87 @@ async function main() {
     const prose = await page.evaluate(() =>
       window.__repforgeParseProgramSource("Do some squats and then maybe a few curls, whatever feels good", "notes.txt"));
     assert(prose === null, "arbitrary prose is refused rather than invented into a program", JSON.stringify(prose));
+
+    // ---- a full backup is not a program file ----
+    // The sessions in the file are the whole point of a backup. Reading only
+    // its exercises threw them away silently, which is indistinguishable from
+    // a restore that worked until you open History and it is empty.
+    const backup = JSON.stringify({
+      settings: { unit: "kg", restSec: 180 },
+      programMeta: { id: "backup-meta", name: "Restored split", started: "2026-06-15" },
+      program: [
+        { day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 },
+        { day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12 },
+      ],
+      log: [
+        { session: "2026-06-15_Day 1_a", date: "2026-06-15", day: "Day 1", name: "Barbell back squat", set: 1, load: 100, reps: 8, rir: 2 },
+        { session: "2026-06-15_Day 1_a", date: "2026-06-15", day: "Day 1", name: "Barbell back squat", set: 2, load: 100, reps: 7, rir: 1 },
+        { session: "2026-06-18_Day 1_b", date: "2026-06-18", day: "Day 1", name: "Barbell back squat", set: 1, load: 102.5, reps: 8, rir: 2 },
+      ],
+      programHistory: [],
+    });
+    const dialogState = () => page.evaluate(() => ({
+      open: !document.querySelector("#importChoice").classList.contains("hidden"),
+      body: document.querySelector("#importChoiceBody")?.textContent || "",
+      programOnly: !document.querySelector("#importProgramOnly").classList.contains("hidden"),
+      reviewing: document.body.classList.contains("is-import"),
+    }));
+
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "backup.json", backup);
+    let choice = await dialogState();
+    assert(choice.open && !choice.reviewing,
+      "a backup opens the restore choice instead of the program review", JSON.stringify(choice));
+    assert(choice.programOnly, "the program-only import this door promised is still offered", JSON.stringify(choice));
+    assert(/2 sessions, 3 sets/.test(choice.body),
+      "the choice names the sessions the file is carrying", choice.body);
+
+    // Replace restores the whole install, log included.
+    await page.evaluate(() => document.querySelector("#importReplace").click());
+    await settle(page, 900);
+    let restored = await getState(page);
+    assert(new Set((restored.log || []).map((r) => r.session)).size === 2 && restored.log.length === 3,
+      "restoring brings the recorded sessions with it",
+      JSON.stringify({ sessions: new Set((restored.log || []).map((r) => r.session)).size, sets: restored.log?.length }));
+    assert(restored.program?.length === 2, "restoring brings the program too", JSON.stringify(restored.program?.length));
+    assert(restored.settings?.restSec === 180, "restoring brings the settings too", JSON.stringify(restored.settings));
+
+    // Merge takes the sessions without touching anything else.
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "backup.json", backup);
+    await page.evaluate(() => document.querySelector("#importMerge").click());
+    await settle(page, 900);
+    restored = await getState(page);
+    assert(new Set((restored.log || []).map((r) => r.session)).size === 2,
+      "merging from this door brings the sessions", JSON.stringify(restored.log?.length));
+
+    // Program only is still there for a lifter who wants the split alone.
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "backup.json", backup);
+    await page.evaluate(() => document.querySelector("#importProgramOnly").click());
+    await settle(page, 500);
+    assert((await dialogState()).reviewing, "program only opens the review screen");
+    await page.evaluate(() => {
+      const draft = window.__repforgeImportDraft();
+      draft.rows.forEach((r) => { r.reviewed = true; });
+    });
+    await page.evaluate(() => document.querySelector("#importCommit").click());
+    await settle(page, 900);
+    restored = await getState(page);
+    assert(restored.program?.length === 2 && (restored.log || []).length === 0,
+      "program only imports the exercises and leaves history alone",
+      JSON.stringify({ program: restored.program?.length, log: restored.log?.length }));
+
+    // A backup with no sessions has nothing to lose, so it stays a program file.
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "empty-log.json", JSON.stringify({ ...JSON.parse(backup), log: [] }));
+    choice = await dialogState();
+    assert(!choice.open && choice.reviewing,
+      "a backup carrying no sessions goes straight to the review as before", JSON.stringify(choice));
   } finally {
     await context.close();
     await browser.close();

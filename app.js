@@ -6884,54 +6884,97 @@ async function commitImportReview(io=storageIO){
   toast(t("toast.program_imported",{n:counts.total}));
   return result}
 
+/* A backup is not a program file. It carries the log, the settings and the meta
+   as well as the program, so reading only its exercises drops the sessions on
+   the floor — silently, because the review screen has nothing to show for a key
+   it never looked at. Recognised here so the program door can offer the restore
+   instead of quietly discarding it. */
+function parseBackupWithSessions(text){
+  let parsed=null;
+  try{parsed=JSON.parse(text)}catch{return null}
+  if(!isImportableState(parsed))return null;
+  return parsed.log.some(r=>r&&r.session)?parsed:null}
+
 /* Reading a file no longer changes anything: it opens the review screen. The
    old path linked names and wrote the program behind one confirm(), which meant
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{
-    const source=parseProgramSource(await f.text(),f.name);
-    if(!source?.exercises?.length)throw Error();
+    const text=await f.text();
+    const backup=parseBackupWithSessions(text);
+    const source=parseProgramSource(text,f.name);
+    // A backup whose program is empty is still a backup worth restoring, so the
+    // exercise requirement only has to hold for a file that is nothing else.
+    if(!backup&&!source?.exercises?.length)throw Error();
     pendingImportIo=io||null;
-    const draft=buildImportDraft(source,f.name);
-    // An import during onboarding still finishes onboarding: it is how a lifter
-    // brings their own split instead of generating one. The setup gate's Import
-    // is the same first run by another door, so it commits the same way and
-    // returns to the gate if it is abandoned. The review comes first either way.
-    draft.fromFirstRun=firstRunOpen();
-    draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
-    openImportReview(draft);
+    let draft=null;
+    if(source?.exercises?.length){
+      draft=buildImportDraft(source,f.name);
+      // An import during onboarding still finishes onboarding: it is how a lifter
+      // brings their own split instead of generating one. The setup gate's Import
+      // is the same first run by another door, so it commits the same way and
+      // returns to the gate if it is abandoned. The review comes first either way.
+      draft.fromFirstRun=firstRunOpen();
+      draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active")}
+    if(backup)
+      // The button said "program", so program-only stays on the table — but the
+      // sessions in the file are now named out loud and can be restored.
+      openImportChoice(Object.assign(importChoiceContext(backup,e.target,io),
+        {bodyKey:"dialog.import.body_program",programOnly:draft?()=>openImportReview(draft):null}));
+    else openImportReview(draft);
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 let pendingImportIo=null;
+/* What the restore choice needs to state the trade honestly: what this device
+   holds, what the file holds, and how much of the file is actually new. */
+function importChoiceContext(s,opener,io){
+  const have=new Set(state.log.map(r=>r.session));
+  return{s,io:io||null,opener,
+    inSessions:new Set(s.log.map(r=>r.session)).size,inSets:s.log.length,
+    curSessions:have.size,curSets:state.log.length,
+    newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{const s=JSON.parse(await f.text());
     if(!isImportableState(s))throw Error();
-    const inSessions=new Set(s.log.map(r=>r.session)).size,inSets=s.log.length;
-    const curSessions=new Set(state.log.map(r=>r.session)).size,curSets=state.log.length;
-    const have=new Set(state.log.map(r=>r.session));
-    const newSessions=new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size;
-    openImportChoice({s,inSessions,inSets,curSessions,curSets,newSessions,opener:e.target})}
+    openImportChoice(importChoiceContext(s,e.target))}
   catch{toast(t("toast.import_invalid"))}
   e.target.value=""}
+/* Restoring answers the setup gate it may have arrived through: the lifter now
+   has both a program and a history, so there is nothing left for the gate to
+   ask. Idempotent, since the Settings door has no gate standing. */
+function leaveSetupGates(){
+  if(firstRunOpen())closeFirstRun();
+  if($("#onboarding")?.classList.contains("active"))closeOnboarding()}
 function openImportChoice(ctx){const d=$("#importChoice");
-  $("#importChoiceBody").textContent=t("dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
+  $("#importChoiceBody").textContent=t(ctx.bodyKey||"dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
   const active=document.activeElement;
-  const opener=canTakeFocus(active)?active:($("#importJson")?.closest("label")||$("#dataImportRow"));
+  // The file input itself is never the way back: it is the invisible half of a
+  // label button. Whichever door this came through, focus returns to that
+  // label — the Settings row stays the fallback for a caller without one.
+  const opener=canTakeFocus(active)?active
+    :(ctx.opener?.closest?.("label")||$("#importJson")?.closest("label")||$("#dataImportRow"));
   const close=()=>closeModal(d);
+  const io=ctx.io||storageIO;
+  const onlyBtn=$("#importProgramOnly");
+  if(onlyBtn)onlyBtn.classList.toggle("hidden",!ctx.programOnly);
   openModal(d,{initialFocus:$("#importCancel"),returnFocus:opener,onEscape:close});
   let importBusy=false;
   $("#importCancel").onclick=()=>{if(importBusy)return;close();toast(t("toast.import_cancelled"))};
+  if(onlyBtn)onlyBtn.onclick=()=>{
+    if(importBusy||!ctx.programOnly)return;
+    // Nothing has been written, so this is still just a change of screen.
+    close();ctx.programOnly()};
   $("#importReplace").onclick=async()=>{
     if(importBusy)return;importBusy=true;
     const discardDraftRaw=readDraftRaw();
-    try{const result=await replaceImportedState(ctx.s,storageIO,{discardDraftRaw});
-      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
+    try{const result=await replaceImportedState(ctx.s,io,{discardDraftRaw});
+      if(result.localOk||result.idbOk){close();resetDraftSessionState();day=days()[0]||"Day 1";syncLang();leaveSetupGates();render();toast(t("toast.imported_sessions",{sessions:ctx.inSessions}))}}
     finally{importBusy=false}};
   $("#importMerge").onclick=async()=>{
     if(importBusy)return;importBusy=true;
-    try{const result=await mergeImportedLog(ctx.s);
+    try{const result=await mergeImportedLog(ctx.s,io);
       if(result.added===0){close();toast(t("toast.nothing_to_merge"));return}
-      if(result.localOk||result.idbOk){close();render();toast(t("toast.merged_sessions",{n:result.added,sessions:tp(result.added,"session")}))}}
+      if(result.localOk||result.idbOk){close();leaveSetupGates();render();toast(t("toast.merged_sessions",{n:result.added,sessions:tp(result.added,"session")}))}}
     finally{importBusy=false}}}
 function mergeLog(s){return mergeImportedLog(s)}
 

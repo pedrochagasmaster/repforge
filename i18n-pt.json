@@ -369,6 +369,8 @@
   "dialog.import.merge": "Mesclar",
   "dialog.import.replace_all": "Substituir tudo",
   "dialog.import.cancel": "Cancelar",
+  "dialog.import.program_only": "Só o programa",
+  "dialog.import.body_program": "Este arquivo é um backup completo, não só um programa: {inSessions} sessões, {inSets} séries.\nEste dispositivo: {curSessions} sessões, {curSets} séries.\n\nMesclar adiciona as {newSessions} novas sessões e mantém todo o resto. Substituir tudo sobrescreve programa, ajustes e log — isso não pode ser desfeito. Só o programa importa os exercícios e mantém seu histórico como está.",
   "dialog.import.body": "Este dispositivo: {curSessions} sessões, {curSets} séries.\nArquivo: {inSessions} sessões, {inSets} séries ({newSessions} novas neste dispositivo).\n\nMesclar adiciona as {newSessions} novas sessões e mantém todo o resto. Substituir tudo sobrescreve programa, ajustes e log — isso não pode ser desfeito.",
   "dialog.storage_recovery.aria": "Recuperação de armazenamento",
   "dialog.storage_recovery.title": "Escolha qual cópia manter",
