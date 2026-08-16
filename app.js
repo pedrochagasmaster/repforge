@@ -5427,12 +5427,27 @@ function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
   if(!cur.includes(oldName))return;
   setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
 
+/* The raw JSON box is the one field a lifter types a whole document into, so a
+   render() firing mid-edit used to throw the draft away — every route into
+   render() (collapsing a day, a rest tick, a cross-tab write) reset the
+   textarea. Hold unsaved text while the program itself is unchanged; a real
+   program change is the newer edit and wins. force is for the two flows that
+   just consumed the box (Save JSON, import) and want the normalised result. */
+let programJsonSynced=null;
+function syncProgramJson({force=false}={}){
+  const box=$("#programJson");if(!box)return;
+  const next=JSON.stringify(prog.toJSON(),null,2);
+  if(!force){
+    if(document.activeElement===box)return;
+    if(next===programJsonSynced&&box.value!==programJsonSynced)return}
+  programJsonSynced=next;box.value=next}
+
 function renderProgramEditor(){
   const ds=prog.days();
   $("#programEditor").innerHTML=ds.length
     ?ds.map(dayCard).join("")
     :`<div class="table"><div class="empty">${esc(t("program.empty.days"))}</div></div>`;
-  if(document.activeElement!==$("#programJson"))$("#programJson").value=JSON.stringify(prog.toJSON(),null,2);
+  syncProgramJson();
   bindEditor();
 }
 
@@ -5664,12 +5679,39 @@ function persistProgram(nextProgram=prog){
   const proposal=cloneSnapshot(state);proposal.program=new Program(nextProgram.toJSON()).toJSON();
   return commitProposedState(proposal)}
 
+/* Hand-edited rows skip Program.update, so they also skip its rule that a
+   linked slot's label is an alias (displayName) while its muscles belong to the
+   definition. Left alone, resolveIdentity overwrites both on save and the edit
+   vanishes with a "Program saved." toast. Renames are translated into an alias
+   here, exactly as the visual editor does; muscle edits cannot be honoured
+   while the link stands, so they come back as names for the toast to report. */
+function reconcileLinkedProgramRows(rows,byId){
+  const text=v=>v==null?"":String(v).trim(),ignoredMuscles=new Set();
+  for(const row of rows){
+    if(!row||typeof row!=="object"||row.libraryId==null)continue;
+    const entry=libraryEntry(row.libraryId);
+    // An unknown id is not a link: resolveIdentity drops it and keeps the text.
+    if(!entry)continue;
+    const canonical=libraryName(entry),prev=row.id?byId.get(row.id):null;
+    const nextAlias=text(row.displayName),prevAlias=text(prev?.displayName);
+    const nextName=text(row.name),prevName=text(prev?.name);
+    // Whichever label the lifter actually touched wins; an untouched row keeps
+    // the alias it already carries.
+    const alias=nextAlias!==prevAlias?nextAlias
+      :prev?(nextName!==prevName?nextName:prevAlias)
+      :(nextAlias||nextName);
+    if(alias&&alias!==canonical)row.displayName=alias;else delete row.displayName;
+    if(text(row.primary)!==text(entry.primary)||text(row.secondary)!==text(entry.secondary))
+      ignoredMuscles.add(alias&&alias!==canonical?alias:canonical)}
+  return{ignoredMuscles:[...ignoredMuscles]}}
+
 async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
   const transition=programTransitionPrecondition(state);
   const byId=new Map(prog.exercises.map(e=>[e.id,e]));
   for(const row of parsed){if(row.id&&byId.has(row.id))continue;
     const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
     if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
+  const{ignoredMuscles}=reconcileLinkedProgramRows(parsed,byId);
   const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
   const proposal=cloneSnapshot(state);
@@ -5678,7 +5720,13 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,storageIO,{effect,...transition});
   if(!(result.localOk||result.idbOk))return result;
-  resetDraftSessionState();day=prog.days()[0]||"Day 1";render();toast(t("toast.program_saved"));
+  resetDraftSessionState();day=prog.days()[0]||"Day 1";render();
+  // The save consumed the box, so show the normalised result over the draft.
+  syncProgramJson({force:true});
+  if(!ignoredMuscles.length)toast(t("toast.program_saved"));
+  else toast(ignoredMuscles.length===1
+    ?t("toast.program_saved_muscles_linked",{name:ignoredMuscles[0]})
+    :t("toast.program_saved_muscles_linked_many",{n:ignoredMuscles.length}),{assertive:true});
   return result}
   catch{toast(t("toast.program_json_invalid"))}}
 
@@ -6877,10 +6925,11 @@ async function commitImportReview(io=storageIO){
     // once whatever blocked the write has cleared.
     toast(t("toast.program_import_failed"));return result}
   resetDraftSessionState();
-  const jsonBox=$("#programJson");if(jsonBox)jsonBox.value=JSON.stringify(proposal.program,null,2);
   day=days()[0]||"Day 1";
   closeImportReview({toProgram:true});
   render();
+  // An import replaces the program outright — the box shows the new one.
+  syncProgramJson({force:true});
   toast(t("toast.program_imported",{n:counts.total}));
   return result}
 
@@ -7672,6 +7721,10 @@ function init(){
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
   $("#statExercise").onchange=renderStats;
   $("#saveProgram").onclick=saveProgram;
+  // Unsaved JSON now outlives a render, so collapsing Advanced is the way to
+  // throw a scratch edit away — including one too broken to save.
+  const advanced=$("#program details.advanced");
+  if(advanced)advanced.addEventListener("toggle",()=>{if(!advanced.open)syncProgramJson({force:true})});
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=async()=>{
