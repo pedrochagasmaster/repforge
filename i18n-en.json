@@ -369,6 +369,8 @@
   "dialog.import.merge": "Merge",
   "dialog.import.replace_all": "Replace all",
   "dialog.import.cancel": "Cancel",
+  "dialog.import.program_only": "Program only",
+  "dialog.import.body_program": "This file is a full backup, not only a program: {inSessions} sessions, {inSets} sets.\nThis device: {curSessions} sessions, {curSets} sets.\n\nMerge adds the {newSessions} new sessions and keeps everything else. Replace all overwrites program, settings, and log — this cannot be undone. Program only imports the exercises and leaves your history as it is.",
   "dialog.import.body": "This device: {curSessions} sessions, {curSets} sets.\nFile: {inSessions} sessions, {inSets} sets ({newSessions} new to this device).\n\nMerge adds the {newSessions} new sessions and keeps everything else. Replace all overwrites program, settings, and log — this cannot be undone.",
   "dialog.storage_recovery.aria": "Storage recovery",
   "dialog.storage_recovery.title": "Choose which copy to keep",
