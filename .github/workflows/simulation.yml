@@ -84,6 +84,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/recover-gate.mjs
 
+      - name: Install modes and first-run gate
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/install-modes.mjs
+
       - name: Accessibility
         env:
           REPFORGE_URL: http://localhost:8000/

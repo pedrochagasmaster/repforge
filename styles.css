@@ -2390,3 +2390,165 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .prog-overview__meta{font-size:14px;color:var(--ink-soft);margin-bottom:12px}
 .prog-overview__week{font-size:14px;font-weight:600;margin-top:8px}
 .prog-overview__started{font-size:13px;color:var(--ink-soft);margin:8px 0 4px}
+
+/* ---- First-run setup: install, then choose a program ----
+   The screen is one layout; only its install section changes, and it is written
+   by app.js from what the browser actually offers (a captured
+   beforeinstallprompt, Safari's manual Home Screen flow, or nothing) rather
+   than from any width breakpoint. The orange ground is --accent-deep, not
+   --accent: white body copy measures ~5.5:1 on it and ~4.0:1 on the brighter
+   accent, which is under AA. */
+.firstrun{
+  /* Above the app shell and its docked chrome, below the sheet layer (40/41):
+     the iOS instructions are a sheet over this screen, not under it. */
+  position:fixed;inset:0;z-index:35;background:var(--bg);
+  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + 34px) 0 calc(env(safe-area-inset-bottom) + 30px);
+}
+.firstrun:focus{outline:none}
+.firstrun.hidden{display:none}
+/* The gate covers the app rather than replacing it: `main` still holds the
+   import review the gate can open, so the shell is left in place and only the
+   chrome that would show through is taken away. */
+body.is-firstrun{overflow:hidden}
+/* The shell keeps its layout — the import review the gate opens is inside it,
+   and the gate steps aside rather than tearing it down — but nothing behind an
+   aria-modal screen may be reachable by tab or by a screen reader, and
+   `visibility:hidden` takes both away without removing the box. */
+body.is-firstrun main{visibility:hidden}
+body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{display:none}
+.firstrun__inner{max-width:var(--maxw);margin:0 auto;padding:0 22px}
+.firstrun__brand{display:flex;align-items:center;gap:15px;margin-bottom:46px}
+.firstrun__logo{display:block;width:46px;height:46px;border-radius:11px;object-fit:cover}
+.firstrun__wordmark{font-size:17px;font-weight:650;letter-spacing:.26em;text-transform:uppercase;color:var(--ink)}
+.firstrun__title{margin:0;font-size:34px;font-weight:650;letter-spacing:-0.02em;line-height:1.05;color:var(--ink)}
+.firstrun__lede{margin:12px 0 0;font-size:16px;line-height:1.45;color:var(--ink-soft)}
+.firstrun__section{margin-top:40px}
+.firstrun__eyebrow{
+  display:flex;align-items:center;gap:14px;margin:0;
+  font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);
+}
+.firstrun__eyebrow::after{content:"";flex:1;height:1px;background:var(--accent)}
+.firstrun__rows{margin-top:4px}
+.firstrun__continue{
+  display:flex;align-items:center;justify-content:center;gap:12px;
+  width:100%;margin:36px 0 0;padding:12px;min-height:44px;
+  background:none;border:0;cursor:pointer;font:inherit;font-size:15px;font-weight:500;color:var(--ink);
+}
+
+.firstrun-row{
+  display:flex;align-items:center;gap:18px;width:100%;min-height:78px;padding:18px 0;
+  background:none;border:0;border-bottom:1px solid var(--rule);
+  cursor:pointer;text-align:left;font:inherit;color:var(--ink);
+}
+.firstrun-row:last-child{border-bottom:0}
+.firstrun-row__icon{
+  flex:none;display:inline-flex;align-items:center;justify-content:center;
+  width:46px;height:46px;border:1.5px solid var(--ink);
+}
+.firstrun-row__icon::before{
+  content:"";width:22px;height:22px;background:var(--ink);
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
+}
+.firstrun-row__icon--plus::before{
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
+}
+.firstrun-row__icon--import::before{
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10M7.5 10l4.5 4.5L16.5 10M5 19h14'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10M7.5 10l4.5 4.5L16.5 10M5 19h14'/%3E%3C/svg%3E");
+}
+.firstrun-row__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.firstrun-row__title{font-size:19px;font-weight:650;letter-spacing:-0.01em;color:var(--ink)}
+.firstrun-row__cap{font-size:14px;line-height:1.35;color:var(--ink-soft)}
+.firstrun-row__go{flex:none;font-size:19px;line-height:1;color:var(--ink)}
+.firstrun-row__go::before{content:"→"}
+
+/* The install card. It bleeds to the edge of the setup column, which is the
+   screen on a phone, and it is the only orange field in the app. */
+.installcard{
+  display:grid;grid-template-columns:auto 1fr;gap:20px 22px;align-items:start;
+  margin:20px -22px 0;padding:28px 22px 24px;background:var(--accent-deep);color:#fff;
+}
+.installcard__icon{flex:none;display:block;width:56px;height:56px;color:#fff}
+.installcard__text{min-width:0}
+.installcard__title{margin:0;font-size:24px;font-weight:650;letter-spacing:-0.01em;color:#fff}
+.installcard__body{margin:8px 0 0;font-size:15px;line-height:1.4;color:#fff}
+.installcard__action{grid-column:1/-1;border-radius:0}
+
+/* The iOS instruction sheet. Safari exposes no install event, so the only thing
+   Taurifer can do is point at Safari's own control: the bar below is a drawing
+   of it, never a live control. */
+.sheet--install{height:auto;background:var(--bg)}
+.installsheet{
+  display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding:14px 22px 20px;
+}
+.installsheet__head{display:flex;align-items:center;gap:18px}
+.installsheet__mark{
+  flex:none;width:62px;height:62px;background:var(--well) url("icons/icon-192.png") center/cover no-repeat;
+}
+.installsheet__titles{min-width:0}
+.installsheet__title{margin:0;font-size:26px;font-weight:650;letter-spacing:-0.02em;color:var(--ink)}
+.installsheet__sub{margin:4px 0 0;font-size:15px;line-height:1.35;color:var(--ink-soft)}
+.installsheet__done{margin-top:22px}
+.installsheet__foot{margin:14px 0 0;text-align:center;font-size:13px;color:var(--ink-faint)}
+
+.safaribar{margin-top:22px;padding:12px;border:1px solid var(--rule);border-radius:14px;background:var(--surface)}
+.safaribar__url{
+  display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:var(--rule);
+}
+.safaribar__lock,.safaribar__reload,.safaribar__tool{
+  flex:none;background:var(--ink-soft);
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
+}
+.safaribar__lock{width:12px;height:12px;background:var(--ink);
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E");
+}
+.safaribar__host{
+  flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  font-size:14px;color:var(--ink);
+}
+.safaribar__reload{width:15px;height:15px;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.6'/%3E%3Cpath d='M20 4v5h-5'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.6'/%3E%3Cpath d='M20 4v5h-5'/%3E%3C/svg%3E");
+}
+.safaribar__tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:22px 8px 4px}
+.safaribar__tool{width:22px;height:22px}
+.safaribar__tool--back{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 5l-7 7 7 7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 5l-7 7 7 7'/%3E%3C/svg%3E")}
+.safaribar__tool--fwd{opacity:.4;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E")}
+.safaribar__tool--share{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v13'/%3E%3Cpath d='M8 7l4-4 4 4'/%3E%3Cpath d='M6 12H4v8h16v-8h-2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v13'/%3E%3Cpath d='M8 7l4-4 4 4'/%3E%3Cpath d='M6 12H4v8h16v-8h-2'/%3E%3C/svg%3E")}
+.safaribar__tool--book{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.5C10.5 5 8.5 4.5 4 4.5v14C8.5 18.5 10.5 19 12 20.5c1.5-1.5 3.5-2 8-2v-14c-4.5 0-6.5.5-8 2z'/%3E%3Cpath d='M12 6.5v14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.5C10.5 5 8.5 4.5 4 4.5v14C8.5 18.5 10.5 19 12 20.5c1.5-1.5 3.5-2 8-2v-14c-4.5 0-6.5.5-8 2z'/%3E%3Cpath d='M12 6.5v14'/%3E%3C/svg%3E")}
+.safaribar__tool--tabs{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='4' y='7' width='12' height='12' rx='2'/%3E%3Cpath d='M8 7V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='4' y='7' width='12' height='12' rx='2'/%3E%3Cpath d='M8 7V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1'/%3E%3C/svg%3E")}
+.safaribar__target{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px}
+.safaribar__target::before{
+  content:"";position:absolute;inset:0;border:2px solid var(--accent);border-radius:50%;
+}
+.safaribar__tool--more{
+  width:auto;height:auto;background:none;-webkit-mask:none;mask:none;
+  font-size:13px;letter-spacing:.06em;color:var(--ink);line-height:1;
+}
+.safaribar__tap{
+  position:absolute;bottom:calc(100% + 4px);left:50%;transform:translateX(-50%);
+  font-size:10px;font-weight:650;letter-spacing:.12em;text-transform:uppercase;color:var(--accent-deep);
+}
+
+.installsteps{list-style:none;margin:24px 0 0;padding:0;border-top:1px solid var(--rule)}
+.installsteps__step{display:flex;align-items:baseline;gap:20px;padding:16px 2px;border-bottom:1px solid var(--rule)}
+.installsteps__n{flex:none;font-family:var(--mono);font-size:13px;font-weight:600;color:var(--accent-deep)}
+.installsteps__body{flex:1;min-width:0;font-size:16px;line-height:1.4;color:var(--ink-soft)}
+.installsteps__body b{color:var(--ink);font-weight:650}
+/* A short screen still has to reach Done without a scroll inside the sheet. */
+@media (max-height:700px){
+  .installsheet{padding:10px 18px 16px}
+  .installsheet__mark{width:48px;height:48px}
+  .installsheet__title{font-size:22px}
+  .installsheet__sub{font-size:14px}
+  .safaribar{margin-top:16px;padding:10px}
+  .safaribar__tools{padding:16px 6px 2px}
+  .installsteps{margin-top:16px}
+  .installsteps__step{padding:12px 2px}
+  .installsteps__body{font-size:15px}
+  .installsheet__done{margin-top:16px}
+}
