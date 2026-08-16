@@ -816,6 +816,8 @@
   "toast.day_deleted": "Dia excluído.",
   "toast.day_added": "Dia adicionado.",
   "toast.program_saved": "Programa salvo.",
+  "toast.program_saved_muscles_linked": "Programa salvo — os músculos de {name} vêm da biblioteca, então desvincule o exercício para alterá-los.",
+  "toast.program_saved_muscles_linked_many": "Programa salvo — os músculos de {n} exercícios vinculados vêm da biblioteca, então desvincule-os para alterá-los.",
   "toast.program_json_invalid": "Esse JSON não foi interpretado. Confira colchetes e vírgulas.",
   "toast.program_import_cancelled": "Importação do programa cancelada.",
   "toast.program_import_invalid": "Esse arquivo não é uma exportação de programa do Taurifer.",

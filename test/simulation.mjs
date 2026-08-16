@@ -2345,6 +2345,26 @@ async function main() {
     "Program → Advanced → enter invalid JSON → Save JSON"
   );
 
+  // Unsaved text survives a render, so collapsing Advanced is what throws a
+  // broken edit away — the only route back to the program's own JSON.
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.removeAttribute("open"));
+  await page.waitForTimeout(100);
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
+  await page.waitForTimeout(100);
+  assert(
+    await page
+      .evaluate(() => {
+        try {
+          return Array.isArray(JSON.parse(document.querySelector("#programJson").value));
+        } catch {
+          return false;
+        }
+      }),
+    "Collapsing Advanced discards an unsaveable JSON draft",
+    "textarea still holds the invalid text after reopening Advanced",
+    "Program → Advanced → invalid JSON → collapse → reopen"
+  );
+
   // JSON round-trip preserves exercise ids
   await nav(page, "program");
   await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
@@ -2366,6 +2386,94 @@ async function main() {
     `id changed ${firstId} → ${after[0].id}`,
     "Program → Save JSON with no edits → ids unchanged"
   );
+
+  // Renaming a library-linked slot in raw JSON has to land. resolveIdentity
+  // re-derives name from the definition, so without alias translation the edit
+  // used to disappear behind a "Program saved." toast.
+  const linkedIdx = after.findIndex((e) => e.libraryId);
+  if (linkedIdx >= 0) {
+    const linkedId = after[linkedIdx].id;
+    const canonicalName = after[linkedIdx].name;
+    const renamed = JSON.parse(JSON.stringify(after));
+    renamed[linkedIdx].name = "Hammer Strength press";
+    await jsonArea.fill(JSON.stringify(renamed, null, 2));
+    await page.click("#saveProgram");
+    await page.waitForTimeout(200);
+    state = await getState(page);
+    let linkedRow = state.program.find((e) => e.id === linkedId);
+    assert(
+      linkedRow?.name === "Hammer Strength press" &&
+        linkedRow?.displayName === "Hammer Strength press" &&
+        !!linkedRow?.libraryId,
+      "Renaming a linked exercise in raw JSON saves as an alias",
+      `stored ${JSON.stringify(linkedRow)}`,
+      "Program → Advanced → rename a linked exercise → Save JSON"
+    );
+
+    // Muscles stay the definition's. The edit cannot be honoured, so the toast
+    // has to say so instead of reverting in silence.
+    const muscled = JSON.parse(await jsonArea.inputValue());
+    const muscledIdx = muscled.findIndex((e) => e.id === linkedId);
+    const canonicalPrimary = muscled[muscledIdx].primary;
+    muscled[muscledIdx].primary = "Calves";
+    await jsonArea.fill(JSON.stringify(muscled, null, 2));
+    await page.click("#saveProgram");
+    await page.waitForTimeout(200);
+    const muscleToast = (await page.locator("#toast").textContent()) || "";
+    state = await getState(page);
+    linkedRow = state.program.find((e) => e.id === linkedId);
+    assert(
+      /detach/i.test(muscleToast) && linkedRow?.primary === canonicalPrimary,
+      "Muscle edits on a linked exercise are reported, not silently dropped",
+      `toast="${muscleToast}" primary=${linkedRow?.primary}`,
+      "Program → Advanced → edit a linked exercise's muscles → Save JSON"
+    );
+
+    // Put the canonical name back so later phases see the stock program.
+    const restored = JSON.parse(await jsonArea.inputValue());
+    restored.find((e) => e.id === linkedId).name = canonicalName;
+    await jsonArea.fill(JSON.stringify(restored, null, 2));
+    await page.click("#saveProgram");
+    await page.waitForTimeout(200);
+    state = await getState(page);
+    linkedRow = state.program.find((e) => e.id === linkedId);
+    assert(
+      linkedRow?.name === canonicalName && linkedRow?.displayName === undefined,
+      "Renaming a linked exercise back to the library name clears the alias",
+      `stored ${JSON.stringify(linkedRow)}`,
+      "Program → Advanced → restore the library name → Save JSON"
+    );
+  }
+
+  // An unsaved JSON draft must survive a render it did not cause; only a real
+  // program change underneath is newer and allowed to replace it.
+  const draftRows = JSON.parse(await jsonArea.inputValue());
+  draftRows[0].sets = 9;
+  await jsonArea.fill(JSON.stringify(draftRows, null, 2));
+  await page.evaluate(() => document.querySelector("#programJson").blur());
+  await page.evaluate(() => window.render?.());
+  await page.waitForTimeout(100);
+  assert(
+    JSON.parse(await jsonArea.inputValue())[0].sets === 9,
+    "Unsaved raw JSON survives an unrelated re-render",
+    "textarea was reset before Save JSON",
+    "Program → Advanced → edit JSON → blur → render() → text still there"
+  );
+  const dayCountBefore = JSON.parse(await jsonArea.inputValue()).length;
+  await page.click("#addDay");
+  await page.waitForTimeout(400);
+  const afterAddDay = JSON.parse(await jsonArea.inputValue());
+  assert(
+    afterAddDay.length === dayCountBefore + 1 && afterAddDay[0].sets !== 9,
+    "A visual-editor change refreshes the raw JSON over a stale draft",
+    `rows=${afterAddDay.length} sets0=${afterAddDay[0].sets}`,
+    "Program → edit JSON → +Add day → textarea shows the new program"
+  );
+  // Drop the scratch day again so later phases see the program they expect.
+  const addedDay = afterAddDay.at(-1).day;
+  await jsonArea.fill(JSON.stringify(afterAddDay.filter((e) => e.day !== addedDay), null, 2));
+  await page.click("#saveProgram");
+  await page.waitForTimeout(200);
 
   // ── Phase 11: Edge cases & invariants ────────────────────────────
   beginPhase("Phase 11: Edge cases");

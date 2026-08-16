@@ -816,6 +816,8 @@
   "toast.day_deleted": "Day deleted.",
   "toast.day_added": "Day added.",
   "toast.program_saved": "Program saved.",
+  "toast.program_saved_muscles_linked": "Program saved — muscles for {name} come from the library, so detach it to change them.",
+  "toast.program_saved_muscles_linked_many": "Program saved — muscles for {n} linked exercises come from the library, so detach them to change them.",
   "toast.program_json_invalid": "That JSON didn't parse. Check the brackets and commas.",
   "toast.program_import_cancelled": "Program import cancelled.",
   "toast.program_import_invalid": "That file isn't a Taurifer program export.",
