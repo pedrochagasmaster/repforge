@@ -5,6 +5,19 @@ part of serving the app — Taurifer stays build-free. These scripts produce
 committed files, the same way `i18n.js` is produced from `i18n-en.json` and
 `i18n-pt.json`.
 
+## build-i18n.mjs
+
+Rewrites the EN and PT dictionaries inside `i18n.js` from `i18n-en.json` and
+`i18n-pt.json`, leaving the runtime below them untouched.
+
+```bash
+node tools/build-i18n.mjs           # regenerate
+node tools/build-i18n.mjs --check   # fail if i18n.js has drifted
+```
+
+Edit the two JSON catalogs, then regenerate. `test/i18n.mjs` checks key parity,
+placeholders and catalog/runtime agreement; this does the mechanical half.
+
 ## build-exercises.mjs
 
 Generates `exercises.js` — the exercise library the picker and the program
@@ -60,3 +73,11 @@ repair, and Portuguese composition.
 sets by exact muscle string, and `i18n-en.json` / `i18n-pt.json` carry a
 `muscle.<token>` key per token — so a new token needs a deliberate addition in
 all three places, and a typo'd one silently splits a muscle into two rows.
+
+### Artwork
+
+`MEDIA_IDS` in the build script is the closed list of movements with licensed
+illustrations, and the files live in `assets/exercises/<libraryId>.webp`. The
+build fails if a mapped file is missing or a mapped id is not in the library.
+Everything not on that list renders an empty tile and issues no image request —
+`test/exercise-library.mjs` and `test/library-flow.mjs` enforce both halves.

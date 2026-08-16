@@ -1663,7 +1663,7 @@ function applyPriorityMuscles(program,priorityMuscles,equipment,experience){
     const entry=chooseExercise(slot,equipment,experience,new Set(program.map(e=>e.libraryId)));
     if(!entry)continue;
     const rs=repScheme("intermediate","hypertrophy",slot);
-    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
 function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
   const have=new Set(dayExs.map(e=>e.libraryId));
@@ -1671,7 +1671,7 @@ function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
     const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]),occurrence);
     if(!entry||have.has(entry.id))continue;
     const rs=repScheme(experience,"hypertrophy",slot);
-    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
   return null}
 function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
@@ -1696,7 +1696,7 @@ function generateProgramFromOnboarding(answers){
       const entry=chooseExercise(slot,equipment,experience,usedIds,occ);if(!entry)continue;
       usedIds.add(entry.id);order++;
       const rs=repScheme(experience,goal,slot);
-      program.push({id:uid(),day:dayName,order,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+      program.push({id:uid(),day:dayName,order,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
         primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
   applyPriorityMuscles(program,a.priorityMuscles||[],equipment,experience);
   applySessionLength(program,a.sessionLength||"normal",equipment,experience,dayOcc);
@@ -6611,13 +6611,18 @@ function renderImportReview(){
 }
 
 function importRowHtml(row){
-  const target=row.decision==="link"&&row.match?libraryName(row.match)
+  // An unreviewed row shows what is being proposed, not the standing default:
+  // "keep as imported" beside a Likely badge hides the very thing being asked
+  // about. Once decided, the target is the decision.
+  const proposed=!row.reviewed&&row.match?row.match:null;
+  const shown=row.decision==="link"&&row.match?row.match:proposed;
+  const target=shown?libraryName(shown)
     :row.decision==="custom"?t("import.target_custom")
     :t("import.target_raw");
   const badge=row.reviewed
     ?`<span class="impbadge is-done">${esc(t("import.status.confirmed"))}</span>`
     :`<span class="impbadge is-open">${esc(t(importStatusKey[row.status]||"import.status.unmatched"))}</span>`;
-  const art=row.decision==="link"&&row.match?exerciseThumb(row.match,{size:"sm"}):emptyThumb({size:"sm"});
+  const art=shown?exerciseThumb(shown,{size:"sm"}):emptyThumb({size:"sm"});
   return `<div class="improw${row.reviewed?"":" is-open"}" data-imp-row="${esc(row.key)}">`+
     `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
     `<span class="improw__arrow" aria-hidden="true">→</span>`+

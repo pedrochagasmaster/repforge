@@ -1,6 +1,6 @@
 # Taurifer
 
-Taurifer (formerly RepForge) is a local-only mobile PWA for tracking progressive overload. It is a static site (`index.html`, `styles.css`, `app.js`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, `sw.js`, `manifest.webmanifest`, `icons/`) with no build step, no package manager, and no application dependencies. All training data stays on this device; nothing is sent to a backend.
+Taurifer (formerly RepForge) is a local-only mobile PWA for tracking progressive overload. It is a static site (`index.html`, `styles.css`, `app.js`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, `sw.js`, `manifest.webmanifest`, `icons/`, `assets/exercises/`) with no build step, no package manager, and no application dependencies. All training data stays on this device; nothing is sent to a backend.
 
 Only the user-facing brand is Taurifer. Internal identifiers deliberately keep the historical `repforge` codename so existing installs keep their data and scope: storage keys, the IndexedDB name, the cache-name prefix, the cross-tab lock name, `window.__repforge*` test hooks, the `RepForgeI18n`/`RepForgeSchedule`/`RepForgeNotify` globals, the repository slug, and the GitHub Pages URL. Do not rename these. The full naming-surface inventory, plus voice, copy, and visual rules, lives in `docs/brand-guide.md` (rationale in `docs/adr/0004-taurifer-rebrand-neutral-copy.md`).
 
@@ -19,11 +19,18 @@ Durable state is mirrored in `localStorage` (`repforge_v1`) and IndexedDB (`repf
 
 `i18n.js` and `exercises.js` are generated and committed; nothing regenerates
 them at serve or install time. `i18n.js` comes from `i18n-en.json` +
-`i18n-pt.json`. `exercises.js` comes from `tools/build-exercises.mjs` plus the
+`i18n-pt.json` via `node tools/build-i18n.mjs` (`--check` fails when the three
+files drift). `exercises.js` comes from `tools/build-exercises.mjs` plus the
 reviewed allowlist in `tools/exercise-curation.json` — edit those and re-run,
 never the generated file. See `tools/README.md`; note that library ids are
 stored in saved programs as `libraryId` and must never be repointed at a
 different movement.
+
+`assets/exercises/` holds the 24 licensed exercise illustrations, keyed by
+library id. That set is closed: every other movement, built-in or custom,
+renders a deliberately empty tile. Do not add exercise media without a licence
+covering it, and do not fill the empty state with icons, initials or silhouettes
+— `test/exercise-library.mjs` and `test/library-flow.mjs` both hold that line.
 
 ## Agent skills
 

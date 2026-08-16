@@ -76,7 +76,7 @@ await page.evaluate(async ({ k, d }) => {
 await page.reload({ waitUntil: "domcontentloaded" });
 await waitForApp(page);
 
-// 1 — the program editor, with a swap control per slot and the alternates row
+// 1 — the program editor: a linked slot states what it follows
 await openEditor(page);
 await settle(page);
 await shot(page, "01-program-editor");
@@ -85,54 +85,101 @@ const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), KE
 const day = state.program[0].day;
 const slot = state.program[0];
 
-// 2 — the picker, opened by + Add exercise
+// 2 — quick add: suggested for this day, with the library one tap on
 await page.click(`[data-act="addEx"][data-day="${day}"]`);
 await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
 await settle(page);
-await shot(page, "02-picker");
+await shot(page, "02-quick-add");
 
-// 3 — search, ranked so the staple leads its own results
-await page.fill("#exPickSearch", "row");
-await settle(page);
-await shot(page, "03-picker-search");
+// 3 — the full library: mixed artwork and empty tiles, multi-selection
+await page.click("#exPickFull");
+await page.waitForSelector("#library.active", { timeout: 5000 });
+await settle(page, 500);
+await page.evaluate(() => {
+  const want = ["Hack squat machine", "Leg press", "Barbell hip thrust"];
+  for (const name of want) {
+    const row = [...document.querySelectorAll("#libList .librow")]
+      .find((r) => (r.querySelector(".librow__name")?.textContent || "").trim() === name);
+    row?.querySelector("[data-lib-toggle]")?.click();
+  }
+});
+await settle(page, 400);
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll("#libList .librow")]
+    .find((r) => (r.querySelector(".librow__name")?.textContent || "").trim() === "Hack squat machine");
+  row?.scrollIntoView({ block: "center" });
+});
+await settle(page, 600);
+await shot(page, "03-full-library");
 
-// 4 — a muscle filter narrowing the library
-await page.fill("#exPickSearch", "");
-await page.evaluate(() =>
-  [...document.querySelectorAll("#exPickFilters .pchip")].find((b) => b.textContent.trim() === "Legs")?.click());
-await settle(page);
-await shot(page, "04-picker-filter");
+// 4 — the definition behind a row
+await page.evaluate(() => {
+  const row = [...document.querySelectorAll("#libList .librow")]
+    .find((r) => (r.querySelector(".librow__name")?.textContent || "").trim() === "Hack squat machine");
+  row?.querySelector("[data-lib-preview]")?.click();
+});
+await page.waitForSelector("#exercisePreview.active", { timeout: 5000 });
+await settle(page, 600);
+await shot(page, "04-exercise-preview");
+await page.click("#previewBack");
+await page.waitForSelector("#library.active", { timeout: 5000 });
+await settle(page, 300);
 
-// 5 — creating what the library does not have, named from the search
-await page.evaluate(() =>
-  [...document.querySelectorAll("#exPickFilters .pchip")].find((b) => b.textContent.trim() === "All")?.click());
-await page.fill("#exPickSearch", "Belt squat");
-await settle(page, 250);
-await shot(page, "05-picker-no-match");
-await page.click("#exPickCustom");
+// 5 — sets and rep ranges, before the day is written
+await page.click("#libPrimary");
+await settle(page, 500);
+await shot(page, "05-batch-configuration");
+await page.click("#libPrimary");
+await settle(page, 800);
+
+// 6 — a custom definition
+await openEditor(page);
+await page.evaluate((d) => window.__repforgeOpenLibrary({ day: d }), day);
+await page.waitForSelector("#library.active", { timeout: 5000 });
+await page.fill("#libSearch", "Hammer Strength row");
+await settle(page, 300);
+await page.click("#libCustom");
 await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
 await page.evaluate(() => {
-  [...document.querySelectorAll("#exCustomPrimary .pchip")].find((b) => b.textContent.trim() === "Quads")?.click();
-  [...document.querySelectorAll("#exCustomSecondary .pchip")].find((b) => b.textContent.trim() === "Glutes")?.click();
+  [...document.querySelectorAll("#exCustomEquip .pchip")].find((b) => b.textContent.trim() === "Machine")?.click();
+  [...document.querySelectorAll("#exCustomPrimary .pchip")].find((b) => b.textContent.trim() === "Mid/upper back")?.click();
+  [...document.querySelectorAll("#exCustomSecondary .pchip")].find((b) => b.textContent.trim() === "Biceps")?.click();
 });
-await settle(page);
+await settle(page, 400);
 await shot(page, "06-custom-exercise");
-await page.click("#exCustomSave");
-await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+await page.click("#exCustomCancel");
+await settle(page, 400);
+await page.click("#libClose");
 await settle(page, 400);
 
-// 7 — alternates, picked rather than typed, with what is already set preselected
+// 7 — importing: reviewed before anything is written
 await openEditor(page);
-await page.click(`[data-act="pickAlternates"][data-id="${slot.id}"]`);
-await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-await settle(page);
-await shot(page, "07-alternates");
-await page.click("#exPickCancel");
-await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+await page.evaluate(() => document.querySelector("#advanced")?.setAttribute("open", ""));
+await settle(page, 200);
+const imported = JSON.stringify({
+  version: 3,
+  meta: { name: "Upper / lower" },
+  exercises: [
+    { day: "Day 1", order: 1, name: "Barbell bench press", sets: 4, min: 4, max: 8 },
+    { day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12 },
+    { day: "Day 1", order: 3, name: "Lat pulldown neutral grip", sets: 3, min: 8, max: 12 },
+    { day: "Day 2", order: 1, name: "RDL", sets: 3, min: 6, max: 10 },
+    { day: "Day 2", order: 2, name: "Smith unilateral calf thing", sets: 3, min: 10, max: 15 },
+  ],
+  customExercises: [],
+});
+await page.setInputFiles("#importProgram", {
+  name: "upper-lower.json", mimeType: "application/json", buffer: Buffer.from(imported),
+});
+await page.waitForSelector("#importReview.active", { timeout: 5000 });
+await settle(page, 500);
+await shot(page, "07-import-review");
 
-// 8 — the mid-session swap, from the Log tab
+// 8 — the workout swap, and what it records
+await page.click("#importReviewCancel");
+await settle(page, 400);
 await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
-await settle(page, 250);
+await settle(page, 300);
 await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
 await page.waitForSelector("#workout .exercise", { timeout: 5000 });
 await page.evaluate((id) => {
@@ -141,50 +188,16 @@ await page.evaluate((id) => {
   art?.scrollIntoView({ block: "center" });
 }, slot.id);
 await settle(page);
-await shot(page, "08-workout-swap-control");
 await page.click(`.subst__pick[data-sub="${slot.id}"]`);
 await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-await settle(page);
-await shot(page, "09-workout-swap");
-await pickExact(page, "Leg press");
-await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
 await settle(page, 400);
+await shot(page, "08-workout-swap");
+await pickExact(page, "Lat pulldown");
+await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+await settle(page, 500);
 await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.scrollIntoView({ block: "center" }), slot.id);
 await settle(page);
-await shot(page, "10-workout-swapped");
+await shot(page, "09-workout-swapped");
 
-// 11 — importing a split: names the library knows get linked, the rest kept
-await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-await settle(page, 250);
-await openEditor(page);
-await page.evaluate(() => document.querySelector("#advanced")?.setAttribute("open", ""));
-await settle(page, 200);
-const imported = JSON.stringify([
-  { day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 },
-  { day: "Day 1", order: 2, name: "Lat pulldown", sets: 3, min: 8, max: 12 },
-  { day: "Day 1", order: 3, name: "Supino com barra", sets: 3, min: 6, max: 10 },
-  { day: "Day 2", order: 1, name: "Reverse Zercher goblet thing", sets: 3, min: 8, max: 12 },
-  { day: "Day 2", order: 2, name: "Seated row machine", sets: 3, min: 8, max: 12 },
-]);
-await page.setInputFiles("#importProgram", {
-  name: "my-split.json", mimeType: "application/json", buffer: Buffer.from(imported),
-});
-await settle(page, 600);
-// Captured without waiting the toast out: the match count is the point.
-await page.screenshot({ path: join(OUT, "11-import-linked.png") });
-
-// A row the library could not match keeps what was imported and shows an
-// accented swap control — the invitation to link it by hand.
-await page.evaluate(() => {
-  const rows = [...document.querySelectorAll("#programEditor .pex")];
-  const unlinked = rows.find((r) => r.querySelector(".pex__swap.is-unlinked"));
-  (unlinked || rows[0])?.scrollIntoView({ block: "center" });
-});
-await settle(page, 400);
-await shot(page, "12-import-unmatched");
-
-const linked = await page.evaluate((k) =>
-  JSON.parse(localStorage.getItem(k)).program.map((e) => [e.name, e.libraryId || null, e.primary]), KEY);
-console.log("imported program:", JSON.stringify(linked, null, 1));
 await browser.close();
 console.log(`screenshots written to ${OUT}`);

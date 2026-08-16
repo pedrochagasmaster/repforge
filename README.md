@@ -14,8 +14,11 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 - Session summary at the end of a workout: records, lift movement, hard sets per muscle, and the week
 - Stats dashboard with top-load chart
 - Training history and session deletion
-- Exercise library of 267 movements with English and Portuguese names, searchable by either
-- Custom exercises you create yourself, reusable across programs
+- Exercise library of 270 movements with English and Portuguese names, searchable by either
+- Illustrations for 24 movements; everything else shows a plain placeholder
+- Browse, preview and add several exercises at once, then set their sets and reps
+- Custom exercises you create yourself, reusable across programs and portable with them
+- Program import reviewed name by name before anything is written
 - Visual program editor (add/reorder/remove days and exercises), with raw-JSON advanced mode
 - Volume audit with direct and partial set counting
 - JSON backup/import
@@ -54,6 +57,7 @@ index.html
 styles.css
 app.js
 exercises.js            # generated exercise library (see tools/README.md)
+assets/exercises/       # the 24 licensed exercise illustrations
 manifest.webmanifest
 sw.js
 icons/                  # SVG source, PWA icons, Apple touch icon, and iOS launch images

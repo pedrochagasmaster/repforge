@@ -2337,7 +2337,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .onb__cancel{color:var(--accent-deep)}
 .onb__title{font-size:17px;font-weight:600;text-align:center}
 .exview-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:14px}
-.exview-head .exview__back{position:absolute;left:0}
+/* The rule named .exview__back, which nothing in the markup uses — every header
+   built on .exview-head has been centring its back link inline instead of
+   pinning it left. The buttons all carry .back-link. */
+.exview-head .back-link,.exview-head .exview__back{position:absolute;left:0;display:inline-flex;align-items:center;min-height:44px}
 .exview-head__title{font-size:17px;font-weight:600}
 .exview-head__right{position:absolute;right:0}
 .chart-wrap{margin:8px 0 16px}
