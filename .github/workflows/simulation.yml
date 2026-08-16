@@ -58,6 +58,9 @@ jobs:
       - name: i18n parity
         run: node test/i18n.mjs
 
+      - name: Exercise library integrity
+        run: node test/exercise-library.mjs
+
       - name: Persistence artifact helper self-test
         env:
           REPFORGE_URL: http://localhost:8000/
@@ -112,6 +115,15 @@ jobs:
         env:
           REPFORGE_URL: http://localhost:8000/
         run: node test/program-text-export.mjs
+
+      - name: Exercise library focused flows
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: |
+          node test/exercise-picker.mjs
+          node test/library-flow.mjs
+          node test/performed-attribution.mjs
+          node test/program-import-review.mjs
 
       - name: Sheet swipe dismiss
         env:

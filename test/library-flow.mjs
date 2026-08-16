@@ -161,6 +161,8 @@ async function main() {
     await page.click("#previewAdd");
     await page.waitForSelector("#library.active", { timeout: 5000 });
     await settle(page);
+    const previewFocus = await page.evaluate(() => document.activeElement?.getAttribute("data-lib-preview"));
+    assert(previewFocus === "pd_mc", "closing a preview returns focus to its library row", String(previewFocus));
     let model = await flow(page);
     assert(
       model.selected.includes("pd_mc"),
@@ -213,12 +215,22 @@ async function main() {
     await openEditor(page);
     await page.evaluate((d) => window.__repforgeOpenLibrary({ day: d }), day);
     await page.waitForSelector("#library.active", { timeout: 5000 });
+    await page.evaluate(() =>
+      [...document.querySelectorAll("#libFilters .pchip")].find((b) => b.textContent.trim() === "Legs")?.click());
     await page.fill("#libSearch", "Belt squat");
     await settle(page);
     await page.click("#libCustom");
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
     assert((await page.inputValue("#exCustomName")) === "Belt squat",
       "the typed search names the new definition");
+    await page.click("#exCustomCancel");
+    await page.waitForSelector("#library.active", { timeout: 5000 });
+    await settle(page);
+    let resumed = await flow(page);
+    assert(resumed.query === "Belt squat" && resumed.muscle === "legs",
+      "cancelling a custom detour restores full-library search and filters", JSON.stringify(resumed));
+    await page.click("#libCustom");
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
     const startingEquipment = await page.evaluate(() =>
       document.querySelectorAll("#exCustomEquip .pchip.is-active").length);
     assert(startingEquipment === 0, "a new definition starts with no equipment assumed",
@@ -253,6 +265,8 @@ async function main() {
       "creating from the library returns to it with the new exercise selected",
       JSON.stringify(model)
     );
+    assert(model.query === "Belt squat" && model.muscle === "legs",
+      "creating a custom exercise does not reset the browse context", JSON.stringify(model));
 
     // Editing it is reachable from Yours.
     await page.evaluate(() => {
@@ -277,6 +291,9 @@ async function main() {
       "editing changes the definition instead of adding another",
       JSON.stringify(editedList.map((e) => e.name))
     );
+    resumed = await flow(page);
+    assert(resumed.tab === "yours" && resumed.selected.includes(custom.id),
+      "editing a custom exercise restores the Yours tab and selection", JSON.stringify(resumed));
 
     // A name that already exists offers the existing one.
     await page.waitForSelector("#library.active", { timeout: 5000 });
@@ -297,14 +314,21 @@ async function main() {
       JSON.stringify(afterDup.map((e) => e.name))
     );
 
-    // A definition in use is archived, not deleted.
+    // An unused definition is deleted through the visible editor action.
     await page.evaluate((id) => window.__repforgeEditCustom(id), editedList[0].id);
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
-    const inUseNote = await page.evaluate(() =>
-      !document.querySelector("#exCustomInUse")?.classList.contains("hidden"));
-    const archived = await page.evaluate((id) => window.__repforgeDeleteCustomExercise(id).then((r) => !!r?.archived), editedList[0].id);
-    assert(!inUseNote, "an unused definition does not claim to be in use");
-    assert(archived === false, "an unused definition is deleted outright", String(archived));
+    const deleteUi = await page.evaluate(() => ({
+      inUse: !document.querySelector("#exCustomInUse")?.classList.contains("hidden"),
+      button: document.querySelector("#exCustomDelete")?.textContent?.trim(),
+      visible: !document.querySelector("#exCustomDelete")?.classList.contains("hidden"),
+    }));
+    assert(!deleteUi.inUse && deleteUi.visible && /delete/i.test(deleteUi.button),
+      "an unused definition offers Delete without an in-use warning", JSON.stringify(deleteUi));
+    await page.click("#exCustomDelete");
+    await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+    await settle(page);
+    const remains = (await getState(page)).customExercises.some((e) => e.id === editedList[0].id);
+    assert(!remains, "the visible Delete action removes an unused definition");
   } finally {
     await context.close();
     await browser.close();

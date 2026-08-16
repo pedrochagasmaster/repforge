@@ -259,7 +259,7 @@
           <button id="saveProgram" class="btn btn--cta" type="button" data-i18n="program.save_json">Save JSON</button>
           <div class="btnrow">
             <button id="exportProgram" class="btn btn--steel" type="button" data-i18n="program.export_json">Export program JSON</button>
-            <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program JSON</span><input id="importProgram" type="file" accept=".json,application/json"></label>
+            <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program file</span><input id="importProgram" type="file" accept=".json,.txt,application/json,text/plain"></label>
           </div>
         </details>
         <h3 class="subhead" data-i18n="program.planned_volume">Planned weekly volume</h3>
@@ -271,7 +271,7 @@
     <section id="library" class="view" data-i18n-aria="library.aria" aria-label="Exercise library">
       <div class="exview-head">
         <button type="button" class="back-link" id="libBack" data-i18n="library.back">‹ Back</button>
-        <div class="exview-head__title" id="libTitle" data-i18n="library.title">Add exercises</div>
+        <h1 class="exview-head__title" id="libTitle" data-i18n="library.title">Add exercises</h1>
         <div class="exview-head__right"><button type="button" class="link-accent" id="libClose" data-i18n="dialog.close">Close</button></div>
       </div>
       <div class="libwrap">
@@ -299,7 +299,7 @@
     <section id="exercisePreview" class="view" data-i18n-aria="preview.aria" aria-label="Exercise details">
       <div class="exview-head">
         <button type="button" class="back-link" id="previewBack" data-i18n="preview.back">‹ Library</button>
-        <div class="exview-head__title" data-i18n="preview.title">Exercise</div>
+        <h1 class="exview-head__title" data-i18n="preview.title">Exercise</h1>
         <div class="exview-head__right"></div>
       </div>
       <div id="previewBody" class="preview"></div>
@@ -308,7 +308,7 @@
     <section id="importReview" class="view" data-i18n-aria="import.aria" aria-label="Review imported program">
       <div class="exview-head">
         <button type="button" class="back-link" id="importBack" data-i18n="import.back">‹ Back</button>
-        <div class="exview-head__title" data-i18n="import.title">Import program</div>
+        <h1 class="exview-head__title" data-i18n="import.title">Import program</h1>
         <div class="exview-head__right"></div>
       </div>
       <div class="impreview">
@@ -643,7 +643,7 @@
         <label class="field"><span data-i18n="custom.notes">Setup notes</span>
           <input id="exCustomNotes" type="text" data-i18n-placeholder="custom.notes_placeholder" placeholder="Seat 4, handles at chest height" autocomplete="off"></label>
         <button type="button" class="btn btn--steel custom__delete hidden" id="exCustomDelete" data-i18n="custom.delete">Delete exercise</button>
-        <p class="custom__note hidden" id="exCustomInUse" data-i18n="custom.in_use">In use by your program — remove it there first.</p>
+        <p class="custom__note hidden" id="exCustomInUse" data-i18n="custom.in_use">In use by your program or history. Archiving keeps those records intact.</p>
       </div>
     </div>
   </div>

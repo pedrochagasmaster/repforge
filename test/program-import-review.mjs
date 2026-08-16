@@ -99,12 +99,45 @@ async function main() {
     await reset(page);
     await openEditor(page);
 
+    const acceptedTypes = await page.getAttribute("#importProgram", "accept");
+    assert(
+      acceptedTypes?.includes(".json") && acceptedTypes.includes(".txt") && acceptedTypes.includes("text/plain"),
+      "the program importer advertises both JSON and plain-text files",
+      acceptedTypes
+    );
+
+    // Two tabs can create different custom definitions before either one
+    // flushes. Rebasing must preserve both additions, just like log sessions
+    // and program-history entries.
+    const concurrentCustoms = await page.evaluate(() => {
+      const empty = { settings: {}, programMeta: {}, program: [], log: [], programHistory: [], customExercises: [] };
+      const mine = structuredClone(empty);
+      const theirs = structuredClone(empty);
+      mine.customExercises.push({ id: "custom:mine", name: "Mine" });
+      theirs.customExercises.push({ id: "custom:theirs", name: "Theirs" });
+      return window.__repforgeStorage.rebaseForTest(empty, mine, theirs).customExercises.map((e) => e.id).sort();
+    });
+    assert(
+      JSON.stringify(concurrentCustoms) === JSON.stringify(["custom:mine", "custom:theirs"]),
+      "concurrent custom-exercise additions merge instead of overwriting each other",
+      JSON.stringify(concurrentCustoms)
+    );
+
     // ---- staging writes nothing ----
     const before = await getState(page);
     await importFile(page, "split.json", v3);
     assert(
       await page.evaluate(() => document.querySelector("#importReview")?.classList.contains("active")),
       "reading a file opens the review screen"
+    );
+    const reviewFocus = await page.evaluate(() => ({
+      action: document.activeElement?.getAttribute("data-imp-act"),
+      row: document.activeElement?.closest(".improw")?.querySelector(".improw__from")?.textContent?.trim(),
+    }));
+    assert(
+      !!reviewFocus.action && reviewFocus.row === "Lat pulldown machine thing",
+      "an unresolved import focuses its first decision instead of the disabled commit button",
+      JSON.stringify(reviewFocus)
     );
     let after = await getState(page);
     assert(
@@ -299,6 +332,82 @@ async function main() {
       after.program.length === 3 && after.program.filter((e) => e.day === "Day 1").length === 2,
       "the text import lands with its days and rep ranges",
       JSON.stringify(after.program.map((e) => [e.day, e.name, e.sets, e.min, e.max]))
+    );
+    assert(
+      after.programMeta.name === "Upper / Lower",
+      "a text-export header restores the program title without its days-per-week suffix",
+      after.programMeta.name
+    );
+
+    // ---- onboarding import is one coherent state transition ----
+    await reset(page);
+    await page.evaluate(() => window.startOnboarding("first-run"));
+    const onboardingImport = JSON.stringify({
+      version: 3,
+      meta: { name: "Atomic onboarding" },
+      exercises: [
+        { day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8 },
+        { day: "Day 1", order: 2, name: "My onboarding row", sets: 3, min: 8, max: 12,
+          libraryId: "custom:onboarding" },
+      ],
+      customExercises: [
+        { id: "custom:onboarding", name: "My onboarding row", equipment: ["machine"],
+          primary: "Mid/upper back", secondary: "Biceps" },
+      ],
+    });
+    await importFile(page, "onboarding.json", onboardingImport);
+    model = await draftModel(page);
+    const onboardingDraft = await page.evaluate(() => ({
+      origin: window.__repforgeOnboardingOrigin?.(),
+      commitDisabled: document.querySelector("#importCommit")?.disabled,
+    }));
+    assert(model?.counts.review === 0 && onboardingDraft.origin === "first-run" && !onboardingDraft.commitDisabled,
+      "an onboarding import reaches the same reviewed draft", JSON.stringify(onboardingDraft));
+    const atomic = await page.evaluate(async (key) => {
+      const writes = [];
+      const io = {
+        writeLocal(snapshot) {
+          const copy = structuredClone(snapshot);
+          writes.push(copy);
+          localStorage.setItem(key, JSON.stringify(copy));
+        },
+        async writeIdb(snapshot) {
+          const db = await new Promise((res, rej) => {
+            const req = indexedDB.open("repforge", 1);
+            req.onupgradeneeded = () => req.result.createObjectStore("kv");
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej(req.error);
+          });
+          await new Promise((res, rej) => {
+            const tx = db.transaction("kv", "readwrite");
+            tx.objectStore("kv").put(structuredClone(snapshot), key);
+            tx.oncomplete = () => res();
+            tx.onerror = () => rej(tx.error);
+          });
+          db.close();
+        },
+      };
+      const result = await window.__repforgeCommitImport(io);
+      const coherent = (snapshot) =>
+        snapshot.customExercises?.some((e) => e.id === "custom:onboarding") &&
+        snapshot.program?.some((e) => e.libraryId === "custom:onboarding") &&
+        snapshot.programMeta?.name === "Atomic onboarding";
+      return {
+        result,
+        count: writes.length,
+        everyWriteCoherent: writes.length > 0 && writes.every(coherent),
+        finalCoherent: coherent(JSON.parse(localStorage.getItem(key) || "{}")),
+      };
+    }, KEY);
+    assert(
+      atomic.result?.localOk && atomic.result?.idbOk && atomic.finalCoherent,
+      "onboarding persists the imported custom definition and program together",
+      JSON.stringify(atomic)
+    );
+    assert(
+      atomic.count === 2 && atomic.everyWriteCoherent,
+      "the two-phase durable write has no intermediate custom-only snapshot",
+      JSON.stringify(atomic)
     );
 
     // ---- prose is rejected, not guessed at ----

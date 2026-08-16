@@ -4347,19 +4347,20 @@ async function main() {
   );
   await nav(page, "stats");
   await page.evaluate(() => document.querySelector("#statsDeep")?.setAttribute("open", ""));
-  await page.selectOption("#statExercise", d1First.id);
+  const performedLiftKey = subRow?.performedLibraryId ? `library:${subRow.performedLibraryId}` : null;
+  await page.selectOption("#statExercise", performedLiftKey);
   await page.waitForTimeout(80);
-  const chartRows = await page.evaluate(() => {
+  const chartRows = await page.evaluate((expected) => {
     const sel = document.querySelector("#statExercise").value;
     const log = JSON.parse(localStorage.getItem("repforge_v1")).log.filter((r) => !r.warmup);
-    const keys = new Set(log.map((r) => r.exerciseId || r.name));
-    return keys.has(sel);
-  });
+    return sel === expected && log.some((r) =>
+      r.performedLibraryId && `library:${r.performedLibraryId}` === expected);
+  }, performedLiftKey);
   assert(
     chartRows,
-    "Stats chart aggregates substituted sessions under exerciseId",
-    `exerciseId=${d1First.id}`,
-    "Stats → select substituted lift → chart has data"
+    "Stats chart attributes substituted sessions to the performed movement",
+    `performedLiftKey=${performedLiftKey}`,
+    "Stats → select the performed substitute → chart has data"
   );
 
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
@@ -9403,8 +9404,8 @@ async function main() {
       stats: document.querySelector("#stats")?.classList.contains("active"),
     }));
     assert(
-      trendLand.deep && trendLand.sel === "ex-reduce" && trendLand.stats,
-      "View trend destination opens the stats chart for that exercise ID",
+      trendLand.deep && trendLand.sel === "movement:slot:ex-reduce" && trendLand.stats,
+      "View trend destination opens the stats chart for that movement identity",
       JSON.stringify(trendLand)
     );
   }

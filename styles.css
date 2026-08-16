@@ -2341,7 +2341,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    built on .exview-head has been centring its back link inline instead of
    pinning it left. The buttons all carry .back-link. */
 .exview-head .back-link,.exview-head .exview__back{position:absolute;left:0;display:inline-flex;align-items:center;min-height:44px}
-.exview-head__title{font-size:17px;font-weight:600}
+.exview-head__title{margin:0;font-size:17px;font-weight:600}
 .exview-head__right{position:absolute;right:0}
 .chart-wrap{margin:8px 0 16px}
 .strength-pick{margin-bottom:8px}
