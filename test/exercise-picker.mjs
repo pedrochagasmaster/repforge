@@ -169,17 +169,55 @@ async function main() {
     // roll-up hangs off; a swap that minted a new one would fork the history.
     assert(swapped.id === slotId, "the slot keeps its id across a swap", `${swapped.id} vs ${slotId}`);
 
-    // ---- editing a linked slot does not detach it ----
+    // ---- a rename is an alias, not a change of movement ----
     await page.fill(`#programEditor input[data-id="${slotId}"][data-field="name"]`, "Hammer Strength fly");
     await page.locator(`#programEditor input[data-id="${slotId}"][data-field="name"]`).blur();
     await settle(page);
     state = await getState(page);
     const renamed = state.program.find((e) => e.id === slotId);
     assert(
-      renamed.name === "Hammer Strength fly" && renamed.libraryId === "ci_cb",
-      "renaming a slot to what the gym calls it keeps the library link",
+      renamed.name === "Hammer Strength fly" && renamed.displayName === "Hammer Strength fly" &&
+        renamed.libraryId === "ci_cb",
+      "renaming a linked slot stores an alias and keeps the link",
       JSON.stringify(renamed)
     );
+    // The whole point of the alias: the id still means one movement, so the
+    // muscles the audit reads are the definition's, not whatever was typed.
+    assert(
+      renamed.primary === "Chest" && renamed.secondary === "Front delts",
+      "an aliased slot keeps the definition's muscles",
+      JSON.stringify([renamed.primary, renamed.secondary])
+    );
+    const musclesLocked = await page.evaluate((id) =>
+      ["primary", "secondary"].every((f) =>
+        document.querySelector(`#programEditor input[data-id="${id}"][data-field="${f}"]`)?.readOnly), slotId);
+    assert(musclesLocked, "a linked slot's muscle fields are not editable in place");
+
+    // Changing what the movement *is* takes an explicit detach.
+    await page.click(`[data-act="detachEx"][data-id="${slotId}"]`);
+    await settle(page);
+    state = await getState(page);
+    const detached = state.program.find((e) => e.id === slotId);
+    assert(
+      detached && detached.libraryId === undefined && detached.displayName === undefined &&
+        detached.name === "Hammer Strength fly" && detached.primary === "Chest",
+      "detaching frees the fields and keeps the movement as it reads",
+      JSON.stringify(detached)
+    );
+    await page.fill(`#programEditor input[data-id="${slotId}"][data-field="primary"]`, "Lats");
+    await page.locator(`#programEditor input[data-id="${slotId}"][data-field="primary"]`).blur();
+    await settle(page);
+    state = await getState(page);
+    assert(
+      state.program.find((e) => e.id === slotId)?.primary === "Lats",
+      "a detached slot accepts muscle edits again"
+    );
+    // Put it back so the sections below start from a linked slot.
+    await page.click(`[data-act="changeEx"][data-id="${slotId}"]`);
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await pickExact(page, "Cable fly");
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await settle(page);
 
     // ---- custom exercises ----
     await page.click(`[data-act="addEx"][data-day="${day}"]`);

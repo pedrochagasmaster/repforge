@@ -35,8 +35,10 @@ function isSafeProgramHistoryEntry(entry){
   return Array.isArray(entry.program)&&entry.program.every(isPlainStateObject)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
-  return!Object.prototype.hasOwnProperty.call(entry,"performedName")||
-    entry.performedName==null||typeof entry.performedName==="string"}
+  for(const key of ["performedName","performedLibraryId","performedPrimary","performedSecondary"])
+    if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
+      return false;
+  return true}
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
@@ -1345,7 +1347,7 @@ const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${es
 function resetDraftSessionState(){
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
-  committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();
+  committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();substitutedRef.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
   const el=$("#unfinishedBanner");
   if(el){el.classList.add("hidden");el.hidden=true}
@@ -1386,7 +1388,12 @@ const liftKey=x=>x.exerciseId||x.name;
 const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
 const displayName=row=>String(row.performedName||exerciseLabel(row)||"");
 // Muscles for a log row: prefer the saved snapshot, else resolve from the live program.
-const rowMuscles=row=>{if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
+const rowMuscles=row=>{
+  // A swapped set is credited to what was performed. Rows saved before the
+  // snapshot existed carry no performedPrimary and keep their template values.
+  if(row.performedPrimary!=null||row.performedSecondary!=null)
+    return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
+  if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=state.program.find(e=>e.id===row.exerciseId)||state.program.find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
 
@@ -1432,7 +1439,7 @@ const programBeginner=[
    lifter stays free to edit any of it afterwards without detaching the slot. */
 function exerciseFieldsFromLibrary(entry){
   return{name:libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||"",
-    notes:entry.notes||"",libraryId:entry.id}}
+    notes:entry.notes||"",libraryId:entry.id,displayName:null}}
 
 /* ============================================================
    Program model
@@ -1456,6 +1463,10 @@ class Exercise{
     this.alternates=Array.isArray(d.alternates)?d.alternates.map(s=>String(s).trim()).filter(Boolean):
       typeof d.alternates==="string"?d.alternates.split(",").map(s=>s.trim()).filter(Boolean):[];
     if(d.libraryId!=null)this.libraryId=String(d.libraryId).trim();
+    // An alias names the machine in front of the lifter ("Hammer Strength row")
+    // without claiming the slot is a different movement. Identity stays with
+    // libraryId; only the label moves.
+    if(d.displayName!=null&&String(d.displayName).trim())this.displayName=String(d.displayName).trim();
     if(d.progressionType!=null)this.progressionType=String(d.progressionType).trim();
     if(d.targetRirStart!=null&&Number.isFinite(+d.targetRirStart))this.targetRirStart=+d.targetRirStart;
     if(d.targetRirEnd!=null&&Number.isFinite(+d.targetRirEnd))this.targetRirEnd=+d.targetRirEnd;
@@ -1464,8 +1475,26 @@ class Exercise{
     if(d.priority!=null)this.priority=String(d.priority).trim();
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
+  /* Resolves a linked slot's label and muscles from the library definition, so
+     the stored template can never disagree with the id it carries. name and
+     primary/secondary stay written out as plain strings — every reader (volume
+     audit, CSV, text export, backups) keeps working unchanged — but for a
+     linked slot they are derived, not authored. */
+  resolveIdentity(entries){
+    if(this.libraryId===undefined)return this;
+    const entry=entries?entries(this.libraryId):libraryEntry(this.libraryId);
+    if(!entry){
+      // The definition is gone (an import referencing an unknown id). Keep the
+      // copied strings and drop the link rather than pretend it resolves.
+      delete this.libraryId;delete this.displayName;
+      return this}
+    this.name=this.displayName||libraryName(entry);
+    this.primary=entry.primary||"";
+    this.secondary=entry.secondary||"";
+    return this}
   toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
     if(this.libraryId!==undefined)o.libraryId=this.libraryId;
+    if(this.displayName!==undefined)o.displayName=this.displayName;
     if(this.progressionType!==undefined)o.progressionType=this.progressionType;
     if(this.targetRirStart!==undefined)o.targetRirStart=this.targetRirStart;
     if(this.targetRirEnd!==undefined)o.targetRirEnd=this.targetRirEnd;
@@ -1476,7 +1505,12 @@ class Exercise{
 }
 
 class Program{
-  constructor(list=[]){const ids=new Set();this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);return ex});this.renumber()}
+  /* lookup lets a caller resolve against a snapshot's own custom definitions —
+     import and normalizeLoaded work on state that is not live yet. */
+  constructor(list=[],lookup=null){const ids=new Set();
+    this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);
+      return ex.resolveIdentity(lookup)});
+    this.renumber()}
   days(){return [...new Set(this.exercises.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
   forDay(d){return this.exercises.filter(e=>e.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
   find(id){return this.exercises.find(e=>e.id===id)}
@@ -1487,7 +1521,28 @@ class Program{
     else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
     else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
     else if(field==="alternates")e.alternates=String(value??"").split(",").map(s=>s.trim()).filter(Boolean);
-    else if(field==="name"||field==="primary"||field==="secondary"||field==="notes")e[field]=String(value??"").trim();}
+    else if(field==="name"){
+      const next=String(value??"").trim();
+      // On a linked slot a rename is an alias, never a change of movement: the
+      // canonical name comes back if the alias is cleared or matches it.
+      if(e.libraryId!==undefined){
+        const entry=libraryEntry(e.libraryId);
+        if(entry&&next&&next!==libraryName(entry))e.displayName=next;
+        else delete e.displayName;
+        e.resolveIdentity();
+        return}
+      e.name=next}
+    else if(field==="primary"||field==="secondary"){
+      // Muscles are the definition's, not the slot's. A linked slot ignores
+      // the edit; the editor disables the field and offers Detach instead.
+      if(e.libraryId!==undefined)return;
+      e[field]=String(value??"").trim()}
+    else if(field==="notes")e.notes=String(value??"").trim();}
+  /* Breaks the library link, keeping the movement exactly as it reads today.
+     The slot becomes plain editable text — which is what a lifter asking to
+     change a canonical movement's muscles actually wants. */
+  detachExercise(id){const e=this.find(id);if(!e||e.libraryId===undefined)return null;
+    delete e.libraryId;delete e.displayName;return e}
   addExercise(day,entry=null){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
     const e=new Exercise(Object.assign({day,order,name:"New exercise",sets:3,min:6,max:10},
       entry?exerciseFieldsFromLibrary(entry):null));this.exercises.push(e);return e}
@@ -1495,6 +1550,7 @@ class Program{
      history, recommendations and volume roll-up follow the swap — which is the
      whole reason substitution lives on the template rather than the log. */
   replaceExercise(id,entry){const e=this.find(id);if(!e||!entry)return null;
+    delete e.displayName;
     Object.assign(e,exerciseFieldsFromLibrary(entry));
     if(e.max<e.min)e.max=e.min;
     return e}
@@ -1721,6 +1777,11 @@ function maybeUnfinishedOnOpen(){
 const collapsed=new Set();
 const skipped=new Set();
 const substituted=new Map();
+/* Which library definition a swap pointed at, when it came from the picker.
+   The name alone cannot say what was trained: swapping a hack squat slot to a
+   lat pulldown has to move the volume too. Kept beside `substituted` rather
+   than folded into it so old drafts (name-only) still hydrate. */
+const substitutedRef=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
@@ -1738,12 +1799,17 @@ function hydrateDraftCollections(d){
   touched.clear();retainSetKeys(d.__touched,known).forEach(k=>touched.add(k));
   warmups.clear();retainSetKeys(d.__warm,known).forEach(k=>warmups.add(k));
   skipped.clear();(d.__skipped||[]).forEach(id=>{if(known.has(id))skipped.add(id)});
-  substituted.clear();
+  substituted.clear();substitutedRef.clear();
   const subs=d.__substituted&&typeof d.__substituted==="object"?d.__substituted:{};
+  const refs=d.__substitutedRef&&typeof d.__substitutedRef==="object"?d.__substitutedRef:{};
   for(const [id,name] of Object.entries(subs)){
     if(!known.has(id))continue;
     const n=String(name||"").trim().slice(0,80);
-    if(n)substituted.set(id,n)}}
+    if(n)substituted.set(id,n)}
+  for(const [id,libId] of Object.entries(refs)){
+    if(!substituted.has(id))continue;
+    const ref=String(libId||"").trim();
+    if(ref&&libraryEntry(ref))substitutedRef.set(id,ref)}}
 function hydrateWorkoutDraft({restoreDay=false}={}){
   const d=loadDraft();
   hydrateDraftCollections(d);
@@ -1807,16 +1873,18 @@ function applySkipToggle(id){
   if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
   saveDraft();renderWorkout()}
 function applyShowAll(){skipped.clear();saveDraft();renderWorkout()}
-function applyPredefinedSub(id,name){
+function applyPredefinedSub(id,name,libraryRef=null){
   const n=String(name||"").trim().slice(0,80);
-  if(!n) substituted.delete(id);
-  else{substituted.set(id,n);skipped.delete(id)}
+  if(!n){substituted.delete(id);substitutedRef.delete(id)}
+  else{substituted.set(id,n);skipped.delete(id);
+    if(libraryRef)substitutedRef.set(id,libraryRef);else substitutedRef.delete(id)}
   saveDraft();renderWorkout()}
-function applyCustomSub(id,raw){
+function applyCustomSub(id,raw,libraryRef=null){
   const name=String(raw||"").trim().slice(0,80);
   const progName=prog.find(id)?.name;
-  if(!name||name===progName) substituted.delete(id);
-  else{substituted.set(id,name);skipped.delete(id)}
+  if(!name||name===progName){substituted.delete(id);substitutedRef.delete(id)}
+  else{substituted.set(id,name);skipped.delete(id);
+    if(libraryRef)substitutedRef.set(id,libraryRef);else substitutedRef.delete(id)}
   saveDraft();renderWorkout()}
 /* Mid-session swap. The slot's own movement stays in the list, and picking it
    is how a lifter undoes a swap — the alternative was a "back to X" row that
@@ -1828,7 +1896,7 @@ function openSubstitutePicker(id){
   openExercisePicker({title:t("picker.title_substitute"),subtitle:ex.name,
     onPick:entry=>{
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
-      else applyCustomSub(id,libraryName(entry))}})}
+      else applyCustomSub(id,libraryName(entry),entry.id)}})}
 function applyFatigueTrim(){
   const exs=exercises();
   skipped.clear();
@@ -1899,6 +1967,13 @@ function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
    path then cannot tell the two apart. */
+/* Resolves a library id against a specific custom list plus the built-ins. */
+function snapshotLookup(customList){
+  const own=new Map((Array.isArray(customList)?customList:[]).map(e=>[e.id,e]));
+  return id=>{
+    const key=String(id??"");
+    if(isCustomLibraryId(key))return own.get(key)||null;
+    return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}}
 function normalizeCustomExercises(list){
   const out=[],seen=new Set();
   for(const entry of Array.isArray(list)?list:[]){
@@ -1928,9 +2003,12 @@ function normalizeLoaded(s){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
-    program:new Program(s.program).toJSON(),log:cloneSnapshot(s.log),
+    program:[],log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[]),
     customExercises:normalizeCustomExercises(s.customExercises)};
+  // Resolved against this snapshot's own custom definitions: during an import
+  // or a boot they are not in live state yet.
+  out.program=new Program(s.program,snapshotLookup(out.customExercises)).toJSON();
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
@@ -2058,7 +2136,10 @@ function programWeekContext(name,mc){
   if(mc.isFinalWeek)return t("log.context.program_week_ready",{name:nm,n:mc.current,total:mc.total});
   if(mc.current!=null)return t("log.context.program_week",{name:nm,n:mc.current,total:mc.total});
   return nm}
-function rowMusclesPure(row,program){if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
+function rowMusclesPure(row,program){
+  if(row.performedPrimary!=null||row.performedSecondary!=null)
+    return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
+  if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=(program||[]).find(e=>e.id===row.exerciseId)||(program||[]).find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
 function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
@@ -3819,6 +3900,7 @@ function saveDraft(opts){
     else if(prev.__exnotes)d.__exnotes=prev.__exnotes}
   d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];
   d.__skipped=[...skipped];d.__substituted=Object.fromEntries(substituted);
+  d.__substitutedRef=Object.fromEntries(substitutedRef);
   if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
   else delete d.__lastCommitAt;
   if(sessionStartedAt&&committed.size)d.__startedAt=sessionStartedAt;
@@ -4134,7 +4216,14 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
     const got=readSetCandidate(key);if(!got.ok){applyFieldError(got);return}
     const{load,reps,rir}=got.values;
     const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
-    if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
+    if(substituted.has(ex.id)){
+      row.performedName=substituted.get(ex.id);
+      // Volume follows the movement that was trained, not the slot it borrowed.
+      const ref=substitutedRef.get(ex.id),performed=ref?libraryEntry(ref):null;
+      if(performed){
+        row.performedLibraryId=performed.id;
+        row.performedPrimary=performed.primary||"";
+        row.performedSecondary=performed.secondary||""}}
     if(exNote)row.exNote=exNote;
     if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
@@ -4536,6 +4625,8 @@ window.__repforgeSaveCustomExercise=draft=>saveCustomExercise(draft);
 window.__repforgeCustomExercises=()=>customExercises();
 window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
 window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
+window.__repforgeRowMuscles=row=>rowMuscles(row);
+window.__repforgeCompletedVolume=(windowDays=7)=>volMapToObj(completedHardSets(windowDays));
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
@@ -5212,7 +5303,7 @@ function exCard(e,i,n){
   const linked=e.libraryId?libraryEntry(e.libraryId):null;
   return `<div class="pex" data-id="${esc(e.id)}">`+
     `<div class="pex__head">`+
-      `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t("program.exercise.name_aria"))}">`+
+      `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t(linked?"program.exercise.alias_aria":"program.exercise.name_aria"))}">`+
       `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:e.name}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
@@ -5221,8 +5312,12 @@ function exCard(e,i,n){
       `</div>`+
     `</div>`+
     `<div class="pex__nums">${num("sets",esc(t("program.exercise.sets")))}${num("min",esc(t("program.exercise.min_reps")))}${num("max",esc(t("program.exercise.max_reps")))}</div>`+
-    `<label class="pex__mus">${esc(t("program.exercise.primary"))}<input data-id="${esc(e.id)}" data-field="primary" value="${esc(e.primary)}" placeholder="${esc(t("program.exercise.primary_placeholder"))}"></label>`+
-    `<label class="pex__mus">${esc(t("program.exercise.secondary"))}<input data-id="${esc(e.id)}" data-field="secondary" value="${esc(e.secondary)}" placeholder="${esc(t("program.exercise.secondary_placeholder"))}"></label>`+
+    // Muscles belong to the definition while a slot is linked. Showing them
+    // read-only with a way out beats letting an edit silently contradict the id.
+    `<label class="pex__mus">${esc(t("program.exercise.primary"))}<input data-id="${esc(e.id)}" data-field="primary" value="${esc(e.primary)}" placeholder="${esc(t("program.exercise.primary_placeholder"))}"${linked?" readonly":""}></label>`+
+    `<label class="pex__mus">${esc(t("program.exercise.secondary"))}<input data-id="${esc(e.id)}" data-field="secondary" value="${esc(e.secondary)}" placeholder="${esc(t("program.exercise.secondary_placeholder"))}"${linked?" readonly":""}></label>`+
+    (linked?`<p class="pex__linked">${esc(t("program.exercise.linked",{name:libraryName(linked)}))} `+
+      `<button type="button" class="pex__detach" data-act="detachEx" data-id="${esc(e.id)}">${esc(t("program.exercise.detach"))}</button></p>`:"")+
     `<label class="pex__mus">${esc(t("program.exercise.setup_notes"))}<input data-id="${esc(e.id)}" data-field="notes" value="${esc(e.notes)}" placeholder="${esc(t("program.exercise.setup_notes_placeholder"))}"></label>`+
     `<div class="pex__alts">`+
       `<span class="pex__altlab">${esc(t("program.exercise.alternates"))}</span>`+
@@ -5350,6 +5445,14 @@ async function editorAction(act,ds){
         proposal.program=nextProgram.toJSON();
         const result=await commitProposedState(proposal);
         if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
+  else if(act==="detachEx"){
+    const ex=prog.find(ds.id);if(!ex)return;
+    if(!confirm(t("confirm.detach_exercise",{name:ex.name})))return;
+    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    if(!nextProgram.detachExercise(ds.id))return;
+    proposal.program=nextProgram.toJSON();
+    const result=await commitProposedState(proposal);
+    if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
   else if(act==="pickAlternates"){
     const ex=prog.find(ds.id);if(!ex)return;
     // Alternates were a comma-separated string of whatever got typed. They are
@@ -5669,12 +5772,17 @@ function programLibraryIds(){
   const ids=new Set();
   for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
   return ids}
-function loggedExerciseNames(){
-  const names=new Set();
+/* What the lifter has actually trained, for promoting familiar movements in the
+   picker. Library ids are the reliable half — names only match when the log was
+   written in the language the picker is being read in. */
+function loggedExerciseRefs(){
+  const ids=new Set(),names=new Set();
   for(const r of state.log||[]){
+    if(r?.performedLibraryId)ids.add(String(r.performedLibraryId));
     if(r?.performedName)names.add(foldSearch(r.performedName));
     if(r?.name)names.add(foldSearch(r.name))}
-  return names}
+  for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
+  return{ids,names}}
 
 function pickerRow(e,{selected=false,checkbox=false}={}){
   const muscles=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean);
@@ -5715,11 +5823,13 @@ function renderPickerList(){
   const {query,muscle,equipment,mode,selected,exclude}=pickerState;
   const multi=mode==="multi";
   const all=pickerCandidates().filter(e=>!exclude.has(e.id)&&exerciseMatches(e,query,muscle,equipment));
-  const inProgram=programLibraryIds(),logged=loggedExerciseNames();
+  const inProgram=programLibraryIds(),logged=loggedExerciseRefs();
   const custom=[],known=[],rest=[];
+  const familiar=e=>inProgram.has(e.id)||logged.ids.has(e.id)||
+    logged.names.has(foldSearch(e.name))||logged.names.has(foldSearch(e.namePt||""));
   for(const e of all){
     if(isCustomLibraryId(e.id)||e.nameOnly)custom.push(e);
-    else if(inProgram.has(e.id)||logged.has(foldSearch(e.name)))known.push(e);
+    else if(familiar(e))known.push(e);
     else rest.push(e)}
   // Rank before name. Alphabetical alone answers "row" with four barbell
   // variants before plain Barbell row, and opens the library on an assisted
