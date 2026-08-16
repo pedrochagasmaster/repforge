@@ -1,6 +1,6 @@
 # Taurifer
 
-Taurifer (formerly RepForge) is a local-only mobile PWA for tracking progressive overload. It is a static site (`index.html`, `styles.css`, `app.js`, `schedule.js`, `notify.js`, `i18n.js`, `sw.js`, `manifest.webmanifest`, `icons/`) with no build step, no package manager, and no application dependencies. All training data stays on this device; nothing is sent to a backend.
+Taurifer (formerly RepForge) is a local-only mobile PWA for tracking progressive overload. It is a static site (`index.html`, `styles.css`, `app.js`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, `sw.js`, `manifest.webmanifest`, `icons/`, `assets/exercises/`) with no build step, no package manager, and no application dependencies. All training data stays on this device; nothing is sent to a backend.
 
 Only the user-facing brand is Taurifer. Internal identifiers deliberately keep the historical `repforge` codename so existing installs keep their data and scope: storage keys, the IndexedDB name, the cache-name prefix, the cross-tab lock name, `window.__repforge*` test hooks, the `RepForgeI18n`/`RepForgeSchedule`/`RepForgeNotify` globals, the repository slug, and the GitHub Pages URL. Do not rename these. The full naming-surface inventory, plus voice, copy, and visual rules, lives in `docs/brand-guide.md` (rationale in `docs/adr/0004-taurifer-rebrand-neutral-copy.md`).
 
@@ -11,9 +11,28 @@ Durable state is mirrored in `localStorage` (`repforge_v1`) and IndexedDB (`repf
 - The application has no dependencies to install and no application build/lint/test tooling. Do not look for a root `package.json`, an application test runner, or a bundler — none exist.
 - Browser suites are separate: they use pinned test-only npm dependencies under `test/` (Playwright). In a fresh checkout run `(cd test && npm ci && npx playwright install chromium --with-deps)` before a browser gate. Do not add root or application dependencies, and do not use npm to run the app.
 - Run the app in development by serving the repo root over HTTP (a static server is required because of the service worker and `fetch` of `manifest`/assets). The README documents `python3 -m http.server 8000`, then open `http://localhost:8000/`. Python 3 is available on the VM.
-- Service worker caching gotcha: `sw.js` uses cache `repforge-v75` (the prefix is a codename and does not follow the brand). `ASSETS` is `./`, `index.html`, `styles.css`, `app.js`, `manifest.webmanifest`, `schedule.js`, `notify.js`, `i18n.js`, the icon SVG/PNGs, and the Plex font woff2 files. `SHELL` is `/`, `/index.html`, `/app.js`, `/styles.css`, `/i18n.js`, `/manifest.webmanifest`. After editing those files, a normal reload may serve stale cached copies. Hard-reload (or unregister the service worker / clear site data via DevTools → Application) to see changes.
+- Service worker caching gotcha: `sw.js` uses cache `repforge-v80` (the prefix is a codename and does not follow the brand). `ASSETS` is `./`, `index.html`, `styles.css`, `app.js`, `manifest.webmanifest`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, the icon SVG/PNGs, the 96 `assets/exercises/*.webp` illustrations (~3.2 MB, precached atomically by `addAll`), and the Plex font woff2 files. `SHELL` is `/`, `/index.html`, `/app.js`, `/styles.css`, `/i18n.js`, `/exercises.js`, `/manifest.webmanifest`. Bump `CACHE` when any of them changes. After editing those files, a normal reload may serve stale cached copies. Hard-reload (or unregister the service worker / clear site data via DevTools → Application) to see changes.
 - To reset state for a clean test, clear site storage or use **Settings → Delete workout history**.
 - Core flow to smoke-test: on the **Log** tab fill a set's kg/reps/RIR and click **Save workout**, then confirm the session summary opens over the app, and that the **Stats** and **History** tabs populate with the saved session once it is dismissed.
+
+### Generated files
+
+`i18n.js` and `exercises.js` are generated and committed; nothing regenerates
+them at serve or install time. `i18n.js` comes from `i18n-en.json` +
+`i18n-pt.json` via `node tools/build-i18n.mjs` (`--check` fails when the three
+files drift). `exercises.js` comes from `tools/build-exercises.mjs` plus the
+reviewed allowlist in `tools/exercise-curation.json` — edit those and re-run,
+never the generated file. See `tools/README.md`; note that library ids are
+stored in saved programs as `libraryId` and must never be repointed at a
+different movement.
+
+`assets/exercises/` holds the 96 licensed exercise illustrations, keyed by
+library id. That set is closed: the other 174 movements, built-in or custom,
+render a deliberately empty tile. Do not add exercise media without a licence
+covering it, and do not fill the empty state with icons, initials or silhouettes
+— `test/exercise-library.mjs` and `test/library-flow.mjs` both hold that line.
+The allowlist lives in `MEDIA_IDS` in `tools/build-exercises.mjs`; adding a file
+without listing it there (or the reverse) fails the build and the gates.
 
 ## Agent skills
 

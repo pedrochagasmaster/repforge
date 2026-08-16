@@ -815,6 +815,23 @@ function scenarioRows({ day, ex, sessions }) {
   });
 }
 
+/* Decides every row still awaiting review, then commits. Each decision
+   re-renders the list, so rows are handled one at a time. */
+async function reviewAndCommitImport(page) {
+  for (let guard = 0; guard < 40; guard++) {
+    const acted = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
+      if (!row) return false;
+      (row.querySelector('[data-imp-act="link"]') || row.querySelector('[data-imp-act="raw"]'))?.click();
+      return true;
+    });
+    if (!acted) break;
+    await page.waitForTimeout(60);
+  }
+  await page.click("#importCommit");
+  await page.waitForTimeout(400);
+}
+
 async function main() {
   console.log("RepForge year-of-usage simulation");
   console.log(`Target: ${BASE}\n`);
@@ -1371,18 +1388,30 @@ async function main() {
     "Rename exercise → Log tab → previous session should still display"
   );
 
-  // Add exercise
+  // Add exercise — now via the library picker rather than a blank row
   await nav(page, "program");
   const exCountBefore = state.program.filter((e) => e.day === "Push Day").length;
   await page.click('[data-act="addEx"][data-day="Push Day"]');
-  await page.waitForTimeout(100);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  await page.fill("#exPickSearch", "pec deck");
+  await page.waitForTimeout(120);
+  const pickedName = ((await page.locator("#exPickList .pickrow__name").first().textContent()) || "").trim();
+  await page.click("#exPickList .pickrow");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
   state = await getState(page);
-  const exCountAfter = state.program.filter((e) => e.day === "Push Day").length;
+  const pushRows = state.program.filter((e) => e.day === "Push Day");
+  const added = pushRows.find((e) => e.name === pickedName);
   assert(
-    exCountAfter === exCountBefore + 1,
+    pushRows.length === exCountBefore + 1,
     "Add exercise to day",
-    `Before ${exCountBefore}, after ${exCountAfter}`,
-    "Program tab → + Add exercise on a day"
+    `Before ${exCountBefore}, after ${pushRows.length}`,
+    "Program tab → + Add exercise → pick from the library"
+  );
+  assert(
+    !!added && added.libraryId === "ci_mc" && added.primary === "Chest",
+    "Picked exercise arrives linked, named and muscle-tagged",
+    `added=${JSON.stringify(added)}`,
+    "Program tab → + Add exercise → search 'pec deck' → tap the row"
   );
 
   // Reorder — move second exercise down (swaps with third)
@@ -1406,8 +1435,8 @@ async function main() {
     );
   }
 
-  // Remove added exercise (last one named "New exercise")
-  const newEx = state.program.find((e) => e.name === "New exercise" && e.day === "Push Day");
+  // Remove the exercise added above
+  const newEx = state.program.find((e) => e.name === pickedName && e.day === "Push Day");
   if (newEx) {
     await page.click(`button[data-act="delEx"][data-id="${newEx.id}"]`);
     await page.waitForTimeout(100);
@@ -2164,8 +2193,9 @@ async function main() {
   const progFile = JSON.parse(readFileSync(progPath, "utf8"));
   const progExercises = Array.isArray(progFile) ? progFile : progFile.exercises;
   assert(
-    progFile.version === 2 && Array.isArray(progExercises) && progExercises.length > 0 && progFile.meta?.id,
-    "Program export is v2 with meta and exercises",
+    progFile.version === 3 && Array.isArray(progExercises) && progExercises.length > 0 && progFile.meta?.id &&
+      Array.isArray(progFile.customExercises),
+    "Program export is v3 with meta, exercises and referenced custom definitions",
     `Got: ${JSON.stringify(progFile).slice(0, 120)}`,
     "Program → Advanced → Export program JSON"
   );
@@ -2177,13 +2207,12 @@ async function main() {
   );
   const logBefore = (await getState(page)).log.length;
   progExercises[0].name = "IMPORTED_RENAME";
-  if (progFile.version === 2) {
-    progFile.exercises = progExercises;
-    progFile.meta = { ...progFile.meta, name: "Imported Template", started: "2020-01-01", id: "foreign-id" };
-    writeFileSync(progPath, JSON.stringify(progFile));
-  } else {
-    writeFileSync(progPath, JSON.stringify(progExercises));
-  }
+  // A renamed row no longer matches the library, so it arrives unmatched and
+  // has to be confirmed — which is the point of the review step.
+  delete progExercises[0].libraryId;
+  progFile.exercises = progExercises;
+  progFile.meta = { ...progFile.meta, name: "Imported Template", started: "2020-01-01", id: "foreign-id" };
+  writeFileSync(progPath, JSON.stringify(progFile));
   const metaBeforeImport = (await getState(page)).programMeta;
   const importDraft = await page.evaluate((k) => {
     const raw = JSON.stringify({
@@ -2194,6 +2223,15 @@ async function main() {
     return raw;
   }, DRAFT);
   await page.setInputFiles("#importProgram", progPath);
+  await page.waitForSelector("#importReview.active", { timeout: 5000 });
+  const stagedProgram = (await getState(page)).program;
+  assert(
+    !stagedProgram.some((x) => x.name === "IMPORTED_RENAME"),
+    "Program import writes nothing until it is confirmed",
+    "the imported name appeared before Import was pressed",
+    "Import program JSON → review screen"
+  );
+  await reviewAndCommitImport(page);
   await page.waitForFunction(
     ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
     { k: KEY, name: "IMPORTED_RENAME" },
@@ -2208,7 +2246,7 @@ async function main() {
   );
   assert(
     stAfter.programMeta?.name === "Imported Template",
-    "Program import applies meta from v2 export",
+    "Program import applies meta from the exported file",
     `programMeta.name=${stAfter.programMeta?.name}`,
     "Export v2 program → edit meta.name → Import program JSON"
   );
@@ -2236,6 +2274,8 @@ async function main() {
   const legacyPath = join(tmpDir, "program-legacy.json");
   writeFileSync(legacyPath, JSON.stringify(stAfter.program.slice(0, 3)));
   await page.setInputFiles("#importProgram", legacyPath);
+  await page.waitForSelector("#importReview.active", { timeout: 5000 });
+  await reviewAndCommitImport(page);
   await page.waitForFunction(
     ({ k, len }) => JSON.parse(localStorage.getItem(k) || "{}").program?.length === len,
     { k: KEY, len: 3 },
@@ -2250,6 +2290,8 @@ async function main() {
   );
   writeFileSync(progPath, JSON.stringify(progFile));
   await page.setInputFiles("#importProgram", progPath);
+  await page.waitForSelector("#importReview.active", { timeout: 5000 });
+  await reviewAndCommitImport(page);
   await page.waitForFunction(
     ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").programMeta?.name === name,
     { k: KEY, name: "Imported Template" },
@@ -4210,8 +4252,46 @@ async function main() {
   await nav(page, "program");
   let subState = await getState(page);
   const d1First = subState.program.filter((e) => e.name.includes("Hack squat") || e.name.includes("pendulum")).sort((a, b) => a.order - b.order)[0];
-  await page.fill(`[data-id="${d1First.id}"][data-field="alternates"]`, "Leg press, Pendulum squat");
-  await page.waitForTimeout(100);
+  // Search matches loosely ("leg press" also finds the single-leg and calf
+  // variants), so rows are chosen by their exact displayed name.
+  const pickExact = async (name) => {
+    await page.fill("#exPickSearch", name);
+    await page.waitForTimeout(150);
+    return page.evaluate((n) => {
+      const rows = [...document.querySelectorAll("#exPickList .pickrow")];
+      const row = rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim().toLowerCase() === n.toLowerCase());
+      if (!row) return false;
+      row.click();
+      return true;
+    }, name);
+  };
+  // Alternates are picked from the library now, not typed as a comma string.
+  // This slot ships with "Leg press" (a library movement) and "Pendulum squat"
+  // (which the library has no row for) — both must come back preselected, or
+  // opening the picker would quietly delete whichever it could not match.
+  const altsBefore = (subState.program.find((e) => e.id === d1First.id)?.alternates || []).slice();
+  await page.click(`[data-act="pickAlternates"][data-id="${d1First.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  const preselected = await page.evaluate(() => (window.__repforgePickerSelection?.() || []).length);
+  assert(
+    preselected === altsBefore.length && altsBefore.length >= 2,
+    "Existing alternates come back preselected, library-matched or not",
+    `preselected=${preselected} existing=${JSON.stringify(altsBefore)}`,
+    "Program tab → alternates row"
+  );
+  const altPicked = await pickExact("Pec deck");
+  await page.click("#exPickDone");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await page.waitForTimeout(250);
+  subState = await getState(page);
+  const altRow = subState.program.find((e) => e.id === d1First.id);
+  assert(
+    altPicked && (altRow?.alternates || []).includes("Pec deck") &&
+      altsBefore.every((n) => (altRow?.alternates || []).includes(n)),
+    "Adding an alternate keeps the ones already there",
+    `alternates=${JSON.stringify(altRow?.alternates)} before=${JSON.stringify(altsBefore)}`,
+    "Program tab → alternates row → search 'Pec deck' → Done"
+  );
   await nav(page, "log");
   const subDay = d1First.day;
   await selectDay(page, subDay);
@@ -4221,12 +4301,12 @@ async function main() {
     if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
   }, d1First.id);
   await page.waitForTimeout(80);
-  await page.evaluate(({ id, val }) => {
-    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
-    if (!sel) return;
-    sel.value = val;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-  }, { id: d1First.id, val: "Leg press" });
+  await page.click(`.subst__pick[data-sub="${d1First.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  const swapped = await pickExact("Leg press");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  assert(swapped, "Mid-session swap opens the library picker", "Leg press row not found in picker",
+    "Log → an exercise's swap control → search 'Leg press'");
   await page.waitForTimeout(80);
   await page.evaluate(({ id, load, reps, rir }) => {
     const set = (k, v) => {
@@ -4249,7 +4329,7 @@ async function main() {
     subRow && subRow.performedName === "Leg press",
     "Substituted session saves performedName",
     JSON.stringify(subRow),
-    "Program alternates → Log pick Leg press → save"
+    "Log → swap control → pick Leg press → save"
   );
   assert(
     subRow && subRow.name === d1First.name,
@@ -4267,19 +4347,20 @@ async function main() {
   );
   await nav(page, "stats");
   await page.evaluate(() => document.querySelector("#statsDeep")?.setAttribute("open", ""));
-  await page.selectOption("#statExercise", d1First.id);
+  const performedLiftKey = subRow?.performedLibraryId ? `library:${subRow.performedLibraryId}` : null;
+  await page.selectOption("#statExercise", performedLiftKey);
   await page.waitForTimeout(80);
-  const chartRows = await page.evaluate(() => {
+  const chartRows = await page.evaluate((expected) => {
     const sel = document.querySelector("#statExercise").value;
     const log = JSON.parse(localStorage.getItem("repforge_v1")).log.filter((r) => !r.warmup);
-    const keys = new Set(log.map((r) => r.exerciseId || r.name));
-    return keys.has(sel);
-  });
+    return sel === expected && log.some((r) =>
+      r.performedLibraryId && `library:${r.performedLibraryId}` === expected);
+  }, performedLiftKey);
   assert(
     chartRows,
-    "Stats chart aggregates substituted sessions under exerciseId",
-    `exerciseId=${d1First.id}`,
-    "Stats → select substituted lift → chart has data"
+    "Stats chart attributes substituted sessions to the performed movement",
+    `performedLiftKey=${performedLiftKey}`,
+    "Stats → select the performed substitute → chart has data"
   );
 
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
@@ -6616,10 +6697,10 @@ async function main() {
       catalog
         .filter(
           (e) =>
-            e.pattern === slot &&
+            e.patterns.includes(slot) &&
             e.equipment.some((x) => equipment.includes(String(x).toLowerCase()))
         )
-        .sort((a, b) => a.id.localeCompare(b.id));
+        .sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50) || a.id.localeCompare(b.id));
     const pickFromSlot = (slot, equipment, used, occ) => {
       const pool = slotPool(slot, equipment);
       if (!pool.length) return null;
@@ -6628,8 +6709,14 @@ async function main() {
       const rotated = pool.slice(i).concat(pool.slice(0, i)).filter((e) => !used.has(e.id));
       return rotated[0] || null;
     };
-    const dayHasPrimary = (dayType, equipment) =>
-      (DAY_SLOTS[dayType] || []).some((slot) => slotPool(slot, equipment).length > 0);
+    // Mirrors dayTypeHasPrimary: a day type counts as supported only when at
+    // least half its slots have candidates, not merely one.
+    const dayHasPrimary = (dayType, equipment) => {
+      const slots = DAY_SLOTS[dayType] || [];
+      if (!slots.length) return false;
+      const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
+      return fillable * 2 >= slots.length;
+    };
     const splitSupported = (dayTypes, equipment) =>
       dayTypes.every((dt) => dayHasPrimary(dt, equipment));
     const expectedFullDay = (dayType, equipment, occ, sessionLength) => {
@@ -6734,9 +6821,17 @@ async function main() {
         const expectedNames = Array.from({ length: daysPerWeek }, (_, i) => `Day ${i + 1}`);
         if (!ok) {
           blocked++;
-          if (days.length === daysPerWeek && days.every((d) => d.length)) {
-            failures.push(`${label}: blocked combo still produced every training day`);
-          }
+          // Blocking is the wizard's job — Continue stays disabled — not the
+          // generator's. Back when a day type was unsupported only if no slot
+          // at all could be filled, a blocked combo necessarily produced an
+          // empty day; now it produces a thin one. What has to hold is that
+          // the combo really is thin: some day type cannot fill half its slots.
+          const thin = dayTypes.some((dt) => {
+            const slots = DAY_SLOTS[dt] || [];
+            const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
+            return fillable * 2 < slots.length;
+          });
+          if (!thin) failures.push(`${label}: blocked combo fills every day type`);
           continue;
         }
         generated++;
@@ -6779,11 +6874,16 @@ async function main() {
             const pool = slotPool(slot, equipment);
             if (!pool.length) continue;
             const modeled = idxs.map((di) => expectedDays[di].picks.filter((p) => p.slot === slot).map((p) => p.id));
-            const actual = idxs.map((di) =>
-              days[di]
-                .map((e) => e.libraryId)
-                .filter((id) => catalogById.get(id)?.pattern === slot)
-            );
+            // A library entry can serve several slots — a preacher curl is both
+            // "curl" and "arms" — so pattern membership cannot say which slot a
+            // pick filled. Attribute by position instead: compare what the app
+            // actually put where the model assigned this slot.
+            const actual = idxs.map((di) => {
+              const ids = days[di].map((e) => e.libraryId);
+              return expectedDays[di].picks
+                .map((p, i) => (p.slot === slot ? ids[i] : null))
+                .filter((id) => id != null);
+            });
             for (let k = 0; k < idxs.length; k++) {
               if (modeled[k].join("|") !== actual[k].join("|")) {
                 failures.push(
@@ -7711,25 +7811,44 @@ async function main() {
   await fillExerciseSets(page, draftExA.id, 1, 77, 6, 1);
   await fillExerciseSets(page, draftExB.id, 1, 40, 8, 1);
   await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
-  const altName = await page.evaluate((id) => {
-    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
-    if (!sel) return "";
-    const opt = [...sel.options].find((o) => o.value && o.value !== "__other__");
-    if (!opt) return "";
-    sel.value = opt.value;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-    return opt.value;
-  }, draftExA.id);
+  // Swap from the library.
+  await page.click(`.subst__pick[data-sub="${draftExA.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  const altName = await page.evaluate(() => {
+    const slot = (document.querySelector("#exPickFor")?.textContent || "").trim();
+    const rows = [...document.querySelectorAll("#exPickList .pickrow")];
+    const row = rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim() !== slot);
+    if (!row) return "";
+    const name = (row.querySelector(".pickrow__name")?.textContent || "").trim();
+    row.click();
+    return name;
+  });
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  // Swap to something the library has never heard of. The typed search carries
+  // into the custom sheet, which is the path that replaced the old prompt().
   const customName = "Custom swap 80 cap check";
-  await page.evaluate(({ id, name }) => {
-    const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`);
-    if (!sel) return;
-    sel.value = "__other__";
-    const orig = window.prompt;
-    window.prompt = () => name;
-    sel.dispatchEvent(new Event("change", { bubbles: true }));
-    window.prompt = orig;
-  }, { id: draftExB.id, name: customName });
+  await page.click(`.subst__pick[data-sub="${draftExB.id}"]`);
+  await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+  await page.fill("#exPickSearch", customName);
+  await page.waitForTimeout(120);
+  await page.click("#exPickCustom");
+  await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+  const customPrefilled = await page.inputValue("#exCustomName");
+  // A definition needs equipment and a primary muscle before it can be saved.
+  await page.evaluate(() => {
+    [...document.querySelectorAll("#exCustomEquip .pchip")].find((b) => b.textContent.trim() === "Machine")?.click();
+    [...document.querySelectorAll("#exCustomPrimary .pchip")].find((b) => b.textContent.trim() === "Quads")?.click();
+  });
+  await page.click("#exCustomSave");
+  await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+  await page.waitForTimeout(250);
+  const savedCustom = await page.evaluate(() => window.__repforgeCustomExercises?.() || []);
+  assert(
+    customPrefilled === customName && savedCustom.some((e) => e.name === customName),
+    "Creating a custom exercise from a failed search stores it and applies it",
+    `prefilled="${customPrefilled}" stored=${JSON.stringify(savedCustom.map((e) => e.name))}`,
+    "Log → swap → search a name the library lacks → + Create custom exercise → Save"
+  );
   await page.waitForTimeout(80);
   const draftBeforeLeave = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
@@ -7832,7 +7951,17 @@ async function main() {
   const rirCases = [
     ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await page.click(`[data-save="${draftExA.id}_1"]`); }],
     ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`[data-warm="${draftExA.id}_1"]`); }],
-    ["substitution-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate((id) => { const sel = document.querySelector(`.subst__pick[data-sub="${id}"]`); if (!sel) return; const opt = [...sel.options].find((o) => o.value && o.value !== "__other__"); if (!opt) return; sel.value = opt.value; sel.dispatchEvent(new Event("change", { bubbles: true })); }, draftExA.id); }],
+    ["substitution-only", async () => {
+      await nav(page, "log"); await selectDay(page, "Day 1");
+      await page.click(`.subst__pick[data-sub="${draftExA.id}"]`);
+      await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+      await page.evaluate(() => {
+        const slot = (document.querySelector("#exPickFor")?.textContent || "").trim();
+        const rows = [...document.querySelectorAll("#exPickList .pickrow")];
+        (rows.find((r) => (r.querySelector(".pickrow__name")?.textContent || "").trim() !== slot) || rows[0])?.click();
+      });
+      await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    }],
     ["note-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "only"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
     ["bodyweight-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#bodyweight"); el.value = "70"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
     ["date-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await setLogDate(page, "2026-01-15"); }],
@@ -9275,8 +9404,8 @@ async function main() {
       stats: document.querySelector("#stats")?.classList.contains("active"),
     }));
     assert(
-      trendLand.deep && trendLand.sel === "ex-reduce" && trendLand.stats,
-      "View trend destination opens the stats chart for that exercise ID",
+      trendLand.deep && trendLand.sel === "movement:slot:ex-reduce" && trendLand.stats,
+      "View trend destination opens the stats chart for that movement identity",
       JSON.stringify(trendLand)
     );
   }

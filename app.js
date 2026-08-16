@@ -35,13 +35,21 @@ function isSafeProgramHistoryEntry(entry){
   return Array.isArray(entry.program)&&entry.program.every(isPlainStateObject)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
-  return!Object.prototype.hasOwnProperty.call(entry,"performedName")||
-    entry.performedName==null||typeof entry.performedName==="string"}
+  for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
+    if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
+      return false;
+  return true}
+function isSafeCustomExercise(entry){
+  if(!isPlainStateObject(entry))return false;
+  return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
 function isValidStateShape(s){
   try{
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
+    // Optional: backups written before custom exercises existed stay importable.
+    if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
+      !(Array.isArray(s.customExercises)&&s.customExercises.every(isSafeCustomExercise)))return false;
     if(!Object.prototype.hasOwnProperty.call(s,"programHistory"))return true;
     return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
   catch{return false}}
@@ -156,7 +164,8 @@ function changeObject(v){return!!(v&&typeof v==="object"&&!Array.isArray(v))}
 function changeEntityKey(root,value,index){
   if(!value||typeof value!=="object")return`${root}:value:${index}:${JSON.stringify(canonicalize(value))}`;
   if(root==="log")return value.session?`session:${value.session}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
-  if(root==="program"||root==="programHistory")return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
+  if(root==="program"||root==="programHistory"||root==="customExercises")
+    return value.id?`id:${value.id}`:`row:${index}:${JSON.stringify(canonicalize(value))}`;
   return null}
 function changeGroups(list,root){
   const order=[],map=new Map();
@@ -197,7 +206,7 @@ function mergeStateValue(base,proposal,target,path,preferProposal){
   if(changeValueEqual(target,base))return proposal===CHANGE_MISSING?CHANGE_MISSING:cloneSnapshot(proposal);
   const root=path[0];
   if(path.length===1&&Array.isArray(base)&&Array.isArray(proposal)&&Array.isArray(target)&&
-    (root==="log"||root==="program"||root==="programHistory"))
+    (root==="log"||root==="program"||root==="programHistory"||root==="customExercises"))
     return mergeChangedArray(base,proposal,target,root,preferProposal);
   if(changeObject(base)&&changeObject(proposal)&&changeObject(target)){
     const out={};
@@ -1188,6 +1197,15 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
+/* Day names are stored data: the bundled splits, the onboarding builder and
+   "+ Add day" all mint the canonical English `Day N`, and every log row, tab
+   and lookup keys off that stored string. Renaming them per locale would
+   rewrite the lifter's program on a language switch, so only the display is
+   translated, and only for that exact canonical shape — anything typed by hand
+   ("Push A", "Dia de perna") is shown back exactly as typed. */
+const DEFAULT_DAY_NAME=/^Day\s+(\d+)$/;
+const dayLabel=d=>{const s=String(d??"").trim(),m=DEFAULT_DAY_NAME.exec(s);
+  return m?t("program.default.day",{n:+m[1]}):String(d??"")};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
@@ -1338,7 +1356,7 @@ const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${es
 function resetDraftSessionState(){
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
-  committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();
+  committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();substitutedRef.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
   const el=$("#unfinishedBanner");
   if(el){el.classList.add("hidden");el.hidden=true}
@@ -1375,12 +1393,45 @@ function draftUnitConversionEffect(expectedRaw,oldUnit,newUnit){
     precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
 const posNum=(v,f=0)=>{const n=parseDec(v);return Math.max(0,Number.isFinite(n)?n:f)};
 const isWork=r=>!r.warmup;
-const liftKey=x=>x.exerciseId||x.name;
-const exerciseLabel=row=>{if(row.exerciseId){const ex=state.program.find(e=>e.id===row.exerciseId);if(ex)return ex.name}return row.name};
-const displayName=row=>String(row.performedName||exerciseLabel(row)||"");
-// Muscles for a log row: prefer the saved snapshot, else resolve from the live program.
-const rowMuscles=row=>{if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
-  const ex=state.program.find(e=>e.id===row.exerciseId)||state.program.find(e=>e.name===row.name);
+const movementToken=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/\s+/g," ").trim();
+const loggedMovementName=row=>String(row?.performedName||row?.name||"");
+const movementIdKey=id=>String(id||"").startsWith("library:")?String(id):`movement:${id}`;
+const liftKey=row=>row?.performedLibraryId?`library:${row.performedLibraryId}`:
+  row?.performedMovementId?movementIdKey(row.performedMovementId):`name:${movementToken(loggedMovementName(row))}`;
+const exerciseLiftKey=ex=>ex?.libraryId?`library:${ex.libraryId}`:
+  ex?.movementId?movementIdKey(ex.movementId):`name:${movementToken(ex?.name)}`;
+const exerciseLabel=row=>String(row?.name||row?.performedName||"");
+const displayName=row=>loggedMovementName(row);
+const currentExerciseForLiftKey=key=>(state.program||[]).find(ex=>exerciseLiftKey(ex)===key)||null;
+/* Search-only bridge from a logged row back to what the program calls that
+   movement today. History itself never renames what was performed — the row
+   keeps its immutable label — but a lifter who renamed a movement still looks
+   for old sessions under the new name. Only movement identity crosses:
+   `library:<id>`, or the `movement:` id a slot mints and gives up the moment
+   the slot is repointed at something else. The structural slot id never does,
+   so a replaced slot cannot pull the previous movement's history along. */
+function currentMovementNames(){
+  const byKey=new Map();
+  for(const ex of state.program||[]){
+    const key=exerciseLiftKey(ex);
+    if(!key||key.startsWith("name:"))continue;
+    const name=String(ex?.name||"").trim();
+    if(name&&!byKey.has(key))byKey.set(key,name)}
+  return byKey}
+const currentNameForRow=(row,byKey)=>
+  row?.performedLibraryId||row?.performedMovementId?byKey.get(liftKey(row))||"":"";
+function exerciseIdentityFromRow(row){
+  return{libraryId:row?.performedLibraryId||undefined,movementId:row?.performedMovementId||undefined,
+    name:loggedMovementName(row),id:row?.exerciseId,day:row?.day}}
+// Muscles for a log row: prefer the immutable performed snapshot. Old rows may
+// fall back to their own template snapshot/name, never a reused live slot id.
+const rowMuscles=row=>{
+  // A swapped set is credited to what was performed. Rows saved before the
+  // snapshot existed carry no performedPrimary and keep their template values.
+  if(row.performedPrimary!=null||row.performedSecondary!=null)
+    return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
+  if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
+  const ex=state.program.find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
 
 const defaultAlternates={
@@ -1419,6 +1470,14 @@ const programBeginner=[
   if(x[2]==="Lat pulldown")ex.alternates=["Assisted pull-up","Neutral-grip pulldown"];
   return ex});
 
+/* The single crossing from library entry to program template. Muscles and
+   setup notes are copied rather than looked up through libraryId, so the audit
+   and every other reader keep reading the template exactly as before — and the
+   lifter stays free to edit any of it afterwards without detaching the slot. */
+function exerciseFieldsFromLibrary(entry){
+  return{name:libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||"",
+    notes:entry.notes||"",libraryId:entry.id,displayName:null}}
+
 /* ============================================================
    Program model
    Exercise — one movement: day, sequence, rep range, muscles.
@@ -1441,6 +1500,12 @@ class Exercise{
     this.alternates=Array.isArray(d.alternates)?d.alternates.map(s=>String(s).trim()).filter(Boolean):
       typeof d.alternates==="string"?d.alternates.split(",").map(s=>s.trim()).filter(Boolean):[];
     if(d.libraryId!=null)this.libraryId=String(d.libraryId).trim();
+    if(d.movementId!=null&&String(d.movementId).trim())this.movementId=String(d.movementId).trim();
+    else if(d.libraryId==null)this.movementId=`slot:${this.id}`;
+    // An alias names the machine in front of the lifter ("Hammer Strength row")
+    // without claiming the slot is a different movement. Identity stays with
+    // libraryId; only the label moves.
+    if(d.displayName!=null&&String(d.displayName).trim())this.displayName=String(d.displayName).trim();
     if(d.progressionType!=null)this.progressionType=String(d.progressionType).trim();
     if(d.targetRirStart!=null&&Number.isFinite(+d.targetRirStart))this.targetRirStart=+d.targetRirStart;
     if(d.targetRirEnd!=null&&Number.isFinite(+d.targetRirEnd))this.targetRirEnd=+d.targetRirEnd;
@@ -1449,8 +1514,27 @@ class Exercise{
     if(d.priority!=null)this.priority=String(d.priority).trim();
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
+  /* Resolves a linked slot's label and muscles from the library definition, so
+     the stored template can never disagree with the id it carries. name and
+     primary/secondary stay written out as plain strings — every reader (volume
+     audit, CSV, text export, backups) keeps working unchanged — but for a
+     linked slot they are derived, not authored. */
+  resolveIdentity(entries){
+    if(this.libraryId===undefined)return this;
+    const entry=entries?entries(this.libraryId):libraryEntry(this.libraryId);
+    if(!entry){
+      // The definition is gone (an import referencing an unknown id). Keep the
+      // copied strings and drop the link rather than pretend it resolves.
+      delete this.libraryId;delete this.displayName;
+      return this}
+    this.name=this.displayName||libraryName(entry);
+    this.primary=entry.primary||"";
+    this.secondary=entry.secondary||"";
+    return this}
   toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
     if(this.libraryId!==undefined)o.libraryId=this.libraryId;
+    if(this.movementId!==undefined)o.movementId=this.movementId;
+    if(this.displayName!==undefined)o.displayName=this.displayName;
     if(this.progressionType!==undefined)o.progressionType=this.progressionType;
     if(this.targetRirStart!==undefined)o.targetRirStart=this.targetRirStart;
     if(this.targetRirEnd!==undefined)o.targetRirEnd=this.targetRirEnd;
@@ -1461,7 +1545,12 @@ class Exercise{
 }
 
 class Program{
-  constructor(list=[]){const ids=new Set();this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);return ex});this.renumber()}
+  /* lookup lets a caller resolve against a snapshot's own custom definitions —
+     import and normalizeLoaded work on state that is not live yet. */
+  constructor(list=[],lookup=null){const ids=new Set();
+    this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);
+      return ex.resolveIdentity(lookup)});
+    this.renumber()}
   days(){return [...new Set(this.exercises.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
   forDay(d){return this.exercises.filter(e=>e.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
   find(id){return this.exercises.find(e=>e.id===id)}
@@ -1472,9 +1561,38 @@ class Program{
     else if(field==="min"){e.min=Exercise.posInt(value,e.min);if(e.max<e.min)e.max=e.min;}
     else if(field==="max"){e.max=Exercise.posInt(value,e.max);if(e.min>e.max)e.min=e.max;}
     else if(field==="alternates")e.alternates=String(value??"").split(",").map(s=>s.trim()).filter(Boolean);
-    else if(field==="name"||field==="primary"||field==="secondary"||field==="notes")e[field]=String(value??"").trim();}
-  addExercise(day){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
-    const e=new Exercise({day,order,name:"New exercise",sets:3,min:6,max:10});this.exercises.push(e);return e}
+    else if(field==="name"){
+      const next=String(value??"").trim();
+      // On a linked slot a rename is an alias, never a change of movement: the
+      // canonical name comes back if the alias is cleared or matches it.
+      if(e.libraryId!==undefined){
+        const entry=libraryEntry(e.libraryId);
+        if(entry&&next&&next!==libraryName(entry))e.displayName=next;
+        else delete e.displayName;
+        e.resolveIdentity();
+        return}
+      e.name=next}
+    else if(field==="primary"||field==="secondary"){
+      // Muscles are the definition's, not the slot's. A linked slot ignores
+      // the edit; the editor disables the field and offers Detach instead.
+      if(e.libraryId!==undefined)return;
+      e[field]=String(value??"").trim()}
+    else if(field==="notes")e.notes=String(value??"").trim();}
+  /* Breaks the library link, keeping the movement exactly as it reads today.
+     The slot becomes plain editable text — which is what a lifter asking to
+     change a canonical movement's muscles actually wants. */
+  detachExercise(id){const e=this.find(id);if(!e||e.libraryId===undefined)return null;
+    e.movementId=`library:${e.libraryId}`;delete e.libraryId;delete e.displayName;return e}
+  addExercise(day,entry=null){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
+    const e=new Exercise(Object.assign({day,order,name:"New exercise",sets:3,min:6,max:10},
+      entry?exerciseFieldsFromLibrary(entry):null));this.exercises.push(e);return e}
+  /* Repoints a structural slot at another movement. The slot id stays stable so
+     draft inputs and ordering survive; movement history is keyed independently. */
+  replaceExercise(id,entry){const e=this.find(id);if(!e||!entry)return null;
+    delete e.displayName;delete e.movementId;
+    Object.assign(e,exerciseFieldsFromLibrary(entry));
+    if(e.max<e.min)e.max=e.min;
+    return e}
   removeExercise(id){this.exercises=this.exercises.filter(e=>e.id!==id);this.renumber()}
   move(id,dir){const e=this.find(id);if(!e)return;const list=this.forDay(e.day),i=list.indexOf(e),j=i+dir;
     if(j<0||j>=list.length)return;[list[i].order,list[j].order]=[list[j].order,list[i].order]}
@@ -1494,51 +1612,35 @@ const DAY_TYPES={full_body:["squat","hinge","press","pull","delts","arms"],upper
   pull:["row","pulldown","rear_delt","curl"],legs:["squat","hinge","leg_curl","leg_extension","adduction","calves"]};
 const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
 const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
-const EXERCISE_CATALOG=[
-  {id:"sq_bb",name:"Barbell back squat",pattern:"squat",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:false},
-  {id:"sq_sm",name:"Smith machine squat",pattern:"squat",equipment:["smith","machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
-  {id:"sq_lp",name:"Leg press",pattern:"squat",equipment:["machine"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true,notes:"Feet low on the platform, back flat against the pad."},
-  {id:"sq_db",name:"Goblet squat",pattern:"squat",equipment:["dumbbell"],primary:"Quads",secondary:"Glutes,Adductors",beginnerFriendly:true},
-  {id:"hg_bb",name:"Barbell Romanian deadlift",pattern:"hinge",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:false},
-  {id:"hg_sm",name:"Smith machine RDL",pattern:"hinge",equipment:["smith","machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
-  {id:"hg_mc",name:"Romanian deadlift machine",pattern:"hinge",equipment:["machine"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",beginnerFriendly:true},
-  {id:"pr_bb",name:"Barbell bench press",pattern:"press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
-  {id:"pr_db",name:"Dumbbell bench press",pattern:"press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"pr_mc",name:"Chest press machine",pattern:"press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"ip_db",name:"Dumbbell incline press",pattern:"incline_press",equipment:["dumbbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"ip_mc",name:"Incline chest press machine",pattern:"incline_press",equipment:["machine"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:true},
-  {id:"ip_bb",name:"Barbell incline press",pattern:"incline_press",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",beginnerFriendly:false},
-  {id:"sp_bb",name:"Barbell overhead press",pattern:"shoulder_press",equipment:["barbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:false},
-  {id:"sp_mc",name:"Shoulder press machine",pattern:"shoulder_press",equipment:["machine"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
-  {id:"sp_db",name:"Dumbbell shoulder press",pattern:"shoulder_press",equipment:["dumbbell"],primary:"Front delts",secondary:"Side delts,Triceps",beginnerFriendly:true},
-  {id:"rw_bb",name:"Barbell row",pattern:"row",equipment:["barbell"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:false},
-  {id:"rw_mc",name:"Seated row machine",pattern:"row",equipment:["machine"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
-  {id:"rw_cb",name:"Cable seated row",pattern:"row",equipment:["cable"],primary:"Mid/upper back",secondary:"Lats,Rear delts,Biceps",beginnerFriendly:true},
-  {id:"pd_mc",name:"Lat pulldown",pattern:"pulldown",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
-  {id:"pd_bw",name:"Assisted pull-up",pattern:"pulldown",equipment:["machine"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
-  {id:"pl_cb",name:"Cable pullover",pattern:"pull",equipment:["cable","machine"],primary:"Lats",secondary:"Mid/upper back",beginnerFriendly:true},
-  {id:"pl_mc",name:"Neutral-grip pulldown",pattern:"pull",equipment:["machine","cable"],primary:"Lats",secondary:"Mid/upper back,Biceps",beginnerFriendly:true},
-  {id:"dl_mc",name:"Lateral raise machine",pattern:"delts",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"dl_db",name:"Dumbbell lateral raise",pattern:"delts",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"dl_cb",name:"Cable lateral raise",pattern:"delts",equipment:["cable"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"lr_db",name:"Dumbbell lateral raise",pattern:"lateral_raise",equipment:["dumbbell"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"lr_mc",name:"Lateral raise machine",pattern:"lateral_raise",equipment:["machine"],primary:"Side delts",secondary:"",beginnerFriendly:true},
-  {id:"rd_mc",name:"Reverse pec deck",pattern:"rear_delt",equipment:["machine"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
-  {id:"rd_db",name:"Rear delt fly",pattern:"rear_delt",equipment:["dumbbell"],primary:"Rear delts",secondary:"Mid/upper back",beginnerFriendly:true},
-  {id:"ci_mc",name:"Pec deck",pattern:"chest_iso",equipment:["machine"],primary:"Chest",secondary:"",beginnerFriendly:true},
-  {id:"ci_cb",name:"Cable fly",pattern:"chest_iso",equipment:["cable"],primary:"Chest",secondary:"",beginnerFriendly:true},
-  {id:"ar_mc",name:"Preacher curl machine",pattern:"arms",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"ar_db",name:"Dumbbell curl",pattern:"arms",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"cu_mc",name:"Preacher curl machine",pattern:"curl",equipment:["machine"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"cu_db",name:"Dumbbell curl",pattern:"curl",equipment:["dumbbell"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"cu_cb",name:"Cable curl",pattern:"curl",equipment:["cable"],primary:"Biceps",secondary:"",beginnerFriendly:true},
-  {id:"tr_cb",name:"Cable pressdown",pattern:"triceps",equipment:["cable"],primary:"Triceps",secondary:"",beginnerFriendly:true},
-  {id:"tr_mc",name:"Machine triceps extension",pattern:"triceps",equipment:["machine"],primary:"Triceps",secondary:"",beginnerFriendly:true},
-  {id:"lc_mc",name:"Seated leg curl",pattern:"leg_curl",equipment:["machine"],primary:"Hamstrings",secondary:"",beginnerFriendly:true},
-  {id:"le_mc",name:"Leg extension",pattern:"leg_extension",equipment:["machine"],primary:"Quads",secondary:"",beginnerFriendly:true},
-  {id:"cv_mc",name:"Standing calf raise machine",pattern:"calves",equipment:["machine"],primary:"Calves",secondary:"",beginnerFriendly:true},
-  {id:"ad_mc",name:"Hip adduction machine",pattern:"adduction",equipment:["machine"],primary:"Adductors",secondary:"",beginnerFriendly:true}
-];
+/* The exercise library. exercises.js is generated (see tools/README.md) and
+   loads before this file; the fallback keeps app.js parseable and the app
+   usable if that script is ever missing, rather than throwing at boot. */
+const LIBRARY_SOURCE=(typeof window!=="undefined"&&window.RepForgeExercises)||{library:[],legacyIds:{}};
+const EXERCISE_LIBRARY=Array.isArray(LIBRARY_SOURCE.library)?LIBRARY_SOURCE.library:[];
+const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
+const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
+
+/* Custom exercises a lifter created. They live in state so they survive across
+   programs and show up in every picker beside the built-ins; the "custom:"
+   prefix keeps their ids from ever colliding with a library id, including a
+   library id added by a future regeneration. */
+const CUSTOM_ID_PREFIX="custom:";
+const isCustomLibraryId=id=>String(id||"").startsWith(CUSTOM_ID_PREFIX);
+function customExercises(snapshot=state){
+  const list=snapshot?.customExercises;
+  return Array.isArray(list)?list:[]}
+/* Ids merged into a single entry still sit in saved programs; resolve through
+   the alias table before giving up on one. */
+function libraryEntry(id,snapshot=state){
+  if(id==null)return null;
+  const key=String(id);
+  if(isCustomLibraryId(key))return customExercises(snapshot).find(e=>e.id===key)||null;
+  return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}
+/* Everything a picker can offer: the lifter's own movements first, because a
+   custom entry exists precisely because the library did not have it. */
+function pickableExercises(snapshot=state){
+  return customExercises(snapshot).filter(e=>!e.archived).concat(EXERCISE_LIBRARY)}
+const libraryName=e=>!e?"":(state?.settings?.lang==="pt"&&e.namePt)||e.name;
 function resolveSplit(daysPerWeek,splitType){
   const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
   if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
@@ -1550,10 +1652,12 @@ function resolveSplit(daysPerWeek,splitType){
 function exerciseSlotsForDay(dayType,answers){return[...(DAY_TYPES[dayType]||DAY_TYPES.full_body)]}
 function catalogForSlot(slot,equipment,experience){
   const eq=new Set((equipment||[]).map(s=>String(s).toLowerCase()));
-  let pool=EXERCISE_CATALOG.filter(e=>e.pattern===slot);
+  let pool=EXERCISE_LIBRARY.filter(e=>e.patterns.includes(slot));
   if(eq.size)pool=pool.filter(e=>e.equipment.some(x=>eq.has(String(x).toLowerCase())));
   if(experience==="beginner"){const bf=pool.filter(e=>e.beginnerFriendly);if(bf.length)pool=bf}
-  return pool.sort((a,b)=>a.id.localeCompare(b.id))}
+  // Rank first, id second: the staple for a slot leads, and the rest stay in a
+  // stable order so the same answers keep generating the same program.
+  return pool.sort((a,b)=>(a.rank??50)-(b.rank??50)||a.id.localeCompare(b.id))}
 function rotateCatalog(pool,occurrence){
   if(!pool.length)return pool;
   const n=pool.length,i=((occurrence%n)+n)%n;
@@ -1562,8 +1666,19 @@ function chooseExercise(slot,equipment,experience,usedIds,occurrence){
   // Rotate the equipment-filtered pool across repeated day types; never reuse a within-day id.
   const pool=rotateCatalog(catalogForSlot(slot,equipment,experience),occurrence||0).filter(e=>!usedIds.has(e.id));
   return pool[0]||null}
+/* Whether a day type is worth generating on this equipment. One fillable slot
+   used to be enough, which was fine when the catalogue was small: a slot with
+   no candidates meant the equipment genuinely could not train that pattern. A
+   267-movement library finds a candidate for almost anything — cables alone
+   satisfy a lower day through pull-throughs and calf raises — so "any slot" now
+   waves through days nobody would want to train. Require enough of the day to
+   fill instead, and the wizard keeps steering people to equipment that can
+   actually carry the split. */
 function dayTypeHasPrimary(dayType,equipment,experience){
-  return exerciseSlotsForDay(dayType).some(slot=>catalogForSlot(slot,equipment,experience).length>0)}
+  const slots=exerciseSlotsForDay(dayType);
+  if(!slots.length)return false;
+  const fillable=slots.filter(slot=>catalogForSlot(slot,equipment,experience).length>0).length;
+  return fillable*2>=slots.length}
 function equipmentSupportsSplit(daysPerWeek,splitType,equipment,experience){
   return resolveSplit(daysPerWeek,splitType).every(dt=>dayTypeHasPrimary(dt,equipment,experience))}
 function repScheme(experience,goal,slot){
@@ -1587,7 +1702,7 @@ function applyPriorityMuscles(program,priorityMuscles,equipment,experience){
     const entry=chooseExercise(slot,equipment,experience,new Set(program.map(e=>e.libraryId)));
     if(!entry)continue;
     const rs=repScheme("intermediate","hypertrophy",slot);
-    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+    program.push({id:uid(),day,order:program.filter(e=>e.day===day).length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}}
 function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
   const have=new Set(dayExs.map(e=>e.libraryId));
@@ -1595,7 +1710,7 @@ function pickFillerForDay(dayExs,usedIds,equipment,experience,occurrence){
     const entry=chooseExercise(slot,equipment,experience,new Set([...usedIds,...have]),occurrence);
     if(!entry||have.has(entry.id))continue;
     const rs=repScheme(experience,"hypertrophy",slot);
-    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+    return{id:uid(),day:dayExs[0].day,order:dayExs.length+1,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
       primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id}}
   return null}
 function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
@@ -1620,7 +1735,7 @@ function generateProgramFromOnboarding(answers){
       const entry=chooseExercise(slot,equipment,experience,usedIds,occ);if(!entry)continue;
       usedIds.add(entry.id);order++;
       const rs=repScheme(experience,goal,slot);
-      program.push({id:uid(),day:dayName,order,name:entry.name,sets:rs.sets,min:rs.min,max:rs.max,
+      program.push({id:uid(),day:dayName,order,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
         primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
   applyPriorityMuscles(program,a.priorityMuscles||[],equipment,experience);
   applySessionLength(program,a.sessionLength||"normal",equipment,experience,dayOcc);
@@ -1701,6 +1816,11 @@ function maybeUnfinishedOnOpen(){
 const collapsed=new Set();
 const skipped=new Set();
 const substituted=new Map();
+/* Which library definition a swap pointed at, when it came from the picker.
+   The name alone cannot say what was trained: swapping a hack squat slot to a
+   lat pulldown has to move the volume too. Kept beside `substituted` rather
+   than folded into it so old drafts (name-only) still hydrate. */
+const substitutedRef=new Map();
 const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
@@ -1718,12 +1838,27 @@ function hydrateDraftCollections(d){
   touched.clear();retainSetKeys(d.__touched,known).forEach(k=>touched.add(k));
   warmups.clear();retainSetKeys(d.__warm,known).forEach(k=>warmups.add(k));
   skipped.clear();(d.__skipped||[]).forEach(id=>{if(known.has(id))skipped.add(id)});
-  substituted.clear();
+  substituted.clear();substitutedRef.clear();
   const subs=d.__substituted&&typeof d.__substituted==="object"?d.__substituted:{};
+  const refs=d.__substitutedRef&&typeof d.__substitutedRef==="object"?d.__substitutedRef:{};
   for(const [id,name] of Object.entries(subs)){
     if(!known.has(id))continue;
     const n=String(name||"").trim().slice(0,80);
-    if(n)substituted.set(id,n)}}
+    if(n)substituted.set(id,n)}
+  for(const [id,libId] of Object.entries(refs)){
+    if(!substituted.has(id))continue;
+    const ref=String(libId||"").trim();
+    if(ref&&libraryEntry(ref))substitutedRef.set(id,ref)}
+  // Drafts written before substitution references existed saved only a label.
+  // Recover an unambiguous library identity so resuming cannot credit the slot.
+  const byName=new Map();
+  for(const entry of pickableExercises()){
+    for(const label of [entry.name,entry.namePt,libraryName(entry)]){
+      const key=movementToken(label);if(!key)continue;
+      if(!byName.has(key))byName.set(key,entry.id);else if(byName.get(key)!==entry.id)byName.set(key,null)}}
+  for(const [id,name] of substituted){
+    if(substitutedRef.has(id))continue;
+    const ref=byName.get(movementToken(name));if(ref)substitutedRef.set(id,ref)}}
 function hydrateWorkoutDraft({restoreDay=false}={}){
   const d=loadDraft();
   hydrateDraftCollections(d);
@@ -1783,25 +1918,43 @@ function changeRirMode(newMode){
   return true}
 function applySkipToggle(id){
   if(skipped.has(id)) skipped.delete(id);
-  else{skipped.add(id);substituted.delete(id)}
+  else{skipped.add(id);substituted.delete(id);substitutedRef.delete(id)}
   if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
   saveDraft();renderWorkout()}
 function applyShowAll(){skipped.clear();saveDraft();renderWorkout()}
-function applyPredefinedSub(id,name){
+function applyPredefinedSub(id,name,libraryRef=null){
   const n=String(name||"").trim().slice(0,80);
-  if(!n) substituted.delete(id);
-  else{substituted.set(id,n);skipped.delete(id)}
+  if(!n){substituted.delete(id);substitutedRef.delete(id)}
+  else{substituted.set(id,n);skipped.delete(id);
+    if(libraryRef)substitutedRef.set(id,libraryRef);else substitutedRef.delete(id)}
   saveDraft();renderWorkout()}
-function applyCustomSub(id,raw){
+function applyCustomSub(id,raw,libraryRef=null){
   const name=String(raw||"").trim().slice(0,80);
   const progName=prog.find(id)?.name;
-  if(!name||name===progName) substituted.delete(id);
-  else{substituted.set(id,name);skipped.delete(id)}
+  if(!name||name===progName){substituted.delete(id);substitutedRef.delete(id)}
+  else{substituted.set(id,name);skipped.delete(id);
+    if(libraryRef)substitutedRef.set(id,libraryRef);else substitutedRef.delete(id)}
   saveDraft();renderWorkout()}
+function sessionExercise(ex){
+  if(!ex||!substituted.has(ex.id))return ex;
+  const name=substituted.get(ex.id),ref=substitutedRef.get(ex.id),entry=ref?libraryEntry(ref):null;
+  if(!entry)return Object.assign({},ex,{name,libraryId:undefined,movementId:`adhoc:${movementToken(name)}`});
+  return Object.assign({},ex,exerciseFieldsFromLibrary(entry),{name,libraryId:entry.id})}
+/* Mid-session swap. The slot's own movement stays in the list, and picking it
+   is how a lifter undoes a swap — the alternative was a "back to X" row that
+   means nothing until you already know what X was. */
+function openSubstitutePicker(id){
+  const ex=prog.find(id);if(!ex)return;
+  const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e]));
+  const self=(ex.libraryId&&libraryEntry(ex.libraryId))||byName.get(foldSearch(ex.name))||null;
+  openExercisePicker({title:t("picker.title_substitute"),subtitle:ex.name,
+    onPick:entry=>{
+      if(self&&entry.id===self.id)applyPredefinedSub(id,"");
+      else applyCustomSub(id,libraryName(entry),entry.id)}})}
 function applyFatigueTrim(){
   const exs=exercises();
   skipped.clear();
-  for(const e of exs){const s=recommendation(e).status;if(!(s==="add"||s==="add2"))skipped.add(e.id)}
+  for(const e of exs){const s=recommendation(sessionExercise(e)).status;if(!(s==="add"||s==="add2"))skipped.add(e.id)}
   saveDraft();renderWorkout();toast(t("toast.trimmed_priority"))}
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let focusDrag=null,focusFlinging=false;
@@ -1827,8 +1980,25 @@ let settingsEditRevision=0;
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
 const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
 
-function migrateLogSnapshot(snapshot){let changed=false;for(const row of snapshot.log){
-  if(!row.exerciseId){const ex=snapshot.program.find(e=>e.name===row.name&&e.day===row.day)||snapshot.program.find(e=>e.name===row.name);if(ex){row.exerciseId=ex.id;changed=true}}
+function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLookup(snapshot.customExercises);
+  for(const row of snapshot.log){
+  const named=snapshot.program.find(e=>e.name===row.name&&e.day===row.day)||snapshot.program.find(e=>e.name===row.name);
+  const slotted=snapshot.program.find(e=>e.id===row.exerciseId);
+  const ex=named||(!slotted?.libraryId?slotted:null);
+  if(!row.exerciseId&&ex){row.exerciseId=ex.id;changed=true}
+  if(row.performedName==null&&row.name){row.performedName=String(row.name);changed=true}
+  if(row.performedLibraryId==null&&ex?.libraryId){
+    const entry=lookup(ex.libraryId),names=new Set([ex.name,entry?.name,entry?.namePt].map(movementToken).filter(Boolean));
+    if(names.has(movementToken(row.name))){row.performedLibraryId=ex.libraryId;changed=true}}
+  if(row.performedLibraryId==null&&row.performedMovementId==null&&ex?.movementId){
+    row.performedMovementId=ex.movementId;changed=true}
+  const performed=row.performedLibraryId?lookup(row.performedLibraryId):null;
+  if(performed){
+    if(row.performedPrimary==null){row.performedPrimary=performed.primary||"";changed=true}
+    if(row.performedSecondary==null){row.performedSecondary=performed.secondary||"";changed=true}}
+  else if(row.performedName===row.name){
+    if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
+    if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
   const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
@@ -1865,18 +2035,53 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     blockPromptDismissedId}}
 function isImportableState(s){return isValidStateShape(s)}
-function normalizeProgramHistory(history){
+/* A custom exercise is a library entry the lifter authored, so it is normalised
+   into the same shape the built-ins have — the pickers and the copy-into-template
+   path then cannot tell the two apart. */
+/* Resolves a library id against a specific custom list plus the built-ins. */
+function snapshotLookup(customList){
+  const own=new Map((Array.isArray(customList)?customList:[]).map(e=>[e.id,e]));
+  return id=>{
+    const key=String(id??"");
+    if(isCustomLibraryId(key))return own.get(key)||null;
+    return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}}
+function normalizeCustomExercises(list){
+  const out=[],seen=new Set();
+  for(const entry of Array.isArray(list)?list:[]){
+    if(!isPlainStateObject(entry))continue;
+    const id=String(entry.id||"");
+    if(!id.startsWith(CUSTOM_ID_PREFIX)||seen.has(id))continue;
+    const name=String(entry.name??"").trim();
+    if(!name)continue;
+    seen.add(id);
+    const equipment=(Array.isArray(entry.equipment)?entry.equipment:[])
+      .map(x=>String(x).trim().toLowerCase()).filter(Boolean);
+    const archived=entry.archived===true;
+    out.push({id,name,namePt:String(entry.namePt??name).trim()||name,archived,
+      equipment:equipment.length?equipment:["machine"],
+      primary:String(entry.primary??"").trim(),
+      secondary:String(entry.secondary??"").trim(),
+      notes:String(entry.notes??"").trim(),
+      patterns:[],beginnerFriendly:true,custom:true,
+      created:typeof entry.created==="string"?entry.created:new Date().toISOString()})}
+  return out}
+function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{
     const normalized=cloneSnapshot(entry);
     if(Object.prototype.hasOwnProperty.call(normalized,"program"))
-      normalized.program=new Program(normalized.program).toJSON();
+      normalized.program=new Program(normalized.program,lookup).toJSON();
     return normalized})}
 function normalizeLoaded(s){
-  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],[STORAGE_REV]:0};
+  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
+  const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
   const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
-    program:new Program(s.program).toJSON(),log:cloneSnapshot(s.log),
-    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[])};
+    program:[],log:cloneSnapshot(s.log),
+    programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
+    customExercises:customs};
+  // Resolved against this snapshot's own custom definitions: during an import
+  // or a boot they are not in live state yet.
+  out.program=new Program(s.program,lookup).toJSON();
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
@@ -1923,6 +2128,44 @@ async function persistProgramMeta(partial={}){
   if(partial.onboarded!==undefined)proposal.programMeta.onboarded=partial.onboarded;
   proposal.programMeta.updated=new Date().toISOString();
   return commitProposedState(proposal)}
+/* Creates or edits one of the lifter's own movements. Returns the stored entry
+   so a caller can drop it straight into a program slot — creating a custom
+   exercise is almost always the first half of "put this in my program". */
+async function saveCustomExercise(draft,io=storageIO){
+  const name=String(draft?.name??"").trim();
+  if(!name)return{result:null,entry:null};
+  const id=isCustomLibraryId(draft?.id)?String(draft.id):`${CUSTOM_ID_PREFIX}${uid()}`;
+  const existing=customExercises().find(e=>e.id===id);
+  const entry={id,name,namePt:name,
+    equipment:Array.isArray(draft.equipment)&&draft.equipment.length?draft.equipment:["machine"],
+    primary:String(draft.primary??"").trim(),
+    secondary:String(draft.secondary??"").trim(),
+    notes:String(draft.notes??"").trim(),
+    created:existing?.created||new Date().toISOString()};
+  const proposal=cloneSnapshot(state);
+  const list=Array.isArray(proposal.customExercises)?proposal.customExercises:[];
+  proposal.customExercises=normalizeCustomExercises(
+    existing?list.map(e=>e.id===id?entry:e):list.concat(entry));
+  const result=await commitProposedState(proposal,io);
+  return{result,entry:proposal.customExercises.find(e=>e.id===id)||null}}
+/* A definition with anything pointing at it — a program slot, an archived
+   block, a logged set — is still the meaning of that data, so it is archived
+   rather than deleted: hidden from the pickers, intact behind the history. */
+function customExerciseInUse(id){
+  if((state.program||[]).some(e=>e.libraryId===id))return true;
+  if((state.log||[]).some(r=>r.performedLibraryId===id))return true;
+  return(state.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
+async function deleteCustomExercise(id,io=storageIO){
+  if(!isCustomLibraryId(id))return null;
+  const proposal=cloneSnapshot(state);
+  if(customExerciseInUse(id)){
+    const list=customExercises(proposal).map(e=>e.id===id?Object.assign(cloneSnapshot(e),{archived:true}):e);
+    if(!list.some(e=>e.id===id))return null;
+    proposal.customExercises=list;
+    const result=await commitProposedState(proposal,io);
+    return result?Object.assign(result,{archived:true}):result}
+  proposal.customExercises=customExercises(proposal).filter(e=>e.id!==id);
+  return commitProposedState(proposal,io)}
 function programAdherence(asOf=today()){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   // Inclusive rolling [asOf-6, asOf] — distinct planned days; future rows excluded.
   const end=asOf,start=shiftDate(end,-6),programDaySet=new Set(prog.days()),loggedDays=new Set();
@@ -1939,10 +2182,11 @@ function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart
   const trained=new Map();for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(!isWork(x)||!(+x.load>0))continue;
     const k=liftKey(x),cur=trained.get(k);if(!cur||String(x.created)>String(cur.created))trained.set(k,{session:x.session,created:x.created})}
   let improvedLifts=0,flatLifts=0,regressedLifts=0,fatigueFlags=0;
-  for(const[k,sess]of trained){const ex=prog.exercises.find(e=>e.id===k)||prog.exercises.find(e=>e.name===k);if(!ex)continue;
-    const rows=state.log.filter(r=>r.session===sess.session&&liftKey(r)===k),cmp=compareExerciseSession(ex,rows);
+  for(const[k,sess]of trained){
+    const rows=state.log.filter(r=>r.session===sess.session&&liftKey(r)===k);if(!rows.length)continue;
+    const current=currentExerciseForLiftKey(k),ex=current||exerciseIdentityFromRow(rows[0]),cmp=compareExerciseSession(ex,rows);
     if(cmp.status==="improved")improvedLifts++;else if(cmp.status==="flat")flatLifts++;else if(cmp.status==="regressed")regressedLifts++;
-    const r=recommendation(ex);if(r.status==="reduce"||r.stalled)fatigueFlags++}
+    if(current){const r=recommendation(current);if(r.status==="reduce"||r.stalled)fatigueFlags++}}
   let readyToAdd=0;for(const ex of prog.exercises){const st=recommendation(ex).status;if(st==="add"||st==="add2")readyToAdd++}
   let status;if(completedSessions===0)status=t("status.needs_more_data");
   else if(adherence>=.85&&improvedLifts>=flatLifts)status=t("status.on_track");
@@ -1974,8 +2218,11 @@ function programWeekContext(name,mc){
   if(mc.isFinalWeek)return t("log.context.program_week_ready",{name:nm,n:mc.current,total:mc.total});
   if(mc.current!=null)return t("log.context.program_week",{name:nm,n:mc.current,total:mc.total});
   return nm}
-function rowMusclesPure(row,program){if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
-  const ex=(program||[]).find(e=>e.id===row.exerciseId)||(program||[]).find(e=>e.name===row.name);
+function rowMusclesPure(row,program){
+  if(row.performedPrimary!=null||row.performedSecondary!=null)
+    return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
+  if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
+  const ex=(program||[]).find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
 function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
 function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
@@ -2242,11 +2489,48 @@ function programStatusLabel(adherence,health){
   const hasLog=state.log.some(isWork);if(!hasLog)return t("status.getting_started");
   const adRatio=adherence.ratio,hRatio=health?.ratio??0;
   if(adRatio>=1&&hRatio>=0.4)return t("status.on_track");if(adRatio>=0.5)return t("status.partial_week");return t("status.rebuilding")}
+/* Accepts v3, v2, a bare exercise array, and {program:[…]} — every shape
+   Taurifer has ever written. customExercises only exists in v3. */
 function parseProgramImport(parsed){
-  if(Array.isArray(parsed))return{exercises:parsed,meta:null};
-  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null};
-  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null};
+  const custom=Array.isArray(parsed?.customExercises)?parsed.customExercises:[];
+  if(Array.isArray(parsed))return{exercises:parsed,meta:null,customExercises:[]};
+  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null,customExercises:custom};
+  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null,customExercises:custom};
   return null}
+
+/* Merges an import's custom definitions into the lifter's own library.
+
+   An id can already be taken by a different definition — two devices both mint
+   "custom:<uuid>", or the same program is imported twice after a local edit. An
+   identical definition is reused, a colliding one is minted a fresh id, and the
+   templates that referenced it are repointed. Nothing local is overwritten. */
+function mergeImportedCustomExercises(incoming,exercises,snapshot){
+  const normalized=normalizeCustomExercises(incoming);
+  if(!normalized.length)return{customExercises:customExercises(snapshot).map(cloneSnapshot),added:0,remapped:0};
+  const mine=customExercises(snapshot).map(cloneSnapshot);
+  const byId=new Map(mine.map(e=>[e.id,e]));
+  const sameDefinition=(a,b)=>foldSearch(a.name)===foldSearch(b.name)&&
+    a.primary===b.primary&&a.secondary===b.secondary&&
+    a.equipment.join(",")===b.equipment.join(",");
+  const remap=new Map();
+  let added=0,remapped=0;
+  for(const entry of normalized){
+    const existing=byId.get(entry.id);
+    if(existing){
+      if(sameDefinition(existing,entry))continue;
+      // Same id, different movement: keep theirs, give this one a new identity.
+      const minted=Object.assign(cloneSnapshot(entry),{id:`${CUSTOM_ID_PREFIX}${uid()}`});
+      mine.push(minted);byId.set(minted.id,minted);
+      remap.set(entry.id,minted.id);added++;remapped++;
+      continue}
+    // A definition we already hold under another id is reused rather than doubled.
+    const twin=mine.find(e=>sameDefinition(e,entry));
+    if(twin){if(twin.id!==entry.id)remap.set(entry.id,twin.id);continue}
+    mine.push(entry);byId.set(entry.id,entry);added++}
+  if(remap.size)
+    for(const ex of exercises||[])
+      if(ex&&remap.has(ex.libraryId))ex.libraryId=remap.get(ex.libraryId);
+  return{customExercises:mine,added,remapped}}
 function save(){return persist()}
 function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
@@ -2276,11 +2560,24 @@ window.__repforgeStorage={
     requireAdapter(io,"writeWithAdapter");
     return enqueueWrite(()=>writeSnapshot(cloneSnapshot(snapshot),io))},
   health(){return Object.assign({},storageHealth)},
+  rebaseForTest(base,proposal,target,opts){return rebaseStateChange(base,proposal,target,opts)},
   replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
   mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
 function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
-function matchLift(ex){const id=ex?.id,name=ex?.name;return x=>id&&x.exerciseId?x.exerciseId===id:x.name===name}
+function exerciseNameTokens(ex){
+  const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
+  const entry=ex?.libraryId?libraryEntry(ex.libraryId):null;
+  for(const label of [entry?.name,entry?.namePt]){const key=movementToken(label);if(key)names.add(key)}
+  return names}
+function matchLift(ex){const movementId=ex?.movementId?String(ex.movementId):"",
+  key=exerciseLiftKey(ex),names=exerciseNameTokens(ex);
+  return row=>{
+    const rowLibraryId=row?.performedLibraryId?String(row.performedLibraryId):"";
+    const rowMovementId=row?.performedMovementId?String(row.performedMovementId):"";
+    if(rowLibraryId||rowMovementId)return liftKey(row)===key;
+    if(movementId&&ex?.id&&row?.exerciseId===ex.id)return true;
+    return names.has(movementToken(loggedMovementName(row)))}}
 function last(ex){const match=matchLift(ex);
   const hits=state.log.filter(x=>match(x)&&isWork(x));if(!hits.length)return[];
   const sid=[...hits].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0].session;
@@ -2303,7 +2600,7 @@ function typicalRir(ex,sess){sess=sess||sessionsFor(ex);
   return recent.length?median(recent.map(s=>s.medCappedRir)):1}
 // Memo key for the capacity helpers that walk the whole log: identity plus a cheap
 // stamp of the log's shape. persist() clears both memos whenever the log can change.
-const capMemoKey=ex=>`${ex?.id||ex?.name}|${state.log.length}|${state.log.at(-1)?.created||""}`;
+const capMemoKey=ex=>`${exerciseLiftKey(ex)}|${state.log.length}|${state.log.at(-1)?.created||""}`;
 // Recent typical capacity for off-day detection. null until 2 sessions exist.
 // Memoized: session freshness asks for every other lift on the day, on every
 // keystroke in a committed row — Log-tab speed comes first.
@@ -2356,7 +2653,7 @@ function sessionDeltaCounts(rows){const byLift=new Map();
     const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
   const counts={improved:0,flat:0,regressed:0,new:0};
   for(const [,liftRows]of byLift){const row=liftRows[0];
-    const ex=prog.find(row.exerciseId)||prog.exercises.find(e=>e.name===row.name)||{id:row.exerciseId,name:row.name};
+    const ex=exerciseIdentityFromRow(row);
     const d=compareExerciseSession(ex,liftRows);if(d.status in counts)counts[d.status]++}
   return counts}
 function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
@@ -2416,7 +2713,7 @@ function goToLogExercise(exId){
   const logBtn=$('nav button[data-view="log"]');
   if(logBtn){$$("nav button").forEach(x=>{const on=x===logBtn;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")})}
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
-  document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+  document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
   enterWorkout({});
   const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
@@ -2632,17 +2929,17 @@ function applySuggestions(ex,draft){const rec=recommendation(ex),prev=last(ex);
     if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}}
 const hasCommittedSets=ex=>{for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
 // After a set is committed, re-apply suggestions to still-untouched later sets.
-function refreshSuggestions(exId){const ex=prog.find(exId);if(!ex)return;
+function refreshSuggestions(exId){let ex=prog.find(exId);if(!ex)return;ex=sessionExercise(ex);
   const draft=loadDraft();
   applySuggestions(ex,draft);updateInSessionNote(exId);
   // Session freshness reads the lifts already finished today, so this commit can also
   // move the opening ghosts of lifts on this day that have not been started yet.
   // saveDraft() snapshots every input, so an unrefreshed ghost would freeze as drafted.
   for(const o of exercises(ex.day)){if(o.id===ex.id||hasCommittedSets(o))continue;
-    applySuggestions(o,draft);updateInSessionNote(o.id)}
+    applySuggestions(sessionExercise(o),draft);updateInSessionNote(o.id)}
   saveDraft()}
 function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
-  const ex=prog.find(exId);if(!ex)return;const text=inSessionNote(ex,loadDraft());
+  const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=inSessionNote(ex,loadDraft());
   let el=art.querySelector(".insession");
   if(!text){el?.remove();return}
   if(el){el.textContent=text;return}
@@ -2891,8 +3188,8 @@ function updateSessionBanner(){
   if(missedOk && meta.missedBannerDate===today() && meta.missedBannerDismissed) return hide();
 
   const isMissed=missedOk;
-  const title=isMissed?t("session_banner.missed.title",{hour:usual}):t("session_banner.today.title",{day:due.day});
-  const body=isMissed?t("session_banner.missed.body",{day:due.day}):t("session_banner.today.body",{day:due.day});
+  const title=isMissed?t("session_banner.missed.title",{hour:usual}):t("session_banner.today.title",{day:dayLabel(due.day)});
+  const body=isMissed?t("session_banner.missed.body",{day:dayLabel(due.day)}):t("session_banner.today.body",{day:dayLabel(due.day)});
 
   function dismissForToday(){
     const m=loadNotifyMeta();
@@ -2910,7 +3207,7 @@ function updateSessionBanner(){
   el.querySelector(".sessionbanner__act").onclick=()=>{
     if(!enterWorkout({day:due.day}))return;
     dismissForToday();
-    toast(t("toast.day_ready",{day:due.day}));
+    toast(t("toast.day_ready",{day:dayLabel(due.day)}));
   };
 }
 
@@ -3193,9 +3490,9 @@ function todayRecap(week){const sessions=sessionsToday();if(!sessions.length)ret
   // events carrying a delta are records the lifter actually broke today.
   const prLifts=new Set((week?.prs||[])
     .filter(ev=>String(ev.date)===iso&&(ev.deltaLoad!=null||ev.deltaReps!=null||ev.deltaE1rm!=null))
-    .map(ev=>ev.exerciseId||ev.exerciseName));
+    .map(ev=>ev.liftKey));
   return{sessions,days:doneDays,lastDay:sessions.at(-1).day||day,
-    muscles:[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
+    muscles:[...new Set(work.map(r=>String(rowMuscles(r).primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3),
     sets:work.length,volume:sum(work.map(r=>(+r.load||0)*(+r.reps||0))),prs:prLifts.size}}
 /** The program day that follows `from`, or null when the split has only one. */
 function nextDayAfter(from){const ds=days();if(!ds.length)return null;
@@ -3253,7 +3550,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
   const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
   else if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
-    sess.innerHTML=`<div class="today-session__name">${esc(day)}</div>`+
+    sess.innerHTML=`<div class="today-session__name">${esc(dayLabel(day))}</div>`+
       (mus.length?`<div class="today-session__muscles">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
       (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
@@ -3279,7 +3576,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
   const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
-      up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(next)}</div>`+
+      up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
         `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
       $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
     else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
@@ -3297,7 +3594,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
-  const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=day;
+  const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day);
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
     woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
@@ -3312,7 +3609,7 @@ function render(){applyI18n();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
-  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
+  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{if(!requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
 function setFieldVals(ex,n,r,draft,prev){
@@ -3581,8 +3878,9 @@ function focusDeckHtml(ex,r,draft,prev,{fl,at}){
   // A neighbour is rendered exactly as it will be once it lands: same well,
   // same tools, same skip — the swipe is a move, not a rebuild.
   const peek=(i,side)=>fl[i]
-    ? slot(focusCardHtml(fl[i],recommendation(fl[i]),draft,last(fl[i]),
+    ? (()=>{const active=sessionExercise(fl[i]);return slot(focusCardHtml(active,recommendation(active),draft,last(active),
         {peek:true,hasNext:i<fl.length-1,allDone,showSkip:i<fl.length-1}),side)
+      })()
     : "";
   return `<div class="deck" id="focusDeck" role="group" aria-roledescription="carousel" aria-label="${esc(t("focus.deck_aria"))}"><div class="deck__track" id="focusTrack">`+
     peek(at-1,"prev")+
@@ -3603,7 +3901,7 @@ function renderWorkout(){
   const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
   const at=logMode==="focus"&&fl.length?Math.min(focusIndex,fl.length-1):0;
   const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.toggle("is-focus",logMode==="focus");
-  wk.innerHTML=banner+exercises().map(ex=>{
+  wk.innerHTML=banner+exercises().map(slotEx=>{const ex=sessionExercise(slotEx);
     const r=recommendation(ex),prev=last(ex);
     // Focus renders the current exercise as its own full-height card; the rest
     // stay as (hidden) List markup, which is what carries their draft fields.
@@ -3615,7 +3913,11 @@ function renderWorkout(){
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
     const rows=Array.from({length:ex.sets},(_,i)=>setRowHtml(ex,i+1,r,draft,prev,nextSet)).join("");
     const isSkipped=skipped.has(ex.id),perf=substituted.get(ex.id),display=perf||ex.name;
-    const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:ex.name}))}</span>`:esc(ex.name);
+    // The heading is the movement being performed and nothing else. Which slot
+    // it stands in is a second thought, and gets its own full-width line down
+    // beside the substitute control rather than wrapping the title into a
+    // four-line paragraph on a phone.
+    const nameLabel=esc(perf||ex.name);
     const statusHtml=isSkipped?`<span class="ex__state">${esc(t("log.skipped"))}</span>`:"";
     const openAria=t("log.open_exercise_aria",{name:display})+(isSkipped?` · ${t("log.skipped")}`:"");
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(openAria)}">${nameLabel}${statusHtml}</button>`;
@@ -3628,10 +3930,12 @@ function renderWorkout(){
       `<span class="exnote__lab">${esc(t("log.note"))}</span><span class="exnote__preview">${notePreview}</span></button>`+
       `<textarea class="exnote__input hidden" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" rows="2" `+
       `placeholder="${esc(t("log.note.placeholder"))}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}">${esc(noteVal)}</textarea></div>`;
-    const subPick=ex.alternates?.length?`<div class="subst"><span class="subst__lab">${esc(t("log.substitute.label"))}</span><select class="subst__pick" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:ex.name}))}">`+
-      `<option value=""${!perf?" selected":""}>${esc(ex.name)}</option>`+
-      ex.alternates.map(a=>`<option value="${esc(a)}"${perf===a?" selected":""}>${esc(a)}</option>`).join("")+
-      `<option value="__other__"${perf&&!ex.alternates.includes(perf)&&perf!==ex.name?" selected":""}>${esc(t("log.substitute.other"))}</option></select></div>`:"";
+    // Every slot can be swapped now, not just the ones that happen to carry
+    // alternates: the machine being taken does not check the program first.
+    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab">${esc(t("log.substitute.label"))}</span>`+
+      `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:slotEx.name}))}">${esc(perf||ex.name)}</button>`+
+      (perf?`<p class="subst__from">${esc(t("log.substitute_for",{name:slotEx.name}))}</p>`:"")+
+      `</div>`;
     const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
     const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
       `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
@@ -3703,7 +4007,7 @@ function refreshAfterCommittedEdit(row){
   if(exId)refreshSuggestions(exId)}
 
 function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
-  const ex=prog.find(exId);if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
+  const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
   if(!text){el?.remove();return}
   if(el)el.textContent=text;else{const n=document.createElement("div");n.className="delta-prev";n.textContent=text;
     const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
@@ -3735,6 +4039,7 @@ function saveDraft(opts){
     else if(prev.__exnotes)d.__exnotes=prev.__exnotes}
   d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];
   d.__skipped=[...skipped];d.__substituted=Object.fromEntries(substituted);
+  d.__substitutedRef=Object.fromEntries(substitutedRef);
   if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
   else delete d.__lastCommitAt;
   if(sessionStartedAt&&committed.size)d.__startedAt=sessionStartedAt;
@@ -3841,7 +4146,7 @@ function bindWorkout(){
     const row=inp.closest(".setrow, .curset");
     if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
     saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
-  $w(".copylast").forEach(b=>b.onclick=()=>{const prevSets=last({id:b.dataset.copy});if(!prevSets.length)return;
+  $w(".copylast").forEach(b=>b.onclick=()=>{const ex=sessionExercise(prog.find(b.dataset.copy)),prevSets=ex?last(ex):[];if(!prevSets.length)return;
     for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
       for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmtPlain(toDisplay(s.load)):fmtPlain(s[f])}
       // The pickers carry the copied effort: saveDraft reads the DOM back, so
@@ -3851,11 +4156,7 @@ function bindWorkout(){
     saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
   $w(".ex__rest").forEach(b=>b.onclick=()=>startRest());
   $w(".ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
-  $w(".subst__pick").forEach(sel=>{sel.onchange=()=>{const id=sel.dataset.sub;
-    if(sel.value==="__other__"){const v=prompt(t("prompt.alternate_exercise_name"),substituted.get(id)||"");
-      if(v==null){renderWorkout();return}
-      applyCustomSub(id,v);
-    }else applyPredefinedSub(id,sel.value)}});
+  $w(".subst__pick").forEach(b=>b.onclick=()=>openSubstitutePicker(b.dataset.sub));
   $w(".effort__btn").forEach(b=>{
     b.onclick=()=>{const key=b.dataset.eff;
       setEffortPick(key,b.dataset.e);touched.add(key);
@@ -4036,7 +4337,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const done=[...committed].length;
   const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
-  $("#saveMeta").textContent=done?t("log.save_meta.done",{day,done,planned}):(entered?t("log.save_meta.entered",{day,entered,planned}):t("log.save_meta.planned",{day,planned}));}
+  $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
 async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
   const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
@@ -4047,14 +4348,17 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   if(form){form.inert=true;form.setAttribute("aria-busy","true")}
   try{const date=check.values.date,bw=check.values.bodyweight,session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
   for(const ex of exercises()){if(skipped.has(ex.id))continue;
-    const exNote=currentExerciseNote(ex.id);
+    const performed=sessionExercise(ex),exNote=currentExerciseNote(ex.id);
     for(let n=1;n<=ex.sets;n++){
     const key=`${ex.id}_${n}`;
     if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
     const got=readSetCandidate(key);if(!got.ok){applyFieldError(got);return}
     const{load,reps,rir}=got.values;
-    const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,primary:ex.primary,secondary:ex.secondary};
-    if(substituted.has(ex.id))row.performedName=substituted.get(ex.id);
+    const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,
+      primary:ex.primary,secondary:ex.secondary,performedName:performed.name,
+      performedPrimary:performed.primary||"",performedSecondary:performed.secondary||""};
+    if(performed.libraryId)row.performedLibraryId=performed.libraryId;
+    else if(performed.movementId)row.performedMovementId=performed.movementId;
     if(exNote)row.exNote=exNote;
     if(warmups.has(key))row.warmup=true;
     if(bw>0)row.bodyweight=bw;
@@ -4108,7 +4412,7 @@ function sessionSummaryHtml(s){
   const unit=unitLabel(),out=[];
   out.push(`<div class="sum-crest" aria-hidden="true"><span class="sum-crest__mark"></span></div>`);
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
-  out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(s.day)}</h2>`);
+  out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   const sub=[];
   if(s.meso.current!=null)sub.push(t("today.week_short",{n:s.meso.current}));
   sub.push(formatLongDate(s.date));
@@ -4165,7 +4469,7 @@ function sessionSummaryHtml(s){
       Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`)}
   if(s.next)
     out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
-      `<span class="sum-next__day">${esc(s.next.day)}</span>`+
+      `<span class="sum-next__day">${esc(dayLabel(s.next.day))}</span>`+
       `<span class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</span></div>`);
   out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button>`+
     `<button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
@@ -4259,13 +4563,13 @@ function summaries(){const m=new Map();
 
 function strengthDashboard(){
   const byLift=new Map();for(const s of summaries()){(byLift.get(s.liftKey)||byLift.set(s.liftKey,[]).get(s.liftKey)).push(s)}
-  const prN=new Map();for(const ev of detectPRs(state.log)){const k=ev.exerciseId||ev.exerciseName;prN.set(k,(prN.get(k)||0)+1)}
+  const prN=new Map();for(const ev of detectPRs(state.log)){const k=ev.liftKey;prN.set(k,(prN.get(k)||0)+1)}
   const rows=[];
   for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
-    const ex=state.program.find(e=>e.id===k)||state.program.find(e=>e.name===k);
+    const ex=currentExerciseForLiftKey(k);
     const rec=ex?recommendation(ex):{label:"—"};
     rows.push({exercise:latest.name,latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
-      prs:prN.get(k)||prN.get(latest.name)||0,lastTrained:latest.date,signal:rec.label})}
+      prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
 
@@ -4333,7 +4637,7 @@ function recentDeltaRows(){const sessMap=new Map();
   for(const sess of recent){const byLift=new Map();
     for(const r of state.log.filter(x=>x.session===sess.session)){const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
     for(const rows of byLift.values()){if(!workingRows(rows).length)continue;
-      const ex=prog.find(rows[0].exerciseId)||{id:rows[0].exerciseId,name:rows[0].name,day:rows[0].day};
+      const ex=currentExerciseForLiftKey(liftKey(rows[0]))||exerciseIdentityFromRow(rows[0]);
       const cmp=compareExerciseSession(ex,rows);if(cmp.status==="not_comparable")continue;
       const m=cmp.metrics?.current||exerciseSessionMetrics(rows);
       out.push({[t("stats.table.date")]:shortDate(sess.date),[t("stats.table.exercise")]:displayName(rows[0]),[t("stats.table.status")]:cmp.label,[t("stats.table.load")]:fmtLoad(m.topLoad),[t("stats.table.reps")]:m.totalReps,
@@ -4354,7 +4658,8 @@ function renderStats(){
   renderThisWeek();
   renderReadyList();
   renderOverviewVolume();
-  // Stat exercise options: label shows performed name when set; value is liftKey for exerciseId-backed roll-up.
+  // Stat exercise options: the label and identity both follow what was actually
+  // performed, so reusing a program slot cannot merge two different movements.
   const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
   const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
     const latest=[...rows].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
@@ -4404,11 +4709,11 @@ function detectPRs(log,opts={}){
   const best=new Map(),events=[];
   for(const row of rows){const k=liftKey(row),ld=+row.load,rp=+row.reps,em=e1rm(ld,rp);
     const cur=best.get(k)||{load:0,repsAtMax:0,e1rm:0};
-    if(ld>cur.load){events.push({kind:"load",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
+    if(ld>cur.load){events.push({kind:"load",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
       cur.load=ld;cur.repsAtMax=rp}
-    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
+    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
       cur.repsAtMax=rp}
-    if(em>cur.e1rm){events.push({kind:"e1rm",date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
+    if(em>cur.e1rm){events.push({kind:"e1rm",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
@@ -4446,7 +4751,31 @@ window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeCatalogForSlot=catalogForSlot;
 window.__repforgeChooseExercise=chooseExercise;
 window.__repforgeResolveSplit=resolveSplit;
-window.__repforgeExerciseCatalog=EXERCISE_CATALOG;
+window.__repforgeExerciseCatalog=EXERCISE_LIBRARY;
+window.__repforgeExerciseLibrary=EXERCISE_LIBRARY;
+window.__repforgeLibraryEntry=libraryEntry;
+window.__repforgePickableExercises=()=>pickableExercises();
+window.__repforgeLinkImported=linkImportedExercises;
+window.__repforgeOpenPicker=opts=>openExercisePicker(opts);
+window.__repforgeSaveCustomExercise=draft=>saveCustomExercise(draft);
+window.__repforgeCustomExercises=()=>customExercises();
+window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
+window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
+window.__repforgeRowMuscles=row=>rowMuscles(row);
+window.__repforgeParseProgramSource=(text,name)=>parseProgramSource(text,name);
+window.__repforgeImportDraft=()=>importDraft&&{
+  fileName:importDraft.fileName,format:importDraft.format,
+  counts:importCounts(importDraft),
+  rows:importDraft.rows.map(r=>({name:r.raw.name,status:r.status,decision:r.decision,
+    reviewed:r.reviewed,match:r.match?r.match.id:null}))};
+window.__repforgeCommitImport=io=>commitImportReview(io||storageIO);
+window.__repforgeReferencedCustom=list=>referencedCustomExercises(list);
+window.__repforgeOpenLibrary=opts=>openLibrary(opts||{});
+window.__repforgeLibraryFlow=()=>libFlow&&{day:libFlow.day,tab:libFlow.tab,step:libFlow.step,
+  query:libFlow.query,muscle:libFlow.muscle,equipment:libFlow.equipment,
+  selected:[...libFlow.selected.keys()],selection:[...libFlow.selected.entries()].map(cloneSnapshot)};
+window.__repforgeEditCustom=id=>editCustomExercise(id);
+window.__repforgeCompletedVolume=(windowDays=7)=>volMapToObj(completedHardSets(windowDays));
 window.__repforgeEquipmentSupportsSplit=equipmentSupportsSplit;
 window.__repforgeTestDeltas=(prevRows,currentRows)=>buildSessionDelta(prevRows,currentRows);
 window.__repforgeCompareExercise=(ex,currentRows)=>compareExerciseSession(ex,currentRows);
@@ -4514,8 +4843,8 @@ window.__repforgeBuildPlainSummary=buildPlainSummary;
 function prTimeline(filter){
   const all=detectPRs(state.log);let events=all;
   if(filter==="load"||filter==="reps"||filter==="e1rm")events=all.filter(e=>e.kind===filter);
-  else if(filter==="program"){const ids=new Set(prog.exercises.map(e=>e.id));
-    events=all.filter(e=>e.exerciseId&&ids.has(e.exerciseId))}
+  else if(filter==="program"){const ids=new Set(prog.exercises.map(exerciseLiftKey));
+    events=all.filter(e=>ids.has(e.liftKey))}
   return events.sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
 window.__repforgePrTimeline=prTimeline;
 
@@ -4538,7 +4867,7 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
       (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("")}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
-  const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===sel);
+  const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>ev.liftKey===sel);
   if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.log_prs"))}</div>`;return}
   el.innerHTML=`<table><thead><tr><th>${esc(t("stats.table.date"))}</th><th>${esc(t("stats.table.kind"))}</th><th>${esc(t("stats.table.load"))}</th><th>${esc(t("stats.table.reps"))}</th><th>${esc(t("stats.table.rir"))}</th><th>${esc(t("stats.table.e1rm"))}</th><th>${esc(t("stats.table.delta_vs_prev"))}</th></tr></thead><tbody>${
     events.map(ev=>{const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
@@ -4592,7 +4921,7 @@ function renderAttention(){const el=$("#attention");if(!el)return;
   el.innerHTML=html;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
     if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
-    else{const k=ex?.id||id,has=[...$("#statExercise").options].some(o=>o.value===k);
+    else{const k=ex?exerciseLiftKey(ex):null,has=!!k&&[...$("#statExercise").options].some(o=>o.value===k);
       if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast(t("toast.chart_missing_lift"))}});}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
@@ -4676,6 +5005,10 @@ const historyIndexCache=new WeakMap();
 function historyPanelId(session){return`hist-sess-${String(session??"").replace(/[^A-Za-z0-9_-]/g,"_")}`}
 function buildHistoryIndex(log){
   const source=log||[];
+  // Read the program's current movement names once per build; this is the only
+  // thing in the index that depends on the program, and it is why historyIndexFor
+  // still invalidates its cache when the program identity changes.
+  const currentNames=currentMovementNames();
   const rows=[];
   const n=source.length;
   for(let i=0;i<n;i++){const raw=source[i];rows.push(raw&&typeof raw==="object"?raw:{})}
@@ -4713,8 +5046,12 @@ function buildHistoryIndex(log){
       if(!pred.length){counts.new++;continue}
       const d=buildSessionDelta(pred,liftRows);if(d.status in counts)counts[d.status]++}
     sess.delta=counts;
-    const names=[...new Set(sess.rows.map(r=>String(displayName(r)||"")))];
-    sess.searchText=`${String(sess.day||"")} ${names.join(" ")}`.toLowerCase();
+    const names=new Set(sess.rows.map(r=>String(displayName(r)||"")));
+    // Aliases are additive: the performed label always stays searchable, and
+    // the current program name only widens what finds the session.
+    const aliases=new Set();
+    for(const r of sess.rows){const alias=currentNameForRow(r,currentNames);if(alias&&!names.has(alias))aliases.add(alias)}
+    sess.searchText=`${String(sess.day||"")} ${dayLabel(sess.day)} ${[...names,...aliases].join(" ")}`.toLowerCase();
     sess.panelId=historyPanelId(sess.session)}
   const prEvents=detectPRs(rows);
   const prDates=new Set(prEvents.map(ev=>String(ev.date)));
@@ -4804,8 +5141,8 @@ function renderHistory(source=state.log){
     const open=expandedSession===s.session;
     const panelId=s.panelId||historyPanelId(s.session);
     return monthHdr+`<article class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
-      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:s.day}))}">`+
-      `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(s.day)}</div>`+
+      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:dayLabel(s.day)}))}">`+
+      `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(dayLabel(s.day))}</div>`+
       (mus.length?`<div class="session__sub">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
       `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
@@ -4833,7 +5170,7 @@ function renderHistory(source=state.log){
       row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
     else{row.classList.remove("is-removed");setEdrowRmState(b,false);
       row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
-  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
+  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
@@ -4880,7 +5217,7 @@ function sessionEditor(s,sets){
       `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
       `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
-    `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
+    `<div class="edhead"><div class="session__day">${esc(dayLabel(s.day))}</div>`+
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
@@ -4927,7 +5264,8 @@ function exerciseSessionsDetail(key){const m=new Map();
 
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
-  exView={key,from:from||currentViewId()};
+  const slot=prog.find(key),movement=slot?(workoutActive?sessionExercise(slot):slot):null;
+  exView={key:movement?exerciseLiftKey(movement):key,from:from||currentViewId(),exercise:movement?Object.assign({},movement):null};
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercise"));
   document.body.classList.add("is-exercise");document.body.classList.remove("is-settings","is-onboarding","is-workout");
@@ -4941,10 +5279,10 @@ function closeExerciseView(){const back=exView?.from||"log";exView=null;
 function openSettingsView(){showSettings()}
 
 function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
-  const key=exView.key,tmpl=prog.find(key),sessions=exerciseSessionsDetail(key);
+  const key=exView.key,tmpl=currentExerciseForLiftKey(key)||exView.exercise||null,sessions=exerciseSessionsDetail(key);
   const latest=sessions.at(-1)?.rows.at(-1);
   const name=latest?displayName(latest):(tmpl?.name||key);
-  const exRef=tmpl||(latest?{id:latest.exerciseId,name:latest.name}:null);
+  const exRef=tmpl||(latest?exerciseIdentityFromRow(latest):null);
   const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
   const back=$("#exBack");if(back)back.textContent=`‹ ${t(backKey)}`;
 
@@ -4957,7 +5295,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const work=state.log.filter(r=>liftKey(r)===key&&isWork(r));
   const topLoad=Math.max(0,...work.map(r=>+r.load||0));
   const bestE=work.length?Math.max(...work.map(r=>e1rm(+r.load,+r.reps))):0;
-  const prCount=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===key).length;
+  const prCount=detectPRs(state.log).filter(ev=>ev.liftKey===key).length;
   const lcFirst=s=>s?s.charAt(0).toLowerCase()+s.slice(1):s;
   const tiles=[
     {label:lcFirst(t("stats.metric.sessions")),val:sessions.length},
@@ -4966,7 +5304,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     {label:t("stats.metric.prs"),val:prCount},
   ];
   const sums=summaries().filter(x=>x.liftKey===key);
-  const prEvents=detectPRs(state.log).filter(ev=>(ev.exerciseId||ev.exerciseName)===key).reverse();
+  const prEvents=detectPRs(state.log).filter(ev=>ev.liftKey===key).reverse();
   const loadPr=prEvents.find(e=>e.kind==="load"),e1Pr=prEvents.find(e=>e.kind==="e1rm");
   const historyHtml=sessions.length?[...sessions].reverse().slice(0,8).map(s=>{
     const best=[...s.rows].filter(isWork).sort((a,b)=>+b.load-+a.load||+b.reps-+a.reps)[0];
@@ -4978,7 +5316,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(tmpl?.primary||"")}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(tmpl.day)} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
     recHtml+
     `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
     `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
@@ -5010,7 +5348,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
   for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
     daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" aria-expanded="${open?"true":"false"}"><div>`+
-      `<div class="prog-day__title">${esc(d)}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
+      `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
       `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
     if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
       `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
@@ -5106,10 +5444,10 @@ function dayCard(d){
     :`<p class="pday__empty">${esc(t("program.empty.exercises"))}</p>`;
   return `<div class="pday${isCollapsed?" is-collapsed":""}" data-day="${esc(d)}">`+
     `<div class="pday__head">`+
-      `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(d)}" aria-label="${esc(t("program.day.name_aria"))}">`+
+      `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(dayLabel(d))}" aria-label="${esc(t("program.day.name_aria"))}">`+
       `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets}))}</span>`+
-      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
-      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
     `</div>`+
     `<div class="pexlist">${body}</div>`+
     `<button class="btn btn--steel pday__add" type="button" data-act="addEx" data-day="${esc(d)}">${esc(t("program.day.add_exercise"))}</button>`+
@@ -5118,9 +5456,13 @@ function dayCard(d){
 
 function exCard(e,i,n){
   const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"></label>`;
+  // The name stays an editable field — a slot can be renamed to what the plate
+  // on the machine says — with the library one tap away beside it.
+  const linked=e.libraryId?libraryEntry(e.libraryId):null;
   return `<div class="pex" data-id="${esc(e.id)}">`+
     `<div class="pex__head">`+
-      `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t("program.exercise.name_aria"))}">`+
+      `<input class="pex__name" data-id="${esc(e.id)}" data-field="name" value="${esc(e.name)}" placeholder="${esc(t("program.exercise.name_placeholder"))}" aria-label="${esc(t(linked?"program.exercise.alias_aria":"program.exercise.name_aria"))}">`+
+      `<button class="iconbtn pex__swap${linked?"":" is-unlinked"}" type="button" data-act="changeEx" data-id="${esc(e.id)}" title="${esc(t("program.exercise.change_title"))}" aria-label="${esc(t("program.exercise.change_aria",{name:e.name}))}"><span class="icon-mask icon-mask--sm icon-mask--search" aria-hidden="true"></span></button>`+
       `<div class="pex__move">`+
         `<button class="iconbtn" type="button" data-act="up" data-id="${esc(e.id)}"${i===0?" disabled":""} aria-label="${esc(t("program.exercise.move_up"))}">▲</button>`+
         `<button class="iconbtn" type="button" data-act="down" data-id="${esc(e.id)}"${i===n-1?" disabled":""} aria-label="${esc(t("program.exercise.move_down"))}">▼</button>`+
@@ -5128,10 +5470,19 @@ function exCard(e,i,n){
       `</div>`+
     `</div>`+
     `<div class="pex__nums">${num("sets",esc(t("program.exercise.sets")))}${num("min",esc(t("program.exercise.min_reps")))}${num("max",esc(t("program.exercise.max_reps")))}</div>`+
-    `<label class="pex__mus">${esc(t("program.exercise.primary"))}<input data-id="${esc(e.id)}" data-field="primary" value="${esc(e.primary)}" placeholder="${esc(t("program.exercise.primary_placeholder"))}"></label>`+
-    `<label class="pex__mus">${esc(t("program.exercise.secondary"))}<input data-id="${esc(e.id)}" data-field="secondary" value="${esc(e.secondary)}" placeholder="${esc(t("program.exercise.secondary_placeholder"))}"></label>`+
+    // Muscles belong to the definition while a slot is linked. Showing them
+    // read-only with a way out beats letting an edit silently contradict the id.
+    `<label class="pex__mus">${esc(t("program.exercise.primary"))}<input data-id="${esc(e.id)}" data-field="primary" value="${esc(e.primary)}" placeholder="${esc(t("program.exercise.primary_placeholder"))}"${linked?" readonly":""}></label>`+
+    `<label class="pex__mus">${esc(t("program.exercise.secondary"))}<input data-id="${esc(e.id)}" data-field="secondary" value="${esc(e.secondary)}" placeholder="${esc(t("program.exercise.secondary_placeholder"))}"${linked?" readonly":""}></label>`+
+    (linked?`<p class="pex__linked">${esc(t("program.exercise.linked",{name:libraryName(linked)}))} `+
+      `<button type="button" class="pex__detach" data-act="detachEx" data-id="${esc(e.id)}">${esc(t("program.exercise.detach"))}</button></p>`:"")+
     `<label class="pex__mus">${esc(t("program.exercise.setup_notes"))}<input data-id="${esc(e.id)}" data-field="notes" value="${esc(e.notes)}" placeholder="${esc(t("program.exercise.setup_notes_placeholder"))}"></label>`+
-    `<label class="pex__mus">${esc(t("program.exercise.alternates"))}<input data-id="${esc(e.id)}" data-field="alternates" value="${esc((e.alternates||[]).join(", "))}" placeholder="${esc(t("program.exercise.alternates_placeholder"))}"></label>`+
+    `<div class="pex__alts">`+
+      `<span class="pex__altlab">${esc(t("program.exercise.alternates"))}</span>`+
+      `<button type="button" class="pex__altpick" data-act="pickAlternates" data-id="${esc(e.id)}">`+
+        `${esc((e.alternates||[]).join(", ")||t("program.exercise.alternates_empty"))}`+
+      `</button>`+
+    `</div>`+
   `</div>`;
 }
 
@@ -5139,8 +5490,10 @@ function exCard(e,i,n){
    (trimmed, split on commas), so the stored string routinely differs from what
    is legitimately half-typed in the box — mirroring the model back mid-edit
    would eat trailing spaces and re-fill a field the lifter is still clearing.
-   These echo on blur instead; see bindEditor. */
-const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes","alternates"]);
+   These echo on blur instead; see bindEditor. Alternates are no longer typed —
+   they are picked — so they are committed whole and are not in this set,
+   though Program.update still parses the string form for imported programs. */
+const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
 const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
 function commitEditorField(id,field,value,effect){
   const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
@@ -5211,11 +5564,11 @@ function bindEditor(){
     inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
       const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
       if(!nextProgram.renameDay(old,next)){
-        inp.value=old;toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
+        inp.value=dayLabel(old);toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
       proposal.program=nextProgram.toJSON();
       const effect=draftDayReplacementEffect(old,next);
       const result=await commitProposedState(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
-      if(!(result.localOk||result.idbOk)){inp.value=old;return}
+      if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
       renameCollapsedDay(old,next);
       if(day===old)day=next;
       render();toast(t("toast.day_renamed"))};
@@ -5229,12 +5582,52 @@ async function editorAction(act,ds){
     card.classList.toggle("is-collapsed",now);setDayCollapsed(ds.day,now);
     const btn=card.querySelector(".pday__caret");
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
-      const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
+      const label=t(now?"program.day.expand":"program.day.collapse",{day:dayLabel(ds.day)});btn.setAttribute("aria-label",label);btn.title=label}}
   else if(act==="addEx"){
+    // The fast path: what this day is short of, what you train often, and your
+    // own movements — with the whole library one tap further on. Everything
+    // already on the day is excluded; the same movement twice is always a slip.
+    openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:dayLabel(ds.day)}),subtitle:"",
+      exclude:prog.forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
+      onPick:async entry=>{
+        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        nextProgram.addExercise(ds.day,entry);proposal.program=nextProgram.toJSON();
+        const result=await commitProposedState(proposal);
+        if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
+  else if(act==="changeEx"){
+    const ex=prog.find(ds.id);if(!ex)return;
+    openExercisePicker({title:t("picker.title_change"),subtitle:ex.name,
+      exclude:prog.forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
+      onPick:async entry=>{
+        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        if(!nextProgram.replaceExercise(ds.id,entry))return;
+        proposal.program=nextProgram.toJSON();
+        const result=await commitProposedState(proposal);
+        if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
+  else if(act==="detachEx"){
+    const ex=prog.find(ds.id);if(!ex)return;
+    if(!confirm(t("confirm.detach_exercise",{name:ex.name})))return;
     const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
-    nextProgram.addExercise(ds.day);proposal.program=nextProgram.toJSON();
+    if(!nextProgram.detachExercise(ds.id))return;
+    proposal.program=nextProgram.toJSON();
     const result=await commitProposedState(proposal);
-    if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}
+    if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
+  else if(act==="pickAlternates"){
+    const ex=prog.find(ds.id);if(!ex)return;
+    // Alternates were a comma-separated string of whatever got typed. They are
+    // still stored as names, so older programs keep working, but they are now
+    // chosen from the library — which is what makes a one-tap swap possible.
+    const byName=new Map(pickableExercises().map(e=>[foldSearch(libraryName(e)),e.id]));
+    const extras=[],preselected=[];
+    for(const n of ex.alternates||[]){
+      const hit=byName.get(foldSearch(n));
+      if(hit){preselected.push(hit);continue}
+      const extra=nameOnlyEntry(n);extras.push(extra);preselected.push(extra.id)}
+    openExercisePicker({title:t("picker.title_alternates"),subtitle:ex.name,mode:"multi",
+      selected:preselected,extras,exclude:[ex.libraryId].filter(Boolean),
+      onPick:async entries=>{
+        const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
+        if(result.localOk||result.idbOk){render();toast(t("toast.alternates_saved"))}}})}
   else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
@@ -5250,7 +5643,7 @@ async function editorAction(act,ds){
     if(result.localOk||result.idbOk)render()}
   else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
-    if(confirm(t(key,{day:ds.day}))){
+    if(confirm(t(key,{day:dayLabel(ds.day)}))){
     const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
     nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
     const effect=destructiveDraftClearEffect(discardDraftRaw);
@@ -5448,7 +5841,18 @@ async function exportJson(){
   shareOrDownload(text,name,"application/json");renderSettings();
   return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
-function exportProgram(){const payload={version:2,meta:state.programMeta,exercises:prog.toJSON()};
+/* A program-only export carries its own custom definitions. Without them a
+   template arriving on another device points at a "custom:…" id that device has
+   never seen: the movement survives as copied strings but stops being a
+   reusable exercise. Only definitions this program actually references travel;
+   the rest of the lifter's library is not this file's business. */
+function referencedCustomExercises(list){
+  const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
+  return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
+function exportProgram(){
+  const exercises=prog.toJSON();
+  const payload={version:3,meta:state.programMeta,exercises,
+    customExercises:referencedCustomExercises(exercises)};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
 
@@ -5456,8 +5860,8 @@ function exportProgram(){const payload={version:2,meta:state.programMeta,exercis
  * The program as something a lifter can read or paste into a chat: the name and
  * how many days it runs, then each training day with its muscles and its
  * exercise templates numbered in order, "3× 6-10" for sets × rep range.
- * Lossy by design — ids, muscles per exercise, notes, and alternates stay in the
- * JSON export, which is the one that can be imported back. */
+ * Lossy by design — the text can be imported back, while ids, per-exercise
+ * muscles, notes, and alternates require the lossless JSON export. */
 const programTextReps=e=>e.min===e.max?`${e.min}`:`${e.min}-${e.max}`;
 function programText(){
   const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
@@ -5493,6 +5897,345 @@ function closeProgramTextSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
+/* ============================================================
+   Exercise picker
+   One sheet, four callers: the program editor's add and change
+   paths, the alternates field, and the log-tab substitution.
+   Callers hand it a mode and a callback and get library entries
+   back — they never touch the library themselves, so a movement
+   arrives in a program slot the same way from every surface.
+   ============================================================ */
+
+/* Search is accent- and case-blind, and reads both languages at once: a
+   Portuguese lifter still types "bench press" for a machine whose plate says
+   so, and an English one still finds "supino". */
+const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+const MUSCLE_TOKENS=["Chest","Lats","Mid/upper back","Traps","Front delts","Side delts","Rear delts",
+  "Biceps","Triceps","Forearms","Quads","Hamstrings","Glutes","Adductors","Abductors","Calves",
+  "Spinal erectors","Abs","Obliques"];
+const PICKER_EQUIPMENT=["machine","cable","dumbbell","barbell","smith","bodyweight"];
+/* Muscle filters lifters actually think in, each covering the tokens under it. */
+const PICKER_MUSCLE_GROUPS=[
+  ["chest",["Chest"]],["back",["Lats","Mid/upper back","Traps"]],
+  ["shoulders",["Front delts","Side delts","Rear delts"]],
+  ["arms",["Biceps","Triceps","Forearms"]],
+  ["legs",["Quads","Hamstrings","Glutes","Adductors","Abductors","Calves"]],
+  ["core",["Abs","Obliques","Spinal erectors"]]];
+
+let pickerState=null,pickerReturn=null,customState=null,customReturn=null;
+
+const exerciseSearchText=e=>foldSearch(`${e.name} ${e.namePt||""} ${e.primary||""} ${e.secondary||""}`);
+function exerciseMatches(e,query,muscleGroup,equipment){
+  if(equipment&&!(e.equipment||[]).includes(equipment))return false;
+  if(muscleGroup){
+    const group=PICKER_MUSCLE_GROUPS.find(g=>g[0]===muscleGroup);
+    const tokens=`${e.primary||""},${e.secondary||""}`.split(",");
+    if(group&&!tokens.some(x=>group[1].includes(x)))return false}
+  if(!query)return true;
+  const hay=exerciseSearchText(e);
+  return foldSearch(query).split(/\s+/).filter(Boolean).every(w=>hay.includes(w))}
+
+/* Library ids already in the program, and names already logged. Both float to
+   the top of the list: the movement somebody wants next is usually one they
+   have met before. */
+function programLibraryIds(){
+  const ids=new Set();
+  for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
+  return ids}
+/* What the lifter has actually trained, for promoting familiar movements in the
+   picker. Library ids are the reliable half — names only match when the log was
+   written in the language the picker is being read in. */
+function loggedExerciseRefs(){
+  const ids=new Set(),names=new Set();
+  for(const r of state.log||[]){
+    if(r?.performedLibraryId)ids.add(String(r.performedLibraryId));
+    if(r?.performedName)names.add(foldSearch(r.performedName));
+    if(r?.name)names.add(foldSearch(r.name))}
+  for(const e of state.program||[])if(e.libraryId)ids.add(String(e.libraryId));
+  return{ids,names}}
+
+/* ---- Exercise artwork ----
+   Twenty-four movements have licensed illustrations; every other built-in and
+   every custom exercise renders a deliberately empty tile. The empty state is
+   an element with no src, not an <img> pointing at a file that is not there:
+   a broken-image request is both a wasted fetch and a visible glyph. Both
+   shapes are the same size so a mixed list stays aligned. */
+const exerciseMedia=e=>(e&&typeof e.media==="string"&&e.media)||null;
+const emptyThumb=({size="md"}={})=>
+  `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"></span>`;
+function exerciseThumb(e,{size="md"}={}){
+  const src=exerciseMedia(e);
+  if(!src)return emptyThumb({size});
+  // alt is empty on purpose: the exercise name sits next to it in every list,
+  // so describing the drawing again would only repeat the row to a screen reader.
+  return `<img class="exthumb exthumb--${esc(size)}" src="${esc(src)}" alt="" `+
+    `loading="lazy" decoding="async" width="768" height="768">`}
+
+function pickerRow(e,{selected=false,checkbox=false}={}){
+  const muscles=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean);
+  const shown=muscles.slice(0,3).map(muscleLabel);
+  const eq=(e.equipment||[])[0]||null;
+  return `<button type="button" class="pickrow${selected?" is-selected":""}" data-pick="${esc(e.id)}"`+
+    (checkbox?` role="checkbox" aria-checked="${selected?"true":"false"}"`:"")+`>`+
+    exerciseThumb(e,{size:"sm"})+
+    `<span class="pickrow__main">`+
+      `<span class="pickrow__name">${esc(libraryName(e))}</span>`+
+      `<span class="pickrow__meta">${esc(shown.join(" · "))}</span>`+
+    `</span>`+
+    (eq?`<span class="pickrow__eq">${esc(t("picker.equipment."+eq))}</span>`:"")+
+    `<span class="pickrow__tick" aria-hidden="true"></span>`+
+  `</button>`}
+
+function renderPickerFilters(){
+  const el=$("#exPickFilters");if(!el||!pickerState)return;
+  const chip=(kind,val,label,active)=>
+    `<button type="button" class="pchip${active?" is-active":""}" data-filter="${kind}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
+  const parts=[chip("clear","",t("picker.filter_all"),!pickerState.muscle&&!pickerState.equipment)];
+  for(const [key] of PICKER_MUSCLE_GROUPS)
+    parts.push(chip("muscle",key,t("picker.group."+key),pickerState.muscle===key));
+  for(const eq of PICKER_EQUIPMENT)
+    parts.push(chip("equipment",eq,t("picker.equipment."+eq),pickerState.equipment===eq));
+  el.innerHTML=parts.join("");
+  $$("#exPickFilters .pchip").forEach(b=>b.onclick=()=>{
+    const kind=b.dataset.filter;
+    if(kind==="clear"){pickerState.muscle=null;pickerState.equipment=null}
+    else if(kind==="muscle")pickerState.muscle=pickerState.muscle===b.dataset.val?null:b.dataset.val;
+    else pickerState.equipment=pickerState.equipment===b.dataset.val?null:b.dataset.val;
+    renderPickerFilters();renderPickerList()})}
+
+const pickerCandidates=()=>(pickerState?.extras||[]).concat(pickableExercises());
+const pickerEntry=id=>pickerCandidates().find(e=>e.id===id)||libraryEntry(id);
+
+function renderPickerList(){
+  const el=$("#exPickList");if(!el||!pickerState)return;
+  const {query,muscle,equipment,mode,selected,exclude}=pickerState;
+  const multi=mode==="multi";
+  // A quick-add tab narrows the source; typing in it searches everything,
+  // because a lifter who types a name wants that name, not the tab.
+  const source=pickerState.quick&&!query?libTabList(pickerState.tab):pickerCandidates();
+  const all=source.filter(e=>!exclude.has(e.id)&&exerciseMatches(e,query,muscle,equipment));
+  const inProgram=programLibraryIds(),logged=loggedExerciseRefs();
+  const custom=[],known=[],rest=[];
+  const familiar=e=>inProgram.has(e.id)||logged.ids.has(e.id)||
+    logged.names.has(foldSearch(e.name))||logged.names.has(foldSearch(e.namePt||""));
+  for(const e of all){
+    if(isCustomLibraryId(e.id)||e.nameOnly)custom.push(e);
+    else if(familiar(e))known.push(e);
+    else rest.push(e)}
+  // Rank before name. Alphabetical alone answers "row" with four barbell
+  // variants before plain Barbell row, and opens the library on an assisted
+  // kneeling dip — the staple for a movement should lead its own results.
+  rest.sort((a,b)=>(a.rank??50)-(b.rank??50)||libraryName(a).localeCompare(libraryName(b)));
+  const section=(key,list)=>list.length
+    ?`<p class="pick__section">${esc(t(key))}</p>`+list.map(e=>pickerRow(e,{selected:selected.has(e.id),checkbox:multi})).join("")
+    :"";
+  const html=pickerState.quick&&!query
+    ?(all.length?`<p class="pick__section">${esc(t("picker.tab_head."+pickerState.tab))}</p>`+
+      all.map(e=>pickerRow(e,{selected:selected.has(e.id),checkbox:multi})).join(""):"")
+    :section("picker.section_custom",custom)+
+      section("picker.section_known",known)+
+      section("picker.section_all",rest);
+  el.innerHTML=html||`<p class="pick__empty">${esc(t("picker.empty",{q:query}))}</p>`;
+  $$("#exPickList .pickrow").forEach(b=>b.onclick=()=>choosePicked(b.dataset.pick));
+  const done=$("#exPickDone");
+  if(done)done.textContent=multi&&selected.size?t("picker.done_count",{n:selected.size}):t("dialog.done")}
+
+async function choosePicked(id){
+  if(!pickerState||pickerState.choosing)return;
+  const entry=pickerEntry(id);
+  if(!entry)return;
+  if(pickerState.mode==="multi"){
+    if(pickerState.selected.has(id))pickerState.selected.delete(id);
+    else pickerState.selected.add(id);
+    renderPickerList();return}
+  const active=pickerState,handler=active.onPick;
+  active.choosing=true;
+  const sheet=$("#exPickSheet");if(sheet)sheet.setAttribute("aria-busy","true");
+  try{if(handler)await handler(entry);await closeExercisePicker()}
+  finally{if(pickerState===active)active.choosing=false;if(sheet)sheet.removeAttribute("aria-busy")}}
+
+/* mode "single" fires onPick with one entry and closes; "multi" collects and
+   fires once on Done with the entries in selection order. */
+/* Pseudo-entries for names that exist only in somebody's program — a legacy or
+   imported alternate the library has no row for. They are listed and selectable
+   like anything else, so opening the picker can neither drop them silently nor
+   strand them as something the lifter can see but not remove. */
+const NAME_ONLY_PREFIX="name:";
+const nameOnlyEntry=name=>({id:`${NAME_ONLY_PREFIX}${foldSearch(name)}`,name,namePt:name,
+  equipment:[],primary:"",secondary:"",patterns:[],nameOnly:true});
+function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
+  quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
+  const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
+  if(!sheet)return;
+  pickerState={query:String(query||""),muscle,equipment,mode,onPick,
+    selected:new Set(selected.filter(Boolean).map(String)),
+    exclude:new Set(exclude.filter(Boolean).map(String)),
+    extras:extras.filter(Boolean),
+    quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
+    // Kept so the custom-exercise detour can put this exact picker back, with
+    // whatever was typed and filtered still in place.
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,quick,day:dayName}};
+  pickerReturn=document.activeElement;
+  $("#exPickTitle").textContent=title||t("picker.title");
+  const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
+  if(search)search.value=pickerState.query;
+  const done=$("#exPickDone");
+  if(done)done.classList.toggle("hidden",mode!=="multi");
+  const tabs=$("#exPickTabs");if(tabs)tabs.classList.toggle("hidden",!quick);
+  const full=$("#exPickFull");if(full)full.classList.toggle("hidden",!quick);
+  if(quick)renderQuickTabs();
+  renderPickerFilters();renderPickerList();
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:search,returnFocus:pickerReturn,onEscape:closeExercisePicker,scrim,
+    delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+
+function closeExercisePicker(){
+  const sheet=$("#exPickSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  pickerReturn=null;
+  return closeModal(sheet)}
+
+async function confirmPickerSelection(){
+  if(!pickerState||pickerState.mode!=="multi"||pickerState.choosing)return;
+  const active=pickerState,handler=active.onPick;
+  const picked=[...active.selected].map(pickerEntry).filter(Boolean);
+  active.choosing=true;
+  try{if(handler)await handler(picked);await closeExercisePicker()}
+  finally{if(pickerState===active)active.choosing=false}}
+
+function pickerResumeOptions(){
+  if(!pickerState)return null;
+  return Object.assign({},pickerState.reopen,{query:pickerState.query,muscle:pickerState.muscle,
+    equipment:pickerState.equipment,tab:pickerState.tab,selected:[...pickerState.selected]})}
+
+/* ---- custom exercise editor ---- */
+
+/* Reachable editing, which the definition needs to be manageable at all: the
+   sheet always supported an existing entry, but nothing ever passed one. */
+function editCustomExercise(id){
+  const entry=customExercises().find(e=>e.id===id);
+  if(!entry)return;
+  const reopen=libraryResumeOptions();
+  openCustomExerciseSheet({entry,handoff:!!libFlow,
+    onCancel:()=>{if(reopen)openLibrary(reopen)},
+    onSave:()=>{if(reopen)openLibrary(reopen);else if(pickerState)renderPickerList()}})}
+
+function renderCustomChips(){
+  if(!customState)return;
+  const chip=(val,label,active)=>
+    `<button type="button" class="pchip${active?" is-active":""}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
+  const eq=$("#exCustomEquip");
+  if(eq){
+    eq.innerHTML=PICKER_EQUIPMENT.map(x=>chip(x,t("picker.equipment."+x),customState.equipment.has(x))).join("");
+    $$("#exCustomEquip .pchip").forEach(b=>b.onclick=()=>{
+      const v=b.dataset.val;
+      customState.equipment.has(v)?customState.equipment.delete(v):customState.equipment.add(v);
+      renderCustomChips()})}
+  for(const [sel,key] of [["#exCustomPrimary","primary"],["#exCustomSecondary","secondary"]]){
+    const box=$(sel);if(!box)continue;
+    box.innerHTML=MUSCLE_TOKENS.map(m=>chip(m,muscleLabel(m),customState[key].has(m))).join("");
+    $$(`${sel} .pchip`).forEach(b=>b.onclick=()=>{
+      const v=b.dataset.val;
+      if(customState[key].has(v))customState[key].delete(v);
+      else{customState[key].add(v);
+        // A muscle cannot be both; picking a side moves it.
+        customState[key==="primary"?"secondary":"primary"].delete(v)}
+      renderCustomChips()})}}
+
+/* stageOnly builds the definition without writing it: import review needs the
+   entry to show, but nothing durable may move before the final Import. */
+function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false,stageOnly=false}={}){
+  const sheet=$("#exCustomSheet"),scrim=$("#exCustomScrim"),name=$("#exCustomName");
+  if(!sheet)return;
+  const inUse=entry?customExerciseInUse(entry.id):false;
+  customState={id:entry?.id||null,onSave,stageOnly,
+    // Empty for a new definition: defaulting every custom exercise to Machine
+    // quietly mislabels dumbbell and cable work the wizard then filters on.
+    equipment:new Set(entry?.equipment||[]),
+    primary:new Set(String(entry?.primary||"").split(",").filter(Boolean)),
+    secondary:new Set(String(entry?.secondary||"").split(",").filter(Boolean))};
+  customReturn=document.activeElement;
+  if(name)name.value=entry?.name||"";
+  const notes=$("#exCustomNotes");if(notes)notes.value=entry?.notes||"";
+  const del=$("#exCustomDelete");
+  if(del){const action=inUse?"custom.archive":"custom.delete";
+    del.classList.toggle("hidden",!entry);del.dataset.i18n=action;del.textContent=t(action)}
+  const used=$("#exCustomInUse");
+  if(used)used.classList.toggle("hidden",!(entry&&inUse));
+  customState.onCancel=onCancel;
+  renderCustomChips();
+  document.body.classList.add("is-sheet-open");
+  // handoff lets this open over the picker: openModal stands the picker down
+  // rather than refusing a second modal.
+  openModal(sheet,{initialFocus:name,returnFocus:customReturn,onEscape:cancelCustomExerciseSheet,scrim,
+    handoff,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+
+function closeCustomExerciseSheet(){
+  const sheet=$("#exCustomSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  customReturn=null;
+  return closeModal(sheet)}
+/* Backing out of the custom form returns to the picker it came from, with the
+   search and any multi-selection intact. Dropping the lifter back to the
+   program instead would throw away a browse they never finished. */
+async function cancelCustomExerciseSheet(){
+  const back=customState?.onCancel;
+  await closeCustomExerciseSheet();
+  if(back)back()}
+
+async function saveCustomExerciseSheet(){
+  if(!customState)return;
+  const name=String($("#exCustomName")?.value||"").trim();
+  if(!name){toast(t("toast.custom_needs_name"));return}
+  // Equipment and a primary muscle are what make the definition usable: the
+  // wizard filters on one and the volume audit groups by the other.
+  if(!customState.equipment.size){toast(t("toast.custom_needs_equipment"));return}
+  if(!customState.primary.size){toast(t("toast.custom_needs_primary"));return}
+  if(!customState.id){
+    const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
+    if(twin&&!customState.duplicateAcknowledged){
+      // Offer what already exists before minting a near-identical second copy.
+      if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
+        const handler=customState.onSave;
+        await closeCustomExerciseSheet();
+        if(handler)await handler(twin);
+        return}
+      customState.duplicateAcknowledged=true}}
+  const handler=customState.onSave;
+  const editing=!!customState.id;
+  if(customState.stageOnly){
+    const staged=normalizeCustomExercises([{id:customState.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
+      equipment:[...customState.equipment],
+      primary:[...customState.primary].join(","),
+      secondary:[...customState.secondary].join(","),
+      notes:String($("#exCustomNotes")?.value||"").trim()}])[0];
+    await closeCustomExerciseSheet();
+    if(handler&&staged)await handler(staged);
+    return}
+  const {result,entry}=await saveCustomExercise({id:customState.id,name,
+    equipment:[...customState.equipment],
+    primary:[...customState.primary].join(","),
+    secondary:[...customState.secondary].join(","),
+    notes:String($("#exCustomNotes")?.value||"").trim()});
+  if(result&&!(result.localOk||result.idbOk)){toast(t("toast.custom_save_failed"));return}
+  await closeCustomExerciseSheet();
+  toast(t(editing?"toast.custom_saved":"toast.custom_created"));
+  if(handler&&entry)await handler(entry);
+  else if(pickerState)renderPickerList()}
+
+async function deleteCustomExerciseSheet(){
+  if(!customState?.id)return;
+  const result=await deleteCustomExercise(customState.id);
+  if(!result){toast(t("toast.custom_in_use"));return}
+  if(!(result.localOk||result.idbOk)){toast(t("toast.custom_save_failed"));return}
+  await closeCustomExerciseSheet();
+  toast(t(result.archived?"toast.custom_archived":"toast.custom_deleted"));
+  if(libFlow)renderLibrary();else if(pickerState)renderPickerList()}
+
 /** Clipboard first; the hidden-textarea path covers browsers that refuse the
  *  async clipboard, and only a genuine failure of both surfaces a toast. */
 async function copyProgramText(){
@@ -5508,34 +6251,643 @@ async function copyProgramText(){
   toast(t("toast.program_text_copy_failed"));return false}
 function shareProgramText(){
   return shareOrDownload($("#programTextOut")?.textContent||programText(),programTextName(),"text/plain")}
+/* An imported split arrives as names. Matching them to the library is what
+   turns it from a list of strings into something the app can reason about:
+   muscle tags for the volume audit, and a link the swap picker can work from.
+   Names that find no match keep exactly what was imported — the program is the
+   lifter's, not the library's — and their slots show an accented swap button
+   in the editor so linking them by hand is one tap. */
+function linkImportedExercises(list){
+  const byName=new Map();
+  for(const entry of pickableExercises()){
+    for(const n of [entry.name,entry.namePt]){
+      const key=foldSearch(n);
+      if(key&&!byName.has(key))byName.set(key,entry)}}
+  let linked=0;
+  for(const ex of list){
+    if(!ex||typeof ex!=="object")continue;
+    // A Taurifer export already carries links; only repoint ids the library
+    // has since merged, and never overwrite a link that still resolves.
+    if(ex.libraryId){
+      const known=libraryEntry(ex.libraryId);
+      if(known){ex.libraryId=known.id;linked++;continue}
+      delete ex.libraryId}
+    const match=byName.get(foldSearch(ex.name));
+    if(!match)continue;
+    ex.libraryId=match.id;
+    if(!String(ex.primary??"").trim())ex.primary=match.primary||"";
+    if(!String(ex.secondary??"").trim())ex.secondary=match.secondary||"";
+    if(!String(ex.notes??"").trim()&&match.notes)ex.notes=match.notes;
+    linked++}
+  return{linked,total:list.length}}
+
+/* ============================================================
+   Program import — staged, reviewed, then written
+   Parsing produces a transient model only. Nothing durable moves
+   until the lifter presses Import, so a file that turns out to be
+   wrong costs them nothing. Names are classified rather than
+   guessed at: an exact hit links itself, a likely one has to be
+   looked at, and anything else keeps exactly what was imported.
+   ============================================================ */
+
+const IMPORT_EXACT="exact",IMPORT_ALIAS="alias",IMPORT_PROBABLE="probable",IMPORT_UNMATCHED="unmatched";
+let importDraft=null,importReturn=null;
+
+/* Taurifer's own text export, read back. The grammar is the one programText()
+   writes: a title line, then "DAY NAME — muscles", then "1. Exercise — 3× 6-10".
+   Anything that does not look like that is rejected rather than guessed at —
+   this parses one known format, it does not read prose. */
+/* The text export shouts day names ("DAY 1", "TREINO A") for legibility, so a
+   round-trip would otherwise bring the shouting back into the program. A label
+   with no lowercase at all was uppercased on the way out; anything else is left
+   exactly as written. */
+function restoreExportCase(label){
+  if(label!==label.toLocaleUpperCase(locTag())||!/[a-z]/i.test(label))return label;
+  return label.toLocaleLowerCase(locTag()).replace(/(^|\s)(\p{L})/gu,(m,sp,ch)=>sp+ch.toLocaleUpperCase(locTag()))}
+function stripProgramTextTitleMeta(label){
+  return String(label||"").replace(/\s+\(\s*\d+\s*(?:days?\s*\/\s*week|days?\s+per\s+week|dias?\s*\/\s*semana|dias?\s+por\s+semana)\s*\)\s*$/iu,"").trim()}
+function parseProgramTextExport(text){
+  const lines=String(text||"").split(/\r?\n/);
+  const days=[];let current=null,title="";
+  const exRe=/^\s*(\d+)\.\s*(.+?)\s*[—-]\s*(\d+)\s*[×x]\s*(\d+)(?:\s*[–-]\s*(\d+))?\s*$/;
+  for(const raw of lines){
+    const line=raw.trim();
+    if(!line)continue;
+    const ex=line.match(exRe);
+    if(ex){
+      if(!current){current={day:`Day ${days.length+1}`,rows:[]};days.push(current)}
+      const min=+ex[4],max=ex[5]?+ex[5]:min;
+      current.rows.push({name:ex[2].trim(),sets:+ex[3],min,max});
+      continue}
+    // A non-exercise line starts a day, except the first which is the title.
+    const label=line.split(/\s+[—-]\s+/)[0].trim();
+    if(!label)continue;
+    if(!title&&!days.length){title=restoreExportCase(stripProgramTextTitleMeta(label));continue}
+    current={day:restoreExportCase(label),rows:[]};days.push(current)}
+  const exercises=[];
+  for(const d of days)
+    d.rows.forEach((r,i)=>exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max}));
+  if(!exercises.length)return null;
+  return{exercises,meta:title?{name:title}:null,customExercises:[]}}
+
+/* Reads whatever the file turns out to be. JSON first, then the text export. */
+function parseProgramSource(text,fileName=""){
+  const trimmed=String(text||"").trim();
+  if(trimmed.startsWith("{")||trimmed.startsWith("[")){
+    let parsed=null;
+    try{parsed=JSON.parse(trimmed)}catch{return null}
+    const imp=parseProgramImport(parsed);
+    return imp?.exercises?.length?Object.assign({format:"json"},imp):null}
+  const text2=parseProgramTextExport(trimmed);
+  return text2?Object.assign({format:"text"},text2):null}
+
+/* How close two movement names are, 0..1, on shared words. Deliberately dumb:
+   it only has to be good enough to say "look at this one", never to decide. */
+function nameAffinity(a,b){
+  const wa=foldSearch(a).split(/[^a-z0-9]+/).filter(w=>w.length>2);
+  const wb=new Set(foldSearch(b).split(/[^a-z0-9]+/).filter(w=>w.length>2));
+  if(!wa.length||!wb.size)return 0;
+  const hits=wa.filter(w=>wb.has(w)).length;
+  return hits/Math.max(wa.length,wb.size)}
+
+const IMPORT_PROBABLE_MIN=0.5;
+
+/* Classifies one imported row against the library plus the definitions that
+   travelled with the file. */
+function classifyImportRow(row,candidates){
+  const name=String(row.name??"").trim();
+  if(row.libraryId){
+    const known=candidates.find(e=>e.id===row.libraryId)||libraryEntry(row.libraryId);
+    if(known)return{status:IMPORT_EXACT,match:known}}
+  const folded=foldSearch(name);
+  if(!folded)return{status:IMPORT_UNMATCHED,match:null};
+  const exact=candidates.find(e=>foldSearch(e.name)===folded);
+  if(exact)return{status:IMPORT_EXACT,match:exact};
+  // The same movement written in the other language is a match, but one the
+  // lifter should still see, since the name in their file will change.
+  const alias=candidates.find(e=>foldSearch(e.namePt||"")===folded);
+  if(alias)return{status:IMPORT_ALIAS,match:alias};
+  let best=null,bestScore=0;
+  for(const e of candidates){
+    const score=Math.max(nameAffinity(name,e.name),nameAffinity(name,e.namePt||""));
+    if(score>bestScore){bestScore=score;best=e}}
+  if(best&&bestScore>=IMPORT_PROBABLE_MIN)return{status:IMPORT_PROBABLE,match:best,score:bestScore};
+  return{status:IMPORT_UNMATCHED,match:null}}
+
+/* Builds the review model. Exact and alias hits arrive decided; a probable one
+   arrives undecided and blocks Import until it is looked at. */
+function buildImportDraft(source,fileName){
+  const candidates=source.customExercises?.length
+    ? normalizeCustomExercises(source.customExercises).concat(pickableExercises())
+    : pickableExercises();
+  const rows=source.exercises.map((raw,i)=>{
+    const {status,match}=classifyImportRow(raw,candidates);
+    return{key:`imp${i}`,raw:cloneSnapshot(raw),status,match,
+      decision:status===IMPORT_EXACT||status===IMPORT_ALIAS?"link":"raw",
+      reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
+  return{fileName:String(fileName||""),format:source.format||"json",
+    meta:source.meta||null,customExercises:source.customExercises||[],rows}}
+
+const importCounts=draft=>{
+  const linked=draft.rows.filter(r=>r.decision==="link").length;
+  const review=draft.rows.filter(r=>!r.reviewed).length;
+  const custom=draft.rows.filter(r=>r.decision==="custom").length;
+  return{linked,review,custom,total:draft.rows.length}};
+
+/* Turns reviewed rows into program templates. A linked row takes the
+   definition's identity; a raw row keeps precisely what the file said. */
+function importDraftExercises(draft){
+  return draft.rows.map(r=>{
+    const base=cloneSnapshot(r.raw);
+    delete base.libraryId;delete base.displayName;
+    if(r.decision==="link"&&r.match)
+      return Object.assign(base,exerciseFieldsFromLibrary(r.match));
+    if(r.decision==="custom"&&r.createdCustomId)
+      return Object.assign(base,{libraryId:r.createdCustomId});
+    return base})}
+
+/* Definitions that have to exist before the templates can resolve: the ones
+   that travelled in a v3 file, plus any created during review. */
+function importDraftCustomDefinitions(draft){
+  const out=[];
+  for(const e of normalizeCustomExercises(draft.customExercises))out.push(e);
+  for(const r of draft.rows)if(r.createdCustom)out.push(r.createdCustom);
+  return out}
+
+/* ============================================================
+   The library flow
+   One controller behind three surfaces: the quick-add sheet on a
+   training day, the full browse page it opens into, and the
+   configuration step that follows a multi-selection. The picker
+   sheet keeps serving the single-pick jobs (change, substitute,
+   alternates) — this is the "add to my program" path, where
+   choosing several at once and setting their sets afterwards is
+   what a lifter actually does.
+   ============================================================ */
+
+const LIB_TABS=["suggested","recent","yours"];
+const LIB_PAGE_TABS=["search","browse","yours"];
+let libFlow=null,libReturn=null,previewState=null;
+
+/* What this day is short of. A day that already has two chest presses does not
+   need a third suggested; one with no back work does. Ranked so the staple for
+   an uncovered pattern leads. */
+function suggestedForDay(dayName,limit=6){
+  const onDay=prog.forDay(dayName);
+  const have=new Set(onDay.map(e=>e.libraryId).filter(Boolean));
+  const covered=new Set();
+  for(const e of onDay)for(const m of muscles(e.primary))covered.add(m);
+  const scored=[];
+  for(const e of EXERCISE_LIBRARY){
+    if(have.has(e.id))continue;
+    const prim=muscles(e.primary);
+    const fresh=prim.some(m=>!covered.has(m));
+    scored.push({e,score:(fresh?0:1)*100+(e.rank??50)})}
+  scored.sort((a,b)=>a.score-b.score||libraryName(a.e).localeCompare(libraryName(b.e)));
+  return scored.slice(0,limit).map(x=>x.e)}
+
+/* Most recently trained first, so the movements a lifter keeps coming back to
+   are the ones they see. Reads library ids, which survive a language change. */
+function recentExercises(limit=8){
+  const seen=[],ids=new Set();
+  const log=[...(state.log||[])].sort((a,b)=>String(b.created||"").localeCompare(String(a.created||"")));
+  const add=id=>{if(!id||ids.has(id))return;const entry=libraryEntry(id);if(!entry)return;ids.add(id);seen.push(entry)};
+  for(const r of log){
+    if(seen.length>=limit)break;
+    if(r.performedLibraryId)add(r.performedLibraryId)}
+  for(const e of state.program||[]){if(seen.length>=limit)break;add(e.libraryId)}
+  return seen.slice(0,limit)}
+
+const yourExercises=()=>customExercises().filter(e=>!e.archived);
+
+function libTabList(tab,{page=false}={}){
+  if(tab==="yours")return yourExercises();
+  if(tab==="recent")return recentExercises();
+  if(tab==="suggested")return suggestedForDay(libFlow?.day||day);
+  return pickableExercises()}
+
+/* ---- quick add ---- */
+
+function renderQuickTabs(){
+  const el=$("#exPickTabs");if(!el||!pickerState?.quick)return;
+  el.classList.remove("hidden");
+  el.innerHTML=LIB_TABS.map(tab=>
+    `<button type="button" role="tab" class="picktab${pickerState.tab===tab?" is-active":""}" `+
+    `aria-selected="${pickerState.tab===tab?"true":"false"}" data-tab="${tab}">${esc(t("picker.tab."+tab))}</button>`).join("");
+  $$("#exPickTabs .picktab").forEach(b=>b.onclick=()=>{pickerState.tab=b.dataset.tab;renderQuickTabs();renderPickerList()})}
+
+/* ---- full library page ---- */
+
+function librarySelectionMap(selected){const out=new Map();
+  for(const item of Array.isArray(selected)?selected:[]){
+    const pair=Array.isArray(item)?item:[item,null],id=String(pair[0]||"");if(!id)continue;
+    out.set(id,pair[1]?cloneSnapshot(pair[1]):null)}
+  return out}
+function libraryResumeOptions(){
+  if(!libFlow)return null;
+  return{day:libFlow.day,tab:libFlow.tab,query:libFlow.query,muscle:libFlow.muscle,
+    equipment:libFlow.equipment,step:libFlow.step,selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
+function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null}={}){
+  libFlow={day:dayName,tab:LIB_PAGE_TABS.includes(tab)?tab:"browse",query:String(query||""),muscle,equipment,step,
+    selected:librarySelectionMap(selected)};
+  libReturn=document.activeElement;
+  document.body.classList.add("is-library");
+  document.body.classList.remove("is-preview");
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));
+  window.scrollTo({top:0});
+  const search=$("#libSearch");if(search)search.value=libFlow.query;
+  renderLibrary();
+  search?.focus({preventScroll:true})}
+
+function closeLibrary({toProgram=true}={}){
+  libFlow=null;
+  document.body.classList.remove("is-library","is-preview");
+  const back=resolveReturnFocus(libReturn);libReturn=null;
+  if(toProgram)returnToTab("program");
+  if(back)try{back.focus({preventScroll:true})}catch{}}
+
+function renderLibrary(){
+  if(!libFlow)return;
+  const configuring=libFlow.step==="configure";
+  $("#libBrowse")?.classList.toggle("hidden",configuring);
+  $("#libConfigure")?.classList.toggle("hidden",!configuring);
+  const title=$("#libTitle");
+  if(title)title.textContent=configuring?t("library.configure_title",{day:dayLabel(libFlow.day)}):t("library.title");
+  const step=$("#libStep");
+  if(step){step.classList.remove("hidden");
+    step.innerHTML=`<p class="libstep__lab">${esc(t("library.step",{n:configuring?2:1,total:2}))}</p>`+
+      `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`+
+      `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`}
+  if(configuring)renderLibraryConfigure();else renderLibraryBrowse();
+  renderLibraryBar()}
+
+function renderLibraryTabs(){
+  const el=$("#libTabs");if(!el)return;
+  el.innerHTML=LIB_PAGE_TABS.map(tab=>
+    `<button type="button" role="tab" class="picktab${libFlow.tab===tab?" is-active":""}" `+
+    `aria-selected="${libFlow.tab===tab?"true":"false"}" data-tab="${tab}">${esc(t("picker.tab."+tab))}</button>`).join("");
+  $$("#libTabs .picktab").forEach(b=>b.onclick=()=>{libFlow.tab=b.dataset.tab;renderLibrary()})}
+
+function renderLibraryFilters(){
+  const el=$("#libFilters");if(!el)return;
+  // Muscle and equipment are separate ideas, so they get separate rails here
+  // rather than one undifferentiated row of chips.
+  const chip=(kind,val,label,active)=>
+    `<button type="button" class="pchip${active?" is-active":""}" data-lf="${kind}" data-val="${esc(val)}" aria-pressed="${active?"true":"false"}">${esc(label)}</button>`;
+  const muscleRow=[chip("clear","",t("picker.filter_all"),!libFlow.muscle&&!libFlow.equipment)]
+    .concat(PICKER_MUSCLE_GROUPS.map(([key])=>chip("muscle",key,t("picker.group."+key),libFlow.muscle===key)));
+  const equipRow=PICKER_EQUIPMENT.map(eq=>chip("equipment",eq,t("picker.equipment."+eq),libFlow.equipment===eq));
+  el.innerHTML=`<div class="pick__filters pick__filters--row">${muscleRow.join("")}</div>`+
+    `<div class="pick__filters pick__filters--row">${equipRow.join("")}</div>`;
+  $$("#libFilters .pchip").forEach(b=>b.onclick=()=>{
+    const kind=b.dataset.lf;
+    if(kind==="clear"){libFlow.muscle=null;libFlow.equipment=null}
+    else if(kind==="muscle")libFlow.muscle=libFlow.muscle===b.dataset.val?null:b.dataset.val;
+    else libFlow.equipment=libFlow.equipment===b.dataset.val?null:b.dataset.val;
+    renderLibrary()})}
+
+function renderLibraryBrowse(){
+  renderLibraryTabs();renderLibraryFilters();
+  const list=$("#libList");if(!list)return;
+  const source=libFlow.tab==="yours"?yourExercises():pickableExercises();
+  const rows=source.filter(e=>exerciseMatches(e,libFlow.query,libFlow.muscle,libFlow.equipment))
+    .sort((a,b)=>(a.rank??50)-(b.rank??50)||libraryName(a).localeCompare(libraryName(b)));
+  list.innerHTML=rows.length
+    ?rows.map(e=>libraryRowHtml(e)).join("")
+    :`<p class="pick__empty">${esc(t("picker.empty",{q:libFlow.query}))}</p>`;
+  $$("#libList [data-lib-toggle]").forEach(b=>b.onclick=()=>toggleLibrarySelection(b.dataset.libToggle));
+  $$("#libList [data-lib-preview]").forEach(b=>b.onclick=()=>openExercisePreview(b.dataset.libPreview));
+  $$("#libList [data-lib-edit]").forEach(b=>b.onclick=()=>editCustomExercise(b.dataset.libEdit))}
+
+function libraryRowHtml(e){
+  const on=libFlow.selected.has(e.id);
+  const mus=[e.primary,e.secondary].filter(Boolean).join(",").split(",").filter(Boolean).slice(0,2).map(muscleLabel);
+  const eq=(e.equipment||[])[0];
+  const meta=[mus.join(" · "),eq?t("picker.equipment."+eq):""].filter(Boolean).join(" · ");
+  return `<div class="librow${on?" is-selected":""}" data-lib-row="${esc(e.id)}">`+
+    `<button type="button" class="librow__preview" data-lib-preview="${esc(e.id)}" aria-label="${esc(t("library.preview_aria",{name:libraryName(e)}))}">`+
+      exerciseThumb(e,{size:"md"})+
+    `</button>`+
+    `<div class="librow__text">`+
+      `<p class="librow__name">${esc(libraryName(e))}</p>`+
+      `<p class="librow__meta">${esc(meta)}</p>`+
+      (isCustomLibraryId(e.id)
+        ?`<button type="button" class="librow__edit" data-lib-edit="${esc(e.id)}">${esc(t("library.edit"))}</button>`:"")+
+    `</div>`+
+    `<button type="button" class="librow__check${on?" is-on":""}" role="checkbox" aria-checked="${on?"true":"false"}" `+
+      `data-lib-toggle="${esc(e.id)}" aria-label="${esc(t(on?"library.remove_aria":"library.add_aria",{name:libraryName(e)}))}"></button>`+
+  `</div>`}
+
+function toggleLibrarySelection(id){
+  if(!libFlow)return;
+  if(libFlow.selected.has(id))libFlow.selected.delete(id);
+  else libFlow.selected.set(id,null);
+  renderLibrary()}
+
+function renderLibraryBar(){
+  const bar=$("#libBar"),count=$("#libBarCount"),primary=$("#libPrimary");
+  if(!bar||!primary)return;
+  const n=libFlow.selected.size;
+  bar.classList.toggle("is-hidden",n===0);
+  if(count)count.textContent=n?t("library.selected",{n}):"";
+  primary.textContent=libFlow.step==="configure"
+    ?t("library.save_day",{day:dayLabel(libFlow.day)})
+    :t("library.add_n",{n,day:dayLabel(libFlow.day)});
+  primary.disabled=n===0}
+
+/* ---- configure step ---- */
+
+function libraryConfigureRows(){
+  return [...libFlow.selected.entries()].map(([id,cfg])=>{
+    const entry=libraryEntry(id);
+    return{id,entry,cfg:cfg||{sets:3,min:6,max:10}}}).filter(r=>r.entry)}
+
+function renderLibraryConfigure(){
+  const el=$("#libConfigureRows");if(!el)return;
+  const rows=libraryConfigureRows();
+  const count=$("#libConfigureCount");
+  if(count)count.textContent=t("library.configure_count",
+    {n:rows.length,sets:rows.reduce((a,r)=>a+r.cfg.sets,0)});
+  el.innerHTML=rows.map(r=>
+    `<div class="libcfg" data-cfg="${esc(r.id)}">`+
+      exerciseThumb(r.entry,{size:"md"})+
+      `<div class="libcfg__body">`+
+        `<p class="libcfg__name">${esc(libraryName(r.entry))}</p>`+
+        `<div class="libcfg__fields">`+
+          `<label class="libcfg__field"><span>${esc(t("program.exercise.sets"))}</span>`+
+            `<input type="number" inputmode="numeric" min="1" step="1" data-cfg-id="${esc(r.id)}" data-cfg-field="sets" value="${r.cfg.sets}"></label>`+
+          `<label class="libcfg__field"><span>${esc(t("program.exercise.min_reps"))}</span>`+
+            `<input type="number" inputmode="numeric" min="1" step="1" data-cfg-id="${esc(r.id)}" data-cfg-field="min" value="${r.cfg.min}"></label>`+
+          `<label class="libcfg__field"><span>${esc(t("program.exercise.max_reps"))}</span>`+
+            `<input type="number" inputmode="numeric" min="1" step="1" data-cfg-id="${esc(r.id)}" data-cfg-field="max" value="${r.cfg.max}"></label>`+
+        `</div>`+
+      `</div>`+
+      `<button type="button" class="libcfg__drop" data-cfg-drop="${esc(r.id)}" aria-label="${esc(t("library.remove_aria",{name:libraryName(r.entry)}))}">`+
+        `<span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
+    `</div>`).join("");
+  $$("#libConfigureRows [data-cfg-field]").forEach(inp=>{
+    inp.onfocus=()=>inp.select();
+    inp.oninput=()=>{
+      const id=inp.dataset.cfgId,field=inp.dataset.cfgField;
+      const cur=libFlow.selected.get(id)||{sets:3,min:6,max:10};
+      const next=Object.assign({},cur,{[field]:Exercise.posInt(inp.value,cur[field])});
+      if(next.max<next.min)next.max=next.min;
+      libFlow.selected.set(id,next)}});
+  $$("#libConfigureRows [data-cfg-drop]").forEach(b=>b.onclick=()=>{
+    libFlow.selected.delete(b.dataset.cfgDrop);
+    if(!libFlow.selected.size){libFlow.step="browse"}
+    renderLibrary()})}
+
+async function commitLibrarySelection(){
+  if(!libFlow||!libFlow.selected.size)return null;
+  if(libFlow.step!=="configure"){libFlow.step="configure";renderLibrary();window.scrollTo({top:0});return null}
+  const rows=libraryConfigureRows();
+  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+  for(const r of rows){
+    const added=nextProgram.addExercise(libFlow.day,r.entry);
+    added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max)}
+  proposal.program=nextProgram.toJSON();
+  const result=await commitProposedState(proposal);
+  if(!(result.localOk||result.idbOk)){toast(t("toast.program_save_failed"));return result}
+  const n=rows.length,target=libFlow.day;
+  setDayCollapsed(target,false);
+  closeLibrary({toProgram:true});
+  render();
+  toast(t("toast.exercises_added",{n}));
+  return result}
+
+/* ---- exercise preview ---- */
+
+function openExercisePreview(id){
+  const entry=libraryEntry(id);if(!entry)return;
+  previewState={id,from:libFlow?"library":"picker",returnId:id};
+  document.body.classList.add("is-preview");
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="exercisePreview"));
+  window.scrollTo({top:0});
+  renderExercisePreview();
+  $("#previewBack")?.focus({preventScroll:true})}
+
+function closeExercisePreview(){
+  const back=previewState?.from,returnId=previewState?.returnId;
+  previewState=null;
+  document.body.classList.remove("is-preview");
+  if(back==="library"&&libFlow){$$(".view").forEach(v=>v.classList.toggle("active",v.id==="library"));renderLibrary();
+    requestAnimationFrame(()=>{const target=$(`[data-lib-preview="${CSS.escape(returnId||"")}"]`);if(target)target.focus({preventScroll:true})})}
+  else{document.body.classList.remove("is-library");returnToTab("program")}}
+
+function renderExercisePreview(){
+  const el=$("#previewBody");if(!el||!previewState)return;
+  const e=libraryEntry(previewState.id);if(!e)return;
+  const prim=muscles(e.primary).map(muscleLabel).join(" · ");
+  const sec=muscles(e.secondary).map(muscleLabel).join(" · ");
+  const eq=(e.equipment||[]).map(x=>t("picker.equipment."+x)).join(" · ");
+  const inLibrary=!!libFlow;
+  const selected=inLibrary&&libFlow.selected.has(e.id);
+  el.innerHTML=
+    `<p class="preview__eyebrow">${esc(prim)}</p>`+
+    `<h2 class="preview__title">${esc(libraryName(e))}</h2>`+
+    `<p class="preview__sub">${esc(eq)}</p>`+
+    // A large illustration carries instructional content, so it is described
+    // rather than hidden; the empty tile has nothing to describe.
+    (exerciseMedia(e)
+      ?`<img class="exthumb exthumb--lg" src="${esc(exerciseMedia(e))}" alt="${esc(t("preview.art_alt",{name:libraryName(e)}))}" decoding="async" width="768" height="768">`
+      :`<span class="exthumb exthumb--lg exthumb--empty" aria-hidden="true"></span>`)+
+    `<h3 class="preview__head">${esc(t("preview.muscles"))}</h3>`+
+    `<dl class="preview__rows">`+
+      `<div class="preview__row"><dt>${esc(t("program.exercise.primary"))}</dt><dd>${esc(prim||"—")}</dd></div>`+
+      `<div class="preview__row"><dt>${esc(t("program.exercise.secondary"))}</dt><dd>${esc(sec||"—")}</dd></div>`+
+    `</dl>`+
+    (e.notes?`<h3 class="preview__head">${esc(t("program.exercise.setup_notes"))}</h3><p class="preview__notes">${esc(e.notes)}</p>`:"")+
+    (inLibrary
+      ?`<button type="button" class="btn btn--cta" id="previewAdd">${esc(t(selected?"preview.remove":"preview.add",{day:dayLabel(libFlow.day)}))}</button>`
+      :"");
+  const add=$("#previewAdd");
+  if(add)add.onclick=()=>{toggleLibrarySelection(e.id);closeExercisePreview()}}
+
+/* ---- Import review screen ---- */
+
+const importStatusKey={[IMPORT_EXACT]:"import.status.exact",[IMPORT_ALIAS]:"import.status.alias",
+  [IMPORT_PROBABLE]:"import.status.probable",[IMPORT_UNMATCHED]:"import.status.unmatched"};
+
+function renderImportReview(){
+  if(!importDraft)return;
+  const counts=importCounts(importDraft);
+  const file=$("#importFile");
+  if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total});
+  const countsEl=$("#importCounts");
+  if(countsEl)countsEl.innerHTML=
+    `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
+    `<span class="impcount"><b>${counts.review}</b>${esc(t("import.count_review"))}</span>`+
+    `<span class="impcount"><b>${counts.custom}</b>${esc(t("import.count_custom"))}</span>`;
+  const rows=$("#importRows");
+  if(rows){
+    // Rows still needing a decision come first: they are the only reason this
+    // screen exists, and a twelve-exercise split should not hide them.
+    const ordered=[...importDraft.rows].sort((a,b)=>(a.reviewed?1:0)-(b.reviewed?1:0));
+    rows.innerHTML=ordered.map(importRowHtml).join("");
+    $$("#importRows [data-imp-act]").forEach(b=>b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey));
+  }
+  const commit=$("#importCommit");
+  if(commit){
+    commit.disabled=counts.review>0;
+    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("import.commit")}
+}
+
+function importRowHtml(row){
+  // An unreviewed row shows what is being proposed, not the standing default:
+  // "keep as imported" beside a Likely badge hides the very thing being asked
+  // about. Once decided, the target is the decision.
+  const proposed=!row.reviewed&&row.match?row.match:null;
+  const shown=row.decision==="link"&&row.match?row.match:proposed;
+  const target=shown?libraryName(shown)
+    :row.decision==="custom"?t("import.target_custom")
+    :t("import.target_raw");
+  const badge=row.reviewed
+    ?`<span class="impbadge is-done">${esc(t("import.status.confirmed"))}</span>`
+    :`<span class="impbadge is-open">${esc(t(importStatusKey[row.status]||"import.status.unmatched"))}</span>`;
+  const art=shown?exerciseThumb(shown,{size:"sm"}):emptyThumb({size:"sm"});
+  // A settled row keeps its name, its target, its art and its badge, and trades
+  // its three remaining alternatives for one quiet way back in. Most settled
+  // rows were matched by the importer rather than chosen by the lifter, so the
+  // alternatives are noise on the screen you read before replacing a program.
+  const folded=row.reviewed&&!row.expanded;
+  const acts=folded
+    ?`<button type="button" class="improw__btn improw__btn--change" data-imp-act="expand" data-imp-key="${esc(row.key)}">${esc(t("import.action_change"))}</button>`
+    :(row.match&&row.decision!=="link"
+        ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"")+
+      `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
+      // Shown while a row still needs a decision even when "keep" is already
+      // the standing choice: an unmatched row has to be acknowledged, not just
+      // defaulted, or there is no way to clear it off the review list.
+      (row.decision!=="raw"||!row.reviewed
+        ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
+      (row.decision!=="custom"
+        ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
+  return `<div class="improw${row.reviewed?"":" is-open"}${folded?" is-folded":""}" data-imp-row="${esc(row.key)}">`+
+    `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
+    `<span class="improw__arrow" aria-hidden="true">→</span>`+
+    art+
+    `<div class="improw__to"><p class="improw__name">${esc(target)}</p>${badge}</div>`+
+    `<div class="improw__acts">${acts}</div>`+
+  `</div>`}
+
+function importRowAction(act,key){
+  const row=importDraft?.rows.find(r=>r.key===key);
+  if(!row)return;
+  // Change only reopens the row: the decision it already carries is untouched,
+  // so a lifter who taps it and changes their mind still imports what they saw.
+  // The render replaces the row's markup, so the caret is put back on the
+  // controls the tap was asking for rather than dropped to the document.
+  if(act==="expand"){row.expanded=true;renderImportReview();
+    $(`#importRows [data-imp-row="${esc(row.key)}"] [data-imp-act]`)?.focus({preventScroll:true});return}
+  if(act==="link"&&row.match){row.decision="link";settleImportRow(row);return}
+  if(act==="raw"){row.decision="raw";settleImportRow(row);return}
+  if(act==="choose"){
+    openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
+      onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row)}});
+    return}
+  if(act==="custom"){
+    // Creating the definition here rather than at commit time means the lifter
+    // sees exactly what will exist before anything is written.
+    openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
+      stageOnly:true,
+      onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
+        row.decision="custom";settleImportRow(row)}})}}
+/** A decided row folds back down: the alternatives have done their job. */
+function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportReview()}
+
+function openImportReview(draft){
+  importDraft=draft;
+  importReturn=document.activeElement;
+  document.body.classList.add("is-import");
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="importReview"));
+  window.scrollTo({top:0});
+  renderImportReview();
+  const counts=importCounts(draft),target=counts.review
+    ?$("#importRows .improw.is-open [data-imp-act]")
+    :$("#importCommit");
+  (target||$("#importBack"))?.focus({preventScroll:true})}
+
+function closeImportReview({toProgram=true}={}){
+  const wasOnboarding=importDraft?.onboarding;
+  importDraft=null;
+  document.body.classList.remove("is-import");
+  const back=resolveReturnFocus(importReturn);
+  importReturn=null;
+  // Backing out of an import started during onboarding returns to onboarding,
+  // which is where the lifter still is: they have no program yet.
+  if(wasOnboarding&&toProgram){showOnboardingView();renderOnboarding();return}
+  if(toProgram)returnToTab("program");
+  if(back)try{back.focus({preventScroll:true})}catch{}}
+
+/* The only place an import touches durable state. Custom definitions and the
+   templates that reference them are assembled in one proposal, so neither can
+   become durable without the other. */
+async function commitImportReview(io=storageIO){
+  if(!importDraft)return null;
+  const counts=importCounts(importDraft);
+  if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review}));return null}
+  const draft=importDraft;
+  const exercises=importDraftExercises(draft);
+  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  const adapter=io||storageIO;
+  if(draft.onboarding){
+    const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
+    const staged=importDraftCustomDefinitions(draft);
+    const proposal=cloneSnapshot(state);
+    if(staged.length){
+      const merged=mergeImportedCustomExercises(staged,exercises,proposal);
+      proposal.customExercises=merged.customExercises}
+    const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
+      origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal});
+    if(setup&&!(setup.localOk||setup.idbOk)){
+      // The write was refused; leave onboarding standing so it can be retried.
+      showOnboardingView();renderOnboarding();
+      toast(t("toast.program_import_failed"));return setup}
+    closeImportReview({toProgram:false});
+    toast(t("toast.program_imported",{n:counts.total}));
+    return setup||{localOk:true,idbOk:true}}
+  const transition=programTransitionPrecondition(state);
+  const proposal=cloneSnapshot(state);
+  const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
+  proposal.customExercises=merged.customExercises;
+  const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
+  if(typeof draft.meta?.name==="string"&&draft.meta.name.trim())meta.name=draft.meta.name.trim();
+  meta.updated=new Date().toISOString();
+  proposal.programMeta=meta;
+  proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  migrateLogSnapshot(proposal);
+  const effect=destructiveDraftClearEffect(discardDraftRaw);
+  const result=await commitProposedState(proposal,adapter,{effect,...transition});
+  if(!(result.localOk||result.idbOk)){
+    // Keep the reviewed decisions on screen: the lifter can press Import again
+    // once whatever blocked the write has cleared.
+    toast(t("toast.program_import_failed"));return result}
+  resetDraftSessionState();
+  const jsonBox=$("#programJson");if(jsonBox)jsonBox.value=JSON.stringify(proposal.program,null,2);
+  day=days()[0]||"Day 1";
+  closeImportReview({toProgram:true});
+  render();
+  toast(t("toast.program_imported",{n:counts.total}));
+  return result}
+
+/* Reading a file no longer changes anything: it opens the review screen. The
+   old path linked names and wrote the program behind one confirm(), which meant
+   a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
-  try{const parsed=JSON.parse(await f.text()),imp=parseProgramImport(parsed);
-    if(!imp?.exercises?.length)throw Error();
-    const list=imp.exercises;
-    const draftConfirmed=draftHasProgress();
-    const discardDraftRaw=readDraftRaw();
-    const confirmKey=draftConfirmed?"confirm.replace_program_discard_draft":"confirm.import_program_replace";
-    if(!confirm(t(confirmKey,{n:list.length}))){e.target.value="";toast(t("toast.program_import_cancelled"));return}
-    const adapter=io||storageIO;
-    if($("#onboarding")?.classList.contains("active")){
-      const name=typeof imp.meta?.name==="string"?imp.meta.name.trim():"";
-      await finalizeProgramSetup({exercises:list,name,answers:onbAnswers,destination:"log",origin:onboardingOrigin||"first-run",
-        io:adapter,draftConfirmed,discardDraftRaw})}
-    else{
-      const transition=programTransitionPrecondition(state);
-      const proposal=cloneSnapshot(state);
-      const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
-      if(typeof imp.meta?.name==="string"&&imp.meta.name.trim())meta.name=imp.meta.name.trim();
-      meta.updated=new Date().toISOString();
-      proposal.programMeta=meta;proposal.program=new Program(list).toJSON();
-      migrateLogSnapshot(proposal);
-      const effect=destructiveDraftClearEffect(discardDraftRaw);
-      const result=await commitProposedState(proposal,adapter,{effect,...transition});
-      if(result.localOk||result.idbOk){
-        resetDraftSessionState();$("#programJson").value=JSON.stringify(list,null,2);day=days()[0]||"Day 1";
-        render();toast(t("toast.program_saved"))}}
+  try{
+    const source=parseProgramSource(await f.text(),f.name);
+    if(!source?.exercises?.length)throw Error();
+    pendingImportIo=io||null;
+    const draft=buildImportDraft(source,f.name);
+    // An import during onboarding still finishes onboarding: it is how a lifter
+    // brings their own split instead of generating one. The review comes first
+    // either way.
+    draft.onboarding=!!$("#onboarding")?.classList.contains("active");
+    openImportReview(draft);
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
+let pendingImportIo=null;
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
   try{const s=JSON.parse(await f.text());
     if(!isImportableState(s))throw Error();
@@ -5657,7 +7009,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
     onbOpt("","sessionLength","long",t("onb.session.long.label"),t("onb.session.long.sub"),false)+`</div>`;
   else{const gen=generateProgramFromOnboarding(onbGenAnswers(onbAnswers)),days=[...new Set(gen.map(e=>e.day))];
     const byDay=days.map(d=>{const exs=gen.filter(e=>e.day===d);
-      return `<div class="onb__day"><div class="onb__dayname">${esc(d)}</div>`+
+      return `<div class="onb__day"><div class="onb__dayname">${esc(dayLabel(d))}</div>`+
         exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(e.primary)}</div>`).join("")+`</div>`});
     html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
       `<button type="button" id="onbSave" class="btn btn--cta">${esc(t("onb.review.save"))}</button>`+
@@ -5671,7 +7023,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -5682,14 +7034,14 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
-  const proposal=cloneSnapshot(state);
+  const proposal=cloneSnapshot(baseProposal||state);
   if(originEff==="block"){
     if(!blockCap)return blockTransitionResult("failed");
     if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
     archiveCapturedBlock(proposal,blockCap)}
   const meta=buildProgramMeta({name,answers:answers||onbAnswers});
   proposal.programMeta=meta;
-  proposal.program=new Program(exercises).toJSON();
+  proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
@@ -5705,7 +7057,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     programEditMode=true;
     $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
-    document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding");
+    document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
     render();toast(t("toast.tweak_program"));return result}
   render();toast(t("toast.onboarding_saved"));
   if(!maybeStartTour())maybeShowInstallBanner();
@@ -5783,7 +7135,7 @@ function restoreTourUi(snap){
   syncLogModeControls();
   workoutLeft=snap.workoutLeft;
   if(snap.statsSeg)setStatsSeg(snap.statsSeg);
-  document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+  document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
   if(snap.settings){showSettings()}
   else if(snap.exercise&&snap.exView){openExerciseView(snap.exView.key,snap.exView.from)}
   else{
@@ -5800,11 +7152,11 @@ function applyTourChoreography(step){
   const focus=step===3||step===4,list=step===1||step===2||step===5,overflow=step===1||step===2;
   tourPreview={step,ignoreSkipped:list||focus,showRest:step===4};
   if(step===0){
-    setWorkoutActive(false);document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+    setWorkoutActive(false);document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));renderToday();window.scrollTo({top:0});return}
   if(step>=1&&step<=5){
-    document.body.classList.remove("is-settings","is-exercise","is-onboarding");
+    document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
     logMode=focus?"focus":"full";
@@ -5835,6 +7187,14 @@ function showSettings(){
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
   workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render()}
+/* Returns to a bottom-nav destination from a stacked view. navTo cannot do it:
+   it skips the click when the nav button is already marked active, which it
+   still is after a full-screen view took over without touching the dock. */
+function returnToTab(view){
+  $$("nav button").forEach(b=>{const on=b.dataset.view===view;
+    b.classList.toggle("active",on);b.setAttribute("aria-current",on?"page":"false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id===view));
+  window.scrollTo({top:0})}
 function navTo(view){
   if(view==="settings"){showSettings();return}
   const b=$(`nav button[data-view="${view}"]`);
@@ -5888,7 +7248,7 @@ window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour}
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
   programEditMode=true;
-  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding");
+  document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
   $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
   return true}
@@ -5923,9 +7283,69 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
+  const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
+  const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
+  const pkDone=$("#exPickDone");if(pkDone)pkDone.onclick=confirmPickerSelection;
+  const pkSearch=$("#exPickSearch");
+  if(pkSearch)pkSearch.oninput=()=>{if(pickerState){pickerState.query=pkSearch.value;renderPickerList()}};
+  // Creating a custom exercise is the tail of a search that found nothing, so
+  // the typed text becomes the new movement's name and the picker is handed
+  // over rather than stacked under a second sheet.
+  const pkCustom=$("#exPickCustom");
+  if(pkCustom)pkCustom.onclick=()=>{
+    const reopen=pickerResumeOptions();
+    const selectedNow=reopen?.selected||[];
+    const multi=pickerState?.mode==="multi";
+    const onPick=pickerState?.onPick;
+    const typed=String($("#exPickSearch")?.value||"").trim();
+    const backToPicker=extraId=>{
+      if(!reopen)return;
+      openExercisePicker(Object.assign({},reopen,
+        {selected:extraId?selectedNow.concat(extraId):selectedNow}))};
+    openCustomExerciseSheet({entry:typed?{name:typed}:null,handoff:true,
+      onCancel:()=>backToPicker(null),
+      onSave:entry=>{
+        // A multi-pick is still being assembled, so the picker comes back with
+        // the new movement already ticked; a single pick is finished by it.
+        if(multi){backToPicker(entry.id);return}
+        if(onPick)return onPick(entry)}})};
+  const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
+  const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
+  const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;
+  const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
+  const libBack=$("#libBack");
+  if(libBack)libBack.onclick=()=>{
+    if(libFlow?.step==="configure"){libFlow.step="browse";renderLibrary();return}
+    closeLibrary()};
+  const libClose=$("#libClose");if(libClose)libClose.onclick=()=>closeLibrary();
+  const libPrimary=$("#libPrimary");if(libPrimary)libPrimary.onclick=()=>commitLibrarySelection();
+  const libSearch=$("#libSearch");
+  if(libSearch)libSearch.oninput=()=>{if(libFlow){libFlow.query=libSearch.value;renderLibrary()}};
+  const libCustom=$("#libCustom");
+  if(libCustom)libCustom.onclick=()=>{
+    const reopen=libraryResumeOptions();
+    const typed=String($("#libSearch")?.value||"").trim();
+    openCustomExerciseSheet({entry:typed?{name:typed}:null,
+      onCancel:()=>{if(reopen)openLibrary(reopen)},
+      onSave:entry=>{
+        if(!reopen)return;
+        // The definition the lifter just described is the one they were looking
+        // for, so it comes back selected.
+        const selected=librarySelectionMap(reopen.selected);selected.set(entry.id,null);
+        openLibrary(Object.assign({},reopen,{selected:[...selected.entries()]}))}})};
+  const previewBack=$("#previewBack");if(previewBack)previewBack.onclick=closeExercisePreview;
+  const pkFull=$("#exPickFull");
+  if(pkFull)pkFull.onclick=()=>{
+    const resume=pickerResumeOptions(),target=pickerState?.day||day;
+    closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,equipment:resume?.equipment||null}))};
+  const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
+  const impCancel=$("#importReviewCancel");
+  if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
+  const impCommit=$("#importCommit");
+  if(impCommit)impCommit.onclick=()=>commitImportReview(pendingImportIo||storageIO);
   const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
   blockZoomGestures();

@@ -838,11 +838,12 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 }
 .ex__meta{font-size:13px;color:var(--ink-soft);margin-top:6px;line-height:1.5}
 .nowrap{white-space:nowrap}
-.ex__subfor{font-weight:400;font-size:.72em;color:var(--ink-faint)}
-
-.subst{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px}
+.subst{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;font-size:12px}
+/* Which slot a swap stands in gets the whole line rather than trailing the
+   picker, so a long seed name wraps as a sentence instead of a column. */
+.subst__from{flex:1 0 100%;margin:0;font-size:12px;line-height:1.35;color:var(--ink-faint)}
 .subst__lab{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;font-size:10px;flex:none}
-.subst__pick{flex:1;margin:0;padding:6px 9px;font-size:16px;background:var(--surface);border:1px solid var(--rule);border-radius:8px}
+.subst__pick{flex:1;min-width:0;margin:0;padding:6px 9px;font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:8px;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Effort picker — the Easy / Hard / Max face of RIR. One control in two shapes:
    a compact line under a set row, a stacked band under the current set. Three
@@ -1111,6 +1112,237 @@ body.is-sheet-open{overflow:hidden}
 .sheet__spacer{display:block;min-width:44px}
 .sheet__act--icon{justify-self:end;display:inline-flex;align-items:center;justify-content:center;color:var(--ink-soft)}
 
+/* The in-workout swap control. It was a <select> of the template's alternates;
+   it is a button onto the full library now, and it reads back what is actually
+   being performed. */
+.subst__pick.is-swapped{border-style:solid;border-color:var(--accent-deep);color:var(--accent-deep)}
+
+/* ---- Program editor: library affordances ---- */
+.pex__swap{flex:none;color:var(--ink-soft)}
+/* A slot with no library link is the one worth pointing at: it came from an
+   import or predates the picker, and one tap adopts a real movement. */
+.pex__swap.is-unlinked{color:var(--accent-deep)}
+.pex__alts{display:flex;align-items:baseline;gap:8px;margin:10px 0 0}
+.pex__altlab{flex:none;font-size:12px;font-weight:600;color:var(--ink-soft)}
+.pex__altpick{
+  flex:1;min-width:0;padding:7px 10px;border:1px dashed var(--rule-strong);border-radius:10px;
+  background:none;font:inherit;font-size:13px;color:var(--ink);text-align:left;cursor:pointer;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+}
+
+/* A linked slot states what it follows and offers the way out, rather than
+   letting a muscle edit quietly disagree with the id the row carries. */
+.pex__linked{margin:10px 0 0;font-size:12px;color:var(--ink-faint);line-height:1.5}
+.pex__detach{
+  background:none;border:0;padding:0;font:inherit;font-size:12px;font-weight:600;
+  color:var(--accent-deep);text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.pex__mus input[readonly]{color:var(--ink-soft);background:var(--well)}
+
+/* ---- Library flow ---- */
+/* Tabs are a hairline-underlined row, not a segmented pill: the quick sheet and
+   the full page use the same control so moving between them reads continuous. */
+.picktabs{display:flex;gap:0;border-bottom:1px solid var(--rule)}
+.picktab{
+  flex:1;min-height:44px;padding:10px 6px;border:0;border-bottom:2px solid transparent;
+  background:none;font:inherit;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer;
+}
+.picktab.is-active{color:var(--accent-deep);border-bottom-color:var(--accent-deep)}
+.picktab:focus-visible{outline:2px solid var(--accent-deep);outline-offset:-2px}
+
+.libwrap{padding:0 16px calc(96px + env(safe-area-inset-bottom))}
+.libstep{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin:12px 0 18px}
+.libstep__lab{grid-column:1/-1;margin:0;font-size:11px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.libstep__bar{height:3px;border-radius:2px;background:var(--rule-strong)}
+.libstep__bar.is-done{background:var(--accent-deep)}
+#libSearch{margin:0 0 12px}
+.pick__filters--row{margin:10px -16px 0;padding:0 16px 2px}
+.pick__list--page{max-height:none;overflow:visible;margin:12px -16px 0;padding:0 16px}
+
+.librow{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.librow__preview{flex:none;padding:0;border:0;background:none;cursor:pointer;border-radius:10px}
+.librow__preview:focus-visible{outline:2px solid var(--accent-deep);outline-offset:2px}
+.librow__text{flex:1;min-width:0}
+.librow__name{margin:0;font-size:15px;font-weight:600;color:var(--ink)}
+.librow__meta{margin:2px 0 0;font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.librow__edit{
+  margin-top:4px;padding:0;border:0;background:none;font:inherit;font-size:12px;font-weight:600;
+  color:var(--accent-deep);text-decoration:underline;text-underline-offset:2px;cursor:pointer;
+}
+.librow__check{
+  flex:none;width:44px;height:44px;border:0;background:none;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+}
+.librow__check::before{
+  content:"";width:24px;height:24px;border:2px solid var(--rule-strong);border-radius:50%;
+}
+.librow__check.is-on::before{
+  border-color:var(--accent);background:var(--accent) no-repeat center/13px 13px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.6 4.6L19 7.2'/%3E%3C/svg%3E");
+}
+.librow__check:focus-visible{outline:2px solid var(--accent-deep);outline-offset:-6px;border-radius:50%}
+
+/* The action bar is the one place the count and the commit live, pinned so a
+   long list never hides how many are selected. */
+.libbar{
+  position:fixed;left:0;right:0;bottom:0;z-index:30;
+  display:flex;flex-direction:column;gap:6px;
+  padding:10px 16px calc(12px + env(safe-area-inset-bottom));
+  background:var(--bg);border-top:1px solid var(--rule);
+}
+.libbar.is-hidden{display:none}
+.libbar__count{margin:0;font-size:13px;color:var(--ink-soft)}
+.libbar .btn{margin:0}
+
+.libcount{margin:0 0 14px;font-size:13px;color:var(--ink-soft)}
+.libcfg{display:flex;align-items:flex-start;gap:12px;padding:14px 0;border-bottom:1px solid var(--rule)}
+.libcfg__body{flex:1;min-width:0}
+.libcfg__name{margin:0 0 8px;font-size:15px;font-weight:600}
+.libcfg__fields{display:flex;gap:8px}
+.libcfg__field{flex:1;display:flex;flex-direction:column;gap:4px;font-size:11px;font-weight:600;color:var(--ink-soft)}
+.libcfg__field input{
+  width:100%;min-height:44px;padding:8px;border:1px solid var(--rule-strong);border-radius:10px;
+  background:var(--surface);font:inherit;font-family:var(--mono);font-size:16px;text-align:center;color:var(--ink);
+}
+.libcfg__drop{
+  flex:none;width:44px;height:44px;display:flex;align-items:center;justify-content:center;
+  border:0;background:none;color:var(--ink-soft);cursor:pointer;
+}
+
+/* ---- Exercise preview ---- */
+.preview{padding:0 16px calc(28px + var(--nav) + env(safe-area-inset-bottom))}
+.preview__eyebrow{margin:16px 0 2px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.preview__title{margin:0 0 4px;font-size:30px;font-weight:650;letter-spacing:-.02em}
+.preview__sub{margin:0 0 16px;font-size:14px;color:var(--ink-soft)}
+.preview__head{margin:22px 0 8px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.preview__rows{margin:0}
+.preview__row{display:flex;justify-content:space-between;gap:16px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.preview__row dt{font-size:14px;color:var(--ink-soft)}
+.preview__row dd{margin:0;font-size:14px;font-weight:600;text-align:right}
+.preview__notes{margin:0;font-size:14px;color:var(--ink-soft);line-height:1.5}
+.preview .btn--cta{margin-top:26px}
+
+/* ---- Import review ---- */
+/* A full view rather than a sheet: reviewing a twelve-exercise split is not a
+   glance, and nothing is written until Import is pressed. */
+.impreview{padding:0 16px calc(28px + var(--nav) + env(safe-area-inset-bottom))}
+.impreview__file{margin:14px 0 0;font-size:13px;color:var(--ink-faint)}
+.impreview__head{margin:6px 0 4px;font-size:26px;font-weight:650;letter-spacing:-.01em}
+.impcounts{display:flex;gap:0;margin:16px 0 6px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.impcount{
+  flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
+  padding:12px 4px;font-size:12px;color:var(--ink-soft);text-align:center;
+}
+.impcount+.impcount{border-left:1px solid var(--rule)}
+.impcount b{font-size:20px;font-weight:650;color:var(--accent-deep);font-family:var(--mono)}
+.improw{
+  display:grid;grid-template-columns:1fr auto auto 1.1fr;align-items:center;gap:8px;
+  padding:12px 0;border-bottom:1px solid var(--rule);
+}
+.improw__from{margin:0;font-size:14px;color:var(--ink)}
+.improw__arrow{color:var(--ink-faint);font-size:13px}
+.improw__to{min-width:0}
+.improw__name{margin:0;font-size:14px;font-weight:600;color:var(--ink)}
+.impbadge{display:inline-block;margin-top:4px;font-size:11px;font-weight:600}
+.impbadge.is-done{color:var(--ink-faint)}
+.impbadge.is-open{color:var(--accent-deep)}
+/* The actions belong to the row above them and wrap under it on a narrow
+   screen rather than squeezing the two names into nothing. */
+.improw__acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.improw__btn{
+  min-height:36px;padding:7px 12px;border:1px solid var(--rule-strong);border-radius:999px;
+  background:var(--surface);font:inherit;font-size:13px;color:var(--ink);cursor:pointer;
+}
+/* A settled row carries one quiet chip instead of three alternatives, so the
+   screen you read before replacing a program is the list, not the controls. */
+.improw.is-folded{padding:10px 0}
+.improw__btn--change{border-color:var(--rule);color:var(--ink-soft)}
+.improw.is-open{background:transparent}
+.improw.is-open .improw__btn:first-child{border-color:var(--accent-deep);color:var(--accent-deep)}
+.impreview__safe{margin:20px 0 12px;text-align:center;font-size:13px;color:var(--ink-faint)}
+#importCommit[disabled]{opacity:.5;cursor:not-allowed}
+
+/* ---- Exercise picker sheet ---- */
+/* Search and filters sit outside .sheet__body so the list is the only thing
+   that scrolls: a lifter refining a search should never have to scroll back up
+   to reach the box they are typing in. */
+.pick__tools{flex:none;padding:10px 16px 0;display:flex;flex-direction:column;gap:10px}
+.pick__search{
+  width:100%;padding:11px 14px;border:1px solid var(--rule-strong);border-radius:12px;
+  background:var(--well);color:var(--ink);font:inherit;font-size:16px;
+}
+.pick__search:focus{outline:none;border-color:var(--accent-deep)}
+.pick__search::-webkit-search-cancel-button{-webkit-appearance:none;appearance:none}
+/* The filter row scrolls sideways rather than wrapping to three lines and
+   eating the list it is meant to narrow. */
+.pick__filters{
+  display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;
+  margin:0 -16px;padding:0 16px 2px;
+}
+.pick__filters::-webkit-scrollbar{display:none}
+.pchip{
+  flex:none;padding:7px 13px;border:1px solid var(--rule-strong);border-radius:999px;
+  background:var(--surface);color:var(--ink-soft);font:inherit;font-size:13px;font-weight:600;
+  cursor:pointer;white-space:nowrap;
+}
+.pchip.is-active{background:var(--cta);border-color:var(--cta);color:var(--cta-ink)}
+/* Artwork tiles. The empty variant is the same box with nothing in it — no
+   glyph, no initials, no shimmer — so illustrated and plain rows line up and a
+   missing illustration never looks like a failure. */
+.exthumb{
+  flex:none;display:block;border-radius:10px;background:var(--well);
+  border:1px solid var(--rule);object-fit:cover;
+}
+.exthumb--sm{width:52px;height:52px}
+.exthumb--md{width:72px;height:72px}
+.exthumb--lg{width:100%;height:auto;aspect-ratio:1;border-radius:14px}
+.exthumb--empty{background:var(--well)}
+
+.pick__body{padding-top:10px;flex-direction:column;overflow:hidden}
+.pick__list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.pick__section{
+  position:sticky;top:0;z-index:1;background:var(--surface);
+  padding:10px 0 6px;font-size:12px;font-weight:700;letter-spacing:.04em;
+  text-transform:uppercase;color:var(--ink-faint);
+}
+.pick__empty{padding:28px 4px;text-align:center;color:var(--ink-soft);font-size:14px}
+/* Opaque, or the row the list is scrolled to shows through behind the button. */
+.sheet--pick .sheet__foot--actions{background:var(--surface)}
+.pickrow{
+  display:flex;align-items:center;gap:10px;width:100%;
+  padding:11px 2px;border:0;border-bottom:1px solid var(--rule);
+  background:none;font:inherit;text-align:left;cursor:pointer;
+}
+.pickrow:last-child{border-bottom:0}
+.pickrow__main{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.pickrow__name{font-size:15px;font-weight:600;color:var(--ink)}
+.pickrow__meta{font-size:12px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pickrow__eq{
+  flex:none;padding:3px 8px;border-radius:999px;background:var(--well);
+  border:1px solid var(--rule);font-size:11px;font-weight:600;color:var(--ink-faint);
+}
+/* The tick only takes space once a row can be selected, so single-pick lists
+   are not padded for a control they never show. */
+.pickrow__tick{flex:none;width:0;transition:width .12s ease}
+.pickrow[role="checkbox"] .pickrow__tick{
+  width:20px;height:20px;border:2px solid var(--rule-strong);border-radius:6px;
+}
+/* Crossed gradients read as an X, not a tick — draw the checkmark. */
+.pickrow[role="checkbox"].is-selected .pickrow__tick{
+  background-color:var(--cta);border-color:var(--cta);
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.6 4.6L19 7.2'/%3E%3C/svg%3E");
+  background-size:13px 13px;background-position:center;background-repeat:no-repeat;
+}
+
+/* ---- Custom exercise sheet ---- */
+.custom__form{width:100%;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:16px}
+.custom__lab{margin:16px 0 8px;font-size:12px;font-weight:600;color:var(--ink-soft)}
+/* Tagging muscles means reading all nineteen, not swiping a rail to find
+   Calves. The form scrolls vertically, so these wrap instead. */
+.custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0;padding:0}
+.custom__delete{margin-top:22px;width:100%;color:var(--danger)}
+.custom__note{margin-top:16px;font-size:13px;color:var(--ink-faint)}
+
 /* ---- Rest timer sheet ---- */
 /* Tapping a running clock used to end the rest, which is the one thing a lifter
    mid-set never means. The clock opens this instead: hold it, nudge it, restart
@@ -1361,8 +1593,11 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .pday__add{width:100%;font-size:13px;padding:10px}
 .peditor__addday{width:100%;margin-top:14px;font-size:14px}
 .pex{background:var(--bg);border:1px solid var(--rule);border-radius:12px;padding:12px}
-.pex__head{display:flex;align-items:center;gap:8px}
-.pex__name{flex:1;margin-top:0;font-weight:600;font-size:16px;padding:10px 11px}
+/* Four 44px controls plus a name will not fit 390px, and library names are
+   longer than the hand-typed ones were ("Incline chest press machine"), so the
+   name takes its own row and the controls sit under it. */
+.pex__head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.pex__name{flex:1 1 100%;margin-top:0;font-weight:600;font-size:16px;padding:10px 11px}
 .pex__move{flex:none;display:flex;gap:5px}
 .pex__nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}
 .pex__num,.pex__mus{display:block;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:600;color:var(--ink-soft)}
@@ -1466,8 +1701,10 @@ nav button.active .nav__icon{background:var(--accent)}
 .nav__icon[data-i=stats]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M5 20V10M12 20V4M19 20v-7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M5 20V10M12 20V4M19 20v-7'/%3E%3C/svg%3E")}
 .nav__icon[data-i=history]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 3-6.7'/%3E%3Cpath d='M3 4v5h5'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 12a9 9 0 1 0 3-6.7'/%3E%3Cpath d='M3 4v5h5'/%3E%3Cpath d='M12 7v5l3 2'/%3E%3C/svg%3E")}
 .nav__icon[data-i=program]{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M8 4h10a2 2 0 0 1 2 2v14H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z'/%3E%3Cpath d='M9 9h8M9 13h8M9 17h5'/%3E%3C/svg%3E")}
-body.is-settings nav,body.is-exercise nav,body.is-onboarding nav{display:none}
-body.is-settings,body.is-exercise,body.is-onboarding{padding-bottom:env(safe-area-inset-bottom)}
+body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
+body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
+body.is-settings,body.is-exercise,body.is-onboarding,
+body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
 
 /* ---- Toast ---- */
 .toast{
@@ -2105,8 +2342,11 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .onb__cancel{color:var(--accent-deep)}
 .onb__title{font-size:17px;font-weight:600;text-align:center}
 .exview-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:14px}
-.exview-head .exview__back{position:absolute;left:0}
-.exview-head__title{font-size:17px;font-weight:600}
+/* The rule named .exview__back, which nothing in the markup uses — every header
+   built on .exview-head has been centring its back link inline instead of
+   pinning it left. The buttons all carry .back-link. */
+.exview-head .back-link,.exview-head .exview__back{position:absolute;left:0;display:inline-flex;align-items:center;min-height:44px}
+.exview-head__title{margin:0;font-size:17px;font-weight:600}
 .exview-head__right{position:absolute;right:0}
 .chart-wrap{margin:8px 0 16px}
 .strength-pick{margin-bottom:8px}

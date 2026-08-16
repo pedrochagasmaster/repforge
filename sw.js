@@ -1,10 +1,34 @@
-const CACHE = "repforge-v77";
+const CACHE = "repforge-v80";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
-  "./schedule.js", "./notify.js", "./i18n.js",
+  "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
+  "./assets/exercises/ab_cb.webp", "./assets/exercises/ab_mc.webp", "./assets/exercises/abc_mc.webp", "./assets/exercises/abdb_bw.webp",
+  "./assets/exercises/ablr_bw.webp", "./assets/exercises/abr_bw.webp", "./assets/exercises/abrt_bw.webp", "./assets/exercises/ad_mc.webp",
+  "./assets/exercises/arn_db.webp", "./assets/exercises/be_mc.webp", "./assets/exercises/cd_bw.webp", "./assets/exercises/cf_db.webp",
+  "./assets/exercises/chn_bw.webp", "./assets/exercises/ci_cb.webp", "./assets/exercises/ci_mc.webp", "./assets/exercises/cu_bb.webp",
+  "./assets/exercises/cu_cb.webp", "./assets/exercises/cu_db.webp", "./assets/exercises/cu_ez.webp", "./assets/exercises/cu_mc.webp",
+  "./assets/exercises/cuh_db.webp", "./assets/exercises/cup_bb.webp", "./assets/exercises/cv_mc.webp", "./assets/exercises/cvl_mc.webp",
+  "./assets/exercises/cvs_mc.webp", "./assets/exercises/cx_cb.webp", "./assets/exercises/dl_bb.webp", "./assets/exercises/dl_cb.webp",
+  "./assets/exercises/dlt_bb.webp", "./assets/exercises/fp_cb.webp", "./assets/exercises/ghr_bw.webp", "./assets/exercises/hg_bb.webp",
+  "./assets/exercises/hg_db.webp", "./assets/exercises/hg_mc.webp", "./assets/exercises/hg_sm.webp", "./assets/exercises/hr_mc.webp",
+  "./assets/exercises/ht_bb.webp", "./assets/exercises/ht_mc.webp", "./assets/exercises/hx_bw.webp", "./assets/exercises/ilc_bw.webp",
+  "./assets/exercises/ip_bb.webp", "./assets/exercises/ip_db.webp", "./assets/exercises/ip_mc.webp", "./assets/exercises/ip_sm.webp",
+  "./assets/exercises/lc_mc.webp", "./assets/exercises/lcl_mc.webp", "./assets/exercises/le_mc.webp", "./assets/exercises/lg_bb.webp",
+  "./assets/exercises/lg_db.webp", "./assets/exercises/lp1_mc.webp", "./assets/exercises/lph_mc.webp", "./assets/exercises/lr_db.webp",
+  "./assets/exercises/lr_mc.webp", "./assets/exercises/pd_bw.webp", "./assets/exercises/pd_mc.webp", "./assets/exercises/pl_cb.webp",
+  "./assets/exercises/pl_mc.webp", "./assets/exercises/pr_bb.webp", "./assets/exercises/pr_db.webp", "./assets/exercises/pr_mc.webp",
+  "./assets/exercises/pr_sm.webp", "./assets/exercises/pu_bw.webp", "./assets/exercises/pup_bw.webp", "./assets/exercises/pupn_bw.webp",
+  "./assets/exercises/pupw_wt.webp", "./assets/exercises/pv_db.webp", "./assets/exercises/rd_db.webp", "./assets/exercises/rd_mc.webp",
+  "./assets/exercises/rw1_db.webp", "./assets/exercises/rw_bb.webp", "./assets/exercises/rw_cb.webp", "./assets/exercises/rw_db.webp",
+  "./assets/exercises/rw_mc.webp", "./assets/exercises/sh_bb.webp", "./assets/exercises/sh_db.webp", "./assets/exercises/sp_bb.webp",
+  "./assets/exercises/sp_db.webp", "./assets/exercises/sp_mc.webp", "./assets/exercises/sps_db.webp", "./assets/exercises/sq_bb.webp",
+  "./assets/exercises/sq_db.webp", "./assets/exercises/sq_lp.webp", "./assets/exercises/sq_sm.webp", "./assets/exercises/sqf_bb.webp",
+  "./assets/exercises/sqk_mc.webp", "./assets/exercises/ss_bw.webp", "./assets/exercises/ss_db.webp", "./assets/exercises/su_db.webp",
+  "./assets/exercises/tb_mc.webp", "./assets/exercises/tr_cb.webp", "./assets/exercises/tr_mc.webp", "./assets/exercises/trd_bw.webp",
+  "./assets/exercises/tro_cb.webp", "./assets/exercises/trr_cb.webp", "./assets/exercises/trs_db.webp", "./assets/exercises/wc_bb.webp",
   "./fonts/plexsans.woff2",
   "./fonts/plexmono-400.woff2", "./fonts/plexmono-500.woff2", "./fonts/plexmono-600.woff2"
 ];
@@ -23,7 +47,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/manifest.webmanifest"]);
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);

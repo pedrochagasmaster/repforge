@@ -259,12 +259,67 @@
           <button id="saveProgram" class="btn btn--cta" type="button" data-i18n="program.save_json">Save JSON</button>
           <div class="btnrow">
             <button id="exportProgram" class="btn btn--steel" type="button" data-i18n="program.export_json">Export program JSON</button>
-            <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program JSON</span><input id="importProgram" type="file" accept=".json,application/json"></label>
+            <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program file</span><input id="importProgram" type="file" accept=".json,.txt,application/json,text/plain"></label>
           </div>
         </details>
         <h3 class="subhead" data-i18n="program.planned_volume">Planned weekly volume</h3>
         <p class="lede" data-i18n="program.planned_volume.lede" data-i18n-html>Sets per muscle from this program template, assuming each day is trained once per week. See <b>Stats → Completed hard sets</b> for what you actually logged.</p>
         <div id="volume" class="volume"></div>
+      </div>
+    </section>
+
+    <section id="library" class="view" data-i18n-aria="library.aria" aria-label="Exercise library">
+      <div class="exview-head">
+        <button type="button" class="back-link" id="libBack" data-i18n="library.back">‹ Back</button>
+        <h1 class="exview-head__title" id="libTitle" data-i18n="library.title">Add exercises</h1>
+        <div class="exview-head__right"><button type="button" class="link-accent" id="libClose" data-i18n="dialog.close">Close</button></div>
+      </div>
+      <div class="libwrap">
+        <div id="libStep" class="libstep hidden"></div>
+        <div id="libBrowse">
+          <input id="libSearch" type="search" class="pick__search" data-i18n-placeholder="library.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search by name, muscle or equipment" autocomplete="off" enterkeyhint="search">
+          <div id="libTabs" class="picktabs" role="tablist" data-i18n-aria="picker.tabs_aria" aria-label="Exercise sources"></div>
+          <div id="libFilters" class="pick__filters" role="group" data-i18n-aria="picker.filters_aria" aria-label="Filter exercises"></div>
+          <div id="libList" class="pick__list pick__list--page"></div>
+          <button type="button" class="text-link text-link--center" id="libCustom" data-i18n="picker.create_custom">+ Create custom exercise</button>
+        </div>
+        <div id="libConfigure" class="hidden">
+          <h2 class="impreview__head" data-i18n="library.configure_head">Configure the day</h2>
+          <p class="lede" data-i18n="library.configure_lede">Set how many sets and which rep range.</p>
+          <p class="libcount" id="libConfigureCount"></p>
+          <div id="libConfigureRows"></div>
+        </div>
+      </div>
+      <div class="libbar" id="libBar">
+        <p class="libbar__count" id="libBarCount" role="status" aria-live="polite"></p>
+        <button type="button" class="btn btn--cta" id="libPrimary"></button>
+      </div>
+    </section>
+
+    <section id="exercisePreview" class="view" data-i18n-aria="preview.aria" aria-label="Exercise details">
+      <div class="exview-head">
+        <button type="button" class="back-link" id="previewBack" data-i18n="preview.back">‹ Library</button>
+        <h1 class="exview-head__title" data-i18n="preview.title">Exercise</h1>
+        <div class="exview-head__right"></div>
+      </div>
+      <div id="previewBody" class="preview"></div>
+    </section>
+
+    <section id="importReview" class="view" data-i18n-aria="import.aria" aria-label="Review imported program">
+      <div class="exview-head">
+        <button type="button" class="back-link" id="importBack" data-i18n="import.back">‹ Back</button>
+        <h1 class="exview-head__title" data-i18n="import.title">Import program</h1>
+        <div class="exview-head__right"></div>
+      </div>
+      <div class="impreview">
+        <p class="impreview__file" id="importFile"></p>
+        <h2 class="impreview__head" data-i18n="import.heading">Review the exercises</h2>
+        <p class="lede" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
+        <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
+        <div id="importRows"></div>
+        <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
+        <button type="button" class="btn btn--cta" id="importCommit" data-i18n="import.commit">Import program</button>
+        <button type="button" class="text-link text-link--center" id="importReviewCancel" data-i18n="import.cancel">Cancel this import</button>
       </div>
     </section>
 
@@ -541,6 +596,57 @@
       <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
     </div>
   </div>
+  <div id="exPickScrim" class="sheet-scrim hidden"></div>
+  <div id="exPickSheet" class="sheet sheet--pick hidden" role="dialog" aria-modal="true" aria-labelledby="exPickTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <button type="button" class="sheet__act" id="exPickCancel" data-i18n="dialog.cancel">Cancel</button>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="exPickTitle" data-i18n="picker.title">Choose exercise</p>
+        <p class="sheet__sub" id="exPickFor"></p>
+      </div>
+      <button type="button" class="sheet__act sheet__act--accent hidden" id="exPickDone" data-i18n="dialog.done">Done</button>
+    </div>
+    <div class="pick__tools">
+      <input id="exPickSearch" type="search" class="pick__search" data-i18n-placeholder="picker.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search exercises…" aria-label="Search exercises" autocomplete="off" enterkeyhint="search">
+      <div id="exPickTabs" class="picktabs hidden" role="tablist" data-i18n-aria="picker.tabs_aria" aria-label="Exercise sources"></div>
+      <div id="exPickFilters" class="pick__filters" role="group" data-i18n-aria="picker.filters_aria" aria-label="Filter exercises"></div>
+    </div>
+    <div class="sheet__body pick__body">
+      <div id="exPickList" class="pick__list"></div>
+    </div>
+    <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="text-link" id="exPickFull" data-i18n="picker.open_library">Open full library ›</button>
+      <button type="button" class="btn btn--steel" id="exPickCustom" data-i18n="picker.create_custom">+ Create custom exercise</button>
+    </div>
+  </div>
+  <div id="exCustomScrim" class="sheet-scrim hidden"></div>
+  <div id="exCustomSheet" class="sheet sheet--custom hidden" role="dialog" aria-modal="true" aria-labelledby="exCustomTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <button type="button" class="sheet__act" id="exCustomCancel" data-i18n="dialog.cancel">Cancel</button>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="exCustomTitle" data-i18n="custom.title">Custom exercise</p>
+      </div>
+      <button type="button" class="sheet__act sheet__act--accent" id="exCustomSave" data-i18n="dialog.save">Save</button>
+    </div>
+    <div class="sheet__body pick__body">
+      <div class="custom__form">
+        <label class="field"><span data-i18n="custom.name">Name</span>
+          <input id="exCustomName" type="text" data-i18n-placeholder="custom.name_placeholder" placeholder="Hammer Strength row" autocomplete="off"></label>
+        <p class="custom__lab" data-i18n="custom.equipment">Equipment</p>
+        <div id="exCustomEquip" class="pick__filters" role="group" data-i18n-aria="custom.equipment" aria-label="Equipment"></div>
+        <p class="custom__lab" data-i18n="custom.primary">Primary muscles</p>
+        <div id="exCustomPrimary" class="pick__filters" role="group" data-i18n-aria="custom.primary" aria-label="Primary muscles"></div>
+        <p class="custom__lab" data-i18n="custom.secondary">Secondary muscles</p>
+        <div id="exCustomSecondary" class="pick__filters" role="group" data-i18n-aria="custom.secondary" aria-label="Secondary muscles"></div>
+        <label class="field"><span data-i18n="custom.notes">Setup notes</span>
+          <input id="exCustomNotes" type="text" data-i18n-placeholder="custom.notes_placeholder" placeholder="Seat 4, handles at chest height" autocomplete="off"></label>
+        <button type="button" class="btn btn--steel custom__delete hidden" id="exCustomDelete" data-i18n="custom.delete">Delete exercise</button>
+        <p class="custom__note hidden" id="exCustomInUse" data-i18n="custom.in_use">In use by your program or history. Archiving keeps those records intact.</p>
+      </div>
+    </div>
+  </div>
   <div id="restSheetScrim" class="sheet-scrim hidden"></div>
   <div id="restSheet" class="sheet sheet--rest hidden" role="dialog" aria-modal="true" aria-labelledby="restSheetTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
@@ -600,6 +706,7 @@
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
   <script src="i18n.js"></script>
+  <script src="exercises.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

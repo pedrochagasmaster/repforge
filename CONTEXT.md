@@ -12,6 +12,26 @@ _Avoid_: Template (when meaning the whole program), split (in user-facing copy u
 One movement slot in the program: day, order, sets, rep range, muscles, notes, and alternates.
 _Avoid_: Exercise (when meaning the template rather than a logged performance), lift (ambiguous with a logged set)
 
+**Exercise library**:
+The catalogue of movements the lifter chooses from — name in both languages, equipment, muscles, and the movement patterns the generator selects by. Ships with the app (`exercises.js`, generated); the lifter's own additions live beside it as custom exercises. Choosing from it copies name, muscles and notes onto the exercise template and records the library id as provenance, so a slot stays fully editable and never depends on the library to be read.
+_Avoid_: Exercise database, catalog (the internal name for its predecessor), movement bank
+
+**Custom exercise**:
+A movement the lifter authored because the library lacked it. Stored with their data, offered in every picker beside the built-ins, reusable across programs, and carried inside a program export that references it. Needs a name, equipment and a primary muscle. Archived rather than deleted once anything points at it.
+_Avoid_: Custom movement, user exercise, my exercise
+
+**Display alias**:
+A slot's local label for a linked movement — the name on the machine in this gym. Changes what the slot reads, never what it is; the library id and its muscles stay canonical. Changing the movement itself means detaching the slot.
+_Avoid_: Rename, custom name, override (unqualified)
+
+**Performed snapshot**:
+What a logged set actually trained, when that differs from its template: the performed movement's library id, name and muscles, stored on the row. Volume and history read it in preference to the template, so a mid-session swap is credited to the movement that was done. Rows written before it exists keep using their template values.
+_Avoid_: Substitution record, override, actual exercise
+
+**Import review**:
+The screen between reading a program file and writing it. Every imported name is classified — matched, the same movement in the other language, likely, or unknown — and a likely match must be decided before the import can commit. Nothing durable changes until then.
+_Avoid_: Import preview (that is the backup-import summary), reconciliation wizard
+
 **Program metadata**:
 Identity and lifecycle fields for the active program — name, start date, created/updated timestamps — separate from individual exercise templates.
 _Avoid_: Program settings, program config
