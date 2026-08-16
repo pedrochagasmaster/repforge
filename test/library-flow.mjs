@@ -125,8 +125,8 @@ async function main() {
       emptyIsBlank: [...document.querySelectorAll("#libList span.exthumb--empty")].every((s) => !s.textContent.trim() && !s.children.length),
       lazy: [...document.querySelectorAll("#libList img.exthumb")].every((i) => i.loading === "lazy"),
     }));
-    assert(media.images === 24, "exactly the mapped exercises show artwork", `${media.images} of ${media.rows}`);
-    assert(media.empties === media.rows - 24, "every other row shows an empty tile",
+    assert(media.images === 96, "exactly the mapped exercises show artwork", `${media.images} of ${media.rows}`);
+    assert(media.empties === media.rows - 96, "every other row shows an empty tile",
       `${media.empties} empties, ${media.rows} rows`);
     assert(media.emptyHasNoSrc && media.emptyIsBlank,
       "the empty tile is genuinely empty — no src, no glyph, no text");

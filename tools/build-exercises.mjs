@@ -502,16 +502,25 @@ function equipmentFrom(row) {
   return eq ? [...eq] : null;
 }
 
-/* The only exercises allowed to show artwork. Twenty-four illustrations were
-   licensed for this app; everything else — built-in or custom — renders a
-   deliberately empty tile. Keyed by stable library id, never by display name,
-   locale or filename slug, and validated against the files on disk so a
-   regeneration cannot silently ship a broken image request. */
+/* The only exercises allowed to show artwork. Ninety-six illustrations are
+   licensed for this app; the remaining 174 movements — built-in or custom —
+   render a deliberately empty tile. Keyed by stable library id, never by
+   display name, locale or filename slug, and validated against the files on
+   disk so a regeneration cannot silently ship a broken image request. */
 const MEDIA_DIR = "assets/exercises";
 const MEDIA_IDS = [
-  "ab_mc", "cu_cb", "cu_db", "dl_cb", "fp_cb", "hg_bb", "ht_bb", "ht_mc",
-  "hx_bw", "lc_mc", "lcl_mc", "le_mc", "lr_mc", "pd_mc", "pl_mc", "rd_mc",
-  "rw_mc", "sps_db", "sq_lp", "sq_sm", "sqk_mc", "ss_db", "trr_cb", "trs_db"
+  "ab_cb", "ab_mc", "abc_mc", "abdb_bw", "ablr_bw", "abr_bw", "abrt_bw", "ad_mc",
+  "arn_db", "be_mc", "cd_bw", "cf_db", "chn_bw", "ci_cb", "ci_mc", "cu_bb",
+  "cu_cb", "cu_db", "cu_ez", "cu_mc", "cuh_db", "cup_bb", "cv_mc", "cvl_mc",
+  "cvs_mc", "cx_cb", "dl_bb", "dl_cb", "dlt_bb", "fp_cb", "ghr_bw", "hg_bb",
+  "hg_db", "hg_mc", "hg_sm", "hr_mc", "ht_bb", "ht_mc", "hx_bw", "ilc_bw",
+  "ip_bb", "ip_db", "ip_mc", "ip_sm", "lc_mc", "lcl_mc", "le_mc", "lg_bb",
+  "lg_db", "lp1_mc", "lph_mc", "lr_db", "lr_mc", "pd_bw", "pd_mc", "pl_cb",
+  "pl_mc", "pr_bb", "pr_db", "pr_mc", "pr_sm", "pu_bw", "pup_bw", "pupn_bw",
+  "pupw_wt", "pv_db", "rd_db", "rd_mc", "rw1_db", "rw_bb", "rw_cb", "rw_db",
+  "rw_mc", "sh_bb", "sh_db", "sp_bb", "sp_db", "sp_mc", "sps_db", "sq_bb",
+  "sq_db", "sq_lp", "sq_sm", "sqf_bb", "sqk_mc", "ss_bw", "ss_db", "su_db",
+  "tb_mc", "tr_cb", "tr_mc", "trd_bw", "tro_cb", "trr_cb", "trs_db", "wc_bb"
 ];
 
 /* The generator picks the first candidate in a slot's pool, so the pool's order

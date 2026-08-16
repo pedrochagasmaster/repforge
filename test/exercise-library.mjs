@@ -168,12 +168,12 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
 }
 
 /* ---- artwork ----
-   Exactly 24 illustrations are licensed. More than that means something was
+   Exactly 96 illustrations are licensed. More than that means something was
    invented; fewer means a mapping was lost. Every mapped path must exist, or
    the app issues a request for a file that is not there. */
 {
   const mapped = EXERCISE_LIBRARY.filter(e => e.media);
-  assert(mapped.length === 24, "exactly 24 exercises carry artwork", `${mapped.length} mapped`);
+  assert(mapped.length === 96, "exactly 96 exercises carry artwork", `${mapped.length} mapped`);
 
   const missing = mapped.filter(e => !existsSync(join(ROOT, e.media)));
   assert(missing.length === 0, "every mapped illustration exists on disk",
@@ -184,7 +184,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     stray.map(e => `${e.id} → ${e.media}`).join(", "));
 
   const files = readdirSync(join(ROOT, "assets", "exercises")).filter(f => f.endsWith(".webp"));
-  assert(files.length === 24, "no unreferenced artwork ships", `${files.length} files`);
+  assert(files.length === 96, "no unreferenced artwork ships", `${files.length} files`);
   const unmapped = files.filter(f => !mapped.some(e => e.media.endsWith(`/${f}`)));
   assert(unmapped.length === 0, "every shipped file is mapped to a library id", unmapped.join(", "));
 
@@ -196,7 +196,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
 
 {
   // Offline: the shell has to carry the artwork, or an installed app shows
-  // empty tiles for the 24 the moment it loses connectivity.
+  // empty tiles for the 96 the moment it loses connectivity.
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
   const mapped = EXERCISE_LIBRARY.filter(e => e.media);
   const uncached = mapped.filter(e => !sw.includes(`./${e.media}`));
