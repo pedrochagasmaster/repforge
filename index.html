@@ -553,6 +553,93 @@
       </div>
     </div>
   </div>
+  <!-- First-run setup. The install section is written by app.js from what the
+       browser actually offers — a captured beforeinstallprompt, iOS Safari's
+       manual Home Screen flow, or nothing at all — never from screen size. -->
+  <div id="firstRun" class="firstrun hidden" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
+    <div class="firstrun__inner">
+      <div class="firstrun__brand">
+        <img class="firstrun__logo" src="icons/icon.svg" alt="" width="46" height="46">
+        <span class="firstrun__wordmark">Taurifer</span>
+      </div>
+      <h1 class="firstrun__title" data-i18n="setup.title">Set up Taurifer</h1>
+      <p class="firstrun__lede" data-i18n="setup.lede">Install the app, then choose how to begin.</p>
+
+      <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">
+        <p class="firstrun__eyebrow" id="firstRunInstallLabel" data-i18n="setup.install_label">Install</p>
+        <div id="firstRunInstallCard" class="installcard"></div>
+      </section>
+
+      <section class="firstrun__section" aria-labelledby="firstRunProgramLabel">
+        <p class="firstrun__eyebrow" id="firstRunProgramLabel" data-i18n="setup.program_label">Program</p>
+        <div class="firstrun__rows">
+          <button type="button" class="firstrun-row" id="firstRunCreate">
+            <span class="firstrun-row__icon firstrun-row__icon--plus" aria-hidden="true"></span>
+            <span class="firstrun-row__text">
+              <span class="firstrun-row__title" data-i18n="setup.create.title">Create a program</span>
+              <span class="firstrun-row__cap" data-i18n="setup.create.cap">Build your training from scratch</span>
+            </span>
+            <span class="firstrun-row__go" aria-hidden="true"></span>
+          </button>
+          <button type="button" class="firstrun-row" id="firstRunImport">
+            <span class="firstrun-row__icon firstrun-row__icon--import" aria-hidden="true"></span>
+            <span class="firstrun-row__text">
+              <span class="firstrun-row__title" data-i18n="setup.import.title">Import a program</span>
+              <span class="firstrun-row__cap" data-i18n="setup.import.cap">Use a shared Taurifer program</span>
+            </span>
+            <span class="firstrun-row__go" aria-hidden="true"></span>
+          </button>
+        </div>
+      </section>
+
+      <button type="button" class="firstrun__continue" id="firstRunContinue">
+        <span id="firstRunContinueLabel" data-i18n="setup.continue_browser">Continue in browser</span>
+        <span class="firstrun-row__go" aria-hidden="true"></span>
+      </button>
+    </div>
+  </div>
+  <!-- Safari has no install event to call, so this is the one place Taurifer
+       draws another app's UI: it illustrates Safari's own toolbar to point at
+       the control the lifter has to tap. Chrome's install prompt is never
+       drawn here — it is Chrome's, and we only ask for it. -->
+  <div id="iosInstallScrim" class="sheet-scrim hidden"></div>
+  <div id="iosInstallSheet" class="sheet sheet--install hidden" role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="installsheet">
+      <div class="installsheet__head">
+        <span class="installsheet__mark" aria-hidden="true"></span>
+        <div class="installsheet__titles">
+          <p class="installsheet__title" id="iosInstallTitle" data-i18n="install.ios.title">Install on iPhone</p>
+          <p class="installsheet__sub" data-i18n="install.ios.sub">Add Taurifer to your Home Screen.</p>
+        </div>
+      </div>
+      <div class="safaribar" aria-hidden="true">
+        <div class="safaribar__url">
+          <span class="safaribar__lock"></span>
+          <span class="safaribar__host" id="iosInstallHost"></span>
+          <span class="safaribar__reload"></span>
+        </div>
+        <div class="safaribar__tools">
+          <span class="safaribar__tool safaribar__tool--back"></span>
+          <span class="safaribar__tool safaribar__tool--fwd"></span>
+          <span class="safaribar__tool safaribar__tool--share"></span>
+          <span class="safaribar__tool safaribar__tool--book"></span>
+          <span class="safaribar__tool safaribar__tool--tabs"></span>
+          <span class="safaribar__target">
+            <span class="safaribar__tap" data-i18n="install.ios.tap">Tap</span>
+            <span class="safaribar__tool safaribar__tool--more">•••</span>
+          </span>
+        </div>
+      </div>
+      <ol class="installsteps">
+        <li class="installsteps__step"><span class="installsteps__n">01</span><span class="installsteps__body" data-i18n="install.ios.step1" data-i18n-html></span></li>
+        <li class="installsteps__step"><span class="installsteps__n">02</span><span class="installsteps__body" data-i18n="install.ios.step2" data-i18n-html></span></li>
+        <li class="installsteps__step"><span class="installsteps__n">03</span><span class="installsteps__body" data-i18n="install.ios.step3" data-i18n-html></span></li>
+      </ol>
+      <button type="button" class="btn btn--cta btn--noarrow installsheet__done" id="iosInstallDone" data-i18n="install.ios.done">Done</button>
+      <p class="installsheet__foot" data-i18n="install.ios.foot">Taurifer will open from its icon on your Home Screen.</p>
+    </div>
+  </div>
   <div id="installBanner" class="installbanner hidden" role="dialog" data-i18n-aria="install.banner_aria" aria-label="Install Taurifer">
     <button type="button" class="installbanner__close" id="installBannerClose" data-i18n-aria="install.dismiss_aria" aria-label="Dismiss">✕</button>
     <span class="installbanner__icon" aria-hidden="true"></span>

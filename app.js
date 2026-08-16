@@ -5772,7 +5772,9 @@ function renderSettings(){
   reconcileNotifyPermission();
   paintNotifyControls();
   updateVoiceBtn();
-  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",isStandalone());
+  // Rule 5: the row is there only when tapping it leads somewhere — Chrome's
+  // prompt, the Safari sheet, or the explanation another iOS browser needs.
+  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",installMode()==="none");
   const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
@@ -6804,6 +6806,9 @@ function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportR
 function openImportReview(draft){
   importDraft=draft;
   importReturn=document.activeElement;
+  // The review renders inside the app shell, so the first-run gate steps aside
+  // for it rather than covering it.
+  if(draft?.fromFirstRun)suspendFirstRun();
   document.body.classList.add("is-import");
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="importReview"));
   window.scrollTo({top:0});
@@ -6814,13 +6819,15 @@ function openImportReview(draft){
   (target||$("#importBack"))?.focus({preventScroll:true})}
 
 function closeImportReview({toProgram=true}={}){
-  const wasOnboarding=importDraft?.onboarding;
+  const wasOnboarding=importDraft?.onboarding,wasFirstRun=importDraft?.fromFirstRun;
   importDraft=null;
   document.body.classList.remove("is-import");
   const back=resolveReturnFocus(importReturn);
   importReturn=null;
-  // Backing out of an import started during onboarding returns to onboarding,
-  // which is where the lifter still is: they have no program yet.
+  // Backing out of an import started during onboarding returns to onboarding —
+  // or to the setup gate it came from. Either way the lifter has no program yet,
+  // so they cannot be dropped into the app.
+  if(wasFirstRun&&toProgram){openFirstRun();return}
   if(wasOnboarding&&toProgram){showOnboardingView();renderOnboarding();return}
   if(toProgram)returnToTab("program");
   if(back)try{back.focus({preventScroll:true})}catch{}}
@@ -6846,8 +6853,9 @@ async function commitImportReview(io=storageIO){
     const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
       origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal});
     if(setup&&!(setup.localOk||setup.idbOk)){
-      // The write was refused; leave onboarding standing so it can be retried.
-      showOnboardingView();renderOnboarding();
+      // The write was refused; leave the screen it came from standing so it can
+      // be retried.
+      if(draft.fromFirstRun)openFirstRun();else{showOnboardingView();renderOnboarding()}
       toast(t("toast.program_import_failed"));return setup}
     closeImportReview({toProgram:false});
     toast(t("toast.program_imported",{n:counts.total}));
@@ -6886,9 +6894,11 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
     pendingImportIo=io||null;
     const draft=buildImportDraft(source,f.name);
     // An import during onboarding still finishes onboarding: it is how a lifter
-    // brings their own split instead of generating one. The review comes first
-    // either way.
-    draft.onboarding=!!$("#onboarding")?.classList.contains("active");
+    // brings their own split instead of generating one. The setup gate's Import
+    // is the same first run by another door, so it commits the same way and
+    // returns to the gate if it is abandoned. The review comes first either way.
+    draft.fromFirstRun=firstRunOpen();
+    draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
     openImportReview(draft);
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
@@ -7057,7 +7067,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(!(result.localOk||result.idbOk))return result;
   resetDraftSessionState();
   if(originEff==="block")pendingBlockTransition=null;
-  onboardingOrigin=null;day=days()[0]||"Day 1";closeOnboarding();
+  onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
   if(destination==="program-edit"){
     programEditMode=true;
     $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
@@ -7084,6 +7094,30 @@ function setUiPref(k,v){uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringi
 // ---- Install / PWA helpers ----
 const isStandalone=()=>window.matchMedia?.("(display-mode: standalone)")?.matches===true||window.navigator.standalone===true;
 const isIOS=()=>{const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.test(ua)||(navigator.platform==="MacIntel"&&(navigator.maxTouchPoints||0)>1)};
+/* iOS ships one installer — Safari's Share sheet — and every other iOS browser
+   is that same engine without it. Those browsers name themselves in the UA, and
+   so do the in-app webviews; nothing else on iOS can be told apart. */
+const IOS_NON_SAFARI=/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|OPR\/|YaBrowser|DuckDuckGo|Brave|FBAN|FBAV|FBIOS|Instagram|Line\/|Twitter|MicroMessenger|GSA\//i;
+const isIOSSafari=()=>isIOS()&&!IOS_NON_SAFARI.test(navigator.userAgent||"");
+/** The single decision about which install interface a browser gets. It reads
+ *  capabilities and display mode — never screen size — in this order:
+ *    "none"   already installed, or nothing worth offering
+ *    "native" a deferred beforeinstallprompt is in hand (Chromium anywhere)
+ *    "ios"    iOS/iPadOS Safari, which installs by hand from the Share sheet
+ *    "safari" another browser on iOS/iPadOS, which cannot install at all
+ *  Chrome's own install prompt is never drawn by Taurifer: "native" only means
+ *  we hold the event that asks Chrome to show it. */
+function installMode(){
+  if(isStandalone())return "none";
+  if(installPrompt)return "native";
+  if(isIOS())return isIOSSafari()?"ios":"safari";
+  return "none";
+}
+/* Chrome can fire this before init() binds its own listener, and an event nobody
+   caught is an install offer the lifter never gets. Capturing it here, at parse
+   time, means boot always reads the true answer; the listener in init() is the
+   one that redraws once there is something to redraw. */
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e},true);
 const IOS_SHARE_SVG='<svg class="ios-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13"/><path d="M8 7l4-4 4 4"/><path d="M6 12H4v8h16v-8h-2"/></svg>';
 const INSTALL_SNOOZE_MS=7*86400000;
 function installInstructions(){
@@ -7091,33 +7125,154 @@ function installInstructions(){
   if(installPrompt)return t("install.prompt_instructions");
   return t("install.browser_instructions");
 }
+/** Every surface that offers an install, refreshed from one reading of what the
+ *  browser can do. Called whenever that reading can have changed. */
+function renderInstallSurfaces(){
+  const mode=installMode();
+  $("#installBtn")?.classList.toggle("hidden",mode!=="native");
+  $("#installApp")?.classList.toggle("hidden",mode==="none");
+  renderFirstRunInstall();
+}
 async function triggerInstall(){
-  if(installPrompt){installPrompt.prompt();let outcome="";try{const c=await installPrompt.userChoice;outcome=c?.outcome||""}catch{}
-    installPrompt=null;$("#installBtn")?.classList.add("hidden");
-    if(outcome==="accepted"){hideInstallBanner(false);toast(t("toast.installing"))}
-    renderSettings();return}
-  showInstallBanner(true);
+  const mode=installMode();
+  if(mode==="native"){
+    // The event is single-use. Clearing it before the await is what makes a
+    // second tap a no-op rather than a second prompt() on a spent event, and it
+    // is also step 3 of the flow: consume it whatever the lifter chooses.
+    const evt=installPrompt;installPrompt=null;
+    let outcome="";
+    try{evt.prompt();const choice=await evt.userChoice;outcome=choice?.outcome||""}catch{}
+    // Nothing is claimed that Chrome has not confirmed: only "accepted" reports
+    // an install, and a dismissal simply leaves the section gone until Chrome
+    // offers the event again.
+    if(outcome==="accepted"){hideInstallBanner(false);closeFirstRunInstall();toast(t("toast.installing"))}
+    renderSettings();renderInstallSurfaces();return}
+  if(mode==="ios"){openIosInstallSheet();return}
+  if(mode==="safari"){showInstallBanner(true);return}
 }
 function installBannerEligible(){
-  if(isStandalone())return false;
+  if(installMode()==="none")return false;
   if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
-  if(tourActive||$("#onboarding")?.classList.contains("active"))return false;
-  if(!installPrompt&&!isIOS())return false;
+  if(tourActive||firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
   const dis=+uiPrefs.installDismissedAt||0;
   if(dis&&Date.now()-dis<INSTALL_SNOOZE_MS)return false;
   return true;
 }
 function showInstallBanner(force){
   const b=$("#installBanner");if(!b)return;
+  const mode=installMode();
+  if(mode==="none")return;
   if(!force&&!installBannerEligible())return;
-  if(isStandalone())return;
-  $("#installBannerBody").innerHTML=installInstructions();
+  $("#installBannerBody").innerHTML=mode==="safari"?esc(t("install.card.safari_only_body")):installInstructions();
   const act=$("#installBannerAction");
-  if(installPrompt){act.classList.remove("hidden");act.textContent=t("install.action")}else act.classList.add("hidden");
+  // A button appears only where it does something: Chrome's prompt, or the
+  // Safari sheet. In another iOS browser the banner is the explanation itself.
+  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action")}
+  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action")}
+  else act.classList.add("hidden");
   b.classList.remove("hidden");
 }
 function hideInstallBanner(remember){$("#installBanner")?.classList.add("hidden");if(remember)setUiPref("installDismissedAt",Date.now())}
 function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
+
+/* ---- First-run setup: install, then choose a program ----
+   One screen, one layout. Only its install section changes, and it changes with
+   what the browser can actually do — a captured beforeinstallprompt, Safari's
+   manual Home Screen flow, or nothing — so no lifter is ever asked which phone
+   they are holding. */
+const INSTALL_TRAY_SVG='<svg class="installcard__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+  '<path d="M12 3v11"/><path d="M7.5 9.5 12 14l4.5-4.5"/><path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg>';
+const INSTALL_SHARE_SVG='<svg class="installcard__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
+  '<path d="M12 3v12"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H4v9h16v-9h-2"/></svg>';
+let firstRunActive=false;
+const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
+/** Write the install section from the current reading, or take it away. Rule 5:
+ *  a browser with no mechanism gets no section at all, never a dead button. */
+function renderFirstRunInstall(){
+  const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard");
+  if(!sec||!card)return;
+  const mode=installMode();
+  if(mode==="none"){sec.classList.add("hidden");card.innerHTML="";return}
+  const body=mode==="native"?t("install.card.browser_body")
+    :mode==="ios"?t("install.card.ios_body"):t("install.card.safari_only_body");
+  const action=mode==="native"?t("install.card.browser_action"):mode==="ios"?t("install.card.ios_action"):"";
+  card.innerHTML=(mode==="native"?INSTALL_TRAY_SVG:INSTALL_SHARE_SVG)+
+    `<div class="installcard__text"><p class="installcard__title">${esc(t("install.card.title"))}</p>`+
+    `<p class="installcard__body">${esc(body)}</p></div>`+
+    (action?`<button type="button" class="btn btn--cta installcard__action" id="firstRunInstallAction">${esc(action)}</button>`:"");
+  const act=$("#firstRunInstallAction");if(act)act.onclick=triggerInstall;
+  sec.classList.remove("hidden");
+}
+/** Chrome accepted the install, or the app reports itself installed. Either way
+ *  there is nothing left to install: the section goes, the choices stay. */
+function closeFirstRunInstall(){
+  const sec=$("#firstRunInstall");if(sec)sec.classList.add("hidden");
+  const card=$("#firstRunInstallCard");if(card)card.innerHTML="";
+}
+function renderFirstRun(){
+  const label=$("#firstRunContinueLabel");
+  if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
+  renderFirstRunInstall();
+}
+function openFirstRun(){
+  const el=$("#firstRun");if(!el)return false;
+  firstRunActive=true;
+  renderFirstRun();
+  el.classList.remove("hidden");
+  document.body.classList.add("is-firstrun");
+  window.scrollTo({top:0});
+  // The screen itself takes focus, not its first choice: a ring drawn around
+  // Create before the lifter has touched anything reads as a recommendation.
+  try{el.focus({preventScroll:true})}catch{}
+  return true}
+/** Hide the gate without giving up on it: the import review lives in the app
+ *  shell underneath, so it needs the overlay out of the way while it decides. */
+function suspendFirstRun(){
+  const el=$("#firstRun");if(!el)return;
+  el.classList.add("hidden");document.body.classList.remove("is-firstrun")}
+function closeFirstRun(){
+  firstRunActive=false;suspendFirstRun()}
+const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
+/** The gate exists to put the install ahead of the program choice. With nothing
+ *  to install it would only add a step, so first run stays as it was. */
+function maybeShowFirstRun(){
+  if(!firstRunPending()||installMode()==="none")return false;
+  return openFirstRun()}
+/* Chrome decides when to offer beforeinstallprompt, and on a genuinely first
+   visit that is usually after the page has loaded and been touched — well after
+   the boot decision above. Rather than stall onboarding waiting for an event
+   that may never come, the gate opens when the event actually lands, and only
+   while first run has not been answered yet: an untouched step 0 has nothing to
+   lose, a lifter part-way through the questions does. */
+function maybeShowFirstRunLate(){
+  if(firstRunOpen()||!firstRunPending()||installMode()==="none")return false;
+  const onb=$("#onboarding")?.classList.contains("active");
+  if(onb&&(onbStep>0||onbAnswers.goal))return false;
+  if(!onb&&!$("#log")?.classList.contains("active"))return false;
+  if(tourActive||document.body.classList.contains("is-import"))return false;
+  closeOnboarding();
+  return openFirstRun()}
+window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
+
+/* ---- iOS install instructions ----
+   Safari exposes no install event, so this sheet is the whole mechanism: it
+   points at Safari's own control. The bar it draws is an illustration of
+   Safari, and the only third-party UI Taurifer ever draws — Chrome's install
+   prompt is Chrome's to render, and we only ever ask for it. */
+function openIosInstallSheet(){
+  const sheet=$("#iosInstallSheet"),scrim=$("#iosInstallScrim");
+  if(!sheet)return;
+  const host=$("#iosInstallHost");
+  if(host)host.textContent=location.hostname||"";
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:$("#iosInstallDone"),onEscape:closeIosInstallSheet,scrim,
+    delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeIosInstallSheet(){
+  const sheet=$("#iosInstallSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  return closeModal(sheet)}
 
 // ---- Feature tour (bottom-sheet coach that walks every feature) ----
 const TOUR=[
@@ -7263,12 +7418,28 @@ function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
-  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;$("#installBtn")?.classList.remove("hidden");
-    renderSettings();if(tourActive)renderTour();else maybeShowInstallBanner()});
-  window.addEventListener("appinstalled",()=>{installPrompt=null;$("#installBtn")?.classList.add("hidden");hideInstallBanner(false);renderSettings()});
+  // Chrome decides when to offer this, and it can arrive after the first paint,
+  // so every install surface is rewritten from the new reading rather than
+  // assumed at boot.
+  window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;
+    renderSettings();renderInstallSurfaces();
+    if(maybeShowFirstRunLate())return;
+    if(tourActive)renderTour();else maybeShowInstallBanner()});
+  window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);
+    closeFirstRunInstall();renderSettings();renderInstallSurfaces()});
   $("#installBtn").onclick=triggerInstall;
   $("#installBannerClose").onclick=()=>hideInstallBanner(true);
   $("#installBannerAction").onclick=triggerInstall;
+  $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
+  // Import runs through the same review as everywhere else; the gate stays
+  // standing behind it so backing out returns here rather than to an empty app.
+  $("#firstRunImport").onclick=()=>{onbAnswers=defaultOnbAnswers();onboardingOrigin="first-run";$("#importProgram")?.click()};
+  // "Continue in browser" is an answer to the install offer, not to the program
+  // question: it takes the offer off the table for a while, then hands over to
+  // the same first run the app has always had.
+  $("#firstRunContinue").onclick=()=>{setUiPref("installDismissedAt",Date.now());closeFirstRun();startOnboarding("first-run")};
+  $("#iosInstallDone").onclick=closeIosInstallSheet;
+  $("#iosInstallScrim").onclick=closeIosInstallSheet;
   $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
   $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
   $("#tourSkip").onclick=()=>endTour(false);
@@ -7495,8 +7666,12 @@ function init(){
   $("nav button.active")?.setAttribute("aria-current","page");
   render();
   maybeUnfinishedOnOpen();
-  maybeShowOnboarding();
-  if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner();
+  // First run puts the install first and the program choice second. Where there
+  // is no install to offer, the gate would add a step and nothing else, so
+  // onboarding opens exactly as it always has.
+  if(!maybeShowFirstRun()){
+    maybeShowOnboarding();
+    if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner()}
 }
 function applyGotoParam(){
   try{
