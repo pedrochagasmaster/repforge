@@ -1197,6 +1197,15 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
+/* Day names are stored data: the bundled splits, the onboarding builder and
+   "+ Add day" all mint the canonical English `Day N`, and every log row, tab
+   and lookup keys off that stored string. Renaming them per locale would
+   rewrite the lifter's program on a language switch, so only the display is
+   translated, and only for that exact canonical shape — anything typed by hand
+   ("Push A", "Dia de perna") is shown back exactly as typed. */
+const DEFAULT_DAY_NAME=/^Day\s+(\d+)$/;
+const dayLabel=d=>{const s=String(d??"").trim(),m=DEFAULT_DAY_NAME.exec(s);
+  return m?t("program.default.day",{n:+m[1]}):String(d??"")};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
@@ -1394,6 +1403,23 @@ const exerciseLiftKey=ex=>ex?.libraryId?`library:${ex.libraryId}`:
 const exerciseLabel=row=>String(row?.name||row?.performedName||"");
 const displayName=row=>loggedMovementName(row);
 const currentExerciseForLiftKey=key=>(state.program||[]).find(ex=>exerciseLiftKey(ex)===key)||null;
+/* Search-only bridge from a logged row back to what the program calls that
+   movement today. History itself never renames what was performed — the row
+   keeps its immutable label — but a lifter who renamed a movement still looks
+   for old sessions under the new name. Only movement identity crosses:
+   `library:<id>`, or the `movement:` id a slot mints and gives up the moment
+   the slot is repointed at something else. The structural slot id never does,
+   so a replaced slot cannot pull the previous movement's history along. */
+function currentMovementNames(){
+  const byKey=new Map();
+  for(const ex of state.program||[]){
+    const key=exerciseLiftKey(ex);
+    if(!key||key.startsWith("name:"))continue;
+    const name=String(ex?.name||"").trim();
+    if(name&&!byKey.has(key))byKey.set(key,name)}
+  return byKey}
+const currentNameForRow=(row,byKey)=>
+  row?.performedLibraryId||row?.performedMovementId?byKey.get(liftKey(row))||"":"";
 function exerciseIdentityFromRow(row){
   return{libraryId:row?.performedLibraryId||undefined,movementId:row?.performedMovementId||undefined,
     name:loggedMovementName(row),id:row?.exerciseId,day:row?.day}}
@@ -3162,8 +3188,8 @@ function updateSessionBanner(){
   if(missedOk && meta.missedBannerDate===today() && meta.missedBannerDismissed) return hide();
 
   const isMissed=missedOk;
-  const title=isMissed?t("session_banner.missed.title",{hour:usual}):t("session_banner.today.title",{day:due.day});
-  const body=isMissed?t("session_banner.missed.body",{day:due.day}):t("session_banner.today.body",{day:due.day});
+  const title=isMissed?t("session_banner.missed.title",{hour:usual}):t("session_banner.today.title",{day:dayLabel(due.day)});
+  const body=isMissed?t("session_banner.missed.body",{day:dayLabel(due.day)}):t("session_banner.today.body",{day:dayLabel(due.day)});
 
   function dismissForToday(){
     const m=loadNotifyMeta();
@@ -3181,7 +3207,7 @@ function updateSessionBanner(){
   el.querySelector(".sessionbanner__act").onclick=()=>{
     if(!enterWorkout({day:due.day}))return;
     dismissForToday();
-    toast(t("toast.day_ready",{day:due.day}));
+    toast(t("toast.day_ready",{day:dayLabel(due.day)}));
   };
 }
 
@@ -3524,7 +3550,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     sessLabel.setAttribute("data-i18n",key);sessLabel.textContent=t(key)}
   const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
   else if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
-    sess.innerHTML=`<div class="today-session__name">${esc(day)}</div>`+
+    sess.innerHTML=`<div class="today-session__name">${esc(dayLabel(day))}</div>`+
       (mus.length?`<div class="today-session__muscles">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
       (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
@@ -3550,7 +3576,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
   const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
-      up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(next)}</div>`+
+      up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
         `<div class="listrow__sub">${esc(t("today.exercise_count",{n:nEx}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
       $("#upNextBtn").onclick=()=>enterWorkout({day:next})}
     else up.innerHTML=`<p class="lede">${esc(t("today.no_up_next"))}</p>`}
@@ -3568,7 +3594,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   // Program strip also jumps to Progress → Review (legacy #logContext affordance).
   const progClick=$("#todayProgram");if(progClick&&!progClick.classList.contains("hidden")){
     progClick.style.cursor="pointer";progClick.onclick=()=>{navTo("stats");setStatsSeg("review")}}
-  const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=day;
+  const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day);
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
     woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
@@ -3583,7 +3609,7 @@ function render(){applyI18n();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
-  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(d)}</button>`).join("");
+  $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
   $$("#dayTabs button").forEach(b=>b.onclick=()=>{if(!requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
 function setFieldVals(ex,n,r,draft,prev){
@@ -3887,7 +3913,11 @@ function renderWorkout(){
     let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
     const rows=Array.from({length:ex.sets},(_,i)=>setRowHtml(ex,i+1,r,draft,prev,nextSet)).join("");
     const isSkipped=skipped.has(ex.id),perf=substituted.get(ex.id),display=perf||ex.name;
-    const nameLabel=perf?`${esc(perf)} <span class="ex__subfor">${esc(t("log.substitute_for",{name:slotEx.name}))}</span>`:esc(ex.name);
+    // The heading is the movement being performed and nothing else. Which slot
+    // it stands in is a second thought, and gets its own full-width line down
+    // beside the substitute control rather than wrapping the title into a
+    // four-line paragraph on a phone.
+    const nameLabel=esc(perf||ex.name);
     const statusHtml=isSkipped?`<span class="ex__state">${esc(t("log.skipped"))}</span>`:"";
     const openAria=t("log.open_exercise_aria",{name:display})+(isSkipped?` · ${t("log.skipped")}`:"");
     const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(openAria)}">${nameLabel}${statusHtml}</button>`;
@@ -3902,8 +3932,10 @@ function renderWorkout(){
       `placeholder="${esc(t("log.note.placeholder"))}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}">${esc(noteVal)}</textarea></div>`;
     // Every slot can be swapped now, not just the ones that happen to carry
     // alternates: the machine being taken does not check the program first.
-    const subPick=`<div class="subst"><span class="subst__lab">${esc(t("log.substitute.label"))}</span>`+
-      `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:slotEx.name}))}">${esc(perf||ex.name)}</button></div>`;
+    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab">${esc(t("log.substitute.label"))}</span>`+
+      `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:slotEx.name}))}">${esc(perf||ex.name)}</button>`+
+      (perf?`<p class="subst__from">${esc(t("log.substitute_for",{name:slotEx.name}))}</p>`:"")+
+      `</div>`;
     const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
     const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
       `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
@@ -4305,7 +4337,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const done=[...committed].length;
   const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
-  $("#saveMeta").textContent=done?t("log.save_meta.done",{day,done,planned}):(entered?t("log.save_meta.entered",{day,entered,planned}):t("log.save_meta.planned",{day,planned}));}
+  $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
 async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
   const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
@@ -4380,7 +4412,7 @@ function sessionSummaryHtml(s){
   const unit=unitLabel(),out=[];
   out.push(`<div class="sum-crest" aria-hidden="true"><span class="sum-crest__mark"></span></div>`);
   out.push(`<p class="sum-eyebrow">${esc(t("summary.eyebrow"))}</p>`);
-  out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(s.day)}</h2>`);
+  out.push(`<h2 class="sum-hero" id="sumTitle" tabindex="-1">${esc(dayLabel(s.day))}</h2>`);
   const sub=[];
   if(s.meso.current!=null)sub.push(t("today.week_short",{n:s.meso.current}));
   sub.push(formatLongDate(s.date));
@@ -4437,7 +4469,7 @@ function sessionSummaryHtml(s){
       Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`)}
   if(s.next)
     out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
-      `<span class="sum-next__day">${esc(s.next.day)}</span>`+
+      `<span class="sum-next__day">${esc(dayLabel(s.next.day))}</span>`+
       `<span class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</span></div>`);
   out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button>`+
     `<button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
@@ -4973,6 +5005,10 @@ const historyIndexCache=new WeakMap();
 function historyPanelId(session){return`hist-sess-${String(session??"").replace(/[^A-Za-z0-9_-]/g,"_")}`}
 function buildHistoryIndex(log){
   const source=log||[];
+  // Read the program's current movement names once per build; this is the only
+  // thing in the index that depends on the program, and it is why historyIndexFor
+  // still invalidates its cache when the program identity changes.
+  const currentNames=currentMovementNames();
   const rows=[];
   const n=source.length;
   for(let i=0;i<n;i++){const raw=source[i];rows.push(raw&&typeof raw==="object"?raw:{})}
@@ -5010,8 +5046,12 @@ function buildHistoryIndex(log){
       if(!pred.length){counts.new++;continue}
       const d=buildSessionDelta(pred,liftRows);if(d.status in counts)counts[d.status]++}
     sess.delta=counts;
-    const names=[...new Set(sess.rows.map(r=>String(displayName(r)||"")))];
-    sess.searchText=`${String(sess.day||"")} ${names.join(" ")}`.toLowerCase();
+    const names=new Set(sess.rows.map(r=>String(displayName(r)||"")));
+    // Aliases are additive: the performed label always stays searchable, and
+    // the current program name only widens what finds the session.
+    const aliases=new Set();
+    for(const r of sess.rows){const alias=currentNameForRow(r,currentNames);if(alias&&!names.has(alias))aliases.add(alias)}
+    sess.searchText=`${String(sess.day||"")} ${dayLabel(sess.day)} ${[...names,...aliases].join(" ")}`.toLowerCase();
     sess.panelId=historyPanelId(sess.session)}
   const prEvents=detectPRs(rows);
   const prDates=new Set(prEvents.map(ev=>String(ev.date)));
@@ -5101,8 +5141,8 @@ function renderHistory(source=state.log){
     const open=expandedSession===s.session;
     const panelId=s.panelId||historyPanelId(s.session);
     return monthHdr+`<article class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
-      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:s.day}))}">`+
-      `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(s.day)}</div>`+
+      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:dayLabel(s.day)}))}">`+
+      `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(dayLabel(s.day))}</div>`+
       (mus.length?`<div class="session__sub">${esc(mus.join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
       `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
@@ -5130,7 +5170,7 @@ function renderHistory(source=state.log){
       row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
     else{row.classList.remove("is-removed");setEdrowRmState(b,false);
       row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
-  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:x.day,[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
+  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
 function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
@@ -5177,7 +5217,7 @@ function sessionEditor(s,sets){
       `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
       `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
-    `<div class="edhead"><div class="session__day">${esc(s.day)}</div>`+
+    `<div class="edhead"><div class="session__day">${esc(dayLabel(s.day))}</div>`+
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
@@ -5276,7 +5316,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(tmpl?.primary||"")}</p><h2 class="exdet__name">${esc(name)}</h2>`+
-    `<p class="exdet__meta">${tmpl?`${esc(tmpl.day)} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
+    `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
     recHtml+
     `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
     `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
@@ -5308,7 +5348,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
   for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
     daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" aria-expanded="${open?"true":"false"}"><div>`+
-      `<div class="prog-day__title">${esc(d)}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
+      `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
       `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
     if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
       `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
@@ -5404,10 +5444,10 @@ function dayCard(d){
     :`<p class="pday__empty">${esc(t("program.empty.exercises"))}</p>`;
   return `<div class="pday${isCollapsed?" is-collapsed":""}" data-day="${esc(d)}">`+
     `<div class="pday__head">`+
-      `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(d)}" aria-label="${esc(t("program.day.name_aria"))}">`+
+      `<input class="pday__name" data-act="renameDay" data-day="${esc(d)}" value="${esc(dayLabel(d))}" aria-label="${esc(t("program.day.name_aria"))}">`+
       `<span class="pday__count">${esc(t("program.day.count",{n:exs.length,sets}))}</span>`+
-      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
-      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:d}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn iconbtn--del" type="button" data-act="delDay" data-day="${esc(d)}" title="${esc(t("program.day.delete_title"))}" aria-label="${esc(t("program.day.delete_aria",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`+
+      `<button class="iconbtn pday__caret" type="button" data-act="toggleDay" data-day="${esc(d)}" aria-expanded="${isCollapsed?"false":"true"}" title="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}" aria-label="${esc(t(isCollapsed?"program.day.expand":"program.day.collapse",{day:dayLabel(d)}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button>`+
     `</div>`+
     `<div class="pexlist">${body}</div>`+
     `<button class="btn btn--steel pday__add" type="button" data-act="addEx" data-day="${esc(d)}">${esc(t("program.day.add_exercise"))}</button>`+
@@ -5524,11 +5564,11 @@ function bindEditor(){
     inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
       const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
       if(!nextProgram.renameDay(old,next)){
-        inp.value=old;toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
+        inp.value=dayLabel(old);toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
       proposal.program=nextProgram.toJSON();
       const effect=draftDayReplacementEffect(old,next);
       const result=await commitProposedState(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
-      if(!(result.localOk||result.idbOk)){inp.value=old;return}
+      if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
       renameCollapsedDay(old,next);
       if(day===old)day=next;
       render();toast(t("toast.day_renamed"))};
@@ -5542,12 +5582,12 @@ async function editorAction(act,ds){
     card.classList.toggle("is-collapsed",now);setDayCollapsed(ds.day,now);
     const btn=card.querySelector(".pday__caret");
     if(btn){btn.setAttribute("aria-expanded",now?"false":"true");
-      const label=t(now?"program.day.expand":"program.day.collapse",{day:ds.day});btn.setAttribute("aria-label",label);btn.title=label}}
+      const label=t(now?"program.day.expand":"program.day.collapse",{day:dayLabel(ds.day)});btn.setAttribute("aria-label",label);btn.title=label}}
   else if(act==="addEx"){
     // The fast path: what this day is short of, what you train often, and your
     // own movements — with the whole library one tap further on. Everything
     // already on the day is excluded; the same movement twice is always a slip.
-    openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:ds.day}),subtitle:"",
+    openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:dayLabel(ds.day)}),subtitle:"",
       exclude:prog.forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
         const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
@@ -5603,7 +5643,7 @@ async function editorAction(act,ds){
     if(result.localOk||result.idbOk)render()}
   else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
-    if(confirm(t(key,{day:ds.day}))){
+    if(confirm(t(key,{day:dayLabel(ds.day)}))){
     const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
     nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
     const effect=destructiveDraftClearEffect(discardDraftRaw);
@@ -6472,7 +6512,7 @@ function renderLibrary(){
   $("#libBrowse")?.classList.toggle("hidden",configuring);
   $("#libConfigure")?.classList.toggle("hidden",!configuring);
   const title=$("#libTitle");
-  if(title)title.textContent=configuring?t("library.configure_title",{day:libFlow.day}):t("library.title");
+  if(title)title.textContent=configuring?t("library.configure_title",{day:dayLabel(libFlow.day)}):t("library.title");
   const step=$("#libStep");
   if(step){step.classList.remove("hidden");
     step.innerHTML=`<p class="libstep__lab">${esc(t("library.step",{n:configuring?2:1,total:2}))}</p>`+
@@ -6551,8 +6591,8 @@ function renderLibraryBar(){
   bar.classList.toggle("is-hidden",n===0);
   if(count)count.textContent=n?t("library.selected",{n}):"";
   primary.textContent=libFlow.step==="configure"
-    ?t("library.save_day",{day:libFlow.day})
-    :t("library.add_n",{n,day:libFlow.day});
+    ?t("library.save_day",{day:dayLabel(libFlow.day)})
+    :t("library.add_n",{n,day:dayLabel(libFlow.day)});
   primary.disabled=n===0}
 
 /* ---- configure step ---- */
@@ -6659,7 +6699,7 @@ function renderExercisePreview(){
     `</dl>`+
     (e.notes?`<h3 class="preview__head">${esc(t("program.exercise.setup_notes"))}</h3><p class="preview__notes">${esc(e.notes)}</p>`:"")+
     (inLibrary
-      ?`<button type="button" class="btn btn--cta" id="previewAdd">${esc(t(selected?"preview.remove":"preview.add",{day:libFlow.day}))}</button>`
+      ?`<button type="button" class="btn btn--cta" id="previewAdd">${esc(t(selected?"preview.remove":"preview.add",{day:dayLabel(libFlow.day)}))}</button>`
       :"");
   const add=$("#previewAdd");
   if(add)add.onclick=()=>{toggleLibrarySelection(e.id);closeExercisePreview()}}
@@ -6955,7 +6995,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
     onbOpt("","sessionLength","long",t("onb.session.long.label"),t("onb.session.long.sub"),false)+`</div>`;
   else{const gen=generateProgramFromOnboarding(onbGenAnswers(onbAnswers)),days=[...new Set(gen.map(e=>e.day))];
     const byDay=days.map(d=>{const exs=gen.filter(e=>e.day===d);
-      return `<div class="onb__day"><div class="onb__dayname">${esc(d)}</div>`+
+      return `<div class="onb__day"><div class="onb__dayname">${esc(dayLabel(d))}</div>`+
         exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(e.primary)}</div>`).join("")+`</div>`});
     html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
       `<button type="button" id="onbSave" class="btn btn--cta">${esc(t("onb.review.save"))}</button>`+

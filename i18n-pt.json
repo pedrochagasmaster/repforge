@@ -86,7 +86,7 @@
   "log.set_increase_aria": "Aumentar {unit} da série {n}",
   "log.warmup_title": "Toque para marcar como aquecimento",
   "log.open_exercise_aria": "Abrir stats e histórico de {name}",
-  "log.substitute_for": "(no lugar de {name})",
+  "log.substitute_for": "No lugar de {name}",
   "log.note": "Nota",
   "log.note.empty": "Adicionar uma nota para esta sessão",
   "log.note.placeholder": "Ajuste da máquina, altura do banco, pegada — levado para a próxima sessão",

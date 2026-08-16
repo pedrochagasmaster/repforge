@@ -838,9 +838,10 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 }
 .ex__meta{font-size:13px;color:var(--ink-soft);margin-top:6px;line-height:1.5}
 .nowrap{white-space:nowrap}
-.ex__subfor{font-weight:400;font-size:.72em;color:var(--ink-faint)}
-
-.subst{display:flex;align-items:center;gap:8px;margin:0 0 8px;font-size:12px}
+.subst{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;font-size:12px}
+/* Which slot a swap stands in gets the whole line rather than trailing the
+   picker, so a long seed name wraps as a sentence instead of a column. */
+.subst__from{flex:1 0 100%;margin:0;font-size:12px;line-height:1.35;color:var(--ink-faint)}
 .subst__lab{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;font-size:10px;flex:none}
 .subst__pick{flex:1;min-width:0;margin:0;padding:6px 9px;font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:8px;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 

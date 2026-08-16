@@ -86,7 +86,7 @@
   "log.set_increase_aria": "Set {n} increase {unit}",
   "log.warmup_title": "Tap to mark as warmup",
   "log.open_exercise_aria": "Open {name} stats and history",
-  "log.substitute_for": "(for {name})",
+  "log.substitute_for": "In place of {name}",
   "log.note": "Note",
   "log.note.empty": "Add a note for this session",
   "log.note.placeholder": "Machine setup, seat height, grip — carried into next session",

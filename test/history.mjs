@@ -350,11 +350,16 @@ export async function runHistoryIndexChecks(page, check = assert) {
     })
   );
 
+  // What a session is *called* in History is immutable — it is what was
+  // performed. Renaming the movement in the program only widens what finds the
+  // session, and only for rows that carry movement identity: a row linked to
+  // the slot alone must never inherit the slot's current name.
   const cached = await page.evaluate(() => {
     const H = window.__repforgeHistory;
     const exercise = state.program[0];
     const rows = [
-      { session: "cache-a", date: "2026-01-01", day: exercise.day, exerciseId: exercise.id, name: "Historical name", set: 1, load: 10, reps: 8, rir: 1, created: "2026-01-01T12:00:00.000Z" },
+      { session: "cache-a", date: "2026-01-01", day: exercise.day, exerciseId: exercise.id, name: "Historical name", performedName: "Historical name", performedLibraryId: exercise.libraryId, performedMovementId: exercise.movementId, set: 1, load: 10, reps: 8, rir: 1, created: "2026-01-01T12:00:00.000Z" },
+      { session: "cache-b", date: "2026-01-02", day: exercise.day, exerciseId: exercise.id, name: "Slot only name", set: 1, load: 10, reps: 8, rir: 1, created: "2026-01-02T12:00:00.000Z" },
     ];
     H.diagnostics.reset();
     const first = H.indexFor(rows);
@@ -365,10 +370,14 @@ export async function runHistoryIndexChecks(page, check = assert) {
       entry.id === exercise.id ? { ...entry, name: renamed } : entry
     );
     const afterProgramChange = H.indexFor(rows);
+    const renamedHits = H.searchIndex(afterProgramChange, renamed).map((s) => s.session);
     const result = {
       same: first === second,
       rebuilt: afterProgramChange !== first,
-      renamedMatches: H.searchIndex(afterProgramChange, renamed).length,
+      renamedMatches: renamedHits.length,
+      aliasedSession: renamedHits[0] || null,
+      performedStillMatches: H.searchIndex(afterProgramChange, "Historical name").length,
+      slotOnlyStillMatches: H.searchIndex(afterProgramChange, "Slot only name").length,
       staleMatches: H.searchIndex(afterProgramChange, exercise.name).length,
       builds: H.diagnostics.builds,
     };
@@ -380,10 +389,45 @@ export async function runHistoryIndexChecks(page, check = assert) {
     cached.same &&
       cached.rebuilt &&
       cached.renamedMatches === 1 &&
+      cached.aliasedSession === "cache-a" &&
+      cached.performedStillMatches === 1 &&
+      cached.slotOnlyStillMatches === 1 &&
       cached.staleMatches === 0 &&
       cached.builds === 2,
-    "History index memoizes by log and program identity without stale search names",
+    "History index memoizes by log and program identity, aliasing renames only through movement identity",
     JSON.stringify(cached)
+  );
+
+  const replaced = await page.evaluate(() => {
+    const H = window.__repforgeHistory;
+    const exercise = state.program[0];
+    const rows = [
+      { session: "replaced-a", date: "2026-01-03", day: exercise.day, exerciseId: exercise.id, name: "Historical name", performedName: "Historical name", performedLibraryId: exercise.libraryId, performedMovementId: exercise.movementId, set: 1, load: 10, reps: 8, rir: 1, created: "2026-01-03T12:00:00.000Z" },
+    ];
+    const successor = "ZZZ Successor Movement";
+    const originalProgram = state.program;
+    // What replaceExercise does to the slot: same structural id, brand new
+    // movement identity. The old rows belong to the movement, not the slot.
+    state.program = state.program.map((entry) =>
+      entry.id === exercise.id
+        ? { ...entry, name: successor, libraryId: undefined, movementId: "successor-movement" }
+        : entry
+    );
+    const index = H.buildIndex(rows);
+    const result = {
+      successorMatches: H.searchIndex(index, successor).length,
+      performedMatches: H.searchIndex(index, "Historical name").length,
+      displayedName: index.sessions[0].rows[0].name,
+    };
+    state.program = originalProgram;
+    return result;
+  });
+  check(
+    replaced.successorMatches === 0 &&
+      replaced.performedMatches === 1 &&
+      replaced.displayedName === "Historical name",
+    "A replaced slot never lends its new movement's name to the previous movement's sessions",
+    JSON.stringify(replaced)
   );
 
   const errored = await page.evaluate((helperSrc) => {
