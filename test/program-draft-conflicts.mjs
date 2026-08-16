@@ -9,6 +9,24 @@ import {
   inventoryPersistenceArtifacts,
 } from "./persistence-artifacts.mjs";
 
+/* An import is staged for review now, so the durable write happens when Import
+   is pressed rather than when the file is read. Clears the review list, then
+   commits — the write that the lock-holding assertions below are about. */
+async function reviewAndCommitImport(page) {
+  await page.waitForSelector("#importReview.active", { timeout: 5000 });
+  for (let guard = 0; guard < 40; guard++) {
+    const acted = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
+      if (!row) return false;
+      (row.querySelector('[data-imp-act="link"]') || row.querySelector('[data-imp-act="raw"]'))?.click();
+      return true;
+    });
+    if (!acted) break;
+    await page.waitForTimeout(50);
+  }
+  await page.click("#importCommit");
+}
+
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
@@ -511,6 +529,7 @@ async function runNormalProgramImportConflict(browser) {
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify({ version: 2, meta: { name: "Imported conflict" }, exercises: imported })),
     });
+    await reviewAndCommitImport(writer);
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-import-draft", "105"));
@@ -574,6 +593,7 @@ async function runOnboardingProgramImportConflict(browser) {
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify({ version: 2, meta: { name: "Onboarding import" }, exercises: imported })),
     });
+    await reviewAndCommitImport(writer);
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-onboarding-import-draft", "106.25"));

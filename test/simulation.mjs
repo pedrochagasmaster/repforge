@@ -815,6 +815,23 @@ function scenarioRows({ day, ex, sessions }) {
   });
 }
 
+/* Decides every row still awaiting review, then commits. Each decision
+   re-renders the list, so rows are handled one at a time. */
+async function reviewAndCommitImport(page) {
+  for (let guard = 0; guard < 40; guard++) {
+    const acted = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
+      if (!row) return false;
+      (row.querySelector('[data-imp-act="link"]') || row.querySelector('[data-imp-act="raw"]'))?.click();
+      return true;
+    });
+    if (!acted) break;
+    await page.waitForTimeout(60);
+  }
+  await page.click("#importCommit");
+  await page.waitForTimeout(400);
+}
+
 async function main() {
   console.log("RepForge year-of-usage simulation");
   console.log(`Target: ${BASE}\n`);
@@ -2176,8 +2193,9 @@ async function main() {
   const progFile = JSON.parse(readFileSync(progPath, "utf8"));
   const progExercises = Array.isArray(progFile) ? progFile : progFile.exercises;
   assert(
-    progFile.version === 2 && Array.isArray(progExercises) && progExercises.length > 0 && progFile.meta?.id,
-    "Program export is v2 with meta and exercises",
+    progFile.version === 3 && Array.isArray(progExercises) && progExercises.length > 0 && progFile.meta?.id &&
+      Array.isArray(progFile.customExercises),
+    "Program export is v3 with meta, exercises and referenced custom definitions",
     `Got: ${JSON.stringify(progFile).slice(0, 120)}`,
     "Program → Advanced → Export program JSON"
   );
@@ -2189,13 +2207,12 @@ async function main() {
   );
   const logBefore = (await getState(page)).log.length;
   progExercises[0].name = "IMPORTED_RENAME";
-  if (progFile.version === 2) {
-    progFile.exercises = progExercises;
-    progFile.meta = { ...progFile.meta, name: "Imported Template", started: "2020-01-01", id: "foreign-id" };
-    writeFileSync(progPath, JSON.stringify(progFile));
-  } else {
-    writeFileSync(progPath, JSON.stringify(progExercises));
-  }
+  // A renamed row no longer matches the library, so it arrives unmatched and
+  // has to be confirmed — which is the point of the review step.
+  delete progExercises[0].libraryId;
+  progFile.exercises = progExercises;
+  progFile.meta = { ...progFile.meta, name: "Imported Template", started: "2020-01-01", id: "foreign-id" };
+  writeFileSync(progPath, JSON.stringify(progFile));
   const metaBeforeImport = (await getState(page)).programMeta;
   const importDraft = await page.evaluate((k) => {
     const raw = JSON.stringify({
@@ -2206,6 +2223,15 @@ async function main() {
     return raw;
   }, DRAFT);
   await page.setInputFiles("#importProgram", progPath);
+  await page.waitForSelector("#importReview.active", { timeout: 5000 });
+  const stagedProgram = (await getState(page)).program;
+  assert(
+    !stagedProgram.some((x) => x.name === "IMPORTED_RENAME"),
+    "Program import writes nothing until it is confirmed",
+    "the imported name appeared before Import was pressed",
+    "Import program JSON → review screen"
+  );
+  await reviewAndCommitImport(page);
   await page.waitForFunction(
     ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
     { k: KEY, name: "IMPORTED_RENAME" },
@@ -2220,7 +2246,7 @@ async function main() {
   );
   assert(
     stAfter.programMeta?.name === "Imported Template",
-    "Program import applies meta from v2 export",
+    "Program import applies meta from the exported file",
     `programMeta.name=${stAfter.programMeta?.name}`,
     "Export v2 program → edit meta.name → Import program JSON"
   );
@@ -2248,6 +2274,8 @@ async function main() {
   const legacyPath = join(tmpDir, "program-legacy.json");
   writeFileSync(legacyPath, JSON.stringify(stAfter.program.slice(0, 3)));
   await page.setInputFiles("#importProgram", legacyPath);
+  await page.waitForSelector("#importReview.active", { timeout: 5000 });
+  await reviewAndCommitImport(page);
   await page.waitForFunction(
     ({ k, len }) => JSON.parse(localStorage.getItem(k) || "{}").program?.length === len,
     { k: KEY, len: 3 },
@@ -2262,6 +2290,8 @@ async function main() {
   );
   writeFileSync(progPath, JSON.stringify(progFile));
   await page.setInputFiles("#importProgram", progPath);
+  await page.waitForSelector("#importReview.active", { timeout: 5000 });
+  await reviewAndCommitImport(page);
   await page.waitForFunction(
     ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").programMeta?.name === name,
     { k: KEY, name: "Imported Template" },
@@ -7803,6 +7833,11 @@ async function main() {
   await page.click("#exPickCustom");
   await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
   const customPrefilled = await page.inputValue("#exCustomName");
+  // A definition needs equipment and a primary muscle before it can be saved.
+  await page.evaluate(() => {
+    [...document.querySelectorAll("#exCustomEquip .pchip")].find((b) => b.textContent.trim() === "Machine")?.click();
+    [...document.querySelectorAll("#exCustomPrimary .pchip")].find((b) => b.textContent.trim() === "Quads")?.click();
+  });
   await page.click("#exCustomSave");
   await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
   await page.waitForTimeout(250);

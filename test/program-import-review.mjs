@@ -142,7 +142,7 @@ async function main() {
     assert(await page.locator("#importCommit").isDisabled(), "Import stays blocked while rows need review");
 
     // ---- cancelling writes nothing ----
-    await page.click("#importCancel");
+    await page.click("#importReviewCancel");
     await settle(page);
     after = await getState(page);
     assert(

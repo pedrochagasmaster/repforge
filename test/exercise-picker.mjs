@@ -103,10 +103,21 @@ async function main() {
     await page.click(`[data-act="addEx"][data-day="${day}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
 
+    // + Add exercise opens the quick sheet: a short contextual list, with the
+    // whole library one tap away. Typing searches everything from here.
     const sections = await page.evaluate(() =>
       [...document.querySelectorAll("#exPickList .pick__section")].map((s) => s.textContent.trim())
     );
-    assert(sections.includes("All exercises"), "picker lists the library", JSON.stringify(sections));
+    assert(sections.includes("Suggested for this day"), "the quick sheet opens on suggestions",
+      JSON.stringify(sections));
+    await page.fill("#exPickSearch", "press");
+    await page.waitForTimeout(200);
+    const searched = await page.evaluate(() =>
+      [...document.querySelectorAll("#exPickList .pick__section")].map((s) => s.textContent.trim()));
+    assert(searched.includes("All exercises"), "typing searches the whole library from the quick sheet",
+      JSON.stringify(searched));
+    await page.fill("#exPickSearch", "");
+    await page.waitForTimeout(150);
 
     // Both languages are searchable whichever one the UI is in, because gyms
     // label machines in either.
@@ -233,12 +244,13 @@ async function main() {
       (await page.inputValue("#exCustomName")) === "Belt squat",
       "the typed search becomes the custom exercise's name"
     );
-    await page.evaluate(() =>
-      [...document.querySelectorAll("#exCustomPrimary .pchip")].find((b) => b.textContent.trim() === "Quads")?.click()
-    );
-    await page.evaluate(() =>
-      [...document.querySelectorAll("#exCustomSecondary .pchip")].find((b) => b.textContent.trim() === "Glutes")?.click()
-    );
+    await page.evaluate(() => {
+      // Equipment and a primary muscle are required: the wizard filters on one
+      // and the volume audit groups by the other.
+      [...document.querySelectorAll("#exCustomEquip .pchip")].find((b) => b.textContent.trim() === "Machine")?.click();
+      [...document.querySelectorAll("#exCustomPrimary .pchip")].find((b) => b.textContent.trim() === "Quads")?.click();
+      [...document.querySelectorAll("#exCustomSecondary .pchip")].find((b) => b.textContent.trim() === "Glutes")?.click();
+    });
     await page.click("#exCustomSave");
     await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
@@ -264,35 +276,37 @@ async function main() {
     await openEditor(page);
     await page.click(`[data-act="addEx"][data-day="${otherDay}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    const yourSection = await page.evaluate(() => {
-      const heads = [...document.querySelectorAll("#exPickList .pick__section")];
-      const head = heads.find((h) => h.textContent.trim() === "Your exercises");
-      if (!head) return null;
-      const names = [];
-      for (let el = head.nextElementSibling; el && el.classList.contains("pickrow"); el = el.nextElementSibling) {
-        names.push((el.querySelector(".pickrow__name")?.textContent || "").trim());
-      }
-      return names;
-    });
+    await page.evaluate(() =>
+      [...document.querySelectorAll("#exPickTabs .picktab")].find((b) => b.textContent.trim() === "Yours")?.click());
+    await page.waitForTimeout(200);
+    const yourSection = await page.evaluate(() =>
+      [...document.querySelectorAll("#exPickList .pickrow__name")].map((n) => n.textContent.trim()));
     assert(
-      yourSection && yourSection.includes("Belt squat"),
-      "custom exercises survive a reload and lead the picker",
+      yourSection.includes("Belt squat"),
+      "custom exercises survive a reload and fill the Yours tab",
       JSON.stringify(yourSection)
     );
     await page.click("#exPickCancel");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
 
-    // Deleting one is refused while a program slot still points at it —
-    // otherwise the slot would lose the definition behind its muscle tags.
-    const blocked = await page.evaluate(async (id) => {
-      const before = (window.__repforgeCustomExercises?.() || []).length;
+    // A definition a program slot still points at is archived rather than
+    // deleted: the row keeps its meaning, the definition leaves the pickers.
+    const archived = await page.evaluate(async (id) => {
       const res = await window.__repforgeDeleteCustomExercise?.(id);
-      return { res, before, after: (window.__repforgeCustomExercises?.() || []).length };
+      const all = window.__repforgeCustomExercises?.() || [];
+      const pickable = window.__repforgePickableExercises?.() || [];
+      return { archived: !!res?.archived, stillStored: all.some((e) => e.id === id),
+        offered: pickable.some((e) => e.id === id) };
     }, custom.id);
     assert(
-      blocked.res === null && blocked.after === blocked.before,
-      "a custom exercise in use cannot be deleted",
-      JSON.stringify(blocked)
+      archived.archived && archived.stillStored,
+      "a custom exercise in use is archived, not destroyed",
+      JSON.stringify(archived)
+    );
+    assert(
+      !archived.offered,
+      "an archived definition stops being offered in the pickers",
+      JSON.stringify(archived)
     );
 
     // ---- imported splits get linked to the library ----

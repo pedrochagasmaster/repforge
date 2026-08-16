@@ -268,6 +268,43 @@
       </div>
     </section>
 
+    <section id="library" class="view" data-i18n-aria="library.aria" aria-label="Exercise library">
+      <div class="exview-head">
+        <button type="button" class="back-link" id="libBack" data-i18n="library.back">‹ Back</button>
+        <div class="exview-head__title" id="libTitle" data-i18n="library.title">Add exercises</div>
+        <div class="exview-head__right"><button type="button" class="link-accent" id="libClose" data-i18n="dialog.close">Close</button></div>
+      </div>
+      <div class="libwrap">
+        <div id="libStep" class="libstep hidden"></div>
+        <div id="libBrowse">
+          <input id="libSearch" type="search" class="pick__search" data-i18n-placeholder="library.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search by name, muscle or equipment" autocomplete="off" enterkeyhint="search">
+          <div id="libTabs" class="picktabs" role="tablist" data-i18n-aria="picker.tabs_aria" aria-label="Exercise sources"></div>
+          <div id="libFilters" class="pick__filters" role="group" data-i18n-aria="picker.filters_aria" aria-label="Filter exercises"></div>
+          <div id="libList" class="pick__list pick__list--page"></div>
+          <button type="button" class="text-link text-link--center" id="libCustom" data-i18n="picker.create_custom">+ Create custom exercise</button>
+        </div>
+        <div id="libConfigure" class="hidden">
+          <h2 class="impreview__head" data-i18n="library.configure_head">Configure the day</h2>
+          <p class="lede" data-i18n="library.configure_lede">Set how many sets and which rep range.</p>
+          <p class="libcount" id="libConfigureCount"></p>
+          <div id="libConfigureRows"></div>
+        </div>
+      </div>
+      <div class="libbar" id="libBar">
+        <p class="libbar__count" id="libBarCount" role="status" aria-live="polite"></p>
+        <button type="button" class="btn btn--cta" id="libPrimary"></button>
+      </div>
+    </section>
+
+    <section id="exercisePreview" class="view" data-i18n-aria="preview.aria" aria-label="Exercise details">
+      <div class="exview-head">
+        <button type="button" class="back-link" id="previewBack" data-i18n="preview.back">‹ Library</button>
+        <div class="exview-head__title" data-i18n="preview.title">Exercise</div>
+        <div class="exview-head__right"></div>
+      </div>
+      <div id="previewBody" class="preview"></div>
+    </section>
+
     <section id="importReview" class="view" data-i18n-aria="import.aria" aria-label="Review imported program">
       <div class="exview-head">
         <button type="button" class="back-link" id="importBack" data-i18n="import.back">‹ Back</button>
@@ -282,7 +319,7 @@
         <div id="importRows"></div>
         <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
         <button type="button" class="btn btn--cta" id="importCommit" data-i18n="import.commit">Import program</button>
-        <button type="button" class="text-link text-link--center" id="importCancel" data-i18n="import.cancel">Cancel this import</button>
+        <button type="button" class="text-link text-link--center" id="importReviewCancel" data-i18n="import.cancel">Cancel this import</button>
       </div>
     </section>
 
@@ -572,12 +609,14 @@
     </div>
     <div class="pick__tools">
       <input id="exPickSearch" type="search" class="pick__search" data-i18n-placeholder="picker.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search exercises…" aria-label="Search exercises" autocomplete="off" enterkeyhint="search">
+      <div id="exPickTabs" class="picktabs hidden" role="tablist" data-i18n-aria="picker.tabs_aria" aria-label="Exercise sources"></div>
       <div id="exPickFilters" class="pick__filters" role="group" data-i18n-aria="picker.filters_aria" aria-label="Filter exercises"></div>
     </div>
     <div class="sheet__body pick__body">
       <div id="exPickList" class="pick__list"></div>
     </div>
     <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="text-link" id="exPickFull" data-i18n="picker.open_library">Open full library ›</button>
       <button type="button" class="btn btn--steel" id="exPickCustom" data-i18n="picker.create_custom">+ Create custom exercise</button>
     </div>
   </div>
