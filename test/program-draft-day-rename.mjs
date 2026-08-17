@@ -1034,7 +1034,10 @@ async function runWorkoutThenRenameRace(browser) {
     ]);
     const final = await readRuntime(locker);
     await reloadApp(locker);
-    const weekly = await locker.evaluate(() => window.__repforgeWeeklySnapshot("2026-08-14"));
+    /* The workout this scenario saves is dated now, so the adherence question is
+       about the current week. Naming a fixed date here only agreed with that for
+       as long as the week it fell in was still the current one. */
+    const weekly = await locker.evaluate(() => window.__repforgeWeeklySnapshot());
     const activeRows = final.local?.log?.filter((row) => row.exerciseId === EXERCISE_ID) || [];
     const archived = final.local?.log?.find((row) => row.exerciseId === "archived-press");
 
@@ -1115,7 +1118,10 @@ async function runRenameThenWorkoutRace(browser) {
     ]);
     const final = await readRuntime(locker);
     await reloadApp(locker);
-    const weekly = await locker.evaluate(() => window.__repforgeWeeklySnapshot("2026-08-14"));
+    /* The workout this scenario saves is dated now, so the adherence question is
+       about the current week. Naming a fixed date here only agreed with that for
+       as long as the week it fell in was still the current one. */
+    const weekly = await locker.evaluate(() => window.__repforgeWeeklySnapshot());
     const activeRows = final.local?.log?.filter((row) => row.exerciseId === EXERCISE_ID) || [];
     const archived = final.local?.log?.find((row) => row.exerciseId === "archived-press");
 

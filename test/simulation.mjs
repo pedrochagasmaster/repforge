@@ -5707,20 +5707,25 @@ async function main() {
     JSON.stringify(weekHelpers),
     "page.evaluate window.__repforgeWeek.weekStart/weekRange on a Wednesday"
   );
-  const sessionsInRange = await page.evaluate(() => {
+  /* Anchor on the newest logged date rather than on today. An earlier phase
+     backdates the whole log by a day so today reads as untrained, and weeks
+     start on Monday — so on a Monday "today's week" holds nothing but today,
+     and every backdated row sits in the week before it. What this checks is
+     that sessionsInRange finds the sessions of the week it is handed. */
+  const latestLogged = ((await getState(page))?.log || [])
+    .map((row) => String(row.date))
+    .sort()
+    .at(-1);
+  const sessionsInRange = await page.evaluate((anchor) => {
     const w = window.__repforgeWeek;
-    const r = w.weekRange(today());
+    const r = w.weekRange(anchor);
     return w.sessionsInRange(r.start, r.end).length;
-    function today() {
-      const d = new Date();
-      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    }
-  });
+  }, latestLogged);
   assert(
     sessionsInRange > 0,
-    "sessionsInRange returns sessions for the current week",
-    `count=${sessionsInRange}`,
-    "After logging → __repforgeWeek.sessionsInRange(this week)"
+    "sessionsInRange returns sessions for the week that was trained",
+    `count=${sessionsInRange} anchor=${latestLogged}`,
+    "After logging → __repforgeWeek.sessionsInRange(week of the newest logged row)"
   );
 
   beginPhase("Phase: this week (P11)");
