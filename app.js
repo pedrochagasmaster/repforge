@@ -5863,7 +5863,7 @@ function renderSettings(){
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
   const le=state.settings.lastExport,ago=le?t("settings.storage.last_backup",{lastBackup:le.slice(0,10)}):t("settings.storage.last_backup_never");
-  const sn=$("#storageNote");if(sn)sn.textContent=`${ago} ${t("settings.storage.note",{key:KEY})}`;
+  const sn=$("#storageNote");if(sn)sn.textContent=ago;
   const deg=$("#storageDegraded");
   if(deg){const on=!!storageHealth.degraded;deg.textContent=on?t("settings.storage.degraded"):"";deg.classList.toggle("hidden",!on);deg.hidden=!on}
   const sz=$("#storageSize");if(sz){try{const bytes=new Blob([localStorage.getItem(KEY)||""]).size;sz.textContent=bytes>1048576?`${fmt(+(bytes/1048576).toFixed(1))} MB`:`${Math.max(1,Math.round(bytes/1024))} KB`}catch{sz.textContent="—"}}
