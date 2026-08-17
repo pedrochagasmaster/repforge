@@ -82,7 +82,7 @@ fills, and the breaks are copy, not layout); giving the picture a band of its
 own under the poem (a near-square drawn at column width is 322px tall there,
 which costs the install card its place on the first screen); and setting it
 beside the sentence alone, which has no room — that sentence's own lines run to
-300px of the 346.
+289px of the 346.
 
 The gate's brand row stands the mark on the page instead of on a plate, so it
 draws `assets/brand/mark.png` — the same mark with its full-bleed paper ground
