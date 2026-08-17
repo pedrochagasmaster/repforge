@@ -20,31 +20,41 @@ Re-run it when a new mark lands. Never hand-edit or hand-crop the output, and
 never point the gate at `icons/icon.svg` instead: the app icon paints its own
 warm ground, which reads as a tile against the app's paper.
 
-## Landing the first-run hero illustration (ADR 0006)
+## `milo-hero.webp`
 
-The first-run gate's ethos hero ships text-only until the licensed export of
-the Milo illustration — the calf-carrier grown into the bull-carrier — lands
-here. No placeholder icons, initials, or silhouettes in the meantime (the same
-line the exercise tiles hold). The hero's layout already reserves the space and
-the CSS already paints it, so landing it is two steps:
+The first-run hero's illustration (ADR 0006): the calf-carrier grown into the
+bull-carrier, 960×894, drawn `contain`-fitted and anchored bottom-right so the
+figures stand on the poem's last line. Owner-supplied art, landed 2026-08 from
+a 1242×1266 PNG the product owner provided.
 
-1. Export the illustration as `assets/brand/milo-hero.webp`. It fills the right
-   of the hero — roughly 195×260 CSS px on a 390 px phone, behind copy that
-   keeps to a 32-character mono measure on the left — and is drawn
-   `contain`-fitted, anchored bottom-right. So export it cropped tight to the
-   figures, roughly square or a little taller, at least 800 px on the long
-   edge (≈4× the rendered box), on the paper ground (`#F4F2EF`) or
-   transparent. Whatever margin the file carries is margin the copy can
-   overlap, so keep it small but do not clip the art.
-2. In `sw.js`, add `"./assets/brand/milo-hero.webp"` to `ASSETS` and bump
-   `CACHE` — precache is atomic, so a listed-but-missing file breaks the whole
-   service-worker install, and the reverse leaves the hero blank offline.
+Two things were done to that original, and both matter if it is ever replaced:
 
-Then update the asset inventory sentence in `AGENTS.md` (the service-worker
-caching note) and re-run the gates: `node test/install-modes.mjs` asserts the
-hero art stays out of the accessibility tree.
+1. **Cropped to the ink**, with about 16 px of the original's margin left on
+   each side (`x 130, y 171, w 1072, h 998`). The hero's art column is only
+   ~175 CSS px wide on a 390 px phone, so every pixel of empty margin in the
+   file is a pixel the figures do not get.
+2. **White-balanced onto the app's paper.** The drawing's own cream ground is
+   `#FBF4EA`; each channel was scaled so that cream lands exactly on `--bg`
+   (`#F4F2EF`), which moves the graphite and the burnt orange by under 3% and
+   makes the file's rectangle invisible on the page. This is the alternative to
+   what the exercise detail page does — there the artwork keeps its own paper
+   and the page draws a matching field around it (`mediaBg`,
+   `tools/sample-media-bg.mjs`), because those 96 files disagree about their
+   paper and are shown large. One file shown small is cheaper to re-balance
+   than to surround.
 
-The hero is painted with `background-image`, not an `<img>`, so a missing
-export leaves paper behind the copy rather than a broken-image glyph. That is
-also why nothing about the illustration is announced: it is decorative, and the
-copy beside it says everything.
+Then it was encoded as WebP at quality 0.9 (~100 kB). Node has no image codec
+here, so the crop, the balance, and the encode were all done in the same
+borrowed Chromium the tools use — a canvas draw, a per-channel multiply over
+`ImageData`, and `canvas.toDataURL("image/webp", 0.9)`.
+
+To replace it: redo those steps against the new original, keep the file name,
+and bump `CACHE` in `sw.js` (the path is already in `ASSETS`; precache is
+atomic, so a listed-but-missing file breaks the whole service-worker install).
+Re-run `node test/install-modes.mjs`, which asserts the hero paints this file
+and that nothing about it reaches a screen reader.
+
+The hero paints it with `background-image` rather than an `<img>`: it is
+decorative, the copy beside it says everything, and a missing export leaves
+paper behind the copy rather than a broken-image glyph — the same line the
+exercise tiles hold. No placeholder art ever stands in for it.

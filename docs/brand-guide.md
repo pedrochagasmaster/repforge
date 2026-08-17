@@ -50,12 +50,15 @@ both languages, so the block holds its measure beside the illustration on a
 narrow phone.
 
 The hero's illustration — the calf-carrier grown into the bull-carrier — lives
-at `assets/brand/milo-hero.webp`: owner-licensed, decorative, painted by CSS
-so an absent export leaves paper rather than a broken image, replaced
-wholesale like the mark, precached like every asset. No placeholder icons,
-initials, or silhouettes stand in for it (the same line the exercise tiles
-hold). Landing steps are in `assets/brand/README.md`. Past the gate, the app
-stays quiet so the record can speak.
+at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so
+an absent export leaves paper rather than a broken image, replaced wholesale
+like the mark, precached like every asset. No placeholder icons, initials, or
+silhouettes ever stand in for it (the same line the exercise tiles hold). It is
+white-balanced onto `--bg` so the file's own rectangle disappears into the page
+— the same problem the exercise detail page solves with a `mediaBg` field, made
+cheaper here by there being one file, shown small. How it was produced, and how
+to replace it, is in `assets/brand/README.md`. Past the gate, the app stays
+quiet so the record can speak.
 
 > Strength isn't something you're born with.\
 > It's something you build.\

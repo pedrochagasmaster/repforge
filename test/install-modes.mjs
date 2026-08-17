@@ -112,6 +112,10 @@ const card = () => ({
     [...document.querySelectorAll(".firstrun-hero img")].every((n) => n.getAttribute("alt") === "") &&
     (document.querySelector(".firstrun-hero__art")?.getAttribute("aria-hidden") === "true") &&
     !document.querySelector(".firstrun-hero__art")?.textContent.trim(),
+  heroArtFile: (() => {
+    const art = document.querySelector(".firstrun-hero__art");
+    return art ? getComputedStyle(art).backgroundImage : null;
+  })(),
   // The gate stands the mark on its paper, so it draws the ground-free
   // rendering and never the app icon, which carries a ground of its own.
   markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
@@ -152,6 +156,11 @@ async function run() {
       JSON.stringify(shown.heroBody)
     );
     assert(shown.heroArtDecorative, "the hero art reaches no screen reader");
+    assert(
+      /assets\/brand\/milo-hero\.webp/.test(shown.heroArtFile || ""),
+      "the illustration is the one the hero paints",
+      shown.heroArtFile
+    );
     assert(shown.markSrc === "assets/brand/mark.png", "the gate stands the ground-free mark on its paper", shown.markSrc);
 
     await page.click("#firstRunInstallAction");

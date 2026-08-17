@@ -29,7 +29,11 @@ clear of the illustration on a narrow phone. The brand guide records both.
 The illustration is painted by CSS (`background-image`), not marked up as an
 `<img>`: it is decorative, it must never reach a screen reader, and an absent
 export has to leave paper behind the copy rather than a broken-image glyph —
-the same reason the exercise tiles render nothing at all without artwork.
+the same reason the exercise tiles render nothing at all without artwork. The
+owner's file landed 2026-08; it is cropped to the ink and white-balanced onto
+`--bg`, so its rectangle disappears into the page instead of needing a field
+drawn around it the way the exercise detail page needs one (`mediaBg`). Details
+in `assets/brand/README.md`.
 
 The gate's brand row stands the mark on the page instead of on a plate, so it
 draws `assets/brand/mark.png` — the same mark with its full-bleed paper ground
