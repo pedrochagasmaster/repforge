@@ -21,10 +21,10 @@
 - **Depends on:** `docs/design/exercise-detail-illustration.md`
 - **Category:** UX / accessibility / visual design
 - **Planned at:** commit `66b427c`, 2026-08-16
-- **Implementation status:** BUILT, BLOCKED ON A DESIGN DECISION. Steps 1, 2, 3
-  and 5 are implemented and every gate passes. Step 4 reached a STOP condition:
-  one fixed warm-field token cannot serve the shipped library. See
-  [Findings](#findings-2026-08-17) before merging.
+- **Implementation status:** DONE. Step 4 hit a STOP condition — one fixed
+  warm-field token cannot serve the shipped library — which was resolved by
+  making the field colour travel with the movement. Both the resolution and the
+  one remaining open question are in [Findings](#findings-2026-08-17).
 
 ## Outcome
 
@@ -210,7 +210,7 @@ Stop and report rather than improvise if:
 
 ## Findings (2026-08-17)
 
-### STOP: one warm-field token cannot serve the shipped library
+### STOP (resolved): one warm-field token cannot serve the shipped library
 
 The design samples `--exercise-art-bg: #F4ECE1` from the approved mock's source
 artwork, the hack squat (`sqk_mc`). Measuring the empty outer ring of all 96
@@ -240,7 +240,7 @@ Edge veils do not rescue this. They are specified to hide the top and bottom
 boundary of a *matched* square, and they cannot bridge a 35-level mismatch
 without fading instructional pixels, which the design forbids.
 
-### Second finding: the bundled programs show no artwork at all
+### Open: the bundled programs show no artwork at all
 
 The illustration resolves through the slot's `libraryId`, which is the only
 identity a program slot carries. Measured on this branch:
@@ -261,10 +261,9 @@ than an executor's edit.
 
 ### What shipped
 
-Everything that does not depend on the token: the conditional markup, the
-full-bleed geometry and safe-area handling, the length-based gradient, the
-scoped divider removal, the browser coverage, and the cache bump. The treatment
-is correct and complete the moment the field colour matches the asset.
+The conditional markup, the full-bleed geometry and safe-area handling, the
+gradient, the scoped divider removal, the per-movement field colour and its
+tooling, the browser coverage, and one cache bump.
 
 ### One deviation from the letter of the spec
 
@@ -275,15 +274,32 @@ artwork and redrew the top and bottom edge it exists to dissolve. Lengths keep
 the hold behind the illustration at every width, which is what the spec asks
 for in prose ("hold the warm field behind the useful illustration area").
 
-### Recommended resolution (needs design sign-off — out of this plan's scope)
+### Resolution: the field colour travels with the movement
 
-Carry the field colour per movement instead of as one constant: have
-`tools/build-exercises.mjs` sample each asset's border ring and emit it beside
-`media`, then set `--exercise-art-bg` on the field from that value. This keeps
-the approved treatment verbatim, keeps the artwork untouched, and makes every
-one of the 96 illustrations dissolve the way the mock does. It is a generated
-library schema addition, which this plan lists as out of scope, so it needs a
-decision rather than an executor.
+Applied, and the design doc is amended to match. `tools/sample-media-bg.mjs`
+reads the empty border ring of each illustration and writes a reviewable
+`libraryId → #rrggbb` map to `tools/exercise-media-bg.json`;
+`tools/build-exercises.mjs` emits it as `mediaBg` beside `media`, and the detail
+page sets `--exercise-art-bg` on the field from that value. The approved
+treatment is otherwise verbatim and the artwork is untouched.
+
+Sampling is a separate maintenance script rather than part of the generator
+because the illustrations are lossy VP8, Node ships no image decoder, and the
+app has no dependencies — so it borrows the Chromium the browser suites already
+pin. The artwork set is closed, so it runs only when the files change; its
+output is committed, reviewable, and may be hand-corrected.
+
+This is a generated-library schema addition, which this plan's scope section
+excluded. It was taken deliberately, as the only change that satisfies the
+design's own acceptance criteria for the whole library.
+
+Measured across all 96 illustrations, the field is now at most **1** level from
+the artwork's own paper, against **18** median and **35** worst under the fixed
+token. Three gates hold it there: `build-exercises.mjs` fails if a mapped id has
+no colour or a colour has no artwork, `test/exercise-library.mjs` pins the format
+and the agreement between `exercises.js` and the JSON, and `test/simulation.mjs`
+decodes every file and compares its border ring to the recorded value with a
+sampling window deliberately different from the generator's.
 
 ## Done when
 

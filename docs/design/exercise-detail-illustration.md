@@ -2,8 +2,11 @@
 
 ## Status and authority
 
-- **Status:** approved design direction; ready for implementation
+- **Status:** approved design direction; implemented
 - **Approved:** 2026-08-16
+- **Amended:** 2026-08-17, during implementation, in two places marked
+  **Amendment** below. Both came from measuring the shipped artwork rather than
+  the single approved mock; the treatment, hierarchy and restraint are unchanged.
 - **Applies to:** the exercise detail view (`#exercise` / `renderExerciseView()`)
 - **Reference viewport:** iPhone-class, 430 CSS px wide
 
@@ -31,7 +34,8 @@ recognizable without competing with the exercise name.
 
 This treatment:
 
-- uses the exercise's existing licensed `media` asset;
+- uses the exercise's existing licensed `media` asset and its sampled
+  `mediaBg` paper colour;
 - inserts the illustration between exercise metadata and the recommendation;
 - gives the art a full content-column field with a vertical transition between
   its warm cream background and the unchanged app background;
@@ -68,8 +72,23 @@ exercise name remains the strongest text on the page.
 
 - Leave `body` and `main` on `var(--bg)` (`#F4F2EF`). Do not change the page
   background to match the illustration.
-- Add a local `--exercise-art-bg: #F4ECE1` token for the warm field sampled from
-  the approved source artwork.
+- Set a local `--exercise-art-bg` on the media field from the paper colour of
+  **that movement's own artwork**.
+
+  > **Amendment (2026-08-17).** This was specified as one token,
+  > `--exercise-art-bg: #F4ECE1`, sampled from the approved mock's source
+  > artwork. Measuring the empty border ring of all 96 shipped illustrations
+  > showed that value is not representative: the set spans `#E3D4BE` to
+  > `#F4EDE1`, only 5 of 96 sit within 5 levels of it, and 69 sit at 13 or more.
+  > Since the field bleeds full-width behind an 80 %-wide picture, that distance
+  > draws as a hard vertical edge down both sides of the square — the pasted tile
+  > this treatment exists to avoid — on 91 of the 96 movements. No constant fixes
+  > it: re-sampling from the library median only moves the failure onto the hero
+  > exercise. The colour therefore travels with the movement, sampled per file by
+  > `tools/sample-media-bg.mjs` and carried as `mediaBg` on the library entry.
+  > The field is now at most 1 level from its artwork's paper across the library.
+  > The artwork itself is untouched.
+
 - Transition vertically from `var(--bg)` into `--exercise-art-bg`, hold the warm
   field behind the useful illustration area, then transition back to
   `var(--bg)`. The target profile is:
@@ -77,12 +96,20 @@ exercise name remains the strongest text on the page.
   ```css
   linear-gradient(
     to bottom,
-    var(--bg) 0%,
-    var(--exercise-art-bg) 10%,
-    var(--exercise-art-bg) 88%,
+    var(--bg) 0,
+    var(--exercise-art-bg) var(--exercise-art-lead),
+    var(--exercise-art-bg) calc(100% - var(--exercise-art-trail)),
     var(--bg) 100%
   )
   ```
+
+  > **Amendment (2026-08-17).** The stops were specified as `10%` / `88%`. A
+  > percentage stop scales with the field's height, so the fade did not land on
+  > the empty bands above and below the picture: at the 560 px shell it climbed
+  > roughly 30 px back over the artwork and redrew the very edge it exists to
+  > dissolve. The stops are now the lengths of those bands, which holds the warm
+  > field behind the illustration at every width — what this paragraph asks for
+  > in prose.
 
 - The fade is a color bridge between two near-neutral backgrounds, not a glow,
   shadow, vignette, spotlight, or decorative gradient. This is the sole scoped
