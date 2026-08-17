@@ -23,16 +23,23 @@ warm ground, which reads as a tile against the app's paper.
 ## `milo-hero.webp`
 
 The first-run hero's illustration (ADR 0006): the calf-carrier grown into the
-bull-carrier, 960×894, drawn `contain`-fitted and anchored bottom-right so the
-figures stand on the poem's last line. Owner-supplied art, landed 2026-08 from
-a 1242×1266 PNG the product owner provided.
+bull-carrier, 960×894. Owner-supplied art, landed 2026-08 from a 1242×1266 PNG
+the product owner provided.
+
+On a phone it is drawn a little wider than the column the poem leaves it (112%,
+anchored bottom-left), so it stands on the poem's last line and the far side of
+the load runs off the screen edge; past the shell's width it fits whole
+instead. Both carriers and their footing stay in frame either way — that is
+what the 112% is for, and much more than it starts cutting into the bull.
 
 Two things were done to that original, and both matter if it is ever replaced:
 
 1. **Cropped to the ink**, with about 16 px of the original's margin left on
    each side (`x 130, y 171, w 1072, h 998`). The hero's art column is only
    ~175 CSS px wide on a 390 px phone, so every pixel of empty margin in the
-   file is a pixel the figures do not get.
+   file is a pixel the figures do not get. The empty band above the small
+   carrier is the exception worth keeping: it is what the poem's longest lines
+   sit beside.
 2. **White-balanced onto the app's paper.** The drawing's own cream ground is
    `#FBF4EA`; each channel was scaled so that cream lands exactly on `--bg`
    (`#F4F2EF`), which moves the graphite and the burnt orange by under 3% and

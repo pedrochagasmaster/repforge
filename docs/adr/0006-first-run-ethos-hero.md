@@ -35,6 +35,16 @@ owner's file landed 2026-08; it is cropped to the ink and white-balanced onto
 drawn around it the way the exercise detail page needs one (`mediaBg`). Details
 in `assets/brand/README.md`.
 
+The picture is landscape and the space the poem leaves it is a tall column, so
+fitting it whole left the corner beside the sentence empty (product owner,
+2026-08: fill it). On a phone it is therefore drawn wider than that column and
+anchored bottom-left, letting the far side of the load run off the screen edge
+— a bleed, deliberately, with both carriers and their footing kept in frame.
+Past the shell's width the gate is no longer flush with the screen, a cut would
+land mid-page, and it fits whole again. The alternatives were worse: growing it
+towards the copy puts graphite behind the poem, and re-breaking the poem to a
+narrower measure buys ~20% and costs the mockup's lines.
+
 The gate's brand row stands the mark on the page instead of on a plate, so it
 draws `assets/brand/mark.png` — the same mark with its full-bleed paper ground
 dropped, derived from `icons/icon.svg` by `tools/build-brand-mark.mjs`. The app

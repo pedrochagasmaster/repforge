@@ -2494,8 +2494,8 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   column-gap:10px;
 }
 .firstrun-hero__title{
-  grid-column:1/-1;grid-row:1;position:relative;z-index:1;margin:0;max-width:16ch;
-  font-size:clamp(26px,7.4vw,32px);font-weight:700;letter-spacing:-0.02em;line-height:1.08;color:var(--ink);
+  grid-column:1/-1;grid-row:1;position:relative;z-index:1;margin:0;max-width:15ch;
+  font-size:clamp(30px,8.7vw,38px);font-weight:700;letter-spacing:-0.02em;line-height:1.08;color:var(--ink);
 }
 .firstrun-hero__body{
   grid-column:1;grid-row:2;position:relative;z-index:1;margin:22px 0 0;max-width:100%;
@@ -2505,13 +2505,27 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* Decorative, so it is painted rather than marked up: nothing to announce, and
    a missing export leaves paper behind the copy instead of a broken image,
    which is what the empty-tile doctrine asks for. The file is drawn on the
-   app's own paper, so it needs no field of its own to dissolve into: it is
-   simply fitted whole, standing on the poem's last line, and reaches a little
-   past the gate's padding towards the screen edge. */
+   app's own paper, so it needs no field of its own to dissolve into.
+
+   It runs the hero's full height, stands on the poem's last line, and is drawn
+   a little wider than the column it is given — anchored left, so what falls off
+   the right edge of that column is the far side of the load, and both carriers
+   and their footing stay whole. Drawn to fit instead, the picture would be as
+   short as the column is narrow and leave the corner beside the sentence empty;
+   the overflow is what fills it. Anything wider than about 115% starts eating
+   the bull rather than the air around it. */
 .firstrun-hero__art{
-  grid-column:2;grid-row:2;z-index:0;margin:-52px -8px 0 0;min-width:0;
-  background:no-repeat right bottom/contain url("assets/brand/milo-hero.webp");
+  grid-column:2;grid-row:1/-1;z-index:0;margin:0 -22px 0 0;min-width:0;
+  background:no-repeat left bottom/112% auto url("assets/brand/milo-hero.webp");
   pointer-events:none;
+}
+/* That overflow only reads as a bleed while the gate is flush with the screen.
+   Past the shell's width (--maxw plus its padding) the cut would land in the
+   middle of the page with paper either side of it, so the picture goes back to
+   fitting whole — and the wider column gives it the size the overflow was
+   buying anyway. */
+@media (min-width:604px){
+  .firstrun-hero__art{margin-right:0;background-size:contain;background-position:right bottom}
 }
 .firstrun__lede{margin:26px 0 0;font-size:16px;line-height:1.45;color:var(--ink-soft)}
 .firstrun__section{margin-top:40px}
