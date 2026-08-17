@@ -52,21 +52,6 @@ jobs:
           echo "Server did not start in time"
           exit 1
 
-      # Temporary review artifact for PR #157. The generated files are folded
-      # into the branch and these two steps are removed before final handoff.
-      - name: First-run proof screenshots
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/first-run-shots.mjs
-
-      - name: Upload first-run proof
-        uses: actions/upload-artifact@v4
-        with:
-          name: first-run-proof
-          path: |
-            docs/pr-proof/first-run-*.png
-            docs/pr-proof/measurements.json
-
       - name: Schedule tests
         run: node test/schedule.mjs
 
