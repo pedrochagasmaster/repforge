@@ -2553,17 +2553,25 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .installsheet__done{margin-top:22px}
 .installsheet__foot{margin:14px 0 0;text-align:center;font-size:13px;color:var(--ink-faint)}
 
-.safaribar{margin-top:22px;padding:12px;border:1px solid var(--rule);border-radius:14px;background:var(--surface)}
-.safaribar__url{
-  display:flex;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:var(--rule);
+/* One row, the way iOS draws it now: back on the left, the address pill in the
+   middle, and the ••• menu on the right of the pill — the control step 01 asks
+   for. Anything Safari keeps behind that menu (share, tabs, bookmarks) is not
+   drawn, because it is not what the lifter has to find. */
+.safaribar{
+  display:flex;align-items:center;gap:8px;
+  /* The top padding is the room the TAP label sits in, above the ••• circle. */
+  margin-top:22px;padding:28px 12px 12px;border:1px solid var(--rule);border-radius:14px;background:var(--surface);
 }
-.safaribar__lock,.safaribar__reload,.safaribar__tool{
+.safaribar__url{
+  display:flex;flex:1;min-width:0;align-items:center;gap:8px;padding:10px 14px;border-radius:999px;background:var(--rule);
+}
+.safaribar__page,.safaribar__reload,.safaribar__tool{
   flex:none;background:var(--ink-soft);
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
 }
-.safaribar__lock{width:12px;height:12px;background:var(--ink);
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M7 10V7a5 5 0 0 1 10 0v3h1a1 1 0 0 1 1 1v9a1 1 0 0 1-1 1H6a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1zm2 0h6V7a3 3 0 0 0-6 0z'/%3E%3C/svg%3E");
+.safaribar__page{width:15px;height:15px;background:var(--ink);
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='13' rx='2'/%3E%3Cpath d='M6.5 8h11'/%3E%3Cpath d='M6.5 12h7'/%3E%3Cpath d='M8 20h8'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='13' rx='2'/%3E%3Cpath d='M6.5 8h11'/%3E%3Cpath d='M6.5 12h7'/%3E%3Cpath d='M8 20h8'/%3E%3C/svg%3E");
 }
 .safaribar__host{
   flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
@@ -2573,14 +2581,10 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.6'/%3E%3Cpath d='M20 4v5h-5'/%3E%3C/svg%3E");
   mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.3-5.6'/%3E%3Cpath d='M20 4v5h-5'/%3E%3C/svg%3E");
 }
-.safaribar__tools{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:22px 8px 4px}
-.safaribar__tool{width:22px;height:22px}
-.safaribar__tool--back{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 5l-7 7 7 7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 5l-7 7 7 7'/%3E%3C/svg%3E")}
-.safaribar__tool--fwd{opacity:.4;-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9 5l7 7-7 7'/%3E%3C/svg%3E")}
-.safaribar__tool--share{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v13'/%3E%3Cpath d='M8 7l4-4 4 4'/%3E%3Cpath d='M6 12H4v8h16v-8h-2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v13'/%3E%3Cpath d='M8 7l4-4 4 4'/%3E%3Cpath d='M6 12H4v8h16v-8h-2'/%3E%3C/svg%3E")}
-.safaribar__tool--book{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.5C10.5 5 8.5 4.5 4 4.5v14C8.5 18.5 10.5 19 12 20.5c1.5-1.5 3.5-2 8-2v-14c-4.5 0-6.5.5-8 2z'/%3E%3Cpath d='M12 6.5v14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 6.5C10.5 5 8.5 4.5 4 4.5v14C8.5 18.5 10.5 19 12 20.5c1.5-1.5 3.5-2 8-2v-14c-4.5 0-6.5.5-8 2z'/%3E%3Cpath d='M12 6.5v14'/%3E%3C/svg%3E")}
-.safaribar__tool--tabs{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='4' y='7' width='12' height='12' rx='2'/%3E%3Cpath d='M8 7V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linejoin='round'%3E%3Crect x='4' y='7' width='12' height='12' rx='2'/%3E%3Cpath d='M8 7V6a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2h-1'/%3E%3C/svg%3E")}
-.safaribar__target{position:relative;flex:none;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px}
+.safaribar__side{flex:none;display:inline-flex;align-items:center;justify-content:center;width:38px;height:38px;border-radius:50%;background:var(--rule)}
+.safaribar__tool{width:20px;height:20px}
+.safaribar__tool--back{background:var(--ink-soft);-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 5l-7 7 7 7'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 5l-7 7 7 7'/%3E%3C/svg%3E")}
+.safaribar__target{position:relative}
 .safaribar__target::before{
   content:"";position:absolute;inset:0;border:2px solid var(--accent);border-radius:50%;
 }
@@ -2604,10 +2608,9 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .installsheet__mark{width:48px;height:48px}
   .installsheet__title{font-size:22px}
   .installsheet__sub{font-size:14px}
-  .safaribar{margin-top:16px;padding:10px}
-  .safaribar__tools{padding:16px 6px 2px}
+  .safaribar{margin-top:16px;padding:24px 10px 10px}
   .installsteps{margin-top:16px}
-  .installsteps__step{padding:12px 2px}
+  .installsteps__step{padding:10px 2px}
   .installsteps__body{font-size:15px}
   .installsheet__done{margin-top:16px}
 }
