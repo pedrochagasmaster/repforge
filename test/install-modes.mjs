@@ -19,6 +19,12 @@
  * that the event is consumed, and that no install is claimed unless Chrome
  * said "accepted".
  *
+ * The ethos hero (ADR 0006) leads the gate in both languages; its strings are
+ * locked here the way the install cards are — line breaks included, because the
+ * block is set like a poem and the breaks are part of the copy — and its
+ * illustration must stay decorative: painted by CSS, hidden from assistive
+ * technology, never announced.
+ *
  * Run: node test/install-modes.mjs   (with a static server on REPFORGE_URL)
  */
 import { launchChromium } from "./browser.mjs";
@@ -98,6 +104,21 @@ const card = () => ({
   continueLabel: document.querySelector("#firstRunContinueLabel")?.textContent || null,
   create: !!document.querySelector("#firstRunCreate"),
   import: !!document.querySelector("#firstRunImport"),
+  heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
+  heroBody: document.querySelector(".firstrun-hero__body")?.textContent || null,
+  // The illustration is painted, not marked up, so nothing about it may reach a
+  // screen reader: no alt text to read and no image element to announce.
+  heroArtDecorative:
+    [...document.querySelectorAll(".firstrun-hero img")].every((n) => n.getAttribute("alt") === "") &&
+    (document.querySelector(".firstrun-hero__art")?.getAttribute("aria-hidden") === "true") &&
+    !document.querySelector(".firstrun-hero__art")?.textContent.trim(),
+  heroArtFile: (() => {
+    const art = document.querySelector(".firstrun-hero__art");
+    return art ? getComputedStyle(art).backgroundImage : null;
+  })(),
+  // The gate stands the mark on its paper, so it draws the ground-free
+  // rendering and never the app icon, which carries a ground of its own.
+  markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
 
 async function run() {
@@ -121,6 +142,26 @@ async function run() {
     );
     assert(shown.action === "Install Taurifer", "the button asks Chrome to install", shown.action);
     assert(shown.continueLabel === "Continue in browser", "the escape hatch says browser", shown.continueLabel);
+    assert(
+      shown.heroTitle === "Strength isn't something you're born with.",
+      "the ethos hero leads the gate",
+      shown.heroTitle
+    );
+    assert(
+      shown.heroBody ===
+        "Challenge after challenge.\nDay after day.\nEvery time you go beyond\nwhat you thought possible," +
+          "\nthe effort shapes you.\n\nIt becomes part of\nwho you are.\nAnd you become who you needed to be." +
+          "\n\nStrength, then, is yours —\nnot because it was given to you,\nbut because you built it.",
+      "the hero body carries the ethos, broken where it was written",
+      JSON.stringify(shown.heroBody)
+    );
+    assert(shown.heroArtDecorative, "the hero art reaches no screen reader");
+    assert(
+      /assets\/brand\/milo-hero\.webp/.test(shown.heroArtFile || ""),
+      "the illustration is the one the hero paints",
+      shown.heroArtFile
+    );
+    assert(shown.markSrc === "assets/brand/mark.png", "the gate stands the ground-free mark on its paper", shown.markSrc);
 
     await page.click("#firstRunInstallAction");
     await page.waitForTimeout(300);
@@ -391,6 +432,15 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
+    assert(pt.heroTitle === "Força não vem de nascença.", "PT hero title", pt.heroTitle);
+    assert(
+      pt.heroBody ===
+        "Desafio após desafio.\nDia após dia.\nToda vez que você vai além\ndo que julgava possível," +
+          "\no esforço molda você.\n\nEle passa a fazer parte\nde quem você é.\nE você se torna quem precisou ser." +
+          "\n\nA força, então, é sua —\nnão porque lhe foi dada,\nmas porque você a construiu.",
+      "PT hero body",
+      JSON.stringify(pt.heroBody)
+    );
     await context.close();
     allErrors.push(...errors);
   }

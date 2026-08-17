@@ -826,6 +826,8 @@
   "install.ios.foot": "Taurifer will open from its icon on your Home Screen.",
   "setup.aria": "Set up Taurifer",
   "setup.title": "Set up Taurifer",
+  "setup.ethos.title": "Strength isn't something you're born with.",
+  "setup.ethos.body": "Challenge after challenge.\nDay after day.\nEvery time you go beyond\nwhat you thought possible,\nthe effort shapes you.\n\nIt becomes part of\nwho you are.\nAnd you become who you needed to be.\n\nStrength, then, is yours —\nnot because it was given to you,\nbut because you built it.",
   "setup.lede": "Install the app, then choose how to begin.",
   "setup.lede_installed": "Choose how you want to begin.",
   "setup.install_label": "Install",

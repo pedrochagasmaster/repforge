@@ -559,10 +559,30 @@
   <div id="firstRun" class="firstrun hidden" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
     <div class="firstrun__inner">
       <div class="firstrun__brand">
-        <img class="firstrun__logo" src="icons/icon.svg" alt="" width="46" height="46">
+        <!-- The gate draws the mark on the page, not on a plate, so it uses the
+             ground-free rendering of icons/icon.svg (tools/build-brand-mark.mjs)
+             rather than the app icon, which carries its own warm ground. -->
+        <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
         <span class="firstrun__wordmark">Taurifer</span>
       </div>
-      <h1 class="firstrun__title" data-i18n="setup.title">Set up Taurifer</h1>
+      <h1 class="visually-hidden" data-i18n="setup.title">Set up Taurifer</h1>
+      <!-- The one user-facing rendering of the ethos (ADR 0006). The body is
+           set like a poem: its string carries its own line breaks, which
+           `white-space:pre-line` honours, so the block breaks where it was
+           written rather than wherever the phone happens to wrap it. Those
+           breaks are cut to the illustration — short lines while the poem
+           passes it, full-length ones below — so the art element has to sit
+           between the sentence and the poem, where it can float and the lines
+           can flow around it. The fallback below is the same copy as one
+           paragraph, for the moment before i18n applies. The illustration
+           itself is decorative and drawn by CSS from
+           assets/brand/milo-hero.webp — an absent export leaves paper, never a
+           broken image; details are in assets/brand/README.md. -->
+      <div class="firstrun-hero">
+        <p class="firstrun-hero__title" data-i18n="setup.ethos.title">Strength isn't something you're born with.</p>
+        <div class="firstrun-hero__art" aria-hidden="true"></div>
+        <p class="firstrun-hero__body" data-i18n="setup.ethos.body">Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it.</p>
+      </div>
       <p class="firstrun__lede" id="firstRunLede" data-i18n="setup.lede">Install the app, then choose how to begin.</p>
 
       <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">

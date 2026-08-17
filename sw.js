@@ -1,10 +1,11 @@
-const CACHE = "repforge-v86";
+const CACHE = "repforge-v89";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest",
   "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
+  "./assets/brand/mark.png", "./assets/brand/milo-hero.webp",
   "./assets/exercises/ab_cb.webp", "./assets/exercises/ab_mc.webp", "./assets/exercises/abc_mc.webp", "./assets/exercises/abdb_bw.webp",
   "./assets/exercises/ablr_bw.webp", "./assets/exercises/abr_bw.webp", "./assets/exercises/abrt_bw.webp", "./assets/exercises/ad_mc.webp",
   "./assets/exercises/arn_db.webp", "./assets/exercises/be_mc.webp", "./assets/exercises/cd_bw.webp", "./assets/exercises/cf_db.webp",

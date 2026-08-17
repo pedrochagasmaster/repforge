@@ -20,11 +20,79 @@ carried the same calf every day as it grew until he was carrying a bull —
 the oldest story about progressive overload. This etymology explains why the
 app icon is a bull-horned monogram, and it stops there.
 
-**The rule: the theme never appears in user-facing surfaces.** No bull, calf,
+**The rule: the theme never appears in working surfaces.** No bull, calf,
 carrying, forge, or Latin in any string, in any language — not in copy, alt
 text, tooltips, notifications, export contents, or store metadata. Themed copy
-was implemented and deliberately reverted (see ADR 0004). The app icon is the
-single permitted surface for the theme (see [The mark](#the-mark)).
+was implemented and deliberately reverted (see ADR 0004). The theme's
+permitted surfaces are exactly two: the app icon (see [The mark](#the-mark))
+and the first-run gate's ethos hero (see [Ethos](#ethos); ADR 0006).
+
+## Ethos
+
+The belief the product exists to serve, stated once. It retells the Milo
+story in plain life terms — no training vocabulary — so it holds for anyone
+building anything slowly. The canon below is internal: never quote it in app
+copy, and use it to judge decisions. Its one user-facing rendering is the
+distilled passage on the first-run gate's hero (ADR 0006) — a threshold the
+app crosses once, never a working surface:
+
+| Key | English | Portuguese |
+| --- | --- | --- |
+| `setup.ethos.title` | Strength isn't something you're born with. | Força não vem de nascença. |
+| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of / who you are. / And you become who you needed to be. // Strength, then, is yours — / not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte / de quem você é. / E você se torna quem precisou ser. // A força, então, é sua — / não porque lhe foi dada, / mas porque você a construiu. |
+
+The body is the one string in the app that is **set, not just written**: it is
+typeset in the mono face as a short poem, and `/` above marks a line break
+(`\n` in the catalogues, `//` a stanza break). The breaks are part of the copy
+and travel with the translation — a wrapped-wherever-it-lands version of this
+passage is a different passage.
+
+They are also cut to the illustration, which is never cropped and never leaves
+the page: **the copy gives, not the picture.** Lines passing the illustration
+stay at 26 characters or fewer; lines below it may run to about 36. In
+practice that means the first stanza and the head of the second stay short, and
+the passage opens out as it descends. A translation has to be re-broken to that
+shape, not merely translated into the old one. The layout enforces the rule
+rather than trusting it — the picture floats, so a line that outgrows its gap
+wraps instead of colliding — but a wrapped line is a broken line, so keep to
+the counts.
+
+The hero's illustration — the calf-carrier grown into the bull-carrier — lives
+at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so
+an absent export leaves paper rather than a broken image, replaced wholesale
+like the mark, precached like every asset. No placeholder icons, initials, or
+silhouettes ever stand in for it (the same line the exercise tiles hold). It is
+white-balanced onto `--bg` so the file's own rectangle disappears into the page
+— the same problem the exercise detail page solves with a `mediaBg` field, made
+cheaper here by there being one file, shown small. How it was produced, and how
+to replace it, is in `assets/brand/README.md`. Past the gate, the app stays
+quiet so the record can speak.
+
+> Strength isn't something you're born with.\
+> It's something you build.\
+> Day after day.
+>
+> The load grows a little every day.\
+> Never enough to notice.\
+> Just enough to matter.\
+> You grow with it.\
+> Until one day you're carrying what once seemed impossible.
+>
+> What you carry shapes you.\
+> It becomes part of you.\
+> You become what you had to become.
+>
+> There was never a day you became strong.\
+> Only days you didn't put it down.
+>
+> To those who see your daily effort, nothing about you is sudden.\
+> To everyone else, you're unrecognizable.
+>
+> Strength will be your gift.\
+> Not because anyone gave it to you —\
+> no one could.\
+> You built it.\
+> Day after day.
 
 ## Voice and copy
 
@@ -97,7 +165,8 @@ CSS disagree, the CSS wins — fix this document.
 
 The app icon is a charcoal monogram: a letter T whose crossbar sweeps up into
 bull horns, cut with a burnt-orange edge, resting on the warm paper ground.
-It is the one place the name's origin is allowed to show.
+Outside the first-run hero (see [Ethos](#ethos)), it is the one place the
+name's origin is allowed to show.
 
 - `icons/icon.svg` is **generated output, not source** — 9,233 vector paths.
   Never hand-edit it and never run optimizers (SVGO etc.) on it; a new mark
@@ -107,6 +176,13 @@ It is the one place the name's origin is allowed to show.
   full mark inside the safe circle, and splash screens place the isolated mark
   on the paper background. Regenerate per `icons/README.md`; never with an
   ad-hoc downscale.
+- `assets/brand/mark.png` is the same mark **with the paper ground dropped**,
+  for the one place inside the app that stands it on the page: the first-run
+  gate's brand row. It is derived from `icons/icon.svg` by
+  `tools/build-brand-mark.mjs`, which removes the single full-bleed ground rect
+  and rasterises the rest — so it is generated output twice over. Re-run it
+  when a new mark lands; never hand-edit or hand-crop it, and never use the app
+  icon in that row: its ground reads as a plate against the app's paper.
 - The mark carries **no themed text**: no caption, tooltip, or alt text about
   bulls or bearing. The Settings identity mark ships `alt=""`.
 
