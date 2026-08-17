@@ -10707,6 +10707,72 @@ async function main() {
     "Open art-less exercise pages → watch network failures"
   );
 
+  /* The point of the whole treatment: the field has to be the paper the drawing
+     is already on. Sampled here straight from the decoded pixels, with a wider
+     ring and a coarser step than tools/sample-media-bg.mjs uses, so this checks
+     the recorded colour against the artwork rather than re-running the
+     generator's arithmetic. */
+  const artPaper = await page.evaluate(async () => {
+    const read = (src) =>
+      new Promise((res) => {
+        const img = new Image();
+        img.onerror = () => res(null);
+        img.onload = () => {
+          const c = document.createElement("canvas");
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          const ctx = c.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0);
+          const w = img.naturalWidth, h = img.naturalHeight, px = [[], [], []];
+          const take = (x, y) => {
+            const d = ctx.getImageData(x, y, 1, 1).data;
+            px[0].push(d[0]); px[1].push(d[1]); px[2].push(d[2]);
+          };
+          for (let x = 0; x < w; x += 5) { take(x, 0); take(x, 2); take(x, h - 1); take(x, h - 3); }
+          for (let y = 0; y < h; y += 5) { take(0, y); take(2, y); take(w - 1, y); take(w - 3, y); }
+          res(px.map((a) => a.sort((m, n) => m - n)[Math.floor(a.length / 2)]));
+        };
+        img.src = src;
+      });
+    const worst = [];
+    let checked = 0;
+    for (const e of window.__repforgeExerciseLibrary.filter((x) => x.media)) {
+      const paper = await read(e.media);
+      if (!paper) { worst.push({ id: e.id, error: "decode failed" }); continue; }
+      const declared = [1, 3, 5].map((i) => parseInt(e.mediaBg.slice(i, i + 2), 16));
+      const delta = Math.max(...paper.map((v, i) => Math.abs(v - declared[i])));
+      checked++;
+      worst.push({ id: e.id, delta, mediaBg: e.mediaBg });
+    }
+    worst.sort((a, b) => (b.delta ?? 99) - (a.delta ?? 99));
+    return { checked, worst: worst.slice(0, 5) };
+  });
+  assert(
+    artPaper.checked === 96 && artPaper.worst.every((w) => w.delta <= 6),
+    "every illustration's field colour matches the paper it is drawn on",
+    JSON.stringify(artPaper),
+    "Decode each assets/exercises/*.webp → compare its border ring to mediaBg"
+  );
+
+  await openArtDetail(page, "artmapped");
+  const artFieldColor = await page.evaluate(() => {
+    const field = document.querySelector(".exdet-art");
+    const entry = window.__repforgeExerciseLibrary.find((e) => e.id === "sqk_mc");
+    return {
+      declared: entry.mediaBg,
+      applied: getComputedStyle(field).getPropertyValue("--exercise-art-bg").trim(),
+      inline: field.getAttribute("style"),
+      painted: getComputedStyle(field).backgroundImage,
+    };
+  });
+  assert(
+    artFieldColor.applied.toLowerCase() === artFieldColor.declared.toLowerCase() &&
+      /gradient/.test(artFieldColor.painted),
+    "The rendered field takes its colour from the movement's own artwork",
+    JSON.stringify(artFieldColor),
+    "Open a mapped exercise page → computed --exercise-art-bg"
+  );
+
   await page.click("#exBack");
   await nav(page, "program");
   const sharedRules = await page.evaluate(() => {

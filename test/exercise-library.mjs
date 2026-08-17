@@ -192,6 +192,25 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   // path at all, so no request is ever issued for it.
   const bogus = EXERCISE_LIBRARY.filter(e => e.media !== undefined && e.media !== null && !mapped.includes(e));
   assert(bogus.length === 0, "unmapped exercises carry no media path", bogus.map(e => e.id).join(", "));
+
+  /* The detail page lays each illustration on a field of its own paper colour,
+     so a missing or malformed value puts the artwork back on a mismatched
+     rectangle. That the colour is the *right* one is checked against the pixels
+     themselves in test/simulation.mjs, which has a decoder. */
+  const badBg = mapped.filter(e => !/^#[0-9a-f]{6}$/.test(String(e.mediaBg)));
+  assert(badBg.length === 0, "every illustration carries a #rrggbb field colour",
+    badBg.map(e => `${e.id} → ${e.mediaBg}`).join(", "));
+
+  const strayBg = EXERCISE_LIBRARY.filter(e => !e.media && e.mediaBg != null);
+  assert(strayBg.length === 0, "exercises without artwork carry no field colour",
+    strayBg.map(e => e.id).join(", "));
+
+  const sampled = JSON.parse(readFileSync(join(ROOT, "tools", "exercise-media-bg.json"), "utf8"));
+  const drifted = mapped.filter(e => sampled[e.id] !== e.mediaBg);
+  assert(drifted.length === 0 && Object.keys(sampled).length === mapped.length,
+    "generated field colours match tools/exercise-media-bg.json",
+    drifted.map(e => `${e.id}: ${e.mediaBg} vs ${sampled[e.id]}`).join(", ") ||
+      `${Object.keys(sampled).length} sampled vs ${mapped.length} mapped`);
 }
 
 {

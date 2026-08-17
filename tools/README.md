@@ -81,3 +81,31 @@ illustrations, and the files live in `assets/exercises/<libraryId>.webp`. The
 build fails if a mapped file is missing or a mapped id is not in the library.
 Everything not on that list renders an empty tile and issues no image request —
 `test/exercise-library.mjs` and `test/library-flow.mjs` enforce both halves.
+
+Each mapped entry also carries `mediaBg`, the paper colour that illustration is
+drawn on, which the exercise detail page uses as the field behind the artwork so
+the opaque square dissolves instead of reading as a pasted tile. The shipped set
+spans `#E3D4BE` to `#F4EDE1`, so this cannot be one constant — see
+`docs/design/exercise-detail-illustration.md`.
+
+## sample-media-bg.mjs
+
+Rewrites `exercise-media-bg.json`, the `libraryId → #rrggbb` map that
+`build-exercises.mjs` reads for `mediaBg`. It samples the empty border ring of
+each file and takes the median.
+
+```bash
+(cd test && npm ci && npx playwright install chromium)   # once
+node tools/sample-media-bg.mjs           # rewrite the JSON
+node tools/sample-media-bg.mjs --check   # fail if it has drifted from the files
+```
+
+The illustrations are lossy VP8, Node ships no image decoder, and Taurifer has
+no application dependencies — so this borrows the Chromium the browser suites
+already pin, and is the one script here that needs them. The artwork set is
+closed, so it is a maintenance script rather than a build step: run it only when
+the files change. Its output is committed and may be hand-corrected; the build
+reads the file and never re-derives it. `build-exercises.mjs` fails if any
+mapped id has no colour or an id has a colour but no artwork, and
+`test/simulation.mjs` decodes every file to confirm each recorded colour really
+is that drawing's paper.

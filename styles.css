@@ -2151,7 +2151,11 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    the design allows; it authorises none elsewhere. See
    docs/design/exercise-detail-illustration.md. */
 .exdet-art{
-  --exercise-art-bg:#F4ECE1;
+  /* Overridden per movement from the sampled paper colour of its own artwork;
+     the shipped set spans #E3D4BE to #F4EDE1, so one constant would draw a
+     visible square around most of the library. This fallback only shows if a
+     movement ever carries art without a sampled colour. */
+  --exercise-art-bg:#ECE0CF;
   --exercise-art-lead:18px;
   --exercise-art-trail:30px;
   margin:2px calc(-1 * max(16px,env(safe-area-inset-right))) 12px calc(-1 * max(16px,env(safe-area-inset-left)));

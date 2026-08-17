@@ -5314,8 +5314,10 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
      how the movement is set up, so it gets a describing alt and no lazy hint —
      it is above the fold. Movements without licensed artwork render nothing at
      all; a placeholder tile would only promise something that never arrives. */
-  const artSrc=exerciseRefMedia(exRef);
-  const artHtml=artSrc?`<div class="exdet-art"><div class="exdet-art__figure">`+
+  const artEntry=exerciseRefEntry(exRef),artSrc=exerciseMedia(artEntry);
+  const artBg=artSrc?exerciseMediaBg(artEntry):null;
+  const artHtml=artSrc?`<div class="exdet-art"`+
+    (artBg?` style="--exercise-art-bg:${esc(artBg)}"`:"")+`><div class="exdet-art__figure">`+
     `<img class="exdet-art__img" src="${esc(artSrc)}" alt="${esc(t("preview.art_alt",{name}))}" `+
     `decoding="async" width="768" height="768"></div></div>`:"";
 
@@ -6045,10 +6047,17 @@ function loggedExerciseRefs(){
    a broken-image request is both a wasted fetch and a visible glyph. Both
    shapes are the same size so a mixed list stays aligned. */
 const exerciseMedia=e=>(e&&typeof e.media==="string"&&e.media)||null;
+/* The paper colour the illustration is drawn on, sampled per file at build time
+   (tools/sample-media-bg.mjs). The detail page lays the artwork on a field of
+   this colour so the opaque square dissolves rather than reading as a pasted
+   tile. Re-checked here because the value reaches a style attribute, and a
+   generated file is still a file somebody can edit. */
+const HEX_COLOR=/^#[0-9a-f]{6}$/i;
+const exerciseMediaBg=e=>(e&&typeof e.mediaBg==="string"&&HEX_COLOR.test(e.mediaBg)&&e.mediaBg)||null;
 /* A program slot and an identity recovered from a log row both carry a library
    id rather than the artwork itself, so the illustration has to come from the
    definition they point at. A custom entry resolves too and simply has none. */
-const exerciseRefMedia=ref=>exerciseMedia(ref?.libraryId!=null?libraryEntry(ref.libraryId):ref);
+const exerciseRefEntry=ref=>ref?.libraryId!=null?libraryEntry(ref.libraryId):ref;
 const emptyThumb=({size="md"}={})=>
   `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"></span>`;
 function exerciseThumb(e,{size="md"}={}){
