@@ -2474,23 +2474,43 @@ body.is-firstrun main{visibility:hidden}
 body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{display:none}
 .firstrun__inner{max-width:var(--maxw);margin:0 auto;padding:0 22px}
 .firstrun__brand{display:flex;align-items:center;gap:15px;margin-bottom:30px}
-.firstrun__logo{display:block;width:46px;height:46px;border-radius:11px;object-fit:cover}
+/* The mark stands on the paper here: no plate, no rounded corner of ours, and
+   `contain` centres the whole yoke rather than cropping it. The art it points
+   at is the ground-free rendering (assets/brand/mark.png), so there is no
+   square to hide in the first place. */
+.firstrun__logo{display:block;flex:none;width:48px;height:48px;object-fit:contain}
 .firstrun__wordmark{font-size:17px;font-weight:650;letter-spacing:.26em;text-transform:uppercase;color:var(--ink)}
-/* The ethos hero (ADR 0006): an ink plate bled to the screen edges, paper
-   type on it (~15:1; the dimmed body still clears AA). The copy keeps a
-   short measure so the illustration, once it lands as the panel's first
-   child, anchors to the right behind it without a wrap. */
-.firstrun-hero{position:relative;margin:0 -22px;background:var(--ink);overflow:hidden}
+/* The ethos hero (ADR 0006): ink type on the page's own paper — no plate —
+   with the illustration behind the copy on the right. Two columns: the
+   sentence spans both so it breaks in three lines, and the mono block below
+   holds its authored measure (the widest line is 32 characters) while the
+   art takes whatever is left, bleeding past the gate's padding to the screen
+   edge and rising into the sentence's row. Sizing the art from the space the
+   copy does not use is what keeps the two apart at every width, from a 320 px
+   phone to the 560 px shell, with no line of the poem ever crossing it. */
+.firstrun-hero{
+  position:relative;isolation:isolate;
+  display:grid;grid-template-columns:max-content minmax(0,1fr);grid-template-rows:auto auto;
+  column-gap:10px;
+}
 .firstrun-hero__title{
-  position:relative;z-index:1;margin:0;padding:30px 22px 0;max-width:19ch;
-  font-size:28px;font-weight:650;letter-spacing:-0.02em;line-height:1.12;color:var(--bg);
+  grid-column:1/-1;grid-row:1;position:relative;z-index:1;margin:0;max-width:16ch;
+  font-size:clamp(26px,7.4vw,32px);font-weight:700;letter-spacing:-0.02em;line-height:1.08;color:var(--ink);
 }
 .firstrun-hero__body{
-  position:relative;z-index:1;margin:0;padding:12px 22px 30px;max-width:26ch;
-  font-size:14.5px;line-height:1.5;color:var(--bg);opacity:.8;
+  grid-column:1;grid-row:2;position:relative;z-index:1;margin:22px 0 0;max-width:100%;
+  white-space:pre-line;font-family:var(--mono);font-size:clamp(10px,2.8vw,12px);
+  line-height:1.62;color:var(--ink);
 }
-.firstrun-hero__art{position:absolute;top:0;right:0;height:100%;width:auto;max-width:62%;object-fit:cover;object-position:left center}
-.firstrun__lede{margin:18px 0 0;font-size:16px;line-height:1.45;color:var(--ink-soft)}
+/* Decorative, so it is painted rather than marked up: a missing export
+   leaves paper behind the copy instead of a broken image, which is what the
+   empty-tile doctrine asks for. */
+.firstrun-hero__art{
+  grid-column:2;grid-row:2;z-index:0;margin:-52px -22px 0 0;min-width:0;
+  background:no-repeat right bottom/contain url("assets/brand/milo-hero.webp");
+  pointer-events:none;
+}
+.firstrun__lede{margin:26px 0 0;font-size:16px;line-height:1.45;color:var(--ink-soft)}
 .firstrun__section{margin-top:40px}
 .firstrun__eyebrow{
   display:flex;align-items:center;gap:14px;margin:0;

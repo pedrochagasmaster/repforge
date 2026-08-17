@@ -102,10 +102,30 @@ node tools/sample-media-bg.mjs --check   # fail if it has drifted from the files
 
 The illustrations are lossy VP8, Node ships no image decoder, and Taurifer has
 no application dependencies — so this borrows the Chromium the browser suites
-already pin, and is the one script here that needs them. The artwork set is
+already pin, as `build-brand-mark.mjs` does. The artwork set is
 closed, so it is a maintenance script rather than a build step: run it only when
 the files change. Its output is committed and may be hand-corrected; the build
 reads the file and never re-derives it. `build-exercises.mjs` fails if any
 mapped id has no colour or an id has a colour but no artwork, and
 `test/simulation.mjs` decodes every file to confirm each recorded colour really
 is that drawing's paper.
+
+## build-brand-mark.mjs
+
+Renders `assets/brand/mark.png`: the Taurifer yoke with no paper under it, at
+192×192 (the 48 CSS px the first-run gate draws, at 4×).
+
+```bash
+(cd test && npm ci && npx playwright install chromium)   # once
+node tools/build-brand-mark.mjs
+```
+
+`icons/icon.svg` paints its own warm ground (`#EFE5DF`) as one full-bleed rect,
+which is right for an app icon and wrong inside the app: on the gate's paper
+(`#F4F2EF`) it reads as a plate around the mark. CSS cannot reach inside an
+`<img>` to hide that rect, so the ground comes off in the render instead — this
+removes exactly that one path and rasterises everything else, borrowing the
+same pinned Chromium as `sample-media-bg.mjs`. It refuses to run if the source
+no longer paints exactly one ground of that colour, because that means the mark
+itself changed. Re-run it when a new mark lands; the output is generated art,
+replaced wholesale and never hand-edited (`docs/brand-guide.md`, "The mark").

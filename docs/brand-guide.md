@@ -33,21 +33,29 @@ The belief the product exists to serve, stated once. It retells the Milo
 story in plain life terms — no training vocabulary — so it holds for anyone
 building anything slowly. The canon below is internal: never quote it in app
 copy, and use it to judge decisions. Its one user-facing rendering is the
-distilled pair on the first-run gate's hero (ADR 0006) — a threshold the app
-crosses once, never a working surface:
+distilled passage on the first-run gate's hero (ADR 0006) — a threshold the
+app crosses once, never a working surface:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
-| `setup.ethos.title` | Strength isn't given. It's built. | Força não se ganha. Força se constrói. |
-| `setup.ethos.body` | Load by load. Day after day. Until you're carrying what once seemed impossible. | Carga a carga. Dia após dia. Até você carregar o que um dia pareceu impossível. |
+| `setup.ethos.title` | Strength isn't something you're born with. | Força não vem de nascença. |
+| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of who you are. / And you become who you / needed to be. // Strength, then, is yours — / not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte de / quem você é. / E você se torna quem / precisou ser. // A força, então, é sua — / não porque lhe foi dada, / mas porque você a construiu. |
 
-The hero's illustration — the calf-carrier grown into the bull-carrier —
-lives at `assets/brand/milo-hero.webp`: owner-licensed, decorative
-(`alt=""`), replaced wholesale like the mark, precached like every asset.
-Until the licensed export lands, the hero ships text-only; no placeholder
-icons, initials, or silhouettes (the same line the exercise tiles hold).
-Landing steps are in `assets/brand/README.md`. Past the gate, the app stays
-quiet so the record can speak.
+The body is the one string in the app that is **set, not just written**: it is
+typeset in the mono face as a short poem, and `/` above marks a line break
+(`\n` in the catalogues, `//` a stanza break). The breaks are part of the copy
+and travel with the translation — a wrapped-wherever-it-lands version of this
+passage is a different passage. Keep every line at 32 characters or fewer, in
+both languages, so the block holds its measure beside the illustration on a
+narrow phone.
+
+The hero's illustration — the calf-carrier grown into the bull-carrier — lives
+at `assets/brand/milo-hero.webp`: owner-licensed, decorative, painted by CSS
+so an absent export leaves paper rather than a broken image, replaced
+wholesale like the mark, precached like every asset. No placeholder icons,
+initials, or silhouettes stand in for it (the same line the exercise tiles
+hold). Landing steps are in `assets/brand/README.md`. Past the gate, the app
+stays quiet so the record can speak.
 
 > Strength isn't something you're born with.\
 > It's something you build.\
@@ -157,6 +165,13 @@ name's origin is allowed to show.
   full mark inside the safe circle, and splash screens place the isolated mark
   on the paper background. Regenerate per `icons/README.md`; never with an
   ad-hoc downscale.
+- `assets/brand/mark.png` is the same mark **with the paper ground dropped**,
+  for the one place inside the app that stands it on the page: the first-run
+  gate's brand row. It is derived from `icons/icon.svg` by
+  `tools/build-brand-mark.mjs`, which removes the single full-bleed ground rect
+  and rasterises the rest — so it is generated output twice over. Re-run it
+  when a new mark lands; never hand-edit or hand-crop it, and never use the app
+  icon in that row: its ground reads as a plate against the app's paper.
 - The mark carries **no themed text**: no caption, tooltip, or alt text about
   bulls or bearing. The Settings identity mark ships `alt=""`.
 

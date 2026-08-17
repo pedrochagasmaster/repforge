@@ -20,8 +20,10 @@
  * said "accepted".
  *
  * The ethos hero (ADR 0006) leads the gate in both languages; its strings are
- * locked here the way the install cards are, and any art it ever carries must
- * stay decorative (empty alt).
+ * locked here the way the install cards are — line breaks included, because the
+ * block is set like a poem and the breaks are part of the copy — and its
+ * illustration must stay decorative: painted by CSS, hidden from assistive
+ * technology, never announced.
  *
  * Run: node test/install-modes.mjs   (with a static server on REPFORGE_URL)
  */
@@ -104,7 +106,15 @@ const card = () => ({
   import: !!document.querySelector("#firstRunImport"),
   heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
   heroBody: document.querySelector(".firstrun-hero__body")?.textContent || null,
-  heroArtDecorative: [...document.querySelectorAll(".firstrun-hero img")].every((n) => n.getAttribute("alt") === ""),
+  // The illustration is painted, not marked up, so nothing about it may reach a
+  // screen reader: no alt text to read and no image element to announce.
+  heroArtDecorative:
+    [...document.querySelectorAll(".firstrun-hero img")].every((n) => n.getAttribute("alt") === "") &&
+    (document.querySelector(".firstrun-hero__art")?.getAttribute("aria-hidden") === "true") &&
+    !document.querySelector(".firstrun-hero__art")?.textContent.trim(),
+  // The gate stands the mark on its paper, so it draws the ground-free
+  // rendering and never the app icon, which carries a ground of its own.
+  markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
 
 async function run() {
@@ -128,13 +138,21 @@ async function run() {
     );
     assert(shown.action === "Install Taurifer", "the button asks Chrome to install", shown.action);
     assert(shown.continueLabel === "Continue in browser", "the escape hatch says browser", shown.continueLabel);
-    assert(shown.heroTitle === "Strength isn't given. It's built.", "the ethos hero leads the gate", shown.heroTitle);
     assert(
-      shown.heroBody === "Load by load. Day after day. Until you're carrying what once seemed impossible.",
-      "the hero body carries the distilled ethos",
-      shown.heroBody
+      shown.heroTitle === "Strength isn't something you're born with.",
+      "the ethos hero leads the gate",
+      shown.heroTitle
     );
-    assert(shown.heroArtDecorative, "any hero art is decorative (empty alt)");
+    assert(
+      shown.heroBody ===
+        "Challenge after challenge.\nDay after day.\nEvery time you go beyond\nwhat you thought possible," +
+          "\nthe effort shapes you.\n\nIt becomes part of who you are.\nAnd you become who you\nneeded to be." +
+          "\n\nStrength, then, is yours —\nnot because it was given to you,\nbut because you built it.",
+      "the hero body carries the ethos, broken where it was written",
+      JSON.stringify(shown.heroBody)
+    );
+    assert(shown.heroArtDecorative, "the hero art reaches no screen reader");
+    assert(shown.markSrc === "assets/brand/mark.png", "the gate stands the ground-free mark on its paper", shown.markSrc);
 
     await page.click("#firstRunInstallAction");
     await page.waitForTimeout(300);
@@ -405,11 +423,14 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
-    assert(pt.heroTitle === "Força não se ganha. Força se constrói.", "PT hero title", pt.heroTitle);
+    assert(pt.heroTitle === "Força não vem de nascença.", "PT hero title", pt.heroTitle);
     assert(
-      pt.heroBody === "Carga a carga. Dia após dia. Até você carregar o que um dia pareceu impossível.",
+      pt.heroBody ===
+        "Desafio após desafio.\nDia após dia.\nToda vez que você vai além\ndo que julgava possível," +
+          "\no esforço molda você.\n\nEle passa a fazer parte de\nquem você é.\nE você se torna quem" +
+          "\nprecisou ser.\n\nA força, então, é sua —\nnão porque lhe foi dada,\nmas porque você a construiu.",
       "PT hero body",
-      pt.heroBody
+      JSON.stringify(pt.heroBody)
     );
     await context.close();
     allErrors.push(...errors);
