@@ -74,6 +74,7 @@ async function getState(page) {
 async function dismissOnboardingIfPresent(page) {
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
+    window.closeFirstRun?.();
     if (el?.classList.contains("active") && typeof window.closeOnboarding === "function") window.closeOnboarding();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden") && typeof window.closeTour === "function") window.closeTour();
@@ -93,6 +94,14 @@ async function loadApp(page, url = BASE) {
 async function reloadApp(page, opts = {}) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page, opts);
+}
+
+/** A first run now opens on the setup screen, which offers Create and Import
+ *  as equals. Walks that mean to exercise the wizard go through its door. */
+async function startFromFirstRun(page) {
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
 }
 
 async function persistState(page, state) {
@@ -7140,7 +7149,7 @@ async function main() {
 
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+  await startFromFirstRun(page);
   await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
   await page.click("#onbNext");
   await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
@@ -7220,12 +7229,26 @@ async function main() {
   beginPhase("Phase: P6 onboarding UI");
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
+  const firstRunDoors = await page.evaluate(() => ({
+    visible: !document.querySelector("#firstRun").classList.contains("hidden"),
+    create: !!document.querySelector("#firstRunCreate"),
+    import: !!document.querySelector("#firstRunImport"),
+    wizard: document.querySelector("#onboarding").classList.contains("active"),
+  }));
+  assert(
+    firstRunDoors.visible && firstRunDoors.create && firstRunDoors.import && !firstRunDoors.wizard,
+    "P6: a fresh load offers Create and Import before the wizard",
+    JSON.stringify(firstRunDoors),
+    "Clear storage → reload → setup screen shows both ways to a first program"
+  );
+  await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active", { timeout: 10000 });
   assert(
     await page.locator("#onboarding.active").isVisible(),
-    "P6: first-run onboarding is visible on fresh load",
+    "P6: Create opens the onboarding overlay",
     "onboarding section not active",
-    "Clear storage → reload → onboarding overlay shows"
+    "Setup screen → Create a program → onboarding overlay shows"
   );
   await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
   await page.click("#onbNext");
@@ -8950,7 +8973,7 @@ async function main() {
   await page.evaluate(() => localStorage.removeItem("repforge_ui_v1"));
   await clearState(page);
   await reloadApp(page, { dismissOnboarding: false });
-  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+  await startFromFirstRun(page);
   await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
   await page.click("#onbNext");
   await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');

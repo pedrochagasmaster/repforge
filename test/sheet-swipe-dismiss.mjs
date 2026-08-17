@@ -64,6 +64,7 @@ async function settle(page) {
   await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
+    window.closeFirstRun?.();
     if (el?.classList.contains("active")) window.closeOnboarding();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden") && window.closeTour) window.closeTour();

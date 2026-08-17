@@ -216,6 +216,7 @@ async function runBrowserParity(en, pt) {
   await page.waitForFunction(() => typeof window.RepForgeI18n === "object", { timeout: 10000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
+    window.closeFirstRun?.();
     if (el?.classList.contains("active") && typeof window.closeOnboarding === "function") window.closeOnboarding();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden") && typeof window.closeTour === "function") window.closeTour();

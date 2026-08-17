@@ -7338,13 +7338,24 @@ function renderFirstRunInstall(){
   const act=$("#firstRunInstallAction");if(act)act.onclick=triggerInstall;
   sec.classList.remove("hidden");
 }
+/** The lede and the escape hatch both speak to the install offer, so they follow
+ *  it. With nothing to install — most of all inside the installed app — the
+ *  screen is only the program question, and "Continue in browser" would be an
+ *  answer to a question nobody asked. */
+function setFirstRunOffer(offer){
+  const lede=$("#firstRunLede");
+  if(lede)lede.textContent=offer?t("setup.lede"):t("setup.lede_installed");
+  $("#firstRunContinue")?.classList.toggle("hidden",!offer);
+}
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
 function closeFirstRunInstall(){
   const sec=$("#firstRunInstall");if(sec)sec.classList.add("hidden");
   const card=$("#firstRunInstallCard");if(card)card.innerHTML="";
+  setFirstRunOffer(false);
 }
 function renderFirstRun(){
+  setFirstRunOffer(installMode()!=="none");
   const label=$("#firstRunContinueLabel");
   if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
   renderFirstRunInstall();
@@ -7368,24 +7379,17 @@ function suspendFirstRun(){
 function closeFirstRun(){
   firstRunActive=false;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
-/** The gate exists to put the install ahead of the program choice. With nothing
- *  to install it would only add a step, so first run stays as it was. */
+/** The screen carries two questions: install, and which program. The program
+ *  question is live on every first run, so the screen opens on every first run.
+ *  The install question adds its section wherever the browser has an answer —
+ *  and where it has none, the screen is the program question by itself.
+ *
+ *  This is the one door into a first program. Import used to reach it only
+ *  through a text link inside the wizard's first step, which made bringing a
+ *  shared program the hidden path and building one from scratch the default;
+ *  they are two equal ways to begin and now read as two. */
 function maybeShowFirstRun(){
-  if(!firstRunPending()||installMode()==="none")return false;
-  return openFirstRun()}
-/* Chrome decides when to offer beforeinstallprompt, and on a genuinely first
-   visit that is usually after the page has loaded and been touched — well after
-   the boot decision above. Rather than stall onboarding waiting for an event
-   that may never come, the gate opens when the event actually lands, and only
-   while first run has not been answered yet: an untouched step 0 has nothing to
-   lose, a lifter part-way through the questions does. */
-function maybeShowFirstRunLate(){
-  if(firstRunOpen()||!firstRunPending()||installMode()==="none")return false;
-  const onb=$("#onboarding")?.classList.contains("active");
-  if(onb&&(onbStep>0||onbAnswers.goal))return false;
-  if(!onb&&!$("#log")?.classList.contains("active"))return false;
-  if(tourActive||document.body.classList.contains("is-import"))return false;
-  closeOnboarding();
+  if(!firstRunPending())return false;
   return openFirstRun()}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
@@ -7553,12 +7557,14 @@ function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
-  // Chrome decides when to offer this, and it can arrive after the first paint,
-  // so every install surface is rewritten from the new reading rather than
-  // assumed at boot.
+  // Chrome decides when to offer this, and it usually decides after the first
+  // paint — often after the lifter has touched something. Every install surface
+  // is rewritten from the new reading rather than assumed at boot, which is what
+  // lets the install section appear on a first-run screen the lifter is already
+  // reading. One that has been left for the wizard is not pulled back: the
+  // banner carries the offer from there.
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;
     renderSettings();renderInstallSurfaces();
-    if(maybeShowFirstRunLate())return;
     if(tourActive)renderTour();else maybeShowInstallBanner()});
   window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);
     closeFirstRunInstall();renderSettings();renderInstallSurfaces()});

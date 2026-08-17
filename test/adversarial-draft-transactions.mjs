@@ -243,6 +243,7 @@ async function waitForApp(page) {
   await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
   await page.evaluate(() => {
     const onboarding = document.querySelector("#onboarding");
+    window.closeFirstRun?.();
     if (onboarding?.classList.contains("active")) window.closeOnboarding?.();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
