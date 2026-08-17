@@ -208,12 +208,19 @@ async function run() {
     }));
     assert(sheet.open, "the instruction sheet opens", JSON.stringify(sheet));
     assert(sheet.host === new URL(BASE).hostname, "it shows the page's own host", sheet.host);
-    assert(sheet.steps.length === 3, "it lists the three Safari steps", JSON.stringify(sheet.steps));
+    assert(sheet.steps.length === 4, "it lists the four Safari steps", JSON.stringify(sheet.steps));
     assert(
-      sheet.bold.includes("Share") && sheet.bold.includes("Add to Home Screen"),
+      sheet.bold.includes("Share") && sheet.bold.includes("View More") && sheet.bold.includes("Add to Home Screen"),
       "the Safari controls to look for are emphasised",
       JSON.stringify(sheet.bold)
     );
+    // iOS keeps Share behind the ••• menu at the right of the address bar, and
+    // Add to Home Screen behind View More — a step short of either dead-ends.
+    assert(/•••/.test(sheet.steps[0]) && /address bar/.test(sheet.steps[0]),
+      "step 01 points at ••• beside the address bar", sheet.steps[0]);
+    assert(sheet.steps.findIndex((s) => /View More/.test(s))
+      < sheet.steps.findIndex((s) => /Add to Home Screen/.test(s)),
+      "View More comes before Add to Home Screen", JSON.stringify(sheet.steps));
 
     await page.keyboard.press("Escape");
     await page.waitForTimeout(400);
