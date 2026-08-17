@@ -7379,35 +7379,17 @@ function suspendFirstRun(){
 function closeFirstRun(){
   firstRunActive=false;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
-/** The gate carries two questions: install, and which program. It opens when
- *  either one is live.
+/** The screen carries two questions: install, and which program. The program
+ *  question is live on every first run, so the screen opens on every first run.
+ *  The install question adds its section wherever the browser has an answer —
+ *  and where it has none, the screen is the program question by itself.
  *
- *  Standalone is the case that makes this worth stating. The lifter who has
- *  just followed the install instructions opens the app from its icon, lands on
- *  a first run with an empty store, and would otherwise be handed the eight-step
- *  wizard — losing Import at the exact moment they went to the most trouble to
- *  arrive. There is nothing left to install there, and the program question is
- *  still open, so the screen opens without its install section.
- *
- *  In a browser that can neither install nor claim to be installed, the screen
- *  would add a step and nothing else, so first run stays as it was. */
+ *  This is the one door into a first program. Import used to reach it only
+ *  through a text link inside the wizard's first step, which made bringing a
+ *  shared program the hidden path and building one from scratch the default;
+ *  they are two equal ways to begin and now read as two. */
 function maybeShowFirstRun(){
   if(!firstRunPending())return false;
-  if(installMode()==="none"&&!isStandalone())return false;
-  return openFirstRun()}
-/* Chrome decides when to offer beforeinstallprompt, and on a genuinely first
-   visit that is usually after the page has loaded and been touched — well after
-   the boot decision above. Rather than stall onboarding waiting for an event
-   that may never come, the gate opens when the event actually lands, and only
-   while first run has not been answered yet: an untouched step 0 has nothing to
-   lose, a lifter part-way through the questions does. */
-function maybeShowFirstRunLate(){
-  if(firstRunOpen()||!firstRunPending()||installMode()==="none")return false;
-  const onb=$("#onboarding")?.classList.contains("active");
-  if(onb&&(onbStep>0||onbAnswers.goal))return false;
-  if(!onb&&!$("#log")?.classList.contains("active"))return false;
-  if(tourActive||document.body.classList.contains("is-import"))return false;
-  closeOnboarding();
   return openFirstRun()}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
@@ -7575,12 +7557,14 @@ function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
-  // Chrome decides when to offer this, and it can arrive after the first paint,
-  // so every install surface is rewritten from the new reading rather than
-  // assumed at boot.
+  // Chrome decides when to offer this, and it usually decides after the first
+  // paint — often after the lifter has touched something. Every install surface
+  // is rewritten from the new reading rather than assumed at boot, which is what
+  // lets the install section appear on a first-run screen the lifter is already
+  // reading. One that has been left for the wizard is not pulled back: the
+  // banner carries the offer from there.
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;
     renderSettings();renderInstallSurfaces();
-    if(maybeShowFirstRunLate())return;
     if(tourActive)renderTour();else maybeShowInstallBanner()});
   window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);
     closeFirstRunInstall();renderSettings();renderInstallSurfaces()});

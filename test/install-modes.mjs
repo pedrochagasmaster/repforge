@@ -1,16 +1,18 @@
 #!/usr/bin/env node
 /**
- * Install promotion and the first-run setup gate.
+ * Install promotion and the first-run setup screen.
  *
- * The screen a lifter gets is decided by capabilities and display mode, never
- * by screen size, so this suite drives each capability combination and reads
- * back what was rendered:
+ * The screen opens on every first run, because the program question is always
+ * live there. What its install section says is decided by capabilities and
+ * display mode, never by screen size, so this suite drives each capability
+ * combination and reads back what was rendered:
  *
- *   standalone            → nothing is promoted anywhere
  *   deferred prompt held  → the Chromium card, and a button that asks Chrome
  *   iOS/iPadOS Safari     → the iOS card, and the app's own instruction sheet
  *   another iOS browser   → an explanation, and no button at all
- *   nothing available     → no install section, and no gate either
+ *   standalone            → no install section: it is already installed
+ *   nothing available     → no install section either, and the program
+ *                           question by itself
  *
  * Chrome's own install prompt is never drawn by the app, so it is never
  * asserted on here: what is asserted is that prompt() is called exactly once,
@@ -82,16 +84,9 @@ async function firstRunPage(browser, { ua, locale = "en-US", standalone = false 
     });
   });
   await page.reload({ waitUntil: "domcontentloaded" });
-  // Boot has made its first-run decision once one of the two first-run screens
-  // is up. Firing the fake event before that would be testing boot timing, not
-  // the install rules.
-  await page.waitForFunction(
-    () =>
-      document.querySelector("#onboarding")?.classList.contains("active") ||
-      document.querySelector("#firstRun")?.classList.contains("hidden") === false,
-    undefined,
-    { timeout: 15000 }
-  );
+  // A first run lands on the setup screen. Firing the fake event before it is up
+  // would be testing boot timing, not the install rules.
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 });
   return { context, page, errors };
 }
 
@@ -252,13 +247,20 @@ async function run() {
   {
     console.log("\nA browser with no install mechanism");
     const { context, page, errors } = await firstRunPage(browser, { ua: undefined });
-    await page.waitForSelector("#onboarding.active", { timeout: 8000 });
+    await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 8000 });
     const st = await page.evaluate(() => ({
-      gate: !document.querySelector("#firstRun").classList.contains("hidden"),
+      section: !document.querySelector("#firstRunInstall").classList.contains("hidden"),
+      create: !!document.querySelector("#firstRunCreate"),
+      import: !!document.querySelector("#firstRunImport"),
+      lede: document.querySelector("#firstRunLede")?.textContent || null,
+      continueShown: !document.querySelector("#firstRunContinue").classList.contains("hidden"),
       banner: !document.querySelector("#installBanner").classList.contains("hidden"),
       topButton: !document.querySelector("#installBtn").classList.contains("hidden"),
     }));
-    assert(!st.gate, "no gate is interposed", JSON.stringify(st));
+    assert(st.create && st.import, "the screen still asks the program question", JSON.stringify(st));
+    assert(!st.section, "no install section is drawn", JSON.stringify(st));
+    assert(st.lede === "Choose how you want to begin.", "the lede drops the install sentence", st.lede);
+    assert(!st.continueShown, "no browser to continue in, no link offering it", JSON.stringify(st));
     assert(!st.banner && !st.topButton, "and nothing else promotes an install", JSON.stringify(st));
     allErrors.push(...errors);
     await context.close();

@@ -30,6 +30,7 @@ async function waitForApp(page) {
   );
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
+    window.closeFirstRun?.();
     if (el?.classList.contains("active") && typeof window.closeOnboarding === "function")
       window.closeOnboarding();
     const tour = document.querySelector("#tour");
