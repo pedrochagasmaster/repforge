@@ -297,6 +297,7 @@ owner promoted every retained finding into pre-launch scope.
 |---|------|----------|--------|------|--------|
 | 040 | [Launch-readiness UI/UX audit](./040-launch-readiness-ui-ux-audit.md) | correctness / UX / accessibility | L | HIGH | Clean-origin browser audit + code/spec vetting |
 | 041 | [Fix all launch-readiness findings](./041-prelaunch-all-findings-remediation.md) | correctness / UX / accessibility / performance | L | HIGH | Owner-directed implementation plan for all 24 findings |
+| 042 | [Add licensed artwork to exercise detail](./042-exercise-detail-illustration.md) | UX / accessibility / visual design | S | LOW | Owner-approved mock and design specification |
 
 Plan 040 is an audit and remediation brief, not an implementation. Its
 nine-item launch gate starts with storage/draft trust. Plan 041 supersedes the
@@ -394,3 +395,4 @@ Consensus across ≥5 personas that these betray the product:
 | 039 | DONE |
 | 040 | AUDIT — launch remediation not yet implemented |
 | 041 | TODO — all 24 retained findings are pre-launch |
+| 042 | TODO — approved design; implementation not started |
