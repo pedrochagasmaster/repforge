@@ -20,21 +20,34 @@ carried the same calf every day as it grew until he was carrying a bull —
 the oldest story about progressive overload. This etymology explains why the
 app icon is a bull-horned monogram, and it stops there.
 
-**The rule: the theme never appears in user-facing surfaces.** No bull, calf,
+**The rule: the theme never appears in working surfaces.** No bull, calf,
 carrying, forge, or Latin in any string, in any language — not in copy, alt
 text, tooltips, notifications, export contents, or store metadata. Themed copy
-was implemented and deliberately reverted (see ADR 0004). The app icon is the
-single permitted surface for the theme (see [The mark](#the-mark)).
+was implemented and deliberately reverted (see ADR 0004). The theme's
+permitted surfaces are exactly two: the app icon (see [The mark](#the-mark))
+and the first-run gate's ethos hero (see [Ethos](#ethos); ADR 0006).
 
 ## Ethos
 
 The belief the product exists to serve, stated once. It retells the Milo
 story in plain life terms — no training vocabulary — so it holds for anyone
-building anything slowly. Like the name's origin, it is **internal background
-— never user-facing**: it uses "carrying", which the theme rule bans from
-strings, and preaching would break the voice below. Taurifer is built for
-people already living this ethos; the app stays quiet so their record can
-speak. Use it to judge decisions, not to write copy.
+building anything slowly. The canon below is internal: never quote it in app
+copy, and use it to judge decisions. Its one user-facing rendering is the
+distilled pair on the first-run gate's hero (ADR 0006) — a threshold the app
+crosses once, never a working surface:
+
+| Key | English | Portuguese |
+| --- | --- | --- |
+| `setup.ethos.title` | Strength isn't given. It's built. | Força não se ganha. Força se constrói. |
+| `setup.ethos.body` | Load by load. Day after day. Until you're carrying what once seemed impossible. | Carga a carga. Dia após dia. Até você carregar o que um dia pareceu impossível. |
+
+The hero's illustration — the calf-carrier grown into the bull-carrier —
+lives at `assets/brand/milo-hero.webp`: owner-licensed, decorative
+(`alt=""`), replaced wholesale like the mark, precached like every asset.
+Until the licensed export lands, the hero ships text-only; no placeholder
+icons, initials, or silhouettes (the same line the exercise tiles hold).
+Landing steps are in `assets/brand/README.md`. Past the gate, the app stays
+quiet so the record can speak.
 
 > Strength isn't something you're born with.\
 > It's something you build.\
@@ -133,7 +146,8 @@ CSS disagree, the CSS wins — fix this document.
 
 The app icon is a charcoal monogram: a letter T whose crossbar sweeps up into
 bull horns, cut with a burnt-orange edge, resting on the warm paper ground.
-It is the one place the name's origin is allowed to show.
+Outside the first-run hero (see [Ethos](#ethos)), it is the one place the
+name's origin is allowed to show.
 
 - `icons/icon.svg` is **generated output, not source** — 9,233 vector paths.
   Never hand-edit it and never run optimizers (SVGO etc.) on it; a new mark

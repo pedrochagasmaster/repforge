@@ -32,3 +32,7 @@ Consequences: the brand/codename split is doctrine — enforcement note in
 `docs/brand-guide.md` (the living reference; this ADR records why it exists).
 The icon set landed separately (#131) with `icons/icon.svg` as generated
 output. Any future re-theming of copy must revisit this ADR first.
+
+Amended by [ADR 0006](0006-first-run-ethos-hero.md): the first-run setup
+gate's ethos hero is the theme's second permitted surface. Every other ban
+here stands.
