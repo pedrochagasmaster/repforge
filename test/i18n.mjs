@@ -185,6 +185,8 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes('"split."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("split.")) },
   { test: (s) => s.includes('"equipment."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("equipment.")) },
   { test: (s) => s.includes('"muscle."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("muscle.")) },
+  { test: (s) => s.includes('"seed.ex."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("seed.ex.")) },
+  { test: (s) => s.includes('"seed.note."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("seed.note.")) },
   { test: (s) => s.includes('"picker.equipment."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.equipment.")) },
   { test: (s) => s.includes('"picker.group."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.group.")) },
   { test: (s) => s.includes('"picker.tab_head."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.tab_head.")) },

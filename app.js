@@ -990,7 +990,11 @@ const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
   $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=t(`glossary.term.${key}`)||key;if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
 };
-function syncLang(){if(!I18N)return;I18N.setLang(state?.settings?.lang||I18N.detectLang());applyI18n()}
+/* An explicit choice wins; otherwise follow the browser. `setLang` falls back
+   to English on anything it does not recognise, so the detected language has to
+   be resolved here rather than handed a null and left to that fallback. */
+const resolveLang=()=>state?.settings?.lang||I18N.detectLang();
+function syncLang(){if(!I18N)return;I18N.setLang(resolveLang());applyI18n()}
 function announce(msg,{assertive=false}={}){
   const generation=announce._generation=(announce._generation||0)+1;
   const live=$("#toast");if(!live)return;
@@ -1178,6 +1182,9 @@ window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
 const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
 const muscleLabel=name=>{const k="muscle."+name,s=t(k);return s===k?name:s};
+/* Stored muscle tags are comma-joined English tokens ("Hamstrings,Glutes"); every
+   place that shows them to the lifter goes through this. */
+const muscleListLabel=s=>muscles(s).map(muscleLabel).join(", ");
 // Capacity: what a set demonstrated the lifter COULD have done (ADR 0003).
 // RIR credit is capped at hardRir — trustworthy near failure, fantasy far from it.
 // TUNABLE: every constant the capacity engine reads lives here. Never inline them.
@@ -1434,40 +1441,57 @@ const rowMuscles=row=>{
   const ex=state.program.find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
 
+/* The bundled programs are minted, not re-read. A program becomes the lifter's
+   data the moment it exists, so these names and setup notes are resolved to the
+   reader's language when the rows are built and never touched again — the same
+   rule `program.beginner_name` already follows, and the reason a later language
+   switch leaves an existing program exactly as the lifter left it. Rows carry
+   the seed key rather than a literal so the alternates keep keying off it. */
+const seedName=k=>t("seed.ex."+k);
+const seedNote=k=>t("seed.note."+k);
 const defaultAlternates={
-  "Hack squat or pendulum squat":["Leg press","Pendulum squat"],
-  "45 degree leg press, quad-biased":["Hack squat","Belt squat"],
-  "Incline converging chest press":["Flat chest press machine","Dumbbell incline press"],
-  "Neutral-grip pulldown":["Lat pulldown","Assisted pull-up"]
+  hack_or_pendulum_squat:["leg_press","pendulum_squat"],
+  leg_press_45_quad:["hack_squat","belt_squat"],
+  incline_converging_chest_press:["flat_chest_press_machine","dumbbell_incline_press"],
+  neutral_grip_pulldown:["lat_pulldown","assisted_pull_up"]
 };
-const program=[
-["Day 1",1,"Hack squat or pendulum squat",2,4,8,"Quads","Glutes,Adductors"],["Day 1",2,"Seated leg curl",2,4,8,"Hamstrings",""] ,["Day 1",3,"Incline converging chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 1",4,"Chest-supported machine row",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],["Day 1",5,"Machine lateral raise",2,6,8,"Side delts",""] ,["Day 1",6,"Hip adduction machine",2,6,8,"Adductors",""] ,
-["Day 2",1,"45 degree leg press, quad-biased",2,4,8,"Quads","Glutes,Adductors"],["Day 2",2,"Smith machine RDL or machine hip hinge",2,4,8,"Hamstrings,Glutes","Spinal erectors"],["Day 2",3,"Machine shoulder press",2,4,8,"Front delts","Side delts,Triceps"],["Day 2",4,"Neutral-grip pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],["Day 2",5,"Pec deck",2,6,8,"Chest",""] ,["Day 2",6,"Machine preacher curl",2,6,8,"Biceps",""] ,
-["Day 3",1,"Leg extension",2,6,8,"Quads",""] ,["Day 3",2,"Lying or seated leg curl",2,6,8,"Hamstrings",""] ,["Day 3",3,"Machine chest dip or plate-loaded chest press",2,4,8,"Chest","Front delts,Triceps"],["Day 3",4,"Plate-loaded high row",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],["Day 3",5,"Reverse pec deck",2,6,8,"Rear delts","Mid/upper back"],["Day 3",6,"Cable pressdown",2,6,8,"Triceps",""]
-].map(x=>{const ex={id:uid(),day:x[0],order:x[1],name:x[2],sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]};if(defaultAlternates[x[2]])ex.alternates=defaultAlternates[x[2]];return ex});
+const STARTER_ROWS=[
+["Day 1",1,"hack_or_pendulum_squat",2,4,8,"Quads","Glutes,Adductors"],["Day 1",2,"seated_leg_curl",2,4,8,"Hamstrings",""] ,["Day 1",3,"incline_converging_chest_press",2,4,8,"Chest","Front delts,Triceps"],["Day 1",4,"chest_supported_row",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],["Day 1",5,"machine_lateral_raise",2,6,8,"Side delts",""] ,["Day 1",6,"hip_adduction_machine",2,6,8,"Adductors",""] ,
+["Day 2",1,"leg_press_45_quad",2,4,8,"Quads","Glutes,Adductors"],["Day 2",2,"smith_rdl_or_hip_hinge",2,4,8,"Hamstrings,Glutes","Spinal erectors"],["Day 2",3,"machine_shoulder_press",2,4,8,"Front delts","Side delts,Triceps"],["Day 2",4,"neutral_grip_pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],["Day 2",5,"pec_deck",2,6,8,"Chest",""] ,["Day 2",6,"machine_preacher_curl",2,6,8,"Biceps",""] ,
+["Day 3",1,"leg_extension",2,6,8,"Quads",""] ,["Day 3",2,"lying_or_seated_leg_curl",2,6,8,"Hamstrings",""] ,["Day 3",3,"machine_chest_dip_or_press",2,4,8,"Chest","Front delts,Triceps"],["Day 3",4,"plate_loaded_high_row",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],["Day 3",5,"reverse_pec_deck",2,6,8,"Rear delts","Mid/upper back"],["Day 3",6,"cable_pressdown",2,6,8,"Triceps",""]
+];
+const starterProgram=()=>STARTER_ROWS.map(x=>{
+  const ex={id:uid(),day:x[0],order:x[1],name:seedName(x[2]),sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]};
+  if(defaultAlternates[x[2]])ex.alternates=defaultAlternates[x[2]].map(seedName);
+  return ex});
 
-const programBeginner=[
-["Day 1",1,"Leg press (quad focus)",2,4,8,"Quads","Glutes,Adductors","Feet low on the platform, back flat against the pad."],
-["Day 1",2,"Seated leg curl",2,4,8,"Hamstrings","","Pad just above your ankles; squeeze at the bottom."],
-["Day 1",3,"Chest press machine",2,4,8,"Chest","Front delts,Triceps","Look for a seat with chest pad and handles at armpit height."],
-["Day 1",4,"Seated row machine",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps","Chest against the pad; pull to your lower ribs."],
-["Day 1",5,"Lateral raise machine",2,6,8,"Side delts","","Elbows on the pads; raise to shoulder height."],
-["Day 1",6,"Hip adduction machine",2,6,8,"Adductors","","Pads on the inside of your knees; squeeze together."],
-["Day 2",1,"Leg press (glute focus)",2,4,8,"Quads","Glutes,Adductors","Feet higher on the platform for more glute stretch."],
-["Day 2",2,"Romanian deadlift machine",2,4,8,"Hamstrings,Glutes","Spinal erectors","Hinge at the hips; feel a stretch in your hamstrings."],
-["Day 2",3,"Shoulder press machine",2,4,8,"Front delts","Side delts,Triceps","Handles at ear level; press straight up."],
-["Day 2",4,"Lat pulldown",2,4,8,"Lats","Mid/upper back,Biceps","Wide grip; pull the bar to your upper chest."],
-["Day 2",5,"Chest fly machine",2,6,8,"Chest","","Arms slightly bent; squeeze your chest at the top."],
-["Day 2",6,"Preacher curl machine",2,6,8,"Biceps","","Upper arms flat on the pad; curl without lifting elbows."],
-["Day 3",1,"Leg extension",2,6,8,"Quads","","Pad on your shins; extend without locking knees hard."],
-["Day 3",2,"Leg curl machine",2,6,8,"Hamstrings","","Lying or seated — pad above ankles, curl smoothly."],
-["Day 3",3,"Chest press (flat)",2,4,8,"Chest","Front delts,Triceps","Handles at mid-chest; press without arching off the seat."],
-["Day 3",4,"High row machine",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps","Pull toward your upper chest; squeeze shoulder blades."],
-["Day 3",5,"Reverse fly machine",2,6,8,"Rear delts","Mid/upper back","Face the pad; open arms wide behind you."],
-["Day 3",6,"Triceps pushdown",2,6,8,"Triceps","","Elbows pinned to your sides; push the bar down."]
-].map(x=>{const ex={id:uid(),day:x[0],order:x[1],name:x[2],sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7],notes:x[8]||""};
-  if(x[2]==="Leg press (quad focus)")ex.alternates=["Hack squat machine","Pendulum squat"];
-  if(x[2]==="Lat pulldown")ex.alternates=["Assisted pull-up","Neutral-grip pulldown"];
+const BEGINNER_ROWS=[
+["Day 1",1,"leg_press_quad_focus",2,4,8,"Quads","Glutes,Adductors"],
+["Day 1",2,"seated_leg_curl",2,4,8,"Hamstrings",""],
+["Day 1",3,"chest_press_machine",2,4,8,"Chest","Front delts,Triceps"],
+["Day 1",4,"seated_row_machine",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],
+["Day 1",5,"lateral_raise_machine",2,6,8,"Side delts",""],
+["Day 1",6,"hip_adduction_machine",2,6,8,"Adductors",""],
+["Day 2",1,"leg_press_glute_focus",2,4,8,"Quads","Glutes,Adductors"],
+["Day 2",2,"romanian_deadlift_machine",2,4,8,"Hamstrings,Glutes","Spinal erectors"],
+["Day 2",3,"shoulder_press_machine",2,4,8,"Front delts","Side delts,Triceps"],
+["Day 2",4,"lat_pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],
+["Day 2",5,"chest_fly_machine",2,6,8,"Chest",""],
+["Day 2",6,"preacher_curl_machine",2,6,8,"Biceps",""],
+["Day 3",1,"leg_extension",2,6,8,"Quads",""],
+["Day 3",2,"leg_curl_machine",2,6,8,"Hamstrings",""],
+["Day 3",3,"chest_press_flat",2,4,8,"Chest","Front delts,Triceps"],
+["Day 3",4,"high_row_machine",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],
+["Day 3",5,"reverse_fly_machine",2,6,8,"Rear delts","Mid/upper back"],
+["Day 3",6,"triceps_pushdown",2,6,8,"Triceps",""]
+];
+const BEGINNER_ALTERNATES={
+  leg_press_quad_focus:["hack_squat_machine","pendulum_squat"],
+  lat_pulldown:["assisted_pull_up","neutral_grip_pulldown"]
+};
+const beginnerProgram=()=>BEGINNER_ROWS.map(x=>{
+  const ex={id:uid(),day:x[0],order:x[1],name:seedName(x[2]),sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7],notes:seedNote(x[2])};
+  if(BEGINNER_ALTERNATES[x[2]])ex.alternates=BEGINNER_ALTERNATES[x[2]].map(seedName);
   return ex});
 
 /* The single crossing from library entry to program template. Muscles and
@@ -1584,7 +1608,7 @@ class Program{
   detachExercise(id){const e=this.find(id);if(!e||e.libraryId===undefined)return null;
     e.movementId=`library:${e.libraryId}`;delete e.libraryId;delete e.displayName;return e}
   addExercise(day,entry=null){const order=Math.max(0,...this.forDay(day).map(e=>e.order))+1;
-    const e=new Exercise(Object.assign({day,order,name:"New exercise",sets:3,min:6,max:10},
+    const e=new Exercise(Object.assign({day,order,name:t("program.default.exercise"),sets:3,min:6,max:10},
       entry?exerciseFieldsFromLibrary(entry):null));this.exercises.push(e);return e}
   /* Repoints a structural slot at another movement. The slot id stays stable so
      draft inputs and ordering survive; movement history is keyed independently. */
@@ -1597,7 +1621,7 @@ class Program{
   move(id,dir){const e=this.find(id);if(!e)return;const list=this.forDay(e.day),i=list.indexOf(e),j=i+dir;
     if(j<0||j>=list.length)return;[list[i].order,list[j].order]=[list[j].order,list[i].order]}
   addDay(){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
-    this.exercises.push(new Exercise({day:name,order:1,name:"New exercise",sets:3,min:6,max:10}));return name}
+    this.exercises.push(new Exercise({day:name,order:1,name:t("program.default.exercise"),sets:3,min:6,max:10}));return name}
   renameDay(oldName,newName){const nv=String(newName).trim();if(!nv||nv===oldName)return false;
     if(this.days().includes(nv))return false;
     for(const e of this.exercises)if(e.day===oldName)e.day=nv;this.renumber();return true}
@@ -1640,7 +1664,7 @@ function libraryEntry(id,snapshot=state){
    custom entry exists precisely because the library did not have it. */
 function pickableExercises(snapshot=state){
   return customExercises(snapshot).filter(e=>!e.archived).concat(EXERCISE_LIBRARY)}
-const libraryName=e=>!e?"":(state?.settings?.lang==="pt"&&e.namePt)||e.name;
+const libraryName=e=>!e?"":(isPt()&&e.namePt)||e.name;
 function resolveSplit(daysPerWeek,splitType){
   const n=Math.max(1,Math.min(7,Math.round(+daysPerWeek)||3)),st=splitType||"full_body";
   if(st==="full_body"||st==="machine_only")return Array.from({length:n},()=>"full_body");
@@ -2072,7 +2096,7 @@ function normalizeProgramHistory(history,lookup){
       normalized.program=new Program(normalized.program,lookup).toJSON();
     return normalized})}
 function normalizeLoaded(s){
-  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program,log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
+  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:starterProgram(),log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
   const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
@@ -3473,7 +3497,7 @@ function formatLongDate(iso){const d=new Date(`${iso}T12:00:00`);if(Number.isNaN
   try{const s=d.toLocaleDateString(I18N?.speechLang?.()||state.settings.lang||"en",{weekday:"long",day:"numeric",month:"long"});
     return s?s.charAt(0).toUpperCase()+s.slice(1):s}
   catch{return iso}}
-function weekdayLetters(){return state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
+function weekdayLetters(){return isPt()?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"]}
 /** Sessions saved today, in the order they were logged. */
 function sessionsToday(){const iso=today(),by=new Map();
   for(const r of state.log){if(String(r.date)!==iso)continue;
@@ -3505,7 +3529,7 @@ function todayDoneHtml(recap){
   return `<div class="today-done">`+
     `<div class="today-session__name today-done__name"><span class="today-done__check" aria-hidden="true"></span>`+
     `${esc(recap.days.join(" · ")||t("today.done_title"))}</div>`+
-    (recap.muscles.length?`<div class="today-session__muscles">${esc(recap.muscles.join(" · "))}</div>`:"")+
+    (recap.muscles.length?`<div class="today-session__muscles">${esc(recap.muscles.map(muscleLabel).join(" · "))}</div>`:"")+
     `<div class="today-session__meta">${esc(t("today.done_meta",{sets:recap.sets,setword:tp(recap.sets,"set"),vol:kfmt(toDisplay(recap.volume)),unit:unitLabel()}))}</div>`+
     (recap.prs?`<p class="today-done__pr">${esc(recap.prs===1?t("today.done_pr_one"):t("today.done_prs",{n:recap.prs}))}</p>`:"")+
     `<p class="today-done__note">${esc(t("today.done_note"))}</p></div>`}
@@ -3551,7 +3575,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const sess=$("#todaySession");if(sess&&recap)sess.innerHTML=todayDoneHtml(recap);
   else if(sess){const exs=exercises(),mus=dayMuscles(),hot=exs.filter(e=>{const s=recommendation(e).status;return s==="add"||s==="add2"}).length;
     sess.innerHTML=`<div class="today-session__name">${esc(dayLabel(day))}</div>`+
-      (mus.length?`<div class="today-session__muscles">${esc(mus.join(" · "))}</div>`:"")+
+      (mus.length?`<div class="today-session__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
       `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
       (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
       todayExListHtml(exs)}
@@ -3860,7 +3884,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
-    `<span class="focus-ex__muscle">${esc(ex.primary)}</span>`+
+    `<span class="focus-ex__muscle">${esc(muscleListLabel(ex.primary))}</span>`+
     `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
     `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
     `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
@@ -3940,7 +3964,7 @@ function renderWorkout(){
     const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
       `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
     const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
-      `<p class="ex__meta"><span class="ex__tag">${esc(ex.primary)}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · `+
+      `<p class="ex__meta"><span class="ex__tag">${esc(muscleListLabel(ex.primary))}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · `+
       `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
       `<div class="ex__topend">`+
       (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
@@ -4936,17 +4960,17 @@ function volumeStatus(planned,completed7){if(!planned)return completed7>0?t("sta
   const ratio=completed7/planned;return ratio<0.6?t("status.low"):ratio<=1.3?t("status.on_target"):t("status.high")}
 function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHardSets(7),c28=completedHardSets(28);
   const names=new Set([...planned.keys(),...c7.keys(),...c28.keys()]);
-  return[...names].sort((a,b)=>a.localeCompare(b)).map(muscle=>{
+  return[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(muscle=>{
     const p=volEff(planned,muscle),c7v=volEff(c7,muscle),c28v=volEff(c28,muscle);
     return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
 window.__repforgeVolumeDashboard=volumeDashboard;
 window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
 function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
-  const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:r.muscle,[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
+  const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
   el.innerHTML=table(rows)}
 function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
   const arr=[...m.entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff),max=Math.max(...arr.map(x=>x.eff),1);
-  el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
+  el.innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
     `<span class="vrow__num"><b>${fmt(x.eff)}</b> ${esc(tp(x.eff,"set"))}</span></div>`).join(""):`<div class="table"><div class="empty">${esc(t("stats.empty.no_hard_sets",{n:volWindow}))}</div></div>`;
   $$("#volWindow button").forEach(b=>{const on=+b.dataset.win===volWindow;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});}
@@ -5143,7 +5167,7 @@ function renderHistory(source=state.log){
     return monthHdr+`<article class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
       `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:dayLabel(s.day)}))}">`+
       `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(dayLabel(s.day))}</div>`+
-      (mus.length?`<div class="session__sub">${esc(mus.join(" · "))}</div>`:"")+
+      (mus.length?`<div class="session__sub">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
       `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
       `<div class="hist-row__actions" id="${esc(panelId)}"${open?"":" hidden"}>`+
@@ -5180,7 +5204,7 @@ function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)retu
   const month=index?.months?.get(ym)||{sessions:new Set(),sets:0,byDay:new Map()};
   const byDay=month.byDay;
   const sessCount=month.sessions.size,setCount=month.sets;
-  const letters=state.settings.lang==="pt"?["S","T","Q","Q","S","S","D"]:["M","T","W","T","F","S","S"];
+  const letters=weekdayLetters();
   // Monday-start letters already match weekdayLetters
   let cells=letters.map(l=>`<div class="cal-grid__dow">${esc(l)}</div>`).join("");
   for(let i=0;i<42;i++){let dayNum,out=false,iso;
@@ -5315,7 +5339,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
       (cmp&&cmp.status!=="not_comparable"?`<span class="exsess__delta">${esc(cmp.label)}</span>`:"")+`</div>${note}</div>`}).join("")
     :`<div class="empty">${esc(t("exercise.empty.no_sets"))}</div>`;
 
-  el.innerHTML=`<p class="exdet__muscle">${esc(tmpl?.primary||"")}</p><h2 class="exdet__name">${esc(name)}</h2>`+
+  el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
     `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
     recHtml+
     `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
@@ -5348,7 +5372,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
   for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
     daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" aria-expanded="${open?"true":"false"}"><div>`+
-      `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.join(" · "))}</div>`:""}</div>`+
+      `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:""}</div>`+
       `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
     if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
       `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
@@ -5669,7 +5693,7 @@ async function editorAction(act,ds){
 function renderVolume(){
   const arr=[...prog.volume().entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff);
   const max=Math.max(...arr.map(x=>x.eff),1);
-  $("#volume").innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(x.name)}</span>`+
+  $("#volume").innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
     `<span class="vrow__num"><b>${fmt(x.eff)}</b> ${esc(tp(x.eff,"set"))}</span></div>`).join(""):`<div class="table"><div class="empty">${esc(t("program.empty.no_program_exercises"))}</div></div>`;
 }
@@ -7032,7 +7056,7 @@ async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()
   requireAdapter(io,"applyProgramTemplate");
   const transition=programTransitionPrecondition(state);
   const proposal=cloneSnapshot(state);
-  proposal.program=new Program(cloneSnapshot(programBeginner)).toJSON();
+  proposal.program=new Program(beginnerProgram()).toJSON();
   proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect,...transition});
@@ -7041,13 +7065,9 @@ async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()
 
 const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
   5:["ppl","bro","upper_lower"],6:["ppl"]};
-const ONB_SPLIT_LABEL={full_body:"Full body",upper_lower:"Upper / lower",machine_only:"Machine only",ppl:"Push / pull / legs",bro:"Bro split"};
 const ONB_EQ_UI=["machines","cables","dumbbells","barbells"];
-const ONB_EQ_LABEL={machines:"Machines",cables:"Cables",dumbbells:"Dumbbells",barbells:"Barbells",bodyweight:"Bodyweight"};
 const ONB_EQ_GEN={machines:"machine",cables:"cable",dumbbells:"dumbbell",barbells:"barbell",bodyweight:"bodyweight"};
 const ONB_MUSCLES=["Chest","Back","Quads","Hamstrings","Glutes","Side delts","Arms","Calves"];
-const ONB_TITLES=["What's your goal?","Training experience","Days per week","Choose a split","Equipment access",
-  "Priority muscles (optional)","Session length","Review your program"];
 let onbStep=0,onbAnswers={};
 function defaultOnbAnswers(){return{goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:["machines","cables"],
   priorityMuscles:[],sessionLength:null}}
@@ -7103,9 +7123,9 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   else if(onbStep===2)html+=`<div class="onb__opts">`+[2,3,4,5,6].map(n=>onbOpt("","daysPerWeek",n,String(n),t("onb.days.sub"),false)).join("")+`</div>`;
   else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
     html+=`<p class="onb__explain">${esc(t("onb.split.lede",{n:onbAnswers.daysPerWeek}))}</p><div class="onb__opts">`+
-      opts.map(s=>onbOpt("","splitType",s,t("split."+s)||ONB_SPLIT_LABEL[s]||s,"",false)).join("")+`</div>`}
+      opts.map(s=>onbOpt("","splitType",s,t("split."+s),"",false)).join("")+`</div>`}
   else if(onbStep===4){html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
-    ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e)||ONB_EQ_LABEL[e],"",true)).join("")+`</div>`;
+    ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e),"",true)).join("")+`</div>`;
     if(!onbEquipmentSupportsDays(onbAnswers))
       html+=`<p class="lede" id="onbEquipUnsupported" role="status">${esc(t("onb.equipment.unsupported"))}</p>`}
   else if(onbStep===5)html+=`<p class="onb__explain">${esc(t("onb.priority.lede"))}</p><div class="onb__opts">`+
@@ -7117,7 +7137,7 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   else{const gen=generateProgramFromOnboarding(onbGenAnswers(onbAnswers)),days=[...new Set(gen.map(e=>e.day))];
     const byDay=days.map(d=>{const exs=gen.filter(e=>e.day===d);
       return `<div class="onb__day"><div class="onb__dayname">${esc(dayLabel(d))}</div>`+
-        exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(e.primary)}</div>`).join("")+`</div>`});
+        exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(muscleListLabel(e.primary))}</div>`).join("")+`</div>`});
     html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
       `<button type="button" id="onbSave" class="btn btn--cta">${esc(t("onb.review.save"))}</button>`+
       `<button type="button" id="onbEdit" class="btn btn--steel">${esc(t("onb.review.edit"))}</button>`+
@@ -7804,7 +7824,7 @@ function presentStorageRecovery(decision){
     const d=$("#storageRecovery");if(!d){resolve({kind:"first-run"});return}
     bindStorageRecoveryGuard(d);
     const langHint=decision.local?.parsed?.settings?.lang||decision.idb?.parsed?.settings?.lang;
-    if(I18N&&langHint)I18N.setLang(langHint);
+    if(I18N)I18N.setLang(langHint||I18N.detectLang());
     let retryBusy=false;
     const bump=()=>{d.dataset.seq=String((+d.dataset.seq||0)+1)};
     const finish=choice=>{d.dataset.resolved="1";d.dataset.busy="0";bump();closeStorageRecovery();resolve(choice)};
@@ -7980,8 +8000,11 @@ async function applyBootDecision(decision){
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
   if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
-  if(I18N)I18N.setLang(state.settings.lang)}
+  if(I18N)I18N.setLang(resolveLang())}
 async function boot(){
+  // The starter program is minted while the first-run state is built, so the
+  // language has to be settled before that — not after the state exists.
+  if(I18N)I18N.setLang(I18N.detectLang());
   let decision=await resolveBootReplicas();
   while(decision.kind==="unresolved"){
     const candidate=await presentStorageRecovery(decision);
