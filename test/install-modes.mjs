@@ -19,6 +19,10 @@
  * that the event is consumed, and that no install is claimed unless Chrome
  * said "accepted".
  *
+ * The ethos hero (ADR 0006) leads the gate in both languages; its strings are
+ * locked here the way the install cards are, and any art it ever carries must
+ * stay decorative (empty alt).
+ *
  * Run: node test/install-modes.mjs   (with a static server on REPFORGE_URL)
  */
 import { launchChromium } from "./browser.mjs";
@@ -98,6 +102,9 @@ const card = () => ({
   continueLabel: document.querySelector("#firstRunContinueLabel")?.textContent || null,
   create: !!document.querySelector("#firstRunCreate"),
   import: !!document.querySelector("#firstRunImport"),
+  heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
+  heroBody: document.querySelector(".firstrun-hero__body")?.textContent || null,
+  heroArtDecorative: [...document.querySelectorAll(".firstrun-hero img")].every((n) => n.getAttribute("alt") === ""),
 });
 
 async function run() {
@@ -121,6 +128,13 @@ async function run() {
     );
     assert(shown.action === "Install Taurifer", "the button asks Chrome to install", shown.action);
     assert(shown.continueLabel === "Continue in browser", "the escape hatch says browser", shown.continueLabel);
+    assert(shown.heroTitle === "Strength isn't given. It's built.", "the ethos hero leads the gate", shown.heroTitle);
+    assert(
+      shown.heroBody === "Load by load. Day after day. Until you're carrying what once seemed impossible.",
+      "the hero body carries the distilled ethos",
+      shown.heroBody
+    );
+    assert(shown.heroArtDecorative, "any hero art is decorative (empty alt)");
 
     await page.click("#firstRunInstallAction");
     await page.waitForTimeout(300);
@@ -391,6 +405,12 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
+    assert(pt.heroTitle === "Força não se ganha. Força se constrói.", "PT hero title", pt.heroTitle);
+    assert(
+      pt.heroBody === "Carga a carga. Dia após dia. Até você carregar o que um dia pareceu impossível.",
+      "PT hero body",
+      pt.heroBody
+    );
     await context.close();
     allErrors.push(...errors);
   }
