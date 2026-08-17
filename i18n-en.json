@@ -431,6 +431,8 @@
   "dialog.import.program_only": "Program only",
   "dialog.import.body_program": "This file is a full backup, not only a program: {inSessions} sessions, {inSets} sets.\nThis device: {curSessions} sessions, {curSets} sets.\n\nMerge adds the {newSessions} new sessions and keeps everything else. Replace all overwrites program, settings, and log — this cannot be undone. Program only imports the exercises and leaves your history as it is.",
   "dialog.import.body": "This device: {curSessions} sessions, {curSets} sets.\nFile: {inSessions} sessions, {inSets} sets ({newSessions} new to this device).\n\nMerge adds the {newSessions} new sessions and keeps everything else. Replace all overwrites program, settings, and log — this cannot be undone.",
+  "dialog.import.body_program_nolog": "This file is a full backup, not only a program: it carries your settings and your program details as well as the exercises, and no recorded sessions.\n\nReplace all restores all of it over what is on this device — this cannot be undone. Program only imports the exercises and leaves your settings as they are.",
+  "dialog.import.body_nolog": "This device: {curSessions} sessions, {curSets} sets.\nFile: a backup with no recorded sessions.\n\nReplace all restores its program, settings, and program details over what is on this device — this cannot be undone.",
   "dialog.storage_recovery.aria": "Storage recovery",
   "dialog.storage_recovery.title": "Choose which copy to keep",
   "dialog.storage_recovery.title_blocked": "This copy of Taurifer cannot start yet",

@@ -431,6 +431,8 @@
   "dialog.import.program_only": "Só o programa",
   "dialog.import.body_program": "Este arquivo é um backup completo, não só um programa: {inSessions} sessões, {inSets} séries.\nEste dispositivo: {curSessions} sessões, {curSets} séries.\n\nMesclar adiciona as {newSessions} novas sessões e mantém todo o resto. Substituir tudo sobrescreve programa, ajustes e log — isso não pode ser desfeito. Só o programa importa os exercícios e mantém seu histórico como está.",
   "dialog.import.body": "Este dispositivo: {curSessions} sessões, {curSets} séries.\nArquivo: {inSessions} sessões, {inSets} séries ({newSessions} novas neste dispositivo).\n\nMesclar adiciona as {newSessions} novas sessões e mantém todo o resto. Substituir tudo sobrescreve programa, ajustes e log — isso não pode ser desfeito.",
+  "dialog.import.body_program_nolog": "Este arquivo é um backup completo, não só um programa: ele traz seus ajustes e os detalhes do programa além dos exercícios, e nenhuma sessão registrada.\n\nSubstituir tudo restaura tudo isso por cima do que está neste dispositivo — isso não pode ser desfeito. Só o programa importa os exercícios e mantém seus ajustes como estão.",
+  "dialog.import.body_nolog": "Este dispositivo: {curSessions} sessões, {curSets} séries.\nArquivo: um backup sem sessões registradas.\n\nSubstituir tudo restaura o programa, os ajustes e os detalhes do programa por cima do que está neste dispositivo — isso não pode ser desfeito.",
   "dialog.storage_recovery.aria": "Recuperação de armazenamento",
   "dialog.storage_recovery.title": "Escolha qual cópia manter",
   "dialog.storage_recovery.title_blocked": "Esta cópia do Taurifer ainda não pode iniciar",
