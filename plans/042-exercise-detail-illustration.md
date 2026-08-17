@@ -240,6 +240,25 @@ Edge veils do not rescue this. They are specified to hide the top and bottom
 boundary of a *matched* square, and they cannot bridge a 35-level mismatch
 without fading instructional pixels, which the design forbids.
 
+### Second finding: the bundled programs show no artwork at all
+
+The illustration resolves through the slot's `libraryId`, which is the only
+identity a program slot carries. Measured on this branch:
+
+| program source | slots | linked to the library | with licensed art |
+|---|---|---|---|
+| `starterProgram()` (bundled default) | 18 | 0 | 0 |
+| `beginnerProgram()` (Settings → beginner program) | 18 | 0 | 0 |
+| `generateProgramFromOnboarding()` (the wizard) | 18 | 18 | 12 |
+
+Both bundled programs mint plain named rows, so a lifter who never finishes the
+wizard sees the feature nowhere, even though movements like the seed program's
+hack squat do have a licensed drawing. Nothing renders wrong — the art-less path
+is correct and leaves no gap — but the reach is far narrower than the design's
+state table implies. Linking the seed rows to library ids would change what
+`resolveIdentity()` derives for those slots, so it is a product decision rather
+than an executor's edit.
+
 ### What shipped
 
 Everything that does not depend on the token: the conditional markup, the
