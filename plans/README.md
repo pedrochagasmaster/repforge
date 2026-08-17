@@ -395,4 +395,4 @@ Consensus across ≥5 personas that these betray the product:
 | 039 | DONE |
 | 040 | AUDIT — launch remediation not yet implemented |
 | 041 | TODO — all 24 retained findings are pre-launch |
-| 042 | TODO — approved design; implementation not started |
+| 042 | DONE — the field colour travels per movement rather than as one token; see the plan's Findings for that amendment and for the bundled programs' missing library links |

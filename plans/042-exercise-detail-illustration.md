@@ -21,7 +21,10 @@
 - **Depends on:** `docs/design/exercise-detail-illustration.md`
 - **Category:** UX / accessibility / visual design
 - **Planned at:** commit `66b427c`, 2026-08-16
-- **Implementation status:** TODO
+- **Implementation status:** DONE. Step 4 hit a STOP condition — one fixed
+  warm-field token cannot serve the shipped library — which was resolved by
+  making the field colour travel with the movement. Both the resolution and the
+  one remaining open question are in [Findings](#findings-2026-08-17).
 
 ## Outcome
 
@@ -204,6 +207,99 @@ Stop and report rather than improvise if:
 - the change requires new schema, storage, recommendation, or localization
   behavior; or
 - a mobile viewport gains horizontal overflow from the safe-area bleed.
+
+## Findings (2026-08-17)
+
+### STOP (resolved): one warm-field token cannot serve the shipped library
+
+The design samples `--exercise-art-bg: #F4ECE1` from the approved mock's source
+artwork, the hack squat (`sqk_mc`). Measuring the empty outer ring of all 96
+shipped illustrations shows that value is not representative of the set:
+
+| | value |
+|---|---|
+| library median background | `#ECE0CF` |
+| `sqk_mc` background (the token's source) | `#F4EDE1` |
+| max-channel distance from `#F4ECE1`, median asset | 19 |
+| max-channel distance from `#F4ECE1`, worst asset (`sp_mc`) | 35 |
+| assets within 5 of the token | 5 of 96 |
+| assets at 13 or more | 69 of 96 |
+
+Because the field bleeds full-width while the picture is `min(80%, 450px)`, that
+distance is drawn as a hard vertical edge down both sides of every square. The
+hack squat dissolves exactly as the mock shows; the other 91 movements read as
+the pasted tile the treatment exists to avoid, which fails the design's own
+acceptance criterion that the artwork's background dissolve "without a visible
+hard rectangle".
+
+Re-sampling the token from the library median instead only moves the problem: it
+would put the hero exercise 18 off its own field and break the primary mock
+comparison. **No single constant satisfies both.**
+
+Edge veils do not rescue this. They are specified to hide the top and bottom
+boundary of a *matched* square, and they cannot bridge a 35-level mismatch
+without fading instructional pixels, which the design forbids.
+
+### Open: the bundled programs show no artwork at all
+
+The illustration resolves through the slot's `libraryId`, which is the only
+identity a program slot carries. Measured on this branch:
+
+| program source | slots | linked to the library | with licensed art |
+|---|---|---|---|
+| `starterProgram()` (bundled default) | 18 | 0 | 0 |
+| `beginnerProgram()` (Settings → beginner program) | 18 | 0 | 0 |
+| `generateProgramFromOnboarding()` (the wizard) | 18 | 18 | 12 |
+
+Both bundled programs mint plain named rows, so a lifter who never finishes the
+wizard sees the feature nowhere, even though movements like the seed program's
+hack squat do have a licensed drawing. Nothing renders wrong — the art-less path
+is correct and leaves no gap — but the reach is far narrower than the design's
+state table implies. Linking the seed rows to library ids would change what
+`resolveIdentity()` derives for those slots, so it is a product decision rather
+than an executor's edit.
+
+### What shipped
+
+The conditional markup, the full-bleed geometry and safe-area handling, the
+gradient, the scoped divider removal, the per-movement field colour and its
+tooling, the browser coverage, and one cache bump.
+
+### One deviation from the letter of the spec
+
+The gradient uses length stops pinned to the figure's padding rather than the
+spec's `10%` / `88%` percentages. Percentage stops scale with the field's
+height, so at the 560 px shell the fade climbed roughly 30 px back over the
+artwork and redrew the top and bottom edge it exists to dissolve. Lengths keep
+the hold behind the illustration at every width, which is what the spec asks
+for in prose ("hold the warm field behind the useful illustration area").
+
+### Resolution: the field colour travels with the movement
+
+Applied, and the design doc is amended to match. `tools/sample-media-bg.mjs`
+reads the empty border ring of each illustration and writes a reviewable
+`libraryId → #rrggbb` map to `tools/exercise-media-bg.json`;
+`tools/build-exercises.mjs` emits it as `mediaBg` beside `media`, and the detail
+page sets `--exercise-art-bg` on the field from that value. The approved
+treatment is otherwise verbatim and the artwork is untouched.
+
+Sampling is a separate maintenance script rather than part of the generator
+because the illustrations are lossy VP8, Node ships no image decoder, and the
+app has no dependencies — so it borrows the Chromium the browser suites already
+pin. The artwork set is closed, so it runs only when the files change; its
+output is committed, reviewable, and may be hand-corrected.
+
+This is a generated-library schema addition, which this plan's scope section
+excluded. It was taken deliberately, as the only change that satisfies the
+design's own acceptance criteria for the whole library.
+
+Measured across all 96 illustrations, the field is now at most **1** level from
+the artwork's own paper, against **18** median and **35** worst under the fixed
+token. Three gates hold it there: `build-exercises.mjs` fails if a mapped id has
+no colour or a colour has no artwork, `test/exercise-library.mjs` pins the format
+and the agreement between `exercises.js` and the JSON, and `test/simulation.mjs`
+decodes every file and compares its border ring to the recorded value with a
+sampling window deliberately different from the generator's.
 
 ## Done when
 

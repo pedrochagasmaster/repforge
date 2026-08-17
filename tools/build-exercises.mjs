@@ -562,6 +562,22 @@ const gaps = [];
 for (const id of MEDIA_IDS)
   if (!existsSync(join(ROOT, MEDIA_DIR, `${id}.webp`)))
     problems.push(`media file missing for ${id}: ${MEDIA_DIR}/${id}.webp`);
+
+/* The paper colour each illustration is drawn on, sampled from the file by
+   tools/sample-media-bg.mjs. The exercise detail page lays the artwork on a
+   field of this colour so the opaque square dissolves instead of reading as a
+   pasted tile; the shipped set spans #E3D4BE to #F4EDE1, so it cannot be one
+   constant. Read, never re-derived: Node has no image decoder and the app has
+   no dependencies, so re-sampling is a deliberate step. */
+const mediaBg = JSON.parse(readFileSync(join(HERE, "exercise-media-bg.json"), "utf8"));
+for (const id of MEDIA_IDS) {
+  if (!(id in mediaBg))
+    problems.push(`no sampled background for ${id} — run: node tools/sample-media-bg.mjs`);
+  else if (!/^#[0-9a-f]{6}$/.test(mediaBg[id]))
+    problems.push(`background for ${id} is not a #rrggbb colour: ${mediaBg[id]}`);
+}
+for (const id of Object.keys(mediaBg))
+  if (!mediaSet.has(id)) problems.push(`sampled background for ${id}, which carries no artwork`);
 const entries = [];
 const ids = new Set();
 
@@ -625,6 +641,7 @@ for (const item of curation) {
     patterns: item.patterns || [],
     rank: item.rank !== undefined ? item.rank : (STAPLE_IDS.has(item.id) ? 0 : 50),
     media: mediaSet.has(item.id) ? `${MEDIA_DIR}/${item.id}.webp` : null,
+    mediaBg: mediaSet.has(item.id) ? mediaBg[item.id] : null,
     beginnerFriendly: item.beginnerFriendly !== undefined
       ? item.beginnerFriendly
       : beginnerFriendly(equipment, name)
@@ -673,6 +690,7 @@ const line = e => {
     `beginnerFriendly:${e.beginnerFriendly}`
   ];
   if (e.media) parts.push(`media:${JSON.stringify(e.media)}`);
+  if (e.mediaBg) parts.push(`mediaBg:${JSON.stringify(e.mediaBg)}`);
   if (e.notes) parts.push(`notes:${JSON.stringify(e.notes)}`);
   if (e.src) parts.push(`src:${JSON.stringify(e.src)}`);
   return "  {" + parts.join(",") + "}";

@@ -10555,6 +10555,247 @@ async function main() {
     JSON.stringify(focusNavContrast),
     "Focus → first exercise → #woPrev contrast against --bg"
   );
+  beginPhase("Phase: exercise detail illustration");
+  const ART_ID = "sqk_mc";
+  const ART_SRC = `assets/exercises/${ART_ID}.webp`;
+  const CUSTOM_ID = "custom:artless";
+  /* Three slots that span the only distinction the artwork cares about: a
+     library movement that has a licensed drawing, a built-in slot that never
+     linked to one, and a movement the lifter invented. */
+  const artProgramState = (base) => ({
+    ...base,
+    settings: { ...base.settings, lang: "en" },
+    log: [],
+    programHistory: [],
+    customExercises: [
+      { id: CUSTOM_ID, name: "Bench dips at home", primary: "Triceps", secondary: "", equipment: [], patterns: [] },
+    ],
+    program: [
+      { id: "artmapped", day: "Day 1", order: 1, name: "Hack squat machine", sets: 3, min: 4, max: 8,
+        primary: "Quads", secondary: "Glutes", notes: "", alternates: [], libraryId: ART_ID },
+      { id: "artplain", day: "Day 1", order: 2, name: "Calf raise off a step", sets: 3, min: 8, max: 12,
+        primary: "Calves", secondary: "", notes: "", alternates: [] },
+      { id: "artcustom", day: "Day 1", order: 3, name: "Bench dips at home", sets: 3, min: 8, max: 12,
+        primary: "Triceps", secondary: "", notes: "", alternates: [], libraryId: CUSTOM_ID },
+    ],
+  });
+  const artHistoryRows = (iso, session) =>
+    [1, 2, 3].map((s) => ({
+      date: iso, session, day: "Day 1", exerciseId: "artmapped", name: "Hack squat machine",
+      performedLibraryId: ART_ID, performedName: "Hack squat machine",
+      performedPrimary: "Quads", performedSecondary: "Glutes",
+      set: s, load: 80 + s * 2.5, reps: 8, rir: 2, created: `${iso}T10:0${s}:00Z`,
+    }));
+  /** Everything the detail view says about its illustration, in one read. */
+  const readDetailArt = (page) =>
+    page.evaluate(() => {
+      const detail = document.querySelector("#exDetail");
+      const imgs = [...detail.querySelectorAll(".exdet-art__img")];
+      const img = imgs[0] || null;
+      const kids = [...detail.children];
+      const idx = (sel) => kids.findIndex((el) => el.matches(sel) || el.querySelector(sel));
+      return {
+        wrappers: detail.querySelectorAll(".exdet-art").length,
+        imgs: imgs.length,
+        // A placeholder would be an <img> with nothing behind it, or a stray
+        // empty-tile element borrowed from the picker rows.
+        emptyTiles: detail.querySelectorAll(".exthumb--empty, .exdet-art__img:not([src])").length,
+        srcAttr: img?.getAttribute("src") || null,
+        alt: img?.getAttribute("alt") || null,
+        width: img?.getAttribute("width") || null,
+        height: img?.getAttribute("height") || null,
+        decoding: img?.getAttribute("decoding") || null,
+        loading: img?.getAttribute("loading") || null,
+        complete: img ? img.complete && img.naturalWidth > 0 : null,
+        afterMeta: idx(".exdet-art") > idx(".exdet__meta"),
+        beforeRec: idx(".recblock") === -1 || idx(".exdet-art") < idx(".recblock"),
+        hasRec: !!detail.querySelector(".recblock"),
+        hasStats: detail.querySelectorAll(".exdet__stats .statrow__cell").length,
+        hasChart: !!detail.querySelector("#exChart"),
+      };
+    });
+  const openArtDetail = async (page, id) => {
+    await page.evaluate((exId) => window.openExerciseView(exId, "log"), id);
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    await page.waitForTimeout(150);
+  };
+
+  await persistState(page, artProgramState(await getState(page)));
+  await reloadApp(page);
+  await openArtDetail(page, "artmapped");
+  const artEmpty = await readDetailArt(page);
+  assert(
+    artEmpty.imgs === 1 && artEmpty.wrappers === 1 && artEmpty.srcAttr === ART_SRC && artEmpty.complete === true,
+    "Mapped exercise renders exactly one detail illustration from its library asset",
+    JSON.stringify(artEmpty),
+    "Seed a program slot linked to sqk_mc → open its exercise page"
+  );
+  assert(
+    artEmpty.width === "768" &&
+      artEmpty.height === "768" &&
+      artEmpty.decoding === "async" &&
+      artEmpty.loading === null,
+    "Detail illustration reserves 768×768 before decode and is not lazy",
+    JSON.stringify(artEmpty),
+    "Exercise page → .exdet-art__img attributes"
+  );
+  assert(
+    !!artEmpty.alt && artEmpty.alt.trim().length > 0 && artEmpty.alt !== "Hack squat machine",
+    "Detail illustration carries a localized descriptive alt, not the bare name",
+    JSON.stringify({ alt: artEmpty.alt }),
+    "Exercise page → .exdet-art__img alt"
+  );
+  assert(
+    artEmpty.afterMeta && artEmpty.beforeRec,
+    "Detail illustration sits between the prescription and the recommendation",
+    JSON.stringify(artEmpty),
+    "Exercise page → DOM order of .exdet__meta, .exdet-art, .recblock"
+  );
+  assert(
+    artEmpty.hasRec && artEmpty.hasStats === 4 && artEmpty.hasChart,
+    "No-history exercise page keeps its recommendation, four metrics, and chart",
+    JSON.stringify(artEmpty),
+    "Exercise page with no logged sets"
+  );
+
+  const artIso = isoDateFromWeeksAgo(1);
+  await persistState(page, {
+    ...(await getState(page)),
+    log: [...artHistoryRows(artIso, "artsess1"), ...artHistoryRows(isoDateFromWeeksAgo(0), "artsess2")],
+  });
+  await reloadApp(page);
+  await openArtDetail(page, "artmapped");
+  const artFull = await readDetailArt(page);
+  assert(
+    artFull.imgs === 1 &&
+      artFull.srcAttr === ART_SRC &&
+      artFull.afterMeta &&
+      artFull.beforeRec &&
+      artFull.hasRec &&
+      artFull.hasStats === 4 &&
+      artFull.hasChart,
+    "Populated-history exercise page keeps the illustration and every existing block",
+    JSON.stringify(artFull),
+    "Seed sessions for the mapped lift → open its exercise page"
+  );
+
+  const artFailures = [];
+  const onArtFailed = (req) => artFailures.push(req.url());
+  page.on("requestfailed", onArtFailed);
+  await openArtDetail(page, "artplain");
+  const artPlain = await readDetailArt(page);
+  await openArtDetail(page, "artcustom");
+  const artCustom = await readDetailArt(page);
+  await page.waitForTimeout(200);
+  page.off("requestfailed", onArtFailed);
+  assert(
+    artPlain.wrappers === 0 && artPlain.imgs === 0 && artPlain.emptyTiles === 0,
+    "Built-in exercise without licensed art renders no media block and no placeholder",
+    JSON.stringify(artPlain),
+    "Open the exercise page for a slot with no libraryId"
+  );
+  assert(
+    artCustom.wrappers === 0 && artCustom.imgs === 0 && artCustom.emptyTiles === 0,
+    "Custom exercise renders no media block and no placeholder",
+    JSON.stringify(artCustom),
+    "Open the exercise page for a custom movement"
+  );
+  assert(
+    artFailures.filter((u) => u.includes("assets/exercises/")).length === 0,
+    "Exercises without art request no media file",
+    JSON.stringify(artFailures.slice(0, 5)),
+    "Open art-less exercise pages → watch network failures"
+  );
+
+  /* The point of the whole treatment: the field has to be the paper the drawing
+     is already on. Sampled here straight from the decoded pixels, with a wider
+     ring and a coarser step than tools/sample-media-bg.mjs uses, so this checks
+     the recorded colour against the artwork rather than re-running the
+     generator's arithmetic. */
+  const artPaper = await page.evaluate(async () => {
+    const read = (src) =>
+      new Promise((res) => {
+        const img = new Image();
+        img.onerror = () => res(null);
+        img.onload = () => {
+          const c = document.createElement("canvas");
+          c.width = img.naturalWidth;
+          c.height = img.naturalHeight;
+          const ctx = c.getContext("2d", { willReadFrequently: true });
+          ctx.drawImage(img, 0, 0);
+          const w = img.naturalWidth, h = img.naturalHeight, px = [[], [], []];
+          const take = (x, y) => {
+            const d = ctx.getImageData(x, y, 1, 1).data;
+            px[0].push(d[0]); px[1].push(d[1]); px[2].push(d[2]);
+          };
+          for (let x = 0; x < w; x += 5) { take(x, 0); take(x, 2); take(x, h - 1); take(x, h - 3); }
+          for (let y = 0; y < h; y += 5) { take(0, y); take(2, y); take(w - 1, y); take(w - 3, y); }
+          res(px.map((a) => a.sort((m, n) => m - n)[Math.floor(a.length / 2)]));
+        };
+        img.src = src;
+      });
+    const worst = [];
+    let checked = 0;
+    for (const e of window.__repforgeExerciseLibrary.filter((x) => x.media)) {
+      const paper = await read(e.media);
+      if (!paper) { worst.push({ id: e.id, error: "decode failed" }); continue; }
+      const declared = [1, 3, 5].map((i) => parseInt(e.mediaBg.slice(i, i + 2), 16));
+      const delta = Math.max(...paper.map((v, i) => Math.abs(v - declared[i])));
+      checked++;
+      worst.push({ id: e.id, delta, mediaBg: e.mediaBg });
+    }
+    worst.sort((a, b) => (b.delta ?? 99) - (a.delta ?? 99));
+    return { checked, worst: worst.slice(0, 5) };
+  });
+  assert(
+    artPaper.checked === 96 && artPaper.worst.every((w) => w.delta <= 6),
+    "every illustration's field colour matches the paper it is drawn on",
+    JSON.stringify(artPaper),
+    "Decode each assets/exercises/*.webp → compare its border ring to mediaBg"
+  );
+
+  await openArtDetail(page, "artmapped");
+  const artFieldColor = await page.evaluate(() => {
+    const field = document.querySelector(".exdet-art");
+    const entry = window.__repforgeExerciseLibrary.find((e) => e.id === "sqk_mc");
+    return {
+      declared: entry.mediaBg,
+      applied: getComputedStyle(field).getPropertyValue("--exercise-art-bg").trim(),
+      inline: field.getAttribute("style"),
+      painted: getComputedStyle(field).backgroundImage,
+    };
+  });
+  assert(
+    artFieldColor.applied.toLowerCase() === artFieldColor.declared.toLowerCase() &&
+      /gradient/.test(artFieldColor.painted),
+    "The rendered field takes its colour from the movement's own artwork",
+    JSON.stringify(artFieldColor),
+    "Open a mapped exercise page → computed --exercise-art-bg"
+  );
+
+  await page.click("#exBack");
+  await nav(page, "program");
+  const sharedRules = await page.evaluate(() => {
+    const row = document.querySelector("#programOverview .statrow, #metrics.metrics");
+    if (!row) return null;
+    const cs = getComputedStyle(row);
+    const cell = row.querySelector(".statrow__cell, .metric");
+    return {
+      top: cs.borderTopWidth,
+      bottom: cs.borderBottomWidth,
+      sep: cell ? getComputedStyle(cell, "::after").content : null,
+    };
+  });
+  assert(
+    sharedRules &&
+      sharedRules.top !== "0px" &&
+      sharedRules.bottom !== "0px" &&
+      sharedRules.sep !== "none",
+    "Shared stat rows outside the exercise page keep their rules and cell separators",
+    JSON.stringify(sharedRules),
+    "Program tab → .statrow computed borders"
+  );
+
   // Console errors
   assert(
     consoleErrors.length === 0,

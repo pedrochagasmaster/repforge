@@ -1568,6 +1568,124 @@ async function showView(page, view) {
   if (view !== "settings") await page.waitForSelector(`#${view}.view.active`);
 }
 
+/** Seeds a program whose first slot links to a movement with licensed art. */
+async function seedIllustratedProgram(page, lang) {
+  const blob = sampleState({ log: [] });
+  blob.settings.lang = lang;
+  blob.program = [
+    {
+      id: "ex1",
+      name: "Hack squat machine",
+      day: "Day 1",
+      order: 0,
+      sets: 3,
+      min: 4,
+      max: 8,
+      primary: "Quads",
+      secondary: "Glutes",
+      libraryId: "sqk_mc",
+    },
+  ];
+  await page.evaluate(
+    async ({ k, blob }) => {
+      localStorage.setItem(k, JSON.stringify(blob));
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(blob, k);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    },
+    { k: KEY, blob }
+  );
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.evaluate(() => openExerciseView("ex1", "log"));
+  await page.waitForSelector("#exercise.view.active", { timeout: 8000 });
+  await page.waitForFunction(() => {
+    const img = document.querySelector(".exdet-art__img");
+    return !!img && img.complete && img.naturalWidth > 0;
+  }, { timeout: 8000 });
+}
+
+export async function runExerciseIllustrationAccessibility(browser, check = assert) {
+  console.log("\nExercise detail illustration");
+  for (const vp of VIEWPORTS) {
+    const context = await browser.newContext({ viewport: { width: vp.w, height: vp.h } });
+    const page = await context.newPage();
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await clearState(page);
+    await seedIllustratedProgram(page, vp.w === 320 ? "pt" : "en");
+    const info = await page.evaluate(() => {
+      const img = document.querySelector(".exdet-art__img");
+      const r = img.getBoundingClientRect();
+      const field = document.querySelector(".exdet-art").getBoundingClientRect();
+      const stats = document.querySelector(".exdet__stats");
+      const statsCs = getComputedStyle(stats);
+      const cell = stats.querySelector(".statrow__cell:not(:last-child)");
+      const rec = document.querySelector("#exDetail .recblock");
+      const recCs = rec ? getComputedStyle(rec) : null;
+      return {
+        alt: img.getAttribute("alt"),
+        tabindex: img.getAttribute("tabindex"),
+        role: img.getAttribute("role"),
+        // A focusable image would show up in a tab order sweep; an <img> with no
+        // tabindex and no handler cannot receive focus at all.
+        focusable: img.matches("a,button,[tabindex]") || typeof img.onclick === "function",
+        imgLeft: Math.round(r.left),
+        imgRight: Math.round(r.right),
+        fieldLeft: Math.round(field.left),
+        fieldRight: Math.round(field.right),
+        viewport: window.innerWidth,
+        docScrollWidth: document.documentElement.scrollWidth,
+        aspect: r.width && r.height ? +(r.width / r.height).toFixed(3) : null,
+        statsTop: statsCs.borderTopWidth,
+        statsBottom: statsCs.borderBottomWidth,
+        cellSep: cell ? getComputedStyle(cell, "::after").content : null,
+        recBorderLeft: recCs ? recCs.borderLeftWidth : null,
+        recBorderColor: recCs ? recCs.borderLeftColor : null,
+      };
+    });
+    check(
+      !!info.alt && info.alt.trim().length > 0 && !info.focusable && info.tabindex === null && info.role === null,
+      `Detail illustration has a localized alt and is not focusable (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.imgLeft >= 0 &&
+        info.imgRight <= info.viewport &&
+        info.docScrollWidth <= info.viewport &&
+        info.aspect === 1,
+      `Detail illustration stays uncropped inside the viewport with no horizontal overflow (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.fieldLeft <= 0 && info.fieldRight >= info.viewport,
+      `Illustration field bleeds through main's padding to the shell edges (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.statsTop === "0px" && info.statsBottom === "0px" && info.cellSep === "none",
+      `Exercise summary metrics carry no enclosing or internal rules (${vp.name})`,
+      JSON.stringify(info)
+    );
+    check(
+      info.recBorderLeft === "3px" && /rgb\(/.test(info.recBorderColor || ""),
+      `Recommendation keeps its 3px accent rail (${vp.name})`,
+      JSON.stringify(info)
+    );
+    await context.close();
+  }
+}
+
 export async function runHistoryResponsiveLayoutChecks(browser, check = assert) {
   console.log("\nResponsive History layout (320×568)");
   const context = await browser.newContext({ viewport: { width: 320, height: 568 } });
@@ -2326,9 +2444,12 @@ async function main() {
     await runDimmedStateAccessibility(browser);
   } else if (process.argv.includes("--workout-validation-focus")) {
     await runWorkoutValidationFocusCheck(browser);
+  } else if (process.argv.includes("--exercise-illustration")) {
+    await runExerciseIllustrationAccessibility(browser);
   } else {
     await runWorkoutValidationFocusCheck(browser);
     await runAccessibleInteractions(browser);
+    await runExerciseIllustrationAccessibility(browser);
     await runHistoryResponsiveLayoutChecks(browser);
     await runLocalizedHistoryAndTourChecks(browser);
     await runDimmedStateAccessibility(browser);
