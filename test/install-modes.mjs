@@ -139,6 +139,13 @@ const heroShape = () => {
   const hero = document.querySelector(".firstrun-hero");
   const logo = document.querySelector(".firstrun__logo");
   const wordmark = document.querySelector(".firstrun__wordmark");
+  const lede = document.querySelector(".firstrun__lede");
+  const firstControl = document.querySelector("#firstRunInstallAction");
+  const installLabel = document.querySelector("#firstRunInstallLabel");
+  const installCard = document.querySelector("#firstRunInstallCard");
+  const programLabel = document.querySelector("#firstRunProgramLabel");
+  const rows = document.querySelector(".firstrun__rows");
+  const continueButton = document.querySelector(".firstrun__continue");
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
   const range = document.createRange();
   range.selectNodeContents(poem);
@@ -154,7 +161,8 @@ const heroShape = () => {
     // ones, and a wrapped line shows up as one more than was written.
     rendered: lineRects.length,
     written: poem.textContent.split("\n").filter((line) => line.trim()).length,
-    poemFill: Math.max(...lineRects.map((r) => r.width)) / p.width,
+    poemSize: parseFloat(getComputedStyle(poem).fontSize),
+    poemHeight: p.height,
     compact: matchMedia("(max-width:759px)").matches,
     artBeforePoem: a.bottom <= p.top + 1,
     artSeparated: !intersects(a, t) && !intersects(a, p),
@@ -165,6 +173,21 @@ const heroShape = () => {
     artRatio: a.width / a.height,
     artContained: getComputedStyle(art).backgroundSize === "contain",
     noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    heroBottom: h.bottom,
+    ledeTop: lede.getBoundingClientRect().top,
+    firstControlTop: firstControl?.getBoundingClientRect().top ?? null,
+    viewportHeight: innerHeight,
+    leftEdges: {
+      hero: h.left,
+      title: t.left,
+      poem: p.left,
+      lede: lede.getBoundingClientRect().left,
+      installLabel: installLabel.getBoundingClientRect().left,
+      installCard: installCard.getBoundingClientRect().left,
+      programLabel: programLabel.getBoundingClientRect().left,
+      rows: rows.getBoundingClientRect().left,
+      continueButton: continueButton.getBoundingClientRect().left,
+    },
     logoWidth: Math.round(logo.getBoundingClientRect().width),
     wordmarkSize: parseFloat(getComputedStyle(wordmark).fontSize),
     // The tracked wordmark ends on a letter-space nothing fills, so the ink is
@@ -518,7 +541,8 @@ async function run() {
   // ---- The hero's shape, from compact phones through the wide composition ----
   {
     console.log("\nThe ethos hero's shape");
-    for (const width of [320, 390, 430, 759, 760, 768, 1024]) {
+    const poemSizeAt759 = new Map();
+    for (const width of [320, 390, 430, 759, 760, 768, 1024, 1280]) {
       for (const locale of ["en-US", "pt-BR"]) {
         const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, locale, width });
         // The poem is measured in characters of a web font; measuring before it
@@ -532,11 +556,6 @@ async function run() {
           `${at}: the poem keeps the breaks it was written with`,
           JSON.stringify(shape)
         );
-        assert(
-          shape.poemFill >= 0.82,
-          `${at}: the poem uses its available measure`,
-          JSON.stringify(shape)
-        );
         assert(shape.artSeparated, `${at}: text never overlaps the illustration`, JSON.stringify(shape));
         assert(
           shape.artInsideHero && shape.artInsideViewport && shape.artContained,
@@ -548,13 +567,13 @@ async function run() {
           `${at}: the illustration keeps its original proportions`,
           JSON.stringify(shape)
         );
-        const minimumArtWidth =
-          width === 320 ? 220 : width === 390 ? 270 : width === 430 ? 300 : width < 1024 ? 340 : 360;
-        assert(
-          shape.artWidth >= minimumArtWidth,
-          `${at}: the illustration uses the available space`,
-          JSON.stringify({ minimumArtWidth, ...shape })
-        );
+        if (width === 390) {
+          assert(
+            shape.artWidth >= 240,
+            `${at}: the retained mobile illustration is at least 240px wide`,
+            JSON.stringify(shape)
+          );
+        }
         assert(
           shape.compact ? shape.artBeforePoem : !shape.artBeforePoem,
           `${at}: the responsive hero uses the intended composition`,
@@ -571,6 +590,34 @@ async function run() {
           `${at}: the mark and the wordmark are centred on the column`,
           JSON.stringify(shape)
         );
+        if (width === 320 || width === 390) {
+          assert(
+            shape.ledeTop < shape.viewportHeight,
+            `${at}: the introduction text starts on the first screen`,
+            JSON.stringify(shape)
+          );
+          assert(
+            shape.firstControlTop != null && shape.firstControlTop <= 1.15 * shape.viewportHeight,
+            `${at}: the first control is within 1.15 screens`,
+            JSON.stringify(shape)
+          );
+        }
+        if (width === 759) poemSizeAt759.set(locale, shape.poemSize);
+        if (width === 760) {
+          assert(
+            Math.abs(shape.poemSize - poemSizeAt759.get(locale)) < 1,
+            `${at}: the poem size stays continuous across the breakpoint`,
+            JSON.stringify({ at759: poemSizeAt759.get(locale), at760: shape.poemSize })
+          );
+        }
+        if (width === 768 || width === 1280) {
+          const edges = Object.values(shape.leftEdges);
+          assert(
+            Math.max(...edges) - Math.min(...edges) <= 1,
+            `${at}: first-run content shares the hero's left edge`,
+            JSON.stringify(shape.leftEdges)
+          );
+        }
         allErrors.push(...errors);
         await context.close();
       }

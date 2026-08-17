@@ -59,8 +59,14 @@ supported width. A translation is re-broken by hand rather than allowed to
 wrap wherever the browser happens to find room. `node test/install-modes.mjs`
 counts the rendered lines against the written ones and also checks text/art
 separation, aspect ratio, containment, lockup prominence, horizontal overflow,
-and that the longest authored line occupies most of its available measure at
-compact and wide viewports.
+and continuous type sizing across the responsive breakpoint. The poem is sized
+for legibility and centred within a `40ch` measure; the remaining side margin is
+intentional, not a space the type must fill.
+
+On a 390 px first-run screen the complete picture remains at least 240 px wide.
+That choice means the install card may begin below the first screen, but the
+introduction to the setup controls must remain visible there and the first
+control must stay within a short scroll (at most 1.15 screens).
 
 The hero's illustration — the calf-carrier grown into the bull-carrier — lives
 at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so

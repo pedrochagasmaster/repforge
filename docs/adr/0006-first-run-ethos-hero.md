@@ -41,7 +41,7 @@ even though the gate had substantially more usable width. Growing that float
 would either wrap the authored poem lines or put graphite behind text. The hero
 therefore becomes a grid in source order: title, complete illustration, poem.
 On compact screens those regions stack, with the illustration sized from the
-usable column and capped at 340 px. At 760 px the grid switches to two columns;
+usable column and capped at 250 px. At 760 px the grid switches to two columns;
 the illustration spans the title and poem rows in a column at least 340 px wide.
 The breakpoint and minimum meet without the art shrinking as the viewport grows.
 
@@ -50,13 +50,16 @@ or run off an edge. Its element uses the export's exact `1072 / 998` aspect rati
 and `background-size:contain`; the grid gap makes text/art separation structural
 rather than dependent on authored line lengths. The poem still renders exactly
 the breaks carried by each translation. Once the art moved out of the poem's
-float, its compact type scale was increased so the longest line occupies about
-90% of the available measure rather than leaving an unused half-column.
-`test/install-modes.mjs` checks that
-geometry at compact and wide viewports in English and Portuguese — including
-both sides of the 760 px breakpoint — with no overlap, no horizontal overflow,
-exact artwork ratio, and minimum visual prominence for both the illustration
-and brand lockup.
+float, its measure remains centred and capped at `40ch`; the margin beside that
+measure is intentional. The poem's size is set for legibility, not column fill.
+On a 390 px screen the picture remains at least 240 px wide and the introduction
+to the setup controls must begin on the first screen. The accepted cost is that
+the install card itself may require a short scroll: preserving the larger
+picture takes priority, while the introduction still tells the lifter what to
+do next. `test/install-modes.mjs` checks that geometry at compact and wide
+viewports in English and Portuguese — including both sides of the 760 px
+breakpoint — with no overlap, no horizontal overflow, exact artwork ratio,
+continuous poem sizing, and the first control within 1.15 screens.
 
 Rejected: bleeding the picture off an edge (crops the load); enlarging the old
 float (wraps or overlaps the poem); placing it beside copy on a compact phone

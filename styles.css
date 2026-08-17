@@ -2504,15 +2504,14 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-hero{
   position:relative;isolation:isolate;container-type:inline-size;display:grid;
   grid-template-areas:"title" "art" "body";
-  /* The longest authored line uses about 90% of the compact column. The old
-     float-driven scale survived after the art moved to its own row and left a
-     conspicuous empty half-column beside the poem. */
-  --poem:clamp(11px,4.15cqw,16px);
-  --poem-line:calc(1.5 * var(--poem));
+  /* This is a legible supporting passage, not a second headline. Its compact
+     scale leaves enough of the first screen to introduce the setup controls. */
+  --poem:clamp(11px,3.4cqw,13px);
+  --poem-line:calc(1.42 * var(--poem));
 }
 .firstrun-hero__title{
   grid-area:title;position:relative;z-index:1;margin:0;max-width:14ch;
-  font-size:clamp(34px,11.5cqw,52px);font-weight:700;letter-spacing:-0.025em;line-height:1.04;color:var(--ink);
+  font-size:clamp(32px,10cqw,46px);font-weight:700;letter-spacing:-0.025em;line-height:1.04;color:var(--ink);
 }
 /* Decorative, so it is painted rather than marked up: nothing to announce, and
    a missing export leaves paper behind the copy instead of a broken image,
@@ -2520,8 +2519,8 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    app's own paper, so it needs no field of its own to dissolve into. The box
    uses the export's exact 1072/998 ratio and `contain`; neither axis can crop. */
 .firstrun-hero__art{
-  grid-area:art;z-index:0;aspect-ratio:1072/998;width:min(78cqw,340px);max-width:100%;
-  margin:clamp(18px,5cqw,26px) auto clamp(20px,5.5cqw,30px);
+  grid-area:art;z-index:0;aspect-ratio:1072/998;width:min(78cqw,250px);max-width:100%;
+  margin:clamp(13px,3.7cqw,19px) auto clamp(15px,4cqw,22px);
   background:no-repeat center/contain url("assets/brand/milo-hero.webp");
   pointer-events:none;
 }
@@ -2531,10 +2530,10 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   line-height:var(--poem-line);color:var(--ink);
 }
 .firstrun__lede{
-  width:min(100%,var(--maxw));margin:clamp(30px,6vw,44px) auto 0;
+  width:min(100%,var(--maxw));margin:clamp(30px,6vw,44px) 0 0;
   font-size:16px;line-height:1.45;color:var(--ink-soft);
 }
-.firstrun__section{width:min(100%,var(--maxw));margin:40px auto 0}
+.firstrun__section{width:min(100%,var(--maxw));margin:40px 0 0}
 .firstrun__eyebrow{
   display:flex;align-items:center;gap:14px;margin:0;
   font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);
@@ -2543,7 +2542,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__rows{margin-top:4px}
 .firstrun__continue{
   display:flex;align-items:center;justify-content:center;gap:12px;
-  width:min(100%,var(--maxw));margin:36px auto 0;padding:12px;min-height:44px;
+  width:min(100%,var(--maxw));margin:36px 0 0;padding:12px;min-height:44px;
   background:none;border:0;cursor:pointer;font:inherit;font-size:15px;font-weight:500;color:var(--ink);
 }
 
@@ -2594,7 +2593,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    screen on a phone, and it is the only orange field in the app. */
 .installcard{
   display:grid;grid-template-columns:auto 1fr;gap:20px 22px;align-items:start;
-  margin:20px calc(-1 * var(--firstrun-pad)) 0;
+  margin:20px 0 0;
   padding:28px var(--firstrun-pad) 24px;background:var(--accent-deep);color:#fff;
 }
 .installcard__icon{flex:none;display:block;width:56px;height:56px;color:#fff}
