@@ -2144,6 +2144,35 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .exdet__rec{border-left:3px solid var(--accent);background:transparent;border-top:0;border-right:0;border-bottom:0;
   border-radius:0;padding:10px 0 10px 14px;margin-bottom:14px}
 .exdet__rec .rec{margin:8px 0 0}
+/* The illustration is an opaque square on its own warm ground. Dropping it
+   straight onto the page would read as a pasted tile, so the field carries that
+   warmth full-bleed and dissolves into the page above and below it. The fade is
+   a colour bridge between two near-neutral backgrounds and is the one gradient
+   the design allows; it authorises none elsewhere. See
+   docs/design/exercise-detail-illustration.md. */
+.exdet-art{
+  --exercise-art-bg:#F4ECE1;
+  --exercise-art-lead:18px;
+  --exercise-art-trail:30px;
+  margin:2px calc(-1 * max(16px,env(safe-area-inset-right))) 12px calc(-1 * max(16px,env(safe-area-inset-left)));
+  /* The stops are lengths, not percentages, because they have to land on the
+     empty bands above and below the picture. A percentage stop moves with the
+     field's height, so on a wide shell the fade climbs back over the artwork
+     and re-draws the very edge it exists to dissolve. */
+  background:linear-gradient(to bottom,
+    var(--bg) 0,var(--exercise-art-bg) var(--exercise-art-lead),
+    var(--exercise-art-bg) calc(100% - var(--exercise-art-trail)),var(--bg) 100%);
+}
+.exdet-art__figure{
+  display:flex;justify-content:center;
+  padding:var(--exercise-art-lead) 0 var(--exercise-art-trail);
+}
+.exdet-art__img{display:block;width:min(80%,450px);height:auto}
+/* Four columns of rules around a single stat cluster fight the orange
+   recommendation rail for the eye. On this page whitespace does the grouping,
+   so the shared band drops its frame here and only here. */
+.exdet__stats{border-top:0;border-bottom:0;margin-top:4px}
+.exdet__stats .statrow__cell::after{content:none}
 .exsessions{display:flex;flex-direction:column;gap:0}
 .exsess{background:transparent;border:0;border-bottom:1px solid var(--rule);border-radius:0;padding:14px 0}
 .exsess__head{display:flex;align-items:center;flex-wrap:wrap;gap:6px 10px;font-size:13px;color:var(--ink-soft)}

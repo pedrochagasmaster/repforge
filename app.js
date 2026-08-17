@@ -5310,6 +5310,15 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const backKey=exView.from==="stats"?"nav.stats":exView.from==="program"?"nav.program":exView.from==="history"?"nav.history":"nav.log";
   const back=$("#exBack");if(back)back.textContent=`‹ ${t(backKey)}`;
 
+  /* Unlike a list thumbnail this drawing is the only place the lifter can see
+     how the movement is set up, so it gets a describing alt and no lazy hint —
+     it is above the fold. Movements without licensed artwork render nothing at
+     all; a placeholder tile would only promise something that never arrives. */
+  const artSrc=exerciseRefMedia(exRef);
+  const artHtml=artSrc?`<div class="exdet-art"><div class="exdet-art__figure">`+
+    `<img class="exdet-art__img" src="${esc(artSrc)}" alt="${esc(t("preview.art_alt",{name}))}" `+
+    `decoding="async" width="768" height="768"></div></div>`:"";
+
   const rec=tmpl?recommendation(tmpl):null;
   const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
     `<div class="recblock__head">${esc(rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label)}</div>`+
@@ -5341,8 +5350,9 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
 
   el.innerHTML=`<p class="exdet__muscle">${esc(muscleListLabel(tmpl?.primary||""))}</p><h2 class="exdet__name">${esc(name)}</h2>`+
     `<p class="exdet__meta">${tmpl?`${esc(dayLabel(tmpl.day))} · ${tmpl.sets} × ${tmpl.min}–${tmpl.max} ${esc(t("log.reps"))} · RIR 0–${fmt(state.settings.rirHigh)}`:esc(t("exercise.not_in_program"))}</p>`+
+    artHtml+
     recHtml+
-    `<div class="statrow statrow--4">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
+    `<div class="statrow statrow--4 exdet__stats">${tiles.map(tile=>`<div class="statrow__cell"><div class="statrow__val">${tile.val}</div><div class="statrow__cap">${tile.label}</div></div>`).join("")}</div>`+
     `<p class="section-label section-label--row"><span>${esc(t("exercise.progression"))}</span><span class="range-static">${esc(t("exercise.range_12w"))}</span></p>`+
     `<p class="lede">${esc(t("stats.e1rm_caption"))}</p>`+
     `<div class="chart-wrap"><canvas id="exChart" height="240" aria-label="${esc(t("exercise.chart_aria",{name}))}"></canvas></div>`+
@@ -6035,6 +6045,10 @@ function loggedExerciseRefs(){
    a broken-image request is both a wasted fetch and a visible glyph. Both
    shapes are the same size so a mixed list stays aligned. */
 const exerciseMedia=e=>(e&&typeof e.media==="string"&&e.media)||null;
+/* A program slot and an identity recovered from a log row both carry a library
+   id rather than the artwork itself, so the illustration has to come from the
+   definition they point at. A custom entry resolves too and simply has none. */
+const exerciseRefMedia=ref=>exerciseMedia(ref?.libraryId!=null?libraryEntry(ref.libraryId):ref);
 const emptyThumb=({size="md"}={})=>
   `<span class="exthumb exthumb--${esc(size)} exthumb--empty" aria-hidden="true"></span>`;
 function exerciseThumb(e,{size="md"}={}){
