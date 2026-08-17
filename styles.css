@@ -2506,7 +2506,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   grid-template-areas:"title" "art" "body";
   /* This is a legible supporting passage, not a second headline. Its compact
      scale leaves enough of the first screen to introduce the setup controls. */
-  --poem:clamp(11px,3.4cqw,13px);
+  --poem:clamp(11px,3.39cqw,13px);
   --poem-line:calc(1.42 * var(--poem));
 }
 .firstrun-hero__title{
