@@ -49,7 +49,10 @@ The picture is always shown whole, inside the page, never cropped, stretched,
 or run off an edge. Its element uses the export's exact `1072 / 998` aspect ratio
 and `background-size:contain`; the grid gap makes text/art separation structural
 rather than dependent on authored line lengths. The poem still renders exactly
-the breaks carried by each translation. `test/install-modes.mjs` checks that
+the breaks carried by each translation. Once the art moved out of the poem's
+float, its compact type scale was increased so the longest line occupies about
+90% of the available measure rather than leaving an unused half-column.
+`test/install-modes.mjs` checks that
 geometry at compact and wide viewports in English and Portuguese — including
 both sides of the 760 px breakpoint — with no overlap, no horizontal overflow,
 exact artwork ratio, and minimum visual prominence for both the illustration

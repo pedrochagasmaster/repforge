@@ -2504,8 +2504,11 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-hero{
   position:relative;isolation:isolate;container-type:inline-size;display:grid;
   grid-template-areas:"title" "art" "body";
-  --poem:clamp(9.5px,3.25cqw,16px);
-  --poem-line:calc(1.62 * var(--poem));
+  /* The longest authored line uses about 90% of the compact column. The old
+     float-driven scale survived after the art moved to its own row and left a
+     conspicuous empty half-column beside the poem. */
+  --poem:clamp(11px,4.15cqw,16px);
+  --poem-line:calc(1.5 * var(--poem));
 }
 .firstrun-hero__title{
   grid-area:title;position:relative;z-index:1;margin:0;max-width:14ch;
@@ -2523,7 +2526,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   pointer-events:none;
 }
 .firstrun-hero__body{
-  grid-area:body;position:relative;z-index:1;margin:0;
+  grid-area:body;position:relative;z-index:1;width:min(100%,40ch);margin:0;justify-self:center;
   white-space:pre-line;font-family:var(--mono);font-size:var(--poem);
   line-height:var(--poem-line);color:var(--ink);
 }
@@ -2553,7 +2556,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   }
   .firstrun-hero__title{align-self:end;font-size:clamp(44px,6.2cqw,54px)}
   .firstrun-hero__art{width:100%;margin:0;align-self:center}
-  .firstrun-hero__body{margin-top:clamp(24px,3cqw,30px)}
+  .firstrun-hero__body{margin-top:clamp(24px,3cqw,30px);justify-self:start}
 }
 
 .firstrun-row{

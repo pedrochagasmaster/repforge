@@ -58,8 +58,9 @@ The written breaks still have to fit as written, in both languages, at every
 supported width. A translation is re-broken by hand rather than allowed to
 wrap wherever the browser happens to find room. `node test/install-modes.mjs`
 counts the rendered lines against the written ones and also checks text/art
-separation, aspect ratio, containment, lockup prominence, and horizontal
-overflow at compact and wide viewports.
+separation, aspect ratio, containment, lockup prominence, horizontal overflow,
+and that the longest authored line occupies most of its available measure at
+compact and wide viewports.
 
 The hero's illustration — the calf-carrier grown into the bull-carrier — lives
 at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so

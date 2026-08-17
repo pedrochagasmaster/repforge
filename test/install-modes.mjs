@@ -142,6 +142,7 @@ const heroShape = () => {
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
   const range = document.createRange();
   range.selectNodeContents(poem);
+  const lineRects = [...range.getClientRects()].filter((r) => r.width > 0);
   const p = poem.getBoundingClientRect();
   const a = art.getBoundingClientRect();
   const t = title.getBoundingClientRect();
@@ -151,8 +152,9 @@ const heroShape = () => {
   return {
     // One rect per line box the poem occupies; the stanza breaks are empty
     // ones, and a wrapped line shows up as one more than was written.
-    rendered: [...range.getClientRects()].filter((r) => r.width > 0).length,
+    rendered: lineRects.length,
     written: poem.textContent.split("\n").filter((line) => line.trim()).length,
+    poemFill: Math.max(...lineRects.map((r) => r.width)) / p.width,
     compact: matchMedia("(max-width:759px)").matches,
     artBeforePoem: a.bottom <= p.top + 1,
     artSeparated: !intersects(a, t) && !intersects(a, p),
@@ -528,6 +530,11 @@ async function run() {
         assert(
           shape.rendered === shape.written,
           `${at}: the poem keeps the breaks it was written with`,
+          JSON.stringify(shape)
+        );
+        assert(
+          shape.poemFill >= 0.82,
+          `${at}: the poem uses its available measure`,
           JSON.stringify(shape)
         );
         assert(shape.artSeparated, `${at}: text never overlaps the illustration`, JSON.stringify(shape));
