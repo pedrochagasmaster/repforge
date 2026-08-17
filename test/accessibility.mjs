@@ -1752,6 +1752,26 @@ export async function runHistoryResponsiveLayoutChecks(browser, check = assert) 
   await context.close();
 }
 
+/* Views enter under `animation: rise .35s both` and the workout shell under
+   `woEnter`, both of which start from opacity 0 and scale(.98). Fill mode `both`
+   means computed style reports that opening keyframe until the animation
+   timeline actually advances, so a runner that is starved of frames hands the
+   audits a page that is fully transparent and 2% too small. That reads as text
+   at a contrast ratio of exactly 1 against its own backdrop, and as 43.12px tap
+   targets. Jump every finite animation to its end state so the audits measure
+   the settled page they are asking about. The rest-over indicator loops
+   forever and `finish()` rejects an infinite animation, so failures are per
+   animation rather than fatal. */
+async function settleAnimations(page) {
+  await page.evaluate(() => {
+    for (const animation of document.getAnimations()) {
+      try {
+        animation.finish();
+      } catch {}
+    }
+  });
+}
+
 async function visitSurfaces(page) {
   await showView(page, "log");
   await page.evaluate(() => toast("audit toast"));
@@ -1781,6 +1801,7 @@ async function visitSurfaces(page) {
     const term = page.locator(".term[data-term]").first();
     if (await term.count()) await term.click().catch(() => {});
   }
+  await settleAnimations(page);
 }
 
 async function runTouchTarget320Regression(browser) {
