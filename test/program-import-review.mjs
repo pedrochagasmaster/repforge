@@ -14,7 +14,9 @@
  * And what happens when the file is not a program at all: a full backup
  * dropped on this door used to import its exercises and drop its sessions
  * without a word, so a restore looked like it had worked and left History
- * empty. The backup is recognised and the restore offered instead.
+ * empty. The backup is recognised and the restore offered instead — including
+ * when it carries no sessions at all, since the settings, the language and the
+ * program's own identity are still in the file and still lost without it.
  *
  * Run: node test/program-import-review.mjs   (requires the app served over HTTP)
  */
@@ -579,13 +581,104 @@ async function main() {
       "program only imports the exercises and leaves history alone",
       JSON.stringify({ program: restored.program?.length, log: restored.log?.length }));
 
-    // A backup with no sessions has nothing to lose, so it stays a program file.
+    // ---- a backup with no sessions is still a backup ----
+    // It was read as a plain program file, so a lifter restoring onto a fresh
+    // install got their exercises and silently lost everything else the file
+    // was carrying: the language, the rest timer, the RIR mode, and the
+    // program's own name, dates and block. An empty log is not consent.
+    const freshBackup = JSON.stringify({
+      settings: { unit: "lb", restSec: 180, rirMode: "effort", lang: "pt", jumpPct: 5 },
+      programMeta: {
+        id: "fresh-meta", name: "Projeto novo", started: "2026-07-01",
+        equipment: ["machines"], mesocycleLengthWeeks: 8, onboarded: true,
+      },
+      program: [
+        { day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 },
+        { day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12 },
+      ],
+      log: [],
+      programHistory: [],
+    });
+
     await reset(page);
     await openEditor(page);
-    await importFile(page, "empty-log.json", JSON.stringify({ ...JSON.parse(backup), log: [] }));
+    await importFile(page, "empty-log.json", freshBackup);
+    choice = await dialogState();
+    assert(choice.open && !choice.reviewing,
+      "a backup carrying no sessions still opens the restore choice", JSON.stringify(choice));
+    assert(choice.programOnly, "the program-only import stays on the table for it", JSON.stringify(choice));
+    const noLogButtons = await page.evaluate(() => ({
+      merge: !document.querySelector("#importMerge").classList.contains("hidden"),
+      replace: !document.querySelector("#importReplace").classList.contains("hidden"),
+    }));
+    assert(!noLogButtons.merge && noLogButtons.replace,
+      "Merge is not offered for a file with no sessions to merge", JSON.stringify(noLogButtons));
+    assert(!/\b0 sessions\b/.test(choice.body),
+      "the choice states what the file holds instead of counting sessions it has none of", choice.body);
+
+    await page.evaluate(() => document.querySelector("#importReplace").click());
+    await settle(page, 900);
+    restored = await getState(page);
+    assert(restored.settings?.lang === "pt" && restored.settings?.restSec === 180 &&
+      restored.settings?.rirMode === "effort" && restored.settings?.unit === "lb" &&
+      restored.settings?.jumpPct === 5,
+      "restoring a session-less backup brings its settings", JSON.stringify(restored.settings));
+    assert(restored.programMeta?.name === "Projeto novo" && restored.programMeta?.id === "fresh-meta" &&
+      restored.programMeta?.started === "2026-07-01" && restored.programMeta?.mesocycleLengthWeeks === 8,
+      "restoring a session-less backup brings its program details", JSON.stringify(restored.programMeta));
+    assert(restored.program?.length === 2, "restoring a session-less backup brings its program",
+      JSON.stringify(restored.program?.length));
+
+    // Program only is a partial import by choice — but the split's name is part
+    // of the split, so it travels rather than being reinvented as "Untitled".
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "empty-log.json", freshBackup);
+    await page.evaluate(() => document.querySelector("#importProgramOnly").click());
+    await settle(page, 500);
+    await page.evaluate(() => {
+      const draft = window.__repforgeImportDraft();
+      draft.rows.forEach((r) => { r.reviewed = true; });
+    });
+    await page.evaluate(() => document.querySelector("#importCommit").click());
+    await settle(page, 900);
+    restored = await getState(page);
+    assert(restored.programMeta?.name === "Projeto novo",
+      "program only carries the program's name out of a backup", JSON.stringify(restored.programMeta?.name));
+    assert(restored.settings?.restSec !== 180 && restored.settings?.rirMode !== "effort",
+      "program only leaves the settings on this device alone", JSON.stringify(restored.settings));
+
+    // The setup gate's Import is the same door: a restore there has to restore,
+    // not hand a new install its exercises and a fresh set of defaults.
+    await reset(page);
+    await page.evaluate(() => window.startOnboarding("first-run"));
+    await importFile(page, "empty-log.json", freshBackup);
+    choice = await dialogState();
+    assert(choice.open && !choice.reviewing,
+      "the setup gate's import offers the restore for a session-less backup", JSON.stringify(choice));
+    await page.evaluate(() => document.querySelector("#importReplace").click());
+    await settle(page, 900);
+    restored = await getState(page);
+    const gates = await page.evaluate(() => ({
+      firstRun: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+      onboarding: !!document.querySelector("#onboarding")?.classList.contains("active"),
+    }));
+    assert(restored.settings?.lang === "pt" && restored.programMeta?.name === "Projeto novo",
+      "restoring from the setup gate keeps the settings and the program name",
+      JSON.stringify({ settings: restored.settings, meta: restored.programMeta }));
+    assert(!gates.firstRun && !gates.onboarding,
+      "a restore answers the setup gate it came through", JSON.stringify(gates));
+
+    // A program-only file is still a program file: it has no log to speak for.
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "program.json", JSON.stringify({
+      version: 3, meta: { name: "Just a program" },
+      exercises: [{ day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 }],
+    }));
     choice = await dialogState();
     assert(!choice.open && choice.reviewing,
-      "a backup carrying no sessions goes straight to the review as before", JSON.stringify(choice));
+      "a program export goes straight to the review, as it always did", JSON.stringify(choice));
   } finally {
     await context.close();
     await browser.close();

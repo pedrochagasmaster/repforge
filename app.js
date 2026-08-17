@@ -2518,8 +2518,12 @@ function programStatusLabel(adherence,health){
 function parseProgramImport(parsed){
   const custom=Array.isArray(parsed?.customExercises)?parsed.customExercises:[];
   if(Array.isArray(parsed))return{exercises:parsed,meta:null,customExercises:[]};
-  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta:parsed.meta??null,customExercises:custom};
-  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta:parsed.meta??null,customExercises:custom};
+  // A backup files the same metadata under programMeta. Importing one as a
+  // program is a partial import by design — but a split's name is part of the
+  // split, so it travels with the exercises rather than being reinvented.
+  const meta=parsed?.meta??parsed?.programMeta??null;
+  if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta,customExercises:custom};
+  if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta,customExercises:custom};
   return null}
 
 /* Merges an import's custom definitions into the lifter's own library.
@@ -6981,15 +6985,17 @@ async function commitImportReview(io=storageIO){
   return result}
 
 /* A backup is not a program file. It carries the log, the settings and the meta
-   as well as the program, so reading only its exercises drops the sessions on
-   the floor — silently, because the review screen has nothing to show for a key
-   it never looked at. Recognised here so the program door can offer the restore
+   as well as the program, so reading only its exercises drops the rest on the
+   floor — silently, because the review screen has nothing to show for a key it
+   never looked at. An empty log is no reason to demote one: the language, the
+   rest timer, the RIR mode and the program's own name and block are still in
+   there, and the lifter restoring onto a fresh install has nothing else left to
+   read them out of. Recognised here so the program door can offer the restore
    instead of quietly discarding it. */
-function parseBackupWithSessions(text){
+function parseBackupFile(text){
   let parsed=null;
   try{parsed=JSON.parse(text)}catch{return null}
-  if(!isImportableState(parsed))return null;
-  return parsed.log.some(r=>r&&r.session)?parsed:null}
+  return isImportableState(parsed)?parsed:null}
 
 /* Reading a file no longer changes anything: it opens the review screen. The
    old path linked names and wrote the program behind one confirm(), which meant
@@ -6997,7 +7003,7 @@ function parseBackupWithSessions(text){
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{
     const text=await f.text();
-    const backup=parseBackupWithSessions(text);
+    const backup=parseBackupFile(text);
     const source=parseProgramSource(text,f.name);
     // A backup whose program is empty is still a backup worth restoring, so the
     // exercise requirement only has to hold for a file that is nothing else.
@@ -7013,8 +7019,9 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
       draft.fromFirstRun=firstRunOpen();
       draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active")}
     if(backup)
-      // The button said "program", so program-only stays on the table — but the
-      // sessions in the file are now named out loud and can be restored.
+      // The button said "program", so program-only stays on the table — but
+      // what else the file is carrying is now named out loud and can be
+      // restored instead.
       openImportChoice(Object.assign(importChoiceContext(backup,e.target,io),
         {bodyKey:"dialog.import.body_program",programOnly:draft?()=>openImportReview(draft):null}));
     else openImportReview(draft);
@@ -7041,8 +7048,14 @@ async function importJson(e){const f=e.target.files?.[0];if(!f)return;
 function leaveSetupGates(){
   if(firstRunOpen())closeFirstRun();
   if($("#onboarding")?.classList.contains("active"))closeOnboarding()}
+/* The body and the buttons describe the file that is actually in front of the
+   lifter. A backup taken before the first workout carries no sessions at all,
+   so the session arithmetic is noise and Merge has nothing to add: what the
+   file still holds is the program and the settings, and the choice is restore
+   it or leave this device alone. */
 function openImportChoice(ctx){const d=$("#importChoice");
-  $("#importChoiceBody").textContent=t(ctx.bodyKey||"dialog.import.body",{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
+  const bodyKey=ctx.bodyKey||"dialog.import.body",mergeable=ctx.inSessions>0;
+  $("#importChoiceBody").textContent=t(mergeable?bodyKey:`${bodyKey}_nolog`,{curSessions:ctx.curSessions,curSets:ctx.curSets,inSessions:ctx.inSessions,inSets:ctx.inSets,newSessions:ctx.newSessions});
   const active=document.activeElement;
   // The file input itself is never the way back: it is the invisible half of a
   // label button. Whichever door this came through, focus returns to that
@@ -7051,8 +7064,9 @@ function openImportChoice(ctx){const d=$("#importChoice");
     :(ctx.opener?.closest?.("label")||$("#importJson")?.closest("label")||$("#dataImportRow"));
   const close=()=>closeModal(d);
   const io=ctx.io||storageIO;
-  const onlyBtn=$("#importProgramOnly");
+  const onlyBtn=$("#importProgramOnly"),mergeBtn=$("#importMerge");
   if(onlyBtn)onlyBtn.classList.toggle("hidden",!ctx.programOnly);
+  if(mergeBtn)mergeBtn.classList.toggle("hidden",!mergeable);
   openModal(d,{initialFocus:$("#importCancel"),returnFocus:opener,onEscape:close});
   let importBusy=false;
   $("#importCancel").onclick=()=>{if(importBusy)return;close();toast(t("toast.import_cancelled"))};
