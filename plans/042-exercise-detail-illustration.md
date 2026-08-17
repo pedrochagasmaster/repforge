@@ -21,7 +21,10 @@
 - **Depends on:** `docs/design/exercise-detail-illustration.md`
 - **Category:** UX / accessibility / visual design
 - **Planned at:** commit `66b427c`, 2026-08-16
-- **Implementation status:** TODO
+- **Implementation status:** BUILT, BLOCKED ON A DESIGN DECISION. Steps 1, 2, 3
+  and 5 are implemented and every gate passes. Step 4 reached a STOP condition:
+  one fixed warm-field token cannot serve the shipped library. See
+  [Findings](#findings-2026-08-17) before merging.
 
 ## Outcome
 
@@ -204,6 +207,64 @@ Stop and report rather than improvise if:
 - the change requires new schema, storage, recommendation, or localization
   behavior; or
 - a mobile viewport gains horizontal overflow from the safe-area bleed.
+
+## Findings (2026-08-17)
+
+### STOP: one warm-field token cannot serve the shipped library
+
+The design samples `--exercise-art-bg: #F4ECE1` from the approved mock's source
+artwork, the hack squat (`sqk_mc`). Measuring the empty outer ring of all 96
+shipped illustrations shows that value is not representative of the set:
+
+| | value |
+|---|---|
+| library median background | `#ECE0CF` |
+| `sqk_mc` background (the token's source) | `#F4EDE1` |
+| max-channel distance from `#F4ECE1`, median asset | 19 |
+| max-channel distance from `#F4ECE1`, worst asset (`sp_mc`) | 35 |
+| assets within 5 of the token | 5 of 96 |
+| assets at 13 or more | 69 of 96 |
+
+Because the field bleeds full-width while the picture is `min(80%, 450px)`, that
+distance is drawn as a hard vertical edge down both sides of every square. The
+hack squat dissolves exactly as the mock shows; the other 91 movements read as
+the pasted tile the treatment exists to avoid, which fails the design's own
+acceptance criterion that the artwork's background dissolve "without a visible
+hard rectangle".
+
+Re-sampling the token from the library median instead only moves the problem: it
+would put the hero exercise 18 off its own field and break the primary mock
+comparison. **No single constant satisfies both.**
+
+Edge veils do not rescue this. They are specified to hide the top and bottom
+boundary of a *matched* square, and they cannot bridge a 35-level mismatch
+without fading instructional pixels, which the design forbids.
+
+### What shipped
+
+Everything that does not depend on the token: the conditional markup, the
+full-bleed geometry and safe-area handling, the length-based gradient, the
+scoped divider removal, the browser coverage, and the cache bump. The treatment
+is correct and complete the moment the field colour matches the asset.
+
+### One deviation from the letter of the spec
+
+The gradient uses length stops pinned to the figure's padding rather than the
+spec's `10%` / `88%` percentages. Percentage stops scale with the field's
+height, so at the 560 px shell the fade climbed roughly 30 px back over the
+artwork and redrew the top and bottom edge it exists to dissolve. Lengths keep
+the hold behind the illustration at every width, which is what the spec asks
+for in prose ("hold the warm field behind the useful illustration area").
+
+### Recommended resolution (needs design sign-off — out of this plan's scope)
+
+Carry the field colour per movement instead of as one constant: have
+`tools/build-exercises.mjs` sample each asset's border ring and emit it beside
+`media`, then set `--exercise-art-bg` on the field from that value. This keeps
+the approved treatment verbatim, keeps the artwork untouched, and makes every
+one of the 96 illustrations dissolve the way the mock does. It is a generated
+library schema addition, which this plan lists as out of scope, so it needs a
+decision rather than an executor.
 
 ## Done when
 
