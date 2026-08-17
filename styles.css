@@ -2457,8 +2457,8 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   /* Above the app shell and its docked chrome, below the sheet layer (40/41):
      the iOS instructions are a sheet over this screen, not under it. */
   position:fixed;inset:0;z-index:35;background:var(--bg);
-  overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
-  padding:calc(env(safe-area-inset-top) + 26px) 0 calc(env(safe-area-inset-bottom) + 30px);
+  overflow-x:hidden;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
+  padding:calc(env(safe-area-inset-top) + clamp(20px,4.5vw,34px)) 0 calc(env(safe-area-inset-bottom) + 30px);
 }
 .firstrun:focus{outline:none}
 .firstrun.hidden{display:none}
@@ -2472,80 +2472,68 @@ body.is-firstrun{overflow:hidden}
    `visibility:hidden` takes both away without removing the box. */
 body.is-firstrun main{visibility:hidden}
 body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{display:none}
-.firstrun__inner{max-width:var(--maxw);margin:0 auto;padding:0 22px}
-.firstrun__brand{display:flex;align-items:center;justify-content:center;gap:15px;margin-bottom:26px}
+.firstrun__inner{
+  --firstrun-pad:clamp(18px,5vw,34px);
+  max-width:900px;margin:0 auto;padding:0 var(--firstrun-pad);
+}
+.firstrun__brand{
+  display:flex;align-items:center;justify-content:center;
+  gap:clamp(17px,4.5vw,22px);margin-bottom:clamp(28px,7vw,44px);
+}
 /* The mark stands on the paper here: no plate, no rounded corner of ours, and
    `contain` centres the whole yoke rather than cropping it. The art it points
    at is the ground-free rendering (assets/brand/mark.png), so there is no
    square to hide in the first place. */
-.firstrun__logo{display:block;flex:none;width:48px;height:48px;object-fit:contain}
+.firstrun__logo{
+  display:block;flex:none;width:clamp(62px,16vw,76px);height:clamp(62px,16vw,76px);object-fit:contain;
+}
 /* Tracking adds a letter-space after the last R that nothing fills, so the row
    would sit half of it left of true centre without taking that space back. */
-.firstrun__wordmark{margin-right:-.26em;font-size:17px;font-weight:650;letter-spacing:.26em;text-transform:uppercase;color:var(--ink)}
-/* The ethos hero (ADR 0006): ink type on the page's own paper — no plate —
-   with the illustration set into the poem's own block and the lines flowing
-   around it.
-
-   The illustration is never cropped and never leaves the page, so the copy is
-   what gives: the poem's lines are cut short while they pass the picture and
-   run their full length once below it. That shape is authored into the strings
-   (the brand guide records the counts — 26 characters passing, about 36
-   below), and the float is what enforces it: a line longer than the gap wraps
-   instead of colliding.
-
-   So the picture is measured from the poem rather than from the screen. It
-   takes what the column has left once a 27-character line has its room, and
-   it stops above the poem's ninth line, which is the first long one — the two
-   caps `min()` picks between below. Whichever binds, the picture lands inside
-   the poem's own block instead of up beside the sentence, and the counts hold
-   at every width and in either language rather than only at the widths they
-   were drawn at: the fixed 52% they replace left the first stanza wrapping on
-   a 320px phone. `container-type` is what lets those sums read the hero's own
-   column, which the gate's side padding makes narrower than the viewport. */
+.firstrun__wordmark{
+  margin-right:-.26em;font-size:clamp(21px,5.3vw,26px);font-weight:650;
+  letter-spacing:.26em;text-transform:uppercase;color:var(--ink);
+}
+/* The ethos hero (ADR 0006): ink type and the complete illustration on the
+   page's own paper — no plate. Text and art always occupy separate grid areas.
+   On a phone the picture becomes a strong, centred beat between the sentence
+   and poem; once the column is genuinely wide enough, it moves beside the copy.
+   This lets the art grow without asking a fixed line of the poem to wrap around
+   it, putting graphite behind type, or bleeding any part of the export off the
+   screen. `container-type` sizes the compact composition from the usable hero
+   column rather than from the viewport outside its safe padding. */
 .firstrun-hero{
-  position:relative;isolation:isolate;container-type:inline-size;
-  --poem:clamp(9.5px,3.25cqw,16px);
-  --poem-line:calc(1.62 * var(--poem));
-  --poem-lead:18px;  /* sentence → poem, and the picture starts on the same line */
-  --art-gap:14px;    /* poem → picture */
-  --art-foot:9px;    /* picture → the first line that runs beneath it */
+  position:relative;isolation:isolate;container-type:inline-size;display:grid;
+  grid-template-areas:"title" "art" "body";
+  /* This is a legible supporting passage, not a second headline. Its compact
+     scale leaves enough of the first screen to introduce the setup controls. */
+  --poem:clamp(11px,3.39cqw,13px);
+  --poem-line:calc(1.42 * var(--poem));
 }
 .firstrun-hero__title{
-  position:relative;z-index:1;margin:0;max-width:15ch;
-  font-size:clamp(30px,9.4vw,40px);font-weight:700;letter-spacing:-0.02em;line-height:1.06;color:var(--ink);
+  grid-area:title;position:relative;z-index:1;margin:0;max-width:14ch;
+  font-size:clamp(32px,10cqw,46px);font-weight:700;letter-spacing:-0.025em;line-height:1.04;color:var(--ink);
 }
 /* Decorative, so it is painted rather than marked up: nothing to announce, and
    a missing export leaves paper behind the copy instead of a broken image,
    which is what the empty-tile doctrine asks for. The file is drawn on the
-   app's own paper, so it needs no field of its own to dissolve into.
-
-   It carries the poem's face so `ch` below is one character of the poem, and
-   the two sums are the two ways the copy can be broken: 27ch is the longest
-   line that passes the picture with a character to spare, and eight lines is
-   how far down the poem the ninth — its first long one — begins, less the 3px
-   that keeps a float's foot from landing on that line box and narrowing it.
-   1072/998 is the export's own ratio. */
+   app's own paper, so it needs no field of its own to dissolve into. The box
+   uses the export's exact 1072/998 ratio and `contain`; neither axis can crop. */
 .firstrun-hero__art{
-  float:right;z-index:0;aspect-ratio:1072/998;
-  font-family:var(--mono);font-size:var(--poem);
-  width:min(
-    calc(100% - 27ch - var(--art-gap)),
-    calc(1072 / 998 * (8 * var(--poem-line) - var(--art-foot) - 3px))
-  );
-  margin:var(--poem-lead) 0 var(--art-foot) var(--art-gap);
-  background:no-repeat right top/contain url("assets/brand/milo-hero.webp");
+  grid-area:art;z-index:0;aspect-ratio:1072/998;width:min(78cqw,250px);max-width:100%;
+  margin:clamp(13px,3.7cqw,19px) auto clamp(15px,4cqw,22px);
+  background:no-repeat center/contain url("assets/brand/milo-hero.webp");
   pointer-events:none;
 }
 .firstrun-hero__body{
-  position:relative;z-index:1;margin:var(--poem-lead) 0 0;
+  grid-area:body;position:relative;z-index:1;width:min(100%,40ch);margin:0;justify-self:center;
   white-space:pre-line;font-family:var(--mono);font-size:var(--poem);
   line-height:var(--poem-line);color:var(--ink);
 }
-/* The float leaves the poem's last lines beside nothing, so the block that
-   follows has to start below the picture rather than beside its foot. */
-.firstrun-hero::after{content:"";display:block;clear:both}
-.firstrun__lede{margin:26px 0 0;font-size:16px;line-height:1.45;color:var(--ink-soft)}
-.firstrun__section{margin-top:40px}
+.firstrun__lede{
+  width:min(100%,var(--maxw));margin:clamp(30px,6vw,44px) 0 0;
+  font-size:16px;line-height:1.45;color:var(--ink-soft);
+}
+.firstrun__section{width:min(100%,var(--maxw));margin:40px 0 0}
 .firstrun__eyebrow{
   display:flex;align-items:center;gap:14px;margin:0;
   font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);
@@ -2554,8 +2542,20 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__rows{margin-top:4px}
 .firstrun__continue{
   display:flex;align-items:center;justify-content:center;gap:12px;
-  width:100%;margin:36px 0 0;padding:12px;min-height:44px;
+  width:min(100%,var(--maxw));margin:36px 0 0;padding:12px;min-height:44px;
   background:none;border:0;cursor:pointer;font:inherit;font-size:15px;font-weight:500;color:var(--ink);
+}
+
+@media (min-width:760px){
+  .firstrun-hero{
+    --poem:clamp(13px,1.7cqw,15px);
+    grid-template-columns:minmax(0,1fr) minmax(340px,44%);
+    grid-template-areas:"title art" "body art";
+    column-gap:clamp(32px,5cqw,48px);align-items:start;
+  }
+  .firstrun-hero__title{align-self:end;font-size:clamp(44px,6.2cqw,54px)}
+  .firstrun-hero__art{width:100%;margin:0;align-self:center}
+  .firstrun-hero__body{margin-top:clamp(24px,3cqw,30px);justify-self:start}
 }
 
 .firstrun-row{
@@ -2593,7 +2593,8 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    screen on a phone, and it is the only orange field in the app. */
 .installcard{
   display:grid;grid-template-columns:auto 1fr;gap:20px 22px;align-items:start;
-  margin:20px -22px 0;padding:28px 22px 24px;background:var(--accent-deep);color:#fff;
+  margin:20px 0 0;
+  padding:28px var(--firstrun-pad) 24px;background:var(--accent-deep);color:#fff;
 }
 .installcard__icon{flex:none;display:block;width:56px;height:56px;color:#fff}
 .installcard__text{min-width:0}

@@ -1,0 +1,34 @@
+{
+  "320x844": {
+    "poemHeight": 203.125,
+    "poemSize": 11,
+    "pictureWidth": 221.515625,
+    "heroBottom": 647.140625,
+    "introductionTop": 677.140625,
+    "firstControlTop": 948.515625
+  },
+  "390x844": {
+    "poemHeight": 219.578125,
+    "poemSize": 11.8989,
+    "pictureWidth": 250,
+    "heroBottom": 700.15625,
+    "introductionTop": 730.15625,
+    "firstControlTop": 957.34375
+  },
+  "430x932": {
+    "poemHeight": 239.890625,
+    "poemSize": 13,
+    "pictureWidth": 250,
+    "heroBottom": 742.046875,
+    "introductionTop": 772.046875,
+    "firstControlTop": 999.234375
+  },
+  "768x1024": {
+    "poemHeight": 239.890625,
+    "poemSize": 13,
+    "pictureWidth": 340,
+    "heroBottom": 600.890625,
+    "introductionTop": 644.890625,
+    "firstControlTop": 851.078125
+  }
+}

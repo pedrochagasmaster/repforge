@@ -126,28 +126,70 @@ const card = () => ({
   markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
 
-// What the gate looks like, measured rather than described. The picture is
-// sized from the poem — the room a 27-character line needs, and the eight
-// short lines it may pass — so no line the passage was written with may wrap,
-// and the picture lands in the poem's own block instead of up beside the
-// sentence. The brand row above them is centred on the column.
+// What the gate looks like, measured rather than described. The picture and
+// copy use separate grid regions, so no line the passage was written with may
+// wrap and no text can collide with the illustration. Compact screens stack
+// title, art, and poem; wide screens give the art its own column. The complete
+// export stays contained at its authored ratio, the page never grows wider
+// than the viewport, and the enlarged brand row remains centred.
 const heroShape = () => {
   const poem = document.querySelector(".firstrun-hero__body");
   const art = document.querySelector(".firstrun-hero__art");
+  const title = document.querySelector(".firstrun-hero__title");
+  const hero = document.querySelector(".firstrun-hero");
   const logo = document.querySelector(".firstrun__logo");
   const wordmark = document.querySelector(".firstrun__wordmark");
+  const lede = document.querySelector(".firstrun__lede");
+  const firstControl = document.querySelector("#firstRunInstallAction");
+  const installLabel = document.querySelector("#firstRunInstallLabel");
+  const installCard = document.querySelector("#firstRunInstallCard");
+  const programLabel = document.querySelector("#firstRunProgramLabel");
+  const rows = document.querySelector(".firstrun__rows");
+  const continueButton = document.querySelector(".firstrun__continue");
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
   const range = document.createRange();
   range.selectNodeContents(poem);
+  const lineRects = [...range.getClientRects()].filter((r) => r.width > 0);
   const p = poem.getBoundingClientRect();
   const a = art.getBoundingClientRect();
+  const t = title.getBoundingClientRect();
+  const h = hero.getBoundingClientRect();
+  const intersects = (one, two) =>
+    one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
   return {
     // One rect per line box the poem occupies; the stanza breaks are empty
     // ones, and a wrapped line shows up as one more than was written.
-    rendered: [...range.getClientRects()].filter((r) => r.width > 0).length,
+    rendered: lineRects.length,
     written: poem.textContent.split("\n").filter((line) => line.trim()).length,
-    artInPoem: a.top >= p.top - 1 && a.bottom <= p.bottom,
+    poemSize: parseFloat(getComputedStyle(poem).fontSize),
+    poemHeight: p.height,
+    compact: matchMedia("(max-width:759px)").matches,
+    artBeforePoem: a.bottom <= p.top + 1,
+    artSeparated: !intersects(a, t) && !intersects(a, p),
+    artInsideHero:
+      a.left >= h.left - 1 && a.right <= h.right + 1 && a.top >= h.top - 1 && a.bottom <= h.bottom + 1,
+    artInsideViewport: a.left >= -1 && a.right <= innerWidth + 1,
     artWidth: Math.round(a.width),
+    artRatio: a.width / a.height,
+    artContained: getComputedStyle(art).backgroundSize === "contain",
+    noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
+    heroBottom: h.bottom,
+    ledeTop: lede.getBoundingClientRect().top,
+    firstControlTop: firstControl?.getBoundingClientRect().top ?? null,
+    viewportHeight: innerHeight,
+    leftEdges: {
+      hero: h.left,
+      title: t.left,
+      poem: p.left,
+      lede: lede.getBoundingClientRect().left,
+      installLabel: installLabel.getBoundingClientRect().left,
+      installCard: installCard.getBoundingClientRect().left,
+      programLabel: programLabel.getBoundingClientRect().left,
+      rows: rows.getBoundingClientRect().left,
+      continueButton: continueButton.getBoundingClientRect().left,
+    },
+    logoWidth: Math.round(logo.getBoundingClientRect().width),
+    wordmarkSize: parseFloat(getComputedStyle(wordmark).fontSize),
     // The tracked wordmark ends on a letter-space nothing fills, so the ink is
     // centred when this sits a pixel or two right of the column's middle.
     lockupOffset: Math.round(
@@ -496,10 +538,11 @@ async function run() {
     allErrors.push(...errors);
   }
 
-  // ---- The hero's shape, at the widths phones actually are ----
+  // ---- The hero's shape, from compact phones through the wide composition ----
   {
     console.log("\nThe ethos hero's shape");
-    for (const width of [320, 390, 430]) {
+    const poemSizeAt759 = new Map();
+    for (const width of [320, 390, 430, 759, 760, 768, 1024, 1280]) {
       for (const locale of ["en-US", "pt-BR"]) {
         const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, locale, width });
         // The poem is measured in characters of a web font; measuring before it
@@ -513,12 +556,68 @@ async function run() {
           `${at}: the poem keeps the breaks it was written with`,
           JSON.stringify(shape)
         );
-        assert(shape.artInPoem, `${at}: the picture sits in the poem's own block`, JSON.stringify(shape));
+        assert(shape.artSeparated, `${at}: text never overlaps the illustration`, JSON.stringify(shape));
+        assert(
+          shape.artInsideHero && shape.artInsideViewport && shape.artContained,
+          `${at}: the complete illustration stays contained in the page`,
+          JSON.stringify(shape)
+        );
+        assert(
+          Math.abs(shape.artRatio - 1072 / 998) < 0.002,
+          `${at}: the illustration keeps its original proportions`,
+          JSON.stringify(shape)
+        );
+        if (width === 390) {
+          assert(
+            shape.artWidth >= 240,
+            `${at}: the retained mobile illustration is at least 240px wide`,
+            JSON.stringify(shape)
+          );
+        }
+        assert(
+          shape.compact ? shape.artBeforePoem : !shape.artBeforePoem,
+          `${at}: the responsive hero uses the intended composition`,
+          JSON.stringify(shape)
+        );
+        assert(
+          shape.logoWidth >= 62 && shape.wordmarkSize >= 21,
+          `${at}: the brand lockup has deliberate prominence`,
+          JSON.stringify(shape)
+        );
+        assert(shape.noHorizontalOverflow, `${at}: the page has no horizontal overflow`, JSON.stringify(shape));
         assert(
           Math.abs(shape.lockupOffset) <= 4,
           `${at}: the mark and the wordmark are centred on the column`,
           JSON.stringify(shape)
         );
+        if (width === 320 || width === 390) {
+          assert(
+            shape.ledeTop < shape.viewportHeight,
+            `${at}: the introduction text starts on the first screen`,
+            JSON.stringify(shape)
+          );
+          assert(
+            shape.firstControlTop != null && shape.firstControlTop <= 1.15 * shape.viewportHeight,
+            `${at}: the first control is within 1.15 screens`,
+            JSON.stringify(shape)
+          );
+        }
+        if (width === 759) poemSizeAt759.set(locale, shape.poemSize);
+        if (width === 760) {
+          assert(
+            Math.abs(shape.poemSize - poemSizeAt759.get(locale)) < 1,
+            `${at}: the poem size stays continuous across the breakpoint`,
+            JSON.stringify({ at759: poemSizeAt759.get(locale), at760: shape.poemSize })
+          );
+        }
+        if (width === 768 || width === 1280) {
+          const edges = Object.values(shape.leftEdges);
+          assert(
+            Math.max(...edges) - Math.min(...edges) <= 1,
+            `${at}: first-run content shares the hero's left edge`,
+            JSON.stringify(shape.leftEdges)
+          );
+        }
         allErrors.push(...errors);
         await context.close();
       }
