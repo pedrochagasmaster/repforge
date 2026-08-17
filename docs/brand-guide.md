@@ -26,6 +26,42 @@ text, tooltips, notifications, export contents, or store metadata. Themed copy
 was implemented and deliberately reverted (see ADR 0004). The app icon is the
 single permitted surface for the theme (see [The mark](#the-mark)).
 
+## Ethos
+
+The belief the product exists to serve, stated once. It retells the Milo
+story in plain life terms — no training vocabulary — so it holds for anyone
+building anything slowly. Like the name's origin, it is **internal background
+— never user-facing**: it uses "carrying", which the theme rule bans from
+strings, and preaching would break the voice below. Taurifer is built for
+people already living this ethos; the app stays quiet so their record can
+speak. Use it to judge decisions, not to write copy.
+
+> Strength isn't something you're born with.\
+> It's something you build.\
+> Day after day.
+>
+> The load grows a little every day.\
+> Never enough to notice.\
+> Just enough to matter.\
+> You grow with it.\
+> Until one day you're carrying what once seemed impossible.
+>
+> What you carry shapes you.\
+> It becomes part of you.\
+> You become what you had to become.
+>
+> There was never a day you became strong.\
+> Only days you didn't put it down.
+>
+> To those who see your daily effort, nothing about you is sudden.\
+> To everyone else, you're unrecognizable.
+>
+> Strength will be your gift.\
+> Not because anyone gave it to you —\
+> no one could.\
+> You built it.\
+> Day after day.
+
 ## Voice and copy
 
 Taurifer states facts and offers next steps, in second person, with no hype.
