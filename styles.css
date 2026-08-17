@@ -2482,7 +2482,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    child, anchors to the right behind it without a wrap. */
 .firstrun-hero{position:relative;margin:0 -22px;background:var(--ink);overflow:hidden}
 .firstrun-hero__title{
-  position:relative;z-index:1;margin:0;padding:30px 22px 0;max-width:14ch;
+  position:relative;z-index:1;margin:0;padding:30px 22px 0;max-width:19ch;
   font-size:28px;font-weight:650;letter-spacing:-0.02em;line-height:1.12;color:var(--bg);
 }
 .firstrun-hero__body{
