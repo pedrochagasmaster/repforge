@@ -52,10 +52,17 @@ the page: **the copy gives, not the picture.** Lines passing the illustration
 stay at 26 characters or fewer; lines below it may run to about 36. In
 practice that means the first stanza and the head of the second stay short, and
 the passage opens out as it descends. A translation has to be re-broken to that
-shape, not merely translated into the old one. The layout enforces the rule
-rather than trusting it — the picture floats, so a line that outgrows its gap
-wraps instead of colliding — but a wrapped line is a broken line, so keep to
-the counts.
+shape, not merely translated into the old one.
+
+Those counts are the layout, not a note about it: the illustration is sized
+from them — the room a 27-character line needs, and the eight short lines it
+may pass before the ninth, the first long one — so it gives way rather than
+letting a line wrap, at any width, in either language (ADR 0006, amended
+2026-08). Which means a re-break is a layout change: a ninth line that starts
+short, or a first stanza that runs long, moves the picture. `node
+test/install-modes.mjs` counts the rendered lines against the written ones at
+320, 390 and 430 px, so a break that does not fit fails there rather than on
+someone's phone.
 
 The hero's illustration — the calf-carrier grown into the bull-carrier — lives
 at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so
@@ -178,7 +185,8 @@ name's origin is allowed to show.
   ad-hoc downscale.
 - `assets/brand/mark.png` is the same mark **with the paper ground dropped**,
   for the one place inside the app that stands it on the page: the first-run
-  gate's brand row. It is derived from `icons/icon.svg` by
+  gate's brand row, where mark and wordmark sit **centred** on the column. It
+  is derived from `icons/icon.svg` by
   `tools/build-brand-mark.mjs`, which removes the single full-bleed ground rect
   and rasterises the rest — so it is generated output twice over. Re-run it
   when a new mark lands; never hand-edit or hand-crop it, and never use the app

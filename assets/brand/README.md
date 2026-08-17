@@ -27,17 +27,23 @@ bull-carrier, 960×894. Owner-supplied art, landed 2026-08 from a 1242×1266 PNG
 the product owner provided.
 
 It is shown whole at every width — never cropped, never running off an edge —
-tucked into the corner beside the hero's sentence, with the poem flowing around
-it (`float`). The copy is what accommodates the picture: lines stay short while
-they pass it and run their full length below it. Do not solve a layout problem
-here by cropping this file or letting it bleed; re-break the copy instead
+set into the poem's own block, with the poem flowing around it (`float`). The
+copy is what accommodates the picture: lines stay short while they pass it and
+run their full length below it. Do not solve a layout problem here by cropping
+this file or letting it bleed; re-break the copy instead
 (`docs/brand-guide.md`, "Ethos").
+
+Its size is not a number anywhere: the CSS derives it from the poem, taking
+whichever is smaller of the column left over once a 27-character line has its
+room and the eight short lines it may pass (ADR 0006, amended 2026-08). So a
+new export at this ratio needs no measurement, and one at a different ratio
+needs only `aspect-ratio` changed.
 
 Two things were done to that original, and both matter if it is ever replaced:
 
 1. **Trimmed to the ink**, with about 16 px of the original's margin left on
    each side (`x 130, y 171, w 1072, h 998`) — margin, not artwork: nothing of
-   either carrier is cut. The hero draws the file about 180 CSS px wide on a
+   either carrier is cut. The hero draws the file about 143 CSS px wide on a
    390 px phone, so every pixel of empty margin in it is a pixel the figures do
    not get.
 2. **White-balanced onto the app's paper.** The drawing's own cream ground is
