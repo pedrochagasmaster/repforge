@@ -25,6 +25,11 @@
  * illustration must stay decorative: painted by CSS, hidden from assistive
  * technology, never announced.
  *
+ * The hero is also the one place in the app whose *shape* is copy: a wrapped
+ * line is a broken line, so the last section drives the gate across phone
+ * widths in both languages and counts the line boxes the poem actually
+ * occupies against the breaks its string was written with.
+ *
  * Run: node test/install-modes.mjs   (with a static server on REPFORGE_URL)
  */
 import { launchChromium } from "./browser.mjs";
@@ -62,9 +67,9 @@ function assert(cond, name, detail) {
   }
 }
 
-async function firstRunPage(browser, { ua, locale = "en-US", standalone = false } = {}) {
+async function firstRunPage(browser, { ua, locale = "en-US", standalone = false, width = 390 } = {}) {
   const context = await browser.newContext({
-    viewport: { width: 390, height: 844 },
+    viewport: { width, height: 844 },
     userAgent: ua,
     locale,
     hasTouch: true,
@@ -120,6 +125,37 @@ const card = () => ({
   // rendering and never the app icon, which carries a ground of its own.
   markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
+
+// What the gate looks like, measured rather than described. The picture is
+// sized from the poem — the room a 27-character line needs, and the eight
+// short lines it may pass — so no line the passage was written with may wrap,
+// and the picture lands in the poem's own block instead of up beside the
+// sentence. The brand row above them is centred on the column.
+const heroShape = () => {
+  const poem = document.querySelector(".firstrun-hero__body");
+  const art = document.querySelector(".firstrun-hero__art");
+  const logo = document.querySelector(".firstrun__logo");
+  const wordmark = document.querySelector(".firstrun__wordmark");
+  const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
+  const range = document.createRange();
+  range.selectNodeContents(poem);
+  const p = poem.getBoundingClientRect();
+  const a = art.getBoundingClientRect();
+  return {
+    // One rect per line box the poem occupies; the stanza breaks are empty
+    // ones, and a wrapped line shows up as one more than was written.
+    rendered: [...range.getClientRects()].filter((r) => r.width > 0).length,
+    written: poem.textContent.split("\n").filter((line) => line.trim()).length,
+    artInPoem: a.top >= p.top - 1 && a.bottom <= p.bottom,
+    artWidth: Math.round(a.width),
+    // The tracked wordmark ends on a letter-space nothing fills, so the ink is
+    // centred when this sits a pixel or two right of the column's middle.
+    lockupOffset: Math.round(
+      (logo.getBoundingClientRect().left + wordmark.getBoundingClientRect().right) / 2 -
+        (row.left + row.right) / 2
+    ),
+  };
+};
 
 async function run() {
   console.log(`Install modes\nTarget: ${BASE}\n`);
@@ -458,6 +494,35 @@ async function run() {
     assert(pt.continueLabel === "Continuar no navegador", "PT Chromium escape hatch", pt.continueLabel);
     await context.close();
     allErrors.push(...errors);
+  }
+
+  // ---- The hero's shape, at the widths phones actually are ----
+  {
+    console.log("\nThe ethos hero's shape");
+    for (const width of [320, 390, 430]) {
+      for (const locale of ["en-US", "pt-BR"]) {
+        const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, locale, width });
+        // The poem is measured in characters of a web font; measuring before it
+        // arrives measures the fallback.
+        await page.evaluate(() => document.fonts.ready);
+        await page.waitForTimeout(150);
+        const shape = await page.evaluate(heroShape);
+        const at = `${width}px ${locale}`;
+        assert(
+          shape.rendered === shape.written,
+          `${at}: the poem keeps the breaks it was written with`,
+          JSON.stringify(shape)
+        );
+        assert(shape.artInPoem, `${at}: the picture sits in the poem's own block`, JSON.stringify(shape));
+        assert(
+          Math.abs(shape.lockupOffset) <= 4,
+          `${at}: the mark and the wordmark are centred on the column`,
+          JSON.stringify(shape)
+        );
+        allErrors.push(...errors);
+        await context.close();
+      }
+    }
   }
 
   await browser.close();
