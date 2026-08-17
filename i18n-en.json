@@ -826,6 +826,8 @@
   "install.ios.foot": "Taurifer will open from its icon on your Home Screen.",
   "setup.aria": "Set up Taurifer",
   "setup.title": "Set up Taurifer",
+  "setup.ethos.title": "Strength isn't given. It's built.",
+  "setup.ethos.body": "Load by load. Day after day. Until you're carrying what once seemed impossible.",
   "setup.lede": "Install the app, then choose how to begin.",
   "setup.lede_installed": "Choose how you want to begin.",
   "setup.install_label": "Install",

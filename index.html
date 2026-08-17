@@ -562,7 +562,16 @@
         <img class="firstrun__logo" src="icons/icon.svg" alt="" width="46" height="46">
         <span class="firstrun__wordmark">Taurifer</span>
       </div>
-      <h1 class="firstrun__title" data-i18n="setup.title">Set up Taurifer</h1>
+      <h1 class="visually-hidden" data-i18n="setup.title">Set up Taurifer</h1>
+      <!-- The one user-facing rendering of the ethos (ADR 0006). The Milo
+           illustration lands here as the panel's first child —
+           <img class="firstrun-hero__art" src="assets/brand/milo-hero.webp" alt="">
+           — once the licensed export exists; steps in assets/brand/README.md.
+           Until then the hero ships text-only, deliberately. -->
+      <div class="firstrun-hero">
+        <p class="firstrun-hero__title" data-i18n="setup.ethos.title">Strength isn't given. It's built.</p>
+        <p class="firstrun-hero__body" data-i18n="setup.ethos.body">Load by load. Day after day. Until you're carrying what once seemed impossible.</p>
+      </div>
       <p class="firstrun__lede" id="firstRunLede" data-i18n="setup.lede">Install the app, then choose how to begin.</p>
 
       <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">

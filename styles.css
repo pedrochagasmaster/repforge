@@ -2473,11 +2473,24 @@ body.is-firstrun{overflow:hidden}
 body.is-firstrun main{visibility:hidden}
 body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{display:none}
 .firstrun__inner{max-width:var(--maxw);margin:0 auto;padding:0 22px}
-.firstrun__brand{display:flex;align-items:center;gap:15px;margin-bottom:46px}
+.firstrun__brand{display:flex;align-items:center;gap:15px;margin-bottom:30px}
 .firstrun__logo{display:block;width:46px;height:46px;border-radius:11px;object-fit:cover}
 .firstrun__wordmark{font-size:17px;font-weight:650;letter-spacing:.26em;text-transform:uppercase;color:var(--ink)}
-.firstrun__title{margin:0;font-size:34px;font-weight:650;letter-spacing:-0.02em;line-height:1.05;color:var(--ink)}
-.firstrun__lede{margin:12px 0 0;font-size:16px;line-height:1.45;color:var(--ink-soft)}
+/* The ethos hero (ADR 0006): an ink plate bled to the screen edges, paper
+   type on it (~15:1; the dimmed body still clears AA). The copy keeps a
+   short measure so the illustration, once it lands as the panel's first
+   child, anchors to the right behind it without a wrap. */
+.firstrun-hero{position:relative;margin:0 -22px;background:var(--ink);overflow:hidden}
+.firstrun-hero__title{
+  position:relative;z-index:1;margin:0;padding:30px 22px 0;max-width:14ch;
+  font-size:28px;font-weight:650;letter-spacing:-0.02em;line-height:1.12;color:var(--bg);
+}
+.firstrun-hero__body{
+  position:relative;z-index:1;margin:0;padding:12px 22px 30px;max-width:26ch;
+  font-size:14.5px;line-height:1.5;color:var(--bg);opacity:.8;
+}
+.firstrun-hero__art{position:absolute;top:0;right:0;height:100%;width:auto;max-width:62%;object-fit:cover;object-position:left center}
+.firstrun__lede{margin:18px 0 0;font-size:16px;line-height:1.45;color:var(--ink-soft)}
 .firstrun__section{margin-top:40px}
 .firstrun__eyebrow{
   display:flex;align-items:center;gap:14px;margin:0;
