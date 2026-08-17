@@ -47,22 +47,19 @@ typeset in the mono face as a short poem, and `/` above marks a line break
 and travel with the translation — a wrapped-wherever-it-lands version of this
 passage is a different passage.
 
-They are also cut to the illustration, which is never cropped and never leaves
-the page: **the copy gives, not the picture.** Lines passing the illustration
-stay at 26 characters or fewer; lines below it may run to about 36. In
-practice that means the first stanza and the head of the second stay short, and
-the passage opens out as it descends. A translation has to be re-broken to that
-shape, not merely translated into the old one.
+The illustration is never cropped and never leaves the page: **neither the copy
+nor the picture gives.** They occupy separate grid areas. On compact screens
+the complete picture is a centred beat between the title and poem; at 760 px
+and above it moves into a dedicated column beside both. Its box keeps the
+export's exact aspect ratio and paints it with `background-size:contain`, so no
+part of the drawing can be clipped or stretched.
 
-Those counts are the layout, not a note about it: the illustration is sized
-from them — the room a 27-character line needs, and the eight short lines it
-may pass before the ninth, the first long one — so it gives way rather than
-letting a line wrap, at any width, in either language (ADR 0006, amended
-2026-08). Which means a re-break is a layout change: a ninth line that starts
-short, or a first stanza that runs long, moves the picture. `node
-test/install-modes.mjs` counts the rendered lines against the written ones at
-320, 390 and 430 px, so a break that does not fit fails there rather than on
-someone's phone.
+The written breaks still have to fit as written, in both languages, at every
+supported width. A translation is re-broken by hand rather than allowed to
+wrap wherever the browser happens to find room. `node test/install-modes.mjs`
+counts the rendered lines against the written ones and also checks text/art
+separation, aspect ratio, containment, lockup prominence, and horizontal
+overflow at compact and wide viewports.
 
 The hero's illustration — the calf-carrier grown into the bull-carrier — lives
 at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so
@@ -71,7 +68,7 @@ like the mark, precached like every asset. No placeholder icons, initials, or
 silhouettes ever stand in for it (the same line the exercise tiles hold). It is
 white-balanced onto `--bg` so the file's own rectangle disappears into the page
 — the same problem the exercise detail page solves with a `mediaBg` field, made
-cheaper here by there being one file, shown small. How it was produced, and how
+cheaper here by there being one file. How it was produced, and how
 to replace it, is in `assets/brand/README.md`. Past the gate, the app stays
 quiet so the record can speak.
 

@@ -569,13 +569,13 @@
       <!-- The one user-facing rendering of the ethos (ADR 0006). The body is
            set like a poem: its string carries its own line breaks, which
            `white-space:pre-line` honours, so the block breaks where it was
-           written rather than wherever the phone happens to wrap it. Those
-           breaks are cut to the illustration — short lines while the poem
-           passes it, full-length ones below — so the art element has to sit
-           between the sentence and the poem, where it can float and the lines
-           can flow around it. The fallback below is the same copy as one
-           paragraph, for the moment before i18n applies. The illustration
-           itself is decorative and drawn by CSS from
+           written rather than wherever the phone happens to wrap it. The art
+           element sits between the sentence and poem in source order: the
+           responsive grid gives it a dedicated row on compact screens and a
+           dedicated column on wider ones, so neither language ever competes
+           with or overlaps the picture. The fallback below is the same copy
+           as one paragraph, for the moment before i18n applies. The
+           illustration itself is decorative and drawn by CSS from
            assets/brand/milo-hero.webp — an absent export leaves paper, never a
            broken image; details are in assets/brand/README.md. -->
       <div class="firstrun-hero">
