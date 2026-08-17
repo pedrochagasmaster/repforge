@@ -35,15 +35,23 @@ owner's file landed 2026-08; it is cropped to the ink and white-balanced onto
 drawn around it the way the exercise detail page needs one (`mediaBg`). Details
 in `assets/brand/README.md`.
 
-The picture is landscape and the space the poem leaves it is a tall column, so
-fitting it whole left the corner beside the sentence empty (product owner,
-2026-08: fill it). On a phone it is therefore drawn wider than that column and
-anchored bottom-left, letting the far side of the load run off the screen edge
-— a bleed, deliberately, with both carriers and their footing kept in frame.
-Past the shell's width the gate is no longer flush with the screen, a cut would
-land mid-page, and it fits whole again. The alternatives were worse: growing it
-towards the copy puts graphite behind the poem, and re-breaking the poem to a
-narrower measure buys ~20% and costs the mockup's lines.
+The picture is landscape and the space beside a column of poem is portrait, so
+something has to give for it to fill the corner beside the sentence (product
+owner, 2026-08: fill it). The owner settled which: **never the picture.** It is
+shown whole, inside the page, never cropped and never running off an edge —
+including the bleed that was tried first and rejected. What varies is the copy:
+the illustration is tucked into that corner and the poem flows around it, its
+lines cut short while they pass the picture and running their full length once
+below it. The line counts are recorded in the brand guide, because they are now
+part of the copy in both languages.
+
+The layout enforces the shape rather than trusting it: the picture is a float,
+so a line that outgrows its gap wraps rather than colliding with the art, at any
+width, in any language. Rejected along the way: bleeding it off the screen edge
+(crops the load, and lands a cut mid-page on a wide shell); growing it towards
+the copy (puts graphite behind the poem); and a uniformly narrower poem, which
+makes the block taller as fast as it makes the picture wider, leaving the same
+corner empty.
 
 The gate's brand row stands the mark on the page instead of on a plate, so it
 draws `assets/brand/mark.png` — the same mark with its full-bleed paper ground

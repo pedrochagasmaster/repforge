@@ -569,15 +569,18 @@
       <!-- The one user-facing rendering of the ethos (ADR 0006). The body is
            set like a poem: its string carries its own line breaks, which
            `white-space:pre-line` honours, so the block breaks where it was
-           written rather than wherever the phone happens to wrap it. The
-           fallback below is the same copy as one paragraph, for the moment
-           before i18n applies. The Milo illustration is the panel's
-           decorative art layer, drawn by CSS from assets/brand/milo-hero.webp
-           — an absent export leaves paper, never a broken image; landing
-           steps are in assets/brand/README.md. -->
+           written rather than wherever the phone happens to wrap it. Those
+           breaks are cut to the illustration — short lines while the poem
+           passes it, full-length ones below — so the art element has to sit
+           between the sentence and the poem, where it can float and the lines
+           can flow around it. The fallback below is the same copy as one
+           paragraph, for the moment before i18n applies. The illustration
+           itself is decorative and drawn by CSS from
+           assets/brand/milo-hero.webp — an absent export leaves paper, never a
+           broken image; details are in assets/brand/README.md. -->
       <div class="firstrun-hero">
-        <div class="firstrun-hero__art" aria-hidden="true"></div>
         <p class="firstrun-hero__title" data-i18n="setup.ethos.title">Strength isn't something you're born with.</p>
+        <div class="firstrun-hero__art" aria-hidden="true"></div>
         <p class="firstrun-hero__body" data-i18n="setup.ethos.body">Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it.</p>
       </div>
       <p class="firstrun__lede" id="firstRunLede" data-i18n="setup.lede">Install the app, then choose how to begin.</p>

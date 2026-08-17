@@ -150,7 +150,7 @@ async function run() {
     assert(
       shown.heroBody ===
         "Challenge after challenge.\nDay after day.\nEvery time you go beyond\nwhat you thought possible," +
-          "\nthe effort shapes you.\n\nIt becomes part of who you are.\nAnd you become who you\nneeded to be." +
+          "\nthe effort shapes you.\n\nIt becomes part of\nwho you are.\nAnd you become who you needed to be." +
           "\n\nStrength, then, is yours —\nnot because it was given to you,\nbut because you built it.",
       "the hero body carries the ethos, broken where it was written",
       JSON.stringify(shown.heroBody)
@@ -436,8 +436,8 @@ async function run() {
     assert(
       pt.heroBody ===
         "Desafio após desafio.\nDia após dia.\nToda vez que você vai além\ndo que julgava possível," +
-          "\no esforço molda você.\n\nEle passa a fazer parte de\nquem você é.\nE você se torna quem" +
-          "\nprecisou ser.\n\nA força, então, é sua —\nnão porque lhe foi dada,\nmas porque você a construiu.",
+          "\no esforço molda você.\n\nEle passa a fazer parte\nde quem você é.\nE você se torna quem precisou ser." +
+          "\n\nA força, então, é sua —\nnão porque lhe foi dada,\nmas porque você a construiu.",
       "PT hero body",
       JSON.stringify(pt.heroBody)
     );

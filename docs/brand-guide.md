@@ -39,15 +39,23 @@ app crosses once, never a working surface:
 | Key | English | Portuguese |
 | --- | --- | --- |
 | `setup.ethos.title` | Strength isn't something you're born with. | Força não vem de nascença. |
-| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of who you are. / And you become who you / needed to be. // Strength, then, is yours — / not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte de / quem você é. / E você se torna quem / precisou ser. // A força, então, é sua — / não porque lhe foi dada, / mas porque você a construiu. |
+| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of / who you are. / And you become who you needed to be. // Strength, then, is yours — / not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte / de quem você é. / E você se torna quem precisou ser. // A força, então, é sua — / não porque lhe foi dada, / mas porque você a construiu. |
 
 The body is the one string in the app that is **set, not just written**: it is
 typeset in the mono face as a short poem, and `/` above marks a line break
 (`\n` in the catalogues, `//` a stanza break). The breaks are part of the copy
 and travel with the translation — a wrapped-wherever-it-lands version of this
-passage is a different passage. Keep every line at 32 characters or fewer, in
-both languages, so the block holds its measure beside the illustration on a
-narrow phone.
+passage is a different passage.
+
+They are also cut to the illustration, which is never cropped and never leaves
+the page: **the copy gives, not the picture.** Lines passing the illustration
+stay at 26 characters or fewer; lines below it may run to about 36. In
+practice that means the first stanza and the head of the second stay short, and
+the passage opens out as it descends. A translation has to be re-broken to that
+shape, not merely translated into the old one. The layout enforces the rule
+rather than trusting it — the picture floats, so a line that outgrows its gap
+wraps instead of colliding — but a wrapped line is a broken line, so keep to
+the counts.
 
 The hero's illustration — the calf-carrier grown into the bull-carrier — lives
 at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so
