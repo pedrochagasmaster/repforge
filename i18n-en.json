@@ -825,6 +825,7 @@
   "setup.aria": "Set up Taurifer",
   "setup.title": "Set up Taurifer",
   "setup.lede": "Install the app, then choose how to begin.",
+  "setup.lede_installed": "Choose how you want to begin.",
   "setup.install_label": "Install",
   "setup.program_label": "Program",
   "setup.create.title": "Create a program",

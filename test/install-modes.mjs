@@ -136,9 +136,16 @@ async function run() {
       create: !!document.querySelector("#firstRunCreate"),
       topButton: !document.querySelector("#installBtn").classList.contains("hidden"),
       toast: (() => { const el = document.querySelector("#toast"); return el && !el.classList.contains("hidden") ? el.textContent : null; })(),
+      lede: document.querySelector("#firstRunLede")?.textContent || null,
+      continueShown: !document.querySelector("#firstRunContinue").classList.contains("hidden"),
     }));
     assert(accepted.calls === 1, "prompt() runs once per tap", String(accepted.calls));
     assert(accepted.toast === "Installing Taurifer…", "an accepted install is reported", String(accepted.toast));
+    assert(
+      accepted.lede === "Choose how you want to begin." && !accepted.continueShown,
+      "the screen drops to the program question alone",
+      JSON.stringify({ lede: accepted.lede, continueShown: accepted.continueShown })
+    );
     assert(!accepted.section, "an accepted install removes the install section", JSON.stringify(accepted));
     assert(accepted.gate && accepted.create, "the program choices stay", JSON.stringify(accepted));
     assert(!accepted.topButton, "the consumed event leaves no install button behind", JSON.stringify(accepted));
@@ -258,19 +265,35 @@ async function run() {
   }
 
   // ---- Already installed ----
+  // The first launch from the Home Screen icon is a first run with an empty
+  // store. Nothing can be installed there, but the program question is still
+  // open, so the screen must still ask it rather than hand over the wizard.
   {
     console.log("\nRunning installed, in standalone display mode");
     const { context, page, errors } = await firstRunPage(browser, { ua: ANDROID_UA, standalone: true });
     await page.evaluate(() => window.__fireInstall());
-    await page.waitForSelector("#onboarding.active", { timeout: 8000 });
+    await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 8000 });
     const st = await page.evaluate(() => ({
-      gate: !document.querySelector("#firstRun").classList.contains("hidden"),
+      section: !document.querySelector("#firstRunInstall").classList.contains("hidden"),
+      create: !!document.querySelector("#firstRunCreate"),
+      import: !!document.querySelector("#firstRunImport"),
+      lede: document.querySelector("#firstRunLede")?.textContent || null,
+      continueShown: !document.querySelector("#firstRunContinue").classList.contains("hidden"),
+      onboarding: document.querySelector("#onboarding").classList.contains("active"),
       banner: !document.querySelector("#installBanner").classList.contains("hidden"),
       topButton: !document.querySelector("#installBtn").classList.contains("hidden"),
     }));
-    assert(!st.gate, "the gate stays away", JSON.stringify(st));
+    assert(st.create && st.import, "the installed app still offers Create and Import", JSON.stringify(st));
+    assert(!st.onboarding, "it does not jump straight into the wizard", JSON.stringify(st));
+    assert(!st.section, "it promotes no install", JSON.stringify(st));
+    assert(st.lede === "Choose how you want to begin.", "the lede drops the install sentence", st.lede);
+    assert(!st.continueShown, "and there is no browser to continue in", JSON.stringify(st));
     assert(!st.banner, "the banner stays away", JSON.stringify(st));
     assert(!st.topButton, "the top install button stays away", JSON.stringify(st));
+
+    await page.click("#firstRunCreate");
+    await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+    assert(true, "Create still hands over to onboarding");
     allErrors.push(...errors);
     await context.close();
   }

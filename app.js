@@ -7338,13 +7338,24 @@ function renderFirstRunInstall(){
   const act=$("#firstRunInstallAction");if(act)act.onclick=triggerInstall;
   sec.classList.remove("hidden");
 }
+/** The lede and the escape hatch both speak to the install offer, so they follow
+ *  it. With nothing to install — most of all inside the installed app — the
+ *  screen is only the program question, and "Continue in browser" would be an
+ *  answer to a question nobody asked. */
+function setFirstRunOffer(offer){
+  const lede=$("#firstRunLede");
+  if(lede)lede.textContent=offer?t("setup.lede"):t("setup.lede_installed");
+  $("#firstRunContinue")?.classList.toggle("hidden",!offer);
+}
 /** Chrome accepted the install, or the app reports itself installed. Either way
  *  there is nothing left to install: the section goes, the choices stay. */
 function closeFirstRunInstall(){
   const sec=$("#firstRunInstall");if(sec)sec.classList.add("hidden");
   const card=$("#firstRunInstallCard");if(card)card.innerHTML="";
+  setFirstRunOffer(false);
 }
 function renderFirstRun(){
+  setFirstRunOffer(installMode()!=="none");
   const label=$("#firstRunContinueLabel");
   if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
   renderFirstRunInstall();
@@ -7368,10 +7379,21 @@ function suspendFirstRun(){
 function closeFirstRun(){
   firstRunActive=false;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
-/** The gate exists to put the install ahead of the program choice. With nothing
- *  to install it would only add a step, so first run stays as it was. */
+/** The gate carries two questions: install, and which program. It opens when
+ *  either one is live.
+ *
+ *  Standalone is the case that makes this worth stating. The lifter who has
+ *  just followed the install instructions opens the app from its icon, lands on
+ *  a first run with an empty store, and would otherwise be handed the eight-step
+ *  wizard — losing Import at the exact moment they went to the most trouble to
+ *  arrive. There is nothing left to install there, and the program question is
+ *  still open, so the screen opens without its install section.
+ *
+ *  In a browser that can neither install nor claim to be installed, the screen
+ *  would add a step and nothing else, so first run stays as it was. */
 function maybeShowFirstRun(){
-  if(!firstRunPending()||installMode()==="none")return false;
+  if(!firstRunPending())return false;
+  if(installMode()==="none"&&!isStandalone())return false;
   return openFirstRun()}
 /* Chrome decides when to offer beforeinstallprompt, and on a genuinely first
    visit that is usually after the page has loaded and been touched — well after

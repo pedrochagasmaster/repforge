@@ -55,19 +55,31 @@ mechanism; it is an illustration, and it is labelled as one in the markup.
 The first-run gate (`#firstRun`, "Set up Taurifer") shows the install
 section, then Create a program / Import a program, then "Continue in
 browser" (or "Continue in Safari"), which takes the install offer off the
-table and hands over to the first run the app has always had. The gate is
-interposed **only when there is an install to offer** — with
-`installMode() === "none"` it would add a step and nothing else, so
-onboarding opens directly, exactly as before. Chrome usually fires
+table and hands over to the first run the app has always had.
+
+The gate carries two questions — install, and which program — and opens
+when **either** is live. Concretely: when `installMode()` offers
+something, or when the app is already running standalone. The standalone
+half is the one worth stating. A lifter who follows the install
+instructions opens the app from its icon and lands on a first run with an
+empty store; without that clause they meet the eight-step wizard and lose
+Import at the exact moment they went to the most trouble to arrive. There
+is nothing left to install there, so the screen opens without its install
+section, without the "Continue in browser" link, and with a lede that
+drops the install sentence. The same trimming happens in place when
+Chrome reports an accepted install. In a browser that can neither install
+nor claim to be installed, the screen would add a step and nothing else,
+so onboarding opens directly, exactly as before. Chrome usually fires
 `beforeinstallprompt` after load and after some interaction, so rather
 than stalling boot to wait for it, the gate also opens when the event
 lands while first run is still unanswered (an untouched step 0 has
 nothing to lose; a lifter part-way through the questions keeps their
 place and gets the banner instead).
 
-We rejected: showing the gate on every first run regardless of
-capability (its own lede, "Install the app, then choose how to begin", is
-false where nothing can be installed); waiting at boot for an event that
+We rejected: showing the gate on every first run, in every browser
+(where nothing can be installed and nothing is installed, it is one more
+screen between the lifter and their program — the Import link on
+onboarding's first step already covers that case); waiting at boot for an event that
 often never comes (it delays onboarding and lets a late `showOnboarding`
 stomp on whatever the lifter started meanwhile); and keeping the generic
 "open your browser menu" copy as a fallback (it is a guess dressed as an
