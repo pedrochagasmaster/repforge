@@ -616,7 +616,7 @@ function decodePendingJournal(key,raw){
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
-      expectedProgramFingerprint,reconcileSessionIds,dayRenames,
+      expectedProgramFingerprint,expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
       effectOutcome,effect:effectOutcome.effect,rollback}}}
   catch{return null}}
 function readPendingJournal(){
@@ -651,11 +651,12 @@ function normalizeJournalDayRenames(value){
     renames.push({from:entry.from,to:entry.to})}
   return renames}
 function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
-  expectedProgramFingerprint=null,reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
+  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
   if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
+  if(expectedFirstRunEmpty)journal.expectedFirstRunEmpty=true;
   if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
   if(dayRenames.length)journal.dayRenames=dayRenames;
   const outcome=normalizeDraftEffectOutcome(effectOutcome);
@@ -898,7 +899,7 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   return{kind:"committed",accepted:true,rejected:false,settled:true,
     snapshot,result:settlement.result||result,closed}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
-  expectedProgramFingerprint=null,reconcileSessionIds=[],dayRenames=[],effect=null}={}){
+  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,reconcileSessionIds=[],dayRenames=[],effect=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
@@ -914,6 +915,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   let pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
       {replace,expectedProgramId,expectedProgramFingerprint,
+        expectedFirstRunEmpty,
         reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
         effectOutcome:frozenEffectOutcome})
     :null;
@@ -941,6 +943,10 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedFirstRunEmpty&&(head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
     if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
       const armed=armPendingJournalRollback(pendingRecord,head);
       if(!armed){
@@ -2583,7 +2589,7 @@ function proposalFromSharedSetup(payload,baseState=state){
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
   if(!checked.ok)throw new TypeError("Invalid shared setup");
   const clean=checked.value,proposal=cloneSnapshot(baseState);
-  const exercises=cloneSnapshot(clean.program.exercises);
+  const exercises=clean.program.exercises.map(sharedExercise);
   const merged=mergeImportedCustomExercises(clean.program.customExercises,exercises,proposal);
   proposal.customExercises=merged.customExercises;
   const lookup=snapshotLookup(proposal.customExercises);
@@ -5992,7 +5998,7 @@ function sharedProgramMeta(meta,program){
     priorityMuscles:[...new Set((Array.isArray(meta?.priorityMuscles)?meta.priorityMuscles:[])
       .map(value=>String(value).trim()).filter(Boolean))],
     sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
-    mesocycleLengthWeeks:Number.isInteger(meta?.mesocycleLengthWeeks)&&meta.mesocycleLengthWeeks>0?meta.mesocycleLengthWeeks:6}}
+    mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks}}
 function sharedExercise(ex){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
@@ -6065,8 +6071,8 @@ function closeProgramTextSheet(){
   return closeModal(sheet)}
 let shareSetupReturn=null,shareSetupLink="";
 function setShareSetupState(message,{ready=false}={}){
-  const status=$("#shareSetupStatus"),out=$("#shareSetupUrl"),share=$("#shareSetupShare"),copy=$("#shareSetupCopy");
-  if(status)status.textContent=message||"";
+  const status=$("#shareSetupStatus"),out=$("#shareSetupLink"),share=$("#shareSetupShare"),copy=$("#shareSetupCopy");
+  if(status){status.textContent=message||"";status.classList.toggle("hidden",!message)}
   if(out){if("value" in out)out.value=ready?shareSetupLink:"";else out.textContent=ready?shareSetupLink:""}
   if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",typeof navigator.share!=="function")}
   if(copy)copy.disabled=!ready}
@@ -6085,9 +6091,12 @@ async function buildShareSetupLink(){
   try{payload=buildSharedSetupPayload()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
   if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked));return}
-  const encoded=await SharedSetup.encode(checked.value,{builtInIds:SHARED_BUILT_IN_IDS});
+  let encoded;
+  try{encoded=await SharedSetup.encode(checked.value,{builtInIds:SHARED_BUILT_IN_IDS})}
+  catch{setShareSetupState(t("program.share_setup_unsupported"));return}
   if(!encoded.ok){setShareSetupState(sharedSetupErrorMessage(encoded));return}
-  const url=new URL("index.html",location.href);
+  const local=/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(location.hostname);
+  const url=new URL("index.html",local?location.href:"https://pedrochagasmaster.github.io/repforge/index.html");
   url.search="";
   url.hash=`setup=${encoded.value}`;
   shareSetupLink=url.href;
@@ -6095,6 +6104,7 @@ async function buildShareSetupLink(){
 function openShareSetupSheet(){
   const sheet=$("#shareSetupSheet"),scrim=$("#shareSetupScrim");
   if(!sheet)return;
+  const subtitle=$("#shareSetupFor");if(subtitle)subtitle.textContent=state.programMeta?.name||t("untitled_program");
   shareSetupReturn=document.activeElement;
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{initialFocus:$("#shareSetupClose"),returnFocus:shareSetupReturn,
@@ -7483,7 +7493,7 @@ function renderFirstRunProgramMode(){
   if(ready){
     const name=sharedSetupDraft.payload.program.meta.name;
     const n=sharedSetupDraft.payload.program.meta.daysPerWeek;
-    const title=$("#firstRunSharedTitle"),cap=$("#firstRunSharedCaption");
+    const title=$("#firstRunSharedTitle"),cap=$("#firstRunSharedCap");
     if(title)title.textContent=t("setup.shared.title");
     if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
@@ -7501,8 +7511,9 @@ async function commitSharedSetup(io=storageIO){
     return{revision:readRevision(state),localOk:false,idbOk:false,ineligible:true}}
   const checked=SharedSetup?.validate(sharedSetupDraft.payload,{builtInIds:SHARED_BUILT_IN_IDS});
   if(!checked?.ok){
-    sharedSetupDraft.status="invalid";sharedSetupDraft.error=checked?.code||"invalid-schema";
-    renderFirstRun();return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true}}
+    toast(t("setup.shared.commit_failed"),{assertive:true});
+    $("#firstRunSharedStart")?.focus();
+    return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true}}
   const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))
     return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
@@ -7512,7 +7523,8 @@ async function commitSharedSetup(io=storageIO){
     const transition=programTransitionPrecondition(state);
     const proposal=proposalFromSharedSetup(checked.value,state);
     const effect=destructiveDraftClearEffect(discardDraftRaw);
-    result=await commitProposedState(proposal,requireAdapter(io,"commitSharedSetup"),{replace:true,effect,...transition})}
+    result=await commitProposedState(proposal,requireAdapter(io,"commitSharedSetup"),
+      {replace:true,expectedFirstRunEmpty:true,effect,...transition})}
   catch{result={revision:readRevision(state),localOk:false,idbOk:false}}
   setSharedSetupBusy(false);
   if(!(result.localOk||result.idbOk)){
@@ -7597,6 +7609,7 @@ const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
  *  shared program the hidden path and building one from scratch the default;
  *  they are two equal ways to begin and now read as two. */
 function maybeShowFirstRun(){
+  if(sharedSetupDraft.status==="existing")return false;
   if(!firstRunPending())return false;
   return openFirstRun()}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
@@ -8210,6 +8223,13 @@ async function resolveBootReplicas(candidate=null){
         if(!discarded.settled)
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         continue}
+      if(journal.expectedFirstRunEmpty&&
+        (head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
       const journalHead=head||cloneSnapshot(journal.base);
       const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,
         {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,dayRenames:journal.dayRenames});
@@ -8259,20 +8279,36 @@ window.__repforgeSharedSetup={
   eligible:sharedSetupEligible};
 function captureSharedSetupSource(){
   if(!SharedSetup)return null;
-  const fragment=SharedSetup.readSetupFragment();
-  if(fragment!=null)return{source:"fragment",encoded:fragment};
-  const cookie=SharedSetup.readHandoffCookie();
-  return cookie?{source:"cookie",encoded:cookie}:null}
+  try{
+    const fragment=SharedSetup.readSetupFragment();
+    if(fragment!=null){
+      sharedSetupDraft={status:"loading",source:"fragment",encoded:null,payload:null,error:null,previousLang:null};
+      return{source:"fragment",encoded:fragment}}
+    const cookie=SharedSetup.readHandoffCookie();
+    if(cookie){
+      sharedSetupDraft={status:"loading",source:"cookie",encoded:null,payload:null,error:null,previousLang:null};
+      return{source:"cookie",encoded:cookie}}
+    return null}
+  catch{
+    sharedSetupDraft={status:"invalid",source:null,encoded:null,payload:null,error:"invalid-schema",previousLang:null};
+    return null}}
 async function prepareSharedSetup(candidate){
   if(!candidate||!SharedSetup)return;
   const {source,encoded}=candidate;
-  let staged=false;
+  let staged=false,matchingCookie=false;
+  try{matchingCookie=SharedSetup.readHandoffCookie()===encoded}catch{}
   if(source==="fragment"&&typeof encoded==="string"&&encoded.startsWith("v1.")&&
     encoded.length<=SharedSetup.MAX_ENCODED_CHARS){
-    try{staged=SharedSetup.writeHandoffCookie(encoded)!==false}catch{staged=false}}
-  const decoded=await SharedSetup.decode(encoded,{builtInIds:SHARED_BUILT_IN_IDS});
+    try{
+      staged=SharedSetup.writeHandoffCookie(encoded)===true;
+      if(staged&&location.pathname===SharedSetup.handoffCookiePath())
+        staged=SharedSetup.readHandoffCookie()===encoded}
+    catch{staged=false}}
+  let decoded;
+  try{decoded=await SharedSetup.decode(encoded,{builtInIds:SHARED_BUILT_IN_IDS})}
+  catch{decoded={ok:false,code:"invalid-schema"}}
   if(!decoded.ok){
-    if(source==="cookie"||staged)SharedSetup.clearHandoffCookie();
+    if(source==="cookie"||staged||matchingCookie)SharedSetup.clearHandoffCookie();
     const unsupported=decoded.code==="unsupported-version"||decoded.code==="decompression-unavailable";
     sharedSetupDraft={status:unsupported?"unsupported":"invalid",source,encoded:null,payload:null,
       error:decoded.code,previousLang:null};
@@ -8281,7 +8317,8 @@ async function prepareSharedSetup(candidate){
     const next=SharedSetup.removeSetupFragment();
     history.replaceState({},"",next)}
   if(!sharedSetupEligible()){
-    sharedSetupDraft={status:"existing",source,encoded:null,payload:null,error:"existing",previousLang:null};
+    sharedSetupDraft={status:source==="fragment"?"existing":"none",source,encoded:null,payload:null,
+      error:source==="fragment"?"existing":null,previousLang:null};
     return}
   const previousLang=I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en";
   sharedSetupDraft={status:"ready",source,encoded,payload:decoded.value,error:null,previousLang};
