@@ -738,12 +738,6 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconci
   reconcileCandidateLogDays(snapshot,reconcileSessionIds);
   delete snapshot[STORAGE_DRAFT_TXN];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
-  // #region agent log
-  try{if(replace)(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"A2",location:"app.js:stateSnapshotForHead",message:"replace snapshot vs durable head",data:{replace,headRev:readRevision(durableHead),snapRev:readRevision(snapshot),headVoice:!!durableHead?.settings?.voiceInputEnabled,snapVoice:!!snapshot?.settings?.voiceInputEnabled,headNotifyOn:!!durableHead?.settings?.notify?.enabled,snapNotifyOn:!!snapshot?.settings?.notify?.enabled,headCustomIds:(durableHead?.customExercises||[]).map(e=>e.id),snapCustomIds:(snapshot?.customExercises||[]).map(e=>e.id),overwriteVoice:!!durableHead?.settings?.voiceInputEnabled&&!snapshot?.settings?.voiceInputEnabled,lostCustoms:(durableHead?.customExercises||[]).map(e=>e.id).filter(id=>!(snapshot?.customExercises||[]).some(e=>e.id===id))},timestamp:Date.now()})}catch{}
-  // #endregion
-  // #region agent log
-  try{if(replace&&expectedFirstRunEmpty)(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"A2",location:"app.js:stateSnapshotForHead:rebased",message:"first-run replace rebased onto head",data:{headVoice:!!durableHead?.settings?.voiceInputEnabled,snapVoice:!!snapshot?.settings?.voiceInputEnabled,headNotifyOn:!!durableHead?.settings?.notify?.enabled,snapNotifyOn:!!snapshot?.settings?.notify?.enabled,headCustomIds:(durableHead?.customExercises||[]).map(e=>e.id),snapCustomIds:(snapshot?.customExercises||[]).map(e=>e.id),overwriteVoice:!!durableHead?.settings?.voiceInputEnabled&&!snapshot?.settings?.voiceInputEnabled,lostCustoms:(durableHead?.customExercises||[]).map(e=>e.id).filter(id=>!(snapshot?.customExercises||[]).some(e=>e.id===id))},timestamp:Date.now(),runId:"post-fix"})}catch{}
-  // #endregion
   return snapshot}
 function pendingJournalSuccessorMatches(record,head){
   const journal=record?.journal,rollback=journal?.rollback;
@@ -954,9 +948,6 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
-    // #region agent log
-    try{if(expectedFirstRunEmpty||replace)(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"A3",location:"app.js:enqueueStateChange",message:"refreshed head vs frozen proposal",data:{replace,expectedFirstRunEmpty,headRev:readRevision(head),propRev:readRevision(frozenProposal),headVoice:!!head?.settings?.voiceInputEnabled,propVoice:!!frozenProposal?.settings?.voiceInputEnabled,headNotify:{enabled:!!head?.settings?.notify?.enabled,timer:head?.settings?.notify?.timer},propNotify:{enabled:!!frozenProposal?.settings?.notify?.enabled,timer:frozenProposal?.settings?.notify?.timer},headCustomIds:(head?.customExercises||[]).map(e=>e.id),propCustomIds:(frozenProposal?.customExercises||[]).map(e=>e.id),headOnboarded:!!head?.programMeta?.onboarded,headLog:(head?.log||[]).length,headHistory:(head?.programHistory||[]).length,sameProgramId:(head?.programMeta?.id||null)===(frozenProposal?.programMeta?.id||null)?false:undefined,headProgramId:!!head?.programMeta?.id,ineligibleBlocked:false},timestamp:Date.now()})}catch{}
-    // #endregion
     if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
       const armed=armPendingJournalRollback(pendingRecord,head);
       if(!armed){
@@ -968,9 +959,6 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,
       {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
         expectedFirstRunEmpty});
-    // #region agent log
-    try{if(expectedFirstRunEmpty)(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"A2",location:"app.js:enqueueStateChange:snapshot",message:"first-run snapshot after rebase",data:{snapVoice:!!snapshot?.settings?.voiceInputEnabled,snapNotifyOn:!!snapshot?.settings?.notify?.enabled,snapNotifyTimer:snapshot?.settings?.notify?.timer,snapCustomIds:(snapshot?.customExercises||[]).map(e=>e.id),headVoice:!!head?.settings?.voiceInputEnabled,headCustomIds:(head?.customExercises||[]).map(e=>e.id)},timestamp:Date.now(),runId:"post-fix"})}catch{}
-    // #endregion
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
     const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
     const execution=await executeDraftTransaction({record:pendingRecord,transactionId,
@@ -7543,9 +7531,6 @@ async function commitSharedSetup(io=storageIO){
     const transition=programTransitionPrecondition(state);
     const proposal=proposalFromSharedSetup(checked.value,state);
     const effect=destructiveDraftClearEffect(discardDraftRaw);
-    // #region agent log
-    try{(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"A1",location:"app.js:commitSharedSetup",message:"proposal built from in-memory state",data:{liveRev:readRevision(state),liveVoice:!!state?.settings?.voiceInputEnabled,liveNotifyOn:!!state?.settings?.notify?.enabled,liveCustomIds:(state?.customExercises||[]).map(e=>e.id),propVoice:!!proposal?.settings?.voiceInputEnabled,propNotifyOn:!!proposal?.settings?.notify?.enabled,propCustomIds:(proposal?.customExercises||[]).map(e=>e.id),replace:true,expectedFirstRunEmpty:true,sameFingerprint:draftProgramFingerprint(state)===transition.expectedProgramFingerprint},timestamp:Date.now()})}catch{}
-    // #endregion
     result=await commitProposedState(proposal,requireAdapter(io,"commitSharedSetup"),
       {replace:true,expectedFirstRunEmpty:true,effect,...transition})}
   catch{result={revision:readRevision(state),localOk:false,idbOk:false}}
@@ -8323,21 +8308,11 @@ function captureSharedSetupSource({allowCookie=true}={}){
     const fragment=SharedSetup.readSetupFragment();
     if(fragment!=null){
       sharedSetupDraft={status:"loading",source:"fragment",encoded:null,payload:null,error:null,previousLang:null};
-      // #region agent log
-      try{(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"B2",location:"app.js:captureSharedSetupSource",message:"captured fragment",data:{branch:"fragment",hash:String(location.hash||"").slice(0,24),draftStatus:sharedSetupDraft.status},timestamp:Date.now()})}catch{}
-      // #endregion
       return{source:"fragment",encoded:fragment}}
-    if(!allowCookie){
-      // #region agent log
-      try{(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"B1",location:"app.js:captureSharedSetupSource",message:"skipped cookie fallback",data:{allowCookie:false,hash:String(location.hash||"").slice(0,24),draftStatus:sharedSetupDraft.status},timestamp:Date.now(),runId:"post-fix"})}catch{}
-      // #endregion
-      return null}
+    if(!allowCookie)return null;
     const cookie=SharedSetup.readHandoffCookie();
     if(cookie){
       sharedSetupDraft={status:"loading",source:"cookie",encoded:null,payload:null,error:null,previousLang:null};
-      // #region agent log
-      try{(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"B1",location:"app.js:captureSharedSetupSource",message:"fell back to cookie and mutated draft",data:{branch:"cookie",hash:String(location.hash||"").slice(0,24),hasSetup:/\bsetup=/.test(location.hash||""),draftStatus:sharedSetupDraft.status},timestamp:Date.now()})}catch{}
-      // #endregion
       return{source:"cookie",encoded:cookie}}
     return null}
   catch{
@@ -8375,26 +8350,14 @@ async function prepareSharedSetup(candidate){
   sharedSetupDraft={status:"ready",source,encoded,payload:decoded.value,error:null,previousLang};
   I18N?.setLang(decoded.value.settings.lang)}
 async function handleSharedSetupHash(){
-  const beforeStatus=sharedSetupDraft.status,beforeSource=sharedSetupDraft.source;
-  // #region agent log
-  try{(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"B2",location:"app.js:handleSharedSetupHash:entry",message:"hashchange before capture",data:{hash:String(location.hash||"").slice(0,32),hasSetup:new URLSearchParams(String(location.hash||"").slice(1)).has("setup"),beforeStatus,beforeSource},timestamp:Date.now()})}catch{}
-  // #endregion
   const candidate=captureSharedSetupSource({allowCookie:false});
-  if(!candidate||candidate.source!=="fragment"){
-    // #region agent log
-    try{(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"B1",location:"app.js:handleSharedSetupHash:noop",message:"early return after capture",data:{candidateSource:candidate&&candidate.source||null,afterStatus:sharedSetupDraft.status,afterSource:sharedSetupDraft.source,mutated:beforeStatus!==sharedSetupDraft.status,startWouldBeDead:sharedSetupDraft.status!=="ready"},timestamp:Date.now()})}catch{}
-    // #endregion
-    return}
+  if(!candidate||candidate.source!=="fragment")return;
   if(firstRunOpen())suspendFirstRun();
   await prepareSharedSetup(candidate);
   if(sharedSetupDraft.status==="existing"){
     closeFirstRun();toast(t("setup.shared.existing"),{assertive:true});return}
   applyI18n();
-  if(firstRunPending())openFirstRun()
-  // #region agent log
-  try{(window.__agentDebugLogs=window.__agentDebugLogs||[]).push({hypothesisId:"B5",location:"app.js:handleSharedSetupHash:applied",message:"genuine setup fragment applied",data:{status:sharedSetupDraft.status,source:sharedSetupDraft.source,name:sharedSetupDraft.payload?.program?.meta?.name||null},timestamp:Date.now()})}catch{}
-  // #endregion
-}
+  if(firstRunPending())openFirstRun()}
 async function boot(){
   // The starter program is minted while the first-run state is built, so the
   // language has to be settled before that — not after the state exists.

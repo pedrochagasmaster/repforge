@@ -8,7 +8,6 @@
  *
  * Run: node test/shared-setup-flow.mjs   (static server on REPFORGE_URL)
  */
-import { appendFileSync } from "fs";
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
 import { launchChromium } from "./browser.mjs";
@@ -32,7 +31,6 @@ const ONLY = process.argv
   .filter((arg) => arg.startsWith("--only="))
   .map((arg) => arg.slice("--only=".length))
   .filter(Boolean);
-const AGENT_LOG = "/opt/cursor/logs/debug.log";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const HANDOFF_COOKIE = "repforge_setup_v1";
@@ -412,25 +410,6 @@ function sharedPayloadAbsent(state, payload) {
     }
   }
   return { ok: hits.length === 0, hits, onboarded: !!state.programMeta?.onboarded, lang: state.settings?.lang, name: state.programMeta?.name };
-}
-
-async function flushAgentLogs(page, runId) {
-  const rows = await page.evaluate((id) => {
-    const logs = Array.isArray(window.__agentDebugLogs) ? window.__agentDebugLogs.splice(0) : [];
-    return logs.map((row) => Object.assign({}, row, { runId: id }));
-  }, runId).catch(() => []);
-  for (const row of rows) {
-    try {
-      appendFileSync(AGENT_LOG, `${JSON.stringify({
-        hypothesisId: row.hypothesisId,
-        location: row.location,
-        message: row.message,
-        data: row.data || {},
-        timestamp: row.timestamp || Date.now(),
-        runId: row.runId,
-      })}\n`);
-    } catch {}
-  }
 }
 
 async function runCase(name, fn) {
@@ -1177,33 +1156,14 @@ export async function runSharedSetupFlow(browser) {
   });
 
   await runCase("Stale shared accept preserves newer eligible device state", async () => {
-    const { context, page, errors } = await openAppPage(browser, { standalone: true });
+    const { context, page } = await openAppPage(browser, { standalone: true });
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
     const encoded = await encodeSharedPayload(page, payload);
     const fragment = encoded.ok ? encoded.value : wireFragment(payload);
     await page.goto(setupUrl(fragment, "stale-accept"), { waitUntil: "domcontentloaded" });
-    try {
-      await waitForFirstRun(page);
-    } catch (err) {
-      const diag = await page.evaluate(() => ({
-        readyState: document.readyState,
-        hook: window.__repforgeSharedSetup ? {
-          status: window.__repforgeSharedSetup.status,
-          source: window.__repforgeSharedSetup.source,
-          error: window.__repforgeSharedSetup.error,
-        } : null,
-        hash: location.hash.slice(0, 40),
-        gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
-        logs: (window.__agentDebugLogs || []).map((row) => ({ id: row.hypothesisId, loc: row.location, msg: row.message, data: row.data })),
-        errors: window.__pageErrors || null,
-      }));
-      await flushAgentLogs(page, "bug-a-timeout");
-      assert(false, "waitForFirstRun after setup url", `${err}\npageerrors=${JSON.stringify(errors)}\n${JSON.stringify(diag, null, 2)}`);
-      await context.close();
-      return;
-    }
+    await waitForFirstRun(page);
     const ready = await page.evaluate(readSharedHook);
     assert(ready.status === "ready", "tab A holds a ready proposal", JSON.stringify(ready));
     const recipientCustom = {
@@ -1248,14 +1208,12 @@ export async function runSharedSetupFlow(browser) {
       };
     }, { key: KEY, custom: recipientCustom });
     if (!(await clickSharedStart(page))) {
-      await flushAgentLogs(page, "bug-a");
       await context.close();
       return;
     }
     await page.waitForFunction(() => document.querySelector("#firstRun")?.classList.contains("hidden"), null, { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(400);
     const after = await page.evaluate(readDurableState);
-    await flushAgentLogs(page, "bug-a");
     const state = after.state || {};
     const customIds = (state.customExercises || []).map((row) => row.id);
     const notify = state.settings?.notify || {};
@@ -1281,32 +1239,14 @@ export async function runSharedSetupFlow(browser) {
   });
 
   await runCase("Unrelated hashchange is a no-op after a staged shared setup", async () => {
-    const { context, page, errors } = await openAppPage(browser, { ua: IOS_UA });
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     const first = cloneFixture(MINIMAL_PAYLOAD);
     const encoded = await encodeSharedPayload(page, first);
     const fragment = encoded.ok ? encoded.value : wireFragment(first);
     await page.goto(setupUrl(fragment, "hash-noop"), { waitUntil: "domcontentloaded" });
-    try {
-      await waitForFirstRun(page);
-    } catch (err) {
-      const diag = await page.evaluate(() => ({
-        readyState: document.readyState,
-        hook: window.__repforgeSharedSetup ? {
-          status: window.__repforgeSharedSetup.status,
-          source: window.__repforgeSharedSetup.source,
-          error: window.__repforgeSharedSetup.error,
-        } : null,
-        hash: location.hash.slice(0, 40),
-        gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
-        logs: (window.__agentDebugLogs || []).map((row) => ({ id: row.hypothesisId, loc: row.location, msg: row.message, data: row.data })),
-      }));
-      await flushAgentLogs(page, "bug-b-timeout");
-      assert(false, "waitForFirstRun after setup hash", `${err}\npageerrors=${JSON.stringify(errors)}\n${JSON.stringify(diag, null, 2)}`);
-      await context.close();
-      return;
-    }
+    await waitForFirstRun(page);
     const before = await page.evaluate(() => ({
       status: window.__repforgeSharedSetup?.status,
       source: window.__repforgeSharedSetup?.source,
@@ -1319,7 +1259,6 @@ export async function runSharedSetupFlow(browser) {
     const afterSection = await page.evaluate(sharedGateSnapshot);
     const afterHook = await page.evaluate(readSharedHook);
     const afterDur = await page.evaluate(readDurableState);
-    await flushAgentLogs(page, "bug-b-section");
     assert(afterHook.status === "ready", "unrelated #section leaves the proposal ready", JSON.stringify(afterHook));
     assert(afterSection.startVisible && !afterSection.startDisabled, "Start row stays live after #section", JSON.stringify(afterSection));
     assert(!!afterDur.cookie, "unrelated hash does not clear the staged cookie", afterDur.cookie);
@@ -1332,7 +1271,6 @@ export async function runSharedSetupFlow(browser) {
     await waitForFirstRun(page);
     const secondHook = await page.evaluate(readSharedHook);
     const secondGate = await page.evaluate(sharedGateSnapshot);
-    await flushAgentLogs(page, "bug-b-second");
     assert(
       secondHook.status === "ready" && secondHook.summary?.name === "Second coach program",
       "a later genuine setup fragment still loads",
