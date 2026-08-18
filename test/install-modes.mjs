@@ -36,11 +36,14 @@
  *                 packs an icon, two paragraphs and a full-width CTA into a
  *                 toast — the copy has to keep a real measure and the button
  *                 has to stay inside the card
- *   the manifest  the file Chrome mints an Android WebAPK from: raster icons
+ *   the manifest  the file Chrome mints an Android WebAPK from: identity
+ *                 inherited from the project-scoped start URL; raster icons
  *                 only, all fetchable, 192 and 512 present (ADR 0008)
  *
  * Run: node test/install-modes.mjs   (with a static server on REPFORGE_URL)
  */
+import { readFileSync } from "node:fs";
+import { runInNewContext } from "node:vm";
 import { launchChromium } from "./browser.mjs";
 import { MINIMAL_PAYLOAD, REPRESENTATIVE_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
 import {
@@ -53,6 +56,7 @@ import {
 } from "./shared-setup-flow.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
+const SW_SOURCE = readFileSync(new URL("../sw.js", import.meta.url), "utf8");
 const IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
 const IOS_CHROME_UA =
@@ -435,6 +439,7 @@ async function run() {
     );
     allErrors.push(...errors);
     await context.close();
+
   }
 
   // ---- iOS Safari ----
@@ -869,11 +874,30 @@ async function run() {
         }
         icons.push(entry);
       }
-      return { href, ok: res.ok, display: manifest.display, start: manifest.start_url, scope: manifest.scope, icons };
+      return {
+        href,
+        ok: res.ok,
+        display: manifest.display,
+        start: manifest.start_url,
+        scope: manifest.scope,
+        hasExplicitId: Object.hasOwn(manifest, "id"),
+        explicitId: manifest.id,
+        icons,
+      };
     });
     assert(read.ok, "the manifest the page links is served", JSON.stringify(read.href));
     assert(read.display === "standalone", "it asks for a standalone window", String(read.display));
     assert(!!read.start && !!read.scope, "it declares a start URL and a scope", JSON.stringify(read));
+    // Relative manifest ids resolve from the start URL's origin, not from the
+    // manifest's directory. On GitHub Pages, "./index.html" therefore means
+    // /index.html rather than /repforge/index.html and changes the identity
+    // Chrome sends to the WebAPK mint. With no id, the spec falls back to the
+    // already-correct, manifest-relative start URL.
+    assert(
+      !read.hasExplicitId,
+      "app identity inherits the project-scoped start URL",
+      JSON.stringify({ id: read.explicitId, start: read.start })
+    );
     assert(read.icons.length > 0, "it declares icons", JSON.stringify(read.icons));
     assert(
       read.icons.every((icon) => icon.status === 200),
@@ -906,6 +930,27 @@ async function run() {
     );
     allErrors.push(...errors);
     await context.close();
+
+    // Run the service worker's actual path helper with the GitHub Pages scope.
+    // Root-only SHELL entries must still match requests under /repforge/ or the
+    // corrected manifest can remain cache-first after a deploy.
+    const swContext = {
+      URL,
+      self: {
+        registration: { scope: "https://pedrochagasmaster.github.io/repforge/" },
+        addEventListener() {},
+      },
+    };
+    runInNewContext(SW_SOURCE, swContext);
+    assert(
+      swContext.shellPathname?.("/repforge/manifest.webmanifest") === "/manifest.webmanifest" &&
+        swContext.shellPathname?.("/repforge/index.html") === "/index.html",
+      "service-worker shell matching is relative to its project scope",
+      JSON.stringify({
+        manifest: swContext.shellPathname?.("/repforge/manifest.webmanifest"),
+        index: swContext.shellPathname?.("/repforge/index.html"),
+      })
+    );
   }
 
   // ---- Shared setup mode across the same capability matrix ----

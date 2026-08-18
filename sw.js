@@ -1,4 +1,4 @@
-const CACHE = "repforge-v98";
+const CACHE = "repforge-v99";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./shared-setup.js", "./app.js",
@@ -49,11 +49,17 @@ self.addEventListener("activate", event => {
 });
 
 const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/manifest.webmanifest"]);
+const scopePath = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+function shellPathname(pathname) {
+  if (scopePath && pathname.startsWith(`${scopePath}/`)) return pathname.slice(scopePath.length);
+  return pathname;
+}
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
+  const pathname = shellPathname(url.pathname);
   const isShell = event.request.mode === "navigate" ||
-    SHELL.has(url.pathname) || SHELL.has(url.pathname.replace(/\/$/, "/index.html"));
+    SHELL.has(pathname) || SHELL.has(pathname.replace(/\/$/, "/index.html"));
   if (isShell) {
     event.respondWith((async () => {
       try {
