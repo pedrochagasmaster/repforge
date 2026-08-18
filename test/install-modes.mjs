@@ -835,6 +835,79 @@ async function run() {
     }
   }
 
+  // ---- The manifest an Android install is minted from (ADR 0008) ----
+  // Chrome ranks an "any"-sized SVG above every raster icon that does not match
+  // the device's launcher size exactly, and an SVG primary icon drops the
+  // install from a WebAPK to a browser shortcut. The mint itself happens on a
+  // Google server and cannot be driven from here; what can be held is the file
+  // it is handed.
+  {
+    console.log("\nThe install manifest");
+    const context = await browser.newContext({
+      viewport: { width: 393, height: 852 },
+      userAgent: ANDROID_UA,
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e.message)));
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    const read = await page.evaluate(async () => {
+      const href = document.querySelector('link[rel="manifest"]')?.getAttribute("href");
+      if (!href) return { href: null };
+      const base = new URL(href, location.href);
+      const res = await fetch(base, { cache: "no-store" });
+      const manifest = await res.json();
+      const icons = [];
+      for (const icon of manifest.icons || []) {
+        const entry = { src: icon.src, sizes: icon.sizes, type: icon.type, purpose: icon.purpose, status: 0 };
+        try {
+          const hit = await fetch(new URL(icon.src, base), { cache: "no-store" });
+          entry.status = hit.status;
+          entry.served = hit.headers.get("content-type") || "";
+        } catch (err) {
+          entry.error = String(err);
+        }
+        icons.push(entry);
+      }
+      return { href, ok: res.ok, display: manifest.display, start: manifest.start_url, scope: manifest.scope, icons };
+    });
+    assert(read.ok, "the manifest the page links is served", JSON.stringify(read.href));
+    assert(read.display === "standalone", "it asks for a standalone window", String(read.display));
+    assert(!!read.start && !!read.scope, "it declares a start URL and a scope", JSON.stringify(read));
+    assert(read.icons.length > 0, "it declares icons", JSON.stringify(read.icons));
+    assert(
+      read.icons.every((icon) => icon.status === 200),
+      "every icon it declares is a file the server serves",
+      JSON.stringify(read.icons.filter((icon) => icon.status !== 200))
+    );
+    assert(
+      read.icons.every((icon) => !/^data:/i.test(icon.src)),
+      "no icon is inlined as a data URI",
+      JSON.stringify(read.icons.map((icon) => icon.src))
+    );
+    assert(
+      read.icons.every(
+        (icon) => icon.type === "image/png" && !/\.svg$/i.test(icon.src) && !/^any$/i.test(icon.sizes || "")
+      ),
+      "the install icons are raster, sized, and never an any-sized SVG",
+      JSON.stringify(read.icons)
+    );
+    const anyPurpose = (icon) => !icon.purpose || icon.purpose.split(/\s+/).includes("any");
+    assert(
+      read.icons.some((icon) => icon.sizes === "192x192" && anyPurpose(icon)) &&
+        read.icons.some((icon) => icon.sizes === "512x512" && anyPurpose(icon)),
+      "192 and 512 are both offered for the home screen",
+      JSON.stringify(read.icons)
+    );
+    assert(
+      read.icons.some((icon) => (icon.purpose || "").split(/\s+/).includes("maskable")),
+      "a maskable composition is offered for adaptive launchers",
+      JSON.stringify(read.icons)
+    );
+    allErrors.push(...errors);
+    await context.close();
+  }
+
   // ---- Shared setup mode across the same capability matrix ----
   // Standard no-link cases above stay unchanged. These extra pages keep their
   // own error list so a missing implementation cannot rewrite the no-link
