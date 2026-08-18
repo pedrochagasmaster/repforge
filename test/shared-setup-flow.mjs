@@ -97,6 +97,9 @@ export function wireFragment(value) {
   return `v1.${b64}`;
 }
 
+const setupUrl = (fragment, testCase) =>
+  `${APP_INDEX}?shared-test=${encodeURIComponent(testCase)}#setup=${fragment}`;
+
 export function sharedGateSnapshot() {
   const hidden = (node) =>
     !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
@@ -747,7 +750,7 @@ export async function runSharedSetupFlow(browser) {
     dirty.program.exercises[0].movementId = "coach-movement";
     const encoded = await encodeSharedPayload(page, dirty);
     const fragment = encoded.ok ? encoded.value : wireFragment(dirty);
-    await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
+    await page.goto(setupUrl(fragment, "accept"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const before = await page.evaluate(readDurableState);
     if (!(await clickSharedStart(page))) {
@@ -806,7 +809,7 @@ export async function runSharedSetupFlow(browser) {
       await context.close();
       return;
     }
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await page.goto(setupUrl(encoded.value, "double"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const beforeRev = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}")._storageRevision || 0);
     await page.evaluate(() => {
@@ -839,7 +842,7 @@ export async function runSharedSetupFlow(browser) {
       await context.close();
       return;
     }
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await page.goto(setupUrl(encoded.value, "replica-local"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
 
     const localOnly = await page.evaluate(async (key) => {
@@ -865,7 +868,7 @@ export async function runSharedSetupFlow(browser) {
     await clearSite(idbPage.page);
     await idbPage.page.reload({ waitUntil: "domcontentloaded" });
     const encoded2 = await encodeSharedPayload(idbPage.page, cloneFixture(MINIMAL_PAYLOAD));
-    await idbPage.page.goto(`${APP_INDEX}#setup=${encoded2.value}`, { waitUntil: "domcontentloaded" });
+    await idbPage.page.goto(setupUrl(encoded2.value, "replica-idb"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(idbPage.page);
     const idbOnly = await idbPage.page.evaluate(async (key) => {
       const hook = window.__repforgeSharedSetup;
@@ -898,7 +901,7 @@ export async function runSharedSetupFlow(browser) {
     await clearSite(failPage.page);
     await failPage.page.reload({ waitUntil: "domcontentloaded" });
     const encoded3 = await encodeSharedPayload(failPage.page, cloneFixture(MINIMAL_PAYLOAD));
-    await failPage.page.goto(`${APP_INDEX}#setup=${encoded3.value}`, { waitUntil: "domcontentloaded" });
+    await failPage.page.goto(setupUrl(encoded3.value, "replica-failure"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(failPage.page);
     const failed = await failPage.page.evaluate(async () => {
       const hook = window.__repforgeSharedSetup;
@@ -933,7 +936,7 @@ export async function runSharedSetupFlow(browser) {
       await context.close();
       return;
     }
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await page.goto(setupUrl(encoded.value, "draft-confirm"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     await page.evaluate((d) => {
       localStorage.setItem("repforge_draft_v1", JSON.stringify({
@@ -1148,7 +1151,7 @@ export async function runSharedSetupFlow(browser) {
     long.program.meta.name = "A".repeat(100);
     const encoded = await encodeSharedPayload(page, long);
     const fragment = encoded.ok ? encoded.value : wireFragment(long);
-    await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
+    await page.goto(setupUrl(fragment, "long-name"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page).catch(() => {});
     const shape = await page.evaluate(() => ({
       overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth + 1,
