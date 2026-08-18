@@ -8269,13 +8269,13 @@ async function applyBootDecision(decision){
   if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
-  status:()=>sharedSetupDraft.status,
-  source:()=>sharedSetupDraft.source,
-  error:()=>sharedSetupDraft.error,
-  summary:()=>sharedSetupDraft.payload?{
+  get status(){return sharedSetupDraft.status},
+  get source(){return sharedSetupDraft.source},
+  get error(){return sharedSetupDraft.error},
+  get summary(){return sharedSetupDraft.payload?{
     name:sharedSetupDraft.payload.program.meta.name,
     daysPerWeek:sharedSetupDraft.payload.program.meta.daysPerWeek,
-    lang:sharedSetupDraft.payload.settings.lang}:null,
+    lang:sharedSetupDraft.payload.settings.lang}:null},
   build:buildSharedSetupPayload,
   buildPayload:buildSharedSetupPayload,
   proposal:proposalFromSharedSetup,

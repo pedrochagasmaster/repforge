@@ -357,6 +357,12 @@ export async function encodeSharedPayload(page, payload) {
 
 export async function waitForFirstRun(page, timeout = 15000) {
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout });
+  await page.waitForFunction(() => {
+    const status = window.__repforgeSharedSetup?.status;
+    const value = typeof status === "function" ? status() : status;
+    const hasSetup = new URLSearchParams(location.hash.slice(1)).has("setup");
+    return value !== "loading" && (!hasSetup || value !== "none");
+  }, null, { timeout });
 }
 
 async function clickSharedStart(page) {
@@ -1015,6 +1021,7 @@ export async function runSharedSetupFlow(browser) {
       };
     }, SHARED_COPY.en.shareUnsupported);
     assert(shareUi.unsupported, "share sheet shows program.share_setup_unsupported", JSON.stringify(shareUi));
+    await page.click("#shareSetupClose");
     await page.click("#programEditToggle");
     await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 }).catch(() => {});
     const [programDownload] = await Promise.all([
