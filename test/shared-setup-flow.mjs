@@ -1022,8 +1022,6 @@ export async function runSharedSetupFlow(browser) {
       page.evaluate(() => document.querySelector("#exportProgram")?.click()),
     ]);
     assert(!!programDownload, "program JSON export still works without CompressionStream");
-    await page.click("#openSettings");
-    await page.waitForSelector("#settings.view.active");
     const [backupDownload] = await Promise.all([
       page.waitForEvent("download", { timeout: 8000 }).catch(() => null),
       page.evaluate(() => document.querySelector("#exportJson")?.click()),
