@@ -1643,6 +1643,8 @@ const LIBRARY_SOURCE=(typeof window!=="undefined"&&window.RepForgeExercises)||{l
 const EXERCISE_LIBRARY=Array.isArray(LIBRARY_SOURCE.library)?LIBRARY_SOURCE.library:[];
 const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
 const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
+const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
+const SharedSetup=typeof window!=="undefined"?window.RepForgeSharedSetup:null;
 
 /* Custom exercises a lifter created. They live in state so they survive across
    programs and show up in every picker beside the built-ins; the "custom:"
@@ -2559,6 +2561,41 @@ function mergeImportedCustomExercises(incoming,exercises,snapshot){
     for(const ex of exercises||[])
       if(ex&&remap.has(ex.libraryId))ex.libraryId=remap.get(ex.libraryId);
   return{customExercises:mine,added,remapped}}
+function sharedSettingsPatch(raw){
+  return{jumpPct:normSetting(raw?.jumpPct,DEFAULTS.jumpPct,0),
+    minJump:normSetting(raw?.minJump,DEFAULTS.minJump,0.01),
+    rirHigh:normSetting(raw?.rirHigh,DEFAULTS.rirHigh,0),
+    hardRir:normSetting(raw?.hardRir,DEFAULTS.hardRir,0),
+    restSec:normalizeRestSec(raw?.restSec),
+    unit:raw?.unit==="lb"?"lb":"kg",
+    lang:I18N?.normalizeLang(raw?.lang)||"en",
+    rirMode:raw?.rirMode==="effort"?"effort":"numeric"}}
+function buildSharedProgramMeta(raw){
+  const now=new Date().toISOString();
+  return{id:uid(),name:String(raw?.name||"").trim(),started:today(),created:now,updated:now,
+    goal:raw?.goal??null,experience:raw?.experience??null,daysPerWeek:raw?.daysPerWeek??null,
+    splitType:raw?.splitType??null,equipment:Array.isArray(raw?.equipment)?[...raw.equipment]:[],
+    priorityMuscles:Array.isArray(raw?.priorityMuscles)?[...raw.priorityMuscles]:[],
+    sessionLength:raw?.sessionLength??null,mesocycleLengthWeeks:raw?.mesocycleLengthWeeks||6,
+    mesocycleStatus:"active",completedAt:null,onboarded:true,blockPromptDismissedId:null}}
+function proposalFromSharedSetup(payload,baseState=state){
+  if(!SharedSetup)throw new TypeError("Shared setup unavailable");
+  const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
+  if(!checked.ok)throw new TypeError("Invalid shared setup");
+  const clean=checked.value,proposal=cloneSnapshot(baseState);
+  const exercises=cloneSnapshot(clean.program.exercises);
+  const merged=mergeImportedCustomExercises(clean.program.customExercises,exercises,proposal);
+  proposal.customExercises=merged.customExercises;
+  const lookup=snapshotLookup(proposal.customExercises);
+  if(exercises.some(ex=>!lookup(ex.libraryId)))throw new TypeError("Unresolved shared exercise");
+  proposal.program=new Program(exercises,lookup).toJSON();
+  proposal.programMeta=buildSharedProgramMeta(clean.program.meta);
+  proposal.settings={...normalizeSettings(proposal.settings),...sharedSettingsPatch(clean.settings)};
+  proposal.log=[];
+  proposal.programHistory=[];
+  delete proposal[STORAGE_FOLLOWUP];
+  delete proposal[STORAGE_DRAFT_TXN];
+  return proposal}
 function save(){return persist()}
 function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
@@ -5410,6 +5447,8 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     // Nothing to read out when the program has no days left, so the row waits for one.
     (ds.length?`<button type="button" class="listrow" id="exportProgramText"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.export_text.sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
+    (ds.length?`<button type="button" class="listrow" id="shareProgramSetup"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
+      `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
     `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
     const cur=new Set(openDays);
@@ -5419,6 +5458,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
+  const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
   const rev=$("#reviewBlockLink");if(rev)rev.onclick=promptEndBlock}
 
 function openDayInEditor(d){if(!d||!prog.days().includes(d))return;
@@ -5939,6 +5979,42 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function referencedCustomExercises(list){
   const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
+const SHARED_EQUIPMENT={machine:"machines",machines:"machines",cable:"cables",cables:"cables",
+  dumbbell:"dumbbells",dumbbells:"dumbbells",barbell:"barbells",barbells:"barbells",bodyweight:"bodyweight"};
+function sharedProgramMeta(meta,program){
+  const days=program.days();
+  const optional=(value,allowed)=>allowed.includes(value)?value:null;
+  return{name:String(meta?.name||"").trim(),goal:optional(meta?.goal,["hypertrophy","strength_hypertrophy","beginner_consistency"]),
+    experience:optional(meta?.experience,["beginner","intermediate","advanced"]),daysPerWeek:days.length,
+    splitType:optional(meta?.splitType,["full_body","machine_only","ppl","upper_lower","bro"]),
+    equipment:[...new Set((Array.isArray(meta?.equipment)?meta.equipment:[])
+      .map(value=>SHARED_EQUIPMENT[String(value).toLowerCase()]).filter(Boolean))],
+    priorityMuscles:[...new Set((Array.isArray(meta?.priorityMuscles)?meta.priorityMuscles:[])
+      .map(value=>String(value).trim()).filter(Boolean))],
+    sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
+    mesocycleLengthWeeks:Number.isInteger(meta?.mesocycleLengthWeeks)&&meta.mesocycleLengthWeeks>0?meta.mesocycleLengthWeeks:6}}
+function sharedExercise(ex){
+  const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
+  const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
+    notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
+  for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
+    if(ex?.[key]!==undefined)out[key]=ex[key];
+  return out}
+function sharedCustomExercise(entry){
+  return{id:entry.id,name:entry.name,namePt:entry.namePt||entry.name,
+    equipment:Array.isArray(entry.equipment)?[...entry.equipment]:[],primary:entry.primary||"",
+    secondary:entry.secondary||"",notes:entry.notes||""}}
+function sharedSettings(settings){
+  return{jumpPct:settings.jumpPct,minJump:settings.minJump,rirHigh:settings.rirHigh,
+    hardRir:settings.hardRir,restSec:settings.restSec,unit:settings.unit,
+    lang:settings.lang||I18N?.getLang?.()||I18N?.detectLang?.()||"en",rirMode:settings.rirMode}}
+function buildSharedSetupPayload(){
+  if(!SharedSetup)throw new TypeError("Shared setup unavailable");
+  const exercises=prog.toJSON().map(sharedExercise);
+  return{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
+    program:{meta:sharedProgramMeta(state.programMeta,prog),exercises,
+      customExercises:referencedCustomExercises(exercises).map(sharedCustomExercise)},
+    settings:sharedSettings(state.settings)}}
 function exportProgram(){
   const exercises=prog.toJSON();
   const payload={version:3,meta:state.programMeta,exercises,
@@ -5987,6 +6063,63 @@ function closeProgramTextSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
+let shareSetupReturn=null,shareSetupLink="";
+function setShareSetupState(message,{ready=false}={}){
+  const status=$("#shareSetupStatus"),out=$("#shareSetupUrl"),share=$("#shareSetupShare"),copy=$("#shareSetupCopy");
+  if(status)status.textContent=message||"";
+  if(out){if("value" in out)out.value=ready?shareSetupLink:"";else out.textContent=ready?shareSetupLink:""}
+  if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",typeof navigator.share!=="function")}
+  if(copy)copy.disabled=!ready}
+function sharedSetupErrorMessage(result,unlinked=false){
+  if(unlinked)return t("program.share_setup_unlinked");
+  if(result?.code==="compression-unavailable")return t("program.share_setup_unsupported");
+  if(result?.code==="encoded-too-large")return t("setup.shared.too_large");
+  return t("program.share_setup_invalid")}
+async function buildShareSetupLink(){
+  shareSetupLink="";
+  setShareSetupState(t("program.share_setup_building"));
+  if(!SharedSetup){setShareSetupState(t("program.share_setup_unsupported"));return}
+  const unlinked=prog.toJSON().some(ex=>!ex.libraryId||!libraryEntry(ex.libraryId));
+  if(unlinked){setShareSetupState(sharedSetupErrorMessage(null,true));return}
+  let payload;
+  try{payload=buildSharedSetupPayload()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
+  const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
+  if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked));return}
+  const encoded=await SharedSetup.encode(checked.value,{builtInIds:SHARED_BUILT_IN_IDS});
+  if(!encoded.ok){setShareSetupState(sharedSetupErrorMessage(encoded));return}
+  const url=new URL("index.html",location.href);
+  url.search="";
+  url.hash=`setup=${encoded.value}`;
+  shareSetupLink=url.href;
+  setShareSetupState("",{ready:true})}
+function openShareSetupSheet(){
+  const sheet=$("#shareSetupSheet"),scrim=$("#shareSetupScrim");
+  if(!sheet)return;
+  shareSetupReturn=document.activeElement;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:$("#shareSetupClose"),returnFocus:shareSetupReturn,
+    onEscape:closeShareSetupSheet,scrim,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
+  buildShareSetupLink()}
+function closeShareSetupSheet(){
+  const sheet=$("#shareSetupSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  shareSetupReturn=null;
+  return closeModal(sheet)}
+async function copySetupLink(){
+  if(!shareSetupLink)return false;
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareSetupLink);
+    toast(t("toast.setup_link_copied"));return true}}catch{}
+  try{const ta=document.createElement("textarea");ta.value=shareSetupLink;ta.setAttribute("readonly","");
+    ta.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.append(ta);ta.select();
+    const ok=document.execCommand("copy");ta.remove();
+    if(ok){toast(t("toast.setup_link_copied"));return true}}catch{}
+  return false}
+async function shareSetupLinkNow(){
+  if(!shareSetupLink||typeof navigator.share!=="function")return false;
+  try{await navigator.share({title:t("program.share_setup_title"),text:t("program.share_setup_body"),url:shareSetupLink});return true}
+  catch{return false}}
 /* ============================================================
    Exercise picker
    One sheet, four callers: the program editor's add and change
@@ -7333,8 +7466,66 @@ const INSTALL_TRAY_SVG='<svg class="installcard__icon" viewBox="0 0 24 24" fill=
   '<path d="M12 3v11"/><path d="M7.5 9.5 12 14l4.5-4.5"/><path d="M4 14v5a1 1 0 0 0 1 1h14a1 1 0 0 0 1-1v-5"/></svg>';
 const INSTALL_SHARE_SVG='<svg class="installcard__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+
   '<path d="M12 3v12"/><path d="M7.5 7.5 12 3l4.5 4.5"/><path d="M6 11H4v9h16v-9h-2"/></svg>';
+let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
 let firstRunActive=false;
 const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
+const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
+const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
+function sharedSetupErrorKey(code){
+  if(code==="unsupported-version")return"setup.shared.unsupported";
+  if(code==="decompression-unavailable")return"setup.shared.browser_unsupported";
+  return"setup.shared.invalid"}
+function renderFirstRunProgramMode(){
+  const standard=$("#firstRunStandardProgram"),shared=$("#firstRunSharedProgram"),error=$("#firstRunSharedError");
+  const ready=sharedSetupReady();
+  standard?.classList.toggle("hidden",ready);
+  shared?.classList.toggle("hidden",!ready);
+  if(ready){
+    const name=sharedSetupDraft.payload.program.meta.name;
+    const n=sharedSetupDraft.payload.program.meta.daysPerWeek;
+    const title=$("#firstRunSharedTitle"),cap=$("#firstRunSharedCaption");
+    if(title)title.textContent=t("setup.shared.title");
+    if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
+    if(error){error.textContent="";error.classList.add("hidden")}}
+  else if(sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported"){
+    if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error));error.classList.remove("hidden")}}
+  else if(error){error.textContent="";error.classList.add("hidden")}}
+function setSharedSetupBusy(busy){
+  const button=$("#firstRunSharedStart"),busyEl=$("#firstRunSharedBusy");
+  if(button){button.disabled=busy;button.setAttribute("aria-busy",busy?"true":"false")}
+  busyEl?.classList.toggle("hidden",!busy)}
+async function commitSharedSetup(io=storageIO){
+  if(!sharedSetupReady())return{revision:readRevision(state),localOk:false,idbOk:false};
+  if(!sharedSetupEligible()){
+    toast(t("setup.shared.existing"),{assertive:true});
+    return{revision:readRevision(state),localOk:false,idbOk:false,ineligible:true}}
+  const checked=SharedSetup?.validate(sharedSetupDraft.payload,{builtInIds:SHARED_BUILT_IN_IDS});
+  if(!checked?.ok){
+    sharedSetupDraft.status="invalid";sharedSetupDraft.error=checked?.code||"invalid-schema";
+    renderFirstRun();return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true}}
+  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))
+    return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
+  setSharedSetupBusy(true);
+  let result;
+  try{
+    const transition=programTransitionPrecondition(state);
+    const proposal=proposalFromSharedSetup(checked.value,state);
+    const effect=destructiveDraftClearEffect(discardDraftRaw);
+    result=await commitProposedState(proposal,requireAdapter(io,"commitSharedSetup"),{replace:true,effect,...transition})}
+  catch{result={revision:readRevision(state),localOk:false,idbOk:false}}
+  setSharedSetupBusy(false);
+  if(!(result.localOk||result.idbOk)){
+    toast(t("setup.shared.commit_failed"),{assertive:true});
+    $("#firstRunSharedStart")?.focus();
+    return result}
+  resetDraftSessionState();
+  onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();syncLang();
+  if(isStandalone())SharedSetup?.clearHandoffCookie();
+  sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
+  render();toast(t("toast.onboarding_saved"));
+  if(!maybeStartTour())maybeShowInstallBanner();
+  return result}
 /** Write the install section from the current reading, or take it away. Rule 5:
  *  a browser with no mechanism gets no section at all, never a dead button. */
 function renderFirstRunInstall(){
@@ -7358,7 +7549,9 @@ function renderFirstRunInstall(){
  *  answer to a question nobody asked. */
 function setFirstRunOffer(offer){
   const lede=$("#firstRunLede");
-  if(lede)lede.textContent=offer?t("setup.lede"):t("setup.lede_installed");
+  if(lede)lede.textContent=sharedSetupReady()
+    ?t(offer?"setup.shared.lede":"setup.shared.lede_installed")
+    :t(offer?"setup.lede":"setup.lede_installed");
   $("#firstRunContinue")?.classList.toggle("hidden",!offer);
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way
@@ -7373,6 +7566,7 @@ function renderFirstRun(){
   const label=$("#firstRunContinueLabel");
   if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
   renderFirstRunInstall();
+  renderFirstRunProgramMode();
 }
 function openFirstRun(){
   const el=$("#firstRun");if(!el)return false;
@@ -7592,7 +7786,12 @@ function init(){
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
-  $("#firstRunContinue").onclick=()=>{setUiPref("installDismissedAt",Date.now());closeFirstRun();startOnboarding("first-run")};
+  $("#firstRunContinue").onclick=()=>{setUiPref("installDismissedAt",Date.now());
+    if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
+    closeFirstRun();startOnboarding("first-run")};
+  const sharedStart=$("#firstRunSharedStart");if(sharedStart)sharedStart.onclick=async()=>{
+    if(sharedStart.disabled)return;
+    await commitSharedSetup(storageIO)};
   $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
   $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
@@ -7647,6 +7846,10 @@ function init(){
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
+  const ssClose=$("#shareSetupClose");if(ssClose)ssClose.onclick=closeShareSetupSheet;
+  const ssScrim=$("#shareSetupScrim");if(ssScrim)ssScrim.onclick=closeShareSetupSheet;
+  const ssCopy=$("#shareSetupCopy");if(ssCopy)ssCopy.onclick=copySetupLink;
+  const ssShare=$("#shareSetupShare");if(ssShare)ssShare.onclick=shareSetupLinkNow;
   const libBack=$("#libBack");
   if(libBack)libBack.onclick=()=>{
     if(libFlow?.step==="configure"){libFlow.step="browse";renderLibrary();return}
@@ -8044,17 +8247,59 @@ async function applyBootDecision(decision){
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
   if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
   if(I18N)I18N.setLang(resolveLang())}
+window.__repforgeSharedSetup={
+  status:()=>sharedSetupDraft.status,
+  summary:()=>sharedSetupDraft.payload?{
+    name:sharedSetupDraft.payload.program.meta.name,
+    daysPerWeek:sharedSetupDraft.payload.program.meta.daysPerWeek,
+    lang:sharedSetupDraft.payload.settings.lang}:null,
+  buildPayload:buildSharedSetupPayload,
+  buildProposal:(payload,base)=>proposalFromSharedSetup(payload,base||state),
+  commit:io=>commitSharedSetup(io||storageIO),
+  eligible:sharedSetupEligible};
+function captureSharedSetupSource(){
+  if(!SharedSetup)return null;
+  const fragment=SharedSetup.readSetupFragment();
+  if(fragment!=null)return{source:"fragment",encoded:fragment};
+  const cookie=SharedSetup.readHandoffCookie();
+  return cookie?{source:"cookie",encoded:cookie}:null}
+async function prepareSharedSetup(candidate){
+  if(!candidate||!SharedSetup)return;
+  const {source,encoded}=candidate;
+  let staged=false;
+  if(source==="fragment"&&typeof encoded==="string"&&encoded.startsWith("v1.")&&
+    encoded.length<=SharedSetup.MAX_ENCODED_CHARS){
+    try{staged=SharedSetup.writeHandoffCookie(encoded)!==false}catch{staged=false}}
+  const decoded=await SharedSetup.decode(encoded,{builtInIds:SHARED_BUILT_IN_IDS});
+  if(!decoded.ok){
+    if(source==="cookie"||staged)SharedSetup.clearHandoffCookie();
+    const unsupported=decoded.code==="unsupported-version"||decoded.code==="decompression-unavailable";
+    sharedSetupDraft={status:unsupported?"unsupported":"invalid",source,encoded:null,payload:null,
+      error:decoded.code,previousLang:null};
+    return}
+  if(source==="fragment"&&staged){
+    const next=SharedSetup.removeSetupFragment();
+    history.replaceState({},"",next)}
+  if(!sharedSetupEligible()){
+    sharedSetupDraft={status:"existing",source,encoded:null,payload:null,error:"existing",previousLang:null};
+    return}
+  const previousLang=I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en";
+  sharedSetupDraft={status:"ready",source,encoded,payload:decoded.value,error:null,previousLang};
+  I18N?.setLang(decoded.value.settings.lang)}
 async function boot(){
   // The starter program is minted while the first-run state is built, so the
   // language has to be settled before that — not after the state exists.
+  const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
   let decision=await resolveBootReplicas();
   while(decision.kind==="unresolved"){
     const candidate=await presentStorageRecovery(decision);
     decision=await resolveBootReplicas(candidate)}
   await applyBootDecision(decision);
+  await prepareSharedSetup(sharedCandidate);
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init();
+  if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
   if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
 boot();
