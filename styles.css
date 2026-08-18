@@ -2628,7 +2628,6 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .sheet--install{height:auto;background:var(--bg)}
 .sheet--setup{height:auto;max-height:min(74dvh,660px)}
 .sheet--setup .sheet__title{overflow-wrap:anywhere}
-.sheet--setup .sheet__sub{white-space:normal;overflow:visible;text-overflow:unset}
 .sheet--setup .sheet__foot--actions{flex-wrap:wrap}
 .sheet--setup .sheet__foot--actions .btn{flex:1 1 140px}
 .share-setup{
