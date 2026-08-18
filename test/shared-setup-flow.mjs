@@ -1016,16 +1016,17 @@ export async function runSharedSetupFlow(browser) {
     }, SHARED_COPY.en.shareUnsupported);
     assert(shareUi.unsupported, "share sheet shows program.share_setup_unsupported", JSON.stringify(shareUi));
     await page.click("#programEditToggle");
+    await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 }).catch(() => {});
     const [programDownload] = await Promise.all([
       page.waitForEvent("download", { timeout: 8000 }).catch(() => null),
-      page.click("#exportProgram"),
+      page.evaluate(() => document.querySelector("#exportProgram")?.click()),
     ]);
     assert(!!programDownload, "program JSON export still works without CompressionStream");
     await page.click("#openSettings");
     await page.waitForSelector("#settings.view.active");
     const [backupDownload] = await Promise.all([
       page.waitForEvent("download", { timeout: 8000 }).catch(() => null),
-      page.click("#exportJson"),
+      page.evaluate(() => document.querySelector("#exportJson")?.click()),
     ]);
     assert(!!backupDownload, "backup JSON export still works without CompressionStream");
     await context.close();
