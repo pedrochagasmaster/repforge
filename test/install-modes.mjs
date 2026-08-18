@@ -30,6 +30,15 @@
  * widths in both languages and counts the line boxes the poem actually
  * occupies against the breaks its string was written with.
  *
+ * Two more sections cover the install offer outside first run:
+ *
+ *   the banner    measured across phone widths in both languages, because it
+ *                 packs an icon, two paragraphs and a full-width CTA into a
+ *                 toast — the copy has to keep a real measure and the button
+ *                 has to stay inside the card
+ *   the manifest  the file Chrome mints an Android WebAPK from: raster icons
+ *                 only, all fetchable, 192 and 512 present (ADR 0008)
+ *
  * Run: node test/install-modes.mjs   (with a static server on REPFORGE_URL)
  */
 import { launchChromium } from "./browser.mjs";
@@ -128,6 +137,102 @@ async function sharedInstallPage(browser, { ua, locale = "en-US", standalone = f
   }
   return { context, page, errors, encoded };
 }
+
+// The banner only shows to a lifter who is past first run, so these pages
+// import a program, then boot again into the app proper.
+const BANNER_PROGRAM = JSON.stringify({
+  meta: { name: "Banner split" },
+  exercises: [
+    { id: "a", day: "Day 1", name: "Barbell bench press", sets: 3, repLow: 6, repHigh: 10, muscles: ["Chest"] },
+    { id: "b", day: "Day 1", name: "Barbell back squat", sets: 3, repLow: 5, repHigh: 8, muscles: ["Quads"] },
+  ],
+});
+
+async function bannerPage(browser, { ua, locale = "en-US", width = 393, native = false } = {}) {
+  const { context, page, errors } = await firstRunPage(browser, { ua, locale, width });
+  await page.setInputFiles("#importProgram", {
+    name: "program.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(BANNER_PROGRAM),
+  });
+  await page.waitForSelector("#importReview.active", { timeout: 8000 });
+  await page.click("#importCommit");
+  await page.waitForFunction(() => document.querySelector("#firstRun").classList.contains("hidden"), undefined, {
+    timeout: 8000,
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  if (native) await page.evaluate(() => window.__fireInstall());
+  await page.waitForSelector("#installBanner:not(.hidden)", { timeout: 8000 });
+  // The copy is measured in characters of a web font.
+  await page.evaluate(() => document.fonts.ready);
+  await page.waitForTimeout(150);
+  return { context, page, errors };
+}
+
+// What the banner looks like, measured rather than described. It is a toast
+// over a working app, so it has to stay short, keep its copy in a column wide
+// enough to set sentences in, and keep every control inside its own card.
+const bannerShape = () => {
+  const banner = document.querySelector("#installBanner");
+  const action = document.querySelector("#installBannerAction");
+  const text = document.querySelector(".installbanner__text");
+  const body = document.querySelector(".installbanner__body");
+  const close = document.querySelector("#installBannerClose");
+  const box = (el) => {
+    const r = el.getBoundingClientRect();
+    return {
+      left: Math.round(r.left),
+      right: Math.round(r.right),
+      top: Math.round(r.top),
+      bottom: Math.round(r.bottom),
+      width: Math.round(r.width),
+      height: Math.round(r.height),
+    };
+  };
+  // Inline markup — the bold words, the iOS share glyph — puts more than one
+  // rect on a line, so lines are counted by the tops they sit on.
+  const lineCount = (el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return new Set([...range.getClientRects()].filter((r) => r.width > 0).map((r) => Math.round(r.top))).size;
+  };
+  const inkRects = (el) => {
+    const range = document.createRange();
+    range.selectNodeContents(el);
+    return [...range.getClientRects()].filter((r) => r.width > 0 && r.height > 0);
+  };
+  const intersects = (one, two) =>
+    one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
+  // Every control in the app carries a 44px hit area, which is wider than the
+  // gutter the banner reserves — so the ✕ drawn inside it, not its box, is what
+  // the copy has to clear.
+  const closeInk = inkRects(close)[0];
+  const pad = getComputedStyle(banner);
+  const actionShown = !action.classList.contains("hidden");
+  return {
+    closeInk: closeInk
+      ? { left: Math.round(closeInk.left), right: Math.round(closeInk.right), top: Math.round(closeInk.top) }
+      : null,
+    copyOverlapsClose:
+      !!closeInk &&
+      [...inkRects(document.querySelector(".installbanner__title")), ...inkRects(body)].some((line) =>
+        intersects(line, closeInk)
+      ),
+    shown: !banner.classList.contains("hidden"),
+    banner: box(banner),
+    text: box(text),
+    close: box(close),
+    action: actionShown ? box(action) : null,
+    actionShown,
+    actionLabel: actionShown ? action.textContent : null,
+    bodyLines: lineCount(body),
+    bodyWords: body.textContent.trim().split(/\s+/).length,
+    padding: { left: parseFloat(pad.paddingLeft), right: parseFloat(pad.paddingRight) },
+    viewport: { width: innerWidth, height: innerHeight },
+    docOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  };
+};
 
 const card = () => ({
   section: !document.querySelector("#firstRunInstall").classList.contains("hidden"),
@@ -659,6 +764,148 @@ async function run() {
         await context.close();
       }
     }
+  }
+
+  // ---- The install banner's shape ----
+  // Its action is a CTA, and a CTA is a full-width control. Beside the copy it
+  // took the whole card, left the text column at its minimum width — one word
+  // per line — and hung off the right edge, so the layout is measured here
+  // rather than trusted.
+  {
+    console.log("\nThe install banner's shape");
+    const cases = [
+      { name: "Chromium", ua: ANDROID_UA, native: true, action: true },
+      { name: "iOS Safari", ua: IOS_UA, native: false, action: true },
+      { name: "another iOS browser", ua: IOS_CHROME_UA, native: false, action: false },
+    ];
+    for (const kase of cases) {
+      for (const width of [320, 393]) {
+        for (const locale of ["en-US", "pt-BR"]) {
+          const { context, page, errors } = await bannerPage(browser, {
+            ua: kase.ua,
+            locale,
+            width,
+            native: kase.native,
+          });
+          const shape = await page.evaluate(bannerShape);
+          const at = `${kase.name} ${width}px ${locale}`;
+          assert(shape.shown, `${at}: the banner is offered`, JSON.stringify(shape));
+          assert(
+            shape.actionShown === kase.action,
+            `${at}: it draws a button only where it has one to honour`,
+            JSON.stringify({ shown: shape.actionShown, label: shape.actionLabel })
+          );
+          if (kase.action) {
+            assert(
+              shape.action.left >= shape.banner.left + shape.padding.left - 1 &&
+                shape.action.right <= shape.banner.right - shape.padding.right + 1,
+              `${at}: the button stays inside the card`,
+              JSON.stringify({ action: shape.action, banner: shape.banner, padding: shape.padding })
+            );
+          }
+          assert(
+            shape.text.width >= shape.banner.width * 0.5,
+            `${at}: the copy keeps a column at least half the card wide`,
+            JSON.stringify({ text: shape.text.width, banner: shape.banner.width })
+          );
+          assert(
+            shape.bodyLines <= 5 && shape.bodyLines < shape.bodyWords / 2,
+            `${at}: the body sets as sentences, not one word per line`,
+            JSON.stringify({ lines: shape.bodyLines, words: shape.bodyWords })
+          );
+          assert(
+            !shape.copyOverlapsClose,
+            `${at}: no copy runs under the dismiss control`,
+            JSON.stringify({ text: shape.text, closeInk: shape.closeInk })
+          );
+          assert(
+            shape.banner.left >= 0 && shape.banner.right <= shape.viewport.width && !shape.docOverflow,
+            `${at}: the card and the page stay inside the viewport`,
+            JSON.stringify(shape)
+          );
+          assert(
+            shape.banner.height <= shape.viewport.height * 0.25,
+            `${at}: the banner stays a toast over a working app`,
+            JSON.stringify({ height: shape.banner.height, viewport: shape.viewport })
+          );
+          allErrors.push(...errors);
+          await context.close();
+        }
+      }
+    }
+  }
+
+  // ---- The manifest an Android install is minted from (ADR 0008) ----
+  // Chrome ranks an "any"-sized SVG above every raster icon that does not match
+  // the device's launcher size exactly, and an SVG primary icon drops the
+  // install from a WebAPK to a browser shortcut. The mint itself happens on a
+  // Google server and cannot be driven from here; what can be held is the file
+  // it is handed.
+  {
+    console.log("\nThe install manifest");
+    const context = await browser.newContext({
+      viewport: { width: 393, height: 852 },
+      userAgent: ANDROID_UA,
+    });
+    const page = await context.newPage();
+    const errors = [];
+    page.on("pageerror", (e) => errors.push(String(e.message)));
+    await page.goto(BASE, { waitUntil: "domcontentloaded" });
+    const read = await page.evaluate(async () => {
+      const href = document.querySelector('link[rel="manifest"]')?.getAttribute("href");
+      if (!href) return { href: null };
+      const base = new URL(href, location.href);
+      const res = await fetch(base, { cache: "no-store" });
+      const manifest = await res.json();
+      const icons = [];
+      for (const icon of manifest.icons || []) {
+        const entry = { src: icon.src, sizes: icon.sizes, type: icon.type, purpose: icon.purpose, status: 0 };
+        try {
+          const hit = await fetch(new URL(icon.src, base), { cache: "no-store" });
+          entry.status = hit.status;
+          entry.served = hit.headers.get("content-type") || "";
+        } catch (err) {
+          entry.error = String(err);
+        }
+        icons.push(entry);
+      }
+      return { href, ok: res.ok, display: manifest.display, start: manifest.start_url, scope: manifest.scope, icons };
+    });
+    assert(read.ok, "the manifest the page links is served", JSON.stringify(read.href));
+    assert(read.display === "standalone", "it asks for a standalone window", String(read.display));
+    assert(!!read.start && !!read.scope, "it declares a start URL and a scope", JSON.stringify(read));
+    assert(read.icons.length > 0, "it declares icons", JSON.stringify(read.icons));
+    assert(
+      read.icons.every((icon) => icon.status === 200),
+      "every icon it declares is a file the server serves",
+      JSON.stringify(read.icons.filter((icon) => icon.status !== 200))
+    );
+    assert(
+      read.icons.every((icon) => !/^data:/i.test(icon.src)),
+      "no icon is inlined as a data URI",
+      JSON.stringify(read.icons.map((icon) => icon.src))
+    );
+    assert(
+      read.icons.every(
+        (icon) => icon.type === "image/png" && !/\.svg$/i.test(icon.src) && !/^any$/i.test(icon.sizes || "")
+      ),
+      "the install icons are raster, sized, and never an any-sized SVG",
+      JSON.stringify(read.icons)
+    );
+    const anyPurpose = (icon) => !icon.purpose || icon.purpose.split(/\s+/).includes("any");
+    assert(
+      read.icons.some((icon) => icon.sizes === "192x192" && anyPurpose(icon)) &&
+        read.icons.some((icon) => icon.sizes === "512x512" && anyPurpose(icon)),
+      "192 and 512 are both offered for the home screen",
+      JSON.stringify(read.icons)
+    );
+    assert(
+      read.icons.some((icon) => (icon.purpose || "").split(/\s+/).includes("maskable")),
+      "a maskable composition is offered for adaptive launchers",
+      JSON.stringify(read.icons)
+    );
+    allErrors.push(...errors);
+    await context.close();
   }
 
   // ---- Shared setup mode across the same capability matrix ----

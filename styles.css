@@ -2039,20 +2039,26 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .tour__nav{display:flex;gap:10px}
 .tour__nav .btn{flex:1}
 
+/* Icon and copy share the first row; the action takes a row of its own, the way
+   the first-run install card sets it. A CTA is a 100%-width control that does
+   not shrink, so beside the copy it would take the whole banner and squeeze the
+   text to one word per line. */
 .installbanner{position:fixed;left:50%;transform:translateX(-50%);
   bottom:calc(var(--nav) + 16px + env(safe-area-inset-bottom));z-index:64;
-  width:min(92%,420px);display:flex;align-items:center;gap:12px;
+  width:min(92%,420px);display:grid;grid-template-columns:auto 1fr;gap:10px 12px;align-items:center;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
-  padding:13px 34px 13px 14px;box-shadow:0 8px 24px rgba(0,0,0,.1);
+  padding:13px 14px;box-shadow:0 8px 24px rgba(0,0,0,.1);
   animation:toastin .3s cubic-bezier(.2,.7,.2,1)}
 .installbanner.hidden{display:none}
 .installbanner__close{position:absolute;top:6px;right:8px;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:13px;line-height:1;padding:4px}
-.installbanner__icon{flex:none;width:34px;height:34px;border-radius:9px;background:#161513 url("icons/icon-192.png") center/cover no-repeat}
-.installbanner__text{flex:1;min-width:0}
+.installbanner__icon{width:34px;height:34px;border-radius:9px;background:#161513 url("icons/icon-192.png") center/cover no-repeat}
+/* The corner the ✕ is drawn in belongs to the copy row alone, so the action
+   below it still sits square in the card. */
+.installbanner__text{min-width:0;padding-right:26px}
 .installbanner__title{font-weight:650;font-size:14px;margin:0 0 2px}
 .installbanner__body{margin:0;font-size:12.5px;line-height:1.4;color:var(--ink-soft)}
 .installbanner__body b{color:var(--ink);font-weight:600}
-.installbanner__action{flex:none;padding:9px 14px;font-size:13px}
+.installbanner__action{grid-column:1/-1;height:44px;font-size:15px}
 .ios-share{display:inline-block;width:15px;height:15px;vertical-align:-3px;margin:0 1px;
   fill:none;stroke:var(--accent);stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
 
