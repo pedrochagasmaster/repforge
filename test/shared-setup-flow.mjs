@@ -359,6 +359,16 @@ export async function waitForFirstRun(page, timeout = 15000) {
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout });
 }
 
+async function clickSharedStart(page) {
+  const start = page.locator("#firstRunSharedStart");
+  if (!(await start.count()) || !(await start.isVisible().catch(() => false))) {
+    assert(false, "Start this program is visible before the action", "missing #firstRunSharedStart");
+    return false;
+  }
+  await start.click({ timeout: 5000 });
+  return true;
+}
+
 function sharedPayloadAbsent(state, payload) {
   if (!state) return { ok: false, reason: "no-state" };
   const name = payload.program.meta.name;
@@ -456,7 +466,7 @@ export async function runSharedSetupFlow(browser) {
     const payload = built.payload;
     assert(payload?.kind === KIND && payload?.version === VERSION, "built payload is v1 taurifer-shared-setup", JSON.stringify(payload));
     assert(payload?.settings?.lang === "en" && payload?.settings?.unit === "kg", "English numeric kg settings survive", JSON.stringify(payload?.settings));
-    assert(!payload?.log && !payload?.programHistory, "builder omits log and history", JSON.stringify({ log: payload?.log, history: payload?.programHistory }));
+    assert(payload && !payload.log && !payload.programHistory, "builder omits log and history", JSON.stringify({ log: payload?.log, history: payload?.programHistory, payload: !!payload }));
     const encoded = await encodeSharedPayload(page, payload || MINIMAL_PAYLOAD);
     assert(encoded.ok === true && typeof encoded.value === "string" && encoded.value.startsWith("v1."), "encode returns an install-safe v1 fragment", JSON.stringify(encoded));
     if (encoded.ok) {
@@ -729,7 +739,10 @@ export async function runSharedSetupFlow(browser) {
     await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const before = await page.evaluate(readDurableState);
-    await page.click(SHARED_DOM.start);
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
     await page.waitForFunction(() => document.querySelector("#firstRun")?.classList.contains("hidden"), null, { timeout: 10000 }).catch(() => {});
     await page.waitForTimeout(400);
     const after = await page.evaluate(readDurableState);
@@ -921,7 +934,10 @@ export async function runSharedSetupFlow(browser) {
       }));
     }, DRAFT);
     page.once("dialog", (dialog) => dialog.dismiss());
-    await page.click(SHARED_DOM.start);
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
     await page.waitForTimeout(400);
     const after = await page.evaluate(() => ({
       draft: localStorage.getItem("repforge_draft_v1"),
@@ -991,13 +1007,13 @@ export async function runSharedSetupFlow(browser) {
     await page.waitForSelector("#program.view.active");
     await page.click(SHARED_DOM.shareRow).catch(() => {});
     await page.waitForTimeout(300);
-    const shareUi = await page.evaluate((copy) => {
+    const shareUi = await page.evaluate((unsupported) => {
       const body = document.body.innerText;
       return {
-        unsupported: body.includes(copy.shareUnsupported),
+        unsupported: body.includes(unsupported),
         shareDisabled: document.querySelector("#shareSetupShare")?.disabled !== false,
       };
-    }, SHARED_COPY.en);
+    }, SHARED_COPY.en.shareUnsupported);
     assert(shareUi.unsupported, "share sheet shows program.share_setup_unsupported", JSON.stringify(shareUi));
     await page.click("#programEditToggle");
     const [programDownload] = await Promise.all([
