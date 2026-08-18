@@ -592,7 +592,8 @@
 
       <section class="firstrun__section" aria-labelledby="firstRunProgramLabel">
         <p class="firstrun__eyebrow" id="firstRunProgramLabel" data-i18n="setup.program_label">Program</p>
-        <div class="firstrun__rows">
+        <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
+        <div id="firstRunStandardProgram" class="firstrun__rows">
           <button type="button" class="firstrun-row" id="firstRunCreate">
             <span class="firstrun-row__icon firstrun-row__icon--plus" aria-hidden="true"></span>
             <span class="firstrun-row__text">
@@ -607,6 +608,17 @@
               <span class="firstrun-row__title" data-i18n="setup.import.title">Import a program</span>
               <span class="firstrun-row__cap" data-i18n="setup.import.cap">Use a shared Taurifer program</span>
             </span>
+            <span class="firstrun-row__go" aria-hidden="true"></span>
+          </button>
+        </div>
+        <div id="firstRunSharedProgram" class="firstrun__rows hidden">
+          <button type="button" class="firstrun-row" id="firstRunSharedStart">
+            <span class="firstrun-row__icon firstrun-row__icon--start" aria-hidden="true"></span>
+            <span class="firstrun-row__text">
+              <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
+              <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
+            </span>
+            <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
             <span class="firstrun-row__go" aria-hidden="true"></span>
           </button>
         </div>
@@ -696,6 +708,27 @@
     </div>
     <div class="sheet__foot sheet__foot--actions">
       <button type="button" class="btn btn--steel" id="programTextShare" data-i18n="program.export_text.share">Share or save</button>
+    </div>
+  </div>
+  <div id="shareSetupScrim" class="sheet-scrim hidden"></div>
+  <div id="shareSetupSheet" class="sheet sheet--setup hidden" role="dialog" aria-modal="true" aria-labelledby="shareSetupTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head">
+      <button type="button" class="sheet__act" id="shareSetupClose" data-i18n="dialog.close">Close</button>
+      <div class="sheet__titles">
+        <p class="sheet__title" id="shareSetupTitle" data-i18n="program.share_setup_title">Share program setup</p>
+        <p class="sheet__sub" id="shareSetupFor"></p>
+      </div>
+      <span class="sheet__spacer" aria-hidden="true"></span>
+    </div>
+    <div class="sheet__body share-setup">
+      <p id="shareSetupBody" data-i18n="program.share_setup_body">The link includes this program, its settings, and the app language. Workout history is not included.</p>
+      <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>
+      <p id="shareSetupStatus" class="share-setup__status hidden" role="status"></p>
+    </div>
+    <div class="sheet__foot sheet__foot--actions">
+      <button type="button" class="btn btn--steel" id="shareSetupCopy" data-i18n="program.share_setup_copy">Copy link</button>
+      <button type="button" class="btn btn--steel" id="shareSetupShare" data-i18n="program.share_setup_share">Share link</button>
     </div>
   </div>
   <div id="exPickScrim" class="sheet-scrim hidden"></div>
@@ -809,6 +842,7 @@
   <script src="notify.js"></script>
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
+  <script src="shared-setup.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

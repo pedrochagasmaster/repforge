@@ -2581,13 +2581,33 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10M7.5 10l4.5 4.5L16.5 10M5 19h14'/%3E%3C/svg%3E");
 }
 .firstrun-row__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
+.firstrun-row__title,.firstrun-row__cap{overflow-wrap:anywhere}
 .firstrun-row__title{font-size:19px;font-weight:650;letter-spacing:-0.01em;color:var(--ink)}
 .firstrun-row__cap{font-size:14px;line-height:1.35;color:var(--ink-soft)}
+.firstrun-row__cap:empty{display:none}
 .firstrun-row__go{flex:none;width:20px;height:20px;color:var(--ink)}
 .firstrun-row__go::before{
   content:"";display:block;width:100%;height:100%;background:currentColor;
   -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
 }
+.firstrun-row__icon--start::before{
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6.8v10.4L18 12z'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6.8v10.4L18 12z'/%3E%3C/svg%3E");
+}
+.firstrun-row__busy{
+  position:absolute;right:0;top:50%;margin-top:-9px;
+  width:18px;height:18px;border:2px solid var(--rule);
+  border-top-color:var(--accent);border-radius:50%;
+}
+#firstRunSharedStart{position:relative}
+.firstrun-row:disabled,.firstrun-row[aria-busy="true"]{opacity:.55;cursor:progress}
+.firstrun-row[aria-busy="true"] .firstrun-row__go,
+.firstrun-row:has(.firstrun-row__busy:not(.hidden)) .firstrun-row__go{visibility:hidden}
+.firstrun__error{
+  width:100%;margin:12px 0 0;font-size:14px;line-height:1.4;color:var(--danger);
+  overflow-wrap:anywhere;
+}
+.firstrun__error:empty{display:none}
 
 /* The install card. It bleeds to the edge of the setup column, which is the
    screen on a phone, and it is the only orange field in the app. */
@@ -2606,6 +2626,24 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
    Taurifer can do is point at Safari's own control: the bar below is a drawing
    of it, never a live control. */
 .sheet--install{height:auto;background:var(--bg)}
+.sheet--setup{height:auto;max-height:min(74dvh,660px)}
+.sheet--setup .sheet__title{overflow-wrap:anywhere}
+.sheet--setup .sheet__sub{white-space:normal;overflow:visible;text-overflow:unset}
+.sheet--setup .sheet__foot--actions{flex-wrap:wrap}
+.sheet--setup .sheet__foot--actions .btn{flex:1 1 140px}
+.share-setup{
+  flex-direction:column;gap:14px;overflow:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding-bottom:8px;
+}
+.share-setup__link{
+  margin:0;min-width:0;padding:12px;background:var(--well);border:1px solid var(--rule);border-radius:12px;
+  overflow:auto;overflow-wrap:anywhere;word-break:break-all;max-height:12em;
+  font-family:var(--mono);font-size:13px;line-height:1.45;color:var(--ink);
+  -webkit-user-select:text;user-select:text;
+}
+.share-setup__link:empty{display:none}
+.share-setup__status{margin:0;font-size:14px;line-height:1.4;color:var(--ink-soft);overflow-wrap:anywhere}
+.share-setup__status:empty{display:none}
 .installsheet{
   display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
   -webkit-overflow-scrolling:touch;padding:14px 22px 20px;
