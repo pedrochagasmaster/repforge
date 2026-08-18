@@ -19,6 +19,7 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 - Browse, preview and add several exercises at once, then set their sets and reps
 - Custom exercises you create yourself, reusable across programs and portable with them
 - Program import reviewed name by name before anything is written
+- Share a setup link from Program: this program, its settings, and the app language. Workout history is not included
 - Visual program editor (add/reorder/remove days and exercises), with raw-JSON advanced mode
 - Volume audit with direct and partial set counting
 - JSON backup/import
@@ -28,9 +29,18 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 
 ## Local-only data model
 
-The app files can be hosted on GitHub Pages, but training data stays on this device. There is no account sync or cross-device recovery.
+The app files can be hosted on GitHub Pages, but ordinary training data stays on this device. There is no account, no sync, and no cross-device recovery.
 
-Nothing is sent to GitHub or any backend by the app.
+Nothing is sent to GitHub or any backend by the app. A setup link is not an upload: the coach creates a URL and sends it themselves. The program travels in the URL fragment (`#setup=`), which is not part of the HTTP request to GitHub Pages.
+
+Distinguish four things:
+
+- **Ordinary training data** — sessions, the log, drafts, and program history — remains on this device.
+- **A setup link** — an intentional share of the active program, its configuration, allowlisted app settings, and language. Anyone who has the URL can read and start that program during first-run setup. Encoding and compression are not encryption. The link cannot be revoked, and unusually large programs cannot fit the 3,072-character install-safe ceiling.
+- **The temporary install-handoff cookie** (`repforge_setup_v1`) — the same compressed proposal, kept up to seven days so iOS/iPadOS 17.2+ Add to Home Screen can recover it in the installed app. Older iOS versions can still open the link in the browser; this app does not claim that an older Home Screen install will inherit the proposal. The cookie is sent with the matching `index.html` request. It is not workout history.
+- **Excluded workout history** — logs, completed sessions, prior blocks, notification permission, and device UI preferences are never included.
+
+A recipient with no program sees the existing first-run gate. Create and Import are replaced by one Start this program action. Opening the link does not write the shared program; that happens only when they start it. Someone who already has a program, logs, or archived program history is not overwritten.
 
 Use **Settings → Export backup JSON** before clearing browser data or changing phones.
 
