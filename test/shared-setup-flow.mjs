@@ -542,10 +542,16 @@ export async function runSharedSetupFlow(browser) {
     }));
     await page.reload({ waitUntil: "domcontentloaded" });
     await dismissGates(page);
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#program.view.active");
     const built = await page.evaluate(() => {
       const hook = window.__repforgeSharedSetup;
       if (!hook?.build) return { missing: true };
-      return { payload: hook.build() };
+      try {
+        return { payload: hook.build() };
+      } catch (err) {
+        return { error: String(err) };
+      }
     });
     assert(!built.missing, "Portuguese builder hook exists", JSON.stringify(built));
     const settings = built.payload?.settings;
