@@ -7776,6 +7776,7 @@ window.__repforgeOnboarding={eqUi:ONB_EQ_UI,eqGen:ONB_EQ_GEN,splits:ONB_SPLITS,m
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  window.addEventListener("hashchange",()=>{handleSharedSetupHash()});
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
   // Chrome decides when to offer this, and it usually decides after the first
@@ -8269,11 +8270,16 @@ async function applyBootDecision(decision){
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   status:()=>sharedSetupDraft.status,
+  source:()=>sharedSetupDraft.source,
+  error:()=>sharedSetupDraft.error,
   summary:()=>sharedSetupDraft.payload?{
     name:sharedSetupDraft.payload.program.meta.name,
     daysPerWeek:sharedSetupDraft.payload.program.meta.daysPerWeek,
     lang:sharedSetupDraft.payload.settings.lang}:null,
+  build:buildSharedSetupPayload,
   buildPayload:buildSharedSetupPayload,
+  proposal:proposalFromSharedSetup,
+  proposalFromSharedSetup,
   buildProposal:(payload,base)=>proposalFromSharedSetup(payload,base||state),
   commit:io=>commitSharedSetup(io||storageIO),
   eligible:sharedSetupEligible};
@@ -8323,6 +8329,15 @@ async function prepareSharedSetup(candidate){
   const previousLang=I18N?.getLang?.()||state.settings.lang||I18N?.detectLang?.()||"en";
   sharedSetupDraft={status:"ready",source,encoded,payload:decoded.value,error:null,previousLang};
   I18N?.setLang(decoded.value.settings.lang)}
+async function handleSharedSetupHash(){
+  const candidate=captureSharedSetupSource();
+  if(!candidate||candidate.source!=="fragment")return;
+  if(firstRunOpen())suspendFirstRun();
+  await prepareSharedSetup(candidate);
+  if(sharedSetupDraft.status==="existing"){
+    closeFirstRun();toast(t("setup.shared.existing"),{assertive:true});return}
+  applyI18n();
+  if(firstRunPending())openFirstRun()}
 async function boot(){
   // The starter program is minted while the first-run state is built, so the
   // language has to be settled before that — not after the state exists.
