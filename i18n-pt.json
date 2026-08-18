@@ -1070,7 +1070,7 @@
   "program.share_setup": "Compartilhar link de configuração",
   "program.share_setup_sub": "Programa, configurações e idioma do app · sem histórico de treinos",
   "program.share_setup_title": "Compartilhar configuração do programa",
-  "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes da página do app por até sete dias. Compressão e codificação não são criptografia.",
+  "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes de index.html por até sete dias. Compressão e codificação não são criptografia.",
   "program.share_setup_building": "Preparando link…",
   "program.share_setup_share": "Compartilhar link",
   "program.share_setup_copy": "Copiar link",

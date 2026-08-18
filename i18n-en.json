@@ -1070,7 +1070,7 @@
   "program.share_setup": "Share setup link",
   "program.share_setup_sub": "Program, settings and app language · no workout history",
   "program.share_setup_title": "Share program setup",
-  "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching app-page requests for up to seven days. Compression and encoding are not encryption.",
+  "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption.",
   "program.share_setup_building": "Preparing link…",
   "program.share_setup_share": "Share link",
   "program.share_setup_copy": "Copy link",

@@ -282,12 +282,12 @@ async function main() {
     en: {
       "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links intentionally share a program and selected settings.",
       "tour.0.body": "Workout logs, drafts, and history stay on this device; Taurifer never uploads them. Setup links intentionally share a program, its configuration, eight selected settings, and language. This quick tour shows every feature. Tap <b>Next</b> to begin, or <b>Skip tour</b> anytime.",
-      "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching app-page requests for up to seven days. Compression and encoding are not encryption.",
+      "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption.",
     },
     pt: {
       "meta.description": "O Taurifer mantém logs, rascunhos e histórico de treinos neste dispositivo. Links de configuração compartilham de propósito um programa e ajustes selecionados.",
       "tour.0.body": "Logs, rascunhos e histórico de treinos ficam neste dispositivo; o Taurifer nunca os envia. Links de configuração compartilham de propósito um programa, sua configuração, oito ajustes selecionados e o idioma. Este tour rápido mostra todos os recursos. Toque em <b>Próximo</b> para começar ou em <b>Pular tour</b> quando quiser.",
-      "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes da página do app por até sete dias. Compressão e codificação não são criptografia.",
+      "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes de index.html por até sete dias. Compressão e codificação não são criptografia.",
     },
   };
   for (const lang of ["en", "pt"]) {
