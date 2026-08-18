@@ -103,7 +103,7 @@ Add exact EN/PT keys rather than constructing sentences in JavaScript.
 | `program.share_setup` | Share setup link | Compartilhar link de configuração |
 | `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, configurações e idioma do app · sem histórico de treinos |
 | `program.share_setup_title` | Share program setup | Compartilhar configuração do programa |
-| `program.share_setup_body` | The link includes this program, its settings, and the app language. Workout history is not included. | O link inclui este programa, suas configurações e o idioma do app. O histórico de treinos não é incluído. |
+| `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes de index.html por até sete dias. Compressão e codificação não são criptografia. |
 | `program.share_setup_building` | Preparing link… | Preparando link… |
 | `program.share_setup_share` | Share link | Compartilhar link |
 | `program.share_setup_copy` | Copy link | Copiar link |

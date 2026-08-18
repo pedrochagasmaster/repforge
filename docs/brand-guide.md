@@ -9,10 +9,14 @@ agents always load is in `AGENTS.md`.
 
 ## Identity
 
-Taurifer is a local-only progressive-overload tracker for calm, focused
-training. All data stays on the device. The product's personality is a quiet
-training partner: it records, computes, and suggests — it does not celebrate,
-motivate, or entertain.
+Taurifer is a local-first progressive-overload tracker for calm, focused
+training. Ordinary training data stays on this device; Taurifer never
+uploads it. A coach may choose to put a program, its settings, and the app
+language into a URL they send themselves — never workout history. That is
+a setup link, not an account or a backend (see
+[First-run modes](#first-run-modes); [ADR 0007](adr/0007-shared-setup-links.md)).
+The product's personality is a quiet training partner: it records,
+computes, and suggests — it does not celebrate, motivate, or entertain.
 
 **Name origin (internal background — never user-facing).** *Taurĭfer* is a
 Latin adjective meaning "bull-bearing". The name nods to Milo of Croton, who
@@ -79,6 +83,10 @@ cheaper here by there being one file. How it was produced, and how
 to replace it, is in `assets/brand/README.md`. Past the gate, the app stays
 quiet so the record can speak.
 
+Shared setup links (ADR 0007) switch only the program-choice rows that
+follow this hero. They do not change the title, poem, illustration, brand
+lockup, installation card, installation sheet, or responsive composition.
+
 > Strength isn't something you're born with.\
 > It's something you build.\
 > Day after day.
@@ -104,6 +112,58 @@ quiet so the record can speak.
 > no one could.\
 > You built it.\
 > Day after day.
+
+## First-run modes
+
+The first-run gate (`#firstRun`, "Set up Taurifer") is the theme's second
+permitted surface and the one door into a first program. It has two
+program-choice modes. The hero rules in [Ethos](#ethos) and ADR 0006 apply
+to both; shared mode must not restyle or crop them.
+
+**Standard** — no shared setup source. The install section behaves as ADR
+0005. The program section is two equal rows: Create a program and Import a
+program. Ledes stay `setup.lede` / `setup.lede_installed`.
+
+**Shared** — a valid setup proposal on a first run with no archived
+program history. The install section, hero, and lockup are unchanged. Create
+and Import are hidden. One Start this program row identifies the proposal
+by name and day count. The gate itself is the confirmation; there is no
+second preview or exercise-mapping review. Ledes and the row:
+
+| Key | English | Portuguese |
+| --- | --- | --- |
+| `setup.shared.lede` | Install the app, then start your program. | Instale o app e comece seu programa. |
+| `setup.shared.lede_installed` | Your program is ready. | Seu programa está pronto. |
+| `setup.shared.title` | Start this program | Começar este programa |
+| `setup.shared.cap_one` | {name} · 1 day per week | {name} · 1 dia por semana |
+| `setup.shared.cap_many` | {name} · {n} days per week | {name} · {n} dias por semana |
+
+Use `cap_one` when `n === 1` and `cap_many` otherwise. Do not assemble the
+caption from English fragments. Payload-derived names go through
+`textContent`. An invalid, oversized, or unsupported link returns to
+standard controls plus an inline error; it does not write application
+state.
+
+Existing configured state — onboarded metadata, any log rows, or any
+`programHistory` — does not reopen this gate and does not apply the
+proposal.
+
+**What a setup link shares.** The coach's share sheet states the exact
+claim; do not strengthen or soften it in other copy:
+
+| Key | English | Portuguese |
+| --- | --- | --- |
+| `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, configurações e idioma do app · sem histórico de treinos |
+| `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes de index.html por até sete dias. Compressão e codificação não são criptografia. |
+
+The URL is a bearer capability the coach sends. Encoding is not encryption
+and not proof of identity. Taurifer never uploads ordinary workout data.
+Workout logs, completed sessions, prior blocks, notification permission, and
+device UI preferences never travel with the link. A temporary
+`repforge_setup_v1` cookie exists only so iOS 17.2+ Add to Home Screen can
+recover the same proposal; it is compressed, not encrypted, is sent to the
+static host with matching app-page requests for up to seven days, and is not
+training history.
 
 ## Voice and copy
 
@@ -212,9 +272,10 @@ carries the short enforcement note.
 | Export filenames | `taurifer_*` (`log`, `program`, `backup`, `copy_a`/`copy_b`) | Brand, lowercase |
 | localStorage keys | `repforge_v1`, `repforge_draft_v1`, `repforge_pending_v1:*` | Codename — frozen |
 | IndexedDB database / store | `repforge` / `kv` | Codename — frozen |
+| Setup-link handoff cookie | `repforge_setup_v1` | Codename — frozen |
 | Service-worker cache prefix | `repforge-vNN` (bump `NN` only) | Codename — frozen |
 | Cross-tab lock name | `repforge:state-write` | Codename — frozen |
-| JS globals and test hooks | `RepForgeI18n`, `RepForgeSchedule`, `RepForgeNotify`, `window.__repforge*` | Codename — frozen |
+| JS globals and test hooks | `RepForgeI18n`, `RepForgeSchedule`, `RepForgeNotify`, `RepForgeSharedSetup`, `window.__repforge*` | Codename — frozen |
 | i18n keys | e.g. `toast.workout_forged` | Codename — frozen |
 | Repository slug, GitHub Pages URL | `pedrochagasmaster/repforge` | Codename — frozen |
 

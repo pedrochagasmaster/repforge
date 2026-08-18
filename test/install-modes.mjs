@@ -33,6 +33,15 @@
  * Run: node test/install-modes.mjs   (with a static server on REPFORGE_URL)
  */
 import { launchChromium } from "./browser.mjs";
+import { MINIMAL_PAYLOAD, REPRESENTATIVE_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
+import {
+  APP_INDEX,
+  encodeSharedPayload,
+  openAppPage,
+  SHARED_COPY,
+  sharedGateSnapshot,
+  waitForFirstRun,
+} from "./shared-setup-flow.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const IOS_UA =
@@ -101,6 +110,25 @@ async function firstRunPage(browser, { ua, locale = "en-US", standalone = false,
   return { context, page, errors };
 }
 
+async function sharedInstallPage(browser, { ua, locale = "en-US", standalone = false, width = 390, payload = MINIMAL_PAYLOAD } = {}) {
+  const { context, page, errors } = await openAppPage(browser, { ua, locale, standalone, width });
+  await page.evaluate(async () => {
+    localStorage.clear();
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    });
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 });
+  const encoded = await encodeSharedPayload(page, payload);
+  if (encoded?.ok) {
+    await page.goto(`${APP_INDEX}?shared-install=${width}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+  }
+  return { context, page, errors, encoded };
+}
+
 const card = () => ({
   section: !document.querySelector("#firstRunInstall").classList.contains("hidden"),
   title: document.querySelector(".installcard__title")?.textContent || null,
@@ -164,6 +192,8 @@ const heroShape = () => {
     poemSize: parseFloat(getComputedStyle(poem).fontSize),
     poemHeight: p.height,
     compact: matchMedia("(max-width:759px)").matches,
+    titleAlign: getComputedStyle(title).textAlign,
+    titleCentered: Math.abs((t.left + t.right) / 2 - (h.left + h.right) / 2) <= 1,
     artBeforePoem: a.bottom <= p.top + 1,
     artSeparated: !intersects(a, t) && !intersects(a, p),
     artInsideHero:
@@ -580,6 +610,13 @@ async function run() {
           JSON.stringify(shape)
         );
         assert(
+          shape.compact
+            ? shape.titleAlign === "center" && shape.titleCentered
+            : shape.titleAlign === "left",
+          `${at}: the hero title follows the compact and wide alignment`,
+          JSON.stringify({ align: shape.titleAlign, centered: shape.titleCentered })
+        );
+        assert(
           shape.logoWidth >= 62 && shape.wordmarkSize >= 21,
           `${at}: the brand lockup has deliberate prominence`,
           JSON.stringify(shape)
@@ -621,6 +658,124 @@ async function run() {
         allErrors.push(...errors);
         await context.close();
       }
+    }
+  }
+
+  // ---- Shared setup mode across the same capability matrix ----
+  // Standard no-link cases above stay unchanged. These extra pages keep their
+  // own error list so a missing implementation cannot rewrite the no-link
+  // "no uncaught page errors" check.
+  {
+    console.log("\nShared setup · iOS Safari");
+    try {
+      const { context, page, encoded } = await sharedInstallPage(browser, { ua: IOS_UA, payload: cloneFixture(MINIMAL_PAYLOAD) });
+      assert(encoded?.ok, "shared iOS Safari: payload encodes", JSON.stringify(encoded));
+      const shown = await page.evaluate(card);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      assert(shown.heroTitle === "Strength isn't something you're born with.", "shared iOS Safari: ethos hero remains", shown.heroTitle);
+      assert(shown.section, "shared iOS Safari: install card remains", JSON.stringify(shown));
+      assert(gate.startVisible && !gate.createVisible && !gate.importVisible, "shared iOS Safari: one Start this program row", JSON.stringify(gate));
+      assert(gate.lede === SHARED_COPY.en.lede, "shared iOS Safari: install-then-start lede", gate.lede);
+      assert(shown.create, "shared iOS Safari: Create still exists in the document", JSON.stringify(shown));
+      await page.click("#firstRunContinue");
+      await page.waitForTimeout(200);
+      const after = await page.evaluate(sharedGateSnapshot);
+      assert(after.startVisible && !after.install && !after.continueShown, "shared iOS Safari: Continue removes only the install offer", JSON.stringify(after));
+      await context.close();
+    } catch (err) {
+      assert(false, "shared iOS Safari (uncaught)", String(err && err.stack || err));
+    }
+  }
+
+  {
+    console.log("\nShared setup · Chromium native install");
+    try {
+      const { context, page, encoded } = await sharedInstallPage(browser, { ua: ANDROID_UA, payload: cloneFixture(MINIMAL_PAYLOAD) });
+      assert(encoded?.ok, "shared Chromium: payload encodes", JSON.stringify(encoded));
+      await page.evaluate(() => window.__fireInstall());
+      await page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
+      await page.click("#firstRunInstallAction");
+      await page.waitForTimeout(300);
+      const accepted = await page.evaluate(sharedGateSnapshot);
+      assert(accepted.startVisible && accepted.gate && !accepted.install, "shared Chromium: accepted install leaves the shared action", JSON.stringify(accepted));
+      await context.close();
+    } catch (err) {
+      assert(false, "shared Chromium accepted (uncaught)", String(err && err.stack || err));
+    }
+    try {
+      const { context, page } = await sharedInstallPage(browser, { ua: ANDROID_UA, payload: cloneFixture(MINIMAL_PAYLOAD) });
+      await page.evaluate(() => {
+        window.__choice = "dismissed";
+        window.__fireInstall();
+      });
+      await page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
+      await page.click("#firstRunInstallAction");
+      await page.waitForTimeout(300);
+      const dismissed = await page.evaluate(sharedGateSnapshot);
+      assert(dismissed.startVisible && dismissed.gate, "shared Chromium: dismissed prompt leaves the shared action", JSON.stringify(dismissed));
+      await context.close();
+    } catch (err) {
+      assert(false, "shared Chromium dismissed (uncaught)", String(err && err.stack || err));
+    }
+  }
+
+  {
+    console.log("\nShared setup · standalone");
+    try {
+      const { context, page, encoded } = await sharedInstallPage(browser, {
+        ua: ANDROID_UA,
+        standalone: true,
+        payload: cloneFixture(MINIMAL_PAYLOAD),
+      });
+      assert(encoded?.ok, "shared standalone: payload encodes", JSON.stringify(encoded));
+      const st = await page.evaluate(sharedGateSnapshot);
+      assert(st.startVisible && !st.createVisible, "shared standalone: Start this program is the program control", JSON.stringify(st));
+      assert(!st.install && !st.continueShown, "shared standalone: no install section", JSON.stringify(st));
+      assert(st.lede === SHARED_COPY.en.ledeInstalled, "shared standalone: installed lede", st.lede);
+      assert(!st.onboarding, "shared standalone: does not jump into the wizard", JSON.stringify(st));
+      await context.close();
+    } catch (err) {
+      assert(false, "shared standalone (uncaught)", String(err && err.stack || err));
+    }
+  }
+
+  {
+    console.log("\nShared setup · Portuguese iOS Safari");
+    try {
+      const { context, page, encoded } = await sharedInstallPage(browser, {
+        ua: IOS_UA,
+        locale: "en-US",
+        payload: cloneFixture(REPRESENTATIVE_PAYLOAD),
+      });
+      assert(encoded?.ok, "shared PT: payload encodes", JSON.stringify(encoded));
+      const pt = await page.evaluate(sharedGateSnapshot);
+      const shown = await page.evaluate(card);
+      assert(shown.heroTitle === "Força não vem de nascença.", "shared PT: hero follows the payload language", shown.heroTitle);
+      assert(pt.lede === SHARED_COPY.pt.lede, "shared PT: lede before acceptance", pt.lede);
+      assert(pt.startTitle === SHARED_COPY.pt.title, "shared PT: Start this program in Portuguese", pt.startTitle);
+      await context.close();
+    } catch (err) {
+      assert(false, "shared PT (uncaught)", String(err && err.stack || err));
+    }
+  }
+
+  {
+    console.log("\nShared setup · 320px overflow");
+    try {
+      const long = cloneFixture(MINIMAL_PAYLOAD);
+      long.program.meta.name = "Long name ".repeat(10).trim();
+      const { context, page } = await sharedInstallPage(browser, {
+        ua: IOS_UA,
+        width: 320,
+        payload: long,
+      });
+      const shape = await page.evaluate(heroShape);
+      const gate = await page.evaluate(sharedGateSnapshot);
+      assert(shape.noHorizontalOverflow, "shared 320px: page has no horizontal overflow", JSON.stringify(shape));
+      assert(gate.startVisible && !gate.overflow, "shared 320px: long name does not overflow the gate", JSON.stringify(gate));
+      await context.close();
+    } catch (err) {
+      assert(false, "shared 320px overflow (uncaught)", String(err && err.stack || err));
     }
   }
 
