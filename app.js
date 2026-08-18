@@ -5998,7 +5998,8 @@ const SHARED_EQUIPMENT={machine:"machines",machines:"machines",cable:"cables",ca
 function sharedProgramMeta(meta,program){
   const days=program.days();
   const optional=(value,allowed)=>allowed.includes(value)?value:null;
-  return{name:String(meta?.name||"").trim(),goal:optional(meta?.goal,["hypertrophy","strength_hypertrophy","beginner_consistency"]),
+  return{name:String(meta?.name||"").trim()||t("untitled_program")||"Untitled program",
+    goal:optional(meta?.goal,["hypertrophy","strength_hypertrophy","beginner_consistency"]),
     experience:optional(meta?.experience,["beginner","intermediate","advanced"]),daysPerWeek:days.length,
     splitType:optional(meta?.splitType,["full_body","machine_only","ppl","upper_lower","bro"]),
     equipment:[...new Set((Array.isArray(meta?.equipment)?meta.equipment:[])

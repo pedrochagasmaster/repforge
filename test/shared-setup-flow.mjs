@@ -544,6 +544,52 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
+  await runCase("Blank program names use the localized untitled name in setup links", async () => {
+    for (const [lang, expected] of [["en", "Untitled program"], ["pt", "Programa sem título"]]) {
+      const { context, page } = await openAppPage(browser, { locale: lang === "pt" ? "pt-BR" : "en-US" });
+      await clearSite(page);
+      await persistState(page, configuredState({
+        name: "   ",
+        libraryId: "pr_mc",
+        settings: { ...CURRENT_SETTINGS_DEFAULTS, lang },
+      }));
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await dismissGates(page);
+      await page.click('nav button[data-view="program"]');
+      await page.waitForSelector("#program.view.active");
+      await page.click(SHARED_DOM.shareRow);
+      await page.waitForFunction(() => {
+        const copy = document.querySelector("#shareSetupCopy");
+        return copy && !copy.disabled;
+      }, null, { timeout: 10000 }).catch(() => {});
+      const result = await page.evaluate(async () => {
+        const link = document.querySelector("#shareSetupLink");
+        const value = link && ("value" in link ? link.value : link.textContent) || "";
+        const status = document.querySelector("#shareSetupStatus")?.textContent || "";
+        const setup = value ? new URL(value).hash.slice(1).split("setup=")[1] : "";
+        const decoded = setup
+          ? await window.RepForgeSharedSetup.decode(setup, {
+              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
+            })
+          : null;
+        return { value, status, decoded };
+      });
+      assert(!!result.value, `${lang} blank-name program produces a setup link`, JSON.stringify(result));
+      assert(result.decoded?.ok === true, `${lang} blank-name setup link decodes`, JSON.stringify(result.decoded));
+      assert(
+        result.decoded?.value?.program?.meta?.name === expected,
+        `${lang} blank-name setup link uses the localized untitled name`,
+        JSON.stringify(result.decoded?.value?.program?.meta),
+      );
+      assert(
+        result.status === "",
+        `${lang} blank-name setup link avoids the generic invalid-program error`,
+        result.status,
+      );
+      await context.close();
+    }
+  });
+
   await runCase("Outbound legacy aliases become current library IDs", async () => {
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
