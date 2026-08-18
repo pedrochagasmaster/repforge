@@ -754,7 +754,7 @@ async function run() {
     console.log("\nShared setup · 320px overflow");
     try {
       const long = cloneFixture(MINIMAL_PAYLOAD);
-      long.program.meta.name = `${"Long shared program name ".repeat(6).trim()}`;
+      long.program.meta.name = "Long name ".repeat(10).trim();
       const { context, page } = await sharedInstallPage(browser, {
         ua: IOS_UA,
         width: 320,
