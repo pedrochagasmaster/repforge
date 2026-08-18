@@ -1,7 +1,7 @@
 // Taurifer i18n — English / Portuguese UI strings.
 // Generated from i18n-en.json + i18n-pt.json; edit those and regenerate if needed.
 const EN = {
-  "meta.description": "Taurifer is a local-only progressive overload tracker for calm, focused training. All data stays on this device.",
+  "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links intentionally share a program and selected settings.",
   "brand.home_aria": "Taurifer home",
   "top.rest_timer_aria": "Rest timer — tap to open",
   "top.heat_title": "Session heat — how many lifts are ready to add load",
@@ -790,7 +790,7 @@ const EN = {
   "tour.8.title": "Program & blocks",
   "tour.9.title": "Settings & backups",
   "tour.10.title": "Install Taurifer",
-  "tour.0.body": "A local-only tracker for progressive overload — everything stays on this device, nothing is uploaded. This quick tour shows every feature. Tap <b>Next</b> to begin, or <b>Skip tour</b> anytime.",
+  "tour.0.body": "Workout logs, drafts, and history stay on this device; Taurifer never uploads them. Setup links intentionally share a program, its configuration, eight selected settings, and language. This quick tour shows every feature. Tap <b>Next</b> to begin, or <b>Skip tour</b> anytime.",
   "tour.1.body": "Pick your training <b>day</b> and <b>date</b>, then enter each set's load, reps and RIR. Taurifer reads your history and tells you when you're ready to add load.",
   "tour.2.body": "Switch between <b>List</b> to see the whole session and <b>Focus</b> to work one exercise at a time — easier to tap through mid-set on a phone.",
   "tour.3.body": "In Focus, swipe the card or use the <b>header arrows</b> to move between exercises. Enter the numbers and tap <b>Log set</b> to bank a set — tap any logged set to fix it. Turn on the mic in Settings to log a set by voice from the <b>⋯</b> menu.",
@@ -1072,7 +1072,7 @@ const EN = {
   "program.share_setup": "Share setup link",
   "program.share_setup_sub": "Program, settings and app language · no workout history",
   "program.share_setup_title": "Share program setup",
-  "program.share_setup_body": "The link includes this program, its settings, and the app language. Workout history is not included.",
+  "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching app-page requests for up to seven days. Compression and encoding are not encryption.",
   "program.share_setup_building": "Preparing link…",
   "program.share_setup_share": "Share link",
   "program.share_setup_copy": "Copy link",
@@ -1175,7 +1175,7 @@ const EN = {
   "dialog.session_summary.aria": "Session summary",
 };
 const PT = {
-  "meta.description": "Taurifer é um rastreador local de sobrecarga progressiva para treinos calmos e focados. Tudo fica neste dispositivo.",
+  "meta.description": "O Taurifer mantém logs, rascunhos e histórico de treinos neste dispositivo. Links de configuração compartilham de propósito um programa e ajustes selecionados.",
   "brand.home_aria": "Início do Taurifer",
   "top.rest_timer_aria": "Timer de descanso — toque para abrir",
   "top.heat_title": "Calor da sessão — quantos exercícios estão prontos para aumentar a carga",
@@ -1964,7 +1964,7 @@ const PT = {
   "tour.8.title": "Programa e blocos",
   "tour.9.title": "Ajustes e backups",
   "tour.10.title": "Instale o Taurifer",
-  "tour.0.body": "Um rastreador local de sobrecarga progressiva — tudo fica neste dispositivo, nada é enviado. Este tour rápido mostra todos os recursos. Toque em <b>Próximo</b> para começar ou em <b>Pular tour</b> quando quiser.",
+  "tour.0.body": "Logs, rascunhos e histórico de treinos ficam neste dispositivo; o Taurifer nunca os envia. Links de configuração compartilham de propósito um programa, sua configuração, oito ajustes selecionados e o idioma. Este tour rápido mostra todos os recursos. Toque em <b>Próximo</b> para começar ou em <b>Pular tour</b> quando quiser.",
   "tour.1.body": "Escolha seu <b>dia</b> de treino e a <b>data</b>, depois preencha a carga, reps e RIR de cada série. O Taurifer lê seu histórico e diz quando você está pronto para aumentar a carga.",
   "tour.2.body": "Alterne entre <b>Lista</b>, para ver a sessão inteira, e <b>Foco</b>, para trabalhar um exercício por vez — mais fácil de tocar no celular entre séries.",
   "tour.3.body": "No Foco, deslize o card ou use as <b>setas do cabeçalho</b> para mudar de exercício. Digite os números e toque em <b>Registrar série</b> para gravar — toque em qualquer série registrada para corrigir. Ative o microfone em Ajustes para registrar por voz pelo menu <b>⋯</b>.",
@@ -2246,7 +2246,7 @@ const PT = {
   "program.share_setup": "Compartilhar link de configuração",
   "program.share_setup_sub": "Programa, configurações e idioma do app · sem histórico de treinos",
   "program.share_setup_title": "Compartilhar configuração do programa",
-  "program.share_setup_body": "O link inclui este programa, suas configurações e o idioma do app. O histórico de treinos não é incluído.",
+  "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes da página do app por até sete dias. Compressão e codificação não são criptografia.",
   "program.share_setup_building": "Preparando link…",
   "program.share_setup_share": "Compartilhar link",
   "program.share_setup_copy": "Copiar link",

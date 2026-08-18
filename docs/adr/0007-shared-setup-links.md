@@ -1,6 +1,6 @@
 # Shared setup links are a first-run proposal carried in the URL itself
 
-Taurifer is local-only: it has no accounts, no hosted program store, and no
+Taurifer is local-first: it has no accounts, no hosted program store, and no
 backend that could hold a coach's split for a recipient to fetch. Coaches
 still need a way to hand someone a complete program — metadata, slots,
 embedded custom exercises, allowlisted app settings, and language — without
@@ -178,6 +178,7 @@ object. Do not reshape the inner fields to anticipate that path.
 Unchanged: the first-run hero, brand lockup, illustration, installation
 card, installation sheet, and responsive composition (ADR 0006, ADR
 0005); backup and program-import formats; storage keys and the `repforge`
-codename; service-worker scope and manifest identity. Taurifer still
-uploads nothing. The coach who sends the URL is the one who shared the
-program.
+codename; service-worker scope and manifest identity. Taurifer never uploads
+ordinary workout data. The coach who sends the URL is the one who shared the
+program; the temporary handoff cookie is sent to the static host as disclosed
+above.

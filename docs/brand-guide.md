@@ -9,7 +9,7 @@ agents always load is in `AGENTS.md`.
 
 ## Identity
 
-Taurifer is a local-only progressive-overload tracker for calm, focused
+Taurifer is a local-first progressive-overload tracker for calm, focused
 training. Ordinary training data stays on this device; Taurifer never
 uploads it. A coach may choose to put a program, its settings, and the app
 language into a URL they send themselves — never workout history. That is
@@ -154,14 +154,16 @@ claim; do not strengthen or soften it in other copy:
 | Key | English | Portuguese |
 | --- | --- | --- |
 | `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, configurações e idioma do app · sem histórico de treinos |
-| `program.share_setup_body` | The link includes this program, its settings, and the app language. Workout history is not included. | O link inclui este programa, suas configurações e o idioma do app. O histórico de treinos não é incluído. |
+| `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching app-page requests for up to seven days. Compression and encoding are not encryption. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes da página do app por até sete dias. Compressão e codificação não são criptografia. |
 
 The URL is a bearer capability the coach sends. Encoding is not encryption
-and not proof of identity. Taurifer still uploads nothing. Workout logs,
-completed sessions, prior blocks, notification permission, and device UI
-preferences never travel with the link. A temporary `repforge_setup_v1`
-cookie exists only so iOS 17.2+ Add to Home Screen can recover the same
-proposal; it is compressed, not encrypted, and it is not training history.
+and not proof of identity. Taurifer never uploads ordinary workout data.
+Workout logs, completed sessions, prior blocks, notification permission, and
+device UI preferences never travel with the link. A temporary
+`repforge_setup_v1` cookie exists only so iOS 17.2+ Add to Home Screen can
+recover the same proposal; it is compressed, not encrypted, is sent to the
+static host with matching app-page requests for up to seven days, and is not
+training history.
 
 ## Voice and copy
 

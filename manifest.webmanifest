@@ -2,7 +2,7 @@
   "id": "./index.html",
   "name": "Taurifer",
   "short_name": "Taurifer",
-  "description": "Local-only progressive overload tracker for machines, cables, dumbbells, barbells, and bodyweight.",
+  "description": "Workout logs, drafts, and history stay on this device. Setup links intentionally share a program and selected settings.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

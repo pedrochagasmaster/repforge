@@ -1,6 +1,6 @@
 # Taurifer
 
-Taurifer is a local-only mobile PWA for tracking load progression and progressive overload.
+Taurifer is a local-first mobile PWA for tracking load progression and progressive overload.
 
 The name is new; the repository slug, GitHub Pages URL, and on-device storage keys keep the historical `repforge` prefix so existing installs and training data are untouched.
 
@@ -27,11 +27,11 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 - CSV export
 - Offline-capable service worker
 
-## Local-only data model
+## Local-first data model
 
 The app files can be hosted on GitHub Pages, but ordinary training data stays on this device. There is no account, no sync, and no cross-device recovery.
 
-Nothing is sent to GitHub or any backend by the app. A setup link is not an upload: the coach creates a URL and sends it themselves. The program travels in the URL fragment (`#setup=`), which is not part of the HTTP request to GitHub Pages.
+Taurifer never uploads ordinary workout data. A setup link is an intentional share: the coach creates a URL and sends it themselves. The program travels in the URL fragment (`#setup=`), which is not part of the initial HTTP request to GitHub Pages. The temporary installation-handoff cookie is sent to the static host as described below.
 
 Distinguish four things:
 
