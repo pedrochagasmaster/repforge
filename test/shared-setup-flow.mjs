@@ -364,10 +364,9 @@ export async function waitForFirstRun(page, timeout = 15000) {
       value === "loading" || value === "ready" || value === "invalid" || value === "unsupported";
   });
   if (expectsSetup) await page.waitForFunction(() => {
-    const shared = document.querySelector("#firstRunSharedProgram");
-    const error = document.querySelector("#firstRunSharedError");
-    return shared && !shared.classList.contains("hidden") ||
-      error && !error.classList.contains("hidden");
+    const status = window.__repforgeSharedSetup?.status;
+    const value = typeof status === "function" ? status() : status;
+    return ["ready", "invalid", "unsupported", "existing"].includes(value);
   }, null, { timeout });
 }
 
