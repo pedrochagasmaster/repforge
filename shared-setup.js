@@ -8,6 +8,8 @@
   const COOKIE_MAX_AGE = 604800;
   const CUSTOM_ID_PREFIX = "custom:";
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+  const MAX_STRUCTURE_DEPTH = 100;
+  const MAX_STRUCTURE_NODES = 10000;
   const GOALS = new Set(["hypertrophy", "strength_hypertrophy", "beginner_consistency"]);
   const EXPERIENCES = new Set(["beginner", "intermediate", "advanced"]);
   const SPLITS = new Set(["full_body", "machine_only", "ppl", "upper_lower", "bro"]);
@@ -93,14 +95,26 @@
   }
 
   function collectForbiddenKeys(value, issues, path) {
-    if (Array.isArray(value)) {
-      for (let i = 0; i < value.length; i++) collectForbiddenKeys(value[i], issues, `${path}[${i}]`);
-      return;
-    }
-    if (!isPlainObject(value)) return;
-    for (const key of Object.keys(value)) {
-      if (FORBIDDEN_KEYS.has(key)) issues.push(`${path}: forbidden key ${key}`);
-      else collectForbiddenKeys(value[key], issues, `${path}.${key}`);
+    const stack = [{ value, depth: 0 }];
+    let visited = 0;
+    while (stack.length) {
+      const current = stack.pop();
+      if (++visited > MAX_STRUCTURE_NODES) {
+        issues.push(`${path}: structure too large`);
+        return;
+      }
+      if (current.depth > MAX_STRUCTURE_DEPTH) {
+        issues.push(`${path}: structure too deep`);
+        return;
+      }
+      if (!Array.isArray(current.value) && !isPlainObject(current.value)) continue;
+      for (const key of Object.keys(current.value)) {
+        if (FORBIDDEN_KEYS.has(key)) {
+          issues.push(`${path}: forbidden key ${key}`);
+          continue;
+        }
+        stack.push({ value: current.value[key], depth: current.depth + 1 });
+      }
     }
   }
 

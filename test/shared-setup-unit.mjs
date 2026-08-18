@@ -295,6 +295,74 @@ console.log("schema: prototype-pollution keys");
   assert(!prototypeResult.ok && prototypeResult.code === "invalid-schema", "prototype key fails", prototypeResult.code);
 }
 
+console.log("schema: deeply nested untrusted values");
+{
+  const deepArray = cloneFixture();
+  let arrayCursor = deepArray;
+  for (let i = 0; i < 6000; i++) {
+    const child = [];
+    if (Array.isArray(arrayCursor)) arrayCursor.push(child);
+    else arrayCursor.unknown = child;
+    arrayCursor = child;
+  }
+  let arrayResult;
+  try { arrayResult = Setup.validate(deepArray, OPTS); } catch (error) { arrayResult = { thrown: error }; }
+  assert(
+    arrayResult && !arrayResult.thrown && !arrayResult.ok && arrayResult.code === "invalid-schema",
+    "validate returns invalid-schema for deeply nested arrays",
+    String(arrayResult?.thrown || arrayResult?.code),
+  );
+
+  const deepObject = cloneFixture();
+  let objectCursor = deepObject;
+  for (let i = 0; i < 6000; i++) {
+    objectCursor.unknown = {};
+    objectCursor = objectCursor.unknown;
+  }
+  let objectResult;
+  try { objectResult = Setup.validate(deepObject, OPTS); } catch (error) { objectResult = { thrown: error }; }
+  assert(
+    objectResult && !objectResult.thrown && !objectResult.ok && objectResult.code === "invalid-schema",
+    "validate returns invalid-schema for deeply nested objects",
+    String(objectResult?.thrown || objectResult?.code),
+  );
+
+  let encodedDeep;
+  try { encodedDeep = await Setup.encode(deepArray, OPTS); } catch (error) { encodedDeep = { rejected: error }; }
+  assert(
+    encodedDeep && !encodedDeep.rejected && !encodedDeep.ok && encodedDeep.code === "invalid-schema",
+    "encode resolves invalid-schema for deeply nested input",
+    String(encodedDeep?.rejected || encodedDeep?.code),
+  );
+
+  const base = json(cloneFixture()).slice(0, -1);
+  const deepArrayJson = `${base},"unknown":${"[".repeat(6000)}0${"]".repeat(6000)}}`;
+  let decodedArray;
+  try {
+    decodedArray = await Setup.decode(await encodeRawBytes(new TextEncoder().encode(deepArrayJson)), OPTS);
+  } catch (error) {
+    decodedArray = { rejected: error };
+  }
+  assert(
+    decodedArray && !decodedArray.rejected && !decodedArray.ok && decodedArray.code === "invalid-schema",
+    "decode resolves invalid-schema for deeply nested arrays",
+    String(decodedArray?.rejected || decodedArray?.code),
+  );
+
+  const deepObjectJson = `${base},"unknown":${'{"":'.repeat(4000)}0${"}".repeat(4000)}}`;
+  let decodedObject;
+  try {
+    decodedObject = await Setup.decode(await encodeRawBytes(new TextEncoder().encode(deepObjectJson)), OPTS);
+  } catch (error) {
+    decodedObject = { rejected: error };
+  }
+  assert(
+    decodedObject && !decodedObject.rejected && !decodedObject.ok && decodedObject.code === "invalid-schema",
+    "decode resolves invalid-schema for deeply nested objects",
+    String(decodedObject?.rejected || decodedObject?.code),
+  );
+}
+
 console.log("encode/decode round trip");
 {
   const en = await Setup.encode(cloneFixture(MINIMAL_PAYLOAD), OPTS);
