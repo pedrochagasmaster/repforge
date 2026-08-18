@@ -357,11 +357,17 @@ export async function encodeSharedPayload(page, payload) {
 
 export async function waitForFirstRun(page, timeout = 15000) {
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout });
-  await page.waitForFunction(() => {
+  const expectsSetup = await page.evaluate(() => {
     const status = window.__repforgeSharedSetup?.status;
     const value = typeof status === "function" ? status() : status;
-    const hasSetup = new URLSearchParams(location.hash.slice(1)).has("setup");
-    return value !== "loading" && (!hasSetup || value !== "none");
+    return new URLSearchParams(location.hash.slice(1)).has("setup") ||
+      value === "loading" || value === "ready" || value === "invalid" || value === "unsupported";
+  });
+  if (expectsSetup) await page.waitForFunction(() => {
+    const shared = document.querySelector("#firstRunSharedProgram");
+    const error = document.querySelector("#firstRunSharedError");
+    return shared && !shared.classList.contains("hidden") ||
+      error && !error.classList.contains("hidden");
   }, null, { timeout });
 }
 
