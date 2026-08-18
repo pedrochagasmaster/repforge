@@ -480,6 +480,21 @@ async function readBothReplicas(page) {
   }, { key: KEY });
 }
 
+// What the recipient can actually see after an acceptance: the live in-memory
+// program and settings the app rendered, not the durable replicas.
+async function readLiveAcceptance(page) {
+  return page.evaluate(() => {
+    const gate = document.querySelector("#firstRun");
+    const gateOpen = !!gate && !gate.hidden && !gate.classList.contains("hidden");
+    return {
+      gateOpen,
+      customs: (window.__repforgeCustomExercises?.() || []).map((row) => row.id),
+      htmlLang: document.documentElement.lang || null,
+      dayChips: Array.from(document.querySelectorAll("#dayTabs button")).map((btn) => btn.textContent.trim()),
+    };
+  });
+}
+
 function canonicalJson(value) {
   const seen = new WeakSet();
   const walk = (node) => {
@@ -1668,6 +1683,11 @@ export async function runSharedSetupFlow(browser) {
       return true;
     }, "repforge_pending_v1:");
     assert(journalGone, "recovery drains the pending journal", String(journalGone));
+    assert(
+      !("_sharedSetupImport" in local),
+      "journal recovery leaves no transient payload-ownership record behind",
+      JSON.stringify(Object.keys(local))
+    );
     // A second reload is a pure no-op.
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
@@ -1675,6 +1695,186 @@ export async function runSharedSetupFlow(browser) {
     await page.waitForTimeout(200);
     const second = (await readBothReplicas(page)).local || {};
     assert(canonicalJson(second) === canonicalJson(local), "repeated reload is idempotent", JSON.stringify(programCustomRefs(second)));
+    await context.close();
+  });
+
+  await runCase("A deferred journal close still applies the accepted program to live state", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await persistState(page, firstRunEligibleState([]));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "deferred-close"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal (deferred close)", JSON.stringify(ready));
+    // The successor lands in both replicas, but clearing the pending journal
+    // fails, so the transaction settles durably while its close is deferred.
+    await page.evaluate((prefix) => {
+      const proto = window.Storage.prototype;
+      const original = proto.removeItem;
+      window.__origRemoveItem = original;
+      proto.removeItem = function (key) {
+        if (typeof key === "string" && key.startsWith(prefix)) return;
+        return original.call(this, key);
+      };
+    }, "repforge_pending_v1");
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(600);
+    await page.evaluate(() => {
+      if (window.__origRemoveItem) window.Storage.prototype.removeItem = window.__origRemoveItem;
+    });
+    const durable = (await readBothReplicas(page)).local || {};
+    const live = await readLiveAcceptance(page);
+    assert(
+      durable.programMeta?.name === payload.program.meta.name,
+      "the shared program is durable after the deferred close",
+      JSON.stringify({ name: durable.programMeta?.name })
+    );
+    assert(!live.gateOpen, "the first-run gate closed", JSON.stringify(live));
+    assert(
+      live.dayChips.length === payload.program.meta.daysPerWeek,
+      "live state renders the accepted split, not the pre-acceptance program",
+      JSON.stringify(live.dayChips)
+    );
+    assert(
+      live.customs.includes("custom:coach-row"),
+      "live custom definitions include the accepted shared movement",
+      JSON.stringify(live.customs)
+    );
+    assert(live.htmlLang === "pt-BR", "the accepted language applies to the live UI", String(live.htmlLang));
+    await context.close();
+  });
+
+  await runCase("An equivalent recipient definition deleted after the gate opened is not resurrected", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    // Equal to the payload definition on every field the merge compares (folded
+    // name, primary, secondary, equipment) but carrying recipient-only notes, so
+    // the gate-time proposal reuses the recipient id.
+    const recipientTwin = {
+      id: "custom:local-row",
+      name: "Coach cable row",
+      namePt: "Remada local",
+      equipment: ["cable"],
+      primary: "Mid/upper back",
+      secondary: "Biceps",
+      notes: "Recipient private note",
+    };
+    await persistState(page, firstRunEligibleState([recipientTwin]));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "twin-deleted"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal (twin)", JSON.stringify(ready));
+    await commitConcurrentHead(page, { removeCustomIds: ["custom:local-row"] });
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    const local = (await readBothReplicas(page)).local || {};
+    const customs = local.customExercises || [];
+    const refs = programCustomRefs(local);
+    const owned = refs.length ? customById(local, refs[0])[0] : null;
+    assert(local.programMeta?.onboarded === true, "twin acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
+    assert(
+      customById(local, "custom:local-row").length === 0,
+      "the deleted recipient definition is not resurrected",
+      JSON.stringify(customs.map((row) => row.id))
+    );
+    assert(
+      !customs.some((row) => row.notes === "Recipient private note"),
+      "no recipient-owned definition is re-imported as coach data",
+      JSON.stringify(customs)
+    );
+    assert(
+      refs.length === 1 && refs.every((id) => customById(local, id).length === 1),
+      "the shared slot resolves to exactly one definition",
+      JSON.stringify(refs)
+    );
+    assert(
+      owned?.name === "Coach cable row" && owned?.notes === "Neutral handle",
+      "the accepted definition is the payload's own",
+      JSON.stringify(owned)
+    );
+    assert(
+      !("_sharedSetupImport" in local),
+      "the transient payload-ownership record never becomes durable",
+      JSON.stringify(Object.keys(local))
+    );
+    await context.close();
+  });
+
+  await runCase("Preserved future settings survive a reload and the next ordinary write", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await persistState(page, firstRunEligibleState([]));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "future-settings-durable"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const future = { enabled: true, mode: "recipient", nested: { value: 42 } };
+    await commitConcurrentHead(page, {
+      settings: { futureDeviceSetting: future },
+      notify: { enabled: true, futureChannel: { enabled: true } },
+    });
+    await page.evaluate(() => {
+      window.__repforgeNotifyAdapter = { canUse: () => true, permission: () => "granted", request: async () => "granted" };
+    });
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    const accepted = ((await readBothReplicas(page)).local || {}).settings || {};
+    assert(
+      canonicalJson(accepted.futureDeviceSetting) === canonicalJson(future),
+      "acceptance preserves the unknown setting",
+      JSON.stringify(accepted.futureDeviceSetting)
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    await page.waitForTimeout(300);
+    const afterReload = ((await readBothReplicas(page)).local || {}).settings || {};
+    // An ordinary write after the reload: the proposal is built from live state,
+    // so anything boot normalization dropped is offered back as a deletion.
+    await page.evaluate(() =>
+      window.__repforgeSaveCustomExercise?.({ name: "Later movement", equipment: ["machine"], primary: "Chest", secondary: "", notes: "" })
+    );
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    await page.waitForTimeout(300);
+    const both = await readBothReplicas(page);
+    const settings = (both.local || {}).settings || {};
+    const notify = settings.notify || {};
+    assert(
+      canonicalJson(afterReload.futureDeviceSetting) === canonicalJson(future),
+      "the unknown setting survives the reload itself",
+      JSON.stringify(afterReload.futureDeviceSetting)
+    );
+    assert(
+      canonicalJson(settings.futureDeviceSetting) === canonicalJson(future),
+      "the unknown setting survives the next ordinary write",
+      JSON.stringify(settings.futureDeviceSetting)
+    );
+    assert(
+      canonicalJson(notify.futureChannel) === canonicalJson({ enabled: true }),
+      "the unknown nested notify key survives the next ordinary write",
+      JSON.stringify(notify.futureChannel)
+    );
+    assert(
+      canonicalJson(both.local) === canonicalJson(both.idb),
+      "both replicas agree after the ordinary write",
+      JSON.stringify({ local: Object.keys(settings), idb: Object.keys((both.idb || {}).settings || {}) })
+    );
     await context.close();
   });
 

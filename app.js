@@ -24,6 +24,10 @@ async function idbDel(key){const db=await idbOpen();
     tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
   finally{db.close()}}
 const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction";
+/* Transient, journal-only: what a shared proposal contributed as its own custom
+   definitions, so a rebase against a refreshed head can tell payload data from
+   recipient data. Stripped before any snapshot becomes durable. */
+const SHARED_IMPORT="_sharedSetupImport";
 function cloneSnapshot(s){return s==null?s:JSON.parse(JSON.stringify(s))}
 function isPlainStateObject(value){
   if(!value||typeof value!=="object"||Array.isArray(value))return false;
@@ -737,6 +741,7 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconci
   reconcileExplicitLogDayRenames(snapshot,dayRenames);
   reconcileCandidateLogDays(snapshot,reconcileSessionIds);
   delete snapshot[STORAGE_DRAFT_TXN];
+  delete snapshot[SHARED_IMPORT];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
   return snapshot}
 function pendingJournalSuccessorMatches(record,head){
@@ -893,11 +898,15 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
         {settled:restored.settled,closed,restored})}
     if(closed.conflict)
       return Object.assign({kind:"rejected",accepted:false,rejected:true},compensation,{closed});
-    return{kind:"close-deferred",accepted:true,rejected:false,deferred:true,settled:false,
-      snapshot:prepared,result:settlement.result||result,closed}}
+    /* Compensation could not finish, so which snapshot is durable decides whether
+       this transaction counts: the rollback if that write landed, otherwise the
+       successor the settlement already wrote. */
+    const rolledBack=!!(compensation.result?.localOk||compensation.result?.idbOk);
+    return{kind:"close-deferred",accepted:!rolledBack,rejected:rolledBack,deferred:true,settled:false,
+      snapshot:rolledBack?compensation.snapshot:snapshot,result:settlement.result||result,closed}}
   if(!closed.settled)
     return{kind:"close-deferred",accepted:true,rejected:false,deferred:true,settled:false,
-      snapshot:prepared,result:settlement.result||result,closed};
+      snapshot,result:settlement.result||result,closed};
   return{kind:"committed",accepted:true,rejected:false,settled:true,
     snapshot,result:settlement.result||result,closed}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
@@ -981,9 +990,18 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         applyAcceptedSnapshot(frozenLiveBase,snapshot);
         return Object.assign({},execution.result,
           {accepted:true,deferred:true,finalizationPending:true})}
-    if(execution.kind==="close-deferred")
+    if(execution.kind==="close-deferred"){
+      /* Only the journal record is still outstanding: the snapshot below is
+         already durable, so live state has to adopt it. Reporting success while
+         the app still renders the pre-transaction program is the worse failure. */
+      if(execution.snapshot){
+        persistHead=cloneSnapshot(execution.snapshot);
+        applyAcceptedSnapshot(frozenLiveBase,execution.snapshot)}
+      if(!execution.accepted)
+        return{revision:execution.result?.revision??readRevision(head),localOk:false,idbOk:false,
+          draftConflict:true,compensationPending:true};
       return Object.assign({},execution.result,
-        {accepted:true,deferred:true,finalizationPending:true});
+        {accepted:true,deferred:true,finalizationPending:true})}
     if(execution.kind==="committed"){
       persistHead=cloneSnapshot(snapshot);
       applyAcceptedSnapshot(frozenLiveBase,snapshot);
@@ -1315,9 +1333,20 @@ const DEFAULTS={jumpPct:2.5,minJump:2.5,rirHigh:2,hardRir:4,restSec:120,lastExpo
 const normSetting=(v,def,min=0)=>Number.isFinite(+v)&&+v>=min?+v:def;
 const normalizeRestSec=v=>{const n=+v;if(!Number.isFinite(n)||n<0)return DEFAULTS.restSec;return Math.round(n)};
 const normBool=(v,def)=>typeof v==="boolean"?v:def;
+/* A settings blob written by a newer build carries keys this one has no field
+   for. Dropping them here does not merely hide them: boot normalization would
+   leave live state without them while the mutation base still has them, so the
+   next ordinary write offers them back as deletions. Unknown keys therefore ride
+   along untouched, and the known fields always win. */
+function withUnknownKeys(raw,known){
+  if(!isPlainStateObject(raw))return known;
+  const out={};
+  for(const key of Object.keys(raw))
+    if(!Object.prototype.hasOwnProperty.call(known,key))out[key]=cloneSnapshot(raw[key]);
+  return Object.assign(out,known)}
 function normalizeNotify(n){
-  return{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false}}
-const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)}};
+  return withUnknownKeys(n,{enabled:!!(n&&n.enabled),timer:n?.timer!==false,session:n?.session!==false,unfinished:n?.unfinished!==false,missed:n?.missed!==false})}
+const normalizeSettings=s=>{const lang=I18N?.normalizeLang(s?.lang)||I18N?.detectLang()||"en";return withUnknownKeys(s,{jumpPct:normSetting(s?.jumpPct,DEFAULTS.jumpPct,0),minJump:normSetting(s?.minJump,DEFAULTS.minJump,0.01),rirHigh:normSetting(s?.rirHigh,DEFAULTS.rirHigh,0),hardRir:normSetting(s?.hardRir,DEFAULTS.hardRir,0),restSec:normalizeRestSec(s?.restSec),lastExport:typeof s?.lastExport==="string"?s.lastExport:"",unit:s?.unit==="lb"?"lb":"kg",lang,rirMode:s?.rirMode==="effort"?"effort":"numeric",voiceInputEnabled:normBool(s?.voiceInputEnabled,DEFAULTS.voiceInputEnabled),notify:normalizeNotify(s?.notify)})};
 const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
 const LB=2.2046226218;
 /* Locale keyboards (pt-BR, de, fr, …) put a comma on the decimal pad. HTML
@@ -2554,7 +2583,7 @@ const deterministicCustomIdAllocator=seed=>{
   return byId=>{let id;do{n++;id=`${CUSTOM_ID_PREFIX}${base}#${n}`}while(byId.has(id));return id}};
 function mergeImportedCustomExercises(incoming,exercises,snapshot,allocate=randomCustomIdAllocator()){
   const normalized=normalizeCustomExercises(incoming);
-  if(!normalized.length)return{customExercises:customExercises(snapshot).map(cloneSnapshot),added:0,remapped:0};
+  if(!normalized.length)return{customExercises:customExercises(snapshot).map(cloneSnapshot),added:0,remapped:0,remap:new Map()};
   const mine=customExercises(snapshot).map(cloneSnapshot);
   const byId=new Map(mine.map(e=>[e.id,e]));
   const sameDefinition=(a,b)=>foldSearch(a.name)===foldSearch(b.name)&&
@@ -2578,7 +2607,7 @@ function mergeImportedCustomExercises(incoming,exercises,snapshot,allocate=rando
   if(remap.size)
     for(const ex of exercises||[])
       if(ex&&remap.has(ex.libraryId))ex.libraryId=remap.get(ex.libraryId);
-  return{customExercises:mine,added,remapped}}
+  return{customExercises:mine,added,remapped,remap}}
 function sharedSettingsPatch(raw){
   return{jumpPct:normSetting(raw?.jumpPct,DEFAULTS.jumpPct,0),
     minJump:normSetting(raw?.minJump,DEFAULTS.minJump,0.01),
@@ -2613,6 +2642,11 @@ function proposalFromSharedSetup(payload,baseState=state){
   proposal.programHistory=[];
   delete proposal[STORAGE_FOLLOWUP];
   delete proposal[STORAGE_DRAFT_TXN];
+  // The merge above resolved against the base as it stood when the gate opened.
+  // Record what the payload itself contributed so a rebase against a refreshed
+  // head can redo that resolution instead of trusting a stale mapping.
+  proposal[SHARED_IMPORT]={definitions:normalizeCustomExercises(clean.program.customExercises),
+    remap:Object.fromEntries(merged.remap)};
   return proposal}
 // Only the definitions the replacement program actually references are payload-
 // owned. Everything else in the stale proposal's customExercises is recipient
@@ -2622,20 +2656,31 @@ function referencedCustomDefinitions(snapshot){
   const referenced=new Set((Array.isArray(snapshot?.program)?snapshot.program:[])
     .map(ex=>ex?.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises(snapshot).filter(def=>referenced.has(def.id)).map(cloneSnapshot)}
-// The head owns every device setting except the eight shared fields. Preserve
+// The head owns every device setting except the eight shared fields, including
 // unknown top-level and nested notify keys the recipient may have gained after
 // the gate opened; the payload contributes only the allowlisted eight.
 function rebaseSharedSettings(head,proposalSettings){
-  const rawHeadSettings=cloneSnapshot(head?.settings||{});
-  const normalizedHeadSettings=normalizeSettings(rawHeadSettings);
-  const preservedNotify={...cloneSnapshot(rawHeadSettings.notify||{}),...normalizedHeadSettings.notify};
-  return{...rawHeadSettings,...normalizedHeadSettings,notify:preservedNotify,
-    ...sharedSettingsPatch(proposalSettings)}}
+  return{...normalizeSettings(head?.settings),...sharedSettingsPatch(proposalSettings)}}
+/* Undoes the gate-time mapping so the payload's own definitions are what gets
+   offered to the refreshed head. Without this, a recipient definition the
+   proposal had reused (same movement under a different id) would be re-imported
+   as payload data — resurrecting it even when the head has since deleted it. */
+function sharedPayloadDefinitions(record,exercises){
+  const inverse=new Map(Object.entries(record.remap||{})
+    .map(([payloadId,proposalId])=>[proposalId,payloadId]));
+  if(inverse.size)
+    for(const ex of exercises)
+      if(ex&&inverse.has(ex.libraryId))ex.libraryId=inverse.get(ex.libraryId);
+  const referenced=new Set(exercises.map(ex=>ex?.libraryId).filter(id=>isCustomLibraryId(id)));
+  return normalizeCustomExercises(record.definitions).filter(def=>referenced.has(def.id))}
 function rebaseSharedSetupSnapshot(snapshot,head,seed){
   if(!snapshot||!head)return snapshot;
+  const record=isPlainStateObject(snapshot[SHARED_IMPORT])?snapshot[SHARED_IMPORT]:null;
+  delete snapshot[SHARED_IMPORT];
   const exercises=Array.isArray(snapshot.program)?snapshot.program:[];
   snapshot.settings=rebaseSharedSettings(head,snapshot.settings);
-  const incoming=referencedCustomDefinitions(snapshot);
+  const incoming=record?sharedPayloadDefinitions(record,exercises)
+    :referencedCustomDefinitions(snapshot);
   snapshot.customExercises=mergeImportedCustomExercises(
     incoming,exercises,head,deterministicCustomIdAllocator(seed)).customExercises;
   return snapshot}
