@@ -2,6 +2,15 @@
 /** Focused Playwright checks for modal, disclosure, and live-status semantics. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
+import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
+import {
+  APP_INDEX,
+  encodeSharedPayload,
+  openAppPage,
+  SHARED_COPY,
+  SHARED_DOM,
+  sharedGateSnapshot,
+} from "./shared-setup-flow.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -2454,6 +2463,154 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
 
 }
 
+async function runSharedSetupAccessibility(browser) {
+console.log("\nShared setup gate accessibility");
+
+{
+  const { context, page } = await openAppPage(browser);
+  await page.evaluate(async () => {
+    localStorage.clear();
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    });
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 });
+  const standard = await page.evaluate(() => {
+    const hiddenRoot = (node) =>
+      !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
+    const focusable = (node) => {
+      if (!node || hiddenRoot(node) || node.disabled) return false;
+      const st = getComputedStyle(node);
+      return st.display !== "none" && st.visibility !== "hidden";
+    };
+    const start = document.querySelector("#firstRunSharedStart");
+    const error = document.querySelector("#firstRunSharedError");
+    const sharedGroup = document.querySelector("#firstRunSharedProgram");
+    const groupStops = (root) =>
+      root
+        ? [...root.querySelectorAll("a[href],button,input,select,textarea,[tabindex]:not([tabindex='-1'])")].filter((n) => focusable(n)).map((n) => n.id)
+        : [];
+    return {
+      createFocusable: focusable(document.querySelector("#firstRunCreate")),
+      importFocusable: focusable(document.querySelector("#firstRunImport")),
+      startFocusable: focusable(start),
+      errorExposed: !!(error && !hiddenRoot(error) && error.getAttribute("role") === "status" && (error.textContent || "").trim()),
+      sharedStops: groupStops(sharedGroup),
+    };
+  });
+  assert(standard.createFocusable && standard.importFocusable, "standard first run: Create and Import stay keyboard-reachable", JSON.stringify(standard));
+  assert(!standard.startFocusable, "standard first run: shared Start is absent or not focusable", JSON.stringify(standard));
+  assert(!standard.errorExposed, "standard first run: shared error status stays silent", JSON.stringify(standard));
+  assert(standard.sharedStops.length === 0, "standard first run: hidden shared group exposes no tab stops", JSON.stringify(standard.sharedStops));
+  await context.close();
+}
+
+{
+  const { context, page } = await openAppPage(browser);
+  await page.evaluate(async () => {
+    localStorage.clear();
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    });
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 });
+  const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
+  assert(encoded.ok === true, "shared a11y: payload encodes", JSON.stringify(encoded));
+  if (encoded.ok) {
+    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 }).catch(() => {});
+    const gate = await page.evaluate(sharedGateSnapshot);
+    assert(gate.startVisible && gate.startFocusable, "shared first run: Start this program is keyboard-reachable", JSON.stringify(gate));
+    assert(!gate.createFocusable && !gate.importFocusable, "shared first run: Create/Import are not keyboard-reachable", JSON.stringify(gate));
+    assert(
+      gate.startName.includes(SHARED_COPY.en.title) && gate.startName.includes("Coach program"),
+      "shared first run: Start has an accessible name from title and caption",
+      gate.startName
+    );
+    const ring = await page.evaluate((sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return { missing: true };
+      el.focus();
+      const st = getComputedStyle(el);
+      return {
+        outline: st.outlineStyle,
+        outlineW: parseFloat(st.outlineWidth) || 0,
+        shadow: st.boxShadow,
+        outlineColor: st.outlineColor,
+      };
+    }, SHARED_DOM.start);
+    assert(
+      !ring.missing && ((ring.outline !== "none" && ring.outlineW > 0) || (ring.shadow && ring.shadow !== "none")),
+      "shared first run: Start shows a visible focus treatment",
+      JSON.stringify(ring)
+    );
+    const trap = await tabWrap(page, "#firstRun");
+    assert(trap.forward.inside && trap.back.inside, "shared first run: Tab stays inside the gate", JSON.stringify(trap));
+  }
+  await context.close();
+}
+
+{
+  const { context, page } = await openAppPage(browser);
+  await page.evaluate(async () => {
+    localStorage.clear();
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    });
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.goto(`${APP_INDEX}#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 }).catch(() => {});
+  const invalid = await page.evaluate(sharedGateSnapshot);
+  assert(invalid.errorRole === "status", "invalid shared link: error is a status live region", JSON.stringify(invalid));
+  assert(invalid.errorVisible && invalid.errorText === SHARED_COPY.en.invalid, "invalid shared link: error is announced with the invalid copy", JSON.stringify(invalid));
+  assert(invalid.createFocusable && invalid.importFocusable, "invalid shared link: standard choices remain reachable", JSON.stringify(invalid));
+  await context.close();
+}
+
+{
+  const { context, page } = await openAppPage(browser);
+  await page.evaluate(async () => {
+    localStorage.clear();
+    await new Promise((res) => {
+      const req = indexedDB.deleteDatabase("repforge");
+      req.onsuccess = req.onerror = req.onblocked = () => res();
+    });
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
+  if (!encoded.ok) {
+    assert(false, "shared busy a11y: payload encodes", JSON.stringify(encoded));
+  } else {
+    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await page.waitForSelector("#firstRunSharedStart", { timeout: 15000 }).catch(() => {});
+    const busy = await page.evaluate(async () => {
+      const hook = window.__repforgeSharedSetup;
+      const start = document.querySelector("#firstRunSharedStart");
+      if (!hook?.commit || !start) return { missing: true, hasStart: !!start };
+      hook.commit({
+        writeLocal() { return new Promise(() => {}); },
+        writeIdb() { return new Promise(() => {}); },
+      });
+      await new Promise((res) => setTimeout(res, 50));
+      return {
+        missing: false,
+        disabled: !!start.disabled,
+        busy: start.getAttribute("aria-busy") === "true",
+      };
+    });
+    assert(!busy.missing && busy.disabled && busy.busy, "shared commit: busy state is disabled and announced", JSON.stringify(busy));
+  }
+  await context.close();
+}
+
+}
+
 async function main() {
   const browser = await launchChromium();
   if (process.argv.includes("--touch-targets-320")) {
@@ -2476,6 +2633,7 @@ async function main() {
     await runLocalizedHistoryAndTourChecks(browser);
     await runDimmedStateAccessibility(browser);
     await runVisualAccessibility(browser);
+    await runSharedSetupAccessibility(browser);
   }
   await browser.close();
   console.log(`\n${results.passed} passed, ${results.failed} failed`);
