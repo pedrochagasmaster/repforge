@@ -585,7 +585,7 @@
     if (typeof encoded !== "string") return { ok: false, code: "missing" };
     if (encoded.length > MAX_ENCODED_CHARS) return { ok: false, code: "encoded-too-large" };
     const match = encoded.match(VERSION_PREFIX_RE);
-    if (!match) return { ok: false, code: "unsupported-version" };
+    if (!match) return { ok: false, code: "invalid-base64" };
     if (Number(match[1]) !== VERSION) return { ok: false, code: "unsupported-version" };
     const payload = match[2];
     const compressed = fromBase64Url(payload);

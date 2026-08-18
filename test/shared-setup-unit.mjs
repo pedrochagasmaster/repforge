@@ -347,6 +347,9 @@ console.log("decode error taxonomy");
   assert(rem1.slice(3).length % 4 === 1, "precondition: remainder 1 payload");
   const rem1Result = await Setup.decode(rem1, OPTS);
   assert(!rem1Result.ok && rem1Result.code === "invalid-base64", "base64url length remainder 1 is rejected", rem1Result.code);
+
+  const unlabeled = await Setup.decode("not-a-setup-link", OPTS);
+  assert(!unlabeled.ok && unlabeled.code === "invalid-base64", "a value without a vN. prefix is malformed, not a future version", unlabeled.code);
 }
 
 console.log("compression stream availability");
