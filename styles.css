@@ -484,6 +484,9 @@ div.settings-row{cursor:default}
 .today-ready{display:flex;align-items:center;gap:8px;margin:12px 0 0;font-size:14px;color:var(--ink);cursor:pointer;background:none;border:0;padding:0;text-align:left;min-height:44px}
 .today-ready__dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 .today-session + .btn--cta,#startWorkout{margin-top:32px}
+/* The alternative to the day Today leads with, so it sits under the CTA and
+   reads as the quieter of the two. */
+.today-otherday{width:100%;min-height:48px;margin-top:10px}
 .weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px;text-align:center}
 .weekstrip__day{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);font-weight:500}
 .weekstrip__mark{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink)}
@@ -1364,6 +1367,16 @@ body.is-sheet-open{overflow:hidden}
 .custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0;padding:0}
 .custom__delete{margin-top:22px;width:100%;color:var(--danger)}
 .custom__note{margin-top:16px;font-size:13px;color:var(--ink-faint)}
+
+/* ---- Choose-another-day sheet ---- */
+/* One row per day of the split, so the sheet is as tall as the program is long
+   and only scrolls when a long split outgrows the screen. */
+.sheet--daypick{height:auto}
+.daypick__body{flex-direction:column;overflow:hidden;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+.daypick__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.daypick__row:last-child{border-bottom:0}
+.daypick__now{font-size:13px;color:var(--ink-soft)}
+.daypick__row.is-current .listrow__title{color:var(--accent-deep)}
 
 /* ---- Rest timer sheet ---- */
 /* Tapping a running clock used to end the rest, which is the one thing a lifter

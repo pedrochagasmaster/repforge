@@ -3416,6 +3416,53 @@ async function saveExNoteSheet(){
     renderWorkout();
     const trigger=$$("#workout [data-exnote-open]").find(b=>b.dataset.exnoteOpen===id);
     if(trigger){try{trigger.focus({preventScroll:true})}catch{try{trigger.focus()}catch{}}}}}
+/* ---- Day picker sheet ---- */
+/* Today leads with one day, and a split is rarely trained in order: a machine is
+ * taken, a session is swapped, a day is skipped. The picker is how the lifter
+ * takes another one from Today, instead of starting the wrong day to reach the
+ * day tabs inside the workout. */
+let dayPickReturn=null;
+function dayPickRowHtml(d){
+  const current=d===day,mus=dayMuscles(d);
+  const sub=[mus.map(muscleLabel).join(" · "),t("today.exercise_count",{n:exercises(d).length})].filter(Boolean).join(" · ");
+  return `<button type="button" class="listrow daypick__row${current?" is-current":""}" data-daypick="${esc(d)}"${current?' aria-current="true"':""}>`+
+    `<div class="listrow__main"><div class="listrow__title">${esc(dayLabel(d))}</div>`+
+    `<div class="listrow__sub">${esc(sub)}</div></div>`+
+    `<span class="listrow__value">`+
+    (current?`<span class="daypick__now">${esc(t("today.session_label"))}</span>`:"")+
+    `<span class="chevron" aria-hidden="true"></span></span></button>`}
+function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
+  list.innerHTML=days().map(dayPickRowHtml).join("");
+  $$("#dayPickList [data-daypick]").forEach(b=>b.onclick=()=>pickWorkoutDay(b.dataset.daypick))}
+function openDayPickSheet(){
+  const sheet=$("#dayPickSheet"),scrim=$("#dayPickScrim");
+  if(!sheet)return;
+  dayPickReturn=document.activeElement;
+  renderDayPickList();
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#dayPickList .daypick__row.is-current")||$("#dayPickList .daypick__row"),
+    returnFocus:dayPickReturn,
+    onEscape:closeDayPickSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeDayPickSheet(){
+  const sheet=$("#dayPickSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  dayPickReturn=null;
+  return closeModal(sheet)}
+/** A picked day starts there, exactly as Up next and the session banner do. The
+ *  discard prompt is answered while the sheet is still up, so declining it
+ *  leaves the picker open on the day already loaded. */
+async function pickWorkoutDay(next){
+  if(!next||!days().includes(next))return;
+  if(!requestWorkoutDay(next))return;
+  await closeDayPickSheet();
+  enterWorkout({day:next,focus:true});
+  toast(t("toast.day_ready",{day:dayLabel(next)}))}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen. */
 function trackSheetViewport(){
@@ -3708,7 +3755,10 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       `<div class="today-session__meta">${esc(t("today.exercise_count",{n:exs.length}))}</div>`+
       (hot?`<button type="button" class="today-ready" id="readyLine"><span class="today-ready__dot" aria-hidden="true"></span>${esc(t("today.ready_to_increase",{n:hot}))}</button>`:"")+
       todayExListHtml(exs)}
-    for(const[sel,shown]of[["#startWorkout",!recap],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+    // A one-day split has no other day to offer, so the picker would open onto
+    // the day Today already leads with.
+    const canPickDay=!recap&&days().length>1;
+    for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
     const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
@@ -7920,6 +7970,8 @@ function init(){
   const noteCancel=$("#exNoteCancel");if(noteCancel)noteCancel.onclick=closeExNoteSheet;
   const noteSave=$("#exNoteSave");if(noteSave)noteSave.onclick=saveExNoteSheet;
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
+  const dayPickCancel=$("#dayPickCancel");if(dayPickCancel)dayPickCancel.onclick=closeDayPickSheet;
+  const dayPickScrim=$("#dayPickScrim");if(dayPickScrim)dayPickScrim.onclick=closeDayPickSheet;
   const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
   const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
   const pkDone=$("#exPickDone");if(pkDone)pkDone.onclick=confirmPickerSelection;
@@ -7999,6 +8051,7 @@ function init(){
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
+  const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
   const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
   const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
   // Training twice in a day is the lifter's call, never Today's suggestion, so it
