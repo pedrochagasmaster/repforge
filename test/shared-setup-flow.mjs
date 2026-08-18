@@ -8,6 +8,7 @@
  *
  * Run: node test/shared-setup-flow.mjs   (static server on REPFORGE_URL)
  */
+import { appendFileSync } from "fs";
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
 import { launchChromium } from "./browser.mjs";
@@ -27,6 +28,11 @@ import {
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 export const APP_INDEX = new URL("index.html", BASE).href;
+const ONLY = process.argv
+  .filter((arg) => arg.startsWith("--only="))
+  .map((arg) => arg.slice("--only=".length))
+  .filter(Boolean);
+const AGENT_LOG = "/opt/cursor/logs/debug.log";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const HANDOFF_COOKIE = "repforge_setup_v1";
@@ -329,6 +335,7 @@ export async function openAppPage(browser, {
     userAgent: ua,
     locale,
     hasTouch: true,
+    serviceWorkers: "block",
   });
   const page = await context.newPage();
   const errors = [];
@@ -407,7 +414,27 @@ function sharedPayloadAbsent(state, payload) {
   return { ok: hits.length === 0, hits, onboarded: !!state.programMeta?.onboarded, lang: state.settings?.lang, name: state.programMeta?.name };
 }
 
+async function flushAgentLogs(page, runId) {
+  const rows = await page.evaluate((id) => {
+    const logs = Array.isArray(window.__agentDebugLogs) ? window.__agentDebugLogs.splice(0) : [];
+    return logs.map((row) => Object.assign({}, row, { runId: id }));
+  }, runId).catch(() => []);
+  for (const row of rows) {
+    try {
+      appendFileSync(AGENT_LOG, `${JSON.stringify({
+        hypothesisId: row.hypothesisId,
+        location: row.location,
+        message: row.message,
+        data: row.data || {},
+        timestamp: row.timestamp || Date.now(),
+        runId: row.runId,
+      })}\n`);
+    } catch {}
+  }
+}
+
 async function runCase(name, fn) {
+  if (ONLY.length && !ONLY.some((needle) => name.toLowerCase().includes(needle.toLowerCase()))) return;
   console.log(`\n${name}`);
   try {
     await fn();
@@ -1140,6 +1167,167 @@ export async function runSharedSetupFlow(browser) {
     assert(table.clashKeptLocal && table.clashRemapped, "same ID, different definition: keep local, remap slots", JSON.stringify(table));
     assert(table.reuseSame, "same ID, same definition: reuse", JSON.stringify(table));
     assert(table.twinReusesLocal, "different ID, same definition: reuse recipient ID", JSON.stringify(table));
+    await context.close();
+  });
+
+  await runCase("Stale shared accept preserves newer eligible device state", async () => {
+    const { context, page, errors } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "stale-accept"), { waitUntil: "domcontentloaded" });
+    try {
+      await waitForFirstRun(page);
+    } catch (err) {
+      const diag = await page.evaluate(() => ({
+        readyState: document.readyState,
+        hook: window.__repforgeSharedSetup ? {
+          status: window.__repforgeSharedSetup.status,
+          source: window.__repforgeSharedSetup.source,
+          error: window.__repforgeSharedSetup.error,
+        } : null,
+        hash: location.hash.slice(0, 40),
+        gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+        logs: (window.__agentDebugLogs || []).map((row) => ({ id: row.hypothesisId, loc: row.location, msg: row.message, data: row.data })),
+        errors: window.__pageErrors || null,
+      }));
+      await flushAgentLogs(page, "bug-a-timeout");
+      assert(false, "waitForFirstRun after setup url", `${err}\npageerrors=${JSON.stringify(errors)}\n${JSON.stringify(diag, null, 2)}`);
+      await context.close();
+      return;
+    }
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal", JSON.stringify(ready));
+    const recipientCustom = {
+      id: "custom:recipient-only",
+      name: "Recipient machine press",
+      namePt: "Recipient machine press",
+      equipment: ["machine"],
+      primary: "Chest",
+      secondary: "",
+      notes: "",
+    };
+    await page.evaluate(async ({ key, custom }) => {
+      const current = JSON.parse(localStorage.getItem(key) || "{}");
+      const newer = JSON.parse(JSON.stringify(current));
+      newer.settings = Object.assign({}, newer.settings, {
+        voiceInputEnabled: true,
+        notify: { enabled: true, timer: false, session: true, unfinished: false, missed: true },
+      });
+      newer.customExercises = (newer.customExercises || []).concat([custom]);
+      newer.log = Array.isArray(newer.log) ? newer.log : [];
+      newer.programHistory = Array.isArray(newer.programHistory) ? newer.programHistory : [];
+      newer._storageRevision = (Number.isInteger(newer._storageRevision) ? newer._storageRevision : 0) + 1;
+      if (newer.programMeta) newer.programMeta.onboarded = false;
+      localStorage.setItem(key, JSON.stringify(newer));
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(newer, key);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+    }, { key: KEY, custom: recipientCustom });
+    if (!(await clickSharedStart(page))) {
+      await flushAgentLogs(page, "bug-a");
+      await context.close();
+      return;
+    }
+    await page.waitForFunction(() => document.querySelector("#firstRun")?.classList.contains("hidden"), null, { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const after = await page.evaluate(readDurableState);
+    await flushAgentLogs(page, "bug-a");
+    const state = after.state || {};
+    const customIds = (state.customExercises || []).map((row) => row.id);
+    const notify = state.settings?.notify || {};
+    assert(state.programMeta?.onboarded === true, "tab A accept reports success by onboarding", JSON.stringify({ name: state.programMeta?.name }));
+    assert(state.settings?.voiceInputEnabled === true, "device-owned voiceInputEnabled survives the stale accept", String(state.settings?.voiceInputEnabled));
+    assert(
+      notify.enabled === true && notify.timer === false && notify.unfinished === false,
+      "device-owned nested notify survives the stale accept",
+      JSON.stringify(notify)
+    );
+    assert(customIds.includes("custom:recipient-only"), "recipient-only custom survives with collision-safe merge", JSON.stringify(customIds));
+    assert(customIds.includes("custom:coach-row"), "payload custom is still merged", JSON.stringify(customIds));
+    assert(
+      state.settings?.lang === "pt" && state.settings?.restSec === 165 && state.settings?.jumpPct === 3.5,
+      "allowlisted payload settings still apply",
+      JSON.stringify(state.settings)
+    );
+    assert((state.log || []).length === 0 && (state.programHistory || []).length === 0, "first-run log/history protection still holds", JSON.stringify({
+      log: (state.log || []).length,
+      history: (state.programHistory || []).length,
+    }));
+    await context.close();
+  });
+
+  await runCase("Unrelated hashchange is a no-op after a staged shared setup", async () => {
+    const { context, page, errors } = await openAppPage(browser, { ua: IOS_UA });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const first = cloneFixture(MINIMAL_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, first);
+    const fragment = encoded.ok ? encoded.value : wireFragment(first);
+    await page.goto(setupUrl(fragment, "hash-noop"), { waitUntil: "domcontentloaded" });
+    try {
+      await waitForFirstRun(page);
+    } catch (err) {
+      const diag = await page.evaluate(() => ({
+        readyState: document.readyState,
+        hook: window.__repforgeSharedSetup ? {
+          status: window.__repforgeSharedSetup.status,
+          source: window.__repforgeSharedSetup.source,
+          error: window.__repforgeSharedSetup.error,
+        } : null,
+        hash: location.hash.slice(0, 40),
+        gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+        logs: (window.__agentDebugLogs || []).map((row) => ({ id: row.hypothesisId, loc: row.location, msg: row.message, data: row.data })),
+      }));
+      await flushAgentLogs(page, "bug-b-timeout");
+      assert(false, "waitForFirstRun after setup hash", `${err}\npageerrors=${JSON.stringify(errors)}\n${JSON.stringify(diag, null, 2)}`);
+      await context.close();
+      return;
+    }
+    const before = await page.evaluate(() => ({
+      status: window.__repforgeSharedSetup?.status,
+      source: window.__repforgeSharedSetup?.source,
+      cookie: document.cookie.split(";").some((part) => part.trim().startsWith("repforge_setup_v1=")),
+      hash: location.hash,
+    }));
+    assert(before.status === "ready" && before.cookie, "ready proposal and staged cookie before unrelated hash", JSON.stringify(before));
+    await page.evaluate(() => { location.hash = "section"; });
+    await page.waitForTimeout(500);
+    const afterSection = await page.evaluate(sharedGateSnapshot);
+    const afterHook = await page.evaluate(readSharedHook);
+    const afterDur = await page.evaluate(readDurableState);
+    await flushAgentLogs(page, "bug-b-section");
+    assert(afterHook.status === "ready", "unrelated #section leaves the proposal ready", JSON.stringify(afterHook));
+    assert(afterSection.startVisible && !afterSection.startDisabled, "Start row stays live after #section", JSON.stringify(afterSection));
+    assert(!!afterDur.cookie, "unrelated hash does not clear the staged cookie", afterDur.cookie);
+    assert(afterDur.hash === "#section", "unrelated section hash is kept", afterDur.hash);
+    const second = cloneFixture(MINIMAL_PAYLOAD);
+    second.program.meta.name = "Second coach program";
+    const encoded2 = await encodeSharedPayload(page, second);
+    const fragment2 = encoded2.ok ? encoded2.value : wireFragment(second);
+    await page.evaluate((value) => { location.hash = `setup=${value}`; }, fragment2);
+    await waitForFirstRun(page);
+    const secondHook = await page.evaluate(readSharedHook);
+    const secondGate = await page.evaluate(sharedGateSnapshot);
+    await flushAgentLogs(page, "bug-b-second");
+    assert(
+      secondHook.status === "ready" && secondHook.summary?.name === "Second coach program",
+      "a later genuine setup fragment still loads",
+      JSON.stringify(secondHook)
+    );
+    assert(secondGate.startVisible && !secondGate.startDisabled, "second genuine fragment keeps a live Start row", JSON.stringify(secondGate));
     await context.close();
   });
 
