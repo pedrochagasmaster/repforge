@@ -1235,6 +1235,11 @@ export async function runSharedSetupFlow(browser) {
         tx.onerror = () => rej(tx.error);
       });
       db.close();
+      window.__repforgeNotifyAdapter = {
+        canUse: () => true,
+        permission: () => "granted",
+        request: async () => "granted",
+      };
     }, { key: KEY, custom: recipientCustom });
     if (!(await clickSharedStart(page))) {
       await flushAgentLogs(page, "bug-a");
