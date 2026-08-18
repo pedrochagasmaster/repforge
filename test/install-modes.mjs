@@ -40,6 +40,7 @@ import {
   openAppPage,
   SHARED_COPY,
   sharedGateSnapshot,
+  waitForFirstRun,
 } from "./shared-setup-flow.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -122,8 +123,8 @@ async function sharedInstallPage(browser, { ua, locale = "en-US", standalone = f
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 });
   const encoded = await encodeSharedPayload(page, payload);
   if (encoded?.ok) {
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 }).catch(() => {});
+    await page.goto(`${APP_INDEX}?shared-install=${width}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
   }
   return { context, page, errors, encoded };
 }
