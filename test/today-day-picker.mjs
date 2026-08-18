@@ -16,6 +16,8 @@ import { launchChromium } from "./browser.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const IOS_SAFARI_UA =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
 
 const results = { passed: 0, failed: 0 };
 
@@ -369,6 +371,50 @@ phase("the picker is only offered when there is another day to start");
   await waitForApp(page);
   const oneDay = await view(page);
   assert(!oneDay.pickerBtnVisible, "a one-day program has nothing to pick, so the button stays away", JSON.stringify(oneDay));
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
+// 5. Page furniture stays behind the sheet it would otherwise cover
+// ---------------------------------------------------------------------------
+phase("nothing floats over the open sheet");
+{
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, userAgent: IOS_SAFARI_UA });
+  const page = await context.newPage();
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await clearState(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  // The install banner is a fixed card above the nav, and iOS Safari is where it
+  // is offered; it used to be drawn over the sheet, hiding the first day rows.
+  await page.evaluate(() => window.__repforgeUi.showInstallBanner(true));
+  await page.waitForSelector("#installBanner:not(.hidden)", { timeout: 5000 });
+  await openPicker(page);
+
+  const covered = await page.evaluate(() =>
+    [...document.querySelectorAll("#dayPickList [data-daypick]")]
+      .map((row) => {
+        const r = row.getBoundingClientRect();
+        const hit = document.elementFromPoint(Math.round(r.x + r.width / 2), Math.round(r.y + r.height / 2));
+        if (hit && row.contains(hit)) return null;
+        return { day: row.dataset.daypick, over: hit?.closest("[id]")?.id || hit?.tagName || "nothing" };
+      })
+      .filter(Boolean)
+  );
+  assert(!covered.length, "every day row is the topmost thing at its own centre", JSON.stringify(covered));
+
+  const banner = await page.evaluate(() => {
+    const el = document.querySelector("#installBanner");
+    return { dismissed: el.classList.contains("hidden"), drawn: getComputedStyle(el).display !== "none" };
+  });
+  assert(!banner.drawn && !banner.dismissed, "the sheet hides the banner without dismissing it", JSON.stringify(banner));
+
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(420);
+  const after = await page.evaluate(() => getComputedStyle(document.querySelector("#installBanner")).display !== "none");
+  assert(after, "and it comes back with the page", String(after));
   await context.close();
 }
 
