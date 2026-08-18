@@ -1346,6 +1346,29 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
+  await runCase("Shared program names render as text, never HTML", async () => {
+    const { context, page } = await openAppPage(browser, { width: 390 });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const payload = cloneFixture(MINIMAL_PAYLOAD);
+    payload.program.meta.name = '<img src=x onerror="window.__sharedXss=true">Coach';
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "text-only-name"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const rendered = await page.evaluate(() => {
+      const cap = document.querySelector("#firstRunSharedStart .firstrun-row__cap");
+      return {
+        text: cap?.textContent || "",
+        images: cap?.querySelectorAll("img").length || 0,
+        executed: window.__sharedXss === true,
+      };
+    });
+    assert(rendered.text.includes("<img src=x onerror="), "untrusted program name is displayed literally", rendered.text);
+    assert(rendered.images === 0 && !rendered.executed, "untrusted program name creates no HTML or script execution", JSON.stringify(rendered));
+    await context.close();
+  });
+
   return results;
 }
 
