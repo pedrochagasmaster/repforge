@@ -192,6 +192,8 @@ const heroShape = () => {
     poemSize: parseFloat(getComputedStyle(poem).fontSize),
     poemHeight: p.height,
     compact: matchMedia("(max-width:759px)").matches,
+    titleAlign: getComputedStyle(title).textAlign,
+    titleCentered: Math.abs((t.left + t.right) / 2 - (h.left + h.right) / 2) <= 1,
     artBeforePoem: a.bottom <= p.top + 1,
     artSeparated: !intersects(a, t) && !intersects(a, p),
     artInsideHero:
@@ -606,6 +608,13 @@ async function run() {
           shape.compact ? shape.artBeforePoem : !shape.artBeforePoem,
           `${at}: the responsive hero uses the intended composition`,
           JSON.stringify(shape)
+        );
+        assert(
+          shape.compact
+            ? shape.titleAlign === "center" && shape.titleCentered
+            : shape.titleAlign === "left",
+          `${at}: the hero title follows the compact and wide alignment`,
+          JSON.stringify({ align: shape.titleAlign, centered: shape.titleCentered })
         );
         assert(
           shape.logoWidth >= 62 && shape.wordmarkSize >= 21,
