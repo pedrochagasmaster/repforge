@@ -10,6 +10,7 @@ import {
   SHARED_COPY,
   SHARED_DOM,
   sharedGateSnapshot,
+  waitForFirstRun,
 } from "./shared-setup-flow.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -2521,8 +2522,8 @@ console.log("\nShared setup gate accessibility");
   const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
   assert(encoded.ok === true, "shared a11y: payload encodes", JSON.stringify(encoded));
   if (encoded.ok) {
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 }).catch(() => {});
+    await page.goto(`${APP_INDEX}?shared-a11y=gate#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
     const gate = await page.evaluate(sharedGateSnapshot);
     assert(gate.startVisible && gate.startFocusable, "shared first run: Start this program is keyboard-reachable", JSON.stringify(gate));
     assert(!gate.createFocusable && !gate.importFocusable, "shared first run: Create/Import are not keyboard-reachable", JSON.stringify(gate));
@@ -2564,8 +2565,8 @@ console.log("\nShared setup gate accessibility");
     });
   });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.goto(`${APP_INDEX}#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 15000 }).catch(() => {});
+  await page.goto(`${APP_INDEX}?shared-a11y=invalid#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+  await waitForFirstRun(page);
   const invalid = await page.evaluate(sharedGateSnapshot);
   assert(invalid.errorRole === "status", "invalid shared link: error is a status live region", JSON.stringify(invalid));
   assert(invalid.errorVisible && invalid.errorText === SHARED_COPY.en.invalid, "invalid shared link: error is announced with the invalid copy", JSON.stringify(invalid));
@@ -2587,8 +2588,8 @@ console.log("\nShared setup gate accessibility");
   if (!encoded.ok) {
     assert(false, "shared busy a11y: payload encodes", JSON.stringify(encoded));
   } else {
-    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#firstRunSharedStart", { timeout: 15000 }).catch(() => {});
+    await page.goto(`${APP_INDEX}?shared-a11y=busy#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
     const busy = await page.evaluate(async () => {
       const hook = window.__repforgeSharedSetup;
       const start = document.querySelector("#firstRunSharedStart");

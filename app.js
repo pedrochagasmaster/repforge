@@ -7591,6 +7591,15 @@ function openFirstRun(){
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
   return true}
+function trapFirstRunTab(event){
+  if(event.key!=="Tab"||!firstRunOpen())return;
+  const root=$("#firstRun"),focusable=modalFocusables(root);
+  if(!focusable.length){event.preventDefault();root?.focus();return}
+  const current=focusable.indexOf(document.activeElement);
+  if(event.shiftKey&&(current<=0)){
+    event.preventDefault();focusable[focusable.length-1].focus()}
+  else if(!event.shiftKey&&(current===-1||current===focusable.length-1)){
+    event.preventDefault();focusable[0].focus()}}
 /** Hide the gate without giving up on it: the import review lives in the app
  *  shell underneath, so it needs the overlay out of the way while it decides. */
 function suspendFirstRun(){
@@ -7777,6 +7786,7 @@ window.__repforgeOnboarding={eqUi:ONB_EQ_UI,eqGen:ONB_EQ_GEN,splits:ONB_SPLITS,m
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   window.addEventListener("hashchange",()=>{handleSharedSetupHash()});
+  $("#firstRun")?.addEventListener("keydown",trapFirstRunTab);
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
   // Chrome decides when to offer this, and it usually decides after the first
