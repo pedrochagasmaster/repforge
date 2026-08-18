@@ -1,4 +1,4 @@
-# The manifest lists raster icons only, so Android installs mint a WebAPK
+# Preserve the project-scoped manifest identity for Android WebAPK installs
 
 Reported 2026-08: on Android, installing Taurifer from Chrome produced a
 browser shortcut — the app icon with a small Chrome badge, opening in a tab
@@ -8,30 +8,54 @@ every installability check (HTTPS, linked manifest, `standalone`, a service
 worker with a fetch handler, icons at 192 and 512). What failed was the step
 after the prompt, where Chrome asks Google's minting server to build the APK.
 
-The cause was the manifest's first icon entry: `icons/icon.svg` at
-`"sizes": "any"`. Chromium's `ManifestIconSelector` ranks an `any`-sized SVG
-second only to a raster icon whose height matches the device's ideal icon size
-*exactly* (`best_delta == 0`); Android's ideal home-screen size is the
-launcher's icon size in device pixels, which is rarely exactly 192 or 512. So
-on most phones the SVG — 2.3 MB of vector paths, generated output we never
-optimize — became the WebAPK's primary icon. Chrome forwards PNG and JPEG
-primary icons to the minting server as raw bytes, but any other type has to be
-re-downloaded and rasterised in the browser first, and a failure there hands
-the server no usable primary icon. An SVG primary icon has a long history of
-sinking the mint, and a failed mint silently degrades to a shortcut.
+The first attempted fix removed the manifest's `icons/icon.svg` entry. That
+made Chrome's primary-icon choice deterministic and retained valid 192, 512,
+1024 and maskable PNGs, but a real-device retest still fell back to a
+shortcut. The icon hypothesis was wrong: the known-working pre-rebrand
+manifest already listed the SVG, and every current PNG decodes at its declared
+dimensions.
 
-Decision: `manifest.webmanifest` lists raster icons only — 192, 512 and 1024
-`any`, plus the maskable 512. `icons/icon.svg` stays the app's identity source
-of truth and stays linked from `index.html` as the browser favicon
-(`<link rel="icon" type="image/svg+xml">`), which is the surface it was always
-crisp on; nothing on a Home Screen renders it. Removing it from the manifest
-costs nothing visible and makes the primary-icon choice deterministic: the PNG
-closest to the device's ideal size, sent to the minting server as bytes.
+The regression was the explicit `"id": "./index.html"` added after the
+rebrand. Manifest `start_url`, `scope`, and icon paths resolve relative to the
+manifest URL, but `id` deliberately does not: the manifest specification
+resolves every relative `id` against the **origin** of `start_url`. On GitHub
+Pages, Chrome therefore read:
 
-`test/install-modes.mjs` holds the line — it asserts the manifest declares no
-SVG and no `"sizes": "any"` entry, that a 192 and a 512 PNG are both present
-with a maskable variant, and that every icon it lists is a fetchable file
-rather than a `data:` URI.
+| member | processed URL |
+| --- | --- |
+| `start_url: "./index.html"` | `https://pedrochagasmaster.github.io/repforge/index.html` |
+| `scope: "./"` | `https://pedrochagasmaster.github.io/repforge/` |
+| `id: "./index.html"` | `https://pedrochagasmaster.github.io/index.html` |
+
+The commit said the new member pinned the identity Chrome already derived from
+`start_url`, but it changed that identity from the project-scoped URL to an
+out-of-scope root URL. An app id need not be in scope, so the manifest remained
+valid and Chrome still fired `beforeinstallprompt`; ordinary installability
+tests could not see the WebAPK failure. Chrome DevTools' processed manifest
+confirmed the live mismatch exactly.
+
+Decision: omit `id`. Per the manifest specification its processed value then
+falls back to the already-correct, manifest-relative `start_url`, preserving
+the pre-rebrand identity on GitHub Pages and the corresponding identity on
+localhost. A deployment-specific explicit `/repforge/index.html` would fix
+production but give local development a different identity.
+
+Keep the manifest raster-only — 192, 512 and 1024 `any`, plus the maskable
+512 — as a conservative input to the minting server, but do not describe the
+SVG as the cause. `icons/icon.svg` remains the identity source and browser
+favicon.
+
+The service worker's shell matcher also normalizes request paths against its
+registration scope. Its old root-only comparisons did not recognize
+`/repforge/manifest.webmanifest` as shell content on GitHub Pages, so it could
+serve a cached manifest after deployment. The v99 cache installs the corrected
+manifest and the scope-relative matcher keeps subsequent shell reads
+network-first.
+
+`test/install-modes.mjs` holds the identity line by requiring `id` to remain
+omitted, and retains the icon assertions: no SVG or `"sizes": "any"` entry,
+192 and 512 PNGs, a maskable variant, and a fetchable file rather than a
+`data:` URI for every listed icon.
 
 A mint cannot be driven from a test: it happens on a Google server, for a real
 device. The on-device check is `chrome://webapks` after installing — the app is
