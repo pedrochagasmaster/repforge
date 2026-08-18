@@ -729,11 +729,11 @@ function reconcileCandidateLogDays(snapshot,sessionIds){
     else targetDay=sourceDays[0]||mappedDays[0]||null;
     if(targetDay!=null)for(const row of rows)row.day=targetDay}
   return snapshot}
-function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconcileSessionIds=[],dayRenames=[],expectedFirstRunEmpty=false}={}){
+function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconcileSessionIds=[],dayRenames=[],expectedFirstRunEmpty=false,sharedRebaseSeed=null}={}){
   const durableHead=cloneSnapshot(head||base);
   const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
   const snapshot=replace?cloneSnapshot(proposal):rebaseStateChange(liveBase,proposal,liveHead);
-  if(replace&&expectedFirstRunEmpty)rebaseSharedSetupSnapshot(snapshot,durableHead);
+  if(replace&&expectedFirstRunEmpty)rebaseSharedSetupSnapshot(snapshot,durableHead,sharedRebaseSeed);
   reconcileExplicitLogDayRenames(snapshot,dayRenames);
   reconcileCandidateLogDays(snapshot,reconcileSessionIds);
   delete snapshot[STORAGE_DRAFT_TXN];
@@ -744,7 +744,8 @@ function pendingJournalSuccessorMatches(record,head){
   if(!journal||!rollback||!head)return false;
   const candidate=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,rollback,
     {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,
-      dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty});
+      dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty,
+      sharedRebaseSeed:journal.id});
   return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
 function preparePendingDraftTransaction(snapshot,previous,effect,id){
   const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
@@ -958,7 +959,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       pendingRecord=armed}
     const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,
       {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
-        expectedFirstRunEmpty});
+        expectedFirstRunEmpty,sharedRebaseSeed:pendingRecord?.journal.id||coordinationId});
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
     const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
     const execution=await executeDraftTransaction({record:pendingRecord,transactionId,
@@ -2542,7 +2543,16 @@ function parseProgramImport(parsed){
    "custom:<uuid>", or the same program is imported twice after a local edit. An
    identical definition is reused, a colliding one is minted a fresh id, and the
    templates that referenced it are repointed. Nothing local is overwritten. */
-function mergeImportedCustomExercises(incoming,exercises,snapshot){
+// Random id minting is fine on the live import path but must not run inside a
+// replayable reconstruction (a journal successor rebuilt from the same inputs
+// has to be byte-identical). Callers on the shared-setup rebase path pass a
+// deterministic allocator seeded from the persisted transaction id instead.
+const randomCustomIdAllocator=()=>byId=>{
+  let id;do{id=`${CUSTOM_ID_PREFIX}${uid()}`}while(byId.has(id));return id};
+const deterministicCustomIdAllocator=seed=>{
+  const base=String(seed||"shared");let n=0;
+  return byId=>{let id;do{n++;id=`${CUSTOM_ID_PREFIX}${base}#${n}`}while(byId.has(id));return id}};
+function mergeImportedCustomExercises(incoming,exercises,snapshot,allocate=randomCustomIdAllocator()){
   const normalized=normalizeCustomExercises(incoming);
   if(!normalized.length)return{customExercises:customExercises(snapshot).map(cloneSnapshot),added:0,remapped:0};
   const mine=customExercises(snapshot).map(cloneSnapshot);
@@ -2557,7 +2567,7 @@ function mergeImportedCustomExercises(incoming,exercises,snapshot){
     if(existing){
       if(sameDefinition(existing,entry))continue;
       // Same id, different movement: keep theirs, give this one a new identity.
-      const minted=Object.assign(cloneSnapshot(entry),{id:`${CUSTOM_ID_PREFIX}${uid()}`});
+      const minted=Object.assign(cloneSnapshot(entry),{id:allocate(byId)});
       mine.push(minted);byId.set(minted.id,minted);
       remap.set(entry.id,minted.id);added++;remapped++;
       continue}
@@ -2604,11 +2614,30 @@ function proposalFromSharedSetup(payload,baseState=state){
   delete proposal[STORAGE_FOLLOWUP];
   delete proposal[STORAGE_DRAFT_TXN];
   return proposal}
-function rebaseSharedSetupSnapshot(snapshot,head){
+// Only the definitions the replacement program actually references are payload-
+// owned. Everything else in the stale proposal's customExercises is recipient
+// state the refreshed head already owns (including deletions and edits), so it
+// must never be re-imported.
+function referencedCustomDefinitions(snapshot){
+  const referenced=new Set((Array.isArray(snapshot?.program)?snapshot.program:[])
+    .map(ex=>ex?.libraryId).filter(id=>isCustomLibraryId(id)));
+  return customExercises(snapshot).filter(def=>referenced.has(def.id)).map(cloneSnapshot)}
+// The head owns every device setting except the eight shared fields. Preserve
+// unknown top-level and nested notify keys the recipient may have gained after
+// the gate opened; the payload contributes only the allowlisted eight.
+function rebaseSharedSettings(head,proposalSettings){
+  const rawHeadSettings=cloneSnapshot(head?.settings||{});
+  const normalizedHeadSettings=normalizeSettings(rawHeadSettings);
+  const preservedNotify={...cloneSnapshot(rawHeadSettings.notify||{}),...normalizedHeadSettings.notify};
+  return{...rawHeadSettings,...normalizedHeadSettings,notify:preservedNotify,
+    ...sharedSettingsPatch(proposalSettings)}}
+function rebaseSharedSetupSnapshot(snapshot,head,seed){
   if(!snapshot||!head)return snapshot;
   const exercises=Array.isArray(snapshot.program)?snapshot.program:[];
-  snapshot.settings=Object.assign({},normalizeSettings(head.settings),sharedSettingsPatch(snapshot.settings));
-  snapshot.customExercises=mergeImportedCustomExercises(snapshot.customExercises,exercises,head).customExercises;
+  snapshot.settings=rebaseSharedSettings(head,snapshot.settings);
+  const incoming=referencedCustomDefinitions(snapshot);
+  snapshot.customExercises=mergeImportedCustomExercises(
+    incoming,exercises,head,deterministicCustomIdAllocator(seed)).customExercises;
   return snapshot}
 function save(){return persist()}
 function persist(opts={}){
@@ -8253,7 +8282,7 @@ async function resolveBootReplicas(candidate=null){
       const journalHead=head||cloneSnapshot(journal.base);
       const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,
         {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,dayRenames:journal.dayRenames,
-          expectedFirstRunEmpty:journal.expectedFirstRunEmpty});
+          expectedFirstRunEmpty:journal.expectedFirstRunEmpty,sharedRebaseSeed:journal.id});
       const prepared=preparePendingDraftTransaction(snapshot,journalHead,journal.effectOutcome,journal.id);
       const execution=await executeDraftTransaction({record,transactionId:journal.id,
         effect:journal.effectOutcome,prepared,snapshot,io:storageIO,writePrepared:true,

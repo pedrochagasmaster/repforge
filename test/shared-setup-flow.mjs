@@ -388,6 +388,131 @@ async function clickSharedStart(page) {
   return true;
 }
 
+// A first-run-eligible durable state (not onboarded, no logs or history) seeded
+// with recipient-owned custom definitions before a shared link is opened, so the
+// rebase runs against a head that owns those recipient definitions.
+function firstRunEligibleState(customs = [], settings = {}) {
+  return configuredState({
+    onboarded: false,
+    log: [],
+    programHistory: [],
+    customExercises: customs,
+    settings,
+  });
+}
+
+// Write a newer, still-eligible durable head to BOTH replicas — the concurrent
+// change another tab persists after tab A stages its proposal.
+async function commitConcurrentHead(page, spec) {
+  return page.evaluate(
+    async ({ key, spec }) => {
+      const current = JSON.parse(localStorage.getItem(key) || "{}");
+      const newer = JSON.parse(JSON.stringify(current));
+      newer.customExercises = Array.isArray(newer.customExercises) ? newer.customExercises : [];
+      if (Array.isArray(spec.removeCustomIds))
+        newer.customExercises = newer.customExercises.filter((c) => !spec.removeCustomIds.includes(c.id));
+      if (Array.isArray(spec.editCustoms))
+        newer.customExercises = newer.customExercises.map((c) => {
+          const edit = spec.editCustoms.find((e) => e.id === c.id);
+          return edit ? Object.assign({}, c, edit.patch) : c;
+        });
+      if (Array.isArray(spec.addCustoms)) newer.customExercises = newer.customExercises.concat(spec.addCustoms);
+      newer.settings = Object.assign({}, newer.settings);
+      if (spec.settings) Object.assign(newer.settings, spec.settings);
+      if (spec.notify) newer.settings.notify = Object.assign({}, newer.settings.notify, spec.notify);
+      if (spec.voiceInputEnabled !== undefined) newer.settings.voiceInputEnabled = spec.voiceInputEnabled;
+      if (spec.lastExport !== undefined) newer.settings.lastExport = spec.lastExport;
+      newer.log = Array.isArray(newer.log) ? newer.log : [];
+      newer.programHistory = Array.isArray(newer.programHistory) ? newer.programHistory : [];
+      if (Array.isArray(spec.addLog)) newer.log = newer.log.concat(spec.addLog);
+      if (Array.isArray(spec.addHistory)) newer.programHistory = newer.programHistory.concat(spec.addHistory);
+      if (Array.isArray(spec.program)) newer.program = spec.program;
+      newer._storageRevision = (Number.isInteger(newer._storageRevision) ? newer._storageRevision : 0) + 1;
+      if (newer.programMeta) {
+        newer.programMeta.onboarded = spec.onboarded === true;
+        if (typeof spec.programId === "string") newer.programMeta.id = spec.programId;
+      }
+      localStorage.setItem(key, JSON.stringify(newer));
+      const db = await new Promise((res, rej) => {
+        const r = indexedDB.open("repforge", 1);
+        r.onupgradeneeded = () => r.result.createObjectStore("kv");
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+      await new Promise((res, rej) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(newer, key);
+        tx.oncomplete = () => res();
+        tx.onerror = () => rej(tx.error);
+      });
+      db.close();
+      return newer;
+    },
+    { key: KEY, spec }
+  );
+}
+
+async function readBothReplicas(page) {
+  return page.evaluate(async ({ key }) => {
+    let local = null;
+    try {
+      local = JSON.parse(localStorage.getItem(key) || "null");
+    } catch {
+      local = null;
+    }
+    const db = await new Promise((res) => {
+      const r = indexedDB.open("repforge", 1);
+      r.onupgradeneeded = () => r.result.createObjectStore("kv");
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => res(null);
+    });
+    let idb = null;
+    if (db) {
+      idb = await new Promise((res) => {
+        const tx = db.transaction("kv", "readonly");
+        const g = tx.objectStore("kv").get(key);
+        g.onsuccess = () => res(g.result || null);
+        g.onerror = () => res(null);
+      });
+      db.close();
+    }
+    return { local, idb };
+  }, { key: KEY });
+}
+
+function canonicalJson(value) {
+  const seen = new WeakSet();
+  const walk = (node) => {
+    if (node && typeof node === "object") {
+      if (seen.has(node)) return null;
+      seen.add(node);
+      if (Array.isArray(node)) return node.map(walk);
+      return Object.keys(node)
+        .sort()
+        .reduce((acc, key) => {
+          acc[key] = walk(node[key]);
+          return acc;
+        }, {});
+    }
+    return node;
+  };
+  return JSON.stringify(walk(value));
+}
+
+function customById(state, id) {
+  return (state?.customExercises || []).filter((row) => row.id === id);
+}
+
+function programCustomRefs(state) {
+  return (state?.program || []).map((ex) => ex.libraryId).filter((id) => String(id || "").startsWith("custom:"));
+}
+
+function unresolvedRecoveryVisible() {
+  const dialog = document.querySelector("#storageRecovery");
+  if (!dialog) return false;
+  return dialog.open === true || (!dialog.classList.contains("hidden") && dialog.hasAttribute("open"));
+}
+
 function sharedPayloadAbsent(state, payload) {
   if (!state) return { ok: false, reason: "no-state" };
   const name = payload.program.meta.name;
@@ -1282,6 +1407,316 @@ export async function runSharedSetupFlow(browser) {
       history: (state.programHistory || []).length,
     }));
     await context.close();
+  });
+
+  await runCase("Concurrent deletion of an unreferenced recipient custom is not reversed", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    const recipientCustom = {
+      id: "custom:recipient-stale",
+      name: "Recipient machine press",
+      namePt: "Recipient machine press",
+      equipment: ["machine"],
+      primary: "Chest",
+      secondary: "",
+      notes: "Recipient only",
+    };
+    await persistState(page, firstRunEligibleState([recipientCustom]));
+    const payload = cloneFixture(MINIMAL_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "concurrent-delete"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal (delete)", JSON.stringify(ready));
+    await commitConcurrentHead(page, { removeCustomIds: ["custom:recipient-stale"] });
+    const beforeAccept = await readBothReplicas(page);
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    const both = await readBothReplicas(page);
+    const local = both.local || {};
+    const accepted = local.programMeta?.onboarded === true;
+    const deletedAbsent = customById(local, "custom:recipient-stale").length === 0;
+    if (accepted) {
+      assert(deletedAbsent, "acceptance succeeds and the deleted recipient custom stays absent", JSON.stringify((local.customExercises || []).map((r) => r.id)));
+    } else {
+      assert(
+        deletedAbsent && canonicalJson(both.local) === canonicalJson(beforeAccept.local) && canonicalJson(both.idb) === canonicalJson(beforeAccept.idb),
+        "acceptance rejects cleanly and the newer durable state is byte-for-byte intact",
+        JSON.stringify({ local: (local.customExercises || []).map((r) => r.id) })
+      );
+    }
+    assert(deletedAbsent, "the concurrently deleted definition is never resurrected", JSON.stringify((local.customExercises || []).map((r) => r.id)));
+    await context.close();
+  });
+
+  await runCase("Concurrent edit of an unreferenced recipient custom keeps only the newer definition", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    const recipientCustom = {
+      id: "custom:recipient-stale",
+      name: "Stale name",
+      namePt: "Stale name",
+      equipment: ["machine"],
+      primary: "Chest",
+      secondary: "",
+      notes: "Stale notes",
+    };
+    await persistState(page, firstRunEligibleState([recipientCustom]));
+    const payload = cloneFixture(MINIMAL_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "concurrent-edit"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal (edit)", JSON.stringify(ready));
+    await commitConcurrentHead(page, {
+      editCustoms: [{ id: "custom:recipient-stale", patch: { name: "Edited name", primary: "Back", secondary: "Biceps", notes: "Edited notes" } }],
+    });
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    const both = await readBothReplicas(page);
+    const local = both.local || {};
+    const matches = customById(local, "custom:recipient-stale");
+    const edited = matches[0] || {};
+    assert(local.programMeta?.onboarded === true, "concurrent-edit acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
+    assert(matches.length === 1, "exactly one definition keeps the recipient identity", JSON.stringify((local.customExercises || []).map((r) => r.id)));
+    assert(
+      edited.name === "Edited name" && edited.primary === "Back" && edited.notes === "Edited notes",
+      "the surviving definition holds the newer durable values",
+      JSON.stringify(edited)
+    );
+    const staleDuplicate = (local.customExercises || []).some((row) => row.id !== "custom:recipient-stale" && row.name === "Stale name");
+    assert(!staleDuplicate, "no extra UUID is minted for the stale definition", JSON.stringify((local.customExercises || []).map((r) => ({ id: r.id, name: r.name }))));
+    assert(!programCustomRefs(local).includes("custom:recipient-stale"), "the replacement program does not reference the recipient definition", JSON.stringify(programCustomRefs(local)));
+    await context.close();
+  });
+
+  await runCase("Unknown and nested device-owned settings survive shared acceptance", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await persistState(page, firstRunEligibleState([]));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "future-settings"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal (settings)", JSON.stringify(ready));
+    await commitConcurrentHead(page, {
+      voiceInputEnabled: true,
+      lastExport: "2026-06-01T00:00:00.000Z",
+      settings: { futureDeviceSetting: { enabled: true, mode: "recipient", nested: { value: 42 } } },
+      notify: { enabled: true, timer: false, session: false, unfinished: false, missed: false, futureChannel: { enabled: true } },
+    });
+    // Granted permission keeps reconcileNotifyPermission from force-disabling and
+    // re-normalizing notify, so the rebase's preserved values are the ones observed.
+    await page.evaluate(() => {
+      window.__repforgeNotifyAdapter = { canUse: () => true, permission: () => "granted", request: async () => "granted" };
+    });
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    const local = (await readBothReplicas(page)).local || {};
+    const settings = local.settings || {};
+    const notify = settings.notify || {};
+    assert(local.programMeta?.onboarded === true, "future-settings acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
+    assert(
+      canonicalJson(settings.futureDeviceSetting) === canonicalJson({ enabled: true, mode: "recipient", nested: { value: 42 } }),
+      "unknown top-level recipient setting is preserved deeply",
+      JSON.stringify(settings.futureDeviceSetting)
+    );
+    assert(
+      canonicalJson(notify.futureChannel) === canonicalJson({ enabled: true }),
+      "unknown nested notify key is preserved deeply",
+      JSON.stringify(notify.futureChannel)
+    );
+    assert(settings.voiceInputEnabled === true, "voiceInputEnabled comes from the refreshed head", String(settings.voiceInputEnabled));
+    assert(settings.lastExport === "2026-06-01T00:00:00.000Z", "lastExport comes from the refreshed head", String(settings.lastExport));
+    assert(
+      notify.enabled === true && notify.timer === false && notify.session === false && notify.unfinished === false && notify.missed === false,
+      "known notification preferences come from the refreshed head",
+      JSON.stringify(notify)
+    );
+    assert(
+      settings.lang === "pt" && settings.restSec === 165 && settings.jumpPct === 3.5 && settings.minJump === 1.25 &&
+        settings.rirHigh === 3 && settings.hardRir === 5 && settings.unit === "kg" && settings.rirMode === "effort",
+      "the eight allowlisted fields come from the payload",
+      JSON.stringify(settings)
+    );
+    const shared = payload.settings || {};
+    const extraPayloadKey = Object.keys(settings).find((key) => key in shared === false && ["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"].includes(key) === false && key === "coachOnlyKey");
+    assert(!extraPayloadKey && !("coachOnlyKey" in settings), "no ninth payload setting is accepted", JSON.stringify(Object.keys(settings)));
+    await context.close();
+  });
+
+  await runCase("Genuine shared custom collision keeps the recipient definition and remaps the payload", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    const recipientCollision = {
+      id: "custom:coach-row",
+      name: "Recipient bent row",
+      namePt: "Recipient bent row",
+      equipment: ["barbell"],
+      primary: "Lats",
+      secondary: "",
+      notes: "Recipient movement",
+    };
+    await persistState(page, firstRunEligibleState([recipientCollision]));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "genuine-collision"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal (collision)", JSON.stringify(ready));
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    const local = (await readBothReplicas(page)).local || {};
+    const recipientKept = customById(local, "custom:coach-row");
+    const refs = programCustomRefs(local);
+    const remappedId = refs.find((id) => id !== "custom:coach-row");
+    const remappedDefs = remappedId ? customById(local, remappedId) : [];
+    assert(local.programMeta?.onboarded === true, "collision acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
+    assert(recipientKept.length === 1 && recipientKept[0].name === "Recipient bent row", "recipient definition remains unchanged under its id", JSON.stringify(recipientKept));
+    assert(!!remappedId && remappedId !== "custom:coach-row", "shared definition received a safe remapped id", JSON.stringify(refs));
+    assert(remappedDefs.length === 1 && remappedDefs[0].name === "Coach cable row", "the remapped shared definition exists exactly once", JSON.stringify(remappedDefs));
+    assert(refs.every((id) => customById(local, id).length === 1), "every custom reference in the program resolves once", JSON.stringify(refs));
+    await context.close();
+  });
+
+  await runCase("Interrupted journal clear recovers idempotently without a second remap", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await persistState(page, firstRunEligibleState([]));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
+    const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+    await page.goto(setupUrl(fragment, "journal-recovery"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const ready = await page.evaluate(readSharedHook);
+    assert(ready.status === "ready", "tab A holds a ready proposal (journal)", JSON.stringify(ready));
+    // Concurrent head introduces a same-id, different-definition custom that only
+    // collides against the refreshed head, forcing a rebase-level remap.
+    await commitConcurrentHead(page, {
+      addCustoms: [{
+        id: "custom:coach-row",
+        name: "Recipient bent row",
+        namePt: "Recipient bent row",
+        equipment: ["barbell"],
+        primary: "Lats",
+        secondary: "",
+        notes: "Recipient movement",
+      }],
+    });
+    // Suppress removal of the pending-journal key so the successor is written to
+    // both replicas but its journal is left behind (interruption before clear).
+    await page.evaluate((prefix) => {
+      const proto = window.Storage.prototype;
+      const original = proto.removeItem;
+      window.__origRemoveItem = original;
+      proto.removeItem = function (key) {
+        if (typeof key === "string" && key.startsWith(prefix)) return;
+        return original.call(this, key);
+      };
+    }, "repforge_pending_v1");
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForTimeout(500);
+    await page.evaluate(() => {
+      if (window.__origRemoveItem) window.Storage.prototype.removeItem = window.__origRemoveItem;
+    });
+    const beforeReload = (await readBothReplicas(page)).local || {};
+    const refsBefore = programCustomRefs(beforeReload);
+    const remappedBefore = refsBefore.find((id) => id !== "custom:coach-row");
+    const journalPresent = await page.evaluate((prefix) => {
+      for (let i = 0; i < localStorage.length; i++) if ((localStorage.key(i) || "").startsWith(prefix)) return true;
+      return false;
+    }, "repforge_pending_v1:");
+    assert(journalPresent, "the interruption leaves a pending journal behind", String(journalPresent));
+    assert(!!remappedBefore, "the successor written before the interruption carries a remapped id", JSON.stringify(refsBefore));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    await page.waitForTimeout(300);
+    const noRecovery = await page.evaluate(unresolvedRecoveryVisible);
+    const both = await readBothReplicas(page);
+    const local = both.local || {};
+    const refsAfter = programCustomRefs(local);
+    const remappedAfter = refsAfter.find((id) => id !== "custom:coach-row");
+    assert(!noRecovery, "no unresolved-replica screen appears for two equivalent replicas", String(noRecovery));
+    assert(canonicalJson(both.local) === canonicalJson(both.idb), "both replicas converge after recovery", JSON.stringify({ local: refsAfter }));
+    assert(remappedAfter === remappedBefore, "recovery keeps the same remapped id (deterministic reconstruction)", JSON.stringify({ before: remappedBefore, after: remappedAfter }));
+    assert(!!remappedAfter && customById(local, remappedAfter).length === 1, "no second remapped custom id is created", JSON.stringify(refsAfter));
+    assert(customById(local, "custom:coach-row").length === 1, "the recipient definition is not resurrected or duplicated", JSON.stringify((local.customExercises || []).map((r) => r.id)));
+    assert(refsAfter.every((id) => customById(local, id).length === 1), "every accepted program custom reference resolves after recovery", JSON.stringify(refsAfter));
+    const journalGone = await page.evaluate((prefix) => {
+      for (let i = 0; i < localStorage.length; i++) if ((localStorage.key(i) || "").startsWith(prefix)) return false;
+      return true;
+    }, "repforge_pending_v1:");
+    assert(journalGone, "recovery drains the pending journal", String(journalGone));
+    // A second reload is a pure no-op.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
+    await page.evaluate(() => window.__repforgeStorage?.flush?.());
+    await page.waitForTimeout(200);
+    const second = (await readBothReplicas(page)).local || {};
+    assert(canonicalJson(second) === canonicalJson(local), "repeated reload is idempotent", JSON.stringify(programCustomRefs(second)));
+    await context.close();
+  });
+
+  await runCase("Concurrent onboarding, program, log, or history changes reject without a partial write", async () => {
+    const scenarios = [
+      ["concurrent onboarding", { onboarded: true }],
+      ["concurrent program identity change", { programId: "prog-elsewhere" }],
+      ["concurrent program fingerprint change", { program: [{ id: "ex-new", name: "Squat", day: "Day 1", order: 1, sets: 3, min: 5, max: 8, primary: "Quads", secondary: "", libraryId: "sq_bb" }] }],
+      ["concurrent logs", { addLog: [{ session: "sX", date: "2026-03-01", day: "Day 1", name: "Press", exerciseId: "ex-existing", set: 1, load: 60, reps: 10, rir: 1, notes: "", created: "2026-03-01T00:00:00.000Z", primary: "Chest", secondary: "" }] }],
+      ["concurrent program history", { addHistory: [{ id: "hist-1", name: "Archived", program: [] }] }],
+    ];
+    for (const [label, spec] of scenarios) {
+      const { context, page } = await openAppPage(browser, { standalone: true });
+      await clearSite(page);
+      await persistState(page, firstRunEligibleState([]));
+      const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+      const encoded = await encodeSharedPayload(page, payload);
+      const fragment = encoded.ok ? encoded.value : wireFragment(payload);
+      await page.goto(setupUrl(fragment, `reject-${label.replace(/\s+/g, "-")}`), { waitUntil: "domcontentloaded" });
+      await waitForFirstRun(page);
+      const ready = await page.evaluate(readSharedHook);
+      assert(ready.status === "ready", `${label}: tab A holds a ready proposal`, JSON.stringify(ready));
+      await commitConcurrentHead(page, spec);
+      const before = await readBothReplicas(page);
+      if (!(await clickSharedStart(page).catch(() => false))) {
+        await context.close();
+        continue;
+      }
+      await page.waitForTimeout(500);
+      const after = await readBothReplicas(page);
+      assert(
+        after.local?.programMeta?.name !== "Força compartilhada" && after.idb?.programMeta?.name !== "Força compartilhada",
+        `${label}: the shared program is not committed`,
+        JSON.stringify({ local: after.local?.programMeta?.name, idb: after.idb?.programMeta?.name })
+      );
+      assert(
+        canonicalJson(after.local) === canonicalJson(before.local) && canonicalJson(after.idb) === canonicalJson(before.idb),
+        `${label}: both replicas are byte-for-byte intact (no partial write)`,
+        JSON.stringify({ localChanged: canonicalJson(after.local) !== canonicalJson(before.local), idbChanged: canonicalJson(after.idb) !== canonicalJson(before.idb) })
+      );
+      await context.close();
+    }
   });
 
   await runCase("Unrelated hashchange is a no-op after a staged shared setup", async () => {
