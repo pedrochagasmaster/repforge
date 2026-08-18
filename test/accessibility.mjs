@@ -2625,6 +2625,8 @@ async function main() {
     await runWorkoutValidationFocusCheck(browser);
   } else if (process.argv.includes("--exercise-illustration")) {
     await runExerciseIllustrationAccessibility(browser);
+  } else if (process.argv.includes("--shared-setup")) {
+    await runSharedSetupAccessibility(browser);
   } else {
     await runWorkoutValidationFocusCheck(browser);
     await runAccessibleInteractions(browser);
