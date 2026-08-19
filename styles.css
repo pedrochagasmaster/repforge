@@ -141,7 +141,12 @@
    rectangles. These few rules restore the light theme's hierarchy without
    adding cards or glow. */
 :root[data-theme="dark"] .settings-group,
-:root[data-theme="dark"] .settings-group__box,
+:root[data-theme="dark"] .settings-group__box{
+  background:transparent;
+  border:0;
+  border-radius:0;
+  overflow:visible;
+}
 :root[data-theme="dark"] .settings-row{
   background:transparent;
 }
@@ -246,6 +251,7 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
   background:none;border:0;padding:8px 4px;cursor:pointer;color:var(--accent-deep);
   font-size:15px;font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px;
 }
+.back-link:focus-visible{border-radius:8px}
 .icon-btn{
   width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
   border:0;background:transparent;color:var(--ink-soft);cursor:pointer;border-radius:50%;
