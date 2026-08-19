@@ -138,21 +138,22 @@ async function run() {
   const text = await openSheet(page);
   const lines = text.split("\n");
 
-  assert(lines[0] === "TREINO CECELA (2 dias/semana)", "header carries the program name and days per week", lines[0]);
+  assert(lines[0] === "TREINO CECELA, 2 dias/semana", "header carries the program name and days per week", lines[0]);
   assert(lines[1] === "", "a blank line separates the header from the first day");
   assert(
-    lines[2] === "DIA 1 — Quadríceps · Glúteos · Posteriores",
+    lines[2] === "DIA 1: Quadríceps · Glúteos · Posteriores",
     "day headers are uppercased and list their localized muscles",
     lines[2]
   );
-  assert(lines[3] === "1. Hack squat — 3× 4-8", "exercise templates are numbered with sets × rep range", lines[3]);
+  assert(lines[3] === "1. Hack squat: 3× 4 a 8", "exercise templates are numbered with sets × rep range", lines[3]);
   assert(
-    lines.includes("2. Abdução em pé no cabo — 2× 12"),
+    lines.includes("2. Abdução em pé no cabo: 2× 12"),
     "a single-value rep target is not printed as a range",
     lines.filter((l) => l.includes("cabo")).join(" | ")
   );
   assert(lines.filter((l) => /^DIA /.test(l)).length === 2, "every training day gets a header");
   assert(!/undefined|NaN|\[object/.test(text), "the export has no placeholder leakage");
+  assert(!/[—“”‘’]/u.test(text), "the export uses plain punctuation");
 
   const focused = await page.evaluate(() => document.activeElement?.id);
   assert(focused === "programTextCopy", "opening the sheet moves focus into it", focused);
@@ -185,9 +186,9 @@ async function run() {
   console.log("\nplain-text program export (en)");
   await seed(page, fixture("en"));
   const en = (await openSheet(page)).split("\n");
-  assert(en[0] === "TREINO CECELA (2 days/week)", "the header is localized", en[0]);
-  assert(en[2] === "DIA 1 — Quads · Glutes · Hamstrings", "muscles follow the UI language", en[2]);
-  assert(en[3] === "1. Hack squat — 3× 4-8", "exercise lines are language-independent", en[3]);
+  assert(en[0] === "TREINO CECELA, 2 days/week", "the header is localized", en[0]);
+  assert(en[2] === "DIA 1: Quads · Glutes · Hamstrings", "muscles follow the UI language", en[2]);
+  assert(en[3] === "1. Hack squat: 3× 4 to 8", "the rep range follows the UI language", en[3]);
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 

@@ -9,7 +9,7 @@
        styles.css and the gesture listeners in app.js close the rest. -->
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, minimum-scale=1, user-scalable=no, viewport-fit=cover">
   <meta name="theme-color" content="#F4F2EF">
-  <meta name="description" content="Taurifer keeps workout logs, drafts, and history on this device. Setup links intentionally share a program and selected settings.">
+  <meta name="description" content="Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="default">
@@ -58,12 +58,12 @@
 </head>
 <body>
   <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
-  <button id="restBar" type="button" class="restbar hidden" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer — tap to open">
+  <button id="restBar" type="button" class="restbar hidden" data-i18n-aria="top.rest_timer_aria" aria-label="Rest timer. Tap to open.">
     <span class="restbar__dot" aria-hidden="true"></span><span class="restbar__time">0:00</span>
   </button>
-  <button id="heatGauge" type="button" class="visually-hidden" data-i18n-title="top.heat_title" title="Session heat — how many lifts are ready to add load" tabindex="-1">
+  <button id="heatGauge" type="button" class="visually-hidden" data-i18n-title="top.heat_title" title="Number of lifts ready for more load" tabindex="-1">
     <span class="gauge__fill"></span>
-    <span class="gauge__label" data-i18n="top.gauge.forge">forge</span>
+    <span class="gauge__label" data-i18n="top.gauge.forge">steady</span>
   </button>
   <button id="installBtn" class="btn btn--ghost hidden" data-i18n="top.install" tabindex="-1">Install</button>
 
@@ -101,7 +101,7 @@
       <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
       <div id="unfinishedBanner" class="hidden" role="status" hidden>
         <p class="sessionbanner__title" data-i18n="log.unfinished.title">Unfinished session</p>
-        <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Finish on Log, then Save workout.</p>
+        <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Open Today and tap Finish workout.</p>
         <button type="button" id="unfinishedDismiss" class="btn btn--steel" data-i18n="log.unfinished.dismiss">Dismiss</button>
       </div>
 
@@ -189,9 +189,9 @@
         </p>
         <div id="overviewVolume" class="volume"></div>
         <details class="advanced" id="statsDeep">
-          <summary data-i18n="stats.deep.summary">Dig deeper — charts &amp; tables</summary>
+          <summary data-i18n="stats.deep.summary">Charts and tables</summary>
           <h3 class="subhead" data-i18n="stats.completed_hard_sets">Completed hard sets</h3>
-          <p class="lede" id="statsHardSetLede">Logged sets per muscle within your RIR ceiling — <button type="button" class="term" data-term="hard set">hard set</button> volume you actually did, not the plan.</p>
+          <p class="lede" id="statsHardSetLede">This section groups logged sets within your RIR ceiling by muscle. It does not include planned sets.</p>
           <div id="volWindow" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_window_aria" aria-label="Volume window">
             <button type="button" data-win="7" class="active" role="tab" aria-selected="true" data-i18n="stats.window.7_days">7 days</button>
             <button type="button" data-win="28" role="tab" aria-selected="false" data-i18n="stats.window.28_days">28 days</button>
@@ -208,7 +208,7 @@
         <div id="volumeDash" class="table"></div>
       </div>
       <div id="segPRs" class="stats-seg">
-        <p class="lede" data-i18n="stats.prs.lede">Every personal record across your log — load, reps, and estimated one-rep max.</p>
+        <p class="lede" data-i18n="stats.prs.lede">Your load, rep, and estimated one-rep-max records.</p>
         <div id="prFilterSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.pr_filter_aria" aria-label="PR kind filter">
           <button type="button" data-prf="all" class="active" role="tab" aria-selected="true" data-i18n="stats.pr_filter.all">All</button>
           <button type="button" data-prf="load" role="tab" aria-selected="false" data-i18n="stats.pr_filter.load">Load</button>
@@ -267,7 +267,7 @@
       <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="programEditorWrap" class="is-hidden">
         <button id="endBlock" class="btn btn--steel program__endblock" type="button" data-i18n="program.end_block">End block</button>
-        <p class="lede" data-i18n="program.lede">Build your split below. Muscles are comma-separated; secondary muscles count as a half set in the volume audit.</p>
+        <p class="lede" data-i18n="program.lede">Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit.</p>
         <div id="programEditor" class="peditor"></div>
         <button id="addDay" class="btn btn--steel peditor__addday" type="button" data-i18n="program.add_day">+ Add day</button>
         <details class="advanced">
@@ -281,7 +281,7 @@
           </div>
         </details>
         <h3 class="subhead" data-i18n="program.planned_volume">Planned weekly volume</h3>
-        <p class="lede" data-i18n="program.planned_volume.lede" data-i18n-html>Sets per muscle from this program template, assuming each day is trained once per week. See <b>Stats → Completed hard sets</b> for what you actually logged.</p>
+        <p class="lede" data-i18n="program.planned_volume.lede" data-i18n-html>These totals count each training day once per week. See <b>Stats → Completed hard sets</b> to compare them with your log.</p>
         <div id="volume" class="volume"></div>
       </div>
     </section>
@@ -390,7 +390,7 @@
           <button type="button" class="toggle" id="voiceToggle" aria-pressed="false" data-i18n-aria="settings.voice_enable"></button>
           <input type="checkbox" id="voiceInputEnabled" class="visually-hidden">
         </div>
-        <p class="lede" data-i18n="settings.voice_lede">Voice input is optional and depends on browser support. When on, a Voice input button appears in the workout ⋯ menu. Voice recognition may be processed by your browser provider.</p>
+        <p class="lede" data-i18n="settings.voice_lede">Your browser controls whether voice input is available. When you enable it, the workout ⋯ menu shows Voice input. Your browser provider may process what you say.</p>
       </div>
 
       <p class="settings-group__label" data-i18n="settings.group.notifications">Notifications</p>
@@ -459,13 +459,13 @@
         </button>
         <div id="progressionDetails" class="settings-panel">
           <div id="progressionPanel">
-          <p class="lede" data-i18n="settings.progression.lede">The defaults are tuned for most lifters. You don't need to change these for months.</p>
+          <p class="lede" data-i18n="settings.progression.lede">Start with these defaults. Change them when you need a different load step or RIR target.</p>
           <label class="field"><span data-i18n="settings.load_jump_pct">Load jump %</span><input id="jumpPct" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <label class="field"><span data-i18n="settings.minimum_jump">Minimum jump (kg)</span><input id="minJump" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <p class="lede" data-i18n="settings.minimum_jump_lede">Minimum jump increment is always in kg regardless of display units.</p>
           <label class="field"><span data-i18n="settings.target_rir_ceiling">Target RIR ceiling</span><input id="rirHigh" type="text" inputmode="decimal" enterkeyhint="next"></label>
           <label class="field"><span data-i18n="settings.hard_rir_ceiling">Hard-set RIR ceiling</span><input id="hardRir" type="text" inputmode="decimal" enterkeyhint="done"></label>
-          <p class="lede" data-i18n="settings.hard_rir_lede">Sets at or below the hard-set RIR ceiling count toward completed hard-set volume. Changes save automatically.</p>
+          <p class="lede" data-i18n="settings.hard_rir_lede">Taurifer counts sets at or below this RIR toward completed hard-set volume. Taurifer saves changes automatically.</p>
           <button id="saveSettings" class="btn btn--cta" data-i18n="settings.save">Save settings</button>
           </div>
         </div>
@@ -499,7 +499,7 @@
       <button type="button" class="settings-row is-danger" id="reset">
         <span class="settings-row__label" data-i18n="settings.delete_all">Delete workout history</span>
       </button>
-      <p class="visually-hidden" data-i18n="settings.danger_lede">Removes the saved log and any unfinished workout draft. Program and Settings stay. Export a backup first.</p>
+      <p class="visually-hidden" data-i18n="settings.danger_lede">Taurifer deletes the saved log and any unfinished workout. It keeps your program and settings. Export a backup first.</p>
     </section>
 
     <section id="onboarding" class="view onboarding hidden" data-i18n-aria="onb.aria" aria-label="Create program">
@@ -710,7 +710,7 @@
       <button type="button" class="sheet__act sheet__act--accent" id="exNoteSave" data-i18n="dialog.save">Save</button>
     </div>
     <div class="sheet__body">
-      <textarea id="exNoteText" class="sheet__text" data-i18n-placeholder="log.note.placeholder" placeholder="Seat 4, feet high…" data-i18n-aria="focus.note.title" aria-label="Exercise note"></textarea>
+      <textarea id="exNoteText" class="sheet__text" data-i18n-placeholder="log.note.placeholder" placeholder="Machine setup, seat height, grip. Shown next session" data-i18n-aria="focus.note.title" aria-label="Exercise note"></textarea>
     </div>
     <p class="sheet__foot" data-i18n="focus.note.carry">Visible in your next session</p>
   </div>
@@ -761,7 +761,7 @@
       <span class="sheet__spacer" aria-hidden="true"></span>
     </div>
     <div class="sheet__body share-setup">
-      <p id="shareSetupBody" data-i18n="program.share_setup_body">The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption.</p>
+      <p id="shareSetupBody" data-i18n="program.share_setup_body">The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.</p>
       <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>
       <p id="shareSetupStatus" class="share-setup__status hidden" role="status"></p>
     </div>
@@ -881,7 +881,7 @@
   <script src="notify.js"></script>
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
-  <script src="shared-setup.js?v=106"></script>
-  <script src="app.js?v=106"></script>
+  <script src="shared-setup.js?v=108"></script>
+  <script src="app.js?v=108"></script>
 </body>
 </html>
