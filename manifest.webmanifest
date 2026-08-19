@@ -1,7 +1,7 @@
 {
   "name": "Taurifer",
   "short_name": "Taurifer",
-  "description": "Workout logs, drafts, and history stay on this device. Setup links intentionally share a program and selected settings.",
+  "description": "Workout logs, drafts, and history stay on this device. Setup links share a program and selected settings.",
   "start_url": "./index.html",
   "scope": "./",
   "display": "standalone",

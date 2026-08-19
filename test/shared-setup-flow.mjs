@@ -61,7 +61,7 @@ export const SHARED_COPY = Object.freeze({
     shareUnsupported: "This browser cannot create setup links.",
     saved: "Program saved.",
     shareTitle: "Share program setup",
-    shareBody: "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption.",
+    shareBody: "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
   },
   pt: {
     lede: "Instale o app e comece seu programa.",

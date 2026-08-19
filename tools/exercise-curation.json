@@ -513,7 +513,8 @@
       "pulldown"
     ],
     "_srcName": "assisted pull-up",
-    "name": "Assisted pull-up"
+    "name": "Assisted pull-up",
+    "namePt": "Barra fixa assistida"
   },
   {
     "id": "pup_bw",

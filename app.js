@@ -1013,7 +1013,7 @@ const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
-  const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede",{hardSet:term("hard set")});
+  const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
   $$("[data-term]").forEach(b=>{const key=b.dataset.term;b.textContent=t(`glossary.term.${key}`)||key;if(!b.onclick)b.onclick=e=>{e.stopPropagation();glossaryPopover(key,b)}});
 };
@@ -4476,7 +4476,7 @@ function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=re
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
   const flagged=exs.filter(e=>{const r=recommendation(e);return r.status==="reduce"||r.stalled}).length;
-  if(exs.length>=3&&flagged>=2){el.className="fatigue";el.innerHTML=`<b>${esc(t("log.fatigue.title"))}</b> — ${esc(t("log.fatigue.body",{n:flagged}))} `+
+  if(exs.length>=3&&flagged>=2){el.className="fatigue";el.innerHTML=`<b>${esc(t("log.fatigue.title"))}</b> ${esc(t("log.fatigue.body",{n:flagged}))} `+
     `<button type="button" class="fatigue__trim">${esc(t("log.fatigue.trim"))}</button>`;
     $("#fatigue .fatigue__trim").onclick=()=>applyFatigueTrim()}
   else el.className="fatigue hidden",el.innerHTML="";}
@@ -6188,18 +6188,18 @@ function exportProgram(){
 /* ---- Plain-text program export ----
  * The program as something a lifter can read or paste into a chat: the name and
  * how many days it runs, then each training day with its muscles and its
- * exercise templates numbered in order, "3× 6-10" for sets × rep range.
+ * exercise templates numbered in order, "3× 6 to 10" for sets × rep range.
  * Lossy by design — the text can be imported back, while ids, per-exercise
  * muscles, notes, and alternates require the lossless JSON export. */
-const programTextReps=e=>e.min===e.max?`${e.min}`:`${e.min}-${e.max}`;
+const programTextReps=e=>e.min===e.max?`${e.min}`:t("program.export_text.rep_range",{min:e.min,max:e.max});
 function programText(){
   const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
   const up=s=>String(s??"").toLocaleUpperCase(locTag());
-  const lines=[`${up(meta.name||t("untitled_program"))} (${t("program.export_text.days_per_week",{n:ds.length})})`];
+  const lines=[`${up(meta.name||t("untitled_program"))}, ${t("program.export_text.days_per_week",{n:ds.length})}`];
   for(const d of ds){
     const mus=dayMuscles(d).map(muscleLabel);
-    lines.push("",`${up(d)}${mus.length?` — ${mus.join(" · ")}`:""}`);
-    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name} — ${e.sets}× ${programTextReps(e)}`))}
+    lines.push("",`${up(d)}${mus.length?`: ${mus.join(" · ")}`:""}`);
+    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name}: ${e.sets}× ${programTextReps(e)}`))}
   return lines.join("\n")}
 const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
   return `taurifer_program_${slug?`${slug}_`:""}${today()}.txt`};
@@ -6700,7 +6700,7 @@ const IMPORT_EXACT="exact",IMPORT_ALIAS="alias",IMPORT_PROBABLE="probable",IMPOR
 let importDraft=null,importReturn=null;
 
 /* Taurifer's own text export, read back. The grammar is the one programText()
-   writes: a title line, then "DAY NAME — muscles", then "1. Exercise — 3× 6-10".
+   writes: a title line, then "DAY NAME: muscles", then "1. Exercise: 3× 6 to 10".
    Anything that does not look like that is rejected rather than guessed at —
    this parses one known format, it does not read prose. */
 /* The text export shouts day names ("DAY 1", "TREINO A") for legibility, so a
@@ -6711,11 +6711,11 @@ function restoreExportCase(label){
   if(label!==label.toLocaleUpperCase(locTag())||!/[a-z]/i.test(label))return label;
   return label.toLocaleLowerCase(locTag()).replace(/(^|\s)(\p{L})/gu,(m,sp,ch)=>sp+ch.toLocaleUpperCase(locTag()))}
 function stripProgramTextTitleMeta(label){
-  return String(label||"").replace(/\s+\(\s*\d+\s*(?:days?\s*\/\s*week|days?\s+per\s+week|dias?\s*\/\s*semana|dias?\s+por\s+semana)\s*\)\s*$/iu,"").trim()}
+  return String(label||"").replace(/\s*(?:\(\s*|,\s*)\d+\s*(?:days?\s*\/\s*week|days?\s+per\s+week|dias?\s*\/\s*semana|dias?\s+por\s+semana)\s*\)?\s*$/iu,"").trim()}
 function parseProgramTextExport(text){
   const lines=String(text||"").split(/\r?\n/);
   const days=[];let current=null,title="";
-  const exRe=/^\s*(\d+)\.\s*(.+?)\s*[—-]\s*(\d+)\s*[×x]\s*(\d+)(?:\s*[–-]\s*(\d+))?\s*$/;
+  const exRe=/^\s*(\d+)\.\s*(.+?)(?:\s*[—-]\s*|\s*:\s*)(\d+)\s*[×x]\s*(\d+)(?:\s*(?:[–-]|to|a)\s*(\d+))?\s*$/iu;
   for(const raw of lines){
     const line=raw.trim();
     if(!line)continue;
@@ -6726,9 +6726,9 @@ function parseProgramTextExport(text){
       current.rows.push({name:ex[2].trim(),sets:+ex[3],min,max});
       continue}
     // A non-exercise line starts a day, except the first which is the title.
-    const label=line.split(/\s+[—-]\s+/)[0].trim();
+    if(!title&&!days.length){title=restoreExportCase(stripProgramTextTitleMeta(line));continue}
+    const label=line.split(/\s*[—-]\s+|\s*:\s+/)[0].trim();
     if(!label)continue;
-    if(!title&&!days.length){title=restoreExportCase(stripProgramTextTitleMeta(label));continue}
     current={day:restoreExportCase(label),rows:[]};days.push(current)}
   const exercises=[];
   for(const d of days)
