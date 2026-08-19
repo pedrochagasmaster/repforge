@@ -108,6 +108,37 @@ async function waitForApp(page) {
       typeof window.__repforgeShowSettings === "function",
     { timeout: 15000 }
   );
+  await waitForWorkerToClaim(page);
+}
+
+/** The app's boot registers the service worker, and that worker claims the page
+ *  it was registered from. On a context that has never seen it, Chromium serves
+ *  the document again through the new controller, which throws away the
+ *  execution context — including the one an evaluate is sitting in. A storage
+ *  test that reads a replica right after boot was racing that, so the first
+ *  evaluate after a fresh load could die as "execution context was destroyed".
+ *  Waiting for the claim puts the rest of the test after that one-time
+ *  re-fetch. A page with no worker to register returns at once, and a worker
+ *  that never claims gives the wait up rather than hang. */
+async function waitForWorkerToClaim(page) {
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const claimed = await page.evaluate(async () => {
+        if (!navigator.serviceWorker) return true;
+        if (navigator.serviceWorker.controller) return true;
+        if (!(await navigator.serviceWorker.getRegistration())) return true;
+        return await new Promise((resolve) => {
+          navigator.serviceWorker.addEventListener("controllerchange", () => resolve(true), { once: true });
+          setTimeout(() => resolve(true), 5000);
+        });
+      });
+      if (claimed) return;
+    } catch {
+      // The re-fetch landed mid-evaluate. Wait for the document that replaced
+      // the old one, then ask the page it became.
+      await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 15000 });
+    }
+  }
 }
 
 async function flushStorage(page) {
