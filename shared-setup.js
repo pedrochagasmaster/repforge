@@ -10,14 +10,25 @@
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
   const MAX_STRUCTURE_DEPTH = 100;
   const MAX_STRUCTURE_NODES = 10000;
-  const GOALS = new Set(["hypertrophy", "strength_hypertrophy", "beginner_consistency"]);
-  const EXPERIENCES = new Set(["beginner", "intermediate", "advanced"]);
-  const SPLITS = new Set(["full_body", "machine_only", "ppl", "upper_lower", "bro"]);
-  const SESSION_LENGTHS = new Set(["short", "normal", "long"]);
-  const EQUIPMENT = new Set(["machines", "cables", "dumbbells", "barbells", "bodyweight"]);
-  const UNITS = new Set(["kg", "lb"]);
-  const LANGS = new Set(["en", "pt"]);
-  const RIR_MODES = new Set(["numeric", "effort"]);
+  const GOAL_VALUES = ["hypertrophy", "strength_hypertrophy", "beginner_consistency"];
+  const EXPERIENCE_VALUES = ["beginner", "intermediate", "advanced"];
+  const SPLIT_VALUES = ["full_body", "machine_only", "ppl", "upper_lower", "bro"];
+  const SESSION_LENGTH_VALUES = ["short", "normal", "long"];
+  const EQUIPMENT_VALUES = ["machines", "cables", "dumbbells", "barbells", "bodyweight"];
+  const UNIT_VALUES = ["kg", "lb"];
+  const LANG_VALUES = ["en", "pt"];
+  const RIR_MODE_VALUES = ["numeric", "effort"];
+  const GOALS = new Set(GOAL_VALUES);
+  const EXPERIENCES = new Set(EXPERIENCE_VALUES);
+  const SPLITS = new Set(SPLIT_VALUES);
+  const SESSION_LENGTHS = new Set(SESSION_LENGTH_VALUES);
+  const EQUIPMENT = new Set(EQUIPMENT_VALUES);
+  const UNITS = new Set(UNIT_VALUES);
+  const LANGS = new Set(LANG_VALUES);
+  const RIR_MODES = new Set(RIR_MODE_VALUES);
+  const META_OPTIONAL_BITS = 6;
+  const EXERCISE_OPTIONAL_BITS = 9;
+  const CUSTOM_OPTIONAL_BITS = 4;
   const BASE64URL_RE = /^[A-Za-z0-9_-]*$/;
   const VERSION_PREFIX_RE = /^v(\d+)\.(.*)$/;
 
@@ -566,12 +577,486 @@
     }
   }
 
-  async function encode(raw, options) {
-    const checked = validate(raw, options);
-    if (!checked.ok) return checked;
+  function bitIsSet(mask, bit) {
+    return (mask & (1 << bit)) !== 0;
+  }
+
+  function maskPopcount(mask) {
+    let count = 0;
+    let remaining = mask >>> 0;
+    while (remaining) {
+      count += remaining & 1;
+      remaining >>>= 1;
+    }
+    return count;
+  }
+
+  function acceptMask(mask, bitCount, path, issues) {
+    if (!Number.isInteger(mask) || mask < 0 || mask > 0x1ffff) {
+      issues.push(`${path}: invalid mask`);
+      return null;
+    }
+    if (mask >>> bitCount !== 0) {
+      issues.push(`${path}: unknown mask bits`);
+      return null;
+    }
+    return mask;
+  }
+
+  function expectMaskedArity(arr, fixed, mask, path, issues) {
+    if (!Array.isArray(arr) || arr.length !== fixed + maskPopcount(mask)) {
+      issues.push(`${path}: wrong arity`);
+      return false;
+    }
+    return true;
+  }
+
+  function encodeRequiredEnum(value, values) {
+    const index = values.indexOf(value);
+    return index === -1 ? null : index + 1;
+  }
+
+  function decodeRequiredEnum(code, values) {
+    if (!Number.isInteger(code) || code < 1 || code > values.length) return null;
+    return values[code - 1];
+  }
+
+  function decodeNullableEnum(code, values) {
+    if (code === 0) return { ok: true, value: null };
+    const value = decodeRequiredEnum(code, values);
+    if (value == null) return { ok: false };
+    return { ok: true, value };
+  }
+
+  function pushOptional(mask, values, bit, present, value) {
+    if (!present) return mask;
+    values.push(value);
+    return mask | (1 << bit);
+  }
+
+  function takeOptional(arr, offset, mask, bit) {
+    if (!bitIsSet(mask, bit)) return { present: false, offset };
+    return { present: true, value: arr[offset], offset: offset + 1 };
+  }
+
+  function packDistinctDays(exercises) {
+    const days = [];
+    const seen = new Set();
+    for (const exercise of exercises) {
+      if (seen.has(exercise.day)) continue;
+      seen.add(exercise.day);
+      days.push(exercise.day);
+    }
+    return days;
+  }
+
+  function packMeta(meta) {
+    const values = [];
+    let mask = 0;
+    if (hasOwn(meta, "goal")) {
+      mask = pushOptional(mask, values, 0, true, meta.goal === null ? 0 : encodeRequiredEnum(meta.goal, GOAL_VALUES));
+    }
+    if (hasOwn(meta, "experience")) {
+      mask = pushOptional(mask, values, 1, true, meta.experience === null ? 0 : encodeRequiredEnum(meta.experience, EXPERIENCE_VALUES));
+    }
+    if (hasOwn(meta, "splitType")) {
+      mask = pushOptional(mask, values, 2, true, meta.splitType === null ? 0 : encodeRequiredEnum(meta.splitType, SPLIT_VALUES));
+    }
+    if (hasOwn(meta, "equipment")) {
+      mask = pushOptional(mask, values, 3, true, meta.equipment.map((item) => encodeRequiredEnum(item, EQUIPMENT_VALUES)));
+    }
+    if (hasOwn(meta, "priorityMuscles")) {
+      mask = pushOptional(mask, values, 4, true, meta.priorityMuscles.slice());
+    }
+    if (hasOwn(meta, "sessionLength")) {
+      mask = pushOptional(mask, values, 5, true, meta.sessionLength === null ? 0 : encodeRequiredEnum(meta.sessionLength, SESSION_LENGTH_VALUES));
+    }
+    return [meta.name, meta.mesocycleLengthWeeks, mask, ...values];
+  }
+
+  function packSettings(settings) {
+    return [
+      settings.jumpPct,
+      settings.minJump,
+      settings.rirHigh,
+      settings.hardRir,
+      settings.restSec,
+      encodeRequiredEnum(settings.unit, UNIT_VALUES),
+      encodeRequiredEnum(settings.lang, LANG_VALUES),
+      encodeRequiredEnum(settings.rirMode, RIR_MODE_VALUES),
+    ];
+  }
+
+  function packExercise(exercise, days, customIndex) {
+    const values = [];
+    let mask = 0;
+    mask = pushOptional(mask, values, 0, !!(hasOwn(exercise, "displayName") && exercise.displayName), exercise.displayName);
+    mask = pushOptional(mask, values, 1, typeof exercise.notes === "string" && exercise.notes !== "", exercise.notes);
+    mask = pushOptional(mask, values, 2, Array.isArray(exercise.alternates) && exercise.alternates.length > 0, exercise.alternates);
+    mask = pushOptional(mask, values, 3, !!(hasOwn(exercise, "progressionType") && exercise.progressionType), exercise.progressionType);
+    mask = pushOptional(mask, values, 4, hasOwn(exercise, "targetRirStart"), exercise.targetRirStart);
+    mask = pushOptional(mask, values, 5, hasOwn(exercise, "targetRirEnd"), exercise.targetRirEnd);
+    mask = pushOptional(mask, values, 6, hasOwn(exercise, "minSets"), exercise.minSets);
+    mask = pushOptional(mask, values, 7, hasOwn(exercise, "maxSets"), exercise.maxSets);
+    mask = pushOptional(mask, values, 8, !!(hasOwn(exercise, "priority") && exercise.priority), exercise.priority);
+    const libraryRef = exercise.libraryId.startsWith(CUSTOM_ID_PREFIX)
+      ? customIndex.get(exercise.libraryId)
+      : exercise.libraryId;
+    return [days.indexOf(exercise.day), exercise.order, libraryRef, exercise.sets, exercise.min, exercise.max, mask, ...values];
+  }
+
+  function packCustom(custom) {
+    const values = [];
+    let mask = 0;
+    const namePt = hasOwn(custom, "namePt") ? custom.namePt : custom.name;
+    mask = pushOptional(mask, values, 0, namePt !== custom.name, namePt);
+    mask = pushOptional(mask, values, 1, hasOwn(custom, "primary"), custom.primary);
+    mask = pushOptional(mask, values, 2, hasOwn(custom, "secondary"), custom.secondary);
+    mask = pushOptional(mask, values, 3, hasOwn(custom, "notes"), custom.notes);
+    return [custom.id, custom.name, custom.equipment.slice(), mask, ...values];
+  }
+
+  function packV2(payload) {
+    const days = packDistinctDays(payload.program.exercises);
+    const customs = payload.program.customExercises || [];
+    const customIndex = new Map(customs.map((entry, index) => [entry.id, index]));
+    return [
+      packMeta(payload.program.meta),
+      packSettings(payload.settings),
+      days,
+      payload.program.exercises.map((exercise) => packExercise(exercise, days, customIndex)),
+      customs.map(packCustom),
+    ];
+  }
+
+  function unpackEquipmentCodes(raw, path, issues) {
+    if (!Array.isArray(raw)) {
+      issues.push(`${path}: expected array`);
+      return null;
+    }
+    const out = [];
+    const seen = new Set();
+    for (let i = 0; i < raw.length; i++) {
+      const item = decodeRequiredEnum(raw[i], EQUIPMENT_VALUES);
+      if (item == null) {
+        issues.push(`${path}[${i}]: invalid`);
+        return null;
+      }
+      if (seen.has(item)) {
+        issues.push(`${path}[${i}]: duplicate`);
+        return null;
+      }
+      seen.add(item);
+      out.push(item);
+    }
+    return out;
+  }
+
+  function unpackMeta(raw, dayCount, issues) {
+    if (!Array.isArray(raw) || raw.length < 3) {
+      issues.push("program.meta: wrong arity");
+      return null;
+    }
+    const mask = acceptMask(raw[2], META_OPTIONAL_BITS, "program.meta", issues);
+    if (mask == null || !expectMaskedArity(raw, 3, mask, "program.meta", issues)) return null;
+    const meta = {};
+    setOwn(meta, "name", raw[0]);
+    setOwn(meta, "mesocycleLengthWeeks", raw[1]);
+    setOwn(meta, "daysPerWeek", dayCount);
+    let offset = 3;
+    const goal = takeOptional(raw, offset, mask, 0);
+    offset = goal.offset;
+    if (goal.present) {
+      const decoded = decodeNullableEnum(goal.value, GOAL_VALUES);
+      if (!decoded.ok) {
+        issues.push("program.meta.goal: invalid");
+        return null;
+      }
+      setOwn(meta, "goal", decoded.value);
+    }
+    const experience = takeOptional(raw, offset, mask, 1);
+    offset = experience.offset;
+    if (experience.present) {
+      const decoded = decodeNullableEnum(experience.value, EXPERIENCE_VALUES);
+      if (!decoded.ok) {
+        issues.push("program.meta.experience: invalid");
+        return null;
+      }
+      setOwn(meta, "experience", decoded.value);
+    }
+    const splitType = takeOptional(raw, offset, mask, 2);
+    offset = splitType.offset;
+    if (splitType.present) {
+      const decoded = decodeNullableEnum(splitType.value, SPLIT_VALUES);
+      if (!decoded.ok) {
+        issues.push("program.meta.splitType: invalid");
+        return null;
+      }
+      setOwn(meta, "splitType", decoded.value);
+    }
+    const equipment = takeOptional(raw, offset, mask, 3);
+    offset = equipment.offset;
+    if (equipment.present) {
+      const decoded = unpackEquipmentCodes(equipment.value, "program.meta.equipment", issues);
+      if (!decoded) return null;
+      setOwn(meta, "equipment", decoded);
+    }
+    const priorityMuscles = takeOptional(raw, offset, mask, 4);
+    offset = priorityMuscles.offset;
+    if (priorityMuscles.present) {
+      if (!Array.isArray(priorityMuscles.value)) {
+        issues.push("program.meta.priorityMuscles: expected array");
+        return null;
+      }
+      setOwn(meta, "priorityMuscles", priorityMuscles.value);
+    }
+    const sessionLength = takeOptional(raw, offset, mask, 5);
+    if (sessionLength.present) {
+      const decoded = decodeNullableEnum(sessionLength.value, SESSION_LENGTH_VALUES);
+      if (!decoded.ok) {
+        issues.push("program.meta.sessionLength: invalid");
+        return null;
+      }
+      setOwn(meta, "sessionLength", decoded.value);
+    }
+    return meta;
+  }
+
+  function unpackSettings(raw, issues) {
+    if (!Array.isArray(raw) || raw.length !== 8) {
+      issues.push("settings: wrong arity");
+      return null;
+    }
+    const settings = {};
+    setOwn(settings, "jumpPct", raw[0]);
+    setOwn(settings, "minJump", raw[1]);
+    setOwn(settings, "rirHigh", raw[2]);
+    setOwn(settings, "hardRir", raw[3]);
+    setOwn(settings, "restSec", raw[4]);
+    const unit = decodeRequiredEnum(raw[5], UNIT_VALUES);
+    const lang = decodeRequiredEnum(raw[6], LANG_VALUES);
+    const rirMode = decodeRequiredEnum(raw[7], RIR_MODE_VALUES);
+    if (unit == null) {
+      issues.push("settings.unit: invalid");
+      return null;
+    }
+    if (lang == null) {
+      issues.push("settings.lang: invalid");
+      return null;
+    }
+    if (rirMode == null) {
+      issues.push("settings.rirMode: invalid");
+      return null;
+    }
+    setOwn(settings, "unit", unit);
+    setOwn(settings, "lang", lang);
+    setOwn(settings, "rirMode", rirMode);
+    return settings;
+  }
+
+  function unpackDays(raw, issues) {
+    if (!Array.isArray(raw) || raw.length < 1 || raw.length > 7) {
+      issues.push("program.days: invalid count");
+      return null;
+    }
+    const days = [];
+    const seen = new Set();
+    for (let i = 0; i < raw.length; i++) {
+      const day = raw[i];
+      if (typeof day !== "string") {
+        issues.push(`program.days[${i}]: expected string`);
+        return null;
+      }
+      if (seen.has(day)) {
+        issues.push(`program.days[${i}]: duplicate`);
+        return null;
+      }
+      seen.add(day);
+      days.push(day);
+    }
+    return days;
+  }
+
+  function unpackLibraryRef(raw, customs, path, issues) {
+    if (typeof raw === "string") {
+      if (raw.startsWith(CUSTOM_ID_PREFIX)) {
+        issues.push(`${path}.libraryId: expected custom index`);
+        return null;
+      }
+      return raw;
+    }
+    if (!Number.isInteger(raw) || raw < 0 || raw >= customs.length) {
+      issues.push(`${path}.libraryId: invalid index`);
+      return null;
+    }
+    return { customIndex: raw, id: customs[raw].id };
+  }
+
+  function unpackExercise(raw, index, days, customs, referencedDays, referencedCustoms, issues) {
+    const path = `program.exercises[${index}]`;
+    if (!Array.isArray(raw) || raw.length < 7) {
+      issues.push(`${path}: wrong arity`);
+      return null;
+    }
+    const mask = acceptMask(raw[6], EXERCISE_OPTIONAL_BITS, path, issues);
+    if (mask == null || !expectMaskedArity(raw, 7, mask, path, issues)) return null;
+    const dayIndex = raw[0];
+    if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex >= days.length) {
+      issues.push(`${path}.day: invalid index`);
+      return null;
+    }
+    referencedDays.add(dayIndex);
+    const libraryRef = unpackLibraryRef(raw[2], customs, path, issues);
+    if (libraryRef == null) return null;
+    const exercise = {};
+    setOwn(exercise, "day", days[dayIndex]);
+    setOwn(exercise, "order", raw[1]);
+    if (typeof libraryRef === "string") setOwn(exercise, "libraryId", libraryRef);
+    else {
+      referencedCustoms.add(libraryRef.customIndex);
+      setOwn(exercise, "libraryId", libraryRef.id);
+    }
+    setOwn(exercise, "sets", raw[3]);
+    setOwn(exercise, "min", raw[4]);
+    setOwn(exercise, "max", raw[5]);
+    let offset = 7;
+    const displayName = takeOptional(raw, offset, mask, 0);
+    offset = displayName.offset;
+    if (displayName.present) setOwn(exercise, "displayName", displayName.value);
+    const notes = takeOptional(raw, offset, mask, 1);
+    offset = notes.offset;
+    setOwn(exercise, "notes", notes.present ? notes.value : "");
+    const alternates = takeOptional(raw, offset, mask, 2);
+    offset = alternates.offset;
+    setOwn(exercise, "alternates", alternates.present ? alternates.value : []);
+    const progressionType = takeOptional(raw, offset, mask, 3);
+    offset = progressionType.offset;
+    if (progressionType.present) setOwn(exercise, "progressionType", progressionType.value);
+    const targetRirStart = takeOptional(raw, offset, mask, 4);
+    offset = targetRirStart.offset;
+    if (targetRirStart.present) setOwn(exercise, "targetRirStart", targetRirStart.value);
+    const targetRirEnd = takeOptional(raw, offset, mask, 5);
+    offset = targetRirEnd.offset;
+    if (targetRirEnd.present) setOwn(exercise, "targetRirEnd", targetRirEnd.value);
+    const minSets = takeOptional(raw, offset, mask, 6);
+    offset = minSets.offset;
+    if (minSets.present) setOwn(exercise, "minSets", minSets.value);
+    const maxSets = takeOptional(raw, offset, mask, 7);
+    offset = maxSets.offset;
+    if (maxSets.present) setOwn(exercise, "maxSets", maxSets.value);
+    const priority = takeOptional(raw, offset, mask, 8);
+    if (priority.present) setOwn(exercise, "priority", priority.value);
+    return exercise;
+  }
+
+  function unpackCustom(raw, index, issues) {
+    const path = `program.customExercises[${index}]`;
+    if (!Array.isArray(raw) || raw.length < 4) {
+      issues.push(`${path}: wrong arity`);
+      return null;
+    }
+    const mask = acceptMask(raw[3], CUSTOM_OPTIONAL_BITS, path, issues);
+    if (mask == null || !expectMaskedArity(raw, 4, mask, path, issues)) return null;
+    if (!Array.isArray(raw[2])) {
+      issues.push(`${path}.equipment: expected array`);
+      return null;
+    }
+    const custom = {};
+    setOwn(custom, "id", raw[0]);
+    setOwn(custom, "name", raw[1]);
+    setOwn(custom, "equipment", raw[2]);
+    let offset = 4;
+    const namePt = takeOptional(raw, offset, mask, 0);
+    offset = namePt.offset;
+    setOwn(custom, "namePt", namePt.present ? namePt.value : raw[1]);
+    const primary = takeOptional(raw, offset, mask, 1);
+    offset = primary.offset;
+    if (primary.present) setOwn(custom, "primary", primary.value);
+    const secondary = takeOptional(raw, offset, mask, 2);
+    offset = secondary.offset;
+    if (secondary.present) setOwn(custom, "secondary", secondary.value);
+    const notes = takeOptional(raw, offset, mask, 3);
+    if (notes.present) setOwn(custom, "notes", notes.value);
+    return custom;
+  }
+
+  function expandV2(parsed) {
+    try {
+      const issues = [];
+      if (!Array.isArray(parsed)) return schemaFail(["v2: expected array"]);
+      collectForbiddenKeys(parsed, issues, "v2");
+      if (issues.length) return schemaFail(issues);
+      if (parsed.length !== 5) return schemaFail(["v2: wrong arity"]);
+      const days = unpackDays(parsed[2], issues);
+      if (!days) return schemaFail(issues);
+      if (!Array.isArray(parsed[4])) {
+        issues.push("program.customExercises: expected array");
+        return schemaFail(issues);
+      }
+      if (parsed[4].length > 50) {
+        issues.push("program.customExercises: too many");
+        return schemaFail(issues);
+      }
+      const customIds = new Set();
+      const customs = [];
+      for (let i = 0; i < parsed[4].length; i++) {
+        const custom = unpackCustom(parsed[4][i], i, issues);
+        if (!custom) return schemaFail(issues);
+        if (customIds.has(custom.id)) {
+          issues.push(`program.customExercises: duplicate ${custom.id}`);
+          return schemaFail(issues);
+        }
+        customIds.add(custom.id);
+        customs.push(custom);
+      }
+      if (!Array.isArray(parsed[3]) || parsed[3].length < 1 || parsed[3].length > 100) {
+        issues.push("program.exercises: invalid count");
+        return schemaFail(issues);
+      }
+      const referencedDays = new Set();
+      const referencedCustoms = new Set();
+      const exercises = [];
+      for (let i = 0; i < parsed[3].length; i++) {
+        const exercise = unpackExercise(parsed[3][i], i, days, customs, referencedDays, referencedCustoms, issues);
+        if (!exercise) return schemaFail(issues);
+        exercises.push(exercise);
+      }
+      for (let i = 0; i < days.length; i++) {
+        if (!referencedDays.has(i)) {
+          issues.push(`program.days[${i}]: unreferenced`);
+          return schemaFail(issues);
+        }
+      }
+      for (let i = 0; i < customs.length; i++) {
+        if (!referencedCustoms.has(i)) {
+          issues.push(`program.customExercises[${i}]: unreferenced`);
+          return schemaFail(issues);
+        }
+      }
+      const meta = unpackMeta(parsed[0], days.length, issues);
+      if (!meta) return schemaFail(issues);
+      const settings = unpackSettings(parsed[1], issues);
+      if (!settings) return schemaFail(issues);
+      if (issues.length) return schemaFail(issues);
+      const payload = {};
+      setOwn(payload, "kind", KIND);
+      setOwn(payload, "version", VERSION);
+      const program = {};
+      setOwn(program, "meta", meta);
+      setOwn(program, "exercises", exercises);
+      setOwn(program, "customExercises", customs);
+      setOwn(payload, "program", program);
+      setOwn(payload, "settings", settings);
+      return { ok: true, value: payload };
+    } catch {
+      return schemaFail(["v2: invalid tuple"]);
+    }
+  }
+
+  async function encodeCandidate(prefix, serializable) {
     let jsonText;
     try {
-      jsonText = JSON.stringify(checked.value);
+      jsonText = JSON.stringify(serializable);
     } catch {
       return schemaFail(["$: not serializable"]);
     }
@@ -584,7 +1069,7 @@
     if (compressed.value.byteLength > MAX_COMPRESSED_BYTES) {
       return { ok: false, code: "encoded-too-large" };
     }
-    const encoded = `v1.${toBase64Url(compressed.value)}`;
+    const encoded = `${prefix}${toBase64Url(compressed.value)}`;
     if (encoded.length > MAX_ENCODED_CHARS) return { ok: false, code: "encoded-too-large" };
     return {
       ok: true,
@@ -594,13 +1079,25 @@
     };
   }
 
+  async function encode(raw, options) {
+    const checked = validate(raw, options);
+    if (!checked.ok) return checked;
+    const v1 = await encodeCandidate("v1.", checked.value);
+    const v2 = await encodeCandidate("v2.", packV2(checked.value));
+    if (v1.ok && v2.ok) return v2.value.length < v1.value.length ? v2 : v1;
+    if (v1.ok) return v1;
+    if (v2.ok) return v2;
+    return v1;
+  }
+
   async function decode(encoded, options) {
     if (encoded == null || encoded === "") return { ok: false, code: "missing" };
     if (typeof encoded !== "string") return { ok: false, code: "missing" };
     if (encoded.length > MAX_ENCODED_CHARS) return { ok: false, code: "encoded-too-large" };
     const match = encoded.match(VERSION_PREFIX_RE);
     if (!match) return { ok: false, code: "invalid-base64" };
-    if (Number(match[1]) !== VERSION) return { ok: false, code: "unsupported-version" };
+    const envelopeVersion = Number(match[1]);
+    if (envelopeVersion !== 1 && envelopeVersion !== 2) return { ok: false, code: "unsupported-version" };
     const payload = match[2];
     const compressed = fromBase64Url(payload);
     if (!compressed) return { ok: false, code: "invalid-base64" };
@@ -615,7 +1112,14 @@
     } catch {
       return { ok: false, code: "invalid-json" };
     }
-    const checked = validate(parsed, options);
+    let checked;
+    if (envelopeVersion === 2) {
+      const expanded = expandV2(parsed);
+      if (!expanded.ok) return expanded;
+      checked = validate(expanded.value, options);
+    } else {
+      checked = validate(parsed, options);
+    }
     if (!checked.ok) return checked;
     return {
       ok: true,
@@ -655,10 +1159,21 @@
     return isLocalhostHost(hostnameOf(locationLike)) ? "" : "; Secure";
   }
 
+  function isSafeHandoffEnvelope(value) {
+    if (typeof value !== "string" || !value || value.length > MAX_ENCODED_CHARS) return false;
+    const match = value.match(VERSION_PREFIX_RE);
+    if (!match) return false;
+    const version = Number(match[1]);
+    if (version !== 1 && version !== 2) return false;
+    const payload = match[2];
+    return BASE64URL_RE.test(payload) && payload.length % 4 !== 1;
+  }
+
   function writeHandoffCookie(value, adapters) {
     const doc = adapterDocument(adapters);
     const loc = adapterLocation(adapters);
     if (!doc || !loc) return false;
+    if (!isSafeHandoffEnvelope(value)) return false;
     const path = handoffCookiePath(loc);
     doc.cookie = `${COOKIE_NAME}=${value}; Path=${path}; Max-Age=${COOKIE_MAX_AGE}; SameSite=Lax${cookieSecureSuffix(loc)}`;
     return true;
