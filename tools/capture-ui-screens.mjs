@@ -332,8 +332,23 @@ async function captureMain(browser, theme) {
       await page.waitForSelector("#restSheet.is-open", { timeout: 5000 });
       await sleep(page, 400);
       await shot(page, theme, "05-rest-timer");
-      await page.click("#restSheetClose");
-      await sleep(page, 300);
+      // The timer outlives the sheet on purpose, and its floating bar is drawn
+      // over whatever comes next. End it from the sheet that started it, or
+      // every later frame carries a countdown from a set the catalog stopped
+      // showing screens ago.
+      await page.click("#restStop");
+      // The bar is hidden by class, so wait on the class rather than on
+      // visibility: a hidden element is never "visible" for waitForSelector.
+      await page.waitForFunction(
+        () => document.querySelector("#restBar")?.classList.contains("hidden") === true,
+        { timeout: 5000 }
+      );
+      await page.evaluate(() => {
+        if (!document.querySelector("#restSheet")?.classList.contains("hidden")) {
+          document.querySelector("#restSheetClose")?.click();
+        }
+      });
+      await sleep(page, 350);
     });
 
     await tryShot("06-list-mode", async () => {
@@ -372,8 +387,21 @@ async function captureMain(browser, theme) {
           sel.dispatchEvent(new Event("change", { bubbles: true }));
         }
       });
-      await sleep(page, 400);
+      // The card sits below the fold of the overview this catalog already has a
+      // frame for. Picking a lift without scrolling to its chart photographed
+      // screen 08 twice, so bring the card into view and wait for the canvas to
+      // carry pixels before the shutter.
+      await page.evaluate(() => document.querySelector(".chartcard")?.scrollIntoView({ block: "center" }));
+      await page.waitForFunction(() => {
+        const c = document.querySelector("#chart");
+        if (!c || !c.width) return false;
+        const box = c.getBoundingClientRect();
+        return box.top >= 0 && box.bottom <= window.innerHeight;
+      }, { timeout: 5000 });
+      await sleep(page, 500);
       await shot(page, theme, "09-progress-exercise-chart");
+      await page.evaluate(() => window.scrollTo({ top: 0 }));
+      await sleep(page, 300);
     });
 
     for (const [seg, name] of [
