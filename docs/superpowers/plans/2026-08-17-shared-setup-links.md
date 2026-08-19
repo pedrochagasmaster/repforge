@@ -1225,9 +1225,9 @@ for the first browser-test commit to fail before Tasks 5–8 merge.
   corresponding script order.
 - [ ] Add it to `SHELL`.
 - [ ] Bump `repforge-vNN` exactly once after all cached assets are final.
-  This compact-envelope pass uses `repforge-v100` because `shared-setup.js`,
+  This compact-envelope pass uses `repforge-v103` because `shared-setup.js`,
   `app.js`, `index.html`, and the service-worker transition logic changed.
-- [ ] Revision `shared-setup.js` and `app.js` as `?v=100` in `index.html` and
+- [ ] Revision `shared-setup.js` and `app.js` as `?v=103` in `index.html` and
   precache those exact URLs. An older controlling worker can otherwise answer
   the first v2 navigation with v1-only scripts from its previous cache.
 - [ ] Match `SHELL` paths relative to `self.registration.scope`, so the

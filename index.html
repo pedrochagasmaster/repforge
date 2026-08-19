@@ -69,6 +69,7 @@
         <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
+        <button type="button" class="btn btn--steel today-otherday" id="chooseAnotherDay" data-i18n="today.choose_day">Choose another day</button>
         <button type="button" class="text-link text-link--center" id="viewExercises" data-i18n="today.view_exercises">View exercises</button>
         <button type="button" class="btn btn--steel hidden" id="reviewTodaySession" data-i18n="today.done_review">View today's session</button>
         <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
@@ -692,6 +693,23 @@
     </div>
     <p class="sheet__foot" data-i18n="focus.note.carry">Visible in your next session</p>
   </div>
+  <div id="dayPickScrim" class="sheet-scrim hidden"></div>
+  <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head sheet__head--stack">
+      <div class="sheet__titles">
+        <p class="sheet__title" id="dayPickTitle" data-i18n="today.choose_day_title">Choose another day</p>
+        <p class="sheet__sub" data-i18n="today.choose_day_sub">Pick which day of your program to train today.</p>
+      </div>
+    </div>
+    <div class="sheet__body daypick__body">
+      <div id="dayPickList" class="daypick__list" role="group" aria-labelledby="dayPickTitle"></div>
+    </div>
+    <div class="sheet__foot sheet__foot--stack">
+      <button type="button" class="btn btn--cta btn--noarrow" id="dayPickConfirm" data-i18n="today.choose_day_confirm">Confirm day</button>
+      <button type="button" class="text-link text-link--center" id="dayPickCancel" data-i18n="dialog.cancel">Cancel</button>
+    </div>
+  </div>
   <div id="programTextScrim" class="sheet-scrim hidden"></div>
   <div id="programTextSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="programTextTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
@@ -842,7 +860,7 @@
   <script src="notify.js"></script>
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
-  <script src="shared-setup.js?v=100"></script>
-  <script src="app.js?v=100"></script>
+  <script src="shared-setup.js?v=103"></script>
+  <script src="app.js?v=103"></script>
 </body>
 </html>
