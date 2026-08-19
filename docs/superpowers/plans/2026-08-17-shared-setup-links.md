@@ -883,9 +883,8 @@ gate is open.
 **Files:** `test/fixtures/shared-setup.mjs`
 
 - [ ] Confirm PR #157 is present in the base branch.
-- [ ] Confirm the base still uses `repforge-v97`. If no intervening cache bump
-  has landed, reserve `repforge-v98`; otherwise reserve exactly one greater than
-  the cache on the implementation branch.
+- [ ] Confirm the current cache revision on the implementation branch and reserve
+  exactly one greater after all cached assets are final.
 - [ ] Record current program export v3 shape and current settings defaults.
 - [ ] Use the existing `pr_mc` built-in library ID in the minimal fixture and
   add every other built-in ID used by the representative fixture to its
@@ -1226,8 +1225,14 @@ for the first browser-test commit to fail before Tasks 5–8 merge.
   corresponding script order.
 - [ ] Add it to `SHELL`.
 - [ ] Bump `repforge-vNN` exactly once after all cached assets are final.
-  This compact-envelope pass uses `repforge-v98` because `shared-setup.js`
-  and `app.js` changed.
+  This compact-envelope pass uses `repforge-v100` because `shared-setup.js`,
+  `app.js`, `index.html`, and the service-worker transition logic changed.
+- [ ] Revision `shared-setup.js` and `app.js` as `?v=100` in `index.html` and
+  precache those exact URLs. An older controlling worker can otherwise answer
+  the first v2 navigation with v1-only scripts from its previous cache.
+- [ ] Match `SHELL` paths relative to `self.registration.scope`, so the
+  production `/repforge/` prefix receives the same network-first shell policy
+  as the root-path test server.
 - [ ] Update the exact current cache name and asset inventory in `AGENTS.md`.
 - [ ] Preserve the historical `repforge` cache-name prefix.
 - [ ] Verify offline reload after one successful online load.
@@ -1452,7 +1457,7 @@ After Wave 1 is merged:
 | Worker | Assignment | Owned files | Completion gate |
 |---|---|---|---|
 | Integration owner | Tasks 5–8 and 10 | `app.js`, then `sw.js` | Shared flow tests pass; syntax pass |
-| Documentation agent | Task 11 | ADR, plan, brand guide, README, AGENTS.md, sw.js | Docs cover every locked trade-off; cache is `repforge-v98` |
+| Documentation agent | Task 11 | ADR, plan, brand guide, README, AGENTS.md, sw.js | Docs cover every locked trade-off; cache is current |
 | Browser-test agent | Diagnose failing browser cases; add only missing assertions | Test files only | No regression or weakened test |
 | UI agent | Produce screenshots and report layout defects; no code changes unless reassigned | Proof artifacts outside code paths | Screenshot matrix complete |
 
@@ -1465,8 +1470,8 @@ docs/superpowers/plans/2026-08-17-shared-setup-links.md, docs/brand-guide.md,
 README.md, AGENTS.md, and sw.js. Do not edit JS app/codec/tests/i18n/index.
 Record semantic v1 plus v1./v2. envelopes, shortest-encode/tie-v1, 3072 hard
 limit and 700 representative URL target, historical repforge_setup_v1 cookie
-name, title+URL system share, and no physical iOS claim. Bump CACHE to
-repforge-v98. Return a commit SHA. Do not push.
+name, title+URL system share, and no physical iOS claim. Record the final cache
+revision selected by the integration owner. Return a commit SHA. Do not push.
 ```
 
 ### Wave 3 — serial integration gate
