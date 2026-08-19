@@ -20,8 +20,10 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const Setup = require(join(__dirname, "..", "shared-setup.js"));
+const { EXERCISE_LIBRARY } = require(join(__dirname, "..", "exercises.js"));
 
 const OPTS = { builtInIds: BUILT_IN_IDS };
+const LIBRARY_OPTS = { builtInIds: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)) };
 
 let passed = 0, failed = 0;
 function assert(cond, name, detail = "") {
@@ -56,6 +58,7 @@ const SHARE_URL_PREFIX = "https://pedrochagasmaster.github.io/repforge/index.htm
 
 const V1_MINIMAL_GOLDEN = "v1.H4sIAAAAAAAAA02RT2sbMRDFv4p5Z6VknaYHXdNAWhoIcaGHEIwsTXan1p_taLZkMf7uReuY-iRpRsyb93sH7DkHWKibhN9IrurghMJVJZ1GGIxSenEJ9gA_VS3p_p3Ec6UK-_JqQBfPA1xUkuz03A1uhsVXN686GETeiZP5W9MbZZs8DJJ7h-2ul8uGtMLeGiTOsF-W81RbG-SyTMVdySolRgor8p6yCrc5RQIJbNc25iKsTXjgfjh7oFq55J_zSLAIZdpF2l40YFAXqRsDddKTPrPcNzTdRWGjThT25vhqkEhdwxLcXJ9IfhHtl8_0Z-IxUVbYFyTnB85UsaAaSZiybxtwVpJEgZ0SDPriYlt4HklUyjjMjQ3V4mcf6QflXoemUBcu2SVaUDg_rM4J_Xf-OFUflwhwN1DVJl5PNk-TYJGLJBeb6zGyfmB5m2Lc7kqYcTwuPJRzX5vJwUl4ZoH9bPB7SuOTV9j1p1uD6HIPC2oEE-fvUxo_OkJVN-Rhu_W1gbA8tDhalsLyWEJTzFOiU4BTZoXFvsfR4C_JEortjv8AccHNsqICAAA";
 const V1_REPRESENTATIVE_GOLDEN = "v1.H4sIAAAAAAAAA92Y227cNhCGX0WYazrtrg8odBk3RRvEgWsX6IVhLEbkWGKXpwwpO4Kxz9MHyYsVlJKsvdqbZINC1tVySYrkN0P-lP5HWGunoISELes74qPYIJM6ipTaAAIC-5rRQvkIso3J2zcfiaWOFKG8eQT60OpgySUob0BiZQhuBeg84tC9lB5lc8T-AQQ4tAQlnOeqou9dbBsuE5RwRRYVFsoXiUk7VJ5zs095PnhPbWI0RYNOGepXpy1yByVcaPVTGwJxUaFcg4BI0js1NL7WkkKEza0AerZ8NInYYT_6za0Ahbn7r9gVCxBgdMXI3R-ZBquVlSDA4kcoFz_3hWtKEcpTAVY7KM_636FuuV3zuXeJvTGkCpKSXGKdx_GsiKFc9AyedcoTN7puvsScYtTe_dWFHDHl28rQ6klDT5inOhaQkGtKV5rf5FQunlRcJ-QE5fFGfAurbFeq-sq63MP6y37WLdfyGZfzbNFMgez-O7O4JTv-AWQnP55MmVV1YM5Oppmzpj44Z6cTJUsH5-xsGrtxuUNm5HzVcsRKT1lfslqOyOqn98BLVssRWVgcnLSJyOUIjecil7tkQR2cs4nI5fEuGX_nQXsBcrmHdSZyOSJrV9XDLORyl4wPP3kTUcsR2cNKHnjFTUQt95DNRC1PdshimO_L5Yj1w8GfCBNRyz1kJsxCLXfJUjUXtRyR8VzUMpMpHYPB7v1gSu53Hp_bYiND85tTfIltpAJTEQjXhcyChDINcP-76t4KsJQwe7sKu3hJ_DfRun_6ma9rUTbaUQQxWLy5oFpbVWRMLlfIQ7H3VwOxJifzClHdo5OkQEDt0eRTn5hcnZpV0wXixD40XY4jRS87aehd35qXEfsYfnaMf_P86V8spLcBOWnToELYxumijdL0SYbzhmICAa8HF_jPFlW_rjhEaBg_fyZ5V-dwBaPT53j29vHK-Adi2Gz6UCbt6pjj0yCrKz3s339aGy5ljuCrUwEGXZ1f_vKkVru3rQ1QLl4tTwUwxXRNEsrFWf6n-fd8qeTty5ovvMqT0t2d5_xs63Q2wNc1bATcE_f5LBeb_wCSuST6ohcAAA";
+const V1_REAL_PORTUGUESE_GOLDEN = "v1.H4sIAAAAAAAAE62WQY7TMBSGr1K9dQbRtDMaZc1IgKhUMUgsEKoc503iqWO7tsO0qrriBlyABUfhQhyBl7SF4FaVp3RVN5bf59__nxevYS5UARl41ljxgPbKVcxiceXQNwYSMFaXltWQrYE3zuv6bomWC4cOsk-fE8De3zUw6dEq5vezBVtR7VeCDYZUS4rcMrt60_LcYj6rOT2s2RKyW_oVCrJxAkp3q4GmtC3QQjZMgHZDz0ab5DkII3uE4csd4uYYIt0j0uchKj_L8zjE6EwV9ilaxfhMFZJHI67PRPBmVvw9qHSHuD2GuIlEpKEXZc-LiwQqJDjTF3GRQB0gFjNp4hCxgQoR0vZVXO8QLev8RIUMlvcT9YeRnozUM3V4O-MXjtTo0A1Xx7kRm6kQ8WD6Ki6SqQMVLvrdi81UiLDFUb__K1MhQ_J_-vlJHbFtKmRQm7p0psYBgj4ZsSpiMxUiTBHdz2MzFSIkxhseG6qQUci-GaebSGyoDtxYzvKnSB2xjSpkeBv_AvZSRTVr9Ky9eVFtN0X7EXHeScVFI0yNyhOaqvJKKKqTAGe5pEF3LTNoBSqOkKlGygRKzeR-XKPTfMUlvkNV-qqt67YBYTUtgKnVj-j1YPLzBw6UHtxXzODg1_dvX6G9EQpthV9NGsflXj1dAJ3Qaltvj3FGCv9hZXZ72Gw6cV6o0rWq6KJZvBdb8x6b2kw56Ulf0DFLpso2xx66s3pLk7sZi87fI2-PkTyywr4WZdXFmMYTXbS7V01N2tt0NkpQSZiXQOgvaNst0tLNbzh-42v2CgAA";
 
 // Wire tuple for MINIMAL_PAYLOAD. Mask bits and 1-based nullable enums are the v2 contract.
 const MINIMAL_V2_TUPLE = [
@@ -489,16 +492,15 @@ console.log("encode/decode round trip");
 
 console.log("decode error taxonomy");
 {
-  const decodeInputs = { ...INVALID_DECODE_INPUTS, "unsupported-version": "v3.e30" };
-  for (const [code, input] of Object.entries(decodeInputs)) {
+  for (const [code, input] of Object.entries(INVALID_DECODE_INPUTS)) {
     const result = await Setup.decode(input, OPTS);
     assert(!result.ok && result.code === code, `decode fixture ${code}`, result && result.code);
   }
-  const oldV2Unsupported = await Setup.decode(INVALID_DECODE_INPUTS["unsupported-version"], OPTS);
+  const malformedV2 = await Setup.decode("v2.e30", OPTS);
   assert(
-    !oldV2Unsupported.ok && oldV2Unsupported.code === "invalid-gzip",
+    !malformedV2.ok && malformedV2.code === "invalid-gzip",
     "a v2. envelope is dispatched rather than rejected as unsupported-version",
-    oldV2Unsupported.code,
+    malformedV2.code,
   );
 
   const badJson = await Setup.decode(
@@ -694,6 +696,27 @@ console.log("v1 golden compatibility");
   assert(
     repGolden.ok && json(repGolden.value) === json(repValidated.value),
     "frozen representative v1 matches the current canonical payload",
+  );
+}
+
+console.log("real Portuguese link compression");
+{
+  assert(V1_REAL_PORTUGUESE_GOLDEN.length === 811, "precondition: supplied v1 payload is 811 characters");
+  const original = await Setup.decode(V1_REAL_PORTUGUESE_GOLDEN, LIBRARY_OPTS);
+  assert(original.ok, "the supplied production-shaped v1 link still decodes", original.code);
+  assert(original.ok && original.value.program.meta.name === "Projeto Mãe no Shape 💃", "the supplied program identity is preserved");
+  assert(original.ok && original.value.program.exercises.length === 24, "the supplied program has all 24 exercises");
+  const compact = original.ok ? await Setup.encode(original.value, LIBRARY_OPTS) : original;
+  assert(compact.ok && compact.value.startsWith("v2."), "the supplied program selects the compact v2 envelope", compact.value?.slice(0, 3));
+  assert(
+    compact.ok && SHARE_URL_PREFIX.length + compact.value.length <= 520,
+    "the supplied complete URL shrinks to at most 520 characters",
+    String(compact.ok ? SHARE_URL_PREFIX.length + compact.value.length : compact.code),
+  );
+  const roundTrip = compact.ok ? await Setup.decode(compact.value, LIBRARY_OPTS) : compact;
+  assert(
+    original.ok && roundTrip.ok && json(roundTrip.value) === json(original.value),
+    "the supplied program survives an exact v1 to v2 semantic round trip",
   );
 }
 
@@ -955,6 +978,7 @@ console.log("cookie v2 and safety");
     ["plus in payload", "v1.not+base64"],
     ["remainder 1", "v1.abcde"],
     ["oversize", `v1.${"a".repeat(MAX_ENCODED_CHARS)}`],
+    ["empty envelope", "v1."],
     ["empty", ""],
     ["non-string", null],
   ];

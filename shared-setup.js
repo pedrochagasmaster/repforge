@@ -1166,7 +1166,7 @@
     const version = Number(match[1]);
     if (version !== 1 && version !== 2) return false;
     const payload = match[2];
-    return BASE64URL_RE.test(payload) && payload.length % 4 !== 1;
+    return payload.length > 0 && BASE64URL_RE.test(payload) && payload.length % 4 !== 1;
   }
 
   function writeHandoffCookie(value, adapters) {
