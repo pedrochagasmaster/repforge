@@ -106,6 +106,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/today-done.mjs
 
+      - name: Today day picker
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/today-day-picker.mjs
+
       - name: Focus mode
         env:
           REPFORGE_URL: http://localhost:8000/
