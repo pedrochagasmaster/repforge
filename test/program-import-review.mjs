@@ -551,7 +551,7 @@ async function main() {
     assert(choice.open && !choice.reviewing,
       "a backup opens the restore choice instead of the program review", JSON.stringify(choice));
     assert(choice.programOnly, "the program-only import this door promised is still offered", JSON.stringify(choice));
-    assert(/2 sessions, 3 sets/.test(choice.body),
+    assert(/2 sessions and 3 sets/.test(choice.body),
       "the choice names the sessions the file is carrying", choice.body);
 
     // Replace restores the whole install, log included.
