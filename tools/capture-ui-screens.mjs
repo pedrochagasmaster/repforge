@@ -337,7 +337,12 @@ async function captureMain(browser, theme) {
       // every later frame carries a countdown from a set the catalog stopped
       // showing screens ago.
       await page.click("#restStop");
-      await page.waitForSelector("#restBar.hidden", { timeout: 5000 });
+      // The bar is hidden by class, so wait on the class rather than on
+      // visibility: a hidden element is never "visible" for waitForSelector.
+      await page.waitForFunction(
+        () => document.querySelector("#restBar")?.classList.contains("hidden") === true,
+        { timeout: 5000 }
+      );
       await page.evaluate(() => {
         if (!document.querySelector("#restSheet")?.classList.contains("hidden")) {
           document.querySelector("#restSheetClose")?.click();
