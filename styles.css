@@ -1,6 +1,8 @@
 /* ============================================================
-   Taurifer — light editorial
-   Cream surfaces, near-black ink, burnt-orange accent.
+   Taurifer — editorial
+   Light: cream surfaces, near-black ink, burnt-orange accent.
+   Dark: the same layout on warm charcoal, reached only by
+   swapping the :root tokens (see [data-theme="dark"] below).
    Separation via hairline rules and whitespace — not cards.
    ============================================================ */
 
@@ -11,6 +13,10 @@
 
 :root{
   color-scheme:light;
+  /* `color-scheme` is a keyword property, so the few rules that pin a native
+     control to one appearance read it from here instead of hard-coding it and
+     stranding that control in the light palette. */
+  --scheme:light;
   --bg:#F4F2EF;
   --surface:#FFFFFF;
   --ink:#1B1A17;
@@ -24,7 +30,21 @@
   --cta:#161513;
   --well:#FAF8F5;
   --cta-ink:#FFFFFF;
+  /* Ink for copy sitting on a filled --accent-deep ground. It is not --cta-ink:
+     in dark the CTA inverts to a light pill while the orange stays orange, so
+     the two inks move in opposite directions. */
+  --accent-ink:#FFFFFF;
   --danger:#C93A2B;
+  /* Channel triplets for the tints, focus rings and washes that need the theme
+     colour at partial alpha. Keeping them beside the hex means a theme swap
+     carries the translucent surfaces with it. */
+  --accent-rgb:224,78,20;
+  --positive-rgb:47,125,51;
+  --danger-rgb:201,58,43;
+  --ink-rgb:27,26,23;
+  --knob:#FFFFFF;
+  /* Scrims stay dark in both themes: they exist to push the page back. */
+  --scrim:rgba(27,26,23,.42);
   --radius:14px;
   /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
      safe area, inset --dock-inset from each edge. --nav stays the single
@@ -35,9 +55,11 @@
   --dock-inset:14px;
   --nav:calc(var(--dock-h) + var(--dock-gap));
   --dock-glass:rgba(250,248,245,.8);
+  --dock-glass-opaque:rgba(250,248,245,.97);
   --dock-edge:rgba(27,26,23,.10);
   --dock-sheen:rgba(255,255,255,.7);
   --dock-pill:rgba(255,255,255,.82);
+  --dock-pill-sheen:rgba(255,255,255,.82);
   --maxw:560px;
 
   --display:"Plex Sans",system-ui,sans-serif;
@@ -52,7 +74,108 @@
    * platform hands us: SF Pro on iOS draws a proper arrow, while Android
    * lands on a symbol fallback that ignores our weight and sits off-centre
    * against the label. A mask renders identically everywhere. */
+  /* A <select> cannot carry a pseudo-element, so its chevron is a background
+     image rather than a mask, and the ink has to be baked into the SVG. That
+     is why this one glyph exists twice instead of following currentColor. */
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15'/%3E%3Cpolyline points='13.2 6.2 19 12 13.2 17.8'/%3E%3C/svg%3E");
+}
+
+/* ---- Dark ----
+   The whole theme is this block: no rule below it names a colour that is not a
+   token, so dark is a palette, not a second stylesheet. app.js resolves the
+   Appearance setting (system/light/dark) to a concrete value and writes it to
+   <html data-theme>, which is why there is no prefers-color-scheme query here —
+   the attribute is always the answer, and an inline snippet in index.html sets
+   it before the first paint.
+
+   The paper stays warm rather than neutral grey so the burnt orange, the
+   exercise illustrations and the app icon still belong to the same object. Ink
+   is off-white for the same reason, and because pure white on near-black
+   haloes. The CTA is the one element that inverts outright: a near-black pill
+   disappears on this ground, so it becomes a light pill with dark ink, and the
+   orange moves up rather than down (--accent-deep is the *lighter* orange here
+   because its job is emphasis, and emphasis on dark means more light). */
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --scheme:dark;
+  --bg:#141310;
+  --surface:#1E1C18;
+  --ink:#F2EFE9;
+  --ink-soft:#ADA79D;
+  --ink-faint:#99938A;
+  --rule:#2E2B26;
+  --rule-strong:#4A453D;
+  --accent:#F2703B;
+  /* Text emphasis stays in the same burnt-orange family as the mark. The
+     first dark pass was lighter but too peach beside the red danger action. */
+  --accent-deep:#FF8A3D;
+  --positive:#63C267;
+  /* A quiet parchment rather than a lit white card. Scale and placement make
+     the CTA primary; maximum luminance does not need to. */
+  --cta:#DED7CC;
+  --well:#191713;
+  --cta-ink:#161513;
+  --accent-ink:#231A14;
+  --danger:#FF6670;
+  --accent-rgb:242,112,59;
+  --positive-rgb:99,194,103;
+  --danger-rgb:255,102,112;
+  --ink-rgb:242,239,233;
+  --knob:#F7F5F1;
+  --scrim:rgba(0,0,0,.62);
+  /* Dark content showing through glass becomes visual noise around the nav
+     labels. Keep the material, but make it read as smoked glass, not a lens. */
+  --dock-glass:rgba(30,28,24,.92);
+  --dock-glass-opaque:rgba(24,22,19,.97);
+  --dock-edge:rgba(255,255,255,.10);
+  --dock-sheen:rgba(255,255,255,.04);
+  --dock-pill:rgba(255,255,255,.07);
+  --dock-pill-sheen:rgba(255,255,255,.05);
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* ---- Dark-theme hierarchy refinements ----
+   A palette swap gets the colours right, but near-black compresses depth:
+   controls that were obvious as white fields on cream become adjacent dark
+   rectangles. These few rules restore the light theme's hierarchy without
+   adding cards or glow. */
+:root[data-theme="dark"] .settings-group,
+:root[data-theme="dark"] .settings-group__box{
+  background:transparent;
+  border:0;
+  border-radius:0;
+  overflow:visible;
+}
+:root[data-theme="dark"] .settings-row{
+  background:transparent;
+}
+:root[data-theme="dark"] .setrow input,
+:root[data-theme="dark"] .kg,
+:root[data-theme="dark"] .saveset,
+:root[data-theme="dark"] .copylast{
+  border-color:var(--rule-strong);
+}
+:root[data-theme="dark"] .stepbtn{
+  background:rgba(var(--ink-rgb),.035);
+}
+:root[data-theme="dark"] .saveset{
+  color:var(--ink);
+}
+/* One orange count carries the warning. Repeating its light on every row made
+   Progress feel like an alert board rather than an analytical page. */
+:root[data-theme="dark"] .attn__chip .attn__dot{
+  background:var(--ink-faint);
+}
+/* Small artwork should read as archival plates rather than rounded app tiles.
+   The drawing and its sampled paper are otherwise untouched. */
+:root[data-theme="dark"] .exthumb--sm{
+  border-radius:7px;
+  border-color:var(--rule-strong);
+}
+:root[data-theme="dark"] nav{
+  backdrop-filter:blur(28px) saturate(125%);
+  -webkit-backdrop-filter:blur(28px) saturate(125%);
 }
 
 *{box-sizing:border-box}
@@ -128,6 +251,7 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
   background:none;border:0;padding:8px 4px;cursor:pointer;color:var(--accent-deep);
   font-size:15px;font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px;
 }
+.back-link:focus-visible{border-radius:8px}
 .icon-btn{
   width:44px;height:44px;display:inline-flex;align-items:center;justify-content:center;
   border:0;background:transparent;color:var(--ink-soft);cursor:pointer;border-radius:50%;
@@ -249,7 +373,7 @@ input[type=checkbox]:not(.visually-hidden):focus-visible,
 input[type=radio]:not(.visually-hidden):focus-visible{outline:none}
 input[type=checkbox]:not(.visually-hidden):focus-visible::before,
 input[type=radio]:not(.visually-hidden):focus-visible::before{
-  box-shadow:0 0 0 3px rgba(224,78,20,.28);
+  box-shadow:0 0 0 3px rgba(var(--accent-rgb),.28);
 }
 @media (prefers-reduced-motion:reduce){
   input[type=checkbox]:not(.visually-hidden)::before,input[type=radio]:not(.visually-hidden)::before,
@@ -262,7 +386,7 @@ select{appearance:none;-webkit-appearance:none;
   background-image:linear-gradient(45deg,transparent 50%,var(--ink-soft) 50%),linear-gradient(135deg,var(--ink-soft) 50%,transparent 50%);
   background-position:calc(100% - 18px) 19px,calc(100% - 13px) 19px;background-size:5px 5px,5px 5px;background-repeat:no-repeat;padding-right:34px}
 input:not(:where([type=checkbox],[type=radio])):focus,select:focus,textarea:focus{
-  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,78,20,.12)}
+  outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 
@@ -286,7 +410,7 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 }
 .toggle::after{
   content:"";position:absolute;top:50%;left:2px;width:27px;height:27px;margin-top:-13.5px;
-  border-radius:999px;background:#fff;
+  border-radius:999px;background:var(--knob);
   box-shadow:0 3px 8px rgba(27,26,23,.15),0 3px 1px rgba(27,26,23,.06),0 0 0 .5px rgba(27,26,23,.04);
   transition:transform .28s cubic-bezier(.32,.72,0,1),width .28s cubic-bezier(.32,.72,0,1);
 }
@@ -302,7 +426,7 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .toggle[aria-busy="true"]{cursor:progress}
 .toggle[aria-busy="true"]::before,.toggle[aria-busy="true"]::after{opacity:.55}
 .toggle:focus-visible{outline:none}
-.toggle:focus-visible::before{box-shadow:0 0 0 3px rgba(224,78,20,.35)}
+.toggle:focus-visible::before{box-shadow:0 0 0 3px rgba(var(--accent-rgb),.35)}
 @media (prefers-reduced-motion:reduce){
   .toggle::before,.toggle::after{transition:none}
   .toggle:active::after{width:27px}
@@ -426,7 +550,7 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   color:var(--ink-faint);font-size:11px;font-weight:600;letter-spacing:.08em;
   text-transform:uppercase;margin:14px 14px 4px;padding:0;
 }
-.card--danger{border-color:rgba(201,58,43,.25)}
+.card--danger{border-color:rgba(var(--danger-rgb),.25)}
 .card--flat{background:transparent;border:0;border-radius:0;padding:0}
 .settings-group{margin-bottom:22px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden}
 .settings-group > .lede{font-size:12px;text-transform:none;letter-spacing:0;font-weight:400;padding:0 14px 12px;margin:0;color:var(--ink-soft)}
@@ -457,7 +581,7 @@ div.settings-row{cursor:default}
   appearance:none;-webkit-appearance:none;border:0;background-color:transparent;
   margin:0;padding:0 18px 0 0;width:auto;min-width:0;text-align:right;color:var(--ink);
   font-size:16px;border-radius:0;box-shadow:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image:var(--select-caret);
   background-position:right center;background-size:14px 14px;background-repeat:no-repeat;
 }
 .settings-row select:focus,.select-flat:focus{box-shadow:none;border:0}
@@ -467,7 +591,7 @@ div.settings-row{cursor:default}
   display:flex;align-items:center;gap:14px;padding:8px 0 18px;
 }
 .settings-profile__mark{
-  width:52px;height:52px;border-radius:50%;background:var(--cta);color:#fff;
+  width:52px;height:52px;border-radius:50%;background:var(--cta);color:var(--cta-ink);
   display:flex;align-items:center;justify-content:center;font-weight:700;font-size:14px;flex:none;
 }
 .settings-profile__name{font-size:17px;font-weight:600}
@@ -670,7 +794,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 /* A logged effort reads as its word, which needs more room than a RIR digit. */
 .ledger__eff{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The set being re-opened is marked in place: it stays where it was logged. */
-.ledger__row.is-editing{background:rgba(224,78,20,.07)}
+.ledger__row.is-editing{background:rgba(var(--accent-rgb),.07)}
 .ledger__row.is-editing::before{
   content:"";position:absolute;left:-20px;top:0;bottom:0;width:3px;background:var(--accent);
 }
@@ -737,8 +861,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 }
 @keyframes setland-row{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 @keyframes setland-wash{
-  0%,35%{background-color:rgba(224,78,20,.13)}
-  100%{background-color:rgba(224,78,20,0)}
+  0%,35%{background-color:rgba(var(--accent-rgb),.13)}
+  100%{background-color:rgba(var(--accent-rgb),0)}
 }
 /* The tick is the receipt for the set: it snaps in accent, settles to ink. */
 .ledger__row.is-fresh .ledger__check{animation:setland-check .46s .12s cubic-bezier(.2,1.3,.4,1) both}
@@ -798,8 +922,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
    A slow breathing ring plus a blinking dot reads as "still waiting", which no
    part of the countdown does. Placed after both rest blocks so it wins. */
 @keyframes restover-ring{
-  0%,100%{box-shadow:0 0 0 0 rgba(201,58,43,0)}
-  50%{box-shadow:0 0 0 5px rgba(201,58,43,.15)}
+  0%,100%{box-shadow:0 0 0 0 rgba(var(--danger-rgb),0)}
+  50%{box-shadow:0 0 0 5px rgba(var(--danger-rgb),.15)}
 }
 @keyframes restover-dot{
   0%,100%{opacity:1;transform:scale(1)}
@@ -868,10 +992,10 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .effort__word{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .effort__btn:not(.active):hover{color:var(--ink);background:var(--bg)}
 .effort__btn:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
-.effort__btn.active{color:#fff;background:var(--accent-deep)}
+.effort__btn.active{color:var(--accent-ink);background:var(--accent-deep)}
 /* Until the lifter picks, the highlighted word is Taurifer's guess from the
    last session: it reads as a tint, so a confirmed set never looks the same. */
-.effort--suggested .effort__btn.active{color:var(--accent-deep);background:rgba(224,78,20,.09)}
+.effort--suggested .effort__btn.active{color:var(--accent-deep);background:rgba(var(--accent-rgb),.09)}
 .rirmode{border:0;padding:0;margin:0 0 14px}
 .rirmode legend{font-size:11px;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;font-weight:600}
 .rirmode__opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
@@ -890,7 +1014,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .delta-prev{font-size:12px;color:var(--ink-faint);margin:0 0 10px}
 .rec__block{font-size:12px;line-height:1.4;color:var(--ink-faint);margin:0 0 12px;font-style:italic}
 .insession{font-size:12px;line-height:1.4;color:var(--ink);margin:0 0 10px;padding:6px 9px;
-  border-left:2px solid var(--accent);border-radius:0 6px 6px 0;background:rgba(224,78,20,.04)}
+  border-left:2px solid var(--accent);border-radius:0 6px 6px 0;background:rgba(var(--accent-rgb),.04)}
 
 .sets__head,.setrow{display:grid;grid-template-columns:44px minmax(0,2.6fr) minmax(0,.95fr) minmax(0,.75fr) auto;gap:6px;align-items:center}
 /* Effort mode drops the RIR column; the picker spans a second line, and the
@@ -908,7 +1032,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .setrow{margin-top:8px}
 .setrow__n{font-weight:600;color:var(--ink-soft);font-size:15px;text-align:center;
   background:none;border:0;padding:0;cursor:pointer;line-height:1;min-width:44px;min-height:44px;width:44px;justify-self:start}
-.setrow.is-done .saveset{color:#fff;border-color:transparent;background:var(--cta)}
+.setrow.is-done .saveset{color:var(--cta-ink);border-color:transparent;background:var(--cta)}
 .setrow.is-next .setrow__n{color:var(--accent-deep)}
 .setrow.is-next .setrow__n::after{content:"";display:block;margin:3px auto 0;width:4px;height:4px;border-radius:50%;background:var(--accent)}
 /* The save column is content-sized, so the committed ✓ overlays the label
@@ -937,7 +1061,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 
 .kg{display:flex;align-items:stretch;min-width:0;background:var(--surface);border:1px solid var(--rule);
   border-radius:12px;overflow:hidden}
-.kg:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(224,78,20,.12)}
+.kg:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12)}
 .kg input{width:auto;flex:1;min-width:0;margin-top:0;padding-left:0;padding-right:0;
   border:0;background:transparent;border-radius:0;min-height:44px}
 .kg input:focus{box-shadow:none;border-color:transparent}
@@ -1062,7 +1186,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 /* ---- Exercise note sheet ---- */
 body.is-sheet-open{overflow:hidden}
 .sheet-scrim{
-  position:fixed;inset:0;z-index:40;background:rgba(27,26,23,.42);
+  position:fixed;inset:0;z-index:40;background:var(--scrim);
   opacity:0;transition:opacity .22s ease;
 }
 .sheet-scrim.is-open{opacity:1}
@@ -1387,7 +1511,7 @@ body.is-sheet-open{overflow:hidden}
   cursor:pointer;text-align:left;font:inherit;color:inherit;
 }
 .daypick__row:last-child{border-bottom:0}
-.daypick__row.is-selected{border-left-color:var(--accent);background:rgba(224,78,20,.05);border-radius:0 10px 10px 0}
+.daypick__row.is-selected{border-left-color:var(--accent);background:rgba(var(--accent-rgb),.05);border-radius:0 10px 10px 0}
 .daypick__n{flex:none;min-width:18px;text-align:center;font-size:15px;font-weight:650;color:var(--ink-faint);font-variant-numeric:tabular-nums}
 .daypick__row.is-selected .daypick__n{color:var(--accent-deep)}
 .daypick__main{min-width:0;flex:1}
@@ -1399,7 +1523,7 @@ body.is-sheet-open{overflow:hidden}
 /* The day Today is already on, marked wherever it sits in the split. */
 .daypick__chip{
   flex:none;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;
-  color:var(--accent-deep);background:rgba(224,78,20,.08);border-radius:999px;padding:4px 9px;
+  color:var(--accent-deep);background:rgba(var(--accent-rgb),.08);border-radius:999px;padding:4px 9px;
   /* Sits inside the title's own line box, so the chipped row is no taller than
      the rows around it. */
   line-height:1.1;
@@ -1544,9 +1668,9 @@ body.is-sheet-open{overflow:hidden}
   border:0;border-radius:0;background:transparent}
 .prledger table{font-size:12px;margin:0}
 .pr-kind{display:inline-block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
-.pr-kind--load{color:var(--accent-deep);background:rgba(224,78,20,.08)}
-.pr-kind--reps{color:var(--ink);background:rgba(0,0,0,.05)}
-.pr-kind--e1rm{color:var(--accent-deep);background:rgba(224,78,20,.08)}
+.pr-kind--load{color:var(--accent-deep);background:rgba(var(--accent-rgb),.08)}
+.pr-kind--reps{color:var(--ink);background:rgba(var(--ink-rgb),.05)}
+.pr-kind--e1rm{color:var(--accent-deep);background:rgba(var(--accent-rgb),.08)}
 .prtimeline{display:flex;flex-direction:column;gap:0;margin-top:4px}
 .prtl__row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px 10px;align-items:center;
   padding:14px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid var(--rule);font-size:13px;line-height:1.35}
@@ -1628,7 +1752,7 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .pmeta__started{flex:none;margin-top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 /* 16px, like every other field: below that iOS zooms the page in on focus and
    leaves it there. */
-.pmeta__started input{margin-top:5px;font-size:16px;padding:9px 11px;background:var(--surface);color-scheme:light}
+.pmeta__started input{margin-top:5px;font-size:16px;padding:9px 11px;background:var(--surface);color-scheme:var(--scheme)}
 .pmeta__chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-left:auto}
 .pmeta__chip{font-size:12px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:6px 10px;white-space:nowrap}
 .pmeta__chip--status{color:var(--ink);border-color:var(--rule-strong);font-weight:600}
@@ -1672,7 +1796,7 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
   border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:9px;cursor:pointer;font-size:12px;line-height:1}
 .iconbtn:hover:not(:disabled){color:var(--ink);border-color:var(--ink-soft)}
 .iconbtn:disabled{opacity:.3;cursor:default}
-.iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:rgba(201,58,43,.4);background:rgba(201,58,43,.06)}
+.iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:rgba(var(--danger-rgb),.4);background:rgba(var(--danger-rgb),.06)}
 .advanced{margin-top:24px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
 .advanced[open]{padding-bottom:16px}
 .advanced summary{cursor:pointer;list-style:none;min-height:52px;padding:14px 0;font-weight:500;font-size:15px;color:var(--ink);
@@ -1720,7 +1844,7 @@ nav{
 /* Without backdrop-filter the panel is a plain translucent sheet and the page
    shows through sharp, so pay for legibility with opacity instead. */
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){
-  nav{--dock-glass:rgba(250,248,245,.97)}
+  nav{--dock-glass:var(--dock-glass-opaque)}
 }
 nav button{
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
@@ -1737,7 +1861,7 @@ nav button:focus-visible{outline-offset:-3px}
 nav button.active{
   color:var(--accent-deep);
   background:var(--dock-pill);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.8),0 1px 3px rgba(27,26,23,.08);
+  box-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(27,26,23,.08);
 }
 @supports selector(:has(*)){
   nav button.active{background:transparent;box-shadow:none}
@@ -1750,7 +1874,7 @@ nav button.active{
     transform:translateX(calc(var(--dock-i,0) * (100% + 2px)));
     border-radius:calc(var(--dock-h)/2 - 6px);
     background:var(--dock-pill);
-    box-shadow:inset 0 1px 0 rgba(255,255,255,.85),0 1px 3px rgba(27,26,23,.09);
+    box-shadow:inset 0 1px 0 var(--dock-pill-sheen),0 1px 3px rgba(27,26,23,.09);
     transition:transform .38s cubic-bezier(.32,.72,0,1);
   }
   nav:has(button:nth-child(1).active){--dock-i:0}
@@ -1774,7 +1898,7 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .toast{
   position:fixed;left:50%;transform:translateX(-50%) translateY(0);
   bottom:calc(var(--nav) + 22px + env(safe-area-inset-bottom));z-index:50;
-  width:min(92%,420px);background:var(--cta);border:0;color:#fff;border-radius:12px;
+  width:min(92%,420px);background:var(--cta);border:0;color:var(--cta-ink);border-radius:12px;
   padding:13px 16px;font-size:14px;box-shadow:0 8px 24px rgba(0,0,0,.18);
   animation:toastin .3s cubic-bezier(.2,.7,.2,1)
 }
@@ -1937,8 +2061,8 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
   font-size:13px;color:var(--ink-soft);background:var(--surface);
   border:1px solid var(--rule);border-radius:999px;padding:7px 12px;
 }
-.sum-chip.is-up{color:var(--positive);border-color:rgba(47,125,51,.35)}
-.sum-chip.is-new{color:var(--accent-deep);border-color:rgba(224,78,20,.35)}
+.sum-chip.is-up{color:var(--positive);border-color:rgba(var(--positive-rgb),.35)}
+.sum-chip.is-new{color:var(--accent-deep);border-color:rgba(var(--accent-rgb),.35)}
 
 .sum-baseline{
   margin-top:24px;padding-left:14px;border-left:2px solid var(--accent);
@@ -1976,7 +2100,7 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
   padding:20px 18px 16px;box-shadow:0 16px 40px rgba(0,0,0,.12);
   max-height:90vh;overflow:auto;color:var(--ink);
 }
-.storage-recovery::backdrop{background:rgba(20,18,16,.45)}
+.storage-recovery::backdrop{background:var(--scrim)}
 .storage-recovery__copy{margin:0 0 12px;padding:10px 12px;background:var(--well);border-radius:var(--radius);font-size:14px;line-height:1.4}
 .storage-recovery__copy-label{font-weight:650;margin:0 0 4px}
 .settings-warn{margin:8px 0 0;font-size:13px;line-height:1.4;color:var(--accent-deep)}
@@ -2413,7 +2537,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .strength-pick select,.select-flat{
   appearance:none;-webkit-appearance:none;border:0;background-color:transparent;margin:0;padding:8px 22px 8px 0;
   width:auto;max-width:100%;text-align:left;color:var(--ink);font-size:16px;font-weight:600;border-radius:0;box-shadow:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image:var(--select-caret);
   background-position:right center;background-size:14px 14px;background-repeat:no-repeat;
 }
 .strength-pick select:focus,.select-flat:focus{box-shadow:none}
@@ -2667,12 +2791,12 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .installcard{
   display:grid;grid-template-columns:auto 1fr;gap:20px 22px;align-items:start;
   margin:20px 0 0;
-  padding:28px var(--firstrun-pad) 24px;background:var(--accent-deep);color:#fff;
+  padding:28px var(--firstrun-pad) 24px;background:var(--accent-deep);color:var(--accent-ink);
 }
-.installcard__icon{flex:none;display:block;width:56px;height:56px;color:#fff}
+.installcard__icon{flex:none;display:block;width:56px;height:56px;color:var(--accent-ink)}
 .installcard__text{min-width:0}
-.installcard__title{margin:0;font-size:24px;font-weight:650;letter-spacing:-0.01em;color:#fff}
-.installcard__body{margin:8px 0 0;font-size:15px;line-height:1.4;color:#fff}
+.installcard__title{margin:0;font-size:24px;font-weight:650;letter-spacing:-0.01em;color:var(--accent-ink)}
+.installcard__body{margin:8px 0 0;font-size:15px;line-height:1.4;color:var(--accent-ink)}
 .installcard__action{grid-column:1/-1;border-radius:0}
 
 /* The iOS instruction sheet. Safari exposes no install event, so the only thing
