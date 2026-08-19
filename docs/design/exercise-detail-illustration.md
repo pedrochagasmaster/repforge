@@ -115,6 +115,14 @@ exercise name remains the strongest text on the page.
   shadow, vignette, spotlight, or decorative gradient. This is the sole scoped
   exception to the general “no gradients” direction in the UI overhaul spec;
   it does not authorize gradients elsewhere.
+
+  > **Amendment (2026-08-19).** A bridge needs two near-neutral backgrounds to
+  > stand between. Dark has one warm parchment and one near-black page, so the
+  > same gradient stopped reading as a colour bridge and started reading as a
+  > smear across the top and bottom edge of the artwork. In dark the field
+  > therefore drops both the bleed and the fade and becomes a plate: content
+  > width, `14px` corner, flat `--exercise-art-bg`, symmetric padding — the
+  > treatment the exercise preview page already uses. Light is unchanged.
 - If edge veils are needed to hide the opaque image's top and bottom boundary,
   keep them inside the artwork's empty background. They must not fade, blur, or
   recolor the lifter, machine, plates, or orange details.
