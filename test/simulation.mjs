@@ -574,7 +574,7 @@ const LOAD_TOAST = {
     invalid: "That isn't a valid weight.",
   },
   pt: {
-    empty: "Insira uma carga antes de salvar a série.",
+    empty: "Digite uma carga antes de salvar a série.",
     invalid: "Essa carga não é válida.",
   },
 };

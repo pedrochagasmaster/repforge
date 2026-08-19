@@ -155,7 +155,7 @@ clipboard:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
-| `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, configurações e idioma do app · sem histórico de treinos |
+| `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, ajustes e idioma do app · sem histórico de treinos |
 | `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta. |
 
 Outbound Share link is title plus URL only. Copy link is the URL only.
@@ -210,8 +210,25 @@ Mechanics, all verifiable against the current catalogs:
   `i18n-en.json` and `i18n-pt.json`, then mirror both into `i18n.js` (the
   runtime dictionary). `test/i18n.mjs` fails on missing keys, key-set or
   placeholder mismatches, and drift between the JSON catalogs and `i18n.js`.
+- **Copy names the control it points at.** When a string tells someone to press
+  something, it repeats that control's own label: `log.unfinished.body` names
+  `log.finish`, `tour.8.body` names `program.end_block`. `test/i18n.mjs` checks
+  those pairs in both languages, so renaming a button breaks the guidance that
+  refers to it.
 - **Portuguese uses você** and translates meaning, not words — same calm,
   direct tone as English, no literal calques (also audited by `test/i18n.mjs`).
+- **Portuguese keeps one word per thing, and it is a Portuguese word.** The
+  Progress tab is Progresso, the saved sessions are the histórico, a counted set
+  is a série efetiva, and gym hardware is equipamento. `stats`, `log`,
+  `performance`, `delta`, `split`, `offline` and `aparelho` do not ship in
+  Portuguese copy; `test/i18n.mjs` fails on them. Loanwords that Brazilian
+  Portuguese has absorbed stay: backup, timer, deload, PR, RIR, e1RM.
+- **Portuguese agrees in number and gender at every count.** A string that a
+  count of one can reach cannot carry a plural verb or adjective: write
+  "{n} com melhora", not "{n} melhoraram". Exercise names agree with their head
+  noun ("Barra fixa assistida", not "assistido") — for library names that means
+  a `namePt` override in `tools/exercise-curation.json`, never an edit to the
+  generated `exercises.js`.
 - **i18n keys are frozen codenames.** Values change; keys never do —
   `toast.workout_forged` holds "Workout saved" and that is correct. Renaming
   keys breaks `data-i18n` bindings and churns three files for zero user value.

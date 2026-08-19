@@ -286,8 +286,8 @@ async function main() {
       "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
     },
     pt: {
-      "meta.description": "O Taurifer mantém logs, rascunhos e histórico de treinos neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
-      "tour.0.body": "Logs, rascunhos e histórico de treinos ficam neste dispositivo. O Taurifer nunca os envia. Links de configuração compartilham um programa, sua configuração, oito ajustes selecionados e o idioma do app. Eles nunca incluem o histórico de treinos. Toque em <b>Próximo</b> para conhecer cada parte do app ou em <b>Pular tour</b> para fechar este guia.",
+      "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
+      "tour.0.body": "Seus treinos, rascunhos e histórico ficam neste dispositivo. O Taurifer nunca os envia. Links de configuração compartilham um programa, sua configuração, oito ajustes selecionados e o idioma do app. Eles nunca incluem o histórico de treinos. Toque em <b>Próximo</b> para conhecer cada parte do app ou em <b>Pular tour</b> para fechar este guia.",
       "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta.",
     },
   };
@@ -395,6 +395,59 @@ async function main() {
   const awkwardPtPhrases = ["esforço conhecido", "data de calendário real", "depósito deste navegador"];
   const retainedPtCalques = awkwardPtPhrases.filter((phrase) => ptCopy.includes(phrase));
   assert(!retainedPtCalques.length, "PT copy avoids audited literal calques", retainedPtCalques.join(", "));
+
+  // Placeholder tokens carry English names on purpose ({delta}); the prose around them does not.
+  const englishInPt = /\b(?:stats|logs?|performance|deltas?|split|offline|aparelhos?)\b/iu;
+  const englishPtKeys = Object.entries(pt)
+    .filter(([, value]) => englishInPt.test(value.replace(/\{\w+\}/g, " ")))
+    .map(([key]) => key);
+  assert(
+    !englishPtKeys.length,
+    "PT copy uses Portuguese words for progress, history, equipment and variation",
+    englishPtKeys.slice(0, 8).join(", ")
+  );
+
+  const ptProgressTabKeys = ["stats.aria", "stats.title", "program.planned_volume.lede"];
+  const ptStaleProgressNames = ptProgressTabKeys.filter((key) => !pt[key].includes(pt["nav.stats"]));
+  assert(
+    !ptStaleProgressNames.length,
+    "PT guidance names the current Progress tab",
+    ptStaleProgressNames.join(", ")
+  );
+
+  const controlReferences = [
+    ["log.unfinished.body", "log.finish"],
+    ["tour.8.body", "program.end_block"],
+  ];
+  for (const [lang, dict] of Object.entries({ en, pt })) {
+    const staleControls = controlReferences
+      .filter(([bodyKey, controlKey]) => !dict[bodyKey].includes(dict[controlKey]))
+      .map(([bodyKey, controlKey]) => `${bodyKey} → ${controlKey}`);
+    assert(
+      !staleControls.length,
+      `${lang.toUpperCase()} guidance names the control it points at`,
+      staleControls.join(", ")
+    );
+  }
+
+  const ptPluralAgreementKeys = [
+    "delta.count.improved",
+    "delta.count.flat",
+    "delta.count.regressed",
+    "review.lifts_summary",
+    "review.summary.lifts",
+    "review.summary.lifts_flat",
+    "stats.this_week.improved",
+    "stats.this_week.stable",
+    "toast.workout_forged",
+  ];
+  const ptPluralVerbs = /\b\w+(?:aram|eram|iram|ãos)\b|\b(?:estáveis|travados|registradas)\b/iu;
+  const ptAgreementMisses = ptPluralAgreementKeys.filter((key) => ptPluralVerbs.test(pt[key]));
+  assert(
+    !ptAgreementMisses.length,
+    "PT counted phrases read correctly when the count is one",
+    ptAgreementMisses.join(", ")
+  );
 
   const html = readFileSync(join(ROOT, "index.html"), "utf8");
   const domKeys = htmlI18nKeys(html);
