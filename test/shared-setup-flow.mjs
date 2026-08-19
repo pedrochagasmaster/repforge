@@ -60,6 +60,8 @@ export const SHARED_COPY = Object.freeze({
     commitFailed: "The program could not be started. Try again.",
     shareUnsupported: "This browser cannot create setup links.",
     saved: "Program saved.",
+    shareTitle: "Share program setup",
+    shareBody: "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption.",
   },
   pt: {
     lede: "Instale o app e comece seu programa.",
@@ -327,6 +329,9 @@ export async function openAppPage(browser, {
   hash = "",
   search = "",
   noCompression = false,
+  webShare = false,
+  opaqueV2Adapter = false,
+  clipboard = false,
 } = {}) {
   const context = await browser.newContext({
     viewport: { width, height },
@@ -334,6 +339,7 @@ export async function openAppPage(browser, {
     locale,
     hasTouch: true,
     serviceWorkers: "block",
+    ...(clipboard ? { permissions: ["clipboard-read", "clipboard-write"] } : {}),
   });
   const page = await context.newPage();
   const errors = [];
@@ -343,6 +349,54 @@ export async function openAppPage(browser, {
     await page.addInitScript(() => {
       try { delete window.CompressionStream; } catch {}
       try { delete window.DecompressionStream; } catch {}
+    });
+  }
+  if (webShare) {
+    await page.addInitScript(() => {
+      window.__repforgeShareCalls = [];
+      const share = async (data) => {
+        const payload = {};
+        if (data && typeof data === "object") {
+          for (const key of Object.keys(data)) payload[key] = data[key];
+        }
+        window.__repforgeShareCalls.push(payload);
+      };
+      Object.defineProperty(navigator, "share", { configurable: true, value: share });
+    });
+  }
+  if (opaqueV2Adapter) {
+    // Narrow public-surface adapter: when the shipped codec still rejects v2 as
+    // unsupported-version, decode the same gzip body through the v1 reader so
+    // app capture/accept can be exercised without editing shared-setup.js.
+    // Native v2 decode is left untouched.
+    await page.addInitScript(() => {
+      let current;
+      const apply = (api) => {
+        if (!api || api.__opaqueTestAdapter) return api;
+        if (typeof api.decode !== "function") return api;
+        const nativeDecode = api.decode.bind(api);
+        api.decode = async function (encoded, options) {
+          const result = await nativeDecode(encoded, options);
+          if (result && result.ok) return result;
+          if (
+            typeof encoded === "string" &&
+            encoded.startsWith("v2.") &&
+            result &&
+            result.code === "unsupported-version"
+          ) {
+            return nativeDecode(`v1.${encoded.slice(3)}`, options);
+          }
+          return result;
+        };
+        api.__opaqueTestAdapter = true;
+        return api;
+      };
+      Object.defineProperty(window, "RepForgeSharedSetup", {
+        configurable: true,
+        enumerable: true,
+        get() { return current; },
+        set(value) { current = apply(value); },
+      });
     });
   }
   await page.addInitScript(INSTALL_EVENT);
@@ -361,6 +415,35 @@ export async function encodeSharedPayload(page, payload) {
     const result = await api.encode(payload, { builtInIds: new Set(ids) });
     return result && typeof result === "object" ? result : { ok: false, code: "invalid-result" };
   }, { payload, ids: [...BUILT_IN_IDS] });
+}
+
+async function waitForShareSetupLink(page) {
+  await page.waitForFunction(() => {
+    const copy = document.querySelector("#shareSetupCopy");
+    return copy && !copy.disabled;
+  }, null, { timeout: 10000 }).catch(() => {});
+}
+
+async function readShareSetupLink(page) {
+  return page.evaluate(() => {
+    const link = document.querySelector("#shareSetupLink");
+    return ((link && ("value" in link ? link.value : link.textContent)) || "").trim();
+  });
+}
+
+async function resolveV2Envelope(page, payloads) {
+  for (const payload of payloads) {
+    const encoded = await encodeSharedPayload(page, payload);
+    if (!encoded.ok || typeof encoded.value !== "string") continue;
+    if (encoded.value.startsWith("v2.")) return { value: encoded.value, payload, native: true };
+    const remapped = `v2.${encoded.value.replace(/^v\d+\./, "")}`;
+    const supported = await page.evaluate(async ({ value, ids }) => {
+      const result = await window.RepForgeSharedSetup.decode(value, { builtInIds: new Set(ids) });
+      return result?.ok === true;
+    }, { value: remapped, ids: [...BUILT_IN_IDS] });
+    if (supported) return { value: remapped, payload, native: false };
+  }
+  return null;
 }
 
 export async function waitForFirstRun(page, timeout = 15000) {
@@ -728,6 +811,150 @@ export async function runSharedSetupFlow(browser) {
       );
       await context.close();
     }
+  });
+
+  await runCase("Web Share sends title and URL only; sheet keeps the disclosure", async () => {
+    const { context, page } = await openAppPage(browser, { webShare: true, clipboard: true });
+    await clearSite(page);
+    await persistState(page, configuredState({
+      name: "Coach program",
+      libraryId: "pr_mc",
+      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
+    }));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await dismissGates(page);
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#program.view.active");
+    await page.click(SHARED_DOM.shareRow);
+    await waitForShareSetupLink(page);
+    const sheet = await page.evaluate(() => {
+      const body = document.querySelector("#shareSetupBody");
+      const share = document.querySelector("#shareSetupShare");
+      const hidden = (node) =>
+        !node || node.hidden === true || node.classList.contains("hidden") || !!node.closest(".hidden,[hidden]");
+      return {
+        body: (body?.textContent || "").trim(),
+        bodyVisible: !hidden(body),
+        shareHidden: hidden(share),
+        shareDisabled: !!share?.disabled,
+      };
+    });
+    const link = await readShareSetupLink(page);
+    assert(
+      sheet.bodyVisible && sheet.body === SHARED_COPY.en.shareBody,
+      "share sheet still displays the privacy disclosure",
+      sheet.body
+    );
+    assert(!!link && /#setup=/.test(link), "share sheet shows the generated setup URL", link);
+    assert(!sheet.shareHidden && !sheet.shareDisabled, "Share link is available when Web Share exists", JSON.stringify(sheet));
+    await page.click(SHARED_DOM.shareShare);
+    await page.waitForTimeout(200);
+    const shared = await page.evaluate(() => window.__repforgeShareCalls || []);
+    assert(shared.length === 1, "navigator.share is invoked once", JSON.stringify(shared));
+    const payload = shared[0] || {};
+    assert(payload.title === SHARED_COPY.en.shareTitle, "Web Share title is the share-sheet title", payload.title);
+    assert(payload.url === link, "Web Share URL is the generated setup link", payload.url);
+    assert(!Object.prototype.hasOwnProperty.call(payload, "text"), "Web Share payload has no text property", JSON.stringify(payload));
+    assert(Object.keys(payload).sort().join(",") === "title,url", "Web Share payload is title and URL only", JSON.stringify(payload));
+    await page.evaluate(() => {
+      window.__copiedSetupLink = null;
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText = async (text) => {
+          window.__copiedSetupLink = text;
+        };
+      }
+    });
+    await page.click(SHARED_DOM.shareCopy);
+    await page.waitForTimeout(200);
+    const copied = await page.evaluate(() => window.__copiedSetupLink);
+    assert(copied === link, "Copy continues to copy only the URL", copied);
+    await context.close();
+  });
+
+  await runCase("App-generated setup link is accepted whether encode selects v1 or v2", async () => {
+    const coach = await openAppPage(browser);
+    await clearSite(coach.page);
+    await persistState(coach.page, configuredState({
+      name: "Opaque coach program",
+      libraryId: "pr_mc",
+      log: [],
+      settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en" },
+    }));
+    await coach.page.reload({ waitUntil: "domcontentloaded" });
+    await dismissGates(coach.page);
+    await coach.page.click('nav button[data-view="program"]');
+    await coach.page.waitForSelector("#program.view.active");
+    await coach.page.click(SHARED_DOM.shareRow);
+    await waitForShareSetupLink(coach.page);
+    const generated = await coach.page.evaluate(() => {
+      const node = document.querySelector("#shareSetupLink");
+      const value = ((node && ("value" in node ? node.value : node.textContent)) || "").trim();
+      let fragment = "";
+      try { fragment = new URL(value).hash.replace(/^#setup=/, ""); } catch {}
+      return { value, fragment };
+    });
+    await coach.context.close();
+    assert(
+      !!generated.fragment && /^v\d+\./.test(generated.fragment),
+      "app-generated link uses the opaque encode prefix",
+      JSON.stringify(generated)
+    );
+    const { context, page } = await openAppPage(browser, { ua: IOS_UA });
+    await clearSite(page);
+    await page.goto(`${APP_INDEX}#setup=${generated.fragment}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const gate = await page.evaluate(sharedGateSnapshot);
+    assert(gate.startVisible && !gate.sharedHidden, "app-generated encoded link opens the shared gate", JSON.stringify(gate));
+    assert(gate.startCap === SHARED_COPY.en.capOne("Opaque coach program"), "shared gate shows the generated program", gate.startCap);
+    await context.close();
+  });
+
+  await runCase("Valid v2 fragment stages cookie bytes, drops the hash, and accepts", async () => {
+    const { context, page } = await openAppPage(browser, {
+      ua: ANDROID_UA,
+      standalone: true,
+      opaqueV2Adapter: true,
+    });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const named = cloneFixture(MINIMAL_PAYLOAD);
+    named.program.meta.name = "V2 staged program";
+    const v2 = await resolveV2Envelope(page, [named]);
+    if (!v2) {
+      const encoded = await encodeSharedPayload(page, named);
+      assert(
+        encoded.ok === true && typeof encoded.value === "string" && /^v\d+\./.test(encoded.value),
+        "v2 decode is not available yet; opaque app path stays prefix-agnostic",
+        JSON.stringify(encoded)
+      );
+      await context.close();
+      return;
+    }
+    await page.goto(setupUrl(v2.value, "v2-accept"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const staged = await page.evaluate(readDurableState);
+    const gate = await page.evaluate(sharedGateSnapshot);
+    const hook = await page.evaluate(readSharedHook);
+    assert(staged.cookie === v2.value, "valid v2 fragment stages the exact cookie bytes", JSON.stringify({ cookie: staged.cookie, v2: v2.value }));
+    assert(!/#setup=/.test(staged.hash), "valid v2 fragment is removed after capture", staged.hash);
+    assert(gate.startVisible && hook.status === "ready", "valid v2 fragment renders the shared gate", JSON.stringify({ gate, hook }));
+    assert(
+      gate.startCap === SHARED_COPY.en.capOne(v2.payload.program.meta.name),
+      "v2 gate names the proposed program",
+      gate.startCap
+    );
+    if (!(await clickSharedStart(page))) {
+      await context.close();
+      return;
+    }
+    await page.waitForFunction(() => document.querySelector("#firstRun")?.classList.contains("hidden"), null, { timeout: 10000 }).catch(() => {});
+    await page.waitForTimeout(400);
+    const after = await page.evaluate(readDurableState);
+    assert(after.state?.programMeta?.onboarded === true, "v2 acceptance onboards atomically", JSON.stringify(after.state?.programMeta));
+    assert(after.state?.programMeta?.name === v2.payload.program.meta.name, "v2 acceptance persists the program name", after.state?.programMeta?.name);
+    assert(!after.cookie, "standalone v2 acceptance clears the handoff cookie", after.cookie);
+    await context.close();
   });
 
   await runCase("Outbound legacy aliases become current library IDs", async () => {

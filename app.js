@@ -6211,7 +6211,7 @@ async function copySetupLink(){
   return false}
 async function shareSetupLinkNow(){
   if(!shareSetupLink||typeof navigator.share!=="function")return false;
-  try{await navigator.share({title:t("program.share_setup_title"),text:t("program.share_setup_body"),url:shareSetupLink});return true}
+  try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});return true}
   catch{return false}}
 /* ============================================================
    Exercise picker
@@ -8398,7 +8398,7 @@ async function prepareSharedSetup(candidate){
   const {source,encoded}=candidate;
   let staged=false,matchingCookie=false;
   try{matchingCookie=SharedSetup.readHandoffCookie()===encoded}catch{}
-  if(source==="fragment"&&typeof encoded==="string"&&encoded.startsWith("v1.")&&
+  if(source==="fragment"&&typeof encoded==="string"&&
     encoded.length<=SharedSetup.MAX_ENCODED_CHARS){
     try{
       staged=SharedSetup.writeHandoffCookie(encoded)===true;
