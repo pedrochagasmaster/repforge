@@ -105,28 +105,72 @@
   --ink-soft:#ADA79D;
   --ink-faint:#99938A;
   --rule:#2E2B26;
-  --rule-strong:#3E3A34;
+  --rule-strong:#4A453D;
   --accent:#F2703B;
-  --accent-deep:#FF9366;
+  /* Text emphasis stays in the same burnt-orange family as the mark. The
+     first dark pass was lighter but too peach beside the red danger action. */
+  --accent-deep:#FF8A3D;
   --positive:#63C267;
-  --cta:#F0EDE6;
+  /* A quiet parchment rather than a lit white card. Scale and placement make
+     the CTA primary; maximum luminance does not need to. */
+  --cta:#DED7CC;
   --well:#191713;
   --cta-ink:#161513;
   --accent-ink:#231A14;
-  --danger:#F0736A;
+  --danger:#FF6670;
   --accent-rgb:242,112,59;
   --positive-rgb:99,194,103;
-  --danger-rgb:240,115,106;
+  --danger-rgb:255,102,112;
   --ink-rgb:242,239,233;
   --knob:#F7F5F1;
   --scrim:rgba(0,0,0,.62);
-  --dock-glass:rgba(30,28,24,.78);
+  /* Dark content showing through glass becomes visual noise around the nav
+     labels. Keep the material, but make it read as smoked glass, not a lens. */
+  --dock-glass:rgba(30,28,24,.92);
   --dock-glass-opaque:rgba(24,22,19,.97);
   --dock-edge:rgba(255,255,255,.10);
-  --dock-sheen:rgba(255,255,255,.07);
-  --dock-pill:rgba(255,255,255,.10);
-  --dock-pill-sheen:rgba(255,255,255,.08);
+  --dock-sheen:rgba(255,255,255,.04);
+  --dock-pill:rgba(255,255,255,.07);
+  --dock-pill-sheen:rgba(255,255,255,.05);
   --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+
+/* ---- Dark-theme hierarchy refinements ----
+   A palette swap gets the colours right, but near-black compresses depth:
+   controls that were obvious as white fields on cream become adjacent dark
+   rectangles. These few rules restore the light theme's hierarchy without
+   adding cards or glow. */
+:root[data-theme="dark"] .settings-group,
+:root[data-theme="dark"] .settings-group__box,
+:root[data-theme="dark"] .settings-row{
+  background:transparent;
+}
+:root[data-theme="dark"] .setrow input,
+:root[data-theme="dark"] .kg,
+:root[data-theme="dark"] .saveset,
+:root[data-theme="dark"] .copylast{
+  border-color:var(--rule-strong);
+}
+:root[data-theme="dark"] .stepbtn{
+  background:rgba(var(--ink-rgb),.035);
+}
+:root[data-theme="dark"] .saveset{
+  color:var(--ink);
+}
+/* One orange count carries the warning. Repeating its light on every row made
+   Progress feel like an alert board rather than an analytical page. */
+:root[data-theme="dark"] .attn__chip .attn__dot{
+  background:var(--ink-faint);
+}
+/* Small artwork should read as archival plates rather than rounded app tiles.
+   The drawing and its sampled paper are otherwise untouched. */
+:root[data-theme="dark"] .exthumb--sm{
+  border-radius:7px;
+  border-color:var(--rule-strong);
+}
+:root[data-theme="dark"] nav{
+  backdrop-filter:blur(28px) saturate(125%);
+  -webkit-backdrop-filter:blur(28px) saturate(125%);
 }
 
 *{box-sizing:border-box}

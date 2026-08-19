@@ -34,10 +34,26 @@ The palette is warm charcoal rather than neutral grey. The burnt orange, the 96
 licensed exercise illustrations and the app icon were all drawn on warm paper,
 and a grey ground puts them on a different object. Two roles invert rather than
 darken: the CTA, because a near-black pill disappears on near-black paper, so it
-becomes a light pill with `--cta-ink` dark; and `--accent-deep`, whose job is
-emphasis, which on dark means the *lighter* orange. That is why copy on a filled
-orange ground reads `--accent-ink` and not `--cta-ink` — the two inks move in
-opposite directions between themes.
+becomes a parchment pill with `--cta-ink` dark; and `--accent-deep`, whose job
+is emphasis, which on dark means the *lighter* orange. That is why copy on a
+filled orange ground reads `--accent-ink` and not `--cta-ink` — the two inks
+move in opposite directions between themes.
+
+The first dark pass proved that lighter did not have to mean paler. Its
+`--accent-deep` was a pinkish peach, and `--danger` was a neighbouring salmon;
+on History, “View session” and “Delete” nearly collapsed into one semantic
+colour. The refined emphasis is a more saturated ember (`#FF8A3D`) and danger
+is a clearer red (`#FF6670`). The CTA moved from bright ivory to quieter
+parchment (`#DED7CC`): its width and placement provide authority without making
+it the brightest possible object in the room.
+
+Near-black also compresses depth that light paper supplies for free. The dark
+theme therefore sharpens the workout field edges, gives the pending Save action
+full ink, and flattens Settings group fills back into the page. Repeated
+attention dots on Progress use faint ink while the count retains orange; one
+signal carries the warning instead of every row glowing. The dock remains
+glass, but with more smoke and less sheen so scrolling content does not become
+noise behind its labels.
 
 The exercise illustrations keep their own paper. Each carries a sampled
 `mediaBg`, and the detail view still bridges from `--bg` to it, so on dark the

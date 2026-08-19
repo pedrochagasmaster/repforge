@@ -229,6 +229,16 @@ Principles the tokens can't express:
 - The light editorial look depends on restraint: warm paper, near-black ink,
   generous whitespace.
 
+Dark appearance carries the same material grammar rather than introducing a
+second visual identity: warm charcoal paper, off-white ink, ember orange,
+hairlines and whitespace. Its primary action is a quiet parchment inversion,
+not a large orange field. Exercise illustrations keep their own sampled paper
+as lit archival plates; never invert, tint, or dim the licensed drawings.
+Repeated status markers should not all glow on charcoal — let one orange signal
+carry the hierarchy and render repetition in soft ink. The canonical values and
+rationale live in `styles.css` and
+[`ADR 0009`](adr/0009-appearance-setting-dark-theme.md).
+
 `styles.css` `:root` is canonical for every value. If this document and the
 CSS disagree, the CSS wins — fix this document.
 

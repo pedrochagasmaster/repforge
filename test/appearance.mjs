@@ -93,6 +93,8 @@ function parseColor(value) {
   if (!rgb || rgb.length < 3) throw new Error(`cannot parse colour: ${value}`);
   return rgb.slice(0, 3).map(Number);
 }
+const colorDistance = (a, b) =>
+  Math.sqrt(a.reduce((sum, channelValue, i) => sum + (channelValue - b[i]) ** 2, 0));
 const readTokens = (page, names) =>
   page.evaluate((list) => {
     const css = getComputedStyle(document.documentElement);
@@ -250,6 +252,29 @@ async function runSettingsRow(browser) {
     const inkLum = luminance(parseColor(painted.ink));
     assert(bgLum < 0.05 && inkLum > 0.5, "The page is painted light-on-dark", JSON.stringify(painted));
     await checkContrast(page, "Dark");
+    const refined = await readTokens(page, ["--accent-deep", "--danger", "--cta", "--ink"]);
+    const semanticDistance = colorDistance(
+      parseColor(refined["--accent-deep"]),
+      parseColor(refined["--danger"])
+    );
+    assert(
+      semanticDistance >= 50,
+      "Dark emphasis and danger are visibly distinct hues",
+      `${semanticDistance.toFixed(1)} RGB units: ${refined["--accent-deep"]} / ${refined["--danger"]}`
+    );
+    assert(
+      luminance(parseColor(refined["--cta"])) < luminance(parseColor(refined["--ink"])),
+      "The dark CTA is parchment, not the brightest white ink",
+      `${refined["--cta"]} / ${refined["--ink"]}`
+    );
+    const settingsFill = await page.evaluate(
+      () => getComputedStyle(document.querySelector(".settings-group")).backgroundColor
+    );
+    assert(
+      settingsFill === "rgba(0, 0, 0, 0)",
+      "Dark Settings groups remain ink and rules on paper, not filled cards",
+      settingsFill
+    );
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
