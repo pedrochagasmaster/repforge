@@ -176,6 +176,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("rec.block.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("rec.block.")) },
   { test: (s) => s.includes("focus.cue.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.cue.")) },
   { test: (s) => s.includes('"settings.lang."'), keys: () => ["settings.lang.en", "settings.lang.pt"] },
+  { test: (s) => s.includes('"settings.appearance."'), keys: () => ["settings.appearance.system", "settings.appearance.light", "settings.appearance.dark"] },
   { test: (s) => s.includes('"month_short."'), keys: () => range(0, 11).map((i) => `month_short.${i}`) },
   { test: (s) => s.includes('"month."'), keys: () => range(0, 11).map((i) => `month.${i}`) },
   { test: (s) => s.includes('"weekday."'), keys: () => range(0, 6).map((i) => `weekday.${i}`) },
