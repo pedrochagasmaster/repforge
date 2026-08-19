@@ -43,7 +43,7 @@ app crosses once, never a working surface:
 | Key | English | Portuguese |
 | --- | --- | --- |
 | `setup.ethos.title` | Strength isn't something you're born with. | Força não vem de nascença. |
-| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of / who you are. / And you become who you needed to be. // Strength, then, is yours — / not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte / de quem você é. / E você se torna quem precisou ser. // A força, então, é sua — / não porque lhe foi dada, / mas porque você a construiu. |
+| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of / who you are. / And you become who you needed to be. // Strength, then, is yours. / Not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte / de quem você é. / E você se torna quem precisou ser. // A força, então, é sua. / Não porque lhe foi dada, / mas porque você a construiu. |
 
 The body is the one string in the app that is **set, not just written**: it is
 typeset in the mono face as a short poem, and `/` above marks a line break
@@ -156,7 +156,7 @@ clipboard:
 | Key | English | Portuguese |
 | --- | --- | --- |
 | `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, configurações e idioma do app · sem histórico de treinos |
-| `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes de index.html por até sete dias. Compressão e codificação não são criptografia. |
+| `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta. |
 
 Outbound Share link is title plus URL only. Copy link is the URL only.
 
@@ -182,7 +182,7 @@ Real pairs from the reverted themed copy — the left column ships today:
 
 | Write | Not | Key |
 | --- | --- | --- |
-| Workout saved — {n} {sets} logged. | Workout carried — … | `toast.workout_forged` |
+| Workout saved. {n} {sets} logged. | Workout carried — … | `toast.workout_forged` |
 | Session saved | Session forged | `summary.eyebrow` |
 | steady *(gauge idle label)* | graze | `top.gauge.forge` |
 | Nothing logged yet | Every bull starts as a calf | `stats.empty.title` |
@@ -194,8 +194,14 @@ Mechanics, all verifiable against the current catalogs:
 - **Sentence case everywhere** — titles, buttons, tabs, toasts. Capitals only
   for sentence starts and proper nouns (Taurifer, Log, PR).
 - **No exclamation marks.** Both catalogs have zero today; keep it that way.
-- **Toasts are complete sentences ending in a period.** Compound facts join
-  with an em dash: "Workout saved — {n} {sets} logged."
+- **Toasts are complete sentences ending in a period.** Put compound facts in
+  separate sentences: "Workout saved. {n} {sets} logged."
+- **App prose uses periods and commas, not em dashes.** Do not replace an em
+  dash with parentheses, an en dash, or a spaced hyphen. En dashes remain valid
+  inside numeric ranges, where they mean "to". Use straight quotes in UI copy.
+- **Name the fact or action.** Avoid metaphor labels, promotional claims,
+  generic summaries, passive voice, and adverbs that hide an unmeasured claim.
+  If the same sentence could describe any app, make it specific or remove it.
 - **Placeholders are lowercase curly tokens** (`{n}`, `{unit}`, `{name}`).
   Translate around them; never build sentences by concatenation.
 - **Every string ships in English and Portuguese together.** Edit

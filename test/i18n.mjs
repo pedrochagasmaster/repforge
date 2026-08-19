@@ -281,14 +281,14 @@ async function main() {
 
   const privacyCopy = {
     en: {
-      "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links intentionally share a program and selected settings.",
-      "tour.0.body": "Workout logs, drafts, and history stay on this device; Taurifer never uploads them. Setup links intentionally share a program, its configuration, eight selected settings, and language. This quick tour shows every feature. Tap <b>Next</b> to begin, or <b>Skip tour</b> anytime.",
-      "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption.",
+      "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.",
+      "tour.0.body": "Workout logs, drafts, and history stay on this device. Taurifer never uploads them. Setup links share a program, its configuration, eight selected settings, and the app language. They never include workout history. Choose <b>Next</b> to see each part of the app, or <b>Skip tour</b> to close this guide.",
+      "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
     },
     pt: {
-      "meta.description": "O Taurifer mantém logs, rascunhos e histórico de treinos neste dispositivo. Links de configuração compartilham de propósito um programa e ajustes selecionados.",
-      "tour.0.body": "Logs, rascunhos e histórico de treinos ficam neste dispositivo; o Taurifer nunca os envia. Links de configuração compartilham de propósito um programa, sua configuração, oito ajustes selecionados e o idioma. Este tour rápido mostra todos os recursos. Toque em <b>Próximo</b> para começar ou em <b>Pular tour</b> quando quiser.",
-      "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes de index.html por até sete dias. Compressão e codificação não são criptografia.",
+      "meta.description": "O Taurifer mantém logs, rascunhos e histórico de treinos neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
+      "tour.0.body": "Logs, rascunhos e histórico de treinos ficam neste dispositivo. O Taurifer nunca os envia. Links de configuração compartilham um programa, sua configuração, oito ajustes selecionados e o idioma do app. Eles nunca incluem o histórico de treinos. Toque em <b>Próximo</b> para conhecer cada parte do app ou em <b>Pular tour</b> para fechar este guia.",
+      "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta.",
     },
   };
   for (const lang of ["en", "pt"]) {
@@ -300,6 +300,71 @@ async function main() {
 
   const phBad = enKeys.filter((k) => placeholders(en[k]).join(",") !== placeholders(pt[k]).join(","));
   assert(!phBad.length, "EN/PT placeholder names match for every key", phBad.slice(0, 8).join(", "));
+
+  const punctuationPattern = /[—“”‘’]/u;
+  for (const [lang, dict] of Object.entries({ en, pt })) {
+    const punctuationMisses = Object.entries(dict)
+      .filter(([, value]) => punctuationPattern.test(value))
+      .map(([key]) => key);
+    assert(
+      !punctuationMisses.length,
+      `${lang.toUpperCase()} app copy avoids em dashes and curly quotes`,
+      punctuationMisses.slice(0, 8).join(", ")
+    );
+    const unfinishedToasts = Object.entries(dict)
+      .filter(([key, value]) => key.startsWith("toast.") && !/[.!?…]$/u.test(value))
+      .map(([key]) => key);
+    assert(
+      !unfinishedToasts.length,
+      `${lang.toUpperCase()} toasts end with punctuation`,
+      unfinishedToasts.slice(0, 8).join(", ")
+    );
+  }
+
+  const aiVocabulary =
+    /\b(?:additionally|crucial|delve|enduring|enhance|fostering|garner|interplay|intricate|landscape|pivotal|showcase|tapestry|testament|underscore|vibrant|utilize|leverage|facilitate|serves as|stands as|boasts)\b/iu;
+  const aiVocabularyMisses = Object.entries(en)
+    .filter(([, value]) => aiVocabulary.test(value))
+    .map(([key]) => key);
+  assert(
+    !aiVocabularyMisses.length,
+    "EN app copy avoids flagged filler vocabulary",
+    aiVocabularyMisses.slice(0, 8).join(", ")
+  );
+
+  const todayTabKeys = ["history.empty.sessions", "exercise.session_history.lede"];
+  for (const [lang, dict] of Object.entries({ en, pt })) {
+    const staleTabNames = todayTabKeys.filter((key) => !dict[key].includes(dict["nav.log"]));
+    assert(
+      !staleTabNames.length,
+      `${lang.toUpperCase()} guidance names the current Today tab`,
+      staleTabNames.join(", ")
+    );
+  }
+
+  const colonCrutchKeys = [
+    "log.prev",
+    "log.substitute.label",
+    "session_banner.today.title",
+    "settings.notifications.permission",
+    "settings.storage.last_backup",
+    "settings.storage.last_backup_never",
+    "delta.preview",
+    "toast.workout_pr",
+    "toast.command_applied",
+  ];
+  for (const [lang, dict] of Object.entries({ en, pt })) {
+    const colonCrutches = colonCrutchKeys.filter((key) => dict[key].includes(":"));
+    assert(
+      !colonCrutches.length,
+      `${lang.toUpperCase()} audited labels do not use colon crutches`,
+      colonCrutches.join(", ")
+    );
+  }
+  assert(
+    !/\bhot\b/iu.test(en["top.gauge.hot"]) && !/\bquente\b/iu.test(pt["top.gauge.hot"]),
+    "Readiness gauge uses a concrete label in both languages"
+  );
 
   const exerciseTemplatePromptKeys = [
     "confirm.remove_exercise",

@@ -406,7 +406,7 @@ async function main() {
     await reset(page);
     await openEditor(page);
     await importFile(page, "upper-lower.txt",
-      "UPPER / LOWER (2 days per week)\n\nDAY 1 — Chest · Back\n1. Barbell bench press — 4× 4-8\n2. Barbell row — 3× 6-10\n\nDAY 2 — Legs\n1. Leg press — 3× 8-12\n");
+      "UPPER / LOWER, 2 days per week\n\nDAY 1: Chest · Back\n1. Barbell bench press: 4× 4 to 8\n2. Barbell row: 3× 6 to 10\n\nDAY 2: Legs\n1. Leg press: 3× 8 to 12\n");
     model = await draftModel(page);
     assert(
       model && model.format === "text" && model.counts.total === 3,
@@ -430,6 +430,17 @@ async function main() {
       after.programMeta.name === "Upper / Lower",
       "a text-export header restores the program title without its days-per-week suffix",
       after.programMeta.name
+    );
+
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "legacy.txt",
+      "LEGACY (1 day per week)\n\nDAY 1 — Chest\n1. Barbell bench press — 4× 4-8\n");
+    model = await draftModel(page);
+    assert(
+      model && model.format === "text" && model.counts.total === 1,
+      "the previous text-export format still parses",
+      JSON.stringify(model?.counts)
     );
 
     // ---- onboarding import is one coherent state transition ----

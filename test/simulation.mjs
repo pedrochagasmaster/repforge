@@ -3377,8 +3377,8 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      /ran hot today/i.test(temperNote || ""),
-      "The temper note names the signal, not the arithmetic",
+      /below their usual level/i.test(temperNote || ""),
+      "The temper note states the measured signal without exposing the arithmetic",
       `note="${temperNote}"`,
       "Tempered first set → log.insession.temper renders, with no percentages in the copy"
     );
