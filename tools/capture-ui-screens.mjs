@@ -185,8 +185,25 @@ async function dismissChrome(page) {
   });
 }
 
+/**
+ * A catalog frame has to show a surface at rest. Entrances that are still
+ * running paint half-opacity controls over the copy behind them, which a
+ * designer reads as a colour decision rather than as a frame taken early — the
+ * session summary staggers seventeen blocks and is the worst of them. Looping
+ * animations (the rest bar's breathing ring) never finish and are left alone.
+ */
+async function settle(page) {
+  await page.evaluate(() => {
+    for (const animation of document.getAnimations()) {
+      if (animation.effect?.getComputedTiming().iterations === Infinity) continue;
+      try { animation.finish(); } catch {}
+    }
+  });
+}
+
 async function shot(page, theme, name) {
   mkdirSync(join(OUT, theme), { recursive: true });
+  await settle(page);
   await page.screenshot({ path: join(OUT, theme, `${name}.png`), fullPage: false });
   console.log(`  ✓ ${theme}/${name}.png`);
 }

@@ -298,6 +298,8 @@ export async function runHistoryIndexChecks(page, check = assert) {
     const articles = [...document.querySelectorAll("#sessions article.session, #sessions .session[data-sess]")];
     const toggles = [...document.querySelectorAll("#sessions [aria-controls][aria-expanded]")];
     const editIds = [...document.querySelectorAll("#sessions [data-edit]")].map((b) => b.getAttribute("data-edit"));
+    // Deleting a session is not a feed control: it lives inside the session the
+    // row opens, so a plain render carries no destructive target at all.
     const delIds = [...document.querySelectorAll("#sessions [data-del]")].map((b) => b.getAttribute("data-del"));
     const qPush = H.searchIndex(H.diagnostics.last, "push").length;
     const result = {
@@ -340,14 +342,14 @@ export async function runHistoryIndexChecks(page, check = assert) {
       rendered.summary.s10delta.improved === 1 &&
       rendered.qPush === 1667 &&
       rendered.editIds[0] === "sess-4999" &&
-      rendered.delIds[0] === "sess-4999",
-    "renderWithSource yields the same ordering, deltas, search, and edit/delete identities",
+      rendered.delIds.length === 0,
+    "renderWithSource yields the same ordering, deltas, search, and session identities",
     JSON.stringify({
       first: rendered.summary.firstSession,
       delta: rendered.summary.s10delta,
       qPush: rendered.qPush,
       edit: rendered.editIds[0],
-      del: rendered.delIds[0],
+      del: rendered.delIds.length,
     })
   );
 
@@ -634,7 +636,11 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
     const el = document.getElementById(id);
     return { exists: !!el, hidden: el?.hasAttribute("hidden"), edit: !!el?.querySelector("[data-edit]"), del: !!el?.querySelector("[data-del]") };
   }, entered.controls);
-  check(panel.exists && !panel.hidden && panel.edit && panel.del, "Expanded region contains independent Edit and Delete actions", JSON.stringify(panel));
+  check(
+    panel.exists && !panel.hidden && panel.edit && !panel.del,
+    "Expanded region offers the way into the session and no destructive action beside it",
+    JSON.stringify(panel)
+  );
 
   await page.keyboard.press(" ");
   const spaced = await page.evaluate(() => {
@@ -668,10 +674,13 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   await page.click("#sessions [data-sess='ui-a'] [data-edit]");
   const editing = await page.locator('.session--edit[data-editing="ui-a"]').count();
   check(editing === 1, "Edit opens the session editor without nesting inside the toggle", `editors=${editing}`);
+  const editorDelete = await page.locator('.session--edit[data-editing="ui-a"] [data-del="ui-a"]').count();
+  check(editorDelete === 1, "The open session carries its own delete, under the edits", `controls=${editorDelete}`);
   await page.click("[data-edcancel]");
 
   await page.locator("#sessions [data-sess='ui-b'] button[aria-expanded]").press("Enter");
-  await page.click("#sessions [data-sess='ui-b'] [data-del]");
+  await page.click("#sessions [data-sess='ui-b'] [data-edit]");
+  await page.click('.session--edit[data-editing="ui-b"] [data-del="ui-b"]');
   await page.waitForTimeout(80);
   const remaining = await page.evaluate(() =>
     [...document.querySelectorAll("#sessions [data-sess]")].map((el) => el.getAttribute("data-sess"))

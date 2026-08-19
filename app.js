@@ -4158,7 +4158,9 @@ function renderWorkout(){
       `placeholder="${esc(t("log.note.placeholder"))}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}">${esc(noteVal)}</textarea></div>`;
     // Every slot can be swapped now, not just the ones that happen to carry
     // alternates: the machine being taken does not check the program first.
-    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab">${esc(t("log.substitute.label"))}</span>`+
+    // The field says what it holds, and its own label names the job for a
+    // screen reader, so a printed "USE:" beside it was a caption on a caption.
+    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab visually-hidden">${esc(t("log.substitute.label"))}</span>`+
       `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:slotEx.name}))}">${esc(perf||ex.name)}</button>`+
       (perf?`<p class="subst__from">${esc(t("log.substitute_for",{name:slotEx.name}))}</p>`:"")+
       `</div>`;
@@ -4697,8 +4699,11 @@ function sessionSummaryHtml(s){
     out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
       `<span class="sum-next__day">${esc(dayLabel(s.next.day))}</span>`+
       `<span class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</span></div>`);
-  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button>`+
-    `<button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
+  // The detour comes before the door. Done is the last block on purpose: it is
+  // the one control the sheet pins, so a report that runs past the fold still
+  // shows the way out, and the way out is not carrying a second link with it.
+  out.push(`<div class="sum-secondary"><button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
+  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
 
 /** The stat row spins up to its numbers instead of printing them. They are the
@@ -5143,7 +5148,10 @@ function renderAttention(){const el=$("#attention");if(!el)return;
   const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
     `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
     items.map(({ex,why})=>{const dest=coachingDestLabel(key),destKey=coachingDestKey(key);
-      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`).join("");
+      // The destination is spoken, not printed: the chevron carries it for the
+      // eye, and ten rows of "View trend" were charging the reason beside them
+      // for a word the row already implies.
+      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="coach-dest visually-hidden">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`).join("");
   el.innerHTML=html;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
     if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
@@ -5372,9 +5380,11 @@ function renderHistory(source=state.log){
       (mus.length?`<div class="session__sub">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
       `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
+      // Deleting a session lives inside the session, not beside the way into
+      // it: a destructive action one thumb-width from a routine one is a trap,
+      // and the feed reads as a record rather than as a row of controls.
       `<div class="hist-row__actions" id="${esc(panelId)}"${open?"":" hidden"}>`+
-      `<button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
-      `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`;
+      `<button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button></div></article>`;
   }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
   if(focusedSession){
     const next=$$("#sessions .session__toggle").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
@@ -5447,7 +5457,10 @@ function sessionEditor(s,sets){
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
-    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
+    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div>`+
+    // Where the whole session can be thrown away: behind the way in, under the
+    // edits, and named in full so the row it deletes is never in doubt.
+    `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
 }
 
 function sessionSetsForEdit(sid){

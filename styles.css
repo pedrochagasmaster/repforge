@@ -162,17 +162,39 @@
 :root[data-theme="dark"] .saveset{
   color:var(--ink);
 }
-/* One orange count carries the warning. Repeating its light on every row made
-   Progress feel like an alert board rather than an analytical page. */
-:root[data-theme="dark"] .attn__chip .attn__dot{
-  background:var(--ink-faint);
-}
 /* Small artwork should read as archival plates rather than rounded app tiles.
    The drawing and its sampled paper are otherwise untouched. */
 :root[data-theme="dark"] .exthumb--sm{
   border-radius:7px;
   border-color:var(--rule-strong);
 }
+/* Licensed artwork is painted on its own warm paper, so on charcoal it is a
+   plate whatever we do; the only question is whether that plate looks meant.
+   Light dissolves the field into the page because the page is the same paper —
+   dark cannot, so the field becomes a deliberate archival plate instead of a
+   parchment rectangle with a gradient smeared across its top and bottom edge.
+   This is the same answer .exthumb--lg already gives on the preview page. */
+:root[data-theme="dark"] .exdet-art{
+  margin-inline:0;
+  border-radius:14px;
+  background:var(--exercise-art-bg);
+}
+:root[data-theme="dark"] .exdet-art__figure{
+  padding-block:var(--exercise-art-lead);
+}
+/* The gate's two brand images are the same case as the artwork above, and the
+   first thing a dark install ever sees. Both are drawn on cream: the hero
+   export carries its own field, and the mark keeps a pale rim where its ground
+   was taken away — on charcoal that field is a hard white rectangle and the rim
+   a smudge around the yoke. So dark gives each one the plate it is already
+   painted for. Nothing crops, nothing moves: the paper fills the same box the
+   art was contained in, and the corner is the only thing added. */
+:root[data-theme="dark"] .firstrun__logo,
+:root[data-theme="dark"] .firstrun-hero__art{
+  background-color:var(--brand-paper);
+}
+:root[data-theme="dark"] .firstrun-hero__art{border-radius:14px}
+:root[data-theme="dark"] .firstrun__logo{border-radius:16px}
 :root[data-theme="dark"] nav{
   backdrop-filter:blur(28px) saturate(125%);
   -webkit-backdrop-filter:blur(28px) saturate(125%);
@@ -976,7 +998,6 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 /* Which slot a swap stands in gets the whole line rather than trailing the
    picker, so a long seed name wraps as a sentence instead of a column. */
 .subst__from{flex:1 0 100%;margin:0;font-size:12px;line-height:1.35;color:var(--ink-faint)}
-.subst__lab{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.08em;font-size:10px;flex:none}
 .subst__pick{flex:1;min-width:0;margin:0;padding:6px 9px;font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:8px;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Effort picker — the Easy / Hard / Max face of RIR. One control in two shapes:
@@ -1033,6 +1054,18 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .setrow__n{font-weight:600;color:var(--ink-soft);font-size:15px;text-align:center;
   background:none;border:0;padding:0;cursor:pointer;line-height:1;min-width:44px;min-height:44px;width:44px;justify-self:start}
 .setrow.is-done .saveset{color:var(--cta-ink);border-color:transparent;background:var(--cta)}
+/* One exercise, one worded action. Three stacked SAVEs shouted the same verb
+   down the column and made a log read like a form, so only the set actually
+   being worked keeps the word: the sets waiting behind it hold the same button
+   at the same size, drawn as the check they are about to become. */
+.setrow:not(.is-next):not(.is-done) .saveset{border-color:transparent;background:transparent}
+.setrow:not(.is-next):not(.is-done) .saveset .saveset__label{visibility:hidden}
+.setrow:not(.is-next):not(.is-done) .saveset::after{
+  content:"";position:absolute;inset:0;background:var(--ink-faint);
+  -webkit-mask:var(--check) no-repeat center/15px;mask:var(--check) no-repeat center/15px;
+}
+.setrow:not(.is-next):not(.is-done) .saveset:hover::after{background:var(--ink)}
+.setrow.is-next .saveset{color:var(--ink);border-color:var(--ink-soft)}
 .setrow.is-next .setrow__n{color:var(--accent-deep)}
 .setrow.is-next .setrow__n::after{content:"";display:block;margin:3px auto 0;width:4px;height:4px;border-radius:50%;background:var(--accent)}
 /* The save column is content-sized, so the committed ✓ overlays the label
@@ -1893,6 +1926,21 @@ body.is-settings nav,body.is-exercise nav,body.is-onboarding nav,
 body.is-library nav,body.is-preview nav,body.is-import nav{display:none}
 body.is-settings,body.is-exercise,body.is-onboarding,
 body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inset-bottom)}
+/* The dock floats, so the page keeps scrolling past it: rows pass through the
+   inset gutters beside the capsule and the strip beneath it, and what shows
+   there is the top half of a checkmark or the bottom of a word. A capsule only
+   earns its float if what goes under it is composed, so the paper takes the
+   last stretch of the page back. Below the dock and the rest bar, above
+   everything that scrolls, and gone wherever the dock itself is. */
+body::after{
+  content:"";position:fixed;z-index:24;pointer-events:none;
+  left:0;right:0;bottom:0;
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + 18px);
+  background:linear-gradient(to top,var(--bg) 64%,transparent);
+}
+body.is-firstrun::after,body.is-focus-wo::after,
+body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,
+body.is-library::after,body.is-preview::after,body.is-import::after{content:none}
 
 /* ---- Toast ---- */
 .toast{
@@ -1988,10 +2036,14 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
    never gets there is a fully legible page rather than a blank one.
    ============================================================ */
 .sumsheet{
+  /* The bottom band is named because the pinned action has to reach through it:
+     it sticks to the true bottom edge and pays this padding out of its own box,
+     so the report scrolls under a button rather than past a gap beside one. */
+  --sum-pad-b:calc(30px + env(safe-area-inset-bottom));
   position:fixed;inset:0;z-index:75;overflow-y:auto;overscroll-behavior:contain;
   background:var(--bg);
   padding:calc(30px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right))
-    calc(30px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
+    var(--sum-pad-b) max(16px,env(safe-area-inset-left));
 }
 .sumsheet.hidden{display:none!important}
 .sumsheet__body{width:min(100%,var(--maxw));margin:0 auto}
@@ -2077,7 +2129,20 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .sum-next__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
 .sum-next__day{font-size:17px;font-weight:600}
 .sum-next__meta{margin-left:auto;font-size:13px;color:var(--ink-soft)}
-.sum-actions{margin-top:28px}
+.sum-secondary{margin-top:26px}
+/* The way out is never below the fold. A session ends with a lifter holding a
+   phone and breathing hard, and on a session with records, four muscles and a
+   next day the only exit used to be a scroll away — so the action stays put and
+   the report moves under it. Only the action: pinning the secondary link with it
+   would park a two-storey block over the muscle rows it is meant to sit beside. */
+.sum-actions{
+  position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;
+  margin-top:14px;padding:12px 0 var(--sum-pad-b);background:var(--bg);
+}
+.sum-actions::before{
+  content:"";position:absolute;left:0;right:0;bottom:100%;height:20px;
+  background:linear-gradient(to top,var(--bg),transparent);pointer-events:none;
+}
 
 @media (prefers-reduced-motion:reduce){
   /* The panel still arrives as a full screen; it just stops moving to do it. */
@@ -2125,7 +2190,14 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 .attn__chip .attn__dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 .attn__chip .listrow__main{flex:1;min-width:0}
 .attn__chip .listrow__title{font-size:16px;font-weight:600}
-.attn__chip .listrow__sub{font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+/* The reason is the only thing on the row a lifter has not already read in the
+   title, so it gets the width the destination label used to take and a second
+   line to land in. Ten rows that all stopped at "…weekly volume t…" read as a
+   rendering fault rather than as ten lifts sharing one cause. */
+.attn__chip .listrow__sub{
+  font-size:13px;color:var(--ink-soft);margin-top:2px;line-height:1.35;
+  display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2;overflow:hidden;
+}
 .attn--add{display:none} /* ready list owns add signals */
 .attn--add .attn__lead{color:var(--accent-deep)}
 /* This week reads as a headline: verdict, then the arithmetic, then the session bar.
@@ -2269,6 +2341,10 @@ body.is-sheet-open .installbanner{display:none}
 input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
 .edbtns{display:flex;gap:10px;margin-top:14px}
 .edbtns .btn{flex:1;padding:12px}
+/* Throwing the session away sits after the edits and under a rule, so the eye
+   reaches Save first and never lands on it while aiming for something else. */
+.edrisk{display:flex;justify-content:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
+.edrisk .session__del{padding:10px 12px}
 
 .datepick{display:flex;flex-direction:column;align-items:flex-end;color:var(--ink-soft);font-size:11px;gap:0;text-transform:uppercase;letter-spacing:.06em;font-weight:600}
 .datepick input{width:auto;margin-top:5px;padding:9px 11px;font-size:16px}
@@ -2652,6 +2728,10 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-pad:clamp(18px,5vw,34px);
   max-width:900px;margin:0 auto;padding:0 var(--firstrun-pad);
 }
+/* The paper both brand images were painted on. It is a property of the files,
+   not of the theme, which is why it is one constant rather than a palette
+   entry: light lets the page be it, dark hands it back as a plate. */
+.firstrun{--brand-paper:#F4F2EF}
 .firstrun__brand{
   display:flex;align-items:center;justify-content:center;
   gap:clamp(17px,4.5vw,22px);margin-bottom:clamp(28px,7vw,44px);
@@ -2659,7 +2739,9 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* The mark stands on the paper here: no plate, no rounded corner of ours, and
    `contain` centres the whole yoke rather than cropping it. The art it points
    at is the ground-free rendering (assets/brand/mark.png), so there is no
-   square to hide in the first place. */
+   square to hide in the first place — on cream. Dark hands the paper back as a
+   plate (see the dark block near the top of this file), because the ground is
+   what the rendering's pale edge was drawn against. */
 .firstrun__logo{
   display:block;flex:none;width:clamp(62px,16vw,76px);height:clamp(62px,16vw,76px);object-fit:contain;
 }
@@ -2693,8 +2775,9 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 /* Decorative, so it is painted rather than marked up: nothing to announce, and
    a missing export leaves paper behind the copy instead of a broken image,
    which is what the empty-tile doctrine asks for. The file is drawn on the
-   app's own paper, so it needs no field of its own to dissolve into. The box
-   uses the export's exact 1072/998 ratio and `contain`; neither axis can crop. */
+   app's own paper, so on cream it needs no field of its own to dissolve into;
+   dark paints that paper under it instead. The box uses the export's exact
+   1072/998 ratio and `contain`; neither axis can crop, in either theme. */
 .firstrun-hero__art{
   grid-area:art;z-index:0;aspect-ratio:1072/998;width:min(78cqw,250px);max-width:100%;
   margin:clamp(13px,3.7cqw,19px) auto clamp(15px,4cqw,22px);

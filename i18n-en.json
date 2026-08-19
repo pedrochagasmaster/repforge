@@ -226,7 +226,7 @@
   "history.session_expand_aria": "Show or hide session {day}",
   "history.session.sub": "{date} · {sets} sets · {top} top · {vol} {unit}",
   "history.session.edit": "Edit",
-  "history.session.delete": "Delete",
+  "history.session.delete": "Delete session",
   "history.edit.cancel": "Cancel",
   "history.edit.save": "Save changes",
   "history.edit.remove_set": "Remove set",

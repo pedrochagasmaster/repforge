@@ -226,7 +226,7 @@
   "history.session_expand_aria": "Mostrar ou ocultar a sessão {day}",
   "history.session.sub": "{date} · {sets} séries · {top} top · {vol} {unit}",
   "history.session.edit": "Editar",
-  "history.session.delete": "Excluir",
+  "history.session.delete": "Excluir sessão",
   "history.edit.cancel": "Cancelar",
   "history.edit.save": "Salvar alterações",
   "history.edit.remove_set": "Remover série",
