@@ -1962,6 +1962,14 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   border-radius:9px;cursor:pointer;font-size:13px;line-height:1}
 .ex__rest{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 .ex__skip{padding:0 10px;height:34px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:11px}
+/* Skipping is the rarest thing a lifter does to an exercise, and it was wearing
+   the same plate as the timer, the caret and the commit button. It keeps the
+   word — the control toggles to Restore, which no glyph says — and gives up the
+   plate, so the header carries two tools and one aside. A skipped card is the
+   exception: Restore is then the only action left on it, so it keeps the plate
+   that makes it reachable. */
+.exercise:not(.is-skipped) .ex__topend .ex__skip{border-color:transparent;background:transparent}
+.exercise:not(.is-skipped) .ex__topend .ex__skip:hover{color:var(--ink)}
 .exercise.is-skipped .heat,.exercise.is-skipped .rec,.exercise.is-skipped .setup,
 .exercise.is-skipped .subst,.exercise.is-skipped .prev,.exercise.is-skipped .delta-prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow,
 .exercise.is-skipped .rec__block,.exercise.is-skipped .insession,.exercise.is-skipped .rec-wrap,.exercise.is-skipped .curset{display:none}
