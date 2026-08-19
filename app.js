@@ -3421,7 +3421,6 @@ async function saveExNoteSheet(){
  * taken, a session is swapped, a day is skipped. The picker is how the lifter
  * takes another one from Today, instead of starting the wrong day to reach the
  * day tabs inside the workout. */
-let dayPickReturn=null;
 function dayPickRowHtml(d){
   const current=d===day,mus=dayMuscles(d);
   const sub=[mus.map(muscleLabel).join(" · "),t("today.exercise_count",{n:exercises(d).length})].filter(Boolean).join(" · ");
@@ -3437,12 +3436,10 @@ function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
 function openDayPickSheet(){
   const sheet=$("#dayPickSheet"),scrim=$("#dayPickScrim");
   if(!sheet)return;
-  dayPickReturn=document.activeElement;
   renderDayPickList();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
     initialFocus:$("#dayPickList .daypick__row.is-current")||$("#dayPickList .daypick__row"),
-    returnFocus:dayPickReturn,
     onEscape:closeDayPickSheet,
     scrim,
     delayHide:reducedMotion()?0:280
@@ -3452,7 +3449,6 @@ function closeDayPickSheet(){
   const sheet=$("#dayPickSheet");
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
-  dayPickReturn=null;
   return closeModal(sheet)}
 /** A picked day starts there, exactly as Up next and the session banner do. The
  *  discard prompt is answered while the sheet is still up, so declining it
