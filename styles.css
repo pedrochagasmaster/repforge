@@ -2810,7 +2810,11 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun-hero__body{
   grid-area:body;position:relative;z-index:1;width:min(100%,40ch);margin:0;justify-self:center;
-  white-space:pre-line;font-family:var(--mono);font-size:var(--poem);
+  /* Set in the body face, not the mono one. The passage is the app's own voice
+     introducing itself, and mono made it read as sample output beside the
+     headline it belongs to. Line breaks are copy here (ADR 0006), so the
+     measure below is checked against the face rather than assumed. */
+  white-space:pre-line;font-size:var(--poem);
   line-height:var(--poem-line);color:var(--ink);
 }
 .firstrun__lede{
