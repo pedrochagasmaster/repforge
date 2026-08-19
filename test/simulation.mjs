@@ -574,7 +574,7 @@ const LOAD_TOAST = {
     invalid: "That isn't a valid weight.",
   },
   pt: {
-    empty: "Insira uma carga antes de salvar a série.",
+    empty: "Digite uma carga antes de salvar a série.",
     invalid: "Essa carga não é válida.",
   },
 };
@@ -1391,9 +1391,9 @@ async function main() {
     .textContent()
     .catch(() => "");
   assert(
-    lastLine.includes("Last:"),
+    lastLine.includes("Last set"),
     "Renamed exercise still shows last session via exerciseId",
-    `Expected Last: line after rename, got "${lastLine}"`,
+    `Expected Last set line after rename, got "${lastLine}"`,
     "Rename exercise → Log tab → previous session should still display"
   );
 
@@ -2753,7 +2753,7 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      /rising/i.test(blockNote || ""),
+      /strength rose across 3 sessions/i.test(blockNote || ""),
       "Block-trend note reflects rising strength across the block",
       `note="${blockNote}"`,
       "Seed 3 rising in-range sessions → card shows a rising block-trend note"
@@ -2802,10 +2802,10 @@ async function main() {
       "Load bump mid-session → reps target is the capacity-predicted re-entry, above the range bottom"
     );
     assert(
-      /nudged up/i.test(dynUpNote || ""),
+      /exceeded the target.*increases to/is.test(dynUpNote || ""),
       "In-session note explains the upward nudge",
       `note="${dynUpNote}"`,
-      "Easy set 1 → highlighted 'nudged up' note"
+      "Easy set 1 → highlighted note explains the higher target"
     );
 
     // Editing a still-committed set must immediately recompute later suggestions.
@@ -2818,7 +2818,7 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      dynEditedLoad2 < dynBaseLoad2 && /fell short|eased/i.test(dynEditedNote || ""),
+      dynEditedLoad2 < dynBaseLoad2 && /missed the target.*decreases to/is.test(dynEditedNote || ""),
       "Editing a committed set refreshes its later load suggestion and note",
       `base2=${dynBaseLoad2} now=${dynEditedLoad2} note="${dynEditedNote}"`,
       "Save an easy set, then edit it below range → set 2 changes from up to down"
@@ -2852,7 +2852,7 @@ async function main() {
       "Save a below-range set 1 → set 2 suggested load decreases"
     );
     assert(
-      /abaixo da faixa|caiu para/i.test(dynDownNote || ""),
+      /abaixo da meta.*diminui para/is.test(dynDownNote || ""),
       "In-session note explains the downward ease in Portuguese",
       `note="${dynDownNote}"`,
       "Portuguese UI + short set 1 → localized highlighted note"
@@ -2862,7 +2862,7 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      /tendência do bloco|força subindo/i.test(blockNotePt || ""),
+      /força subiu em 3 sessões/i.test(blockNotePt || ""),
       "Block-trend note is localized in Portuguese",
       `note="${blockNotePt}"`,
       "Portuguese UI + seeded block trend → localized trend note"
@@ -2893,7 +2893,7 @@ async function main() {
     assert(
       tempered?.status === "add" &&
         tempered?.block?.dir === "falling" &&
-        /one step|not a big jump/i.test(tempered?.text || ""),
+        /smallest load increase/i.test(tempered?.text || ""),
       "Falling block trend tempers a bold double jump to one load step",
       JSON.stringify(tempered),
       "Seed falling e1RM trend + easy top-range latest session → Add load, not Add load ++"
@@ -3168,7 +3168,7 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      /should land at your usual effort/i.test(reentryNote || ""),
+      /start with \d+ reps at your usual effort/i.test(reentryNote || ""),
       "The re-entry note explains the new load's rep target",
       `note="${reentryNote}"`,
       "Add load with re-entry above the range bottom → log.insession.reentry renders"
@@ -3229,7 +3229,7 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      /trending down/i.test(dropNote || ""),
+      /reps have dropped in this session/i.test(dropNote || ""),
       "The anticipated-drop note names the trend, not the arithmetic",
       `note="${dropNote}"`,
       "Declining sets → log.insession.drop renders"
@@ -3263,7 +3263,7 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      steadySet2 < 8 && /holding/i.test(steadyNote || "") && !/trending down/i.test(steadyNote || ""),
+      steadySet2 < 8 && /stays at/i.test(steadyNote || "") && !/have dropped/i.test(steadyNote || ""),
       "A target eased only by the lifter's typical RIR is not reported as a downward trend",
       `set2 reps=${steadySet2} note="${steadyNote}"`,
       "One completed set of 8 @ RIR 1, typical RIR 2, no drop history → set 2 targets 7 reps with log.insession.hold, NOT log.insession.drop"
@@ -3381,8 +3381,8 @@ async function main() {
       .textContent()
       .catch(() => "");
     assert(
-      /ran hot today/i.test(temperNote || ""),
-      "The temper note names the signal, not the arithmetic",
+      /below their usual level/i.test(temperNote || ""),
+      "The temper note states the measured signal without exposing the arithmetic",
       `note="${temperNote}"`,
       "Tempered first set → log.insession.temper renders, with no percentages in the copy"
     );
@@ -3543,7 +3543,7 @@ async function main() {
         stalled: false,
         reenter: true,
         firstReps: 6,
-        label: /push reps/i,
+        label: /add reps/i,
         dates: ["2025-05-15"],
         session: (ex, date, i) => mixedRows(ex, date, 6, 2, `push_${i}`),
       },
@@ -4342,7 +4342,9 @@ async function main() {
   await page.waitForTimeout(80);
   assert(
     !(await page.locator("#glossary").getAttribute("class")).includes("hidden") &&
-      /reserve/i.test(await page.locator("#glossary .glossary__body").textContent()),
+      /reps you could still complete before failure/i.test(
+        await page.locator("#glossary .glossary__body").textContent()
+      ),
     "Glossary explains RIR on tap",
     "Glossary popover did not open with RIR definition",
     "Log → tap 'RIR' → definition popover opens"
@@ -5760,7 +5762,14 @@ async function main() {
     "Stats → Overview → #thisWeek shows improved/stable/attention"
   );
   const snap = await page.evaluate(() => window.__repforgeWeeklySnapshot());
-  const validStatuses = ["On track", "Productive week", "Under target", "High fatigue", "Needs more data", "Rebuilding"];
+  const validStatuses = [
+    "On track",
+    "PRs this week",
+    "Below session target",
+    "High fatigue",
+    "Needs more data",
+    "More sessions needed",
+  ];
   assert(
     snap && typeof snap === "object" && validStatuses.includes(snap.status),
     "weeklySnapshot returns object with valid status label",
@@ -6552,7 +6561,7 @@ async function main() {
   );
   const reviewText = await page.locator("#blockReview").textContent();
   assert(
-    /Recommendation:/i.test(reviewText) && /Why:/i.test(reviewText),
+    /Recommendation/i.test(reviewText) && /Why:/i.test(reviewText),
     "P8: block review panel shows recommendation and Why",
     reviewText?.slice(0, 160),
     "Program tab → End block → review panel opens"
@@ -7744,7 +7753,7 @@ async function main() {
     .textContent()
     .catch(() => "");
   assert(
-    /vs last:/.test(deltaPreview || ""),
+    /Change from last session/.test(deltaPreview || ""),
     "Log tab live delta preview vs last session",
     `Preview: ${deltaPreview || "(empty)"}`,
     "Enter draft kg/reps for an exercise with prior sessions"

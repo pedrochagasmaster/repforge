@@ -12,7 +12,7 @@
 "use strict";
 const EXERCISE_LIBRARY = [
   {id:"cd_mc",name:"Assisted chest dip (kneeling)",namePt:"Mergulho nas paralelas ajoelhado assistido",equipment:["machine"],primary:"Chest",secondary:"Triceps,Front delts",patterns:["press"],rank:50,beginnerFriendly:true,src:"exdb:0009"},
-  {id:"pd_bw",name:"Assisted pull-up",namePt:"Barra fixa assistido",equipment:["machine"],primary:"Lats",secondary:"Biceps,Forearms",patterns:["pulldown"],rank:0,beginnerFriendly:true,media:"assets/exercises/pd_bw.webp",mediaBg:"#efe4d3",src:"exdb:0017"},
+  {id:"pd_bw",name:"Assisted pull-up",namePt:"Barra fixa assistida",equipment:["machine"],primary:"Lats",secondary:"Biceps,Forearms",patterns:["pulldown"],rank:0,beginnerFriendly:true,media:"assets/exercises/pd_bw.webp",mediaBg:"#efe4d3",src:"exdb:0017"},
   {id:"trd_as",name:"Assisted triceps dip (kneeling)",namePt:"Mergulho de tríceps ajoelhado assistido",equipment:["machine"],primary:"Triceps",secondary:"Chest,Front delts",patterns:["triceps"],rank:50,beginnerFriendly:true,src:"exdb:0019"},
   {id:"sq_bb",name:"Barbell back squat",namePt:"Agachamento livre com barra",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Hamstrings,Calves",patterns:["squat"],rank:0,beginnerFriendly:false,media:"assets/exercises/sq_bb.webp",mediaBg:"#f0e6d6",src:"exdb:0043"},
   {id:"pr_bb",name:"Barbell bench press",namePt:"Supino com barra",equipment:["barbell"],primary:"Chest",secondary:"Triceps,Front delts",patterns:["press"],rank:0,beginnerFriendly:false,media:"assets/exercises/pr_bb.webp",mediaBg:"#eee3d0",src:"exdb:0025"},

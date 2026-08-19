@@ -342,7 +342,11 @@ async function run() {
   await finish(page);
   s = await readSummary(page);
   assert(!s.prBadges.length, "a lift with no history sets no personal record", JSON.stringify(s.prBadges));
-  assert(/baseline/i.test(s.baseline), "the screen says what a first session is instead", s.baseline);
+  assert(
+    /first session/i.test(s.baseline) && /compare/i.test(s.baseline),
+    "the screen says what a first session is instead",
+    s.baseline
+  );
   assert(!s.chips.length, "a baseline is not also counted as a new lift", JSON.stringify(s.chips));
   assert(
     s.statVals[0] === "1" && s.statCaps[0] === "set logged",
