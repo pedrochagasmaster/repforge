@@ -51,7 +51,7 @@ self.addEventListener("activate", event => {
 
 const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/manifest.webmanifest"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
-function shellPath(pathname) {
+function shellPathname(pathname) {
   if (!SCOPE_PATH) return pathname;
   return pathname === SCOPE_PATH ? "/" :
     pathname.startsWith(`${SCOPE_PATH}/`) ? pathname.slice(SCOPE_PATH.length) : pathname;
@@ -59,7 +59,7 @@ function shellPath(pathname) {
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  const path = shellPath(url.pathname);
+  const path = shellPathname(url.pathname);
   const isShell = event.request.mode === "navigate" ||
     SHELL.has(path) || SHELL.has(path.replace(/\/$/, "/index.html"));
   if (isShell) {
