@@ -68,7 +68,7 @@
   "log.save_meta.entered": "{day} · {entered}/{planned} entered",
   "log.save_meta.planned": "{day} · {planned} sets",
   "log.unfinished.title": "Unfinished session",
-  "log.unfinished.body": "You have unsaved sets. Finish on Today, then Save workout.",
+  "log.unfinished.body": "You have unsaved sets. Open Today and tap Finish workout.",
   "log.unfinished.dismiss": "Dismiss",
   "log.skipbar": "{n} hidden today",
   "log.skipbar.show_all": "Show all",
