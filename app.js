@@ -5152,13 +5152,24 @@ function renderAttention(){const el=$("#attention");if(!el)return;
   const groups=attentionGroups().filter(g=>g.key!=="add");
   if(!groups.length){el.innerHTML="";return}
   const n=attentionCount(groups);
-  const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
-    `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
+  const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>{
+    // A cause the whole group shares is stated once, above the lifts it holds:
+    // ten rows repeating "Primary muscle under weekly volume target." read as a
+    // rendering fault rather than as ten lifts sharing one reason. A group whose
+    // rows differ — "Last trained 15 days ago." beside 22 — keeps them, because
+    // hoisting one row's sentence would speak for the others.
+    const shared=items.length>1&&items.every(it=>it.why===items[0].why)?items[0].why:"";
+    return `<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
+    `<p class="attn__why${shared?"":" visually-hidden"}">${esc(items[0]?.why||"")}</p>`+
     items.map(({ex,why})=>{const dest=coachingDestLabel(key),destKey=coachingDestKey(key);
       // The destination is spoken, not printed: the chevron carries it for the
       // eye, and ten rows of "View trend" were charging the reason beside them
-      // for a word the row already implies.
-      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="coach-dest visually-hidden">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`).join("");
+      // for a word the row already implies. A shared reason goes the same way:
+      // the eye reads it once above the group, and each row keeps it in its own
+      // accessible name, so a row still answers "why" on its own.
+      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
+      `<div class="listrow__sub${shared?" visually-hidden":""}">${esc(why)}</div>`+
+      `</div><span class="coach-dest visually-hidden">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`}).join("");
   el.innerHTML=html;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
     if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}

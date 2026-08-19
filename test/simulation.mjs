@@ -1096,6 +1096,35 @@ async function main() {
     "No .attn__why found",
     "Stats Overview → each signal group has a why line"
   );
+  // A cause every lift in a group shares is stated once above them; a group
+  // whose lifts differ keeps the reason on each row. Either way the row's own
+  // accessible name still answers "why this lift".
+  const attnReasons = await page.evaluate(() =>
+    [...document.querySelectorAll("#attention .attn__grp")].map((g) => {
+      const why = g.querySelector(".attn__why");
+      const subs = [...g.querySelectorAll(".attn__chip .listrow__sub")];
+      return {
+        hoisted: !!why && !why.classList.contains("visually-hidden"),
+        identical: new Set(subs.map((s) => s.textContent.trim())).size === 1,
+        rows: subs.length,
+        subsPainted: subs.filter((s) => s.getBoundingClientRect().height > 2).length,
+        named: subs.every((s) => s.closest(".attn__chip").textContent.includes(s.textContent.trim())),
+      };
+    })
+  );
+  assert(
+    attnReasons.length > 0 &&
+      attnReasons.every((g) => g.hoisted === (g.rows > 1 && g.identical)),
+    "Attention hoists a reason only when every lift in the group shares it",
+    JSON.stringify(attnReasons),
+    "Stats Overview → compare a one-reason group against a mixed one"
+  );
+  assert(
+    attnReasons.every((g) => (g.hoisted ? g.subsPainted === 0 : g.subsPainted === g.rows) && g.named),
+    "A hoisted reason is drawn once but still named on every row it covers",
+    JSON.stringify(attnReasons),
+    "Stats Overview → inspect a group whose lifts share one reason"
+  );
   const attnGroups = await page.evaluate(() =>
     typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : null
   );
