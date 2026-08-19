@@ -20,6 +20,16 @@ Shadows deliberately stay literal. They are black in both themes because their
 job is to darken whatever is behind them, and the elevation they draw reads
 against `--surface` on `#141310` as well as it does on cream.
 
+One colour could not be reached by a token at all at first. A `<select>` cannot
+carry a pseudo-element, so its chevron is a `background-image` rather than a
+mask, and the ink was escaped into the SVG data URL as `%231B1A17` — invisible
+on the dark ground and invisible in review, because in light it is correct.
+That is now `--select-caret`, the one glyph that exists twice. It is also why
+`test/appearance.mjs` reads `styles.css` as text and fails on any colour outside
+the two palettes, whether spelled as a literal or escaped into a data URL. The
+allowlist it carries — shadows, and the two plates holding the app icon's own
+warm ground — is the full set of colours that are deliberately theme-independent.
+
 The palette is warm charcoal rather than neutral grey. The burnt orange, the 96
 licensed exercise illustrations and the app icon were all drawn on warm paper,
 and a grey ground puts them on a different object. Two roles invert rather than

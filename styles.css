@@ -74,6 +74,10 @@
    * platform hands us: SF Pro on iOS draws a proper arrow, while Android
    * lands on a symbol fallback that ignores our weight and sits off-centre
    * against the label. A mask renders identically everywhere. */
+  /* A <select> cannot carry a pseudo-element, so its chevron is a background
+     image rather than a mask, and the ink has to be baked into the SVG. That
+     is why this one glyph exists twice instead of following currentColor. */
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
   --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15'/%3E%3Cpolyline points='13.2 6.2 19 12 13.2 17.8'/%3E%3C/svg%3E");
 }
 
@@ -122,6 +126,7 @@
   --dock-sheen:rgba(255,255,255,.07);
   --dock-pill:rgba(255,255,255,.10);
   --dock-pill-sheen:rgba(255,255,255,.08);
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
 }
 
 *{box-sizing:border-box}
@@ -526,7 +531,7 @@ div.settings-row{cursor:default}
   appearance:none;-webkit-appearance:none;border:0;background-color:transparent;
   margin:0;padding:0 18px 0 0;width:auto;min-width:0;text-align:right;color:var(--ink);
   font-size:16px;border-radius:0;box-shadow:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image:var(--select-caret);
   background-position:right center;background-size:14px 14px;background-repeat:no-repeat;
 }
 .settings-row select:focus,.select-flat:focus{box-shadow:none;border:0}
@@ -2436,7 +2441,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .strength-pick select,.select-flat{
   appearance:none;-webkit-appearance:none;border:0;background-color:transparent;margin:0;padding:8px 22px 8px 0;
   width:auto;max-width:100%;text-align:left;color:var(--ink);font-size:16px;font-weight:600;border-radius:0;box-shadow:none;
-  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  background-image:var(--select-caret);
   background-position:right center;background-size:14px 14px;background-repeat:no-repeat;
 }
 .strength-pick select:focus,.select-flat:focus{box-shadow:none}

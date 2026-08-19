@@ -10,9 +10,13 @@
  * showing the old palette, that browser chrome tracks the paper, and that none
  * of it leaks into the training state or a setup link.
  */
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
 import { MINIMAL_PAYLOAD, BUILT_IN_IDS, cloneFixture } from "./fixtures/shared-setup.mjs";
 
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const UIKEY = "repforge_ui_v1";
@@ -120,6 +124,69 @@ async function checkContrast(page, label) {
       `measured ${ratio.toFixed(2)}:1 (${tokens[fg]} on ${tokens[bg]})`
     );
   }
+}
+
+// ---- The palette is the only place a colour lives ---------------------------
+// A rule that names a colour instead of a token is invisible in light and
+// broken in dark — the select chevron shipped its ink inside an SVG data URL
+// and vanished on the dark ground. So the stylesheet is read as text: outside
+// the two :root blocks, only these literals are allowed to remain.
+//
+// Shadows are black in both themes because their job is to darken what is
+// behind them, and the two plates carry the app icon's own warm ground.
+const LITERAL_ALLOWLIST = [
+  { re: /rgba\(0,0,0,[.\d]+\)/g, why: "shadow" },
+  { re: /rgba\(27,26,23,[.\d]+\)/g, why: "shadow" },
+  { re: /rgba\(23,23,25,[.\d]+\)/g, why: "shadow" },
+  { re: /#161513(?=\s+url)/g, why: "install-banner icon plate" },
+  { re: /#efe5df/g, why: "settings identity icon plate" },
+];
+
+function stylesheetOutsideTokens() {
+  const css = readFileSync(join(ROOT, "styles.css"), "utf8");
+  // Both palettes are one top-level block each, so the first "\n}" closes them.
+  let out = css.replace(/\/\*[\s\S]*?\*\//g, "");
+  for (const open of [":root{", ':root[data-theme="dark"]{']) {
+    const start = out.indexOf(open);
+    if (start < 0) throw new Error(`${open} not found in styles.css`);
+    const end = out.indexOf("\n}", start);
+    if (end < 0) throw new Error(`${open} is unterminated`);
+    out = out.slice(0, start) + out.slice(end + 2);
+  }
+  // A component-scoped custom property is still a token — --exercise-art-bg is
+  // the paper the licensed artwork sits on, and it is theme-independent on
+  // purpose. What the scan is after is a *rule* naming a colour.
+  return out.replace(/--[\w-]+\s*:[^;}]*/g, "");
+}
+
+function runPaletteIsTheOnlyPlace() {
+  console.log("\n0. Every colour outside the two palettes is a token");
+  const body = stylesheetOutsideTokens();
+
+  // Colours escaped into SVG data URLs. A mask takes its colour from
+  // currentColor and only needs a shape, so `black` there is fine; a %23 hex is
+  // ink that cannot follow the theme.
+  const escaped = [...body.matchAll(/%23[0-9a-fA-F]{3,6}/g)].map((m) => m[0]);
+  assert(!escaped.length, "No colour is baked into an SVG data URL", escaped.join(", "));
+
+  let scrubbed = body;
+  for (const { re } of LITERAL_ALLOWLIST) scrubbed = scrubbed.replace(re, "");
+  // Mask shapes are declared with a literal `black`/`white` stroke or fill.
+  scrubbed = scrubbed.replace(/data:image\/svg\+xml,[^"')]+/g, "");
+
+  const literals = [
+    ...scrubbed.matchAll(/#[0-9a-fA-F]{3,8}\b/g),
+    ...scrubbed.matchAll(/\b(?:rgba?|hsla?)\(\s*[\d.]/g),
+  ].map((m) => m[0]);
+  assert(
+    !literals.length,
+    "No rule outside the palettes names a colour",
+    literals.slice(0, 12).join(", ")
+  );
+
+  // The allowlist should shrink, never quietly become dead weight.
+  const unused = LITERAL_ALLOWLIST.filter(({ re }) => !new RegExp(re.source).test(body));
+  assert(!unused.length, "Every allowlisted literal is still in use", unused.map((u) => u.why).join(", "));
 }
 
 // ---- Suites -----------------------------------------------------------------
@@ -313,6 +380,7 @@ async function runStaysOutOfTrainingData(browser) {
 async function main() {
   console.log("Appearance / dark theme");
   console.log(`Target: ${BASE}`);
+  runPaletteIsTheOnlyPlace();
   const browser = await launchChromium();
   try {
     await runSystemDefault(browser);
