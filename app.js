@@ -3440,9 +3440,9 @@ function dayPickRowHtml(d,i){
   return `<button type="button" class="daypick__row${d===dayPickSelected?" is-selected":""}" data-daypick="${esc(d)}"`+
     ` aria-pressed="${d===dayPickSelected?"true":"false"}" aria-label="${esc(aria)}">`+
     `<span class="daypick__n" aria-hidden="true">${esc(String(i+1))}</span>`+
-    `<span class="daypick__main"><span class="daypick__title">${esc(title)}</span>`+
-    `<span class="daypick__sub">${esc(sub)}</span></span>`+
+    `<span class="daypick__main"><span class="daypick__line"><span class="daypick__title">${esc(title)}</span>`+
     (isToday?`<span class="daypick__chip">${esc(chip)}</span>`:"")+
+    `</span><span class="daypick__sub">${esc(sub)}</span></span>`+
     `</button>`}
 function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
   list.innerHTML=days().map(dayPickRowHtml).join("");
