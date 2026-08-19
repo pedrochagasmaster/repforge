@@ -2,7 +2,7 @@ const CACHE = "repforge-v105";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./shared-setup.js", "./shared-setup.js?v=104", "./app.js", "./app.js?v=104",
+  "./shared-setup.js", "./shared-setup.js?v=105", "./app.js", "./app.js?v=105",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
