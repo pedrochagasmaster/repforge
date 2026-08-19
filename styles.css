@@ -46,6 +46,9 @@
   /* Scrims stay dark in both themes: they exist to push the page back. */
   --scrim:rgba(27,26,23,.42);
   --radius:14px;
+  /* Settings is one text column: the caption of a group, the label of every row
+     in it, and the rule between those rows all begin at this inset. */
+  --settings-inset:16px;
   /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
      safe area, inset --dock-inset from each edge. --nav stays the single
      "space the dock claims at the bottom" token every other floating element
@@ -140,16 +143,6 @@
    controls that were obvious as white fields on cream become adjacent dark
    rectangles. These few rules restore the light theme's hierarchy without
    adding cards or glow. */
-:root[data-theme="dark"] .settings-group,
-:root[data-theme="dark"] .settings-group__box{
-  background:transparent;
-  border:0;
-  border-radius:0;
-  overflow:visible;
-}
-:root[data-theme="dark"] .settings-row{
-  background:transparent;
-}
 :root[data-theme="dark"] .setrow input,
 :root[data-theme="dark"] .kg,
 :root[data-theme="dark"] .saveset,
@@ -574,31 +567,47 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 }
 .card--danger{border-color:rgba(var(--danger-rgb),.25)}
 .card--flat{background:transparent;border:0;border-radius:0;padding:0}
-.settings-group{margin-bottom:22px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden}
-.settings-group > .lede{font-size:12px;text-transform:none;letter-spacing:0;font-weight:400;padding:0 14px 12px;margin:0;color:var(--ink-soft)}
+/* Settings is a list of rows, not a stack of cards. A box drawn around every
+   group spends a border, a radius and a fill to say what the caption above it
+   and the space below it already say — and it said it in one theme only, since
+   dark dropped the boxes years ago and read the better for it. Unboxed, the
+   space before a caption *is* the boundary, so it has to be wide enough to be
+   read as one: 34px above a caption against 8px below it. */
+.settings-group{margin-bottom:34px}
+.settings-group > .lede{font-size:12px;text-transform:none;letter-spacing:0;font-weight:400;padding:0 0 12px;margin:0;color:var(--ink-soft)}
 .settings-group__label{
   font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink-faint);margin:0 0 8px 4px;
-}
-.settings-group__box{
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden;
+  color:var(--ink-faint);margin:0 0 8px var(--settings-inset);
 }
 .settings-row{
-  display:flex;align-items:center;gap:12px;min-height:56px;padding:12px 16px;
-  border:0;border-bottom:1px solid var(--rule);background:var(--surface);
+  position:relative;
+  display:flex;align-items:center;gap:12px;min-height:56px;padding:12px var(--settings-inset);
+  border:0;background:transparent;
   width:100%;text-align:left;appearance:none;cursor:pointer;
 }
+/* The rule goes above each row rather than below it, and starts where the row's
+   label does. A line run edge to edge reads as a page separator; one held to
+   the text column reads as the rows belonging to each other. Drawing it above
+   also keeps a row joined to whatever it opens or explains: the caption under a
+   toggle, and the panel under a disclosure, are the tail of that row, so the
+   next rule falls after them where the next row begins. */
+.settings-row::before{
+  content:"";position:absolute;left:var(--settings-inset);right:0;top:0;height:1px;background:var(--rule);
+}
 div.settings-row{cursor:default}
-.settings-row:last-child{border-bottom:0}
+.settings-row:first-child::before{display:none}
 .settings-row__label{flex:1;min-width:0;font-size:16px;font-weight:500;color:var(--ink)}
 .settings-row__cap{display:block;font-size:12px;color:var(--ink-soft);font-weight:400;margin-top:2px}
 .settings-row__value{flex:none;margin-left:auto;display:inline-flex;align-items:center;gap:8px;color:var(--ink-soft);font-size:15px}
 .settings-row__chev,.settings-row .chevron{color:var(--ink-faint);flex:none}
 .settings-row--danger .settings-row__label,.settings-row.is-danger .settings-row__label{color:var(--danger)}
+/* The one row that is still a box: a destructive action is not part of the
+   list above it, and the outline is what says so. */
 .settings-row.is-danger,#reset.settings-row{
-  margin-top:24px;border:1px solid var(--rule);border-radius:var(--radius);border-bottom:1px solid var(--rule);
+  margin-top:24px;border:1px solid var(--rule);border-radius:var(--radius);
   min-height:56px;
 }
+.settings-row.is-danger::before,#reset.settings-row::before{display:none}
 .settings-row select,.select-flat{
   appearance:none;-webkit-appearance:none;border:0;background-color:transparent;
   margin:0;padding:0 18px 0 0;width:auto;min-width:0;text-align:right;color:var(--ink);
@@ -2652,11 +2661,12 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .settings-identity__mark img{display:block;width:100%;height:100%;object-fit:cover}
 .settings-identity__name{font-size:17px;font-weight:600}
 .settings-identity__cap{font-size:13px;color:var(--ink-soft);margin-top:2px}
-.settings-panel{display:none;padding:4px 14px 14px;border-bottom:1px solid var(--rule);background:var(--surface)}
+/* A panel is the tail of the row that opened it: it shares that row's text
+   column, and the rule that closes it is the next row's. */
+.settings-panel{display:none;padding:4px var(--settings-inset) 14px;background:transparent}
 .settings-panel.is-open{display:block}
-.settings-group .settings-panel:last-child{border-bottom:0}
-.settings-group .field,.settings-group .lede,.settings-group .rirmode{margin-left:14px;margin-right:14px}
-.settings-group .notifytypes .field--check{margin-left:-14px;margin-right:-14px;padding:2px 14px}
+.settings-group > .field,.settings-group > .lede,.settings-group > .rirmode{margin-left:var(--settings-inset);margin-right:var(--settings-inset)}
+.settings-group .notifytypes .field--check{margin-left:calc(var(--settings-inset) * -1);margin-right:calc(var(--settings-inset) * -1);padding:2px var(--settings-inset)}
 .settings-group > .lede{padding-bottom:10px}
 .blockreview__head{display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:18px;min-height:44px}
 .blockreview__head .back-link{position:absolute;left:0}
