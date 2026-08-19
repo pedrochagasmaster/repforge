@@ -696,16 +696,18 @@
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
-    <div class="sheet__head">
-      <button type="button" class="sheet__act" id="dayPickCancel" data-i18n="dialog.cancel">Cancel</button>
+    <div class="sheet__head sheet__head--stack">
       <div class="sheet__titles">
-        <p class="sheet__title" id="dayPickTitle" data-i18n="today.choose_day_title">Choose a day</p>
-        <p class="sheet__sub" data-i18n="today.choose_day_sub">Start any day of your program.</p>
+        <p class="sheet__title" id="dayPickTitle" data-i18n="today.choose_day_title">Choose another day</p>
+        <p class="sheet__sub" data-i18n="today.choose_day_sub">Pick which day of your program to train today.</p>
       </div>
-      <span class="sheet__spacer" aria-hidden="true"></span>
     </div>
     <div class="sheet__body daypick__body">
-      <div id="dayPickList" class="daypick__list"></div>
+      <div id="dayPickList" class="daypick__list" role="group" aria-labelledby="dayPickTitle"></div>
+    </div>
+    <div class="sheet__foot sheet__foot--stack">
+      <button type="button" class="btn btn--cta btn--noarrow" id="dayPickConfirm" data-i18n="today.choose_day_confirm">Confirm day</button>
+      <button type="button" class="text-link text-link--center" id="dayPickCancel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </div>
   <div id="programTextScrim" class="sheet-scrim hidden"></div>

@@ -3421,25 +3421,51 @@ async function saveExNoteSheet(){
  * taken, a session is swapped, a day is skipped. The picker is how the lifter
  * takes another one from Today, instead of starting the wrong day to reach the
  * day tabs inside the workout. */
-function dayPickRowHtml(d){
-  const current=d===day,mus=dayMuscles(d);
-  const sub=[mus.map(muscleLabel).join(" · "),t("today.exercise_count",{n:exercises(d).length})].filter(Boolean).join(" · ");
-  return `<button type="button" class="listrow daypick__row${current?" is-current":""}" data-daypick="${esc(d)}"${current?' aria-current="true"':""}>`+
-    `<div class="listrow__main"><div class="listrow__title">${esc(dayLabel(d))}</div>`+
-    `<div class="listrow__sub">${esc(sub)}</div></div>`+
-    `<span class="listrow__value">`+
-    (current?`<span class="daypick__now">${esc(t("today.session_label"))}</span>`:"")+
-    `<span class="chevron" aria-hidden="true"></span></span></button>`}
+/** The day the sheet is armed on: chosen, not yet started. */
+let dayPickSelected=null;
+/* A default-named day is already numbered by its badge, so "Day 3 / Day 3" is
+ * two labels for nothing: the row leads with what that day trains instead. A day
+ * the lifter named leads with the name, and keeps the muscles in the line under
+ * it. */
+function dayPickRowHtml(d,i){
+  const named=!DEFAULT_DAY_NAME.test(String(d).trim()),label=dayLabel(d);
+  const muscles=dayMuscles(d).map(muscleLabel).join(" · ");
+  const count=t("today.exercise_count",{n:exercises(d).length});
+  const title=named?label:(muscles||label);
+  const sub=named&&muscles?`${muscles} · ${count}`:count;
+  const isToday=d===day,chip=t("today.choose_day_current");
+  // The badge is a numeral, so the day it stands for is spelled out for anyone
+  // who only hears the row.
+  const aria=[label,title===label?"":title,sub,isToday?chip:""].filter(Boolean).join(" · ");
+  return `<button type="button" class="daypick__row${d===dayPickSelected?" is-selected":""}" data-daypick="${esc(d)}"`+
+    ` aria-pressed="${d===dayPickSelected?"true":"false"}" aria-label="${esc(aria)}">`+
+    `<span class="daypick__n" aria-hidden="true">${esc(String(i+1))}</span>`+
+    `<span class="daypick__main"><span class="daypick__title">${esc(title)}</span>`+
+    `<span class="daypick__sub">${esc(sub)}</span></span>`+
+    (isToday?`<span class="daypick__chip">${esc(chip)}</span>`:"")+
+    `</button>`}
 function renderDayPickList(){const list=$("#dayPickList");if(!list)return;
   list.innerHTML=days().map(dayPickRowHtml).join("");
-  $$("#dayPickList [data-daypick]").forEach(b=>b.onclick=()=>pickWorkoutDay(b.dataset.daypick))}
+  $$("#dayPickList [data-daypick]").forEach(b=>b.onclick=()=>armPickerDay(b.dataset.daypick))}
+/** Arming repaints in place rather than rebuilding the list, so the row the
+ *  keyboard is on is still there to keep the focus. */
+function paintDayPickList(){
+  $$("#dayPickList [data-daypick]").forEach(b=>{
+    const on=b.dataset.daypick===dayPickSelected;
+    b.classList.toggle("is-selected",on);
+    b.setAttribute("aria-pressed",on?"true":"false")})}
+function armPickerDay(d){
+  if(!d||!days().includes(d))return;
+  dayPickSelected=d;
+  paintDayPickList()}
 function openDayPickSheet(){
   const sheet=$("#dayPickSheet"),scrim=$("#dayPickScrim");
   if(!sheet)return;
+  dayPickSelected=day;
   renderDayPickList();
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
-    initialFocus:$("#dayPickList .daypick__row.is-current")||$("#dayPickList .daypick__row"),
+    initialFocus:$("#dayPickList .daypick__row.is-selected")||$("#dayPickList .daypick__row"),
     onEscape:closeDayPickSheet,
     scrim,
     delayHide:reducedMotion()?0:280
@@ -3450,10 +3476,11 @@ function closeDayPickSheet(){
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   return closeModal(sheet)}
-/** A picked day starts there, exactly as Up next and the session banner do. The
- *  discard prompt is answered while the sheet is still up, so declining it
- *  leaves the picker open on the day already loaded. */
-async function pickWorkoutDay(next){
+/** Confirming starts the armed day, exactly as Up next and the session banner
+ *  do. The discard prompt is answered while the sheet is still up, so declining
+ *  it leaves the picker open on the day already loaded. */
+async function confirmPickerDay(){
+  const next=dayPickSelected;
   if(!next||!days().includes(next))return;
   if(!requestWorkoutDay(next))return;
   await closeDayPickSheet();
@@ -7968,6 +7995,7 @@ function init(){
   const noteScrim=$("#exNoteScrim");if(noteScrim)noteScrim.onclick=closeExNoteSheet;
   const dayPickCancel=$("#dayPickCancel");if(dayPickCancel)dayPickCancel.onclick=closeDayPickSheet;
   const dayPickScrim=$("#dayPickScrim");if(dayPickScrim)dayPickScrim.onclick=closeDayPickSheet;
+  const dayPickOk=$("#dayPickConfirm");if(dayPickOk)dayPickOk.onclick=()=>confirmPickerDay();
   const pkCancel=$("#exPickCancel");if(pkCancel)pkCancel.onclick=closeExercisePicker;
   const pkScrim=$("#exPickScrim");if(pkScrim)pkScrim.onclick=closeExercisePicker;
   const pkDone=$("#exPickDone");if(pkDone)pkDone.onclick=confirmPickerSelection;

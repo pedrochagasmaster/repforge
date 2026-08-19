@@ -124,11 +124,15 @@ async function view(page) {
       locked: document.body.classList.contains("is-sheet-open"),
       rows: [...document.querySelectorAll("#dayPickList [data-daypick]")].map((b) => ({
         day: b.dataset.daypick,
-        title: b.querySelector(".listrow__title")?.textContent?.trim() || "",
-        sub: b.querySelector(".listrow__sub")?.textContent?.trim() || "",
-        current: b.classList.contains("is-current"),
-        marked: b.getAttribute("aria-current") === "true",
+        n: b.querySelector(".daypick__n")?.textContent?.trim() || "",
+        title: b.querySelector(".daypick__title")?.textContent?.trim() || "",
+        sub: b.querySelector(".daypick__sub")?.textContent?.trim() || "",
+        chip: b.querySelector(".daypick__chip")?.textContent?.trim() || "",
+        armed: b.classList.contains("is-selected"),
+        pressed: b.getAttribute("aria-pressed") === "true",
+        aria: b.getAttribute("aria-label") || "",
       })),
+      confirmText: document.querySelector("#dayPickConfirm")?.textContent?.trim() || "",
       day: document.querySelector("#woDayTitle")?.textContent?.trim() || "",
       todayName: document.querySelector("#todaySession .today-session__name")?.textContent?.trim() || "",
       workoutOpen: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
@@ -136,7 +140,8 @@ async function view(page) {
       focus: document.activeElement?.id || document.activeElement?.dataset?.daypick || "",
       i18n: {
         chooseDay: window.RepForgeI18n.t("today.choose_day"),
-        sessionLabel: window.RepForgeI18n.t("today.session_label"),
+        current: window.RepForgeI18n.t("today.choose_day_current"),
+        confirm: window.RepForgeI18n.t("today.choose_day_confirm"),
       },
     };
   });
@@ -163,9 +168,9 @@ const browser = await launchChromium();
 const errors = [];
 
 // ---------------------------------------------------------------------------
-// 1. The picker lists the whole split and starts the day it is handed
+// 1. The picker lists the whole split, arms a day, and starts it on confirm
 // ---------------------------------------------------------------------------
-phase("Today offers the picker, and a picked day starts");
+phase("Today offers the picker, and a confirmed day starts");
 {
   const { context, page } = await freshPage(browser);
   page.on("pageerror", (e) => errors.push(String(e.message)));
@@ -189,25 +194,66 @@ phase("Today offers the picker, and a picked day starts");
     JSON.stringify({ rows: opened.rows.map((r) => r.day), days })
   );
   assert(
-    opened.rows.filter((r) => r.current).length === 1 && opened.rows[0].current && opened.rows[0].marked,
-    "the day Today leads with is the one marked as current",
+    opened.rows.every((r, i) => r.n === String(i + 1)),
+    "each row is numbered by its place in the split",
+    JSON.stringify(opened.rows.map((r) => r.n))
+  );
+  assert(
+    opened.rows.every((r) => r.title && !/^Day \d+$/.test(r.title)),
+    "a default-named day leads with what it trains, not with the number its badge already carries",
+    JSON.stringify(opened.rows.map((r) => r.title))
+  );
+  assert(/\d/.test(opened.rows[0].sub), "each row says how much the day holds", opened.rows[0].sub);
+  assert(
+    opened.rows.filter((r) => r.chip).length === 1 && opened.rows[0].chip === opened.i18n.current,
+    "only the day Today leads with carries the Today chip",
+    JSON.stringify(opened.rows.map((r) => r.chip))
+  );
+  assert(
+    opened.rows.every((r) => r.aria.includes(r.day)),
+    "the row names its day for anyone who cannot see the badge",
+    JSON.stringify(opened.rows.map((r) => r.aria))
+  );
+  assert(
+    opened.rows.filter((r) => r.armed).length === 1 && opened.rows[0].armed && opened.rows[0].pressed,
+    "the picker opens armed on the day Today is already on",
     JSON.stringify(opened.rows)
   );
-  assert(/\d/.test(opened.rows[0].sub), "each row says what the day holds", opened.rows[0].sub);
-  assert(opened.focus === days[0], "focus opens on the current day's row", opened.focus);
+  assert(opened.confirmText === opened.i18n.confirm, "the CTA reads from the catalog", opened.confirmText);
+  assert(opened.focus === days[0], "focus opens on the armed row", opened.focus);
 
+  // Arming is not starting: the sheet stays up until the CTA commits the choice.
   await page.click(`[data-daypick="${days[2]}"]`);
+  await page.waitForTimeout(120);
+  const armed = await view(page);
+  assert(
+    armed.sheetOpen && !armed.workoutOpen && armed.day === days[0],
+    "tapping a row arms it without starting anything",
+    JSON.stringify({ open: armed.sheetOpen, workout: armed.workoutOpen, day: armed.day })
+  );
+  assert(
+    armed.rows.filter((r) => r.armed).length === 1 && armed.rows[2].armed && armed.rows[2].pressed,
+    "the armed row moves to the tapped day, and only that row",
+    JSON.stringify(armed.rows.map((r) => ({ day: r.day, armed: r.armed })))
+  );
+  assert(
+    armed.rows[0].chip === armed.i18n.current && !armed.rows[2].chip,
+    "the Today chip stays on today's day while another is armed",
+    JSON.stringify(armed.rows.map((r) => r.chip))
+  );
+
+  await page.click("#dayPickConfirm");
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   await page.waitForTimeout(320);
   const started = await view(page);
   const toast = await page.evaluate(() => document.querySelector("#toast")?.textContent?.trim() || "");
-  assert(!started.sheetOpen && !started.locked, "picking a day closes the sheet and releases the page", JSON.stringify(started));
+  assert(!started.sheetOpen && !started.locked, "confirming closes the sheet and releases the page", JSON.stringify(started));
   assert(
     started.workoutOpen && started.day === days[2] && started.activeTab === days[2],
-    "the workout opens on the picked day",
+    "the workout opens on the confirmed day",
     JSON.stringify(started)
   );
-  assert(toast.includes(days[2]), "the picked day is announced", toast);
+  assert(toast.includes(days[2]), "the confirmed day is announced", toast);
   assert(
     await page.evaluate(() => document.body.classList.contains("is-focus-wo")),
     "it enters the same Focus layout the start CTA does"
@@ -218,9 +264,19 @@ phase("Today offers the picker, and a picked day starts");
   const back = await view(page);
   assert(
     back.todayName === days[2] && back.day === days[2],
-    "leaving the workout leaves Today on the day that was picked",
+    "leaving the workout leaves Today on the day that was confirmed",
     JSON.stringify(back)
   );
+
+  await openPicker(page);
+  const reopened = await view(page);
+  assert(
+    reopened.rows[2].chip === reopened.i18n.current && reopened.rows[2].armed && !reopened.rows[0].chip,
+    "reopening the picker follows the day Today now leads with",
+    JSON.stringify(reopened.rows.map((r) => ({ day: r.day, chip: r.chip, armed: r.armed })))
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(420);
   await context.close();
 }
 
@@ -245,18 +301,33 @@ phase("dismissing the picker changes nothing");
   );
   assert(escaped.focus === "chooseAnotherDay", "focus returns to the button that opened it", escaped.focus);
 
+  // A day armed and then abandoned is a choice never made.
   await openPicker(page);
+  const days = await page.evaluate((k) => [
+    ...new Set(JSON.parse(localStorage.getItem(k) || "{}").program.map((e) => e.day)),
+  ], KEY);
+  await page.click(`[data-daypick="${days[1]}"]`);
+  await page.waitForTimeout(120);
   await page.click("#dayPickCancel");
   await page.waitForTimeout(420);
   const cancelled = await view(page);
   assert(
     !cancelled.sheetOpen && !cancelled.workoutOpen && cancelled.day === before.day,
-    "Cancel does the same",
+    "Cancel drops an armed day instead of applying it",
     JSON.stringify(cancelled)
   );
+  await openPicker(page);
+  const rearmed = await view(page);
+  assert(
+    rearmed.rows[0].armed && !rearmed.rows[1].armed,
+    "and the picker reopens armed on today's day, not on the abandoned one",
+    JSON.stringify(rearmed.rows.map((r) => ({ day: r.day, armed: r.armed })))
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(420);
 
   // The sheet is a list of buttons, so a swipe that ends over one must dismiss
-  // rather than start the day the thumb happens to be resting on.
+  // rather than arm the day the thumb happens to be resting on.
   await openPicker(page);
   const rail = await page.locator("#dayPickSheet .sheet__head").boundingBox();
   const from = { x: Math.round(rail.x + rail.width / 2), y: Math.round(rail.y + rail.height / 2) };
@@ -271,9 +342,18 @@ phase("dismissing the picker changes nothing");
   const swiped = await view(page);
   assert(
     !swiped.sheetOpen && !swiped.locked && !swiped.workoutOpen && swiped.day === before.day,
-    "a swipe down dismisses the sheet without starting the day under the thumb",
+    "a swipe down dismisses the sheet without arming the day under the thumb",
     JSON.stringify(swiped)
   );
+  await openPicker(page);
+  const afterSwipe = await view(page);
+  assert(
+    afterSwipe.rows[0].armed,
+    "the swipe left the armed day where it was",
+    JSON.stringify(afterSwipe.rows.map((r) => ({ day: r.day, armed: r.armed })))
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(420);
   await context.close();
 }
 
@@ -312,20 +392,31 @@ phase("an in-progress session is protected by the discard prompt");
 
   await openPicker(page);
   await page.click(`[data-daypick="${days[1]}"]`);
+  await page.waitForTimeout(120);
+  const armedOnly = await view(page);
+  assert(dialogs === 0, "arming a day asks nothing — it discards nothing", String(dialogs));
+  assert(armedOnly.rows[1].armed, "the other day is armed", JSON.stringify(armedOnly.rows.map((r) => r.armed)));
+
+  await page.click("#dayPickConfirm");
   await page.waitForTimeout(420);
   const declined = await view(page);
   const draftAfter = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
-  assert(dialogs === 1, "picking another day with sets logged asks before discarding", String(dialogs));
+  assert(dialogs === 1, "confirming another day with sets logged asks before discarding", String(dialogs));
   assert(declined.sheetOpen, "declining leaves the picker open", JSON.stringify(declined));
   assert(
     !declined.workoutOpen && declined.day === days[0],
     "declining starts nothing and keeps the day the draft belongs to",
     JSON.stringify(declined)
   );
+  assert(
+    declined.rows[1].armed,
+    "declining leaves the choice armed, so the CTA can be answered again",
+    JSON.stringify(declined.rows.map((r) => ({ day: r.day, armed: r.armed })))
+  );
   assert(draftAfter === draftBefore, "declining keeps the draft byte for byte", `${draftBefore} → ${draftAfter}`);
 
   answer = "accept";
-  await page.click(`[data-daypick="${days[1]}"]`);
+  await page.click("#dayPickConfirm");
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   await page.waitForTimeout(320);
   const accepted = await view(page);
@@ -375,7 +466,43 @@ phase("the picker is only offered when there is another day to start");
 }
 
 // ---------------------------------------------------------------------------
-// 5. Page furniture stays behind the sheet it would otherwise cover
+// 5. A day the lifter named leads with that name
+// ---------------------------------------------------------------------------
+phase("named days keep their names");
+{
+  const { context, page } = await freshPage(browser);
+  page.on("pageerror", (e) => errors.push(String(e.message)));
+  const state = await readState(page);
+  const second = [...new Set(state.program.map((e) => e.day))][1];
+  const NAME = "Back and biceps";
+  await persistState(page, {
+    ...state,
+    program: state.program.map((e) => (e.day === second ? { ...e, day: NAME } : e)),
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+
+  await openPicker(page);
+  const rows = (await view(page)).rows;
+  const named = rows.find((r) => r.day === NAME);
+  assert(named?.title === NAME, "the row leads with the name the day was given", JSON.stringify(named));
+  assert(
+    named && /[A-Za-z]/.test(named.sub.replace(/\d/g, "")) && /\d/.test(named.sub),
+    "the muscles it trains move to the line below, with the count",
+    named?.sub
+  );
+  assert(
+    rows.every((r, i) => r.n === String(i + 1)),
+    "the badges still number the split in order",
+    JSON.stringify(rows.map((r) => r.n))
+  );
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(420);
+  await context.close();
+}
+
+// ---------------------------------------------------------------------------
+// 6. Page furniture stays behind the sheet it would otherwise cover
 // ---------------------------------------------------------------------------
 phase("nothing floats over the open sheet");
 {

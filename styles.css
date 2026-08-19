@@ -1370,13 +1370,36 @@ body.is-sheet-open{overflow:hidden}
 
 /* ---- Choose-another-day sheet ---- */
 /* One row per day of the split, so the sheet is as tall as the program is long
-   and only scrolls when a long split outgrows the screen. */
+   and only scrolls when a long split outgrows the screen. Arming a day is not
+   starting it — switching days can discard a session in progress — so the rows
+   read as a set of choices and the CTA below them is what commits one. */
 .sheet--daypick{height:auto}
-.daypick__body{flex-direction:column;overflow:hidden;padding-bottom:calc(8px + env(safe-area-inset-bottom))}
+.sheet__head--stack{grid-template-columns:1fr;padding:4px 16px 14px}
+.sheet__head--stack .sheet__titles{text-align:left}
+.sheet__head--stack .sheet__title{font-size:20px;letter-spacing:-.01em}
+/* The head's one-line sub is a caption for a title; this one is a sentence. */
+.sheet__head--stack .sheet__sub{white-space:normal;overflow:visible;margin-top:4px;line-height:1.4}
+.daypick__body{flex-direction:column;overflow:hidden;padding:0 16px}
 .daypick__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.daypick__row{
+  display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:12px 12px 12px 9px;
+  background:none;border:0;border-bottom:1px solid var(--rule);border-left:3px solid transparent;
+  cursor:pointer;text-align:left;font:inherit;color:inherit;
+}
 .daypick__row:last-child{border-bottom:0}
-.daypick__now{font-size:13px;color:var(--ink-soft)}
-.daypick__row.is-current .listrow__title{color:var(--accent-deep)}
+.daypick__row.is-selected{border-left-color:var(--accent);background:rgba(224,78,20,.05);border-radius:0 10px 10px 0}
+.daypick__n{flex:none;min-width:18px;text-align:center;font-size:15px;font-weight:650;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+.daypick__row.is-selected .daypick__n{color:var(--accent-deep)}
+.daypick__main{min-width:0;flex:1}
+.daypick__title{display:block;font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.daypick__sub{display:block;margin-top:2px;font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The day Today is already on, marked wherever it sits in the split. */
+.daypick__chip{
+  flex:none;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--accent-deep);background:rgba(224,78,20,.08);border-radius:999px;padding:5px 9px;
+}
+.sheet__foot--stack{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--rule)}
+.sheet__foot--stack .text-link{min-height:44px}
 
 /* ---- Rest timer sheet ---- */
 /* Tapping a running clock used to end the rest, which is the one thing a lifter
