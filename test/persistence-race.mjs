@@ -121,18 +121,28 @@ async function waitForApp(page) {
  *  re-fetch. A page with no worker to register returns at once, and a worker
  *  that never claims gives the wait up rather than hang. */
 async function waitForWorkerToClaim(page) {
-  for (let attempt = 0; attempt < 3; attempt++) {
+  for (let attempt = 0; attempt < 4; attempt++) {
     try {
-      const claimed = await page.evaluate(async () => {
-        if (!navigator.serviceWorker) return true;
-        if (navigator.serviceWorker.controller) return true;
-        if (!(await navigator.serviceWorker.getRegistration())) return true;
-        return await new Promise((resolve) => {
-          navigator.serviceWorker.addEventListener("controllerchange", () => resolve(true), { once: true });
-          setTimeout(() => resolve(true), 5000);
-        });
-      });
-      if (claimed) return;
+      if (
+        await page.evaluate(async () => {
+          if (!navigator.serviceWorker) return true;
+          if (navigator.serviceWorker.controller) return true;
+          const orTimeout = (promise, ms) =>
+            Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve("timeout"), ms))]);
+          // `register` is fired and not awaited during boot, so asking for the
+          // registration here can come back empty on a page that is about to
+          // have one. `ready` waits for the active worker instead.
+          if ((await orTimeout(navigator.serviceWorker.ready, 5000)) === "timeout") return true;
+          if (navigator.serviceWorker.controller) return true;
+          await orTimeout(
+            new Promise((resolve) => navigator.serviceWorker.addEventListener("controllerchange", resolve, { once: true })),
+            5000
+          );
+          return true;
+        })
+      ) {
+        return;
+      }
     } catch {
       // The re-fetch landed mid-evaluate. Wait for the document that replaced
       // the old one, then ask the page it became.
