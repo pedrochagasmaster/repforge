@@ -1935,8 +1935,12 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
 body::after{
   content:"";position:fixed;z-index:24;pointer-events:none;
   left:0;right:0;bottom:0;
-  height:calc(var(--nav) + env(safe-area-inset-bottom) + 18px);
-  background:linear-gradient(to top,var(--bg) 64%,transparent);
+  height:calc(var(--nav) + env(safe-area-inset-bottom) + 26px);
+  /* The first stop is a length, not a percentage: it has to land exactly on the
+     dock's top edge whatever the safe area is, so the gutters beside the capsule
+     are paper rather than half a word, and the softening happens above it. */
+  background:linear-gradient(to top,
+    var(--bg) calc(var(--nav) + env(safe-area-inset-bottom)),transparent);
 }
 body.is-firstrun::after,body.is-focus-wo::after,
 body.is-settings::after,body.is-exercise::after,body.is-onboarding::after,
