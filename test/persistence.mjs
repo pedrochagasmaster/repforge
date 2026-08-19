@@ -772,7 +772,10 @@ try {
     const health3 = await page.evaluate(() => window.__repforgeStorage.health());
     assert(!health3.degraded && !health3.localOk && !health3.idbOk, "Total failure is not reported as saved/degraded", JSON.stringify(health3));
     const toast3 = await page.locator("#toast").innerText();
-    assert(/storage may be full|armazenamento pode estar cheio/i.test(toast3), "Total failure uses the destructive storage toast", toast3);
+    // Asked of the catalog rather than spelled out here, so rewording the toast
+    // cannot fail this check while the behaviour it guards is intact.
+    const storageFullCopy = await page.evaluate(() => window.RepForgeI18n?.t("toast.storage_full") || "");
+    assert(toast3.trim() === storageFullCopy.trim(), "Total failure uses the destructive storage toast", JSON.stringify({ toast3, want: storageFullCopy }));
     both = await readBoth(page);
     assert(both.local?.programMeta?.name !== "Boom" && both.idb?.programMeta?.name !== "Boom", "Total failure does not keep the rejected snapshot");
     await context.close();
