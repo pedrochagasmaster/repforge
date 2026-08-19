@@ -83,28 +83,50 @@ already trains in Taurifer.
 
 ## Self-contained fragment
 
-Canonical form:
+Canonical forms:
 
 ```text
 https://pedrochagasmaster.github.io/repforge/index.html#setup=v1.<base64url-gzip>
+https://pedrochagasmaster.github.io/repforge/index.html#setup=v2.<base64url-gzip>
 ```
 
 The payload lives in the fragment, not in a query string. GitHub Pages and
 any other static host never see it on the HTTP request. Existing `?goto=`
 handling stays independent. The start path is `index.html`, matching the
 manifest, so a later installed app and a browser session resolve the same
-document. The value is prefixed `v1.` so a future version can be rejected
-before decompression. Encoding is deterministic canonical JSON, UTF-8,
-gzip via Compression Streams, then unpadded base64url. Compression and
-encoding are not encryption.
+document. There is no backend and no upload: the URL itself is the shared
+artifact.
+
+The semantic document remains kind `taurifer-shared-setup`, version `1`.
+That inner schema is immutable after release. Two outer envelopes carry
+it; both are gzip via Compression Streams, then unpadded base64url, and
+both are self-contained:
+
+- `v1.` — deterministic canonical JSON of the semantic document.
+- `v2.` — an immutable compact tuple JSON of the same document.
+
+The decoder must accept both prefixes forever. New encoding validates the
+semantic payload once, builds both envelopes, and emits the shortest
+valid candidate; equal length keeps `v1.`. A later unsupported prefix is
+rejected before decompression. Compression and encoding are not
+encryption.
+
+The v2 tuple is a fixed 5-element array: metadata, settings, a day-label
+table, exercises, and custom definitions. Closed enums become 1-based
+codes (`0` for a present null). Exercises name a day by table index and
+a custom movement by definition index. Optional fields ride on integer
+masks with arity equal to the fixed prefix plus the set-bit count.
+Unpacking is bounded and strict — wrong arity, unknown mask bits, or an
+unreferenced day or custom fails closed — and the expanded object then
+runs the existing semantic validator. Exact slot layouts live in
+`shared-setup.js`; this ADR locks the shape, not every bit.
 
 We rejected a query parameter (hosts, proxies, and referrers would log the
 program), an arbitrary remote payload URL (that re-enters a backend and a
 fetch trust boundary), and an uncompressed fragment (it would not fit the
-install-safe ceiling). The inner document is kind
-`taurifer-shared-setup`, version `1`. Schema v1 is immutable after
-release; incompatible changes add a v2 prefix rather than reinterpreting
-v1.
+install-safe ceiling). Do not reshape the inner fields to anticipate a
+later opaque-token service; that path can wrap the same version-1
+document.
 
 ## Temporary cookie for iOS installation
 
@@ -116,7 +138,7 @@ proposal therefore also lives for up to seven days in a first-party cookie:
 
 ```text
 Name:      repforge_setup_v1
-Value:     v1.<base64url-gzip>
+Value:     v1.<base64url-gzip> or v2.<base64url-gzip>
 Path:      pathname of index.html
            (/repforge/index.html in production, /index.html locally)
 Max-Age:   604800
@@ -124,6 +146,10 @@ SameSite:  Lax
 Secure:    yes outside localhost
 HttpOnly:  no — client JavaScript must read it
 ```
+
+The cookie name stays `repforge_setup_v1` even when the value is a `v2.`
+envelope. It is a historical identifier; renaming it would break already
+installed handoff. The seven-day disclosure is unchanged.
 
 The cookie is encoded and compressed, not encrypted. It is sent with the
 matching `index.html` navigation request. Path-scoping keeps it off asset
@@ -146,9 +172,10 @@ Seamless Safari-to-installed handoff is documented against **iOS/iPadOS
 17.2** and newer, the baseline WebKit states for copying login cookies
 into Home Screen apps. The link still works in-browser on older
 platforms. This product must not claim that an older Home Screen
-installation will inherit the proposal. Compression Streams themselves
-landed earlier (Safari 16.4); that is necessary to encode and decode, not
-sufficient for the cookie copy.
+installation will inherit the proposal, and it must not claim physical
+iOS device validation. Compression Streams themselves landed earlier
+(Safari 16.4); that is necessary to encode and decode, not sufficient
+for the cookie copy.
 
 ## Bearer links, size, and what we are not building
 
@@ -156,19 +183,35 @@ A share link is a bearer capability. Anyone who possesses it can read and
 use the program. Encoding is not proof of coach identity. The fragment is
 not sent in the initial HTTP request, but the URL can remain in browser
 history, clipboard history, synced tabs, messaging previews, or
-screenshots. The coach's share sheet states exactly what is included —
-this program, its settings, and the app language — and that workout
-history is not. Do not advertise authenticity. A modified but valid
-payload is still just a bearer link.
+screenshots. The in-app share sheet states exactly what is included — this program,
+its settings, and the app language — the seven-day cookie disclosure,
+and that workout history is not included. That text stays on the sheet
+until the coach acts. Outbound system share is title plus URL only;
+Copy link writes the URL only. Do not paste the privacy or cookie
+paragraph into recipient messages. Do not advertise authenticity. A
+modified but valid payload is still just a bearer link.
 
-The encoded value, including the three-character `v1.` prefix, must be at
-most **3,072** characters (`MAX_ENCODED_CHARS`). The matching compressed
-ceiling is 2,301 bytes: 2,301 bytes encode to 3,071 characters and fit;
-2,302 bytes encode to 3,073 and must fail. Unusually large programs
-cannot use v1 links. Sharing disables rather than silently dropping
-exercises or notes. There is no hosted short-link service in this
-version, so URLs can be long and cannot be revoked. That is the cost of
-keeping the payload off a server.
+The encoded value, including the three-character `v1.` or `v2.` prefix,
+must be at most **3,072** characters (`MAX_ENCODED_CHARS`). The matching
+compressed ceiling is 2,301 bytes: 2,301 bytes encode to 3,071
+characters and fit; 2,302 bytes encode to 3,073 and must fail. Sharing
+disables rather than silently dropping exercises or notes. Notes-heavy
+or custom-heavy programs may still produce a longer URL and must never
+be truncated; they fail closed if they miss the hard ceiling.
+
+A representative complete production URL — the GitHub Pages
+`index.html#setup=` prefix plus a typical four-day payload — is a
+regression target of **at most 700 characters**. That is not a universal
+maximum.
+
+Gzip bytes need not be identical across engines. Interoperability is
+semantic equality after decode, and canonical tuple equality for a v2
+envelope, not identical compressed bytes.
+
+There is no hosted short-link service in this version, so URLs can be
+long and cannot be revoked. That is the cost of keeping the payload off
+a server. The link remains a local-first bearer capability: unencrypted,
+readable by anyone who has it.
 
 A later opaque-token service can wrap the same inner document without
 changing the v1 payload schema: the fragment would carry a token the

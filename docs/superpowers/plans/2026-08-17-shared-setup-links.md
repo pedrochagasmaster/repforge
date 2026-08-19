@@ -13,17 +13,23 @@ shared program.
 
 **Architecture:** A new dependency-free `shared-setup.js` module validates,
 canonicalizes, gzip-compresses, encodes, decodes, and bounds a versioned setup
-payload. The payload travels in the URL fragment, not in a query string. The
-first-run gate treats a valid decoded payload as a transient proposal and does
-not durably apply any payload field until the recipient presses the single
-start action. The existing boot path may still persist its ordinary first-run
-starter snapshot; that snapshot must not contain data from the shared payload.
-Acceptance constructs a fresh local program identity and commits the program,
-custom exercise definitions, metadata, language, and allowlisted app settings
+payload. The semantic document is kind `taurifer-shared-setup` version `1`.
+Two self-contained outer envelopes carry it in the URL fragment, never a
+query string and never a backend upload: `v1.` canonical JSON+gzip and
+immutable `v2.` compact tuple JSON+gzip, both unpadded base64url. Decode
+both forever. New encoding builds both and emits the shortest valid
+candidate; a tie keeps `v1.`. The first-run gate treats a valid decoded
+payload as a transient proposal and does not durably apply any payload
+field until the recipient presses the single start action. The existing
+boot path may still persist its ordinary first-run starter snapshot; that
+snapshot must not contain data from the shared payload. Acceptance
+constructs a fresh local program identity and commits the program, custom
+exercise definitions, metadata, language, and allowlisted app settings
 through Taurifer's existing mirrored-state transaction path. A short-lived
-cookie carries the compressed proposal across iOS Add to Home Screen because
-WebKit copies cookies, but not local storage, into a newly installed Home Screen
-web app.
+`repforge_setup_v1` cookie — the historical name, even for `v2.` values —
+carries the compressed proposal across iOS Add to Home Screen because
+WebKit copies cookies, but not local storage, into a newly installed Home
+Screen web app.
 
 **Tech stack:** Static HTML/CSS, classic dependency-free JavaScript, existing
 `localStorage` + IndexedDB persistence, Web Compression Streams, Web Share API,
@@ -69,7 +75,10 @@ the foundation for this work.
     by the same payload. No fuzzy name matching is permitted in this path.
 14. A share link is a bearer capability. Anyone who possesses it can read and
     use the program. Encoding and compression are not encryption or proof of
-    coach identity.
+    coach identity. The product is local-first; the URL remains unencrypted.
+15. Outbound system share is title plus URL only. The detailed privacy and
+    cookie disclosure stays in the in-app share sheet until the coach acts.
+    Copy link writes the URL only.
 
 ### Gate modes
 
@@ -139,13 +148,19 @@ caption from English word fragments or rely on English word order in Portuguese.
 2. The coach opens Program and presses Share setup link.
 3. Taurifer constructs an allowlisted payload from live state.
 4. Taurifer validates the payload before encoding it.
-5. Taurifer canonicalizes the payload, encodes it as UTF-8, compresses it with
-   gzip, and base64url-encodes the bytes.
-6. Taurifer verifies that the encoded value fits the install-handoff limit.
-7. A share sheet explains exactly what is and is not included.
-8. The coach presses Share link or Copy link.
+5. Taurifer canonicalizes the semantic payload, builds both the `v1.`
+   canonical-JSON envelope and the `v2.` compact-tuple envelope, gzip-compresses
+   each, and base64url-encodes the bytes.
+6. Taurifer emits the shortest valid candidate (tie keeps `v1.`) and verifies
+   that the encoded value fits the 3,072-character install-handoff limit.
+   Notes-heavy or custom-heavy programs may exceed the 700-character
+   representative URL target and must never be truncated.
+7. The in-app share sheet explains exactly what is and is not included,
+   including the seven-day cookie disclosure.
+8. The coach presses Share link or Copy link. System share sends title plus
+   URL only; Copy link writes the URL only.
 9. The shared URL points to the canonical `index.html` start path and carries
-   the proposal in `#setup=`.
+   the proposal in `#setup=v1.` or `#setup=v2.`.
 
 No program data is uploaded by Taurifer in this version. The URL itself is the
 shared artifact.
@@ -439,25 +454,54 @@ exercise slot IDs
 The decoder must ignore these keys if a hand-authored link contains them. Tests
 must prove they cannot reach the proposal.
 
+### Compact v2 outer envelope
+
+The semantic document above stays kind `taurifer-shared-setup` / version `1`.
+`v2.` is an immutable outer envelope, not a new semantic version. Summarized
+tuple contract:
+
+- Root is a fixed 5-element array: `[meta, settings, days, exercises, customs]`.
+- Closed enums encode as 1-based codes into fixed arrays. A present `null`
+  enum is `0`.
+- `days` is the distinct day-label table. Exercises store a 0-based day
+  index. `daysPerWeek` is the table length.
+- Custom `libraryId` values store a 0-based index into `customs`; built-in
+  ids stay strings.
+- Optional fields use an integer mask after the fixed prefix. Arity must
+  equal that prefix plus the number of set bits. Unknown mask bits fail.
+- Meta optionals: goal, experience, splitType, equipment codes, priority
+  muscles, session length.
+- Exercise optionals: display name, notes, alternates, progression type,
+  target RIR start/end, min/max sets, priority.
+- Custom optionals: `namePt` when it differs from `name`, primary,
+  secondary, notes.
+- Unpack with bounded strict checks (count, arity, indexes, unreferenced
+  days or customs), then run the existing semantic validator.
+
+Exact arrays and bit positions live in `shared-setup.js`. Do not
+reinterpret a released `v2.` tuple.
+
 ---
 
 ## Encoding and transport
 
 ### URL
 
-Canonical form:
+Canonical forms:
 
 ```text
 https://pedrochagasmaster.github.io/repforge/index.html#setup=v1.<base64url-gzip>
+https://pedrochagasmaster.github.io/repforge/index.html#setup=v2.<base64url-gzip>
 ```
 
 Rules:
 
 - Use `index.html`, matching the manifest start URL.
 - Use one fragment parameter named `setup`.
-- Prefix the encoded value with `v1.` so gross incompatibility can be rejected
-  before decompression.
+- Prefix the encoded value with `v1.` or `v2.` so gross incompatibility can
+  be rejected before decompression. Decode both prefixes forever.
 - Do not use a query parameter. Existing `?goto=` handling remains independent.
+- Do not upload the payload or fetch it from a remote URL.
 - Preserve unrelated query parameters when removing the setup fragment.
 - If future fragment parameters are introduced, remove only `setup`.
 
@@ -472,16 +516,16 @@ Before encoding:
 5. Serialize with `JSON.stringify()` and no whitespace.
 6. Encode as UTF-8 with `TextEncoder`.
 
-Deterministic canonicalization makes identical state produce identical JSON and
-gives tests a stable uncompressed fingerprint. Do not promise identical
-compressed bytes across browser engines: the Compression Streams contract does
-not make compressor implementation details part of this feature's wire
-contract. Decoding and canonical payload equality are the interoperability
-requirements.
+Deterministic canonicalization makes identical state produce identical
+semantic JSON and gives tests a stable uncompressed fingerprint. Gzip
+bytes need not be identical across engines: compressor implementation
+details are not part of this feature's wire contract. Interoperability is
+semantic equality after decode, and canonical tuple equality for a `v2.`
+envelope.
 
 ### Compression and base64url
 
-Encoding algorithm:
+`v1.` encoding algorithm:
 
 ```text
 canonical JSON
@@ -493,10 +537,16 @@ canonical JSON
   → prefix v1.
 ```
 
-Decoding reverses those steps with `DecompressionStream("gzip")` and
-`TextDecoder` in fatal UTF-8 mode when supported.
+`v2.` uses the same gzip and base64url steps on compact tuple JSON, then
+prefixes `v2.`. New encoding evaluates both candidates and emits the
+shortest valid result; equal length keeps `v1.`.
 
-After removing `v1.`, accept only the canonical base64url alphabet
+Decoding reverses those steps with `DecompressionStream("gzip")` and
+`TextDecoder` in fatal UTF-8 mode when supported. A `v2.` body expands
+through bounded strict tuple unpacking, then the existing semantic
+validator.
+
+After removing `v1.` or `v2.`, accept only the canonical base64url alphabet
 `[A-Za-z0-9_-]`, reject padding and a length whose remainder modulo four is one,
 restore padding internally, and verify decoded bytes do not exceed the
 compressed ceiling before opening the gzip stream.
@@ -515,11 +565,19 @@ const MAX_COMPRESSED_BYTES = 2301;
 const MAX_DECOMPRESSED_BYTES = 65536;
 ```
 
-`MAX_ENCODED_CHARS` includes the three-character `v1.` prefix. Exactly 2,301
-compressed bytes encode to 3,068 unpadded base64url characters, so the complete
-value is 3,071 characters and fits; 2,302 bytes require 3,070 base64url
-characters, so the complete value would be 3,073 and must fail. Both character
-and byte checks must exist, and tests must cover those boundaries.
+`MAX_ENCODED_CHARS` includes the three-character `v1.` or `v2.` prefix.
+Exactly 2,301 compressed bytes encode to 3,068 unpadded base64url
+characters, so the complete value is 3,071 characters and fits; 2,302
+bytes require 3,070 base64url characters, so the complete value would be
+3,073 and must fail. Both character and byte checks must exist, and tests
+must cover those boundaries.
+
+The 3,072-character ceiling is the hard install-safe limit. A
+representative complete production URL (GitHub Pages `index.html#setup=`
+prefix plus the representative four-day fixture) is a regression target
+of at most 700 characters. That is not a universal maximum.
+Notes-heavy or custom-heavy payloads may be longer and must never be
+truncated; they fail closed if they miss `MAX_ENCODED_CHARS`.
 
 Read decompression output chunk by chunk and stop once the accumulated byte
 count exceeds `MAX_DECOMPRESSED_BYTES`. Do not call
@@ -571,13 +629,17 @@ References:
 
 ```text
 Name:      repforge_setup_v1
-Value:     v1.<base64url-gzip>
+Value:     v1.<base64url-gzip> or v2.<base64url-gzip>
 Path:      canonical index.html pathname
 Max-Age:   604800 (7 days)
 SameSite:  Lax
 Secure:    yes outside localhost
 HttpOnly:  impossible because client JavaScript must read it
 ```
+
+Keep the cookie name `repforge_setup_v1` even when the value is a `v2.`
+envelope. It is a historical identifier. The seven-day disclosure is
+unchanged.
 
 Compute the path with:
 
@@ -616,11 +678,12 @@ honestly because the encoded program is not encryption.
 
 ### Supported baseline
 
-The seamless cookie handoff is supported on iOS/iPadOS 17.2 and newer according
-to WebKit's documented copy behavior. The link still operates in-browser on
-older platforms, but the PR must not claim that an older Home Screen
-installation will inherit the proposal. Document and manually test the
-supported baseline.
+The seamless cookie handoff is documented for iOS/iPadOS 17.2 and newer
+according to WebKit's published copy behavior. The link still operates
+in-browser on older platforms. Do not claim that an older Home Screen
+installation will inherit the proposal, and do not claim physical iOS
+device validation unless a later report records a specific device and OS
+version.
 
 ---
 
@@ -776,9 +839,12 @@ gate is open.
 14. Do not put the payload in error telemetry or toast text.
 15. Do not advertise authenticity. A modified but valid payload is still just a
     bearer link.
-16. Keep the program and settings share explicit on the coach's share sheet.
-17. State clearly that anyone with the URL can use and inspect the setup.
-18. Document that the bearer URL can remain in browser history, clipboard
+16. Keep the program, settings, language, and seven-day cookie disclosure
+    explicit on the in-app share sheet. Do not paste that paragraph into
+    outbound system share or the clipboard.
+17. Outbound `navigator.share` is `{title, url}` only. Copy link is URL only.
+18. State clearly that anyone with the URL can use and inspect the setup.
+19. Document that the bearer URL can remain in browser history, clipboard
     history, synced tabs, messaging previews, or screenshots even though its
     fragment is not sent in the initial HTTP request.
 
@@ -817,8 +883,8 @@ gate is open.
 **Files:** `test/fixtures/shared-setup.mjs`
 
 - [ ] Confirm PR #157 is present in the base branch.
-- [ ] Confirm the base still uses `repforge-v92`. If no intervening cache bump
-  has landed, reserve `repforge-v93`; otherwise reserve exactly one greater than
+- [ ] Confirm the base still uses `repforge-v97`. If no intervening cache bump
+  has landed, reserve `repforge-v98`; otherwise reserve exactly one greater than
   the cache on the implementation branch.
 - [ ] Record current program export v3 shape and current settings defaults.
 - [ ] Use the existing `pr_mc` built-in library ID in the minimal fixture and
@@ -860,8 +926,8 @@ Freeze these call contracts as well:
 |---|---|
 | `canonicalize(value)` | Return a deep plain clone with recursively sorted object keys and preserved array order; throw only for programmer-supplied unsupported types |
 | `validate(raw, { builtInIds })` | Return `{ok:true,value:<picked canonical payload>}` or a typed `invalid-schema` result; never mutate `raw` |
-| `encode(raw, { builtInIds })` | Async; validate, canonicalize, gzip, and return `{ok:true,value:"v1.…",compressedBytes,decompressedBytes}` or a typed error |
-| `decode(encoded, { builtInIds })` | Async; enforce every bound and return `{ok:true,value:<picked canonical payload>,compressedBytes,decompressedBytes}` or a typed error |
+| `encode(raw, { builtInIds })` | Async; validate, build `v1.` and `v2.` envelopes, gzip each, and return the shortest valid `{ok:true,value,compressedBytes,decompressedBytes}` whose `value` is `v1.…` or `v2.…` (tie keeps `v1.`) or a typed error |
+| `decode(encoded, { builtInIds })` | Async; accept `v1.` and `v2.` forever, enforce every bound, expand a tuple through strict unpacking plus semantic validation, and return `{ok:true,value:<picked canonical payload>,compressedBytes,decompressedBytes}` or a typed error |
 | `readSetupFragment(url = location.href)` | Return the raw `setup` value or `null`; do not decode or mutate history |
 | `removeSetupFragment(url = location.href)` | Return a relative `pathname + search + hash` string with only `setup` removed; the caller performs `history.replaceState()` |
 | Cookie helpers | Accept explicit document/location adapters for Node tests; never read application state |
@@ -885,7 +951,13 @@ worker branches from that commit.
 - [ ] Assert `settings.lang` is required and accepts only `en`/`pt`.
 - [ ] Assert every allowed settings field survives.
 - [ ] Assert excluded settings and state keys are absent after validation.
-- [ ] Assert wrong kind and versions fail with stable codes.
+- [ ] Assert wrong kind and unknown envelope versions fail with stable codes.
+- [ ] Assert decode accepts both `v1.` and `v2.` and expands a tuple to the
+  same semantic payload.
+- [ ] Assert encode emits the shortest valid envelope and keeps `v1.` on a
+  tie.
+- [ ] Assert a representative complete production URL is at most 700
+  characters; the 3,072 hard ceiling still rejects oversized values.
 - [ ] Assert malformed base64, gzip, UTF-8, and JSON fail safely.
 - [ ] Stub missing Compression Streams and assert the two stable unavailable
   codes without changing globals after the test.
@@ -1000,9 +1072,10 @@ unimplemented failure.
 - [ ] Do not call `navigator.share()` automatically after an asynchronous build;
   transient user activation may have expired. Require a second explicit Share
   link press after generation.
-- [ ] Use `navigator.share({title, text, url})` when available.
+- [ ] Use `navigator.share({title, url})` when available. Do not pass `text`
+  or the in-app privacy/cookie paragraph to the system share sheet.
 - [ ] Use `navigator.clipboard.writeText(url)` for Copy link, with the existing
-  safe fallback if clipboard access is unavailable.
+  safe fallback if clipboard access is unavailable. Copy remains URL only.
 - [ ] Disable sharing and display `setup.shared.too_large` when the encoded
   value exceeds the install-safe limit. Do not silently remove content.
 - [ ] Never include log/history data in the share sheet, generated URL, or debug
@@ -1153,6 +1226,8 @@ for the first browser-test commit to fail before Tasks 5–8 merge.
   corresponding script order.
 - [ ] Add it to `SHELL`.
 - [ ] Bump `repforge-vNN` exactly once after all cached assets are final.
+  This compact-envelope pass uses `repforge-v98` because `shared-setup.js`
+  and `app.js` changed.
 - [ ] Update the exact current cache name and asset inventory in `AGENTS.md`.
 - [ ] Preserve the historical `repforge` cache-name prefix.
 - [ ] Verify offline reload after one successful online load.
@@ -1161,8 +1236,9 @@ for the first browser-test commit to fail before Tasks 5–8 merge.
 
 **Owner:** Documentation agent
 
-**Files:** `docs/adr/0007-shared-setup-links.md`, `docs/brand-guide.md`,
-`README.md`
+**Files:** `docs/adr/0007-shared-setup-links.md`,
+`docs/superpowers/plans/2026-08-17-shared-setup-links.md`,
+`docs/brand-guide.md`, `README.md`, `AGENTS.md`, `sw.js`
 
 The ADR must record:
 
@@ -1170,13 +1246,27 @@ The ADR must record:
 - Why known library/custom IDs are mandatory for review-free acceptance.
 - Why language is part of the payload and is applied before acceptance.
 - Why logs, history, notification permission, and UI preferences are excluded.
-- Why the v1 transport is a self-contained fragment.
+- Why transport is a self-contained fragment with no backend upload.
+- That the semantic document stays kind `taurifer-shared-setup` version 1,
+  `v1.` is canonical JSON+gzip, `v2.` is compact tuple JSON+gzip, both
+  decode forever, and new encoding emits the shortest valid candidate
+  (tie `v1.`).
+- The summarized v2 tuple: fixed arrays, enum codes, day table, custom
+  indexes, optional masks, bounded strict unpacking, then semantic
+  validation.
 - Why a temporary cookie is required for iOS installation handoff.
-- That the cookie value is encoded/compressed, not encrypted, and is sent with
-  the matching `index.html` request.
-- The 3,072-character install-safe ceiling and the cost: unusually large
-  programs cannot use v1 links.
-- The iOS 17.2 seamless-handoff baseline.
+- That the cookie name stays `repforge_setup_v1` even for `v2.` values,
+  the value is encoded/compressed, not encrypted, and is sent with the
+  matching `index.html` request for seven days.
+- The 3,072-character hard ceiling; the 700-character representative
+  complete-URL regression target is not a universal maximum; notes-heavy
+  or custom-heavy payloads must never be truncated.
+- That gzip bytes need not match across engines; semantic and canonical
+  tuple equality are the interoperability requirement.
+- That outbound system share is title plus URL only; the privacy/cookie
+  paragraph stays in the in-app sheet; Copy link is URL only.
+- The documented iOS 17.2 seamless-handoff baseline, without claiming
+  physical device validation.
 - The cost of not having server-backed short links: URLs can be long and cannot
   be revoked.
 - The future migration path to an opaque token service without changing the
@@ -1232,10 +1322,9 @@ Required screenshots in both languages where noted:
 
 Manual device checks:
 
-- [ ] iOS/iPadOS 17.2 or newer: link in Safari → Add to Home Screen → launch
-  icon → shared gate recovered from cookie → accept.
-- [ ] Current iOS: continue in Safari → accept → install shortly afterward →
-  installed empty context can still recover the proposal.
+- [ ] Documented iOS/iPadOS 17.2+ WebKit cookie-copy baseline: do not mark
+  this done from simulator-only or code-reading evidence, and do not claim
+  physical iOS validation unless a later report names the device and OS.
 - [ ] Current Android Chrome: open link → native install → standalone launch →
   accept.
 - [ ] Copy the generated URL through at least one real messaging application
@@ -1247,12 +1336,14 @@ Manual device checks:
 PR description proof must include:
 
 - Payload size for the representative four-day fixture before and after gzip.
-- Exact encoded length relative to the 3,072-character limit.
+- Exact encoded length relative to the 3,072-character hard limit and the
+  700-character representative complete-URL target.
 - Screenshots listed above.
 - A state diff showing the allowlisted fields that changed and excluded fields
   that did not.
 - Automated command results.
-- Manual iOS handoff result and OS/browser version.
+- Install-handoff evidence that was actually collected. Do not invent a
+  physical iOS result.
 
 ---
 
@@ -1361,20 +1452,21 @@ After Wave 1 is merged:
 | Worker | Assignment | Owned files | Completion gate |
 |---|---|---|---|
 | Integration owner | Tasks 5–8 and 10 | `app.js`, then `sw.js` | Shared flow tests pass; syntax pass |
-| Documentation agent | Task 11 | ADR, brand guide, README | Docs cover every locked trade-off |
+| Documentation agent | Task 11 | ADR, plan, brand guide, README, AGENTS.md, sw.js | Docs cover every locked trade-off; cache is `repforge-v98` |
 | Browser-test agent | Diagnose failing browser cases; add only missing assertions | Test files only | No regression or weakened test |
 | UI agent | Produce screenshots and report layout defects; no code changes unless reassigned | Proof artifacts outside code paths | Screenshot matrix complete |
 
 Suggested documentation-agent prompt:
 
 ```text
-Implement Task 11 from
-docs/superpowers/plans/2026-08-17-shared-setup-links.md. Own only
-docs/adr/0007-shared-setup-links.md, docs/brand-guide.md, and README.md. Do not
-edit AGENTS.md, app.js, sw.js, tests, or UI. Record language as payload data, the
-iOS cookie handoff, exact exclusions, privacy cost, URL-size limit, and future
-token-service path. Return a commit SHA and diff summary. Put any recommended
-AGENTS.md wording in the handoff message instead of editing the file.
+Update Task 11 docs for compact self-contained v2 envelopes and URL-only
+outbound Web Share. Own only docs/adr/0007-shared-setup-links.md,
+docs/superpowers/plans/2026-08-17-shared-setup-links.md, docs/brand-guide.md,
+README.md, AGENTS.md, and sw.js. Do not edit JS app/codec/tests/i18n/index.
+Record semantic v1 plus v1./v2. envelopes, shortest-encode/tie-v1, 3072 hard
+limit and 700 representative URL target, historical repforge_setup_v1 cookie
+name, title+URL system share, and no physical iOS claim. Bump CACHE to
+repforge-v98. Return a commit SHA. Do not push.
 ```
 
 ### Wave 3 — serial integration gate
@@ -1485,8 +1577,9 @@ not ready to integrate.
 
 - Ship behind presence of a valid `#setup`/handoff source; no feature flag is
   needed for ordinary users because the normal path remains unchanged.
-- Keep schema `version: 1` immutable after release. Add v2 rather than changing
-  v1 interpretation.
+- Keep semantic schema `version: 1` immutable after release. The `v2.` prefix
+  is an outer envelope for the same document, not a new inner version.
+  Decode `v1.` and `v2.` forever; do not reinterpret either.
 - The generated link uses the deployed app URL, not the current localhost or
   preview origin, unless an explicit development hook is active in tests.
 - Do not generate production links from an unmerged preview deployment.
@@ -1506,9 +1599,9 @@ not ready to integrate.
 If the feature must be disabled after release:
 
 1. Stop rendering the share-link creation control.
-2. Leave the decoder capable of recognizing existing v1 links long enough to
-   show a clear unsupported notice rather than a blank gate.
-3. Do not reinterpret v1 links as program-import files.
+2. Leave the decoder capable of recognizing existing `v1.` and `v2.` links
+   long enough to show a clear unsupported notice rather than a blank gate.
+3. Do not reinterpret either envelope as a program-import file.
 4. Clear invalid/stale handoff cookies.
 5. Roll the service-worker cache again so clients receive the rollback.
 
@@ -1534,7 +1627,9 @@ acceptance it is ordinary Taurifer state.
 - [ ] Logs, history, notification permission, voice preference, UI preferences,
   storage metadata, and source identities do not persist.
 - [ ] Existing configured users are never overwritten.
-- [ ] iOS Add to Home Screen handoff is verified on a real supported device.
+- [ ] iOS Add to Home Screen handoff is documented against the WebKit 17.2
+  cookie-copy baseline. Do not claim physical device validation without a
+  named device and OS.
 - [ ] EN/PT, capability, responsive, persistence, i18n, and accessibility tests
   pass.
 - [ ] Service-worker cache and `AGENTS.md` inventory agree.
