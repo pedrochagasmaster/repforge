@@ -330,7 +330,6 @@ export async function openAppPage(browser, {
   search = "",
   noCompression = false,
   webShare = false,
-  opaqueV2Adapter = false,
   clipboard = false,
 } = {}) {
   const context = await browser.newContext({
@@ -362,41 +361,6 @@ export async function openAppPage(browser, {
         window.__repforgeShareCalls.push(payload);
       };
       Object.defineProperty(navigator, "share", { configurable: true, value: share });
-    });
-  }
-  if (opaqueV2Adapter) {
-    // Narrow public-surface adapter: when the shipped codec still rejects v2 as
-    // unsupported-version, decode the same gzip body through the v1 reader so
-    // app capture/accept can be exercised without editing shared-setup.js.
-    // Native v2 decode is left untouched.
-    await page.addInitScript(() => {
-      let current;
-      const apply = (api) => {
-        if (!api || api.__opaqueTestAdapter) return api;
-        if (typeof api.decode !== "function") return api;
-        const nativeDecode = api.decode.bind(api);
-        api.decode = async function (encoded, options) {
-          const result = await nativeDecode(encoded, options);
-          if (result && result.ok) return result;
-          if (
-            typeof encoded === "string" &&
-            encoded.startsWith("v2.") &&
-            result &&
-            result.code === "unsupported-version"
-          ) {
-            return nativeDecode(`v1.${encoded.slice(3)}`, options);
-          }
-          return result;
-        };
-        api.__opaqueTestAdapter = true;
-        return api;
-      };
-      Object.defineProperty(window, "RepForgeSharedSetup", {
-        configurable: true,
-        enumerable: true,
-        get() { return current; },
-        set(value) { current = apply(value); },
-      });
     });
   }
   await page.addInitScript(INSTALL_EVENT);
@@ -435,13 +399,7 @@ async function resolveV2Envelope(page, payloads) {
   for (const payload of payloads) {
     const encoded = await encodeSharedPayload(page, payload);
     if (!encoded.ok || typeof encoded.value !== "string") continue;
-    if (encoded.value.startsWith("v2.")) return { value: encoded.value, payload, native: true };
-    const remapped = `v2.${encoded.value.replace(/^v\d+\./, "")}`;
-    const supported = await page.evaluate(async ({ value, ids }) => {
-      const result = await window.RepForgeSharedSetup.decode(value, { builtInIds: new Set(ids) });
-      return result?.ok === true;
-    }, { value: remapped, ids: [...BUILT_IN_IDS] });
-    if (supported) return { value: remapped, payload, native: false };
+    if (encoded.value.startsWith("v2.")) return { value: encoded.value, payload };
   }
   return null;
 }
@@ -711,7 +669,11 @@ export async function runSharedSetupFlow(browser) {
     assert(payload?.settings?.lang === "en" && payload?.settings?.unit === "kg", "English numeric kg settings survive", JSON.stringify(payload?.settings));
     assert(payload && !payload.log && !payload.programHistory, "builder omits log and history", JSON.stringify({ log: payload?.log, history: payload?.programHistory, payload: !!payload }));
     const encoded = await encodeSharedPayload(page, payload || MINIMAL_PAYLOAD);
-    assert(encoded.ok === true && typeof encoded.value === "string" && encoded.value.startsWith("v1."), "encode returns an install-safe v1 fragment", JSON.stringify(encoded));
+    assert(
+      encoded.ok === true && typeof encoded.value === "string" && /^v[12]\./.test(encoded.value),
+      "encode returns an install-safe supported envelope",
+      JSON.stringify(encoded)
+    );
     if (encoded.ok) {
       assert(encoded.value.length <= MAX_ENCODED_CHARS, "encoded English link fits the 3072-character ceiling", String(encoded.value.length));
     }
@@ -913,7 +875,6 @@ export async function runSharedSetupFlow(browser) {
     const { context, page } = await openAppPage(browser, {
       ua: ANDROID_UA,
       standalone: true,
-      opaqueV2Adapter: true,
     });
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -921,16 +882,8 @@ export async function runSharedSetupFlow(browser) {
     const named = cloneFixture(MINIMAL_PAYLOAD);
     named.program.meta.name = "V2 staged program";
     const v2 = await resolveV2Envelope(page, [named]);
-    if (!v2) {
-      const encoded = await encodeSharedPayload(page, named);
-      assert(
-        encoded.ok === true && typeof encoded.value === "string" && /^v\d+\./.test(encoded.value),
-        "v2 decode is not available yet; opaque app path stays prefix-agnostic",
-        JSON.stringify(encoded)
-      );
-      await context.close();
-      return;
-    }
+    assert(!!v2, "compact payload selects a native v2 envelope");
+    if (!v2) { await context.close(); return; }
     await page.goto(setupUrl(v2.value, "v2-accept"), { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     const staged = await page.evaluate(readDurableState);
