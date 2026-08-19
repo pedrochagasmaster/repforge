@@ -651,6 +651,9 @@ export async function runSharedSetupFlow(browser) {
       settings: { ...CURRENT_SETTINGS_DEFAULTS, lang: "en", unit: "kg", rirMode: "numeric" },
     }));
     await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => {
+      try { return !!window.__repforgeSharedSetup?.build?.(); } catch { return false; }
+    }, null, { timeout: 15000 });
     await dismissGates(page);
     await page.click('nav button[data-view="program"]');
     await page.waitForSelector("#program.view.active");
@@ -930,6 +933,9 @@ export async function runSharedSetupFlow(browser) {
       log: [],
     }));
     await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => {
+      try { return !!window.__repforgeSharedSetup?.build?.(); } catch { return false; }
+    }, null, { timeout: 15000 });
     await dismissGates(page);
     const built = await page.evaluate(() => window.__repforgeSharedSetup?.build?.() || null);
     const ids = (built?.program?.exercises || []).map((ex) => ex.libraryId);
