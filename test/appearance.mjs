@@ -20,6 +20,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const UIKEY = "repforge_ui_v1";
+const APP_JS = /\/app\.js(\?|$)/;
 
 const results = { passed: 0, failed: 0 };
 
@@ -306,8 +307,9 @@ async function runPrePaint(browser) {
     await page.evaluate(() => window.__repforgeUi.setTheme("dark"));
 
     // With app.js never delivered, only the inline snippet in <head> can have
-    // painted the document — which is the whole point of it existing.
-    await page.route("**/app.js", (route) => route.abort());
+    // painted the document — which is the whole point of it existing. The tag
+    // carries a cache-busting revision, so match the query too.
+    await page.route(APP_JS, (route) => route.abort());
     await page.reload({ waitUntil: "domcontentloaded" });
     assert(
       await page.evaluate(() => typeof window.__repforgeUi) === "undefined",
@@ -315,11 +317,11 @@ async function runPrePaint(browser) {
     );
     assert(await themeOf(page) === "dark", "The document is dark without app.js", await themeOf(page));
     assert(await metaColor(page) === "#141310", "So is theme-color", await metaColor(page));
-    await page.unroute("**/app.js");
+    await page.unroute(APP_JS);
 
     // The snippet must not invent a preference of its own.
     await page.evaluate((ui) => localStorage.removeItem(ui), UIKEY);
-    await page.route("**/app.js", (route) => route.abort());
+    await page.route(APP_JS, (route) => route.abort());
     await page.reload({ waitUntil: "domcontentloaded" });
     assert(
       await themeOf(page) === "light",

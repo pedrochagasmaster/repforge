@@ -608,6 +608,9 @@ div.settings-row{cursor:default}
 .today-ready{display:flex;align-items:center;gap:8px;margin:12px 0 0;font-size:14px;color:var(--ink);cursor:pointer;background:none;border:0;padding:0;text-align:left;min-height:44px}
 .today-ready__dot{width:7px;height:7px;border-radius:50%;background:var(--accent);flex:none}
 .today-session + .btn--cta,#startWorkout{margin-top:32px}
+/* The alternative to the day Today leads with, so it sits under the CTA and
+   reads as the quieter of the two. */
+.today-otherday{width:100%;min-height:48px;margin-top:10px}
 .weekstrip{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:12px;text-align:center}
 .weekstrip__day{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);font-weight:500}
 .weekstrip__mark{width:18px;height:18px;display:flex;align-items:center;justify-content:center;font-size:12px;color:var(--ink)}
@@ -1489,6 +1492,45 @@ body.is-sheet-open{overflow:hidden}
 .custom__delete{margin-top:22px;width:100%;color:var(--danger)}
 .custom__note{margin-top:16px;font-size:13px;color:var(--ink-faint)}
 
+/* ---- Choose-another-day sheet ---- */
+/* One row per day of the split, so the sheet is as tall as the program is long
+   and only scrolls when a long split outgrows the screen. Arming a day is not
+   starting it — switching days can discard a session in progress — so the rows
+   read as a set of choices and the CTA below them is what commits one. */
+.sheet--daypick{height:auto}
+.sheet__head--stack{grid-template-columns:1fr;padding:4px 16px 14px}
+.sheet__head--stack .sheet__titles{text-align:left}
+.sheet__head--stack .sheet__title{font-size:20px;letter-spacing:-.01em}
+/* The head's one-line sub is a caption for a title; this one is a sentence. */
+.sheet__head--stack .sheet__sub{white-space:normal;overflow:visible;margin-top:4px;line-height:1.4}
+.daypick__body{flex-direction:column;overflow:hidden;padding:0 16px}
+.daypick__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.daypick__row{
+  display:flex;align-items:center;gap:14px;width:100%;min-height:64px;padding:12px 12px 12px 9px;
+  background:none;border:0;border-bottom:1px solid var(--rule);border-left:3px solid transparent;
+  cursor:pointer;text-align:left;font:inherit;color:inherit;
+}
+.daypick__row:last-child{border-bottom:0}
+.daypick__row.is-selected{border-left-color:var(--accent);background:rgba(var(--accent-rgb),.05);border-radius:0 10px 10px 0}
+.daypick__n{flex:none;min-width:18px;text-align:center;font-size:15px;font-weight:650;color:var(--ink-faint);font-variant-numeric:tabular-nums}
+.daypick__row.is-selected .daypick__n{color:var(--accent-deep)}
+.daypick__main{min-width:0;flex:1}
+/* The chip rides the title's line only, so the line under it keeps the full
+   width and never has to drop the count to make room. */
+.daypick__line{display:flex;align-items:center;gap:8px}
+.daypick__title{flex:1;min-width:0;font-size:16px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.daypick__sub{display:block;margin-top:2px;font-size:13px;color:var(--ink-soft);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* The day Today is already on, marked wherever it sits in the split. */
+.daypick__chip{
+  flex:none;font-size:11px;font-weight:650;text-transform:uppercase;letter-spacing:.06em;
+  color:var(--accent-deep);background:rgba(var(--accent-rgb),.08);border-radius:999px;padding:4px 9px;
+  /* Sits inside the title's own line box, so the chipped row is no taller than
+     the rows around it. */
+  line-height:1.1;
+}
+.sheet__foot--stack{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--rule)}
+.sheet__foot--stack .text-link{min-height:44px}
+
 /* ---- Rest timer sheet ---- */
 /* Tapping a running clock used to end the rest, which is the one thing a lifter
    mid-set never means. The clock opens this instead: hold it, nudge it, restart
@@ -2174,6 +2216,10 @@ body.is-library,body.is-preview,body.is-import{padding-bottom:env(safe-area-inse
   padding:13px 14px;box-shadow:0 8px 24px rgba(0,0,0,.1);
   animation:toastin .3s cubic-bezier(.2,.7,.2,1)}
 .installbanner.hidden{display:none}
+/* An open sheet makes the page behind it inert, so the banner is already
+   unreachable there; drawn over the sheet it only hides the sheet's own rows.
+   It comes back with the page, still dismissed or not as the lifter left it. */
+body.is-sheet-open .installbanner{display:none}
 .installbanner__close{position:absolute;top:6px;right:8px;border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:13px;line-height:1;padding:4px}
 .installbanner__icon{width:34px;height:34px;border-radius:9px;background:#161513 url("icons/icon-192.png") center/cover no-repeat}
 /* The corner the ✕ is drawn in belongs to the copy row alone, so the action
