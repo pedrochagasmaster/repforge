@@ -301,14 +301,22 @@ async function main() {
   const phBad = enKeys.filter((k) => placeholders(en[k]).join(",") !== placeholders(pt[k]).join(","));
   assert(!phBad.length, "EN/PT placeholder names match for every key", phBad.slice(0, 8).join(", "));
 
+  const canonicalEthos = {
+    en: "Challenge after challenge.\nDay after day.\nEvery time you go beyond\nwhat you thought possible,\nthe effort shapes you.\n\nIt becomes part of\nwho you are.\nAnd you become who you needed to be.\n\nStrength, then, is yours —\nnot because it was given to you,\nbut because you built it.",
+    pt: "Desafio após desafio.\nDia após dia.\nToda vez que você vai além\ndo que julgava possível,\no esforço molda você.\n\nEle passa a fazer parte\nde quem você é.\nE você se torna quem precisou ser.\n\nA força, então, é sua —\nnão porque lhe foi dada,\nmas porque você a construiu.",
+  };
   const punctuationPattern = /[—“”‘’]/u;
   for (const [lang, dict] of Object.entries({ en, pt })) {
+    assert(
+      dict["setup.ethos.body"] === canonicalEthos[lang],
+      `${lang.toUpperCase()} setup ethos poem remains canonical`
+    );
     const punctuationMisses = Object.entries(dict)
-      .filter(([, value]) => punctuationPattern.test(value))
+      .filter(([key, value]) => key !== "setup.ethos.body" && punctuationPattern.test(value))
       .map(([key]) => key);
     assert(
       !punctuationMisses.length,
-      `${lang.toUpperCase()} app copy avoids em dashes and curly quotes`,
+      `${lang.toUpperCase()} app copy avoids em dashes and curly quotes outside the fixed ethos poem`,
       punctuationMisses.slice(0, 8).join(", ")
     );
     const unfinishedToasts = Object.entries(dict)

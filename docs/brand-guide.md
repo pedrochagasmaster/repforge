@@ -43,7 +43,7 @@ app crosses once, never a working surface:
 | Key | English | Portuguese |
 | --- | --- | --- |
 | `setup.ethos.title` | Strength isn't something you're born with. | Força não vem de nascença. |
-| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of / who you are. / And you become who you needed to be. // Strength, then, is yours. / Not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte / de quem você é. / E você se torna quem precisou ser. // A força, então, é sua. / Não porque lhe foi dada, / mas porque você a construiu. |
+| `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of / who you are. / And you become who you needed to be. // Strength, then, is yours — / not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte / de quem você é. / E você se torna quem precisou ser. // A força, então, é sua — / não porque lhe foi dada, / mas porque você a construiu. |
 
 The body is the one string in the app that is **set, not just written**: it is
 typeset in the mono face as a short poem, and `/` above marks a line break
@@ -186,19 +186,21 @@ Real pairs from the reverted themed copy — the left column ships today:
 | Session saved | Session forged | `summary.eyebrow` |
 | steady *(gauge idle label)* | graze | `top.gauge.forge` |
 | Nothing logged yet | Every bull starts as a calf | `stats.empty.title` |
-| No sessions yet. Start your first on the Log tab. | … Carry your first … | `history.empty.sessions` |
+| No sessions yet. Start your first on the Today tab. | … Carry your first … | `history.empty.sessions` |
 | *(nothing under the Settings app name)* | taurĭfer — bull-bearing | `settings.identity_gloss` (deleted) |
 
 Mechanics, all verifiable against the current catalogs:
 
 - **Sentence case everywhere** — titles, buttons, tabs, toasts. Capitals only
-  for sentence starts and proper nouns (Taurifer, Log, PR).
+  for sentence starts and proper nouns (Taurifer, Today, PR).
 - **No exclamation marks.** Both catalogs have zero today; keep it that way.
 - **Toasts are complete sentences ending in a period.** Put compound facts in
   separate sentences: "Workout saved. {n} {sets} logged."
-- **App prose uses periods and commas, not em dashes.** Do not replace an em
-  dash with parentheses, an en dash, or a spaced hyphen. En dashes remain valid
-  inside numeric ranges, where they mean "to". Use straight quotes in UI copy.
+- **App prose uses periods and commas, not em dashes.** The fixed
+  `setup.ethos.body` poem is the sole exception and requires a separate copy
+  decision. Do not replace an em dash with parentheses, an en dash, or a spaced
+  hyphen. En dashes remain valid inside numeric ranges, where they mean "to".
+  Use straight quotes in UI copy.
 - **Name the fact or action.** Avoid metaphor labels, promotional claims,
   generic summaries, passive voice, and adverbs that hide an unmeasured claim.
   If the same sentence could describe any app, make it specific or remove it.
