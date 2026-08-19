@@ -223,5 +223,27 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     uncached.map(e => e.id).join(", "));
 }
 
+{
+  // A navigation is network-first, but an older worker can still answer its
+  // unversioned script requests from an older cache. The two files that define
+  // the shared envelope must carry the current cache revision in index.html so
+  // the first v2 link bypasses a v1-only worker, and the new worker must precache
+  // those exact URLs for the next offline launch.
+  const index = readFileSync(join(ROOT, "index.html"), "utf8");
+  const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
+  const revision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
+  const transitionAssets = ["shared-setup.js", "app.js"];
+  const missingRevision = transitionAssets.filter(file => !index.includes(`src="${file}?v=${revision}"`));
+  const missingCache = transitionAssets.filter(file => !sw.includes(`"./${file}?v=${revision}"`));
+  assert(!!revision && missingRevision.length === 0,
+    "shared envelope scripts use the current cache revision in index.html",
+    missingRevision.join(", "));
+  assert(missingCache.length === 0,
+    "revisioned shared envelope scripts are precached for offline launch",
+    missingCache.join(", "));
+  assert(/registration\.scope/.test(sw) && /SCOPE_PATH/.test(sw),
+    "service-worker shell matching is relative to its production scope");
+}
+
 console.log(`\n${passed} passed, ${failed} failed`);
 process.exit(failed ? 1 : 0);

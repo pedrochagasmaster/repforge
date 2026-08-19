@@ -1,7 +1,8 @@
-const CACHE = "repforge-v102";
+const CACHE = "repforge-v103";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
-  "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./shared-setup.js", "./app.js",
+  "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
+  "./shared-setup.js", "./shared-setup.js?v=103", "./app.js", "./app.js?v=103",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -49,17 +50,18 @@ self.addEventListener("activate", event => {
 });
 
 const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/manifest.webmanifest"]);
-const scopePath = new URL(self.registration.scope).pathname.replace(/\/$/, "");
+const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {
-  if (scopePath && pathname.startsWith(`${scopePath}/`)) return pathname.slice(scopePath.length);
-  return pathname;
+  if (!SCOPE_PATH) return pathname;
+  return pathname === SCOPE_PATH ? "/" :
+    pathname.startsWith(`${SCOPE_PATH}/`) ? pathname.slice(SCOPE_PATH.length) : pathname;
 }
 self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
-  const pathname = shellPathname(url.pathname);
+  const path = shellPathname(url.pathname);
   const isShell = event.request.mode === "navigate" ||
-    SHELL.has(pathname) || SHELL.has(pathname.replace(/\/$/, "/index.html"));
+    SHELL.has(path) || SHELL.has(path.replace(/\/$/, "/index.html"));
   if (isShell) {
     event.respondWith((async () => {
       try {

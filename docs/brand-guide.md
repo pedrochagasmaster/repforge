@@ -148,22 +148,29 @@ Existing configured state — onboarded metadata, any log rows, or any
 `programHistory` — does not reopen this gate and does not apply the
 proposal.
 
-**What a setup link shares.** The coach's share sheet states the exact
-claim; do not strengthen or soften it in other copy:
+**What a setup link shares.** The in-app share sheet states the exact
+claim before the coach acts; do not strengthen or soften it in other
+copy, and do not paste it into the outbound system share or the
+clipboard:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
 | `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, configurações e idioma do app · sem histórico de treinos |
 | `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. Workout history is not included. A temporary cookie keeps the compressed proposal for iOS installation and is sent to the static host with matching index.html requests for up to seven days. Compression and encoding are not encryption. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. O histórico de treinos não é incluído. Um cookie temporário guarda a proposta comprimida para a instalação no iOS e é enviado ao host estático com as requisições correspondentes de index.html por até sete dias. Compressão e codificação não são criptografia. |
 
+Outbound Share link is title plus URL only. Copy link is the URL only.
+
 The URL is a bearer capability the coach sends. Encoding is not encryption
 and not proof of identity. Taurifer never uploads ordinary workout data.
-Workout logs, completed sessions, prior blocks, notification permission, and
-device UI preferences never travel with the link. A temporary
-`repforge_setup_v1` cookie exists only so iOS 17.2+ Add to Home Screen can
-recover the same proposal; it is compressed, not encrypted, is sent to the
-static host with matching app-page requests for up to seven days, and is not
-training history.
+The fragment is local-first and unencrypted. Workout logs, completed
+sessions, prior blocks, notification permission, and device UI
+preferences never travel with the link. A temporary `repforge_setup_v1`
+cookie — the historical name, kept even when the value is a `v2.`
+envelope — exists only so iOS 17.2+ Add to Home Screen can recover the
+same proposal. It is compressed, not encrypted, is sent to the static
+host with matching app-page requests for up to seven days, and is not
+training history. Do not claim physical iOS validation from this
+document.
 
 ## Voice and copy
 
@@ -272,7 +279,7 @@ carries the short enforcement note.
 | Export filenames | `taurifer_*` (`log`, `program`, `backup`, `copy_a`/`copy_b`) | Brand, lowercase |
 | localStorage keys | `repforge_v1`, `repforge_draft_v1`, `repforge_pending_v1:*` | Codename — frozen |
 | IndexedDB database / store | `repforge` / `kv` | Codename — frozen |
-| Setup-link handoff cookie | `repforge_setup_v1` | Codename — frozen |
+| Setup-link handoff cookie | `repforge_setup_v1` | Codename — frozen, including when the value is a `v2.` envelope |
 | Service-worker cache prefix | `repforge-vNN` (bump `NN` only) | Codename — frozen |
 | Cross-tab lock name | `repforge:state-write` | Codename — frozen |
 | JS globals and test hooks | `RepForgeI18n`, `RepForgeSchedule`, `RepForgeNotify`, `RepForgeSharedSetup`, `window.__repforge*` | Codename — frozen |

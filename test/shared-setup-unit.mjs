@@ -20,8 +20,10 @@ import {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const require = createRequire(import.meta.url);
 const Setup = require(join(__dirname, "..", "shared-setup.js"));
+const { EXERCISE_LIBRARY } = require(join(__dirname, "..", "exercises.js"));
 
 const OPTS = { builtInIds: BUILT_IN_IDS };
+const LIBRARY_OPTS = { builtInIds: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)) };
 
 let passed = 0, failed = 0;
 function assert(cond, name, detail = "") {
@@ -45,7 +47,108 @@ function toBase64Url(bytes) {
 }
 
 async function encodeRawBytes(bytes) {
-  return `v1.${toBase64Url(await gzipBytes(bytes))}`;
+  return encodeVersionedBytes(1, bytes);
+}
+
+async function encodeVersionedBytes(version, bytes) {
+  return `v${version}.${toBase64Url(await gzipBytes(bytes))}`;
+}
+
+const SHARE_URL_PREFIX = "https://pedrochagasmaster.github.io/repforge/index.html#setup=";
+
+const V1_MINIMAL_GOLDEN = "v1.H4sIAAAAAAAAA02RT2sbMRDFv4p5Z6VknaYHXdNAWhoIcaGHEIwsTXan1p_taLZkMf7uReuY-iRpRsyb93sH7DkHWKibhN9IrurghMJVJZ1GGIxSenEJ9gA_VS3p_p3Ec6UK-_JqQBfPA1xUkuz03A1uhsVXN686GETeiZP5W9MbZZs8DJJ7h-2ul8uGtMLeGiTOsF-W81RbG-SyTMVdySolRgor8p6yCrc5RQIJbNc25iKsTXjgfjh7oFq55J_zSLAIZdpF2l40YFAXqRsDddKTPrPcNzTdRWGjThT25vhqkEhdwxLcXJ9IfhHtl8_0Z-IxUVbYFyTnB85UsaAaSZiybxtwVpJEgZ0SDPriYlt4HklUyjjMjQ3V4mcf6QflXoemUBcu2SVaUDg_rM4J_Xf-OFUflwhwN1DVJl5PNk-TYJGLJBeb6zGyfmB5m2Lc7kqYcTwuPJRzX5vJwUl4ZoH9bPB7SuOTV9j1p1uD6HIPC2oEE-fvUxo_OkJVN-Rhu_W1gbA8tDhalsLyWEJTzFOiU4BTZoXFvsfR4C_JEortjv8AccHNsqICAAA";
+const V1_REPRESENTATIVE_GOLDEN = "v1.H4sIAAAAAAAAA92Y227cNhCGX0WYazrtrg8odBk3RRvEgWsX6IVhLEbkWGKXpwwpO4Kxz9MHyYsVlJKsvdqbZINC1tVySYrkN0P-lP5HWGunoISELes74qPYIJM6ipTaAAIC-5rRQvkIso3J2zcfiaWOFKG8eQT60OpgySUob0BiZQhuBeg84tC9lB5lc8T-AQQ4tAQlnOeqou9dbBsuE5RwRRYVFsoXiUk7VJ5zs095PnhPbWI0RYNOGepXpy1yByVcaPVTGwJxUaFcg4BI0js1NL7WkkKEza0AerZ8NInYYT_6za0Ahbn7r9gVCxBgdMXI3R-ZBquVlSDA4kcoFz_3hWtKEcpTAVY7KM_636FuuV3zuXeJvTGkCpKSXGKdx_GsiKFc9AyedcoTN7puvsScYtTe_dWFHDHl28rQ6klDT5inOhaQkGtKV5rf5FQunlRcJ-QE5fFGfAurbFeq-sq63MP6y37WLdfyGZfzbNFMgez-O7O4JTv-AWQnP55MmVV1YM5Oppmzpj44Z6cTJUsH5-xsGrtxuUNm5HzVcsRKT1lfslqOyOqn98BLVssRWVgcnLSJyOUIjecil7tkQR2cs4nI5fEuGX_nQXsBcrmHdSZyOSJrV9XDLORyl4wPP3kTUcsR2cNKHnjFTUQt95DNRC1PdshimO_L5Yj1w8GfCBNRyz1kJsxCLXfJUjUXtRyR8VzUMpMpHYPB7v1gSu53Hp_bYiND85tTfIltpAJTEQjXhcyChDINcP-76t4KsJQwe7sKu3hJ_DfRun_6ma9rUTbaUQQxWLy5oFpbVWRMLlfIQ7H3VwOxJifzClHdo5OkQEDt0eRTn5hcnZpV0wXixD40XY4jRS87aehd35qXEfsYfnaMf_P86V8spLcBOWnToELYxumijdL0SYbzhmICAa8HF_jPFlW_rjhEaBg_fyZ5V-dwBaPT53j29vHK-Adi2Gz6UCbt6pjj0yCrKz3s339aGy5ljuCrUwEGXZ1f_vKkVru3rQ1QLl4tTwUwxXRNEsrFWf6n-fd8qeTty5ovvMqT0t2d5_xs63Q2wNc1bATcE_f5LBeb_wCSuST6ohcAAA";
+const V1_REAL_PORTUGUESE_GOLDEN = "v1.H4sIAAAAAAAAE62WQY7TMBSGr1K9dQbRtDMaZc1IgKhUMUgsEKoc503iqWO7tsO0qrriBlyABUfhQhyBl7SF4FaVp3RVN5bf59__nxevYS5UARl41ljxgPbKVcxiceXQNwYSMFaXltWQrYE3zuv6bomWC4cOsk-fE8De3zUw6dEq5vezBVtR7VeCDYZUS4rcMrt60_LcYj6rOT2s2RKyW_oVCrJxAkp3q4GmtC3QQjZMgHZDz0ab5DkII3uE4csd4uYYIt0j0uchKj_L8zjE6EwV9ilaxfhMFZJHI67PRPBmVvw9qHSHuD2GuIlEpKEXZc-LiwQqJDjTF3GRQB0gFjNp4hCxgQoR0vZVXO8QLev8RIUMlvcT9YeRnozUM3V4O-MXjtTo0A1Xx7kRm6kQ8WD6Ki6SqQMVLvrdi81UiLDFUb__K1MhQ_J_-vlJHbFtKmRQm7p0psYBgj4ZsSpiMxUiTBHdz2MzFSIkxhseG6qQUci-GaebSGyoDtxYzvKnSB2xjSpkeBv_AvZSRTVr9Ky9eVFtN0X7EXHeScVFI0yNyhOaqvJKKKqTAGe5pEF3LTNoBSqOkKlGygRKzeR-XKPTfMUlvkNV-qqt67YBYTUtgKnVj-j1YPLzBw6UHtxXzODg1_dvX6G9EQpthV9NGsflXj1dAJ3Qaltvj3FGCv9hZXZ72Gw6cV6o0rWq6KJZvBdb8x6b2kw56Ulf0DFLpso2xx66s3pLk7sZi87fI2-PkTyywr4WZdXFmMYTXbS7V01N2tt0NkpQSZiXQOgvaNst0tLNbzh-42v2CgAA";
+
+// Wire tuple for MINIMAL_PAYLOAD. Mask bits and 1-based nullable enums are the v2 contract.
+const MINIMAL_V2_TUPLE = [
+  ["Coach program", 6, 63, 1, 2, 1, [1], ["Chest"], 2],
+  [2.5, 2.5, 2, 4, 120, 1, 1, 1],
+  ["Day 1"],
+  [[0, 1, "pr_mc", 3, 6, 10, 506, "Controlled eccentric", "double_progression", 3, 1, 2, 5, "high"]],
+  [],
+];
+
+function completeRoundTripPayload() {
+  return {
+    kind: KIND,
+    version: VERSION,
+    program: {
+      meta: {
+        name: "Açaí 強 🏋️",
+        goal: "hypertrophy",
+        experience: null,
+        daysPerWeek: 2,
+        equipment: ["barbells", "machines"],
+        priorityMuscles: ["Back", "Chest"],
+        sessionLength: "short",
+        mesocycleLengthWeeks: 4,
+      },
+      exercises: [
+        {
+          day: "Push",
+          order: 1,
+          libraryId: "pr_mc",
+          sets: 3,
+          min: 6,
+          max: 10,
+          displayName: "Chest press local",
+          notes: "Pause 1s — 日本語",
+          alternates: ["cv_mc"],
+          progressionType: "double_progression",
+          targetRirStart: 3,
+          targetRirEnd: 1,
+          minSets: 2,
+          maxSets: 4,
+          priority: "high",
+        },
+        {
+          day: "Pull",
+          order: 1,
+          libraryId: "custom:row-1",
+          sets: 4,
+          min: 8,
+          max: 12,
+        },
+        {
+          day: "Pull",
+          order: 2,
+          libraryId: "custom:fly-2",
+          sets: 3,
+          min: 10,
+          max: 15,
+          notes: "",
+          alternates: [],
+        },
+      ],
+      customExercises: [
+        {
+          id: "custom:row-1",
+          name: "Coach row",
+          namePt: "Remada",
+          equipment: ["cable", "band"],
+          primary: "Back",
+          secondary: "Biceps",
+          notes: "Neutral",
+        },
+        {
+          id: "custom:fly-2",
+          name: "Pec fly",
+          equipment: ["machine"],
+        },
+      ],
+    },
+    settings: {
+      jumpPct: 3.5,
+      minJump: 1.25,
+      rirHigh: 3,
+      hardRir: 5,
+      restSec: 165,
+      unit: "lb",
+      lang: "pt",
+      rirMode: "effort",
+    },
+  };
 }
 
 function cookieJar() {
@@ -366,8 +469,8 @@ console.log("schema: deeply nested untrusted values");
 console.log("encode/decode round trip");
 {
   const en = await Setup.encode(cloneFixture(MINIMAL_PAYLOAD), OPTS);
-  assert(en.ok && typeof en.value === "string" && en.value.startsWith("v1."), "encodes a valid English payload", en.code);
-  assert(en.ok && /^v1\.[A-Za-z0-9_-]+$/.test(en.value), "encoded value is v1. plus unpadded base64url");
+  assert(en.ok && typeof en.value === "string" && /^v[12]\./.test(en.value), "encodes a valid English payload", en.code);
+  assert(en.ok && /^v[12]\.[A-Za-z0-9_-]+$/.test(en.value), "encoded value is a supported unpadded base64url envelope");
   assert(en.ok && en.value.length <= MAX_ENCODED_CHARS, "encoded English payload fits the character ceiling", String(en.value && en.value.length));
   assert(en.ok && en.compressedBytes <= MAX_COMPRESSED_BYTES, "compressed English payload fits the byte ceiling");
   assert(en.ok && en.decompressedBytes <= MAX_DECOMPRESSED_BYTES, "uncompressed English payload fits the output ceiling");
@@ -393,6 +496,12 @@ console.log("decode error taxonomy");
     const result = await Setup.decode(input, OPTS);
     assert(!result.ok && result.code === code, `decode fixture ${code}`, result && result.code);
   }
+  const malformedV2 = await Setup.decode("v2.e30", OPTS);
+  assert(
+    !malformedV2.ok && malformedV2.code === "invalid-gzip",
+    "a v2. envelope is dispatched rather than rejected as unsupported-version",
+    malformedV2.code,
+  );
 
   const badJson = await Setup.decode(
     await encodeRawBytes(new TextEncoder().encode(INVALID_PAYLOADS["invalid-json"])),
@@ -547,7 +656,10 @@ console.log("cookies");
   const encoded = "v1.abc";
   const prodDoc = cookieJar();
   const prodLoc = loc("https://pedrochagasmaster.github.io/repforge/index.html");
-  Setup.writeHandoffCookie(encoded, { document: prodDoc, location: prodLoc });
+  assert(
+    Setup.writeHandoffCookie(encoded, { document: prodDoc, location: prodLoc }) === true,
+    "writeHandoffCookie accepts a syntactically safe v1 envelope",
+  );
   assert(Setup.readHandoffCookie({ document: prodDoc }) === encoded, "reads back the written handoff value");
   assert(prodDoc.lastWrite.includes("repforge_setup_v1="), "cookie name is the historical repforge handoff key");
   assert(prodDoc.lastWrite.includes("Path=/repforge/index.html"), "production cookie uses the index.html path", prodDoc.lastWrite);
@@ -564,6 +676,318 @@ console.log("cookies");
   Setup.clearHandoffCookie({ document: prodDoc, location: prodLoc });
   assert(Setup.readHandoffCookie({ document: prodDoc }) == null, "clearing removes the handoff cookie");
   assert(String(prodDoc.lastWrite).includes("Max-Age=0"), "clearing sets Max-Age=0", prodDoc.lastWrite);
+}
+
+console.log("v1 golden compatibility");
+{
+  assert(V1_MINIMAL_GOLDEN.length === 574, "precondition: captured minimal v1 is 574 characters");
+  const minGolden = await Setup.decode(V1_MINIMAL_GOLDEN, OPTS);
+  const minValidated = Setup.validate(cloneFixture(MINIMAL_PAYLOAD), OPTS);
+  assert(minGolden.ok, "decodes the frozen minimal v1 envelope", minGolden.code);
+  assert(
+    minGolden.ok && json(minGolden.value) === json(minValidated.value),
+    "frozen minimal v1 matches the current canonical payload",
+  );
+
+  assert(V1_REPRESENTATIVE_GOLDEN.length === 1097, "precondition: captured representative v1 is 1097 characters");
+  const repGolden = await Setup.decode(V1_REPRESENTATIVE_GOLDEN, OPTS);
+  const repValidated = Setup.validate(cloneFixture(REPRESENTATIVE_PAYLOAD), OPTS);
+  assert(repGolden.ok, "decodes the frozen representative v1 envelope", repGolden.code);
+  assert(
+    repGolden.ok && json(repGolden.value) === json(repValidated.value),
+    "frozen representative v1 matches the current canonical payload",
+  );
+}
+
+console.log("real Portuguese link compression");
+{
+  assert(V1_REAL_PORTUGUESE_GOLDEN.length === 811, "precondition: supplied v1 payload is 811 characters");
+  const original = await Setup.decode(V1_REAL_PORTUGUESE_GOLDEN, LIBRARY_OPTS);
+  assert(original.ok, "the supplied production-shaped v1 link still decodes", original.code);
+  assert(original.ok && original.value.program.meta.name === "Projeto Mãe no Shape 💃", "the supplied program identity is preserved");
+  assert(original.ok && original.value.program.exercises.length === 24, "the supplied program has all 24 exercises");
+  const compact = original.ok ? await Setup.encode(original.value, LIBRARY_OPTS) : original;
+  assert(compact.ok && compact.value.startsWith("v2."), "the supplied program selects the compact v2 envelope", compact.value?.slice(0, 3));
+  assert(
+    compact.ok && SHARE_URL_PREFIX.length + compact.value.length <= 520,
+    "the supplied complete URL shrinks to at most 520 characters",
+    String(compact.ok ? SHARE_URL_PREFIX.length + compact.value.length : compact.code),
+  );
+  const roundTrip = compact.ok ? await Setup.decode(compact.value, LIBRARY_OPTS) : compact;
+  assert(
+    original.ok && roundTrip.ok && json(roundTrip.value) === json(original.value),
+    "the supplied program survives an exact v1 to v2 semantic round trip",
+  );
+}
+
+console.log("v2 decode of a hand-built tuple");
+{
+  const encoded = await encodeVersionedBytes(2, new TextEncoder().encode(json(MINIMAL_V2_TUPLE)));
+  assert(encoded.startsWith("v2."), "precondition: helper builds a v2 envelope");
+  let decoded;
+  try { decoded = await Setup.decode(encoded, OPTS); } catch (error) { decoded = { rejected: error }; }
+  const validated = Setup.validate(cloneFixture(MINIMAL_PAYLOAD), OPTS);
+  assert(decoded && !decoded.rejected && decoded.ok, "decodes a hand-built v2 tuple without throwing", String(decoded?.rejected || decoded?.code));
+  assert(
+    decoded.ok && json(decoded.value) === json(validated.value),
+    "v2 tuple expands to the same canonical semantic payload as v1",
+  );
+}
+
+console.log("encode selects the shorter envelope");
+{
+  const minValidated = Setup.validate(cloneFixture(MINIMAL_PAYLOAD), OPTS);
+  const minV1 = await encodeVersionedBytes(1, new TextEncoder().encode(json(minValidated.value)));
+  const minEncoded = await Setup.encode(cloneFixture(MINIMAL_PAYLOAD), OPTS);
+  assert(minEncoded.ok, "encodes the minimal payload after v2 exists", minEncoded.code);
+  assert(
+    minEncoded.ok && typeof minEncoded.compressedBytes === "number" && typeof minEncoded.decompressedBytes === "number",
+    "encode keeps the existing success shape",
+  );
+  if (minEncoded.ok && minEncoded.value.startsWith("v2.")) {
+    assert(minEncoded.value.length < minV1.length, "v2 is chosen only when it is strictly shorter than v1", `${minEncoded.value.length} vs ${minV1.length}`);
+  } else {
+    assert(minEncoded.ok && minEncoded.value.startsWith("v1."), "tie or shorter v1 keeps the v1 envelope", minEncoded.value && minEncoded.value.slice(0, 4));
+    assert(minEncoded.ok && minEncoded.value.length <= minV1.length, "selected v1 is not longer than the v1 candidate");
+  }
+
+  const repValidated = Setup.validate(cloneFixture(REPRESENTATIVE_PAYLOAD), OPTS);
+  const repV1 = await encodeVersionedBytes(1, new TextEncoder().encode(json(repValidated.value)));
+  const repEncoded = await Setup.encode(cloneFixture(REPRESENTATIVE_PAYLOAD), OPTS);
+  assert(repEncoded.ok && repEncoded.value.startsWith("v2."), "representative encode selects the v2 envelope", repEncoded.value && repEncoded.value.slice(0, 8));
+  assert(repEncoded.ok && repEncoded.value.length < repV1.length, "representative v2 is shorter than v1", `${repEncoded.value && repEncoded.value.length} vs ${repV1.length}`);
+  assert(SHARE_URL_PREFIX.length === 62, "production share prefix is 62 characters");
+  const completeUrl = `${SHARE_URL_PREFIX}${repEncoded.value}`;
+  assert(
+    repEncoded.ok && completeUrl.length <= 700,
+    "representative complete URL is at most 700 characters",
+    String(completeUrl.length),
+  );
+
+  const repDecoded = await Setup.decode(repEncoded.value, OPTS);
+  assert(repDecoded.ok && json(repDecoded.value) === json(repValidated.value), "selected representative envelope round-trips exactly");
+}
+
+console.log("v2 exact semantic round trip");
+{
+  const raw = completeRoundTripPayload();
+  const validated = Setup.validate(raw, OPTS);
+  assert(validated.ok, "complete payload validates", validated.code);
+  if (validated.ok) {
+    assert(validated.value.program.meta.goal === "hypertrophy", "present enum survives validation");
+    assert(validated.value.program.meta.experience === null, "null enum is preserved");
+    assert(!("splitType" in validated.value.program.meta), "omitted enum stays omitted");
+    assert(json(validated.value.program.meta.equipment) === json(["barbells", "machines"]), "equipment order is preserved");
+    assert(validated.value.program.customExercises[1].namePt === "Pec fly", "omitted namePt reconstructs as name");
+    assert(validated.value.program.exercises[1].notes === "", "omitted notes reconstruct as empty string");
+    assert(json(validated.value.program.exercises[1].alternates) === "[]", "omitted alternates reconstruct as []");
+  }
+  const encoded = await Setup.encode(raw, OPTS);
+  assert(encoded.ok, "encodes the complete payload", encoded.code);
+  const decoded = await Setup.decode(encoded.value, OPTS);
+  assert(decoded.ok, "decodes the complete payload", decoded.code);
+  assert(decoded.ok && json(decoded.value) === json(validated.value), "complete v2 round trip is semantically exact");
+  assert(decoded.ok && decoded.value.program.meta.name === "Açaí 強 🏋️", "unicode program name survives");
+  assert(decoded.ok && decoded.value.program.exercises[0].notes.includes("日本語"), "unicode notes survive");
+  assert(decoded.ok && decoded.value.program.exercises[1].libraryId === "custom:row-1", "first custom ref reconstructs from the C index");
+  assert(decoded.ok && decoded.value.program.exercises[2].libraryId === "custom:fly-2", "second custom ref reconstructs from the C index");
+  assert(decoded.ok && decoded.value.program.customExercises[0].namePt === "Remada", "namePt override survives");
+  assert(decoded.ok && decoded.value.program.customExercises[1].namePt === "Pec fly", "same-as-name namePt is reconstructed");
+  assert(decoded.ok && decoded.value.settings.unit === "lb", "required settings enums survive as values");
+}
+
+console.log("malformed v2 envelopes");
+{
+  async function decodeTuple(tuple) {
+    try {
+      return await Setup.decode(await encodeVersionedBytes(2, new TextEncoder().encode(json(tuple))), OPTS);
+    } catch (error) {
+      return { rejected: error };
+    }
+  }
+
+  const cases = [
+    ["non-array object", {}],
+    ["wrong payload arity", [[], [], [], []]],
+    ["trailing payload value", [...MINIMAL_V2_TUPLE, 0]],
+    ["unknown meta mask bit", [
+      ["Coach program", 6, 63 + 64, 1, 2, 1, [1], ["Chest"], 2, 0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      MINIMAL_V2_TUPLE[3],
+      [],
+    ]],
+    ["invalid nullable enum", [
+      ["Coach program", 6, 63, 99, 2, 1, [1], ["Chest"], 2],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      MINIMAL_V2_TUPLE[3],
+      [],
+    ]],
+    ["invalid equipment code", [
+      ["Coach program", 6, 63, 1, 2, 1, [0], ["Chest"], 2],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      MINIMAL_V2_TUPLE[3],
+      [],
+    ]],
+    ["wrong settings arity", [
+      MINIMAL_V2_TUPLE[0],
+      [2.5, 2.5, 2, 4, 120, 1, 1],
+      MINIMAL_V2_TUPLE[2],
+      MINIMAL_V2_TUPLE[3],
+      [],
+    ]],
+    ["invalid required settings enum", [
+      MINIMAL_V2_TUPLE[0],
+      [2.5, 2.5, 2, 4, 120, 0, 1, 1],
+      MINIMAL_V2_TUPLE[2],
+      MINIMAL_V2_TUPLE[3],
+      [],
+    ]],
+    ["duplicate day labels", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      ["Day 1", "Day 1"],
+      MINIMAL_V2_TUPLE[3],
+      [],
+    ]],
+    ["out-of-range day index", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      ["Day 1"],
+      [[1, 1, "pr_mc", 3, 6, 10, 0]],
+      [],
+    ]],
+    ["unreferenced day", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      ["Day 1", "Day 2"],
+      MINIMAL_V2_TUPLE[3],
+      [],
+    ]],
+    ["string custom libraryRef", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      [[0, 1, "custom:row-1", 3, 6, 10, 0]],
+      [["custom:row-1", "Coach row", ["cable"], 0]],
+    ]],
+    ["custom index without C", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      [[0, 1, 0, 3, 6, 10, 0]],
+      [],
+    ]],
+    ["unreferenced custom", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      MINIMAL_V2_TUPLE[3],
+      [["custom:unused", "Unused", ["cable"], 0]],
+    ]],
+    ["duplicate custom id", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      [[0, 1, 0, 3, 6, 10, 0], [0, 2, 1, 3, 6, 10, 0]],
+      [["custom:row-1", "Coach row", ["cable"], 0], ["custom:row-1", "Other", ["cable"], 0]],
+    ]],
+    ["unknown exercise mask bit", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      [[0, 1, "pr_mc", 3, 6, 10, 512]],
+      [],
+    ]],
+    ["trailing exercise values", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      [[0, 1, "pr_mc", 3, 6, 10, 0, "extra"]],
+      [],
+    ]],
+    ["trailing custom values", [
+      MINIMAL_V2_TUPLE[0],
+      MINIMAL_V2_TUPLE[1],
+      MINIMAL_V2_TUPLE[2],
+      [[0, 1, 0, 3, 6, 10, 0]],
+      [["custom:row-1", "Coach row", ["cable"], 0, "extra"]],
+    ]],
+  ];
+
+  for (const [name, tuple] of cases) {
+    const result = await decodeTuple(tuple);
+    assert(
+      result && !result.rejected && !result.ok && result.code === "invalid-schema",
+      `malformed v2 ${name} is invalid-schema`,
+      String(result?.rejected || result?.code),
+    );
+  }
+
+  const future = await Setup.decode("v4.e30", OPTS);
+  assert(!future.ok && future.code === "unsupported-version", "unknown envelope versions stay unsupported-version", future.code);
+
+  let deep;
+  try {
+    deep = await Setup.decode(
+      await encodeVersionedBytes(2, new TextEncoder().encode(`${"[".repeat(6000)}0${"]".repeat(6000)}`)),
+      OPTS,
+    );
+  } catch (error) {
+    deep = { rejected: error };
+  }
+  assert(
+    deep && !deep.rejected && !deep.ok && deep.code === "invalid-schema",
+    "deeply nested v2 JSON is invalid-schema rather than thrown",
+    String(deep?.rejected || deep?.code),
+  );
+
+  const v2Bytes2302 = `v2.${toBase64Url(new Uint8Array(MAX_COMPRESSED_BYTES + 1))}`;
+  const oversized = await Setup.decode(v2Bytes2302, OPTS);
+  assert(!oversized.ok && oversized.code === "encoded-too-large", "v2 compressed ceiling matches v1", oversized.code);
+}
+
+console.log("cookie v2 and safety");
+{
+  const v2Doc = cookieJar();
+  const v2Loc = loc("https://pedrochagasmaster.github.io/repforge/index.html");
+  assert(
+    Setup.writeHandoffCookie("v2.e30", { document: v2Doc, location: v2Loc }) === true,
+    "writeHandoffCookie accepts a syntactically safe v2 envelope",
+  );
+  assert(Setup.readHandoffCookie({ document: v2Doc }) === "v2.e30", "reads back the written v2 handoff value");
+  assert(v2Doc.lastWrite.includes("repforge_setup_v1="), "v2 still uses the historical repforge cookie name");
+
+  const encoded = await Setup.encode(cloneFixture(MINIMAL_PAYLOAD), OPTS);
+  if (encoded.ok) {
+    const liveDoc = cookieJar();
+    assert(
+      Setup.writeHandoffCookie(encoded.value, { document: liveDoc, location: v2Loc }) === true,
+      "writeHandoffCookie accepts a live encoded envelope",
+    );
+    assert(Setup.readHandoffCookie({ document: liveDoc }) === encoded.value, "live encoded cookie value is stored verbatim");
+  }
+
+  const unsafe = [
+    ["attribute injection", "v1.abc; Path=/stolen"],
+    ["unsupported version", "v3.abc"],
+    ["unlabeled value", "not-a-setup"],
+    ["padded base64", "v1.e30="],
+    ["plus in payload", "v1.not+base64"],
+    ["remainder 1", "v1.abcde"],
+    ["oversize", `v1.${"a".repeat(MAX_ENCODED_CHARS)}`],
+    ["empty envelope", "v1."],
+    ["empty", ""],
+    ["non-string", null],
+  ];
+  for (const [name, value] of unsafe) {
+    const doc = cookieJar();
+    const written = Setup.writeHandoffCookie(value, { document: doc, location: v2Loc });
+    assert(written === false, `writeHandoffCookie rejects ${name}`);
+    assert(doc.lastWrite === "", `unsafe ${name} does not write a cookie`, doc.lastWrite);
+  }
 }
 
 console.log(`\nshared-setup unit tests: ${passed} passed, ${failed} failed`);
