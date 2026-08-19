@@ -524,9 +524,13 @@ try {
         () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       );
       const required = await readBoth(writer);
+      // The toast copy is asked of the catalog, not spelled out here: a reword
+      // should not fail a check about which of the two toasts was raised.
       const requiredUi = await writer.evaluate(() => ({
         toast: document.querySelector("#toast")?.textContent || "",
         health: window.__repforgeStorage.health(),
+        storageFullCopy: window.RepForgeI18n?.t("toast.storage_full") || "",
+        draftConflictCopy: window.RepForgeI18n?.t("toast.draft_conflict_retry") || "",
       }));
       const requiredArtifacts = await inventoryPersistenceArtifacts(writer);
       check(
@@ -534,8 +538,8 @@ try {
           requiredResult?.localOk === false &&
           requiredResult?.idbOk === false &&
           requiredUi.health.lastResult?.journalFailed === true &&
-          /couldn.t save|storage may be full/i.test(requiredUi.toast) &&
-          !/newer unfinished workout/i.test(requiredUi.toast) &&
+          requiredUi.toast.trim() === requiredUi.storageFullCopy.trim() &&
+          requiredUi.toast.trim() !== requiredUi.draftConflictCopy.trim() &&
           required.local?.programMeta?.id === baseline.programMeta.id &&
           required.idb?.programMeta?.id === baseline.programMeta.id &&
           requiredArtifacts.keys.length === 0,
