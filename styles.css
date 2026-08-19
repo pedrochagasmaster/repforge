@@ -2108,6 +2108,9 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   padding:12px 0;border-bottom:1px solid var(--rule);
 }
 .sum-pr:first-child{border-top:1px solid var(--rule)}
+/* A block whose records are all one kind drops the badge, so the row is two
+   columns and the load-by-reps figure keeps the right edge. */
+.sum-prs--onekind .sum-pr{grid-template-columns:minmax(0,1fr) auto}
 .sum-pr__badge{
   font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
   color:var(--cta-ink);background:var(--accent-deep);border-radius:999px;padding:4px 8px;white-space:nowrap;

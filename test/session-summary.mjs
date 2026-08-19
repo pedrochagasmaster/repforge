@@ -192,6 +192,15 @@ const readSummary = (page) =>
       prNames: txt(".sum-pr__name"),
       prOver: txt(".sum-pr__over"),
       prVals: txt(".sum-pr__val"),
+      prOneKind: !!body.querySelector(".sum-prs--onekind"),
+      // With the badge column gone the figure has to keep the right edge rather
+      // than drift into the space the badge used to hold.
+      prValGap: (() => {
+        const list = body.querySelector(".sum-prs");
+        const val = body.querySelector(".sum-pr__val");
+        if (!list || !val) return null;
+        return Math.round(list.getBoundingClientRect().right - val.getBoundingClientRect().right);
+      })(),
       more: body.querySelector(".sum-more")?.textContent.trim() || "",
       chips: txt(".sum-chip"),
       baseline: body.querySelector(".sum-baseline")?.textContent.trim() || "",
@@ -363,7 +372,38 @@ async function run() {
   assert(hist.open === 1, "the session it opens is the one just finished", JSON.stringify(hist));
   assert(hist.summaryHidden, "the summary closes on its way out", JSON.stringify(hist));
 
-  // ---- 6 — the toast still covers a save the screen cannot ----------------------
+  // ---- 6 — a block of one kind drops the badge ---------------------------------
+  phase("A badge that reads the same on every line is not drawn");
+  await seed(
+    page,
+    fixture({
+      log: history(isoDaysAgo(7), [
+        ["ex0", "Bench press", 1, 60, 8, 1, "Chest", "Triceps"],
+        ["ex1", "Barbell row", 1, 50, 8, 1, "Mid/upper back", "Biceps"],
+        ["ex2", "Dumbbell curl", 1, 10, 8, 1, "Biceps", ""],
+      ]),
+    })
+  );
+  await enterLog(page);
+  // Every lift goes up in load, so every record is a load record.
+  await logSet(page, "ex0", 1, 62.5, 8, 1);
+  await logSet(page, "ex1", 1, 52.5, 8, 1);
+  await logSet(page, "ex2", 1, 12.5, 8, 1);
+  await finish(page);
+  s = await readSummary(page);
+  assert(s.prNames.length === 3, "all three lifts set a record", JSON.stringify(s.prNames));
+  assert(!s.prBadges.length, "one kind of record across the block draws no badge", JSON.stringify(s.prBadges));
+  assert(s.prOneKind, "the list says so, so the row can drop the badge column");
+  assert(
+    s.prOver.every((o) => /over your best/.test(o)),
+    "the sentence under each name still says what kind of record it is",
+    JSON.stringify(s.prOver)
+  );
+  assert(s.prValGap === 0, "the figure keeps the right edge without the badge", String(s.prValGap));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(200);
+
+  // ---- 7 — the toast still covers a save the screen cannot ----------------------
   phase("A save that cannot open the screen still reports itself");
   await seed(page, fixture());
   await enterLog(page);

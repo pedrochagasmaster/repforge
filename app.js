@@ -4623,15 +4623,17 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
 
 /** Records worth a line of their own before the rest become a count. */
 const SUMMARY_PR_MAX=3;
-/** One PR line: what kind of record, on what lift, and by how much. */
-function sessionPRHtml(p){
+/** One PR line: what kind of record, on what lift, and by how much. The kind
+ *  badge is only drawn when the block holds more than one kind — see the caller.
+ *  The sentence under the name names the kind either way. */
+function sessionPRHtml(p,withBadge){
   const unit=unitLabel();
   const badge=p.kind==="load"?t("stats.pr_filter.load")
     :p.kind==="reps"?t("stats.pr_filter.reps"):t("stats.pr_filter.e1rm");
   const over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
     :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
     :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
-  return `<li class="sum-pr"><span class="sum-pr__badge">${esc(badge)}</span>`+
+  return `<li class="sum-pr">`+(withBadge?`<span class="sum-pr__badge">${esc(badge)}</span>`:"")+
     `<span class="sum-pr__text"><span class="sum-pr__name">${esc(p.name)}</span>`+
     `<span class="sum-pr__over">${esc(over)}</span></span>`+
     `<span class="sum-pr__val">${esc(t("summary.pr.value",{load:fmtLoad(p.load),unit,reps:fmt(p.reps)}))}</span></li>`}
@@ -4661,8 +4663,13 @@ function sessionSummaryHtml(s){
   // strongest few get a line and the rest are counted.
   if(s.prs.length){
     const shown=s.prs.slice(0,SUMMARY_PR_MAX),rest=s.prs.length-shown.length;
+    // A badge that reads the same on every line is a rubber stamp: it spends a
+    // column to repeat what the sentence under each name already says. It earns
+    // that column only where it tells one record apart from the next.
+    const kinds=new Set(shown.map(p=>p.kind)),withBadge=kinds.size>1;
     out.push(`<p class="section-label section-label--accent">${esc(t("summary.prs.title"))}</p>`+
-      `<ul class="sum-prs">${shown.map(sessionPRHtml).join("")}</ul>`+
+      `<ul class="sum-prs${withBadge?"":" sum-prs--onekind"}">`+
+      shown.map(p=>sessionPRHtml(p,withBadge)).join("")+`</ul>`+
       (rest?`<p class="sum-more">${esc(t("summary.prs.more",{n:rest}))}</p>`:""))}
   // Nothing in this session had a past to be read against, so counting "1 new
   // lift" would be the whole story told as arithmetic. Say what it is instead —
