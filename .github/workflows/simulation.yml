@@ -79,6 +79,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/notifications.mjs
 
+      - name: Appearance and dark theme
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/appearance.mjs
+
       - name: Recovery gate
         env:
           REPFORGE_URL: http://localhost:8000/

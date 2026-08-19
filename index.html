@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
   <meta charset="utf-8">
   <!-- The layout is fixed to the phone and worked one-handed mid-set, so every
@@ -38,6 +38,23 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="stylesheet" href="styles.css">
+  <!-- app.js owns the Appearance setting, but it is the last script on the page
+       and a dark install would spend that whole load painted cream. This replays
+       the resolved theme onto <html> before the first paint and does nothing
+       else: it never writes, and if the read fails the markup default (light)
+       stands until app.js gets there. Keep the key, the values and the dark
+       theme-colour in step with applyTheme() in app.js. -->
+  <script>
+    (function(){
+      try{
+        var pref=(JSON.parse(localStorage.getItem("repforge_ui_v1"))||{}).theme;
+        var dark=pref==="dark"||(pref!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);
+        if(!dark)return;
+        document.documentElement.dataset.theme="dark";
+        document.querySelector('meta[name="theme-color"]').setAttribute("content","#141310");
+      }catch(e){}
+    })();
+  </script>
 </head>
 <body>
   <!-- Legacy hooks kept for JS/tests; visually relocated or hidden -->
@@ -400,6 +417,10 @@
 
       <p class="settings-group__label" data-i18n="settings.group.app">App</p>
       <div class="settings-group">
+        <label class="settings-row" for="theme">
+          <span class="settings-row__label" data-i18n="settings.appearance">Appearance</span>
+          <span class="settings-row__value"><select id="theme" class="select-flat"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></span>
+        </label>
         <label class="settings-row" for="lang">
           <span class="settings-row__label" data-i18n="settings.language">Language</span>
           <span class="settings-row__value"><select id="lang" class="select-flat"><option value="en">English</option><option value="pt">Português</option></select></span>

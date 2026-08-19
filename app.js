@@ -5982,6 +5982,7 @@ function renderSettings(){
   if(jp)jp.value=state.settings.jumpPct;if(mj)mj.value=state.settings.minJump;if(rh)rh.value=state.settings.rirHigh;if(hr)hr.value=state.settings.hardRir;
   if(rs)rs.value=state.settings.restSec;if(un)un.value=state.settings.unit;
   const langSel=$("#lang");if(langSel){langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
+  const themeSel=$("#theme");if(themeSel){themeSel.value=currentTheme();[...themeSel.options].forEach(o=>{o.textContent=t("settings.appearance."+o.value)})}
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
@@ -7466,6 +7467,39 @@ function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));retur
 let uiPrefs=loadUiPrefs();
 function setUiPref(k,v){uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs))}catch(e){console.warn("ui prefs save failed",e)}}
 
+/* ---- Appearance ----
+   A UI pref, not a setting: which paper this device prefers says nothing about
+   the training in a backup, and a setup link that repainted the recipient's app
+   would be reading far past its remit. So it stays out of state.settings, out
+   of export/import, and out of the shared-setup allowlist.
+
+   "system" is a live answer rather than a stored light/dark, so a phone on a
+   sunrise schedule follows it without the app being reopened. Everything else
+   below resolves that to the concrete value <html data-theme> carries, which is
+   the only thing styles.css ever looks at. */
+const THEMES=["system","light","dark"];
+/* Browser chrome cannot read a CSS variable, so --bg is spelled out again here
+   and in the pre-paint snippet in index.html. Three copies of two hexes; move
+   all three together. */
+const THEME_COLOR={light:"#F4F2EF",dark:"#141310"};
+const darkQuery=()=>window.matchMedia?.("(prefers-color-scheme: dark)")||null;
+const normalizeTheme=v=>THEMES.includes(v)?v:"system";
+const currentTheme=()=>normalizeTheme(uiPrefs.theme);
+const resolvedTheme=()=>{const pick=currentTheme();return pick==="system"?(darkQuery()?.matches?"dark":"light"):pick};
+function applyTheme(){
+  const resolved=resolvedTheme();
+  document.documentElement.dataset.theme=resolved;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute("content",THEME_COLOR[resolved]);
+  return resolved}
+/* The chart is painted into a canvas, so it is the one surface a token swap
+   cannot reach on its own — it has already sampled the old palette. */
+function repaintForTheme(){applyTheme();redrawChart()}
+function setTheme(v){setUiPref("theme",normalizeTheme(v));repaintForTheme()}
+function watchSystemTheme(){
+  const q=darkQuery();
+  if(!q?.addEventListener)return;
+  q.addEventListener("change",()=>{if(currentTheme()==="system")repaintForTheme()})}
+
 // ---- Install / PWA helpers ----
 const isStandalone=()=>window.matchMedia?.("(display-mode: standalone)")?.matches===true||window.navigator.standalone===true;
 const isIOS=()=>{const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.test(ua)||(navigator.platform==="MacIntel"&&(navigator.maxTouchPoints||0)>1)};
@@ -7856,7 +7890,7 @@ function endTour(completed){
   maybeShowInstallBanner()}
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour};
+window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
   programEditMode=true;
@@ -7868,6 +7902,10 @@ window.__repforgeOnboarding={eqUi:ONB_EQ_UI,eqGen:ONB_EQ_GEN,splits:ONB_SPLITS,m
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  // The pre-paint snippet in index.html has already done this for a dark
+  // device; re-running it is what covers the light case and a snippet that
+  // could not read storage.
+  applyTheme();watchSystemTheme();
   window.addEventListener("hashchange",()=>{handleSharedSetupHash()});
   $("#firstRun")?.addEventListener("keydown",trapFirstRunTab);
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
@@ -8115,6 +8153,8 @@ function init(){
   $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
   $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=commitChangedSettings);
+  // Appearance lives in UI prefs, so it never joins a state proposal.
+  const themeSel=$("#theme");if(themeSel)themeSel.onchange=()=>setTheme(themeSel.value);
   $$('input[name="rirMode"]').forEach(r=>r.onchange=commitChangedSettings);
   const vi=$("#voiceInputEnabled");if(vi)vi.onchange=commitChangedSettings;
   const ne=$("#notifyEnabled");

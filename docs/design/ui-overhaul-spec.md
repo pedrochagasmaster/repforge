@@ -133,8 +133,15 @@ color literals, check them too).
 --maxw:      560px;    /* mobile-first single column; narrower than today's 760px */
 ```
 
-`color-scheme: light`. `<meta name="theme-color">` becomes `#F4F2EF`. Light theme only —
-do **not** build a dark mode or an "Appearance" setting.
+`color-scheme: light`. `<meta name="theme-color">` becomes `#F4F2EF`.
+
+> **Superseded.** This spec originally read "Light theme only — do not build a dark mode
+> or an 'Appearance' setting", on the grounds that a second palette would double the
+> surface every later change had to be checked against. A dark theme shipped later on the
+> opposite footing: it is a swap of the `:root` tokens above and nothing else, so the
+> palette here stays the single place light is defined. `color-scheme` and
+> `<meta name="theme-color">` are now resolved per theme. See
+> `docs/adr/0009-appearance-setting-dark-theme.md`.
 
 ### Typography
 
