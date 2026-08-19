@@ -298,7 +298,8 @@ async function run() {
     return { stops, last: document.activeElement?.id };
   });
   assert(
-    trap.stops.join(",") === "sumDone,sumSee" && trap.last === "sumSee",
+    // Tab order follows the screen: the detour, then the pinned way out.
+    trap.stops.join(",") === "sumSee,sumDone" && trap.last === "sumSee",
     "both actions are reachable by keyboard",
     JSON.stringify(trap)
   );
