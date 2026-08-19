@@ -2197,6 +2197,44 @@ async function main() {
     `Ledger: ${ledger}`,
     "Stats → Dig deeper → PR ledger under the trend"
   );
+  // The strength trend card holds four things about one lift. They used to keep
+  // three different left edges — the picker inset 14px, the figures and the
+  // canvas flush to the card's border — and the ledger was cut off mid-column
+  // by a 520px floor meant for full-page tables.
+  const trendCard = await page.evaluate(() => {
+    const card = document.querySelector(".chartcard");
+    const kids = [...card.children].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { cls: el.className, left: Math.round(r.left), right: Math.round(r.right) };
+    });
+    const led = card.querySelector("#prLedger");
+    const cap = card.querySelector(".chartcard__cap");
+    const wrap = card.querySelector(".chart-wrap");
+    return {
+      columns: [...new Set(kids.map((k) => `${k.left}|${k.right}`))],
+      kids,
+      ledgerOverflow: led.scrollWidth - led.clientWidth,
+      captionAboveChart:
+        !!cap && !!wrap && cap.compareDocumentPosition(wrap) === Node.DOCUMENT_POSITION_FOLLOWING,
+      e1rmColumns: [...led.querySelectorAll("th")].filter((h) => /e1rm/i.test(h.textContent)).length,
+    };
+  });
+  assert(
+    trendCard.columns.length === 1,
+    "Every block in the strength trend card shares one text column",
+    JSON.stringify(trendCard.kids)
+  );
+  assert(
+    trendCard.ledgerOverflow === 0,
+    "The record ledger fits the card instead of scrolling behind its edge",
+    `overflow=${trendCard.ledgerOverflow}px`,
+    "Stats → Strength trend → the ledger's last column is whole"
+  );
+  assert(
+    trendCard.captionAboveChart && trendCard.e1rmColumns === 0,
+    "The e1RM caption labels the chart it belongs to, and the number is printed once",
+    JSON.stringify(trendCard)
+  );
   await nav(page, "log");
   await selectDay(page, "Day 3");
   const prMeta3 = await getExerciseMeta(page, "Day 3");

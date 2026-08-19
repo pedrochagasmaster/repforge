@@ -1703,10 +1703,12 @@ body.is-sheet-open{overflow:hidden}
 
 
 /* ---- Metrics (aliased to unified stat-band above) ---- */
-.trend{font-size:12px;color:var(--ink-soft);margin:12px 0 4px;display:flex;flex-wrap:wrap;gap:6px 16px}
+.trend{font-size:13px;color:var(--ink-soft);margin:0;display:grid;gap:3px}
+.trend__fig{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px;margin:0}
 .trend b{color:var(--ink);font-weight:600}
+.trend__delta{font-weight:600;white-space:nowrap}
 .trend .up{color:var(--positive)}.trend .down{color:var(--danger)}
-.prledger{margin:8px 0 12px;overflow-x:auto;-webkit-overflow-scrolling:touch;
+.prledger{margin:0;overflow-x:auto;-webkit-overflow-scrolling:touch;
   border:0;border-radius:0;background:transparent}
 .prledger table{font-size:12px;margin:0}
 .pr-kind{display:inline-block;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.04em;padding:2px 7px;border-radius:4px}
@@ -2340,6 +2342,13 @@ body.is-sheet-open .installbanner{display:none}
 .seg.seg--stats button:first-child{padding-left:0}
 .seg.seg--stats button:last-child{padding-right:0}
 @media (max-width:360px){.seg.seg--stats button{padding:12px 6px;font-size:12px}}
+/* The smallest phone is the one width where six columns still ask for more room
+   than the card has, so the ledger tightens before it falls back to scrolling. */
+@media (max-width:360px){
+  .chartcard{padding:14px}
+  .chartcard .prledger th,.chartcard .prledger td{font-size:11px}
+  .chartcard .prledger th + th,.chartcard .prledger td + td{padding-left:6px}
+}
 .seg--window{margin:8px 0 12px}
 
 .session--edit{display:block}
@@ -2680,8 +2689,32 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .exview-head .back-link,.exview-head .exview__back{position:absolute;left:0;display:inline-flex;align-items:center;min-height:44px}
 .exview-head__title{margin:0;font-size:17px;font-weight:600}
 .exview-head__right{position:absolute;right:0}
-.chart-wrap{margin:8px 0 16px}
-.strength-pick{margin-bottom:8px}
+/* One lift, four facts: which lift it is, how its top set has moved, the records
+   behind that, and the curve. They shared a card and nothing else — the picker
+   and its caption were inset 14px while the figures, the ledger and the canvas
+   ran to the card's own border, and the seven gaps between them were each
+   chosen on its own. One column at one inset, one rhythm, and a hairline only
+   where the subject changes. */
+.chartcard{padding:16px}
+.chartcard > .field,.chartcard > .lede{margin:0}
+.chartcard .strength-pick select{padding:0 22px 0 0;font-size:18px}
+.chartcard .trend{margin-top:8px}
+/* The records are what the two figures are drawn from, and the curve is those
+   records over time, so each earns a rule rather than a guessed gap. */
+.chartcard .prledger{margin-top:16px;padding-top:15px;border-top:1px solid var(--rule)}
+.chartcard__cap{margin-top:16px;padding-top:15px;border-top:1px solid var(--rule)}
+/* This ledger is a block inside a card, not a wide table on a page of its own,
+   so it drops the shared 520px floor: seven narrow columns fit the card's
+   column, and the last of them stops being cut off mid-figure. */
+.chartcard .prledger table{min-width:0}
+.chartcard .prledger th,.chartcard .prledger td{padding:9px 0;font-size:12px}
+.chartcard .prledger th + th,.chartcard .prledger td + td{padding-left:8px}
+.chartcard .prledger tr > :last-child{text-align:right}
+/* The last row's own rule and the chart caption's would otherwise sit 15px
+   apart with nothing between them. One seam. */
+.chartcard .prledger tbody tr:last-child > *{border-bottom:0}
+.chart-wrap{margin:4px 0 0}
+.strength-pick{margin-bottom:0}
 .is-danger{color:var(--danger)!important}
 
 /* Calendar + progress stat row overrides kept for class aliases — unified band rules above win for separators */
