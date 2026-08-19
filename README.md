@@ -73,10 +73,15 @@ manifest.webmanifest
 sw.js
 icons/                  # SVG source, PWA icons, Apple touch icon, and iOS launch images
 tools/                  # offline generators; nothing here runs in the browser
+docs/ui-screens/        # light/dark phone-frame catalog for UI and Brand Designers
 .nojekyll
 ```
 
 Exercise data derives from a third-party dataset; see [NOTICE.md](NOTICE.md).
+
+## UI screen catalog
+
+`docs/ui-screens/` holds an exhaustive set of phone-frame captures of every primary surface in both Appearance themes (`light/` and `dark/`). It is the visual reference for UI and Brand Designers. Regenerate it with `node tools/capture-ui-screens.mjs` whenever a user-visible surface changes — see that folder's README and `AGENTS.md`.
 
 ## Development
 
