@@ -691,10 +691,7 @@ async function openF7HistoryEdit(page) {
   await nav(page, "history");
   const editor = page.locator('.session--edit[data-editing="f7-edit-seed"]');
   if (await editor.count()) return;
-  const row = page.locator('#sessions .hist-row[data-sess="f7-edit-seed"]');
-  await row.waitFor({ state: "visible", timeout: 5000 });
-  await row.click();
-  const editBtn = page.locator('[data-edit="f7-edit-seed"]');
+  const editBtn = page.locator('#sessions [data-edit="f7-edit-seed"]');
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
   await editBtn.click();
   await editor.waitFor({ state: "visible", timeout: 5000 });
@@ -1668,11 +1665,9 @@ async function main() {
 
   await nav(page, "history");
   const sessionsBefore = (await getState(page)).log.length;
-  // Deleting a session lives inside the session: the row expands to the way in,
-  // and the destructive action sits under the edits it belongs to.
-  const firstSession = page.locator("#sessions .hist-row.session, #sessions .session").first();
-  await firstSession.click();
-  const openBtn = page.locator("#sessions [data-edit]").first();
+  // Deleting a session lives inside the session: the row opens it, and the
+  // destructive action sits under the edits it belongs to.
+  const openBtn = page.locator("#sessions .session__open").first();
   await openBtn.waitFor({ state: "visible", timeout: 5000 });
   await openBtn.click();
   const delBtn = page.locator(".session--edit .session__del").first();
@@ -1688,7 +1683,7 @@ async function main() {
     sessionsAfter < sessionsBefore && deletedGone,
     "Delete session removes all its sets",
     `Before ${sessionsBefore} sets, after ${sessionsAfter}; session ${delSessionId} still present: ${!deletedGone}`,
-    "History tab → expand a session → View session → Delete session → confirm"
+    "History tab → open a session → Delete session → confirm"
   );
 
   // ── Phase 6: Settings ────────────────────────────────────────────
@@ -4280,8 +4275,7 @@ async function main() {
 
   // Edit a logged session in History
   await nav(page, "history");
-  await page.locator("#sessions .hist-row.session, #sessions .session").first().click();
-  const editBtn = page.locator("[data-edit], .session__edit").first();
+  const editBtn = page.locator("#sessions .session__open").first();
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
   await editBtn.click();
   await page.waitForTimeout(100);

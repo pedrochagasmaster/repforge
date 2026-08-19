@@ -365,11 +365,12 @@ async function run() {
   await page.waitForTimeout(250);
   const hist = await page.evaluate(() => ({
     view: document.querySelector(".view.active")?.id,
-    open: document.querySelectorAll("#sessions .session.is-open").length,
+    editing: [...document.querySelectorAll(".session--edit")].map((el) => el.dataset.editing),
     summaryHidden: document.querySelector("#sessionSummary").classList.contains("hidden"),
+    session: window.__repforgeSessionSummary.current()?.session || null,
   }));
   assert(hist.view === "history", "See the session opens History", JSON.stringify(hist));
-  assert(hist.open === 1, "the session it opens is the one just finished", JSON.stringify(hist));
+  assert(hist.editing.length === 1, "it lands on the session itself, not on a row that reveals it", JSON.stringify(hist));
   assert(hist.summaryHidden, "the summary closes on its way out", JSON.stringify(hist));
 
   // ---- 6 — a block of one kind drops the badge ---------------------------------

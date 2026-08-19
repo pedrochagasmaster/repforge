@@ -2145,8 +2145,7 @@ async function runDimmedStateAccessibility(browser) {
     await page.evaluate(() => leaveWorkout());
     await showView(page, "history");
     await page.waitForSelector("#sessions [data-sess]");
-    await page.locator("#sessions .session__toggle").first().click();
-    await page.locator("#sessions [data-edit]").first().click();
+    await page.locator("#sessions .session__open").first().click();
     await page.waitForSelector(".session--edit");
     const removeAction = await page.evaluate(() => {
       const action = document.querySelector(".session--edit [data-edrm]");

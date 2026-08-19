@@ -2038,7 +2038,7 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
+let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",readyExpanded=false;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
@@ -3739,9 +3739,9 @@ function todayPrimaryControl(){
   return $("#todayDash .page-title")}
 /** Today's recap hands off to History, opened on the session it describes. */
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
-  expandedSession=done.at(-1).session;histQuery="";
+  editSession=done.at(-1).session;histQuery="";
   navTo("history");
-  $$("#sessions [data-sess]").find(el=>el.dataset.sess===expandedSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
+  $$("#sessions [data-sess]").find(el=>el.dataset.sess===editSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
 // The day's exercises, previewed on Today: sets × rep range per row, the rest
 // behind a "+N" disclosure. Tapping a row opens that exercise's page.
 function todayExListHtml(exs){if(!exs.length)return"";
@@ -4747,7 +4747,7 @@ function renderSessionSummary(s){
   [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const see=$("#sumSee");if(see)see.onclick=()=>{
-    expandedSession=s.session;
+    editSession=s.session;
     closeSessionSummary({nav:"history"})}}
 
 /** The screen the lifter earns by finishing. It opens over the workout, so
@@ -5243,7 +5243,6 @@ const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onB
   reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
   disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
 const historyIndexCache=new WeakMap();
-function historyPanelId(session){return`hist-sess-${String(session??"").replace(/[^A-Za-z0-9_-]/g,"_")}`}
 function buildHistoryIndex(log){
   const source=log||[];
   // Read the program's current movement names once per build; this is the only
@@ -5292,8 +5291,7 @@ function buildHistoryIndex(log){
     // the current program name only widens what finds the session.
     const aliases=new Set();
     for(const r of sess.rows){const alias=currentNameForRow(r,currentNames);if(alias&&!names.has(alias))aliases.add(alias)}
-    sess.searchText=`${String(sess.day||"")} ${dayLabel(sess.day)} ${[...names,...aliases].join(" ")}`.toLowerCase();
-    sess.panelId=historyPanelId(sess.session)}
+    sess.searchText=`${String(sess.day||"")} ${dayLabel(sess.day)} ${[...names,...aliases].join(" ")}`.toLowerCase()}
   const prEvents=detectPRs(rows);
   const prDates=new Set(prEvents.map(ev=>String(ev.date)));
   const months=new Map();
@@ -5360,7 +5358,7 @@ async function deleteSession(sid,io=storageIO){
 
 function renderHistory(source=state.log){
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
-  const focusedToggle=document.activeElement?.matches?.("#sessions .session__toggle")?document.activeElement:null;
+  const focusedToggle=document.activeElement?.matches?.("#sessions .session__open")?document.activeElement:null;
   const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
   const index=historyIndexFor(source);
   renderHistoryCalendar(index);
@@ -5379,26 +5377,21 @@ function renderHistory(source=state.log){
     let monthHdr="";
     if(monthKey!==lastMonth){lastMonth=monthKey;monthHdr=`<p class="section-label">${esc(t("month."+d.getMonth()).toUpperCase())}</p>`}
     const eyebrow=esc(t("history.session_eyebrow",{weekday:t("weekday."+d.getDay()),day:d.getDate(),month:t("month_short."+d.getMonth())}));
-    const open=expandedSession===s.session;
-    const panelId=s.panelId||historyPanelId(s.session);
-    return monthHdr+`<article class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
-      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:dayLabel(s.day)}))}">`+
+    // The card is the way in. It used to be a disclosure whose panel held one
+    // link to the session — a tap to reveal a tap — and the panel was drawn on
+    // every row regardless, because `display:flex` outranks the `hidden` it
+    // carried. Deleting a session already moved inside the session, so nothing
+    // is left for a row to reveal and the whole card opens it.
+    return monthHdr+`<article class="hist-row session" data-sess="${esc(s.session)}">`+
+      `<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`+
       `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(dayLabel(s.day))}</div>`+
       (mus.length?`<div class="session__sub">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
-      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
-      // Deleting a session lives inside the session, not beside the way into
-      // it: a destructive action one thumb-width from a routine one is a trap,
-      // and the feed reads as a record rather than as a row of controls.
-      `<div class="hist-row__actions" id="${esc(panelId)}"${open?"":" hidden"}>`+
-      `<button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button></div></article>`;
+      `</div><span class="chevron" aria-hidden="true"></span></button></article>`;
   }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
   if(focusedSession){
-    const next=$$("#sessions .session__toggle").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
+    const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
-  $$("#sessions .session__toggle").forEach(btn=>btn.onclick=()=>{
-    const art=btn.closest("[data-sess]");if(!art)return;
-    expandedSession=expandedSession===art.dataset.sess?null:art.dataset.sess;renderHistory()});
   $$("#sessions [data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm(t("confirm.delete_session")))await deleteSession(b.dataset.del)});
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});

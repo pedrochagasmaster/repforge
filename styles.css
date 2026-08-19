@@ -2686,10 +2686,9 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .cal-grid__mark.is-check{color:var(--ink)}
 .cal-grid__mark.is-pr,.cal-grid__mark.is-today{width:6px;height:6px;border-radius:50%;background:var(--accent);margin-top:6px}
 .hist-row{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;min-height:56px;padding:14px 0;border-bottom:1px solid var(--rule);cursor:default}
-.session__toggle{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1;min-width:0;background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
+.session__open{display:flex;align-items:center;justify-content:space-between;gap:12px;flex:1;min-width:0;background:none;border:0;padding:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
 .hist-eyebrow{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}
 .hist-row__title{font-size:20px;font-weight:640}
-.hist-row__actions{display:flex;gap:12px;align-items:center;flex:1 1 100%;margin-top:8px}
 .ready-row__delta{color:var(--accent-deep);font-weight:600;flex:none;white-space:nowrap;display:inline-flex;align-items:center;gap:6px}
 .coach-dest{font-size:13px;font-weight:600;color:var(--ink-soft);flex:none;white-space:nowrap}
 /* Program overview day accordion (mock 05) */

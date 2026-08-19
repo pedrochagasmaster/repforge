@@ -296,7 +296,7 @@ export async function runHistoryIndexChecks(page, check = assert) {
     }
     const renderMs = performance.now() - t0;
     const articles = [...document.querySelectorAll("#sessions article.session, #sessions .session[data-sess]")];
-    const toggles = [...document.querySelectorAll("#sessions [aria-controls][aria-expanded]")];
+    const toggles = [...document.querySelectorAll("#sessions .session__open")];
     const editIds = [...document.querySelectorAll("#sessions [data-edit]")].map((b) => b.getAttribute("data-edit"));
     // Deleting a session is not a feed control: it lives inside the session the
     // row opens, so a plain render carries no destructive target at all.
@@ -603,83 +603,59 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   const collapsed = await page.evaluate(() => document.querySelector("#historySearchWrap")?.classList.contains("hidden"));
   check(collapsed, "Empty search may collapse after Clear", `hidden=${collapsed}`);
 
-  const toggle = page.locator("#sessions [data-sess='ui-a'] .session__toggle, #sessions [data-sess='ui-a'] button[aria-expanded]").first();
-  await toggle.focus();
-  await page.keyboard.press("Enter");
-  const entered = await page.evaluate(() => {
-    const btn = document.querySelector("#sessions [data-sess='ui-a'] button[aria-expanded]");
-    const controls = btn?.getAttribute("aria-controls");
-    const panel = controls ? document.getElementById(controls) : null;
+  // The feed is a list of records, not a list of disclosures. A row used to
+  // expand to reveal a single link into the session, and its panel was drawn
+  // whether the row was open or not, because `display:flex` outranks `hidden`.
+  const feed = await page.evaluate(() => {
+    const rows = [...document.querySelectorAll("#sessions [data-sess]")];
+    const leaked = [...document.querySelectorAll("#sessions [hidden]")]
+      .filter((el) => getComputedStyle(el).display !== "none")
+      .map((el) => el.className);
+    const row = document.querySelector("#sessions [data-sess='ui-a']");
+    const controls = [...(row?.querySelectorAll("button") || [])];
     return {
-      expanded: btn?.getAttribute("aria-expanded"),
-      controls,
-      active: document.activeElement?.id || document.activeElement?.tagName,
-      activeIsCurrent: document.activeElement === btn,
-      activeSession: document.activeElement?.closest?.("[data-sess]")?.getAttribute("data-sess"),
-      activeConnected: !!document.activeElement?.isConnected,
-      panelMatchesSession: panel?.closest("[data-sess]")?.getAttribute("data-sess") === "ui-a",
-      panelHidden: panel?.hasAttribute("hidden"),
+      rows: rows.length,
+      disclosures: document.querySelectorAll("#sessions [aria-expanded], #sessions [aria-controls]").length,
+      leaked,
+      controlsPerRow: controls.length,
+      controlClass: controls[0]?.className || "",
+      name: controls[0]?.getAttribute("aria-label") || "",
+      opensSession: controls[0]?.getAttribute("data-edit") || "",
     };
   });
+  check(feed.rows === 3, "the feed lists every session", `rows=${feed.rows}`);
+  check(feed.disclosures === 0, "no row claims to be a disclosure", `found=${feed.disclosures}`);
   check(
-    entered.expanded === "true" &&
-      !!entered.controls &&
-      entered.activeIsCurrent &&
-      entered.activeSession === "ui-a" &&
-      entered.activeConnected &&
-      entered.panelMatchesSession &&
-      entered.panelHidden === false,
-    "Enter expands ui-a and restores focus to its live logical toggle",
-    JSON.stringify(entered)
+    feed.leaked.length === 0,
+    "nothing inside the feed carries hidden while still being drawn",
+    JSON.stringify(feed.leaked)
   );
-  const panel = await page.evaluate((id) => {
-    const el = document.getElementById(id);
-    return { exists: !!el, hidden: el?.hasAttribute("hidden"), edit: !!el?.querySelector("[data-edit]"), del: !!el?.querySelector("[data-del]") };
-  }, entered.controls);
   check(
-    panel.exists && !panel.hidden && panel.edit && !panel.del,
-    "Expanded region offers the way into the session and no destructive action beside it",
-    JSON.stringify(panel)
+    feed.controlsPerRow === 1 && feed.controlClass === "session__open" && feed.opensSession === "ui-a",
+    "one control per row, and it is the way into that session",
+    JSON.stringify(feed)
   );
+  check(/session/i.test(feed.name), "the row names what it opens", feed.name);
 
-  await page.keyboard.press(" ");
-  const spaced = await page.evaluate(() => {
-    const btn = document.querySelector("#sessions [data-sess='ui-a'] button[aria-expanded]");
-    const controls = btn?.getAttribute("aria-controls");
-    const panel = controls ? document.getElementById(controls) : null;
-    return {
-      expanded: btn?.getAttribute("aria-expanded"),
-      controls,
-      active: document.activeElement?.id || document.activeElement?.tagName,
-      activeIsCurrent: document.activeElement === btn,
-      activeSession: document.activeElement?.closest?.("[data-sess]")?.getAttribute("data-sess"),
-      activeConnected: !!document.activeElement?.isConnected,
-      panelMatchesSession: panel?.closest("[data-sess]")?.getAttribute("data-sess") === "ui-a",
-      panelHidden: panel?.hasAttribute("hidden"),
-    };
-  });
-  check(
-    spaced.expanded === "false" &&
-      !!spaced.controls &&
-      spaced.activeIsCurrent &&
-      spaced.activeSession === "ui-a" &&
-      spaced.activeConnected &&
-      spaced.panelMatchesSession &&
-      spaced.panelHidden === true,
-    "Space collapses ui-a and restores focus to its live logical toggle",
-    JSON.stringify(spaced)
-  );
-
+  const openRow = page.locator("#sessions [data-sess='ui-a'] .session__open");
+  await openRow.focus();
   await page.keyboard.press("Enter");
-  await page.click("#sessions [data-sess='ui-a'] [data-edit]");
   const editing = await page.locator('.session--edit[data-editing="ui-a"]').count();
-  check(editing === 1, "Edit opens the session editor without nesting inside the toggle", `editors=${editing}`);
+  check(editing === 1, "Enter on the row opens that session, with no step in between", `editors=${editing}`);
   const editorDelete = await page.locator('.session--edit[data-editing="ui-a"] [data-del="ui-a"]').count();
   check(editorDelete === 1, "The open session carries its own delete, under the edits", `controls=${editorDelete}`);
   await page.click("[data-edcancel]");
+  const backToFeed = await page.evaluate(() => ({
+    rows: document.querySelectorAll("#sessions [data-sess]").length,
+    editors: document.querySelectorAll(".session--edit").length,
+  }));
+  check(
+    backToFeed.rows === 3 && backToFeed.editors === 0,
+    "Cancel returns the feed with every session back in it",
+    JSON.stringify(backToFeed)
+  );
 
-  await page.locator("#sessions [data-sess='ui-b'] button[aria-expanded]").press("Enter");
-  await page.click("#sessions [data-sess='ui-b'] [data-edit]");
+  await page.locator("#sessions [data-sess='ui-b'] .session__open").press(" ");
   await page.click('.session--edit[data-editing="ui-b"] [data-del="ui-b"]');
   await page.waitForTimeout(80);
   const remaining = await page.evaluate(() =>
