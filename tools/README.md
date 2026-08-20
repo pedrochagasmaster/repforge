@@ -110,6 +110,23 @@ mapped id has no colour or an id has a colour but no artwork, and
 `test/simulation.mjs` decodes every file to confirm each recorded colour really
 is that drawing's paper.
 
+## capture-ui-screens.mjs
+
+Rewrites `docs/ui-screens/{light,dark}/` — the exhaustive phone-frame catalog
+UI and Brand Designers use as the visual source of truth for both Appearance
+themes. Agents must re-run it whenever a user-visible surface changes (see
+`AGENTS.md` and `docs/ui-screens/README.md`).
+
+```bash
+python3 -m http.server 8000
+(cd test && npm ci && npx playwright install chromium --with-deps)   # once
+node tools/capture-ui-screens.mjs
+```
+
+Seeds a stable three-day program with history, walks every primary surface in
+Light and Dark, and refreshes the folder README. Appearance must be present in
+the running app. Do not hand-edit the PNGs.
+
 ## build-brand-mark.mjs
 
 Renders `assets/brand/mark.png`: the Taurifer yoke with no paper under it, at

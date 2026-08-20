@@ -2038,7 +2038,7 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",expandedSession=null,readyExpanded=false;
+let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",readyExpanded=false;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
@@ -3739,9 +3739,9 @@ function todayPrimaryControl(){
   return $("#todayDash .page-title")}
 /** Today's recap hands off to History, opened on the session it describes. */
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
-  expandedSession=done.at(-1).session;histQuery="";
+  editSession=done.at(-1).session;histQuery="";
   navTo("history");
-  $$("#sessions [data-sess]").find(el=>el.dataset.sess===expandedSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
+  $$("#sessions [data-sess]").find(el=>el.dataset.sess===editSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
 // The day's exercises, previewed on Today: sets × rep range per row, the rest
 // behind a "+N" disclosure. Tapping a row opens that exercise's page.
 function todayExListHtml(exs){if(!exs.length)return"";
@@ -4158,7 +4158,9 @@ function renderWorkout(){
       `placeholder="${esc(t("log.note.placeholder"))}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}">${esc(noteVal)}</textarea></div>`;
     // Every slot can be swapped now, not just the ones that happen to carry
     // alternates: the machine being taken does not check the program first.
-    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab">${esc(t("log.substitute.label"))}</span>`+
+    // The field says what it holds, and its own label names the job for a
+    // screen reader, so a printed "USE:" beside it was a caption on a caption.
+    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab visually-hidden">${esc(t("log.substitute.label"))}</span>`+
       `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:slotEx.name}))}">${esc(perf||ex.name)}</button>`+
       (perf?`<p class="subst__from">${esc(t("log.substitute_for",{name:slotEx.name}))}</p>`:"")+
       `</div>`;
@@ -4621,15 +4623,17 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
 
 /** Records worth a line of their own before the rest become a count. */
 const SUMMARY_PR_MAX=3;
-/** One PR line: what kind of record, on what lift, and by how much. */
-function sessionPRHtml(p){
+/** One PR line: what kind of record, on what lift, and by how much. The kind
+ *  badge is only drawn when the block holds more than one kind — see the caller.
+ *  The sentence under the name names the kind either way. */
+function sessionPRHtml(p,withBadge){
   const unit=unitLabel();
   const badge=p.kind==="load"?t("stats.pr_filter.load")
     :p.kind==="reps"?t("stats.pr_filter.reps"):t("stats.pr_filter.e1rm");
   const over=p.kind==="load"?t("summary.pr.over_load",{n:fmtLoad(p.delta),unit})
     :p.kind==="reps"?t("summary.pr.over_reps",{n:fmt(p.delta),reps:tp(p.delta,"rep")})
     :t("summary.pr.over_e1rm",{n:fmtLoad(p.delta),unit});
-  return `<li class="sum-pr"><span class="sum-pr__badge">${esc(badge)}</span>`+
+  return `<li class="sum-pr">`+(withBadge?`<span class="sum-pr__badge">${esc(badge)}</span>`:"")+
     `<span class="sum-pr__text"><span class="sum-pr__name">${esc(p.name)}</span>`+
     `<span class="sum-pr__over">${esc(over)}</span></span>`+
     `<span class="sum-pr__val">${esc(t("summary.pr.value",{load:fmtLoad(p.load),unit,reps:fmt(p.reps)}))}</span></li>`}
@@ -4659,8 +4663,13 @@ function sessionSummaryHtml(s){
   // strongest few get a line and the rest are counted.
   if(s.prs.length){
     const shown=s.prs.slice(0,SUMMARY_PR_MAX),rest=s.prs.length-shown.length;
+    // A badge that reads the same on every line is a rubber stamp: it spends a
+    // column to repeat what the sentence under each name already says. It earns
+    // that column only where it tells one record apart from the next.
+    const kinds=new Set(shown.map(p=>p.kind)),withBadge=kinds.size>1;
     out.push(`<p class="section-label section-label--accent">${esc(t("summary.prs.title"))}</p>`+
-      `<ul class="sum-prs">${shown.map(sessionPRHtml).join("")}</ul>`+
+      `<ul class="sum-prs${withBadge?"":" sum-prs--onekind"}">`+
+      shown.map(p=>sessionPRHtml(p,withBadge)).join("")+`</ul>`+
       (rest?`<p class="sum-more">${esc(t("summary.prs.more",{n:rest}))}</p>`:""))}
   // Nothing in this session had a past to be read against, so counting "1 new
   // lift" would be the whole story told as arithmetic. Say what it is instead —
@@ -4697,8 +4706,11 @@ function sessionSummaryHtml(s){
     out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
       `<span class="sum-next__day">${esc(dayLabel(s.next.day))}</span>`+
       `<span class="sum-next__meta">${esc(t("today.exercise_count",{n:s.next.exercises}))}</span></div>`);
-  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button>`+
-    `<button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
+  // The detour comes before the door. Done is the last block on purpose: it is
+  // the one control the sheet pins, so a report that runs past the fold still
+  // shows the way out, and the way out is not carrying a second link with it.
+  out.push(`<div class="sum-secondary"><button type="button" class="text-link text-link--center" id="sumSee">${esc(t("summary.see_session"))}</button></div>`);
+  out.push(`<div class="sum-actions"><button type="button" class="btn btn--cta btn--noarrow" id="sumDone">${esc(t("summary.done"))}</button></div>`);
   return out.join("")}
 
 /** The stat row spins up to its numbers instead of printing them. They are the
@@ -4735,7 +4747,7 @@ function renderSessionSummary(s){
   [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const see=$("#sumSee");if(see)see.onclick=()=>{
-    expandedSession=s.session;
+    editSession=s.session;
     closeSessionSummary({nav:"history"})}}
 
 /** The screen the lifter earns by finishing. It opens over the workout, so
@@ -4911,9 +4923,12 @@ function renderStats(){
 
   if(rows.length){const first=rows[0].top,latest=rows.at(-1).top,delta=latest-first,be=Math.max(...rows.map(r=>r.e1rm));
     const dir=delta>0?"up":delta<0?"down":"";const arrow=delta>0?"▲":delta<0?"▼":"·";
-    $("#trend").innerHTML=`<span>${t("stats.trend.top_load",{a:fmtLoad(first),b:fmtLoad(latest),unit:unitLabel()})}</span>`+
-      `<span class="${dir}">${arrow} ${esc(t("stats.trend.over_sessions",{signed:fmt(toDisplay(Math.abs(delta))),unit:unitLabel(),sessions:`${rows.length} ${tp(rows.length,"session")}`}))}</span>`+
-      `<span>${t("stats.trend.best_e1rm",{top:fmt(Math.round(toDisplay(be))),unit:unitLabel()})}</span>`;
+    // Two figures, not one sentence: what the top set did, and the best estimate
+    // behind it. The movement over sessions belongs to the first of them, so it
+    // sits on that line rather than wrapping into the second.
+    $("#trend").innerHTML=`<p class="trend__fig"><span>${t("stats.trend.top_load",{a:fmtLoad(first),b:fmtLoad(latest),unit:unitLabel()})}</span>`+
+      `<span class="trend__delta ${dir}">${arrow} ${esc(t("stats.trend.over_sessions",{signed:fmt(toDisplay(Math.abs(delta))),unit:unitLabel(),sessions:`${rows.length} ${tp(rows.length,"session")}`}))}</span></p>`+
+      `<p class="trend__fig"><span>${t("stats.trend.best_e1rm",{top:fmt(Math.round(toDisplay(be))),unit:unitLabel()})}</span></p>`;
   }else $("#trend").innerHTML="";
 
   $("#recent").innerHTML=table(rows.slice(-8).reverse().map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.top")]:fmtLoad(x.top),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir),[t("stats.table.e1rm")]:fmt(Math.round(toDisplay(x.e1rm))),[t("stats.table.vol")]:kfmt(toDisplay(x.volume))})));
@@ -5095,7 +5110,10 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>ev.liftKey===sel);
   if(!events.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.log_prs"))}</div>`;return}
-  el.innerHTML=`<table><thead><tr><th>${esc(t("stats.table.date"))}</th><th>${esc(t("stats.table.kind"))}</th><th>${esc(t("stats.table.load"))}</th><th>${esc(t("stats.table.reps"))}</th><th>${esc(t("stats.table.rir"))}</th><th>${esc(t("stats.table.e1rm"))}</th><th>${esc(t("stats.table.delta_vs_prev"))}</th></tr></thead><tbody>${
+  // No e1RM column: the figures above the ledger name the best estimate, and the
+  // chart below it is that estimate over time under a caption saying so. Three
+  // printings of one number were what pushed the seventh column off the card.
+  el.innerHTML=`<table><thead><tr><th>${esc(t("stats.table.date"))}</th><th>${esc(t("stats.table.kind"))}</th><th>${esc(t("stats.table.load"))}</th><th>${esc(t("stats.table.reps"))}</th><th>${esc(t("stats.table.rir"))}</th><th>${esc(t("stats.table.delta_vs_prev"))}</th></tr></thead><tbody>${
     events.map(ev=>{const kindCls=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
       const kindLabel=ev.kind==="e1rm"?t("stats.pr.e1rm"):ev.kind==="reps"?t("stats.pr.reps"):t("stats.pr.load");
       const delta=ev.kind==="e1rm"?(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}`:"—")
@@ -5103,7 +5121,7 @@ function renderPRs(){const el=$("#prLedger");if(!el)return;
         :(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}`:"—");
       return `<tr class="pr-row"><td>${esc(ev.date)}</td><td><span class="pr-kind ${kindCls}">${esc(kindLabel)}</span></td>`+
         `<td>${esc(fmtLoad(ev.load))}</td><td>${esc(ev.reps)}</td><td>${esc(fmt(ev.rir))}</td>`+
-        `<td>${esc(fmt(Math.round(toDisplay(e1rm(ev.load,ev.reps)))))}</td><td>${esc(delta)}</td></tr>`}).join("")
+        `<td>${esc(delta)}</td></tr>`}).join("")
   }</tbody></table>`}
 
 // Action board — which lifts need a decision, grouped by signal (one group per lift).
@@ -5140,10 +5158,24 @@ function renderAttention(){const el=$("#attention");if(!el)return;
   const groups=attentionGroups().filter(g=>g.key!=="add");
   if(!groups.length){el.innerHTML="";return}
   const n=attentionCount(groups);
-  const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>`<div class="attn__grp attn--${cls}"><span class="attn__lead visually-hidden">${esc(lead)}</span>`+
-    `<p class="attn__why visually-hidden">${esc(items[0]?.why||"")}</p>`+
+  const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>{
+    // A cause the whole group shares is stated once, above the lifts it holds:
+    // ten rows repeating "Primary muscle under weekly volume target." read as a
+    // rendering fault rather than as ten lifts sharing one reason. A group whose
+    // rows differ — "Last trained 15 days ago." beside 22 — keeps them, because
+    // hoisting one row's sentence would speak for the others.
+    const shared=items.length>1&&items.every(it=>it.why===items[0].why)?items[0].why:"";
+    return `<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
+    `<p class="attn__why${shared?"":" visually-hidden"}">${esc(items[0]?.why||"")}</p>`+
     items.map(({ex,why})=>{const dest=coachingDestLabel(key),destKey=coachingDestKey(key);
-      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div><div class="listrow__sub">${esc(why)}</div></div><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`).join("");
+      // The destination is spoken, not printed: the chevron carries it for the
+      // eye, and ten rows of "View trend" were charging the reason beside them
+      // for a word the row already implies. A shared reason goes the same way:
+      // the eye reads it once above the group, and each row keeps it in its own
+      // accessible name, so a row still answers "why" on its own.
+      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
+      `<div class="listrow__sub${shared?" visually-hidden":""}">${esc(why)}</div>`+
+      `</div><span class="coach-dest visually-hidden">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`}).join("");
   el.innerHTML=html;
   $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
     if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
@@ -5228,7 +5260,6 @@ const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onB
   reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
   disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
 const historyIndexCache=new WeakMap();
-function historyPanelId(session){return`hist-sess-${String(session??"").replace(/[^A-Za-z0-9_-]/g,"_")}`}
 function buildHistoryIndex(log){
   const source=log||[];
   // Read the program's current movement names once per build; this is the only
@@ -5277,8 +5308,7 @@ function buildHistoryIndex(log){
     // the current program name only widens what finds the session.
     const aliases=new Set();
     for(const r of sess.rows){const alias=currentNameForRow(r,currentNames);if(alias&&!names.has(alias))aliases.add(alias)}
-    sess.searchText=`${String(sess.day||"")} ${dayLabel(sess.day)} ${[...names,...aliases].join(" ")}`.toLowerCase();
-    sess.panelId=historyPanelId(sess.session)}
+    sess.searchText=`${String(sess.day||"")} ${dayLabel(sess.day)} ${[...names,...aliases].join(" ")}`.toLowerCase()}
   const prEvents=detectPRs(rows);
   const prDates=new Set(prEvents.map(ev=>String(ev.date)));
   const months=new Map();
@@ -5345,7 +5375,7 @@ async function deleteSession(sid,io=storageIO){
 
 function renderHistory(source=state.log){
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
-  const focusedToggle=document.activeElement?.matches?.("#sessions .session__toggle")?document.activeElement:null;
+  const focusedToggle=document.activeElement?.matches?.("#sessions .session__open")?document.activeElement:null;
   const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
   const index=historyIndexFor(source);
   renderHistoryCalendar(index);
@@ -5364,24 +5394,21 @@ function renderHistory(source=state.log){
     let monthHdr="";
     if(monthKey!==lastMonth){lastMonth=monthKey;monthHdr=`<p class="section-label">${esc(t("month."+d.getMonth()).toUpperCase())}</p>`}
     const eyebrow=esc(t("history.session_eyebrow",{weekday:t("weekday."+d.getDay()),day:d.getDate(),month:t("month_short."+d.getMonth())}));
-    const open=expandedSession===s.session;
-    const panelId=s.panelId||historyPanelId(s.session);
-    return monthHdr+`<article class="hist-row session${open?" is-open":""}" data-sess="${esc(s.session)}">`+
-      `<button type="button" class="session__toggle" aria-expanded="${open?"true":"false"}" aria-controls="${esc(panelId)}" aria-label="${esc(t("history.session_expand_aria",{day:dayLabel(s.day)}))}">`+
+    // The card is the way in. It used to be a disclosure whose panel held one
+    // link to the session — a tap to reveal a tap — and the panel was drawn on
+    // every row regardless, because `display:flex` outranks the `hidden` it
+    // carried. Deleting a session already moved inside the session, so nothing
+    // is left for a row to reveal and the whole card opens it.
+    return monthHdr+`<article class="hist-row session" data-sess="${esc(s.session)}">`+
+      `<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`+
       `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(dayLabel(s.day))}</div>`+
       (mus.length?`<div class="session__sub">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
       `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
-      `</div><span class="chevron${open?" is-up":""}" aria-hidden="true"></span></button>`+
-      `<div class="hist-row__actions" id="${esc(panelId)}"${open?"":" hidden"}>`+
-      `<button type="button" class="link-accent" data-edit="${esc(s.session)}">${esc(t("history.view_session"))}</button>`+
-      `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`;
+      `</div><span class="chevron" aria-hidden="true"></span></button></article>`;
   }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
   if(focusedSession){
-    const next=$$("#sessions .session__toggle").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
+    const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
-  $$("#sessions .session__toggle").forEach(btn=>btn.onclick=()=>{
-    const art=btn.closest("[data-sess]");if(!art)return;
-    expandedSession=expandedSession===art.dataset.sess?null:art.dataset.sess;renderHistory()});
   $$("#sessions [data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm(t("confirm.delete_session")))await deleteSession(b.dataset.del)});
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
@@ -5447,7 +5474,10 @@ function sessionEditor(s,sets){
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
-    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div></div>`;
+    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div>`+
+    // Where the whole session can be thrown away: behind the way in, under the
+    // edits, and named in full so the row it deletes is never in doubt.
+    `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
 }
 
 function sessionSetsForEdit(sid){

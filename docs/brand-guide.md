@@ -264,11 +264,14 @@ Principles the tokens can't express:
 Dark appearance carries the same material grammar rather than introducing a
 second visual identity: warm charcoal paper, off-white ink, ember orange,
 hairlines and whitespace. Its primary action is a quiet parchment inversion,
-not a large orange field. Exercise illustrations keep their own sampled paper
-as lit archival plates; never invert, tint, or dim the licensed drawings.
-Repeated status markers should not all glow on charcoal — let one orange signal
-carry the hierarchy and render repetition in soft ink. The canonical values and
-rationale live in `styles.css` and
+not a large orange field. Artwork painted on cream — the exercise illustrations,
+the ethos hero, the ground-free mark — keeps that paper as a deliberate archival
+plate with a corner of its own, rather than being inverted, tinted, dimmed, or
+dissolved into charcoal with a gradient. Repeated status markers should not all
+glow on charcoal; a repeated *signal* is a different thing from a repeated glow,
+though, and the Attention board keeps its orange dot in both themes because the
+count above it is measured in that colour. The canonical values and rationale
+live in `styles.css` and
 [`ADR 0009`](adr/0009-appearance-setting-dark-theme.md).
 
 `styles.css` `:root` is canonical for every value. If this document and the
@@ -296,7 +299,11 @@ name's origin is allowed to show.
   `tools/build-brand-mark.mjs`, which removes the single full-bleed ground rect
   and rasterises the rest — so it is generated output twice over. Re-run it
   when a new mark lands; never hand-edit or hand-crop it, and never use the app
-  icon in that row: its ground reads as a plate against the app's paper.
+  icon in that row: its ground reads as a plate against the app's paper. That
+  reasoning is about cream. The rendering keeps a pale edge where its ground was
+  taken away, so on charcoal the gate paints the paper back under it as a plate
+  rather than leaving a smudge on the dark page — the same answer dark gives the
+  ethos hero and the exercise artwork.
 - The mark carries **no themed text**: no caption, tooltip, or alt text about
   bulls or bearing. The Settings identity mark ships `alt=""`.
 

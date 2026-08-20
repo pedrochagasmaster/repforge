@@ -404,6 +404,70 @@ async function runStaysOutOfTrainingData(browser) {
   }
 }
 
+/** Settings used to be a stack of cards in light and a plain list in dark, so
+ *  the two themes disagreed about what a group even was. They are one list now,
+ *  and the measurements that make it read as a list belong to both. */
+const settingsGeometry = (page) =>
+  page.evaluate(() => {
+    const view = document.querySelector("#settings");
+    const captions = [...view.querySelectorAll(".settings-group__label")];
+    const groups = [...view.querySelectorAll(".settings-group")];
+    const boxed = groups.filter((g) => {
+      const s = getComputedStyle(g);
+      return s.borderTopWidth !== "0px" || !/rgba\(0, 0, 0, 0\)|transparent/.test(s.backgroundColor);
+    }).length;
+    const rows = [...groups[0].querySelectorAll(".settings-row")];
+    const rule = getComputedStyle(rows[1], "::before");
+    const x = (el) => +el.getBoundingClientRect().left.toFixed(1);
+    return {
+      boxed,
+      captionX: x(captions[0]),
+      rowLabelX: x(rows[0].querySelector(".settings-row__label")),
+      groupX: x(groups[0]),
+      ruleLeft: rule.left,
+      ruleRight: rule.right,
+      // The space above a caption is the only boundary between two groups now.
+      gapAbove: +(captions[1].getBoundingClientRect().top - groups[0].getBoundingClientRect().bottom).toFixed(1),
+      gapBelow: +(groups[0].getBoundingClientRect().top - captions[0].getBoundingClientRect().bottom).toFixed(1),
+    };
+  });
+
+async function runSettingsReadsAsOneList(browser) {
+  console.log("\n7. Settings is the same list in both themes");
+  const seen = {};
+  for (const scheme of ["light", "dark"]) {
+    const { context, page } = await freshPage(browser, scheme);
+    try {
+      await openSettings(page);
+      const g = await settingsGeometry(page);
+      seen[scheme] = g;
+      assert(g.boxed === 0, `No settings group is drawn as a box (${scheme})`, JSON.stringify(g));
+      assert(
+        g.captionX === g.rowLabelX,
+        `A group's caption starts where its rows' labels start (${scheme})`,
+        JSON.stringify({ caption: g.captionX, row: g.rowLabelX })
+      );
+      assert(
+        g.ruleLeft === "16px" && g.ruleRight === "0px",
+        `The rule between rows is held to the text column, not run edge to edge (${scheme})`,
+        JSON.stringify({ left: g.ruleLeft, right: g.ruleRight })
+      );
+      assert(
+        g.gapAbove >= g.gapBelow * 3,
+        `The space above a caption reads as the boundary the box used to draw (${scheme})`,
+        JSON.stringify({ above: g.gapAbove, below: g.gapBelow })
+      );
+    } finally {
+      await context.close();
+    }
+  }
+  assert(
+    JSON.stringify(seen.light) === JSON.stringify(seen.dark),
+    "Light and dark lay Settings out identically",
+    JSON.stringify(seen)
+  );
+}
+
 async function main() {
   console.log("Appearance / dark theme");
   console.log(`Target: ${BASE}`);
@@ -416,6 +480,7 @@ async function main() {
     await runPrePaint(browser);
     await runChartRepaint(browser);
     await runStaysOutOfTrainingData(browser);
+    await runSettingsReadsAsOneList(browser);
   } finally {
     await browser.close();
   }

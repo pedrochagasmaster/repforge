@@ -691,10 +691,7 @@ async function openF7HistoryEdit(page) {
   await nav(page, "history");
   const editor = page.locator('.session--edit[data-editing="f7-edit-seed"]');
   if (await editor.count()) return;
-  const row = page.locator('#sessions .hist-row[data-sess="f7-edit-seed"]');
-  await row.waitFor({ state: "visible", timeout: 5000 });
-  await row.click();
-  const editBtn = page.locator('[data-edit="f7-edit-seed"]');
+  const editBtn = page.locator('#sessions [data-edit="f7-edit-seed"]');
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
   await editBtn.click();
   await editor.waitFor({ state: "visible", timeout: 5000 });
@@ -1098,6 +1095,35 @@ async function main() {
     "Attention group shows a why line",
     "No .attn__why found",
     "Stats Overview → each signal group has a why line"
+  );
+  // A cause every lift in a group shares is stated once above them; a group
+  // whose lifts differ keeps the reason on each row. Either way the row's own
+  // accessible name still answers "why this lift".
+  const attnReasons = await page.evaluate(() =>
+    [...document.querySelectorAll("#attention .attn__grp")].map((g) => {
+      const why = g.querySelector(".attn__why");
+      const subs = [...g.querySelectorAll(".attn__chip .listrow__sub")];
+      return {
+        hoisted: !!why && !why.classList.contains("visually-hidden"),
+        identical: new Set(subs.map((s) => s.textContent.trim())).size === 1,
+        rows: subs.length,
+        subsPainted: subs.filter((s) => s.getBoundingClientRect().height > 2).length,
+        named: subs.every((s) => s.closest(".attn__chip").textContent.includes(s.textContent.trim())),
+      };
+    })
+  );
+  assert(
+    attnReasons.length > 0 &&
+      attnReasons.every((g) => g.hoisted === (g.rows > 1 && g.identical)),
+    "Attention hoists a reason only when every lift in the group shares it",
+    JSON.stringify(attnReasons),
+    "Stats Overview → compare a one-reason group against a mixed one"
+  );
+  assert(
+    attnReasons.every((g) => (g.hoisted ? g.subsPainted === 0 : g.subsPainted === g.rows) && g.named),
+    "A hoisted reason is drawn once but still named on every row it covers",
+    JSON.stringify(attnReasons),
+    "Stats Overview → inspect a group whose lifts share one reason"
   );
   const attnGroups = await page.evaluate(() =>
     typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : null
@@ -1668,10 +1694,12 @@ async function main() {
 
   await nav(page, "history");
   const sessionsBefore = (await getState(page)).log.length;
-  // Delete lives in the expanded session row (mock 04).
-  const firstSession = page.locator("#sessions .hist-row.session, #sessions .session").first();
-  await firstSession.click();
-  const delBtn = page.locator(".session__del").first();
+  // Deleting a session lives inside the session: the row opens it, and the
+  // destructive action sits under the edits it belongs to.
+  const openBtn = page.locator("#sessions .session__open").first();
+  await openBtn.waitFor({ state: "visible", timeout: 5000 });
+  await openBtn.click();
+  const delBtn = page.locator(".session--edit .session__del").first();
   await delBtn.waitFor({ state: "visible", timeout: 5000 });
   const delSessionId = await delBtn.getAttribute("data-del");
   await delBtn.click();
@@ -1684,7 +1712,7 @@ async function main() {
     sessionsAfter < sessionsBefore && deletedGone,
     "Delete session removes all its sets",
     `Before ${sessionsBefore} sets, after ${sessionsAfter}; session ${delSessionId} still present: ${!deletedGone}`,
-    "History tab → Delete on a session → confirm"
+    "History tab → open a session → Delete session → confirm"
   );
 
   // ── Phase 6: Settings ────────────────────────────────────────────
@@ -2168,6 +2196,44 @@ async function main() {
     "PR ledger renders load and e1RM PRs",
     `Ledger: ${ledger}`,
     "Stats → Dig deeper → PR ledger under the trend"
+  );
+  // The strength trend card holds four things about one lift. They used to keep
+  // three different left edges — the picker inset 14px, the figures and the
+  // canvas flush to the card's border — and the ledger was cut off mid-column
+  // by a 520px floor meant for full-page tables.
+  const trendCard = await page.evaluate(() => {
+    const card = document.querySelector(".chartcard");
+    const kids = [...card.children].map((el) => {
+      const r = el.getBoundingClientRect();
+      return { cls: el.className, left: Math.round(r.left), right: Math.round(r.right) };
+    });
+    const led = card.querySelector("#prLedger");
+    const cap = card.querySelector(".chartcard__cap");
+    const wrap = card.querySelector(".chart-wrap");
+    return {
+      columns: [...new Set(kids.map((k) => `${k.left}|${k.right}`))],
+      kids,
+      ledgerOverflow: led.scrollWidth - led.clientWidth,
+      captionAboveChart:
+        !!cap && !!wrap && cap.compareDocumentPosition(wrap) === Node.DOCUMENT_POSITION_FOLLOWING,
+      e1rmColumns: [...led.querySelectorAll("th")].filter((h) => /e1rm/i.test(h.textContent)).length,
+    };
+  });
+  assert(
+    trendCard.columns.length === 1,
+    "Every block in the strength trend card shares one text column",
+    JSON.stringify(trendCard.kids)
+  );
+  assert(
+    trendCard.ledgerOverflow === 0,
+    "The record ledger fits the card instead of scrolling behind its edge",
+    `overflow=${trendCard.ledgerOverflow}px`,
+    "Stats → Strength trend → the ledger's last column is whole"
+  );
+  assert(
+    trendCard.captionAboveChart && trendCard.e1rmColumns === 0,
+    "The e1RM caption labels the chart it belongs to, and the number is printed once",
+    JSON.stringify(trendCard)
   );
   await nav(page, "log");
   await selectDay(page, "Day 3");
@@ -4276,8 +4342,7 @@ async function main() {
 
   // Edit a logged session in History
   await nav(page, "history");
-  await page.locator("#sessions .hist-row.session, #sessions .session").first().click();
-  const editBtn = page.locator("[data-edit], .session__edit").first();
+  const editBtn = page.locator("#sessions .session__open").first();
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
   await editBtn.click();
   await page.waitForTimeout(100);

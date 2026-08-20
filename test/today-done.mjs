@@ -282,10 +282,14 @@ console.log("\nToday — completed session state");
   await page.click("#reviewTodaySession");
   await page.waitForSelector("#history.view.active", { timeout: 5000 });
   const opened = await page.evaluate((session) => {
-    const art = document.querySelector(`#sessions [data-sess="${session}"]`);
-    return { found: !!art, open: !!art?.classList.contains("is-open") };
+    const editor = document.querySelector(".session--edit");
+    return { editing: editor?.dataset.editing || null, want: session };
   }, rows[0].session);
-  assert(opened.found && opened.open, "View today's session opens that session on History", JSON.stringify(opened));
+  assert(
+    opened.editing === opened.want,
+    "View today's session opens that session on History",
+    JSON.stringify(opened)
+  );
   await context.close();
 }
 

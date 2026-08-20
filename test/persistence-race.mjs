@@ -108,6 +108,47 @@ async function waitForApp(page) {
       typeof window.__repforgeShowSettings === "function",
     { timeout: 15000 }
   );
+  await waitForWorkerToClaim(page);
+}
+
+/** The app's boot registers the service worker, and that worker claims the page
+ *  it was registered from. On a context that has never seen it, Chromium serves
+ *  the document again through the new controller, which throws away the
+ *  execution context — including the one an evaluate is sitting in. A storage
+ *  test that reads a replica right after boot was racing that, so the first
+ *  evaluate after a fresh load could die as "execution context was destroyed".
+ *  Waiting for the claim puts the rest of the test after that one-time
+ *  re-fetch. A page with no worker to register returns at once, and a worker
+ *  that never claims gives the wait up rather than hang. */
+async function waitForWorkerToClaim(page) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      if (
+        await page.evaluate(async () => {
+          if (!navigator.serviceWorker) return true;
+          if (navigator.serviceWorker.controller) return true;
+          const orTimeout = (promise, ms) =>
+            Promise.race([promise, new Promise((resolve) => setTimeout(() => resolve("timeout"), ms))]);
+          // `register` is fired and not awaited during boot, so asking for the
+          // registration here can come back empty on a page that is about to
+          // have one. `ready` waits for the active worker instead.
+          if ((await orTimeout(navigator.serviceWorker.ready, 5000)) === "timeout") return true;
+          if (navigator.serviceWorker.controller) return true;
+          await orTimeout(
+            new Promise((resolve) => navigator.serviceWorker.addEventListener("controllerchange", resolve, { once: true })),
+            5000
+          );
+          return true;
+        })
+      ) {
+        return;
+      }
+    } catch {
+      // The re-fetch landed mid-evaluate. Wait for the document that replaced
+      // the old one, then ask the page it became.
+      await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 15000 });
+    }
+  }
 }
 
 async function flushStorage(page) {
@@ -524,9 +565,13 @@ try {
         () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       );
       const required = await readBoth(writer);
+      // The toast copy is asked of the catalog, not spelled out here: a reword
+      // should not fail a check about which of the two toasts was raised.
       const requiredUi = await writer.evaluate(() => ({
         toast: document.querySelector("#toast")?.textContent || "",
         health: window.__repforgeStorage.health(),
+        storageFullCopy: window.RepForgeI18n?.t("toast.storage_full") || "",
+        draftConflictCopy: window.RepForgeI18n?.t("toast.draft_conflict_retry") || "",
       }));
       const requiredArtifacts = await inventoryPersistenceArtifacts(writer);
       check(
@@ -534,8 +579,8 @@ try {
           requiredResult?.localOk === false &&
           requiredResult?.idbOk === false &&
           requiredUi.health.lastResult?.journalFailed === true &&
-          /couldn.t save|storage may be full/i.test(requiredUi.toast) &&
-          !/newer unfinished workout/i.test(requiredUi.toast) &&
+          requiredUi.toast.trim() === requiredUi.storageFullCopy.trim() &&
+          requiredUi.toast.trim() !== requiredUi.draftConflictCopy.trim() &&
           required.local?.programMeta?.id === baseline.programMeta.id &&
           required.idb?.programMeta?.id === baseline.programMeta.id &&
           requiredArtifacts.keys.length === 0,
