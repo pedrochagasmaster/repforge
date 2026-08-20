@@ -737,7 +737,8 @@ try {
     const health1 = await page.evaluate(() => window.__repforgeStorage.health());
     assert(health1.degraded && health1.localOk && !health1.idbOk, "IDB failure sets degraded health", JSON.stringify(health1));
     const toast1 = await page.locator("#toast").innerText();
-    assert(/one browser store|só um depósito/i.test(toast1) || toast1.length > 0, "One-sided write toasts degraded copy", toast1);
+    const degradedCopy = await page.evaluate(() => window.RepForgeI18n?.t("toast.storage_degraded") || "");
+    assert(toast1.trim() === degradedCopy.trim(), "One-sided write toasts degraded copy", JSON.stringify({ toast1, want: degradedCopy }));
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
