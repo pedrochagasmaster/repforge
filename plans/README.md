@@ -306,6 +306,23 @@ blocker, accessibility cluster, lifecycle cluster, and former backlog before
 release. Execute **040 (read) → 041 (implement)**; do not cherry-pick only the
 original nine-item gate.
 
+## Wave 7 — launch legibility (owner-directed)
+
+Written from the 2026-08-20 go-to-market positioning session: the
+deterministic engine is the product's differentiator, and a stated target
+must be inspectable at the moment it is stated. Plan 043 is the deliberate
+follow-up to plan 039's decision 8 ("reason-tagged one-liners, no inspector
+panel in v1") — the inline notes stay signal-only; the sheet is the
+sanctioned on-demand arithmetic surface. Written against `4e3d044`
+(2026-08-20). Baseline verified at `4e3d044`: `node --check app.js` clean,
+`node tools/build-i18n.mjs --check` clean (1181 keys), simulation
+`PASSED: 917, FAILED: 0`, i18n `35 passed, 0 failed`, exercise-library
+`27 passed, 0 failed`, accessibility `164 passed, 0 failed`.
+
+| # | Plan | Category | Effort | Risk | Source |
+|---|------|----------|--------|------|--------|
+| 043 | ["Why this weight?" — on-demand recommendation inspector](./043-why-this-weight-inspector.md) | direction / dx | M | MED | Owner GTM session 2026-08-20; plan 039 decision 8 follow-up |
+
 ## Backlog (not yet planned in detail)
 
 Grounded in the report but deferred — each needs its own plan before execution.
@@ -396,3 +413,4 @@ Consensus across ≥5 personas that these betray the product:
 | 040 | AUDIT — launch remediation not yet implemented |
 | 041 | TODO — all 24 retained findings are pre-launch |
 | 042 | DONE — the field colour travels per movement rather than as one token; see the plan's Findings for that amendment and for the bundled programs' missing library links |
+| 043 | TODO |
