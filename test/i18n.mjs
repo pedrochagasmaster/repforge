@@ -174,6 +174,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("block_rec.${"), keys: (en) => Object.keys(en).filter((k) => /^block_rec\.[^.]+\.(line|why)$/.test(k)) },
   { test: (s) => s.includes("review.summary.adherence.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("review.summary.adherence.")) },
   { test: (s) => s.includes("rec.block.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("rec.block.")) },
+  { test: (s) => s.includes('"why.rule."'), keys: () => ["why.rule.top", "why.rule.cap_top", "why.rule.cap_top2", "why.rule.below_range", "why.rule.stalled", "why.rule.recover", "why.rule.push_reps", "why.rule.hold"] },
   { test: (s) => s.includes("focus.cue.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.cue.")) },
   { test: (s) => s.includes('"settings.lang."'), keys: () => ["settings.lang.en", "settings.lang.pt"] },
   { test: (s) => s.includes('"settings.appearance."'), keys: () => ["settings.appearance.system", "settings.appearance.light", "settings.appearance.dark"] },

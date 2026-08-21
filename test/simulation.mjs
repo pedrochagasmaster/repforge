@@ -4432,6 +4432,267 @@ async function main() {
     "Log → fill a set → Skip it → Save → that exercise has no new rows"
   );
 
+  // ── "Why this weight?" inspector (plan 043) ──────────────────────
+  // The engine tags its own result with the branch that fired; the sheet only
+  // renders those fields. These checks pin the tag-to-copy mapping per rule
+  // family, the hidden-for-new-lifts rule, and the modal contract.
+  beginPhase("Phase: why-this-weight inspector");
+  {
+    const whyRows = (ex, date, n, load, reps, rir, tag) =>
+      Array.from({ length: n }, (_, i) => ({
+        session: `${date}_${ex.day}_why_${ex.id}_${tag}`,
+        date, day: ex.day, name: ex.name, exerciseId: ex.id, set: i + 1,
+        load, reps, rir, notes: "", created: new Date(`${date}T12:00:00Z`).toISOString(),
+        primary: ex.primary, secondary: ex.secondary,
+      }));
+    // Each seed is chosen so exactly one trigger can fire on a single session:
+    // no stall history, no recover signal, and fewer than three sessions, so
+    // the block trend never tempers the result.
+    const whyCases = [
+      { key: "cap_top", i: 0, sets: 2, reps: 6, rir: 3 },
+      { key: "top", i: 1, sets: 3, reps: 8, rir: 1 },
+      { key: "below_range", i: 2, sets: 2, reps: 4, rir: 0 },
+    ];
+    await clearState(page);
+    await reloadApp(page);
+    const whyState = await getState(page);
+    const whyDay1 = whyState.program
+      .filter((e) => e.day === "Day 1")
+      .sort((a, b) => a.order - b.order);
+    assert(
+      whyDay1.length >= 4,
+      "Why sheet: Day 1 has a lift per rule family plus one never-trained lift",
+      `count=${whyDay1.length}`,
+      "Default program → Day 1"
+    );
+    const whyPatch = new Map();
+    const whyLog = [];
+    for (const c of whyCases) {
+      const ex = { ...whyDay1[c.i], sets: c.sets, min: 6, max: 8 };
+      c.ex = ex;
+      whyPatch.set(ex.id, { sets: c.sets, min: 6, max: 8 });
+      whyLog.push(...whyRows(ex, "2025-05-15", c.sets, 100, c.reps, c.rir, c.key));
+    }
+    // The fourth Day 1 lift is deliberately left without history: status "new".
+    const whyNewEx = whyDay1[3];
+    await persistState(page, {
+      ...whyState,
+      settings: { ...whyState.settings, minJump: 2.5, jumpPct: 2.5, unit: "kg", lang: "en", rirMode: "numeric" },
+      program: whyState.program.map((e) => (whyPatch.has(e.id) ? { ...e, ...whyPatch.get(e.id) } : e)),
+      log: whyLog,
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+
+    /** Read the engine's own result for a lift — never hard-code a target. */
+    const whyRecOf = (id) =>
+      page.evaluate((id) => {
+        const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+        const slot = (raw.program || []).find((e) => e.id === id);
+        const r = window.__repforgeRecommendation(slot);
+        return { status: r.status, reason: r.reason, load: r.load, cr: r.cr, jumpMult: r.jumpMult };
+      }, id);
+    const openWhyFrom = async (id) => {
+      await page.click(`.exercise[data-ex="${id}"] [data-why]`);
+      await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+      return page.evaluate(() => ({
+        target: document.querySelector("#whyTarget")?.textContent || "",
+        body: document.querySelector("#whyBody")?.innerText || "",
+        focus: document.activeElement?.id || "",
+      }));
+    };
+    const closeWhy = async () => {
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => document.querySelector("#whySheet")?.hidden === true, null, { timeout: 5000 });
+    };
+
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+
+    // 1. cap_top — capacity clears the range top, so the load moves on capacity.
+    const capRec = await whyRecOf(whyCases[0].ex.id);
+    const capSheet = await openWhyFrom(whyCases[0].ex.id);
+    assert(
+      capRec.reason === "cap_top" && /tops out at 8/.test(capSheet.body) && /about 9/.test(capSheet.body),
+      "Why sheet: cap_top renders the range-top rule with the demonstrated reps",
+      `reason=${capRec.reason} body=${JSON.stringify(capSheet.body)}`,
+      "Seed 2×(100×6 @ RIR 3) on a 6-8 lift → Log card → Why this weight?"
+    );
+    assert(
+      capSheet.body.includes(String(capRec.load)) && capSheet.target.includes(String(capRec.load)),
+      "Why sheet: the load row and headline show the engine's own target",
+      `load=${capRec.load} target=${JSON.stringify(capSheet.target)} body=${JSON.stringify(capSheet.body)}`,
+      "Compare #whyBody against recommendation().load for the seeded lift"
+    );
+    await closeWhy();
+
+    // 2. top — every performed set reached the range top; that naming wins.
+    const topRec = await whyRecOf(whyCases[1].ex.id);
+    const topSheet = await openWhyFrom(whyCases[1].ex.id);
+    assert(
+      topRec.reason === "top" && /Every set reached the top/.test(topSheet.body),
+      "Why sheet: performed reps at the top name the top rule, not the capacity rule",
+      `reason=${topRec.reason} body=${JSON.stringify(topSheet.body)}`,
+      "Seed 3×(100×8 @ RIR 1) on a 6-8 lift → Why this weight?"
+    );
+    await closeWhy();
+
+    // 3. below_range — capacity falls short of the range floor, so the load drops.
+    const downRec = await whyRecOf(whyCases[2].ex.id);
+    const downSheet = await openWhyFrom(whyCases[2].ex.id);
+    assert(
+      downRec.reason === "below_range" && /below the range floor of 6/.test(downSheet.body),
+      "Why sheet: below_range renders the range-floor rule",
+      `reason=${downRec.reason} body=${JSON.stringify(downSheet.body)}`,
+      "Seed 2×(100×4 @ RIR 0) on a 6-8 lift → Why this weight?"
+    );
+    assert(
+      /minus/.test(downSheet.body) && downSheet.body.includes(String(downRec.load)) && downRec.load < 100,
+      "Why sheet: a reduced load renders a subtraction row ending on the new target",
+      `load=${downRec.load} body=${JSON.stringify(downSheet.body)}`,
+      "below_range seed → #whyBody load row"
+    );
+    await closeWhy();
+
+    // 4. A never-trained lift has no arithmetic to show, so it offers no button.
+    const newHasWhy = await page.locator(`.exercise[data-ex="${whyNewEx.id}"] [data-why]`).count();
+    const newStatus = await whyRecOf(whyNewEx.id);
+    assert(
+      newStatus.status === "new" && newHasWhy === 0,
+      "Why sheet: never-trained lifts render no why button",
+      `status=${newStatus.status} buttons=${newHasWhy}`,
+      "Log → an untrained Day 1 lift card"
+    );
+
+    // 5. Escape closes and hands focus back to the exact opener.
+    await page.click(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-why]`);
+    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    const focusOnOpen = await page.evaluate(() => document.activeElement?.id || "");
+    await page.keyboard.press("Escape");
+    await page.waitForFunction(() => document.querySelector("#whySheet")?.hidden === true, null, { timeout: 5000 });
+    const focusAfter = await page.evaluate(() => document.activeElement?.dataset?.why || "");
+    assert(
+      focusOnOpen === "whyClose" && focusAfter === whyCases[0].ex.id,
+      "Why sheet: Escape closes the sheet and restores focus to the opener",
+      `open=${focusOnOpen} after=${focusAfter} expected=${whyCases[0].ex.id}`,
+      "Open the sheet from a Log card → press Escape"
+    );
+
+    // 6. Portuguese renders the affordance and the rule in real Portuguese.
+    await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    const ptLabel = await page.locator(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-why]`).textContent();
+    const ptSheet = await openWhyFrom(whyCases[0].ex.id);
+    assert(
+      /Por que essa carga\?/.test(ptLabel || "") && /topo da faixa/.test(ptSheet.body),
+      "Why sheet: Portuguese renders the affordance and the rule line",
+      `label=${JSON.stringify(ptLabel)} body=${JSON.stringify(ptSheet.body)}`,
+      "Switch lang to pt → Log card → Por que essa carga?"
+    );
+    await closeWhy();
+
+    // 7. Effort mode never prints an RIR number in the capacity line.
+    await persistState(page, {
+      ...(await getState(page)),
+      settings: { ...(await getState(page)).settings, lang: "en", rirMode: "effort" },
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    const effortSheet = await openWhyFrom(whyCases[0].ex.id);
+    assert(
+      /the effort you logged/.test(effortSheet.body) && !/up to 4 RIR/.test(effortSheet.body),
+      "Why sheet: effort mode names the logged effort instead of an RIR cap",
+      `body=${JSON.stringify(effortSheet.body)}`,
+      "Settings → effort RIR mode → Log card → Why this weight?"
+    );
+    await closeWhy();
+
+    // 8. The exercise detail page is the third entry point into the same sheet.
+    await persistState(page, {
+      ...(await getState(page)),
+      settings: { ...(await getState(page)).settings, lang: "en", rirMode: "numeric" },
+    });
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+    await selectDay(page, "Day 1");
+    await page.click(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-exopen="${whyCases[0].ex.id}"]`);
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    const detailWhy = await page.locator("#exDetail [data-why]").count();
+    await page.click("#exDetail [data-why]");
+    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    const detailBody = await page.evaluate(() => document.querySelector("#whyBody")?.innerText || "");
+    assert(
+      detailWhy === 1 && /tops out at 8/.test(detailBody),
+      "Why sheet: the exercise page opens the same sheet for the same lift",
+      `buttons=${detailWhy} body=${JSON.stringify(detailBody)}`,
+      "Log → tap exercise name → #exDetail → Why this weight?"
+    );
+    await closeWhy();
+    await page.click("#exBack");
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
+
+    // 9. Identity: the exercise page renders the raw slot whenever the workout is
+    // not active, so a slot substituted earlier in the session must not make the
+    // sheet explain the substitute's arithmetic under the slot's headline.
+    const subEx = whyCases[0].ex;
+    await selectDay(page, "Day 1");
+    await page.evaluate((id) => {
+      const art = document.querySelector(`.exercise[data-ex="${id}"]`);
+      if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
+      if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
+    }, subEx.id);
+    await page.waitForTimeout(80);
+    await page.click(`.subst__pick[data-sub="${subEx.id}"]`);
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    const subPicked = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#exPickList .pickrow")].find(
+        (r) => (r.querySelector(".pickrow__name")?.textContent || "").trim().toLowerCase() === "leg press"
+      );
+      if (!row) return false;
+      row.click();
+      return true;
+    });
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    assert(subPicked, "Why sheet: mid-session swap is available for the identity check", "Leg press row not found",
+      "Log → the seeded lift's swap control → Leg press");
+    // Leaving via a nav tab drops workoutActive but keeps the draft's substitution,
+    // and closes the workout shell — so the visible way back in is the Today list,
+    // which still shows the SLOT's name while the hidden card holds the substitute.
+    // Click the real tab buttons rather than the harness nav(): their handler is
+    // what drops workoutActive and closes the workout shell, which is the state
+    // the repro needs.
+    await page.evaluate(() => document.querySelector('nav button[data-view="stats"]')?.click());
+    await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+    await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
+    await page.waitForSelector(`#todayExList [data-exopen="${subEx.id}"]`, { timeout: 5000 });
+    await page.click(`#todayExList [data-exopen="${subEx.id}"]`);
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    const idHead = (await page.locator("#exDetail .recblock__head").textContent()) || "";
+    await page.click("#exDetail [data-why]");
+    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    const idTarget = await page.evaluate(() => document.querySelector("#whyTarget")?.textContent || "");
+    assert(
+      idHead.trim().length > 0 && idTarget.trim() === idHead.trim(),
+      "Why sheet: the exercise page's sheet explains the movement the page rendered",
+      `head=${JSON.stringify(idHead)} target=${JSON.stringify(idTarget)}`,
+      "Swap a lift mid-session → leave via a nav tab → reopen its exercise page → Why this weight?"
+    );
+    await closeWhy();
+    await page.click("#exBack");
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
+    // Hand the next phase a clean draft: the swap above lives in the draft only.
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
+  }
+
   beginPhase("Phase: exercise substitution");
   await nav(page, "program");
   let subState = await getState(page);

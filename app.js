@@ -2900,37 +2900,41 @@ function recommendation(ex){
     text:isEffortMode()
       ?t("rec.new.text_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
       :t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),
-    load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true};
+    load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true,reason:"new"};
   const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length;
   const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
   // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
   const nearTop=n>=3&&atTop>=n-1&&l.minReps>=ex.max-1;
+  // Which disjunct fired the add branch, recorded for the "why this weight" sheet.
+  const topFloor=allTop||nearTop;
   const stalled=isStalled(sess);
   // Capacity reps at the session's typical load: what the lifter demonstrated they
   // could have done there, reps + trusted RIR, normalized across loads (ADR 0003).
   const medCap=l.medCap,cr=repsAtLoad(medCap,load);
   const rec=(()=>{
-    if(cr>=ex.max+CAPACITY.bigJumpMargin)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false,pushReps:false};
+    if(cr>=ex.max+CAPACITY.bigJumpMargin)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false,pushReps:false,reason:"cap_top2",jumpMult:2};
     // Capacity extends the jump; performed reps at the top still fire it on their own.
-    if(allTop||nearTop||cr>=ex.max+CAPACITY.jumpMargin)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false};
+    if(topFloor||cr>=ex.max+CAPACITY.jumpMargin)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false,reason:topFloor?"top":"cap_top",jumpMult:1};
     // Back off only when capacity itself falls short of the range — stopping early is not failing.
-    if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false};
+    if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false,reason:"below_range",jumpMult:1};
     // Hold-family loads keep the session median as the capacity reference (ADR 0003) but snap onto minJump.
     // Nearest-grid round of a sub-increment history load (1 kg vs 2.5) can land on 0; same floor as reduce.
     const holdLoad=Math.max(round(load),+state.settings.minJump||2.5);
-    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:holdLoad,stalled:true,pushReps:false};
-    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:holdLoad,stalled:false,pushReps:false};
+    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:holdLoad,stalled:true,pushReps:false,reason:"stalled"};
+    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:holdLoad,stalled:false,pushReps:false,reason:"recover"};
     // Room left inside the range: chase reps before load.
-    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:holdLoad,stalled:false,pushReps:true};
+    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:holdLoad,stalled:false,pushReps:true,reason:"push_reps"};
     return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
-      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:holdLoad,stalled:false,pushReps:true};
+      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:holdLoad,stalled:false,pushReps:true,reason:"hold"};
   })();
   const trend=blockTrendFor(sess);
   // Weak block tempering: a block that is losing strength should not double-jump.
   if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
-    rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1))}
+    rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1));rec.jumpMult=1;rec.temperedBlock=true}
   rec.block=trend;rec.blockNote=blockTrendNote(trend);
   rec.cap=medCap;rec.typRir=typicalRir(ex,sess);
+  // Read-only inputs the "why this weight" sheet narrates; nothing here steers a trigger.
+  rec.cr=cr;rec.lastLoad=load;rec.lastMedReps=l.medReps;
   rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,load);
   return rec;
 }
@@ -3073,6 +3077,43 @@ function inSessionNote(ex,draft){
     if((rec.status==="add"||rec.status==="add2")&&sg.load!=null&&sg.reps>ex.min)
       return t("log.insession.reentry",{load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
   return""}
+// On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
+// never during renderWorkout: the Log tab's render path stays free of this work.
+// One brain — every number here is a field the engine attached to its own result;
+// nothing re-derives a trigger. Returns ordered {label?,text} rows.
+function explainRecommendation(ex){
+  const rows=[];
+  if(!ex)return rows;
+  const rec=recommendation(ex),u=unitLabel();
+  // A never-trained lift has no history and no arithmetic; the button is hidden there.
+  if(rec.status==="new")return rows;
+  const prev=last(ex).filter(x=>+x.load>0);
+  if(prev.length)rows.push({label:t("why.last"),
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
+  rows.push({text:t(isEffortMode()?"why.showed_effort":"why.showed",
+    {cr:Math.round(rec.cr),load:fmtLoad(rec.lastLoad),unit:u,cap:fmt(+state.settings.hardRir||4)})});
+  // The tempered line already names both the rule and the tempering, so it stands alone.
+  rows.push({text:rec.temperedBlock?t("rec.add.tempered.text")
+    :t("why.rule."+rec.reason,{max:ex.max,min:ex.min,cr:Math.round(rec.cr),
+      margin:CAPACITY.bigJumpMargin,gap:Math.round(rec.cr-rec.lastMedReps)})});
+  const minJ=+state.settings.minJump||2.5,pct=(+state.settings.jumpPct||0)*(rec.jumpMult||1),
+    raw=rec.lastLoad*pct/100,
+    move={prev:fmtLoad(rec.lastLoad),pct:fmt(pct),step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u};
+  // A small percentage on a light load is dominated by the minJump step; say which one moved it.
+  if(rec.reason==="top"||rec.reason==="cap_top"||rec.reason==="cap_top2")
+    rows.push({text:t(raw>minJ?"why.load_up":"why.load_up_step",move)});
+  else if(rec.reason==="below_range")rows.push({text:t(raw>minJ?"why.load_down":"why.load_down_step",move)});
+  else if(sameLoad(rec.load,rec.lastLoad))rows.push({text:t("why.load_hold",{load:fmtLoad(rec.load),unit:u})});
+  else rows.push({text:t("why.load_snap",{step:fmtLoad(minJ),load:fmtLoad(rec.load),unit:u})});
+  if(rec.reenterReps)rows.push({text:t(isEffortMode()?"why.reps_effort":"why.reps",
+    {load:fmtLoad(rec.load),unit:u,pred:Math.round(repsAtLoad(rec.cap,rec.load)),
+      typrir:fmt(rec.typRir),reps:reentryReps(ex,rec.cap,rec.load,rec.typRir)})});
+  else if(rec.pushReps)rows.push({text:t("why.reps_chase",{min:ex.min,max:ex.max})});
+  else rows.push({text:t("why.reps_hold")});
+  if(rec.blockNote&&!rec.temperedBlock)rows.push({text:rec.blockNote});
+  const note=inSessionNote(ex,loadDraft());
+  if(note)rows.push({label:t("why.session"),text:note});
+  return rows}
 // Re-apply suggestions to one lift's still-untouched sets, in place.
 function applySuggestions(ex,draft){const rec=recommendation(ex),prev=last(ex);
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
@@ -4090,6 +4131,8 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
     `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
     `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
+    (r.status!=="new"?`<button type="button" class="text-link focus-ex__why"`+
+      `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
     `</div>${tools}</div></div>`+
     `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+
     focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+
@@ -4166,7 +4209,9 @@ function renderWorkout(){
       `</div>`;
     const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
     const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-      `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}</div>`;
+      `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}`+
+      (r.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name:ex.name}))}">${esc(t("why.open"))}</button>`:"")+
+      `</div>`;
     const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
       `<p class="ex__meta"><span class="ex__tag">${esc(muscleListLabel(ex.primary))}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · `+
       `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
@@ -4334,6 +4379,7 @@ function bindWorkout(){
     refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
+  $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
   $w(".saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
     if(applyFieldError(firstWorkoutValidationError([key])))return;
     const row=b.closest(".setrow, .curset");
@@ -5557,7 +5603,9 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   const recHtml=rec?`<div class="recblock is-${rec.status}"><div class="recblock__row"><div><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
     `<div class="recblock__head">${esc(rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label)}</div>`+
     `<p class="recblock__body">${esc(rec.text)}</p></div>`+
-    `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button></div></div>`:"";
+    `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
+    (rec.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name}))}">${esc(t("why.open"))}</button>`:"")+
+    `</div></div>`:"";
 
   const work=state.log.filter(r=>liftKey(r)===key&&isWork(r));
   const topLoad=Math.max(0,...work.map(r=>+r.load||0));
@@ -5597,6 +5645,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   draw(sums,"#exChart");
   $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
+  $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
 function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
@@ -7843,6 +7892,41 @@ function maybeShowFirstRun(){
   return openFirstRun()}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
+/* ---- "Why this weight?" sheet ----
+   Plan 043: the recommendation is the product's differentiator, so it must not
+   read as a magic number. Everything here is built at tap time from fields the
+   engine attached to its own result — no arithmetic is re-derived, and the Log
+   tab's render path pays nothing but one static button per card. */
+// Log list and focus cards render every slot through sessionExercise, so resolving
+// by id here matches what they drew. The exercise page does NOT: it renders the raw
+// slot whenever the workout is not active (openExerciseView), so a slot substituted
+// earlier in the session would have the page showing one movement's recommendation
+// and the sheet showing another's arithmetic. That caller passes its own resolved
+// movement to openWhySheetFor instead.
+function openWhySheet(exId,opener){
+  const slot=prog.find(exId);if(!slot)return;
+  const ex=sessionExercise(slot);if(!ex)return;
+  openWhySheetFor(ex,opener)}
+function openWhySheetFor(ex,opener){
+  const sheet=$("#whySheet"),scrim=$("#whyScrim");
+  if(!sheet||!ex)return;
+  const rec=recommendation(ex);
+  const target=$("#whyTarget");
+  if(target)target.textContent=rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label;
+  const body=$("#whyBody");
+  if(body)body.innerHTML=explainRecommendation(ex).map(row=>
+    `<div class="whysheet__row">${row.label?`<span class="whysheet__lab">${esc(row.label)}</span>`:""}`+
+    `<p>${esc(row.text)}</p></div>`).join("");
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{initialFocus:$("#whyClose"),returnFocus:opener,onEscape:closeWhySheet,scrim,
+    delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+function closeWhySheet(){
+  const sheet=$("#whySheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  return closeModal(sheet)}
+
 /* ---- iOS install instructions ----
    Safari exposes no install event, so this sheet is the whole mechanism: it
    points at Safari's own control. The bar it draws is an illustration of
@@ -8040,6 +8124,7 @@ function init(){
   const sharedStart=$("#firstRunSharedStart");if(sharedStart)sharedStart.onclick=async()=>{
     if(sharedStart.disabled)return;
     await commitSharedSetup(storageIO)};
+  $("#whyClose").onclick=closeWhySheet;
   $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
   $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
