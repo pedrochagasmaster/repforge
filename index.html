@@ -652,6 +652,21 @@
       </button>
     </div>
   </div>
+  <!-- "Why this weight?" — the sanctioned place the engine may show its
+       arithmetic. Inline recommendation copy still names the signal, not the
+       maths; this sheet answers only when the lifter taps to ask. -->
+  <div id="whyScrim" class="sheet-scrim hidden"></div>
+  <div id="whySheet" class="sheet sheet--why hidden" role="dialog" aria-modal="true" aria-labelledby="whyTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="whysheet">
+      <div class="whysheet__head">
+        <h2 class="whysheet__title" id="whyTitle" data-i18n="why.title">Why this weight</h2>
+        <button type="button" class="whysheet__close" id="whyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
+      </div>
+      <p class="whysheet__target" id="whyTarget"></p>
+      <div class="whysheet__body" id="whyBody"></div>
+    </div>
+  </div>
   <!-- Safari has no install event to call, so this is the one place Taurifer
        draws another app's UI: it illustrates Safari's own toolbar to point at
        the control the lifter has to tap. Chrome's install prompt is never
@@ -881,7 +896,7 @@
   <script src="notify.js"></script>
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
-  <script src="shared-setup.js?v=108"></script>
-  <script src="app.js?v=108"></script>
+  <script src="shared-setup.js?v=109"></script>
+  <script src="app.js?v=109"></script>
 </body>
 </html>

@@ -62,6 +62,7 @@ const LABELS = {
   "30-shared-setup-gate": "Shared setup confirmation gate",
   "31-install-banner": "Install banner",
   "32-ios-install-sheet": "iOS install instruction sheet",
+  "33-why-this-weight": "Why this weight sheet",
 };
 
 function isoDaysAgo(n) {
@@ -218,7 +219,7 @@ async function closeSheets(page) {
   await page.evaluate(() => {
     for (const id of [
       "dayPickCancel", "exNoteCancel", "restSheetClose", "shareSetupClose",
-      "programTextClose", "exPickCancel", "exCustomCancel", "sumDone",
+      "programTextClose", "exPickCancel", "exCustomCancel", "sumDone", "whyClose",
     ]) document.querySelector("#" + id)?.click();
     window.closeTour?.();
   });
@@ -281,6 +282,18 @@ async function captureMain(browser, theme) {
     await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
     await sleep(page, 500);
     await shot(page, theme, "03-workout-list");
+
+    await tryShot("33-why-this-weight", async () => {
+      // The recommendation's arithmetic, opened from a Log card. The sheet is
+      // parked off-screen until is-open lands, so wait for the class too.
+      await page.click("#workout [data-why]");
+      await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+      await sleep(page, 400);
+      await shot(page, theme, "33-why-this-weight");
+      await page.keyboard.press("Escape");
+      await page.waitForFunction(() => document.querySelector("#whySheet")?.hidden === true, null, { timeout: 5000 });
+      await sleep(page, 200);
+    });
 
     await tryShot("04-workout-focus", async () => {
       await page.click("#woOverflowBtn");

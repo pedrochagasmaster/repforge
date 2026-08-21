@@ -732,6 +732,46 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await context.close();
 }
 
+// "Why this weight?" sheet (plan 043): one more modal under the plan 041 policy —
+// Escape cancels, focus is trapped, the background is inert, the opener gets focus back.
+{
+  const { context, page } = await freshPage(browser);
+  await persistState(page, sampleState());
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.click("#startWorkout");
+  await page.waitForSelector("#workoutShell:not(.hidden)");
+  const whyBtn = page.locator("#workout [data-why]").first();
+  const whyId = await whyBtn.getAttribute("data-why");
+  await whyBtn.click();
+  // The sheet is parked at translateY(101%) until is-open lands, so "not hidden"
+  // alone would pass on an off-screen sheet.
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#whySheet");
+    return !!(s && !s.hidden && s.classList.contains("is-open"));
+  }, { timeout: 8000 });
+  const whyInfo = await modalInfo(page, "#whySheet");
+  assert(whyInfo.open && whyInfo.active === "whyClose", "Why sheet: initial focus is #whyClose", JSON.stringify({ ...whyInfo, whyId }));
+  assert(whyInfo.liveKids.includes("whySheet"), "Why sheet: the sheet itself stays interactive", JSON.stringify(whyInfo.liveKids));
+  assert(whyInfo.inertIds.includes("main") || whyInfo.inertIds.length > 0, "Why sheet: background is inert", JSON.stringify(whyInfo.inertIds));
+  const whyWrap = await tabWrap(page, "#whySheet");
+  assert(whyWrap.forward.inside && whyWrap.back.inside, "Why sheet: Tab wraps inside", JSON.stringify(whyWrap));
+  await page.keyboard.press("Escape");
+  await page.waitForFunction(() => {
+    const s = document.querySelector("#whySheet");
+    return !s || s.hidden || s.classList.contains("hidden");
+  }, { timeout: 8000 });
+  const whyAfter = await page.evaluate(() => ({
+    hidden: document.querySelector("#whySheet")?.hidden || document.querySelector("#whySheet")?.classList.contains("hidden"),
+    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    focusWhy: document.activeElement?.getAttribute("data-why"),
+  }));
+  assert(whyAfter.hidden, "Why sheet: Escape is Cancel and hides the sheet", JSON.stringify(whyAfter));
+  assert(whyAfter.leaked.length === 0, "Why sheet: close restores inertness", JSON.stringify(whyAfter.leaked));
+  assert(whyAfter.focusWhy === whyId, "Why sheet: Escape returns focus to the exact opener", JSON.stringify({ whyId, whyAfter }));
+  await context.close();
+}
+
 {
   const { context, page } = await freshPage(browser);
   await page.click("#startWorkout");

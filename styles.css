@@ -2978,6 +2978,38 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .installsheet__done{margin-top:22px}
 .installsheet__foot{margin:14px 0 0;text-align:center;font-size:13px;color:var(--ink-faint)}
 
+/* "Why this weight?" — the arithmetic behind one recommendation, opened on tap.
+   Rows are a hairline-separated stack so each fact reads as its own line: last
+   session, what it showed, the rule that fired, the load, the reps. Tokens only,
+   so the dark appearance is a variable swap and not a second palette (ADR 0009). */
+.sheet--why{height:auto;max-height:calc(var(--vvh,100dvh) - 56px)}
+.whysheet{
+  display:flex;flex-direction:column;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  -webkit-overflow-scrolling:touch;padding:12px 22px 20px;
+}
+.whysheet__head{display:flex;align-items:center;gap:12px}
+.whysheet__title{margin:0;flex:1;font-size:22px;font-weight:650;letter-spacing:-0.02em;color:var(--ink)}
+.whysheet__close{
+  flex:none;width:34px;height:34px;border:0;border-radius:50%;background:var(--well);
+  color:var(--ink-soft);font-size:15px;line-height:1;cursor:pointer;
+}
+.whysheet__target{
+  margin:10px 0 0;padding-left:14px;border-left:3px solid var(--accent);
+  font-size:18px;font-weight:640;color:var(--ink);
+}
+.whysheet__body{margin-top:6px}
+.whysheet__row{padding:12px 0;border-bottom:1px solid var(--rule)}
+.whysheet__row:last-child{border-bottom:0;padding-bottom:0}
+.whysheet__row p{margin:0;font-size:14px;line-height:1.5;color:var(--ink-soft)}
+.whysheet__lab{
+  display:block;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent-deep);margin-bottom:4px;
+}
+/* The affordance itself: a quiet text link under the recommendation, never a
+   button that competes with logging a set. */
+.recblock__why,.focus-ex__why{font-size:13px;padding:6px 0 0}
+.focus-ex__why{display:block}
+
 /* One row, the way iOS draws it now: back on the left, the address pill in the
    middle, and the ••• menu on the right of the pill — the control step 01 asks
    for. Anything Safari keeps behind that menu (share, tabs, bookmarks) is not
