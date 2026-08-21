@@ -650,6 +650,56 @@ Stop and report back (do not improvise) if:
 - `openModal` cannot host the sheet without modifying the controller —
   the policy table in plan 041 owns that file section; report instead.
 
+## Findings (2026-08-21, post-implementation review)
+
+Both amendments landed after the implementation PR's adversarial review. The
+Step 5 copy table above records the copy as planned; the reworded strings below
+supersede it for the seven keys named.
+
+### Amended: the exercise page passes its own movement, not an id
+
+Step 3 specified one entry point, `openWhySheet(exId, opener)`, resolving
+`prog.find(exId)` → `sessionExercise(slot)`. That is right for the Log list and
+focus cards, because `renderWorkout` already maps every slot through
+`sessionExercise` before rendering. It is wrong for the exercise page:
+`openExerciseView` renders the raw slot whenever the workout is not active, so a
+slot substituted earlier in the session had the page showing the slot's
+recommendation while the sheet showed the substitute's arithmetic — page
+"Hold 102.5 kg" against a sheet headline of "New lift".
+
+The resolver is now split. `openWhySheet(exId, opener)` is unchanged for the two
+Log-tab callers; `openWhySheetFor(ex, opener)` takes an already-resolved
+movement and is what the exercise page binds, passing the very object it fed to
+`recommendation()`. That button's `aria-label` uses the page's displayed `name`
+rather than the raw slot's. A simulation check drives the repro (swap, leave via
+a nav tab, reopen from the Today list) and asserts the sheet headline equals the
+page's recommendation headline.
+
+### Amended: counts no longer sit on a singular-capable noun
+
+The planned copy interpolated counts directly before "reps", which renders
+"about 1 reps" once a count reaches 1. `{cr}` and `{pred}` reach 1 on near-max
+work, and `{min}` / `{max}` reach 1 on a singles range (the program editor
+accepts a positive integer, so 1-1 is a valid range). The i18n system has no
+plural rules, so the fix is wording, not machinery: the count now falls at the
+end of its clause or before a non-counting word.
+
+| Key | English | Portuguese |
+| --- | --- | --- |
+| `why.showed` | Counting reps plus up to {cap} RIR, last session showed a rep capacity of about {cr} at {load} {unit}. | Contando reps mais até {cap} RIR, a última sessão mostrou uma capacidade de cerca de {cr} com {load} {unit}. |
+| `why.showed_effort` | Counting reps plus the effort you logged, last session showed a rep capacity of about {cr} at {load} {unit}. | Contando reps mais o esforço registrado, a última sessão mostrou uma capacidade de cerca de {cr} com {load} {unit}. |
+| `why.rule.top` | Every set reached the top of the range, which is {max}. The load goes up. | Todas as séries chegaram ao topo da faixa, que é {max}. A carga sobe. |
+| `why.rule.cap_top` | The range tops out at {max} and your capacity showed about {cr}. The load goes up. | O topo da faixa é {max} e sua capacidade mostrou cerca de {cr}. A carga sobe. |
+| `why.rule.below_range` | Your rep capacity fell below the range floor of {min}. The load comes down. | Sua capacidade em reps ficou abaixo do piso da faixa de {min}. A carga desce. |
+| `why.reps` | At {load} {unit}, the rep capacity is about {pred}. Minus your usual {typrir} RIR, the rep target starts at {reps}. | Com {load} {unit}, a capacidade em reps é de cerca de {pred}. Menos seu RIR habitual de {typrir}, a meta de reps começa em {reps}. |
+| `why.reps_effort` | At {load} {unit}, the rep capacity is about {pred}. At your usual effort, the rep target starts at {reps}. | Com {load} {unit}, a capacidade em reps é de cerca de {pred}. No seu esforço habitual, a meta de reps começa em {reps}. |
+
+Placeholder sets are unchanged, so the builder needed no edit. Two counts still
+sit on "reps" and are left alone because neither can be 1:
+`why.rule.cap_top2`'s `{cr}` fires only at `cr >= ex.max + 3`, and
+`why.rule.push_reps`'s `{gap}` only at `CAPACITY.pushGap` (2) or more. Any future
+change to those thresholds must revisit both strings.
+
 ## Maintenance notes
 
 - **F3 (lb display policy, `docs/prelaunch-deferrals.md`) will land on this

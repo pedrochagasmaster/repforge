@@ -4541,7 +4541,7 @@ async function main() {
     const downRec = await whyRecOf(whyCases[2].ex.id);
     const downSheet = await openWhyFrom(whyCases[2].ex.id);
     assert(
-      downRec.reason === "below_range" && /the bottom of the range/.test(downSheet.body),
+      downRec.reason === "below_range" && /below the range floor of 6/.test(downSheet.body),
       "Why sheet: below_range renders the range-floor rule",
       `reason=${downRec.reason} body=${JSON.stringify(downSheet.body)}`,
       "Seed 2×(100×4 @ RIR 0) on a 6-8 lift → Why this weight?"
