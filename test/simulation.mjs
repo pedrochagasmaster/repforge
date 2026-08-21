@@ -4634,10 +4634,63 @@ async function main() {
       "Log → tap exercise name → #exDetail → Why this weight?"
     );
     await closeWhy();
-    // Leave the detail view by its own back control, the way the F1 phase does:
-    // the following phase starts from the Log tab with the view stack unwound.
     await page.click("#exBack");
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
+
+    // 9. Identity: the exercise page renders the raw slot whenever the workout is
+    // not active, so a slot substituted earlier in the session must not make the
+    // sheet explain the substitute's arithmetic under the slot's headline.
+    const subEx = whyCases[0].ex;
+    await selectDay(page, "Day 1");
+    await page.evaluate((id) => {
+      const art = document.querySelector(`.exercise[data-ex="${id}"]`);
+      if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
+      if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
+    }, subEx.id);
+    await page.waitForTimeout(80);
+    await page.click(`.subst__pick[data-sub="${subEx.id}"]`);
+    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    const subPicked = await page.evaluate(() => {
+      const row = [...document.querySelectorAll("#exPickList .pickrow")].find(
+        (r) => (r.querySelector(".pickrow__name")?.textContent || "").trim().toLowerCase() === "leg press"
+      );
+      if (!row) return false;
+      row.click();
+      return true;
+    });
+    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    assert(subPicked, "Why sheet: mid-session swap is available for the identity check", "Leg press row not found",
+      "Log → the seeded lift's swap control → Leg press");
+    // Leaving via a nav tab drops workoutActive but keeps the draft's substitution,
+    // and closes the workout shell — so the visible way back in is the Today list,
+    // which still shows the SLOT's name while the hidden card holds the substitute.
+    // Click the real tab buttons rather than the harness nav(): their handler is
+    // what drops workoutActive and closes the workout shell, which is the state
+    // the repro needs.
+    await page.evaluate(() => document.querySelector('nav button[data-view="stats"]')?.click());
+    await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+    await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
+    await page.waitForSelector(`#todayExList [data-exopen="${subEx.id}"]`, { timeout: 5000 });
+    await page.click(`#todayExList [data-exopen="${subEx.id}"]`);
+    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
+    const idHead = (await page.locator("#exDetail .recblock__head").textContent()) || "";
+    await page.click("#exDetail [data-why]");
+    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    const idTarget = await page.evaluate(() => document.querySelector("#whyTarget")?.textContent || "");
+    assert(
+      idHead.trim().length > 0 && idTarget.trim() === idHead.trim(),
+      "Why sheet: the exercise page's sheet explains the movement the page rendered",
+      `head=${JSON.stringify(idHead)} target=${JSON.stringify(idTarget)}`,
+      "Swap a lift mid-session → leave via a nav tab → reopen its exercise page → Why this weight?"
+    );
+    await closeWhy();
+    await page.click("#exBack");
+    await page.waitForSelector("#log.view.active", { timeout: 5000 });
+    // Hand the next phase a clean draft: the swap above lives in the draft only.
+    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await reloadApp(page);
+    await nav(page, "log");
   }
 
   beginPhase("Phase: exercise substitution");

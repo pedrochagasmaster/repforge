@@ -5604,7 +5604,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<div class="recblock__head">${esc(rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label)}</div>`+
     `<p class="recblock__body">${esc(rec.text)}</p></div>`+
     `<button type="button" class="link-accent" data-term="RIR">${esc(t("exercise.understand"))}</button>`+
-    (rec.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name:tmpl.name}))}">${esc(t("why.open"))}</button>`:"")+
+    (rec.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(tmpl.id)}" aria-label="${esc(t("why.open_aria",{name}))}">${esc(t("why.open"))}</button>`:"")+
     `</div></div>`:"";
 
   const work=state.log.filter(r=>liftKey(r)===key&&isWork(r));
@@ -5645,7 +5645,7 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
     `<p class="section-label">${esc(t("exercise.recent_sessions"))}</p><div class="exsessions">${historyHtml}</div>`;
   draw(sums,"#exChart");
   $$("#exDetail [data-term]").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
-  $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
+  $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
 function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
@@ -7897,11 +7897,19 @@ window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
    read as a magic number. Everything here is built at tap time from fields the
    engine attached to its own result — no arithmetic is re-derived, and the Log
    tab's render path pays nothing but one static button per card. */
+// Log list and focus cards render every slot through sessionExercise, so resolving
+// by id here matches what they drew. The exercise page does NOT: it renders the raw
+// slot whenever the workout is not active (openExerciseView), so a slot substituted
+// earlier in the session would have the page showing one movement's recommendation
+// and the sheet showing another's arithmetic. That caller passes its own resolved
+// movement to openWhySheetFor instead.
 function openWhySheet(exId,opener){
-  const sheet=$("#whySheet"),scrim=$("#whyScrim");
-  if(!sheet)return;
   const slot=prog.find(exId);if(!slot)return;
   const ex=sessionExercise(slot);if(!ex)return;
+  openWhySheetFor(ex,opener)}
+function openWhySheetFor(ex,opener){
+  const sheet=$("#whySheet"),scrim=$("#whyScrim");
+  if(!sheet||!ex)return;
   const rec=recommendation(ex);
   const target=$("#whyTarget");
   if(target)target.textContent=rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label;
