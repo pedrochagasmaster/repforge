@@ -72,4 +72,4 @@ The script is the only supported way to refresh these images. Do not hand-edit t
 and do not capture against an unseeded or partial install — designers need a stable,
 comparable pair. Appearance (System/Light/Dark) must be present in the running app.
 
-Captured 2026-08-20 · 33 screens × 2 themes.
+Captured 2026-08-21 · 33 screens × 2 themes.
