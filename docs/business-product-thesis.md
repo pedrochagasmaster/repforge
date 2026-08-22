@@ -945,6 +945,8 @@ The distinction:
 
 > **Free can build you a good program. Pro can build a program around you and what Taurifer has learned about your training.**
 
+The exhaustive Pro capability backlog — what is backlogged now versus merely mapped, the four-layer maturity model, and the recommended Pro Generator v1 — lives in [`docs/pro-backlog.md`](pro-backlog.md).
+
 ## 8.4 The generation-boundary experiment
 
 Baseline generation is Free (§8.2), so the launch experiment is **not** whether Free users can generate at all. The former Variant A ("generation requires Pro") is removed from the viable experiment set.
