@@ -52,7 +52,17 @@ persona(s) or audit finding it came from. Pick one, hand it to an executor
 These constrain **every** plan. An executor that finds itself building any of
 these should hit a STOP condition:
 
-- No accounts, no cloud sync, no backend. Local-first is the product.
+- ~~No accounts, no cloud sync, no backend. Local-first is the product.~~
+  **Amended 2026-08 by owner decision
+  ([ADR 0010](../docs/adr/0010-product-business-thesis-and-validation-sequencing.md),
+  thesis §15/§22): local-first stays constitutional — core training works
+  serverless, the record stays owned and exportable — but "no backend" is
+  not. Intentional schema-driven telemetry (PostHog), an experimental
+  pilot-framed paywall, and minimal infrastructure whose direct purpose is
+  validating an approved Phase 1 hypothesis are in scope (plan 044). Still
+  rejected: accounts, production cloud sync, hosted workout-history
+  storage, and production subscription/platform backends before the
+  evidence gates.**
 - No social feed, leaderboards, sharing, or gamification (streaks/badges/XP).
 - ~~No AI chat coach or auto-generated programs.~~ **Amended 2026-08 by
   owner decision ([ADR 0002](../docs/adr/0002-byok-ai-coach.md), plan 038):
@@ -323,6 +333,24 @@ sanctioned on-demand arithmetic surface. Written against `4e3d044`
 |---|------|----------|--------|------|--------|
 | 043 | ["Why this weight?" — on-demand recommendation inspector](./043-why-this-weight-inspector.md) | direction / dx | M | MED | Owner GTM session 2026-08-20; plan 039 decision 8 follow-up |
 
+## Wave 8 — Phase 1 validation instrumentation (owner-directed)
+
+Written from the 2026-08-21/22 strategy sessions that produced
+`docs/business-product-thesis.md` v1.1 and
+[ADR 0010](../docs/adr/0010-product-business-thesis-and-validation-sequencing.md):
+Phase 1 validates the market and business model on the existing web core,
+and its P0 backlog (thesis §22) is telemetry/cohort attribution plus a
+billing-agnostic Free/Pro capability layer with an experimental,
+pilot-framed paywall. PostHog is the analytics engine (owner decision
+2026-08-22, full-product usage including session replay, under the
+constitutional no-shadow-workout-database masking rules). Plan 044 was
+written against `231ec54` (branch `cursor/product-thesis-adr-0010-5fc3`,
+PR #174).
+
+| # | Plan | Category | Effort | Risk | Source |
+|---|------|----------|--------|------|--------|
+| 044 | [PostHog measurement, experiments, and the experimental Pro paywall](./044-posthog-measurement-experiments-paywall.md) | measurement / monetization | L | MED-HIGH | Owner strategy session 2026-08-21/22; ADR 0010; thesis §22 P0 A+C |
+
 ## Backlog (not yet planned in detail)
 
 Grounded in the report but deferred — each needs its own plan before execution.
@@ -414,3 +442,4 @@ Consensus across ≥5 personas that these betray the product:
 | 041 | TODO — all 24 retained findings are pre-launch |
 | 042 | DONE — the field colour travels per movement rather than as one token; see the plan's Findings for that amendment and for the bundled programs' missing library links |
 | 043 | DONE |
+| 044 | READY — execute per plan; the owner must create the PostHog project and paste the public key (Step 2), and Step 8 (real checkout) is owner-gated |
