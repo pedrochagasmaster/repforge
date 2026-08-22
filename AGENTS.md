@@ -53,7 +53,7 @@ Matt Pocock's engineering skills are installed under `.agents/skills/` (see `ski
 
 ### Issue tracker
 
-Issues and PRDs live as GitHub issues in `pedrochagasmaster/repforge` (via the `gh` CLI); external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
+Issues and specs live as GitHub issues in `pedrochagasmaster/repforge` (via the `gh` CLI); external PRs are not a triage surface. See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
