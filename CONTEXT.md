@@ -1,6 +1,6 @@
 # Taurifer
 
-Taurifer (formerly RepForge; internal storage keys and globals keep the `repforge` codename) is a local-first progressive-overload tracker. Workout logs, drafts, and history stay on the device; setup links intentionally share a program and selected settings. The app helps lifters log sets, follow a program template, and see whether they are progressing.
+Taurifer (formerly RepForge; internal storage keys and globals keep the `repforge` codename) is a local-first progressive-overload tracker. Workout logs, drafts, and history stay on the device; setup links intentionally share a program and selected settings. The app helps lifters log sets, follow a program template, and see whether they are progressing. Strategic direction — market, business model, Free/Pro boundaries, validation sequencing — lives in `docs/business-product-thesis.md` (decisions recorded in `docs/adr/0010-product-business-thesis-and-validation-sequencing.md`).
 
 ## Language
 
@@ -89,14 +89,17 @@ A program created from onboarding answers; the user can edit it before saving.
 _Avoid_: Auto-plan, AI workout, recommended routine
 
 **Coach**:
+_Status: speculative — plan 038 is a brainstorming artifact, unimplemented and not part of the current product thesis (see `docs/business-product-thesis.md` §16, ADR 0010). Any future AI layer is a Pro capability subordinate to the deterministic product._
 The opt-in, bring-your-own-key LLM chat surface (plan 038, ADR 0002). Grounded in coach context; may emit coach proposals. Distinct from the deterministic signals (recommendations, program status), which exist without it.
 _Avoid_: AI assistant, chatbot, trainer
 
 **Coach context**:
+_Status: speculative — belongs to the unimplemented coach direction above._
 The scoped, deterministic payload sent with a coach request — program, derived signals, and a bounded window of log data chosen per entry point. Bodyweight is excluded unless the lifter opts in; the payload is inspectable in the coach sheet.
 _Avoid_: Prompt (the persona/system text), data dump
 
 **Coach proposal**:
+_Status: speculative — belongs to the unimplemented coach direction above._
 A structured, validated program change emitted by the coach and applied only by an explicit user tap. Proposals target the program (templates and metadata), never the log.
 _Avoid_: Auto-adjustment, AI edit, recommendation (reserved for the deterministic engine)
 
@@ -105,5 +108,30 @@ The full-screen close of a finished session, opened by Finish workout. Reads bac
 _Avoid_: Score, rating, streak, badge, points, celebration screen
 
 **Session review**:
+_Status: speculative — belongs to the unimplemented coach direction above; the session summary (deterministic, shipped) is unaffected._
 A coach conversation seeded with the just-saved session and its previous comparable session, offered (never auto-opened) after Save workout. Distinct from the session summary, which is deterministic and always shown.
 _Avoid_: Workout grade, post-workout report
+
+**Shared program**:
+A program received through a setup link (`#setup=` fragment): externally authored — by a coach, creator, or friend — carried self-contained in the URL, confirmed at the first-run gate, and first-class once started: it runs on the same execution and progression engine as any other program.
+_Avoid_: Imported program (that is the file-review path), template
+
+**Publisher attribution**:
+The optional text-only provenance a shared program carries — publisher display name, handle, and short program description — rendered at the handoff gate and, subordinately, at block end. Deliberately attribution, not "branding": it says who authored the program, never restyles the app, and never steers a recommendation.
+_Avoid_: Creator branding, white-label, sponsor
+
+**Taurifer Free**:
+The permanent free floor of the launched product: a capable baseline program generator plus complete current-program execution — creation/import/receipt, logging, progression guidance, rest timers, substitutions, current-program history, session summaries, and the block review — with free manual export. Bound by the no-clawback rule from the commercial-launch boundary onward.
+_Avoid_: Lite version, basic plan, free trial (Free is permanent, not a trial)
+
+**Taurifer Pro**:
+The additive paid layer: advanced and history-informed program generation, cross-program and multi-block intelligence, long-horizon analysis, optional cross-device synchronization, and future history-grounded AI. Pro adds capability around the engine; it never buys different engine conclusions and never subtracts from the Free floor.
+_Avoid_: Premium unlock, upsell tier, paywall (the surface, not the product)
+
+**Commercial-launch boundary**:
+The moment Taurifer publicly launches its production Free/Pro offering and represents it as the stable product contract; the no-clawback floor binds from then on. Pre-commercial prototypes — including today's GitHub Pages PWA — may change entitlements before that point, but user ownership of records and free export are protected regardless of launch status.
+_Avoid_: Launch date (ambiguous), v1.0 (a version number does not start the clock)
+
+**Analytical independence**:
+The constitutional rule that deterministic training outputs derive only from the athlete's program, training record, and declared training rules — never altered, reworded, reordered, or re-presented for commercial benefit. Taurifer may monetize capabilities around the engine, never control over its conclusions; commercial options appear only as clearly separate, subordinate choices.
+_Avoid_: Neutrality (vague), unbiased (a claim, not a rule)
