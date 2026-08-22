@@ -58,7 +58,31 @@ decisions, what they superseded, and what carries forward.
   product, not a preview channel. Native Android/iOS is the intended
   commercial destination, entered on evidence triggers (retention that makes
   durability a real responsibility, credible Pro purchase intent, measured
-  install friction, native-capability constraints, store discovery).
+  install friction, native-capability constraints, store discovery). The
+  prohibition is on production platform/backend architecture — an account
+  platform, production cloud sync, hosted workout-history storage, a
+  production subscription backend, hosted creator publishing, a generalized
+  API layer — not on "anything with a server": minimal infrastructure whose
+  direct purpose is validating an approved Phase 1 hypothesis (a telemetry
+  collector, attribution endpoint, lightweight checkout integration, payment
+  webhook, small entitlement service, experiment assignment/config) is
+  allowed.
+- **An experimental paywall is P0 Phase 1 work.** Validate the commercial
+  proposition before building the commercial infrastructure — and a real
+  paywall is part of validating the commercial proposition. Phase 1 ships a
+  narrow capability/entitlement abstraction (product code asks for
+  capabilities; it is never coupled to StoreKit, Google Play, or a future
+  billing vendor) and a pilot-framed Taurifer Pro paywall in the PWA with
+  real price hypotheses and full funnel measurement; fake-door intent is
+  acceptable first, moving quickly to real payment evidence via simple web
+  checkout and lightweight/manual entitlement. What Phase 2 defers is
+  production subscription infrastructure (StoreKit, Play Billing, automated
+  subscription lifecycle, receipt validation, cross-device entitlement) —
+  not the paywall. A locked advanced capability may open the paywall to
+  measure demand before it is deeply built, but the baseline generator stays
+  genuinely capable and Free. Pilot paywalls remain explicitly pre-launch
+  offers with mutable packaging and do not start the no-clawback clock.
+  The concrete P0/P1 validation backlog lives in the thesis §22.
 - **Wrap, not rewrite.** When native is justified, evolve this repository
   with a Capacitor-class shell around the shared, tested training core
   (progressive native enhancement). A greenfield rewrite requires evidence
@@ -88,14 +112,22 @@ decisions, what they superseded, and what carries forward.
 Earlier session decisions survive with changed priority; they should not be
 rediscovered from scratch or silently dropped.
 
-Still strategically active: publisher attribution fields in shared-program
-payloads (`v1.` envelope carries optional fields; `v2.` is immutable; mint
-`v3.` only under size pressure); the reviewed, non-destructive
-program-replacement flow so a setup link can be applied to an existing
-install (archive the old program, never touch logs); the shared-arrival
-first-run gate recomposed around the creator/program handoff; block-end
-publisher attribution as subordinate provenance; telemetry and funnel
-instrumentation.
+Still strategically active (approved direction — none of it is shipped yet;
+the thesis §22 backlog assigns priorities): publisher attribution in shared
+programs, an approved Phase 1 extension whose implementation must respect
+ADR 0007's immutable existing payload contracts — the semantic
+`taurifer-shared-setup` version-1 document and both released envelopes are
+locked, so it requires an explicit compatible versioning path rather than
+mutating a locked schema (P0 before creator pilots); telemetry, funnel
+instrumentation, and the experimental paywall behind a billing-agnostic
+capability abstraction (P0 before quantitative external testing); the
+shared-arrival first-run gate recomposed around the creator/program handoff;
+block-end publisher attribution as subordinate provenance; program
+lifecycle / next-program transition preserving training history (P1 —
+without it H7's post-program retention cannot be measured); the reviewed,
+non-destructive program-replacement flow so a setup link can be applied to
+an existing install — archive the old program, never touch logs (P1, before
+cohorts need Block II).
 
 Still valid but demoted: share-with-coach surfaces (windowed plain-text +
 CSV export of per-session logs); other coach conveniences.
