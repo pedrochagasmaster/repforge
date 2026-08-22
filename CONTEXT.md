@@ -117,7 +117,8 @@ A program received through a setup link (`#setup=` fragment): externally authore
 _Avoid_: Imported program (that is the file-review path), template
 
 **Publisher attribution**:
-The optional text-only provenance a shared program carries — publisher display name, handle, and short program description — rendered at the handoff gate and, subordinately, at block end. Deliberately attribution, not "branding": it says who authored the program, never restyles the app, and never steers a recommendation.
+_Status: approved, unimplemented — an approved Phase 1 extension to shared programs (ADR 0010; P0 before creator pilots). Implementation must respect ADR 0007's immutable existing payload contracts: the semantic `taurifer-shared-setup` version-1 document and both released envelopes are locked, so it needs an explicit compatible versioning path, not mutation of a locked schema._
+The optional text-only provenance a shared program will carry — publisher display name, handle, and short program description — to be rendered at the handoff gate and, subordinately, at block end. Deliberately attribution, not "branding": it says who authored the program, never restyles the app, and never steers a recommendation.
 _Avoid_: Creator branding, white-label, sponsor
 
 **Taurifer Free**:
