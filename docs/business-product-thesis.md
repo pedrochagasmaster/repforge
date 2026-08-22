@@ -7,7 +7,7 @@
 **Business model:** B2C freemium subscription, with creator-led B2B2C distribution  
 **Core category:** Progression-first strength-training software
 
-**v1.1 amendments (see ADR 0010 for rationale):** the no-clawback clock starts at the commercial-launch boundary and today's PWA is a pre-commercial prototype; a capable baseline program generator is committed to the launched Free floor and §8.4 Variant A is removed; the Free/Pro generator boundary is capability-based; analytical independence is a constitutional principle; native Android/iOS moves from Phase 1 to Phase 2 behind evidence triggers, and Phase 1 is market validation on the existing web core; the eventual native architecture is wrap-not-rewrite (progressive native enhancement); pilot monetization experiments must not accidentally start the launch clock; browser-backed persistence is an accepted, mitigated Phase 1 risk.
+**v1.1 amendments (see ADR 0010 for rationale):** the no-clawback clock starts at the commercial-launch boundary and today's PWA is a pre-commercial prototype; a capable baseline program generator is committed to the launched Free floor and §8.4 Variant A is removed; the Free/Pro generator boundary is capability-based; analytical independence is a constitutional principle; native Android/iOS moves from Phase 1 to Phase 2 behind evidence triggers, and Phase 1 is market validation on the existing web core; the eventual native architecture is wrap-not-rewrite (progressive native enhancement); pilot monetization experiments must not accidentally start the launch clock; browser-backed persistence is an accepted, mitigated Phase 1 risk. From the validation-backlog review: an experimental paywall (behind a billing-agnostic capability abstraction) is P0 Phase 1 work — production subscription infrastructure, not the paywall, is what Phase 2 defers; §22 carries the explicit P0/P1 validation backlog and §18.2 splits Phase 1 validation monetization from Phase 2 commercial infrastructure; publisher attribution is approved but unimplemented, and its implementation must respect ADR 0007's immutable payload contracts via an explicit compatible versioning path.
 
 ---
 
@@ -1395,6 +1395,8 @@ Recommended optional program metadata:
 
 The initial experience can remain text-first.
 
+Publisher attribution is an approved Phase 1 extension to shared programs, **not yet implemented**. Its implementation must respect ADR 0007's immutable existing payload contracts — the semantic `taurifer-shared-setup` version-1 document and both released envelopes are locked — so it requires an explicit compatible versioning path rather than mutating a locked schema. This thesis does not prescribe the exact codec version; that is an implementation design decision.
+
 Do not build:
 
 - separate white-label native apps;
@@ -1748,12 +1750,24 @@ It is the defensibility roadmap.
 
 ## 18.2 Tier 1 — monetization
 
-- smart program generator;
-- paywall/trial architecture;
-- subscription management;
-- Pro entitlement;
-- long-horizon analysis foundation;
-- optional synchronization architecture.
+Monetization work splits by phase; optional synchronization is **not** a prerequisite for Phase 1 monetization.
+
+### Phase 1 validation monetization (P0 in the validation backlog, §22)
+
+- experimental Free/Pro capability layer — a narrow capability/entitlement abstraction, not coupled to any billing vendor;
+- a real Taurifer Pro paywall surface in the PWA, explicitly pilot/early-access framed;
+- pricing experiments;
+- checkout/purchase-intent measurement;
+- lightweight/manual entitlement where useful;
+- the advanced-generation boundary experiment (§8.4).
+
+### Phase 2 commercial infrastructure (deferred until the evidence gates, §22)
+
+- production subscription management;
+- StoreKit / Google Play Billing;
+- robust cross-device entitlement;
+- production synchronization architecture;
+- the long-horizon analysis foundation grows with Phase 3 retention work.
 
 ## 18.3 Tier 1 — acquisition
 
@@ -2024,13 +2038,76 @@ Priorities:
 
 The objective is not to maximize technical polish. It is to eliminate the largest business uncertainties as cheaply and quickly as possible. During Phase 1, the PWA is the primary validation product, not a preview channel.
 
+### Phase 1 validation backlog
+
+The concrete implementation backlog, in priority order.
+
+#### P0 — before meaningful quantitative external testing
+
+**A. Telemetry and cohort attribution**
+
+- pseudonymous installation identifier;
+- acquisition/referral source;
+- explicit schema-driven funnel events;
+- generated/manual/import/shared cohort;
+- activation and workout milestones;
+- D7/D30/D60 definitions frozen before reading results.
+
+**B. Pilot data-safety mitigations**
+
+The browser-persistence mitigations listed under "Accepted Phase 1 risk" below: persistent-storage request, backup/export prominence, explicit beta/pilot durability language — and no major PWA-storage infrastructure project.
+
+**C. Free/Pro capability abstraction and an experimental paywall**
+
+This is P0 validation work, not a later production feature. The thing deferred to Phase 2 is production subscription infrastructure, **not the paywall**:
+
+> **Validate the commercial proposition before building the commercial infrastructure. A real paywall is part of validating the commercial proposition.**
+
+Build a narrow capability/entitlement abstraction so product code asks conceptually — `hasCapability("advanced_generation")`, `hasCapability("history_informed_generation")` — and is never coupled directly to StoreKit, Google Play, or a future billing vendor.
+
+Then implement a real Taurifer Pro paywall surface in the PWA, supporting:
+
+- explicit pilot/early-access framing;
+- a real price hypothesis (test R$149.90 / R$179.90 / R$199.90 annual);
+- paywall-view measurement;
+- the trigger/capability that opened the paywall;
+- CTA measurement;
+- stable experiment assignment for price/variant;
+- generated-vs-BYO cohort comparison.
+
+The first iteration may use a fake-door/end-of-flow intent result if necessary, but move toward real payment evidence quickly. At small pilot scale, acceptable payment implementations include a simple web checkout, manual/lightweight entitlement after purchase, and founding-user activation. Not needed yet: StoreKit, Play Billing, automated subscription lifecycle, production receipt validation, a sophisticated billing backend, or cross-device entitlement architecture.
+
+Some advanced Pro capabilities do not need to be fully implemented before their demand is tested: a locked advanced generator control (for example, muscle priorities) can legitimately open the experimental Pro paywall and measure demand before the optimizer behind it is deeply built. But the baseline generator remains genuinely capable and Free — do not manufacture scarcity (§8.3).
+
+#### P0 — before creator pilots
+
+**D. Publisher/referral attribution**
+
+- publisher name;
+- handle;
+- program description;
+- stable attribution/referral identifier;
+- creator-specific acquisition events.
+
+Required to test creator CAC and retention cleanly. Implementation must respect ADR 0007's immutable payload contracts (§13.5).
+
+#### P1 — before the first real cohorts approach program completion
+
+**E. Program lifecycle / next-program transition**
+
+Users need: current program → complete/archive → start another generated/manual/imported/shared program → preserve training history. Without this, H7's post-program retention cannot actually be measured.
+
+**F. Shared-program application for existing users**
+
+The current first-run-only setup-link rule is sufficient for initial acquisition but not for Block II / the next creator program. Ship the reviewed, non-destructive replacement/transition flow (archive the old program, never touch logs) before cohorts need it.
+
 ### Monetization validation without native IAP
 
-"Will people pay for Taurifer Pro?" is not the same question as "have we implemented the final StoreKit and Play Billing architecture?" At prototype scale, willingness to pay can be tested with real paywall exposure, pricing tests, trial/fake-door experiments, checkout intent, potentially a simple web payment flow, and manual or lightweight Pro entitlement for a small early cohort.
+"Will people pay for Taurifer Pro?" is not the same question as "have we implemented the final StoreKit and Play Billing architecture?" The experimental paywall (P0-C above) tests willingness to pay with real paywall exposure, pricing tests, trial/fake-door experiments, checkout intent, a simple web payment flow where useful, and manual or lightweight Pro entitlement for a small early cohort.
 
 > **Do not build production-grade commerce infrastructure before validating the product being sold.**
 
-All Phase 1 pricing/paywall tests are pilot/early-access offers and must not accidentally start the no-clawback clock (§8.4).
+All Phase 1 pricing/paywall tests are pilot/early-access offers with mutable pre-launch packaging and must not accidentally start the no-clawback clock (§8.0, §8.4). A small paid experiment does not itself establish the permanent Free/Pro contract — and, as documented, a broad public commercial launch cannot evade the clock by being called a beta.
 
 ### Accepted Phase 1 risk — browser-backed persistence
 
