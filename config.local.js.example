@@ -1,0 +1,6 @@
+// Copy this file to config.js and replace both placeholders with credentials
+// from a development-only PostHog project.
+window.__POSTHOG_CONFIG__ = {
+  projectToken: "your_dev_posthog_project_token",
+  host: "your_dev_posthog_host",
+};
