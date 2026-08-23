@@ -4,11 +4,12 @@
  * Requires http://localhost:8000/
  *
  * The theme is a UI pref that resolves to one attribute, so what is worth
- * holding is the edge of that: that the resolution follows the device until the
- * lifter overrides it, that the override outlives a reload and reaches the page
- * before app.js does, that the canvas chart is repainted rather than left
- * showing the old palette, that browser chrome tracks the paper, and that none
- * of it leaks into the training state or a setup link.
+ * holding is the edge of that: that the default is light regardless of the
+ * device, that choosing System makes the app follow the device until the
+ * lifter overrides it, that an explicit choice outlives a reload and reaches
+ * the page before app.js does, that the canvas chart is repainted rather than
+ * left showing the old palette, that browser chrome tracks the paper, and
+ * that none of it leaks into the training state or a setup link.
  */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -194,17 +195,17 @@ function runPaletteIsTheOnlyPlace() {
 
 // ---- Suites -----------------------------------------------------------------
 
-async function runSystemDefault(browser) {
-  console.log("\n1. With no preference stored, the device decides");
+async function runLightDefault(browser) {
+  console.log("\n1. With no preference stored, the default is light on any device");
   for (const scheme of ["dark", "light"]) {
     const { context, page } = await freshPage(browser, scheme);
     try {
-      assert(await themeOf(page) === scheme, `A ${scheme} device boots ${scheme}`, await themeOf(page));
+      assert(await themeOf(page) === "light", `A ${scheme} device still boots light`, await themeOf(page));
       assert(await storedTheme(page) === null, `A ${scheme} device stores nothing`, await storedTheme(page));
       await openSettings(page);
       assert(
-        await page.inputValue("#theme") === "system",
-        `The ${scheme} device shows "System" selected`,
+        await page.inputValue("#theme") === "light",
+        `The ${scheme} device shows "Light" selected`,
         await page.inputValue("#theme")
       );
     } finally {
@@ -214,13 +215,17 @@ async function runSystemDefault(browser) {
 }
 
 async function runFollowsSystemLive(browser) {
-  console.log("\n2. On System, the app follows the device without a reload");
+  console.log("\n2. Choosing System makes the app follow the device without a reload");
   const { context, page } = await freshPage(browser, "light");
   try {
-    assert(await themeOf(page) === "light", "Starts light");
+    assert(await themeOf(page) === "light", "Starts light by default");
     await page.emulateMedia({ colorScheme: "dark" });
+    await page.waitForTimeout(100);
+    assert(await themeOf(page) === "light", "A dark device alone does not repaint the default", await themeOf(page));
+
+    await page.evaluate(() => window.__repforgeUi.setTheme("system"));
     await page.waitForFunction(() => document.documentElement.dataset.theme === "dark", { timeout: 3000 });
-    assert(true, "The device turning dark repaints the app");
+    assert(true, "Once System is chosen, the device turning dark repaints the app");
     assert(await metaColor(page) === "#141310", "theme-color follows it", await metaColor(page));
 
     // An explicit choice ends the following: the device is no longer the answer.
@@ -319,7 +324,8 @@ async function runPrePaint(browser) {
     assert(await metaColor(page) === "#141310", "So is theme-color", await metaColor(page));
     await page.unroute(APP_JS);
 
-    // The snippet must not invent a preference of its own.
+    // The snippet must not invent a preference of its own: cleared, it falls
+    // back to light even though the device itself is dark.
     await page.evaluate((ui) => localStorage.removeItem(ui), UIKEY);
     await page.route(APP_JS, (route) => route.abort());
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -474,7 +480,7 @@ async function main() {
   runPaletteIsTheOnlyPlace();
   const browser = await launchChromium();
   try {
-    await runSystemDefault(browser);
+    await runLightDefault(browser);
     await runFollowsSystemLive(browser);
     await runSettingsRow(browser);
     await runPrePaint(browser);
