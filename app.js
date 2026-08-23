@@ -7626,16 +7626,18 @@ function setUiPref(k,v){uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringi
    of export/import, and out of the shared-setup allowlist.
 
    "system" is a live answer rather than a stored light/dark, so a phone on a
-   sunrise schedule follows it without the app being reopened. Everything else
-   below resolves that to the concrete value <html data-theme> carries, which is
-   the only thing styles.css ever looks at. */
+   sunrise schedule follows it without the app being reopened, but only once
+   the lifter has explicitly chosen it: with nothing stored yet, the default
+   is light rather than a read of the device. Everything else below resolves
+   the pick to the concrete value <html data-theme> carries, which is the
+   only thing styles.css ever looks at. */
 const THEMES=["system","light","dark"];
 /* Browser chrome cannot read a CSS variable, so --bg is spelled out again here
    and in the pre-paint snippet in index.html. Three copies of two hexes; move
    all three together. */
 const THEME_COLOR={light:"#F4F2EF",dark:"#141310"};
 const darkQuery=()=>window.matchMedia?.("(prefers-color-scheme: dark)")||null;
-const normalizeTheme=v=>THEMES.includes(v)?v:"system";
+const normalizeTheme=v=>THEMES.includes(v)?v:"light";
 const currentTheme=()=>normalizeTheme(uiPrefs.theme);
 const resolvedTheme=()=>{const pick=currentTheme();return pick==="system"?(darkQuery()?.matches?"dark":"light"):pick};
 function applyTheme(){

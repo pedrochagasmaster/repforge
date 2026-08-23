@@ -70,10 +70,13 @@ a state proposal or the cross-tab write path, and leaves the shared-setup
 allowlist at the eight settings `docs/adr/0007-shared-setup-links.md` describes
 and `index.html` names to the lifter.
 
-`system` is stored as `system`, not resolved once and frozen. A phone that
-switches at sunset should carry the app with it without being reopened, so
-`resolvedTheme()` asks `matchMedia` each time and a `change` listener repaints
-while the preference is `system`.
+With nothing stored, the app defaults to `light` rather than reading the
+device: a fresh install should look the same for every lifter, not vary with
+whatever the OS happened to be set to. `system` remains a choice a lifter can
+make, and once made it is stored as `system`, not resolved once and frozen —
+a phone that switches at sunset should carry the app with it without being
+reopened, so `resolvedTheme()` asks `matchMedia` each time and a `change`
+listener repaints while the preference is `system`.
 
 ## Applying it
 
@@ -97,7 +100,8 @@ painted into a canvas that has already sampled the palette. `repaintForTheme()`
 follows every theme change with `redrawChart()`; `chartPalette()` already reads
 the tokens, so nothing about the drawing changed.
 
-`test/appearance.mjs` holds the line: the default follows the system, an
-explicit choice survives a reload, the pre-paint snippet applies it before
-`app.js` runs, the chart repaints, `theme-color` tracks the theme, and no theme
-key reaches `repforge_v1` or a shared setup link.
+`test/appearance.mjs` holds the line: the default is light on any device, an
+explicit `system` choice follows the device live, an explicit choice survives
+a reload, the pre-paint snippet applies it before `app.js` runs, the chart
+repaints, `theme-color` tracks the theme, and no theme key reaches
+`repforge_v1` or a shared setup link.
