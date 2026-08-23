@@ -32,15 +32,30 @@ SOFTWARE.
 
 Taurifer uses only the **non-media** portion of that dataset: movement names,
 equipment, and muscle tags, remapped to Taurifer's own equipment and muscle
-vocabulary and reduced to a curated subset. Portuguese names are Taurifer's own.
+vocabulary. Portuguese names are Taurifer's own — composed from the phrase
+tables in `tools/exercise-vocabulary.mjs`, not taken from the dataset's
+multilingual instruction text.
+
+The library covers the dataset in full: 1,284 of its 1,324 rows. The 40 it does
+not carry are listed with a reason in `tools/exercise-curation-excluded.json`,
+and every one of them is a row the dataset names twice — "v. 2" variants,
+"(male)"/"(female)" pairs, camera-angle splits, and word-order spellings of one
+movement.
 
 ### The dataset's media is deliberately excluded
 
-That repository also ships `images/` and `videos/`. Those are **not** covered by
-its MIT license — they belong to [Gym visual](https://gymvisual.com/) and are
-redistributed there under a written permission granted to that repository
-alone. Its `NOTICE.md` is explicit that cloning does not convey any license to
-the media.
+That repository also ships `images/` (1,324 stills) and `videos/` (1,324
+animated GIFs). Those are **not** covered by its MIT license — they belong to
+[Gym visual](https://gymvisual.com/) and are redistributed there under a
+written permission granted to that repository alone. Both its `LICENSE`
+("MEDIA EXCEPTION") and its `NOTICE.md` are explicit that cloning conveys no
+license to the media and that a reuser must obtain their own from Gym visual.
+
+This is why expanding the library did not expand the artwork. Taking the
+dataset's 1,324 GIFs would be redistributing someone else's licensed media
+without a license, whatever the app around them looks like. The data half is
+MIT and Taurifer now uses all of it; the media half needs a license from Gym
+visual, and until there is one those movements render the empty tile.
 
 Taurifer uses **none** of it. `tools/build-exercises.mjs` reads only
 `data/exercises.json` and never opens the media directories, and
@@ -57,4 +72,4 @@ any upstream media.
 
 `MEDIA_IDS` in `tools/build-exercises.mjs` is the allowlist. A movement with no
 entry there carries no media path at all, so it renders an empty tile and issues
-no image request — 174 of the 270 movements are in that state.
+no image request — 1,188 of the 1,284 movements are in that state.

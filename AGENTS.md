@@ -19,7 +19,7 @@ A setup link is a coach-created URL fragment (`index.html#setup=v1.<base64url-gz
 - The application has no dependencies to install and no application build/lint/test tooling. Do not look for a root `package.json`, an application test runner, or a bundler — none exist.
 - Browser suites are separate: they use pinned test-only npm dependencies under `test/` (Playwright). In a fresh checkout run `(cd test && npm ci && npx playwright install chromium --with-deps)` before a browser gate. Do not add root or application dependencies, and do not use npm to run the app.
 - Run the app in development by serving the repo root over HTTP (a static server is required because of the service worker and `fetch` of `manifest`/assets). The README documents `python3 -m http.server 8000`, then open `http://localhost:8000/`. Python 3 is available on the VM.
-- Service worker caching gotcha: `sw.js` uses a `repforge-vNN` cache name (v110 today; the prefix is a codename and does not follow the brand). `ASSETS` is `./`, `index.html`, `styles.css`, `manifest.webmanifest`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, `shared-setup.js`, `app.js`, the revisioned shared-setup/app script URLs, the icon SVG/PNGs, the two brand files (`assets/brand/mark.png`, the ground-free mark the first-run gate draws, and `assets/brand/milo-hero.webp`, its ethos hero illustration), the 96 `assets/exercises/*.webp` illustrations (~3.2 MB, precached atomically by `addAll`), and the Plex font woff2 files. `SHELL` is `/`, `/index.html`, `/app.js`, `/styles.css`, `/i18n.js`, `/exercises.js`, `/shared-setup.js`, `/manifest.webmanifest`, matched relative to the worker's production scope. Bump `CACHE` when any of them changes, and move the `?v=NN` revisions for `shared-setup.js` and `app.js` in `index.html` and `ASSETS` with it — `test/exercise-library.mjs` holds those three numbers in lockstep. The revision is what stops an older controlling worker serving a v1-only script on the first v2 navigation. After editing cached files, a normal reload may serve stale copies. Hard-reload (or unregister the service worker / clear site data via DevTools → Application) to see changes.
+- Service worker caching gotcha: `sw.js` uses a `repforge-vNN` cache name (v111 today; the prefix is a codename and does not follow the brand). `ASSETS` is `./`, `index.html`, `styles.css`, `manifest.webmanifest`, `schedule.js`, `notify.js`, `i18n.js`, `exercises.js`, `shared-setup.js`, `app.js`, the revisioned shared-setup/app script URLs, the icon SVG/PNGs, the two brand files (`assets/brand/mark.png`, the ground-free mark the first-run gate draws, and `assets/brand/milo-hero.webp`, its ethos hero illustration), the 96 `assets/exercises/*.webp` illustrations (~3.2 MB, precached atomically by `addAll`), and the Plex font woff2 files. `SHELL` is `/`, `/index.html`, `/app.js`, `/styles.css`, `/i18n.js`, `/exercises.js`, `/shared-setup.js`, `/manifest.webmanifest`, matched relative to the worker's production scope. Bump `CACHE` when any of them changes, and move the `?v=NN` revisions for `shared-setup.js` and `app.js` in `index.html` and `ASSETS` with it — `test/exercise-library.mjs` holds those three numbers in lockstep. The revision is what stops an older controlling worker serving a v1-only script on the first v2 navigation. After editing cached files, a normal reload may serve stale copies. Hard-reload (or unregister the service worker / clear site data via DevTools → Application) to see changes.
 - To reset state for a clean test, clear site storage or use **Settings → Delete workout history**.
 - Core flow to smoke-test: on the **Log** tab fill a set's kg/reps/RIR and click **Save workout**, then confirm the session summary opens over the app, and that the **Stats** and **History** tabs populate with the saved session once it is dismissed.
 - **UI screen catalog (keep in sync):** `docs/ui-screens/` is the exhaustive light/dark phone-frame reference for UI and Brand Designers (`light/` and `dark/` share filenames). Whenever a change alters a user-visible surface — layout, palette, copy on screen, sheets, first-run, install UI, or a new primary view — regenerate both theme folders with `node tools/capture-ui-screens.mjs` (app served on `REPFORGE_URL`, pinned Chromium under `test/`) and commit the updated PNGs with the UI change. Do not merge a UI change that leaves the catalog showing an older layout, palette, or label. Do not hand-edit the PNGs. The folder README lists every screen; `tools/README.md` documents the capture script.
@@ -30,16 +30,34 @@ A setup link is a coach-created URL fragment (`index.html#setup=v1.<base64url-gz
 them at serve or install time. `i18n.js` comes from `i18n-en.json` +
 `i18n-pt.json` via `node tools/build-i18n.mjs` (`--check` fails when the three
 files drift). `exercises.js` comes from `tools/build-exercises.mjs` plus the
-reviewed allowlist in `tools/exercise-curation.json` — edit those and re-run,
-never the generated file. See `tools/README.md`; note that library ids are
-stored in saved programs as `libraryId` and must never be repointed at a
-different movement.
+allowlist in `tools/exercise-curation.json` — edit those and re-run, never the
+generated file. `tools/exercise-vocabulary.mjs` holds the equipment, muscle,
+naming and Portuguese tables both that script and `tools/expand-curation.mjs`
+read. See `tools/README.md`; note that library ids are stored in saved programs
+as `libraryId` and must never be repointed at a different movement.
+
+The library carries the upstream dataset in full — 1,284 movements from its
+1,324 rows, the other 40 being rows the dataset names twice (see
+`tools/exercise-curation-excluded.json`). 270 of those are hand-reviewed and
+are the only ones carrying `patterns`, which is what the onboarding wizard
+draws a generated program from; the 1,014 appended by
+`tools/expand-curation.mjs` carry `patterns: []` and spell out their own
+`primary`/`secondary`, so they are browsable, searchable and addable by hand
+but never auto-programmed. That split is deliberate — `rotateCatalog` in
+`app.js` rotates a slot's pool by day-type occurrence modulo its length, so
+growing a pool changes which exercise an existing set of onboarding answers
+generates. Do not machine-classify appended movements into `patterns` without
+accepting that.
 
 `assets/exercises/` holds the 96 licensed exercise illustrations, keyed by
-library id. That set is closed: the other 174 movements, built-in or custom,
+library id. That set is closed: the other 1,188 movements, built-in or custom,
 render a deliberately empty tile. Do not add exercise media without a licence
 covering it, and do not fill the empty state with icons, initials or silhouettes
 — `test/exercise-library.mjs` and `test/library-flow.mjs` both hold that line.
+In particular the upstream dataset's own `images/` and `videos/` are **not**
+available to this app: they are Gym visual's, licensed to that repository alone,
+and its `LICENSE` says so in a "MEDIA EXCEPTION" clause. Expanding the library
+to the whole dataset did not and cannot expand the artwork with it (`NOTICE.md`).
 The allowlist lives in `MEDIA_IDS` in `tools/build-exercises.mjs`; adding a file
 without listing it there (or the reverse) fails the build and the gates. Each
 mapped entry also carries `mediaBg`, the paper colour that drawing sits on, read

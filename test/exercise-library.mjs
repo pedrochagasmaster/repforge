@@ -140,9 +140,41 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
 }
 
 {
-  const untranslated = EXERCISE_LIBRARY.filter(e => e.namePt === e.name && !/^(leg press|pullover|crossover|dead bug|rack pull|pull through|swing)/i.test(e.name));
+  /* A Portuguese name that is character-for-character the English one is
+     normally a translation that never happened. It is not always: a handful of
+     movements are called the same thing in a Brazilian gym, and translating
+     them literally would invent a word nobody says. Those are named here rather
+     than pattern-matched, so adding one is a decision somebody made on purpose. */
+  const LOANWORDS = new Set([
+    "leg press", "pullover", "crossover", "dead bug", "rack pull", "pull through",
+    "swing", "burpee", "muscle up", "front lever", "back lever", "planche",
+    "skin the cat", "power clean", "landmine 180", "stalder press", "london bridge",
+    "spell caster", "kick out sit", "bottoms-up", "thruster", "pirate supper",
+    "l-sit on floor", "v-sit on floor", "roll-out", "wheel roll-out",
+    "front lever reps", "full planche", "lean planche", "frog planche",
+    "straddle planche", "full maltese", "straddle maltese"
+  ]);
+  const untranslated = EXERCISE_LIBRARY.filter(e =>
+    e.namePt === e.name && !LOANWORDS.has(e.name.toLowerCase()));
   assert(untranslated.length === 0, "Portuguese names are actually Portuguese",
-    untranslated.map(e => e.id).join(", "));
+    untranslated.map(e => `${e.id} (${e.name})`).join(", "));
+}
+
+{
+  /* The same line the display-name check holds, on the other side of the app.
+     A Portuguese-speaking lifter reads namePt, so two movements composing onto
+     one Portuguese name is a picker showing them the same row twice — which is
+     exactly what a library this size cannot afford. Where the phrase tables in
+     tools/exercise-vocabulary.mjs cannot separate two movements, the fix is a
+     name in tools/exercise-name-overrides.json, not a looser check here. */
+  const byNamePt = new Map();
+  for (const e of EXERCISE_LIBRARY) {
+    const key = e.namePt.toLowerCase();
+    byNamePt.set(key, (byNamePt.get(key) || []).concat(e.id));
+  }
+  const dupes = [...byNamePt].filter(([, ids]) => ids.length > 1);
+  assert(dupes.length === 0, "no two entries share a Portuguese name",
+    dupes.map(([n, ids]) => `${n} (${ids.join(",")})`).join(" | "));
 }
 
 {
@@ -170,7 +202,13 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
 /* ---- artwork ----
    Exactly 96 illustrations are licensed. More than that means something was
    invented; fewer means a mapping was lost. Every mapped path must exist, or
-   the app issues a request for a file that is not there. */
+   the app issues a request for a file that is not there.
+
+   The library grew to the whole upstream dataset; the artwork set did not, and
+   cannot. The dataset's own animations belong to Gym visual and are licensed to
+   that repository alone (NOTICE.md), so the overwhelming majority of movements
+   render the deliberately empty tile — which is the same contract the smaller
+   library held, just at a different ratio. */
 {
   const mapped = EXERCISE_LIBRARY.filter(e => e.media);
   assert(mapped.length === 96, "exactly 96 exercises carry artwork", `${mapped.length} mapped`);
@@ -215,7 +253,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
 
 {
   // Offline: the shell has to carry the artwork, or an installed app shows
-  // empty tiles for the 96 the moment it loses connectivity.
+  // empty tiles for the mapped ones the moment it loses connectivity.
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
   const mapped = EXERCISE_LIBRARY.filter(e => e.media);
   const uncached = mapped.filter(e => !sw.includes(`./${e.media}`));

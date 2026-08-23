@@ -14,7 +14,7 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 - Session summary at the end of a workout: records, lift movement, hard sets per muscle, and the week
 - Stats dashboard with top-load chart
 - Training history and session deletion
-- Exercise library of 270 movements with English and Portuguese names, searchable by either
+- Exercise library of 1,284 movements with English and Portuguese names, searchable by either
 - Illustrations for 24 movements; everything else shows a plain placeholder
 - Browse, preview and add several exercises at once, then set their sets and reps
 - Custom exercises you create yourself, reusable across programs and portable with them

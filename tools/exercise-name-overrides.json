@@ -1,0 +1,32 @@
+{
+ "_comment": "Portuguese names for appended movements the phrase tables in exercise-vocabulary.mjs cannot separate. Each of these composed to the same Portuguese name as another movement, and two identical rows in the picker is the one thing a bigger library must not do. Keyed by Taurifer library id; tools/expand-curation.mjs writes them onto the record as namePt. Reviewed movements are never listed here — their names are what the app already ships.",
+ "namePt": {
+  "x0012": "Elevação de pernas deitado com arremesso lateral assistido",
+  "x0013": "Elevação de pernas deitado com arremesso assistido",
+  "x0061": "Extensão de tríceps deitado com barra",
+  "x0140": "Barra fixa para bíceps",
+  "x0204": "Puxada posterior de braço na polia",
+  "x0335": "Elevação lateral para frontal com halteres",
+  "x0341": "Deltoide posterior unilateral deitado com halteres",
+  "x0380": "Elevação lateral posterior com halteres",
+  "x0501": "Burpee com polichinelo",
+  "x0595": "Abdominal sentado na máquina com apoio no peito",
+  "x0642": "Flexão de braço com chute lateral",
+  "x0661": "Flexão de braço com chute interno",
+  "x0673": "Puxada na máquina com pegada supinada",
+  "x0987": "Agachamento búlgaro unilateral com elástico e um braço",
+  "x1286": "Crucifixo de peitoral unilateral na bola suíça com halteres",
+  "x1292": "Crucifixo com uma perna apoiada na bola suíça com halteres",
+  "x1324": "Remada superior na polia",
+  "x1335": "Extensão lombar na bola suíça com joelhos fora do chão",
+  "x1421": "Flexão de braço até os antebraços",
+  "x1437": "Rosca de dedos com halteres",
+  "x1467": "Flexão de braço nos antebraços",
+  "x1644": "Rosca agachada na polia",
+  "x1646": "Rosca scott martelo alternada com halteres",
+  "x1651": "Afundo com rosca direta e movimento de boliche com halteres",
+  "x1720": "Extensão de tríceps deitado atrás da cabeça com barra",
+  "x3234": "Crucifixo Hyght com halteres",
+  "x3679": "Abdominal completo com braços no peito"
+ }
+}

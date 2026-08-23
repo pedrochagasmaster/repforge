@@ -6827,13 +6827,18 @@ function parseProgramSource(text,fileName=""){
   return text2?Object.assign({format:"text"},text2):null}
 
 /* How close two movement names are, 0..1, on shared words. Deliberately dumb:
-   it only has to be good enough to say "look at this one", never to decide. */
+   it only has to be good enough to say "look at this one", never to decide.
+   Shared words over all the words either name uses, so a word the candidate has
+   and the import does not costs exactly what a missing one does — otherwise the
+   longest name carrying the query's words wins, and "lat pulldown machine thing"
+   suggests "reverse grip machine lat pulldown" over "lat pulldown". */
 function nameAffinity(a,b){
   const wa=foldSearch(a).split(/[^a-z0-9]+/).filter(w=>w.length>2);
   const wb=new Set(foldSearch(b).split(/[^a-z0-9]+/).filter(w=>w.length>2));
   if(!wa.length||!wb.size)return 0;
   const hits=wa.filter(w=>wb.has(w)).length;
-  return hits/Math.max(wa.length,wb.size)}
+  const union=new Set([...wa,...wb]).size;
+  return hits/union}
 
 const IMPORT_PROBABLE_MIN=0.5;
 
@@ -6855,7 +6860,12 @@ function classifyImportRow(row,candidates){
   let best=null,bestScore=0;
   for(const e of candidates){
     const score=Math.max(nameAffinity(name,e.name),nameAffinity(name,e.namePt||""));
-    if(score>bestScore){bestScore=score;best=e}}
+    // Rank breaks a tie the way it does everywhere else the app picks between
+    // movements: the staple leads. Two names can score identically once the
+    // library is large enough, and "Lat pulldown" is the better suggestion than
+    // whichever variant of it sorts first.
+    if(score>bestScore||(score===bestScore&&best&&(e.rank??50)<(best.rank??50))){
+      bestScore=score;best=e}}
   if(best&&bestScore>=IMPORT_PROBABLE_MIN)return{status:IMPORT_PROBABLE,match:best,score:bestScore};
   return{status:IMPORT_UNMATCHED,match:null}}
 
