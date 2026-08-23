@@ -1012,6 +1012,7 @@ const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
+const captureEvent=(event,properties)=>window.posthog?.capture(event,properties);
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
@@ -2211,6 +2212,7 @@ async function saveCustomExercise(draft,io=storageIO){
   proposal.customExercises=normalizeCustomExercises(
     existing?list.map(e=>e.id===id?entry:e):list.concat(entry));
   const result=await commitProposedState(proposal,io);
+  if((result.localOk||result.idbOk)&&!existing)captureEvent("custom_exercise_created",{equipment_count:entry.equipment.length});
   return{result,entry:proposal.customExercises.find(e=>e.id===id)||null}}
 /* A definition with anything pointing at it — a program slot, an archived
    block, a logged set — is still the meaning of that data, so it is archived
@@ -3723,6 +3725,7 @@ function focusDragEnd(e){
   focusAnimateTo(dir)}
 function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return false;
   workoutLeft=false;setWorkoutActive(true);
+  captureEvent("workout_started",{program_day_count:days().length});
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true)logMode="focus";
   else if(opts.focus===false)logMode="full";
@@ -4647,6 +4650,7 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   const effect=consumedDraftClearEffect(rawDraft);
   const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
   if(!(result.localOk||result.idbOk))return result;
+  captureEvent("workout_completed",{logged_set_count:rows.length,exercise_count:new Set(rows.map(row=>row.exerciseId)).size});
   resetDraftSessionState();
   resetSessionContextFields();
   // Nothing left to rest for. Left running, the clock would count down behind
@@ -5415,6 +5419,7 @@ async function deleteSession(sid,io=storageIO){
   proposal.log=proposal.log.filter(row=>row.session!==sid);
   const result=await commitProposedState(proposal,io);
   if(result.localOk||result.idbOk){
+    captureEvent("workout_session_deleted");
     if(editSession===sid)editSession=null;
     render();toast(t("toast.session_deleted"))}
   return result}
@@ -6209,7 +6214,9 @@ async function exportJson(){
   const result=await commitProposedState(proposal);
   if(!(result.localOk||result.idbOk))return result;
   const text=JSON.stringify(exportableState(state),null,2),name=`taurifer_backup_${today()}.json`;
-  shareOrDownload(text,name,"application/json");renderSettings();
+  shareOrDownload(text,name,"application/json");
+  captureEvent("backup_exported");
+  renderSettings();
   return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
 /* A program-only export carries its own custom definitions. Without them a
@@ -7336,6 +7343,7 @@ async function commitImportReview(io=storageIO){
       if(draft.fromFirstRun)openFirstRun();else{showOnboardingView();renderOnboarding()}
       toast(t("toast.program_import_failed"));return setup}
     closeImportReview({toProgram:false});
+    captureEvent("program_imported",{exercise_count:counts.total,source:"onboarding"});
     toast(t("toast.program_imported",{n:counts.total}));
     return setup||{localOk:true,idbOk:true}}
   const transition=programTransitionPrecondition(state);
@@ -7360,6 +7368,7 @@ async function commitImportReview(io=storageIO){
   render();
   // An import replaces the program outright — the box shows the new one.
   syncProgramJson({force:true});
+  captureEvent("program_imported",{exercise_count:counts.total,source:"program"});
   toast(t("toast.program_imported",{n:counts.total}));
   return result}
 
@@ -7593,6 +7602,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
+  captureEvent("onboarding_completed",{origin:originEff,program_day_count:new Set(exercises.map(exercise=>exercise.day)).size});
   resetDraftSessionState();
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
