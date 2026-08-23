@@ -5,7 +5,7 @@
 
   if (!token || !host) {
     if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-      const missingVariable = token ? "POSTHOG_HOST" : "POSTHOG_PROJECT_TOKEN";
+      const missingVariable = token ? "POSTHOG_HOST" : "POSTHOG_TOKEN";
       console.warn(`${missingVariable} variable required by PostHog is missing or un-configured, so analytics stays off. This warning stops appearing once ${missingVariable} is configured`);
     }
     return;

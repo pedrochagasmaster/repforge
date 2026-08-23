@@ -44,21 +44,17 @@ A recipient with no program sees the existing first-run gate. Create and Import 
 
 Use **Settings → Export backup JSON** before clearing browser data or changing phones.
 
-## GitHub Pages deployment
+## Cloudflare Pages deployment
 
-This repo is ready for GitHub Pages.
+The Pages project uses the repository root as its output directory. In
+**Settings → Build & deployments → Build configurations**, set:
 
-1. Go to **Settings → Pages**
-2. Select **Deploy from a branch**
-3. Branch: `main`
-4. Folder: `/root`
-5. Save
+- **Build command:** `node tools/generate-posthog-config.mjs`
+- **Build output directory:** `.`
 
-The app should become available at:
-
-```text
-https://pedrochagasmaster.github.io/repforge/
-```
+Set `POSTHOG_TOKEN` and `POSTHOG_HOST` for both production and preview
+deployments. The build command fails when either variable is missing and writes
+their public browser configuration to the ignored `config.js` file.
 
 ## Files
 
@@ -88,6 +84,8 @@ Exercise data derives from a third-party dataset; see [NOTICE.md](NOTICE.md).
 Serve locally instead of opening the file directly:
 
 ```bash
+cp config.local.js.example config.js
+# Replace the placeholders in config.js with a development-only PostHog project.
 python3 -m http.server 8000
 ```
 
