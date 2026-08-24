@@ -42,13 +42,15 @@
        and a dark install would spend that whole load painted cream. This replays
        the resolved theme onto <html> before the first paint and does nothing
        else: it never writes, and if the read fails the markup default (light)
-       stands until app.js gets there. Keep the key, the values and the dark
-       theme-colour in step with applyTheme() in app.js. -->
+       stands until app.js gets there. The default is light regardless of the
+       device; only an explicit "dark", or "system" on a dark device, paints
+       dark here. Keep the key, the values and the dark theme-colour in step
+       with applyTheme() in app.js. -->
   <script>
     (function(){
       try{
         var pref=(JSON.parse(localStorage.getItem("repforge_ui_v1"))||{}).theme;
-        var dark=pref==="dark"||(pref!=="light"&&matchMedia("(prefers-color-scheme: dark)").matches);
+        var dark=pref==="dark"||(pref==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);
         if(!dark)return;
         document.documentElement.dataset.theme="dark";
         document.querySelector('meta[name="theme-color"]').setAttribute("content","#141310");
@@ -892,11 +894,12 @@
     <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="restAnnounce" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
+  <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
   <script src="notify.js"></script>
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
-  <script src="shared-setup.js?v=111"></script>
-  <script src="app.js?v=111"></script>
+  <script src="shared-setup.js?v=112"></script>
+  <script src="app.js?v=112"></script>
 </body>
 </html>

@@ -1,152 +1,212 @@
 # Product/business thesis and validation sequencing
 
-Until this decision, the repository's docs taught a strategy that had drifted
-from the owner's actual intent: local-first privacy as the headline pitch,
-setup links as a one-shot onboarding courtesy, an AI coach written into the
-domain model as if committed, and no stated business model at all. A strategy
-grilling session (product owner, 2026-08, grilled decision-by-decision across
-sixteen rounds) resolved the real thesis. The full document lives at
-[`docs/business-product-thesis.md`](../business-product-thesis.md) (v1.1) and
-is the **strategic source of truth**; this ADR records the governing
-decisions, what they superseded, and what carries forward.
+**Status:** Accepted; amended August 23, 2026
+
+**Strategic source of truth:**
+[`docs/business-product-thesis.md`](../business-product-thesis.md)
+
+**Capability detail:** [`docs/pro-backlog.md`](../pro-backlog.md)
+
+**Measurement/commercialization plan:**
+[`plans/044-posthog-measurement-experiments-paywall.md`](../../plans/044-posthog-measurement-experiments-paywall.md)
+
+## Context
+
+The original ADR established Taurifer as a progression-first B2C freemium
+product, committed a capable Free generator, authorized Phase 1 telemetry and
+an experimental paywall, and deferred native/platform hardening behind
+evidence gates.
+
+A subsequent owner grilling session materially changed the product wedge,
+training architecture, Pro MVP, validation sequence, research ethics, and
+commercial gate. This amendment records those decisions so the earlier fake
+door, annual-only pricing, BYOP-first cohort, universal double-progression, and
+"advanced controls first" assumptions are not implemented by accident.
 
 ## Decisions
 
-- **Taurifer is a progression-first strength-training system.** Its core
-  question is "what does what just happened mean for what I should do next?"
-  It owns both program generation and program execution; externally authored
-  programs remain first-class and converge on the same engine.
-- **B2C freemium is the primary business model.** Taurifer Pro (advanced,
-  history-informed generation; cross-program/long-horizon intelligence;
-  optional sync; future history-grounded AI) is the intended revenue engine —
-  not coach SaaS, not white-label deployments, not gym software.
-- **Brazil-first validation, globally available product.** PT-BR is
-  primary-market copy, Android is a first-class target, and pricing anchors on
-  the local market (R$179.90/year base hypothesis).
-- **Creators are acquisition infrastructure, not the customer.** The loop:
-  creator distributes a program → athlete activates free → athlete retains →
-  some convert to Pro. One Taurifer, many publishers; no white-label forks.
-  Publisher attribution is text-first provenance (name, handle, description
-  in the fragment payload), never steering. A creator-delivered program is
-  executable without a second consumer paywall.
-- **The no-clawback clock starts at the commercial-launch boundary.** The
-  permanent Free floor is established when Taurifer publicly launches its
-  production Free/Pro offering as a stable product contract. Today's GitHub
-  Pages PWA is a pre-commercial prototype and does not define that floor.
-  User ownership of records and free export are protected regardless of
-  launch status. Pilot pricing experiments must be labeled as such and do not
-  start the clock — but effectively launching to the public while calling it
-  a beta does not dodge the constitution.
-- **A capable baseline program generator launches Free.** The Free/Pro
-  generation boundary is capability-based (baseline inputs free; deep
-  personalization and history-informed generation are Pro), never artificial
-  scarcity. The former "generation requires Pro" experiment variant is
-  removed; the open experiment is where the baseline/advanced line sits.
-- **Analytical independence is constitutional.** Deterministic training
-  outputs derive exclusively from the athlete's program, training record, and
-  declared training rules. No commercial interest — Pro conversion, creator
-  economics, marketplace, advertising, partners — may alter those outputs or
-  their presentation. Taurifer may monetize capabilities around the engine,
-  never control over its conclusions. Commerce appears only as clearly
-  separate, subordinate choices.
-- **Local-first is constitutional; "no backend" is not.** Core training works
-  serverless; the record stays owned and exportable; cloud sync stays
-  optional. Telemetry is permitted — intentional, schema-driven, pseudonymous
-  where useful — but analytics must never reconstruct the workout database.
-- **Validation before platform hardening.** Phase 1 validates the market and
-  business model on the existing web core; the PWA is the primary validation
-  product, not a preview channel. Native Android/iOS is the intended
-  commercial destination, entered on evidence triggers (retention that makes
-  durability a real responsibility, credible Pro purchase intent, measured
-  install friction, native-capability constraints, store discovery). The
-  prohibition is on production platform/backend architecture — an account
-  platform, production cloud sync, hosted workout-history storage, a
-  production subscription backend, hosted creator publishing, a generalized
-  API layer — not on "anything with a server": minimal infrastructure whose
-  direct purpose is validating an approved Phase 1 hypothesis (a telemetry
-  collector, attribution endpoint, lightweight checkout integration, payment
-  webhook, small entitlement service, experiment assignment/config) is
-  allowed.
-- **An experimental paywall is P0 Phase 1 work.** Validate the commercial
-  proposition before building the commercial infrastructure — and a real
-  paywall is part of validating the commercial proposition. Phase 1 ships a
-  narrow capability/entitlement abstraction (product code asks for
-  capabilities; it is never coupled to StoreKit, Google Play, or a future
-  billing vendor) and a pilot-framed Taurifer Pro paywall in the PWA with
-  real price hypotheses and full funnel measurement; fake-door intent is
-  acceptable first, moving quickly to real payment evidence via simple web
-  checkout and lightweight/manual entitlement. What Phase 2 defers is
-  production subscription infrastructure (StoreKit, Play Billing, automated
-  subscription lifecycle, receipt validation, cross-device entitlement) —
-  not the paywall. A locked advanced capability may open the paywall to
-  measure demand before it is deeply built, but the baseline generator stays
-  genuinely capable and Free. Pilot paywalls remain explicitly pre-launch
-  offers with mutable packaging and do not start the no-clawback clock.
-  The concrete P0/P1 validation backlog lives in the thesis §22.
-- **Wrap, not rewrite.** When native is justified, evolve this repository
-  with a Capacitor-class shell around the shared, tested training core
-  (progressive native enhancement). A greenfield rewrite requires evidence
-  this architecture cannot meet product requirements. Capacitor is the
-  preferred eventual architecture, not an authorized Phase 1 task.
-- **Gyms stay exploratory.** No major gym-specific build without paid-pilot
-  evidence. Taurifer runs training; it does not run the gym.
+### Product and user
+
+- **Taurifer remains a progression-first strength-training system.** It owns
+  program creation, execution, interpretation, and the transition to what
+  comes next.
+- **Generator-first acquisition is primary.** Entry hierarchy is: generate
+  for me → choose a Taurifer template → bring my own program. BYOP remains a
+  first-class migration/expert path, not the primary acquisition thesis.
+- **The primary initial customer is a self-directed intermediate lifter** who
+  wants Taurifer to create and adapt a coherent program. Ambitious beginners
+  and advanced external-program users remain supported without defining the
+  first cohort.
+- **Initial programming scope is hypertrophy and general strength.** Taurifer
+  may program squat, bench press, and deadlift within general strength but
+  makes no powerlifting, meet-preparation, peaking, tapering, or attempt-
+  selection claim.
+
+### Templates and progression engine
+
+- **Templates are Taurifer-owned program families.** Taurifer does not copy
+  named programs from Boostcamp, Reddit, books, forums, or coaches. A named
+  external program requires explicit permission or a compatible licence.
+- **All families compile through one shared declarative engine.** Blueprints
+  are versioned; program instances and interventions are versioned; no
+  `if (programId === ...)` progression branches are allowed.
+- **Capacity is shared evidence, not a universal prescription rule.** The
+  engine dispatches through explicit range, rep-goal, anchor-plus-back-off,
+  paired-exposure, block-profile, and manual strategies.
+- **Supported progression mathematics are Free.** Free users may manually
+  select supported strategies and basic parameters. Pro pays for intelligent
+  selection, personalization, pattern detection, and adaptation.
+- **Manual progression is legitimate.** An imported or authored exercise may
+  declare that Taurifer should show history and preserve the prescription
+  without inventing a target.
+
+### Free and Pro
+
+- **B2C freemium remains the primary business model.** Taurifer Pro, not coach
+  SaaS, white-label deployment, or gym software, is the intended revenue
+  engine.
+- **The no-clawback clock still begins at commercial launch.** Prototype and
+  noncommercial alpha entitlements may change; record ownership and Free
+  export do not.
+- **Free remains complete for the current program.** It includes a capable
+  baseline generator, basic muscle emphasis, Taurifer templates, BYOP,
+  complete execution, normal progression, manual strategies, substitutions,
+  block review, another basic generation/template after transition, and a
+  free retrospective/recommended direction.
+- **Safety is never paywalled.** Pain/discomfort capture and a conservative
+  stop-or-substitute path are Free.
+- **The first commercial Pro product contains three complete jobs:**
+  advanced first-program generation, history-aware next-program generation,
+  and bounded within-block adaptation.
+- **Advanced generation is an outcome with supporting controls.** It
+  specializes within time, equipment, program-intent, and recovery constraints
+  and explains trade-offs; it is not merely a longer questionnaire.
+- **Specialization uses primary / maintenance / de-emphasized allocation
+  intents.** A specializing athlete chooses one or two primary muscle groups;
+  two is the v1 maximum. Other groups default to maintenance unless explicitly
+  de-emphasized. These labels do not claim known volume tolerance, and direct
+  set targets are not a v1 onboarding input.
+- **Do not ask users to estimate volume tolerance during onboarding.** Start
+  from conservative family defaults and infer response cautiously from logged
+  exposure, effort, completion, session friction, structured reports, and
+  checkpoint reviews. Performance alone is insufficient.
+- **Incomplete programs remain evidence.** History-aware transition first
+  decides resume, repair, rebase, or switch and exposes confidence; a new
+  program is generated only when switching is justified.
+- **Within-block changes are bounded and approved.** Taurifer detects patterns,
+  asks why, proposes a cause-matched change, versions it, and evaluates it.
+  It never silently rewrites the program.
+- **A lapsed subscription never claws back an accepted program or change.**
+  The program remains editable and executable and Free set progression
+  continues; future program-level optimization and next-program generation
+  stop.
+
+### Intervention policy
+
+- **No universal plateau-intervention ladder exists.** Validate the signal,
+  interpret it through the declared strategy, diagnose the likely cause, and
+  normally change one main variable. Load granularity is a conditional branch,
+  not the default explanation.
+- **Initial Pro issue catalogue:** repeated exercise skipping, exercise
+  plateau, recurring recommendation override, recurring session overrun,
+  persistent schedule mismatch/missed sessions, and unfinished-program
+  transition.
+- **Repeated skip trigger:** twice within the last three eligible exposures.
+  Missed workouts, early terminations, substitutions, equipment problems, and
+  explicit skips remain distinct events.
+- **Related signals are clustered.** For example, session overruns and late
+  exercise skipping may represent one issue rather than two alerts.
+- **Interventions surface after the workout or at checkpoints.** Reported pain
+  receives an immediate conservative path.
+- **Users may accept, modify, snooze, or dismiss.** Dismissal creates a
+  cooldown, not permanent suppression if evidence materially worsens.
+
+### Validation and monetization
+
+- **Validation before platform hardening remains constitutional.** Phase 1
+  continues on the existing web core; native remains an evidence-triggered
+  wrap-not-rewrite destination.
+- **A noncommercial assisted-program alpha precedes Pro.** Recruit 8–12
+  target lifters, provision generated/template-based programs with human
+  review, and test the gym-floor execution loop for approximately six weeks.
+- **The metric hierarchy is:** logging speed/reliability guardrail →
+  progression trust mechanism → spreadsheet abandonment switching behavior →
+  repeated workout completion/retention outcome.
+- **No fake doors.** Future-feature research is limited to interviews and
+  explicit external prototypes. Taurifer itself presents only working
+  capabilities.
+- **Payment waits for a working Pro MVP.** The three Pro jobs must work before
+  the separate commercial beta accepts money.
+- **The first price pair is fixed:** R$24.90/month and R$179.90/year. Do not
+  run a three-annual-price experiment in the small beta.
+- **Commercial beta entitlements require real lifecycle semantics:** term,
+  expiry, restoration, refund handling, and purchase reconciliation. A
+  timeless device-local boolean or manual code is insufficient.
+
+### Data and telemetry
+
+- **Local-first remains constitutional; "no backend" does not.** Core training
+  works without a Taurifer server; the record remains owned and exportable;
+  optional sync stays additive.
+- **PostHog is authorized only after leakage paths are mechanically closed.**
+  Schema-defined events are the measurement source of truth. Autocapture,
+  replay, heatmaps, surveys, error capture, and related PostHog capabilities
+  may support research but may not reconstruct the workout database or expose
+  setup fragments, inputs, notes, names, values, URLs, console content, or
+  uncontrolled `$` properties.
+- **Describe analytics as pseudonymous, not anonymous.** Pilot analytics may
+  default on with plain-language disclosure and a working off switch.
+- **Free-text transition feedback may be shared centrally only by explicit
+  per-submission consent.** It uses a purpose-specific feedback path, is not a
+  normal PostHog property, is never captured by replay/autocapture/console/URL,
+  is deleted within 90 days, and never solely triggers an automated
+  intervention.
+
+### Distribution and platform
+
+- **Creators remain acquisition infrastructure, not the customer.** A
+  creator-delivered program remains executable without a second consumer
+  paywall; publisher attribution is provenance, never steering.
+- **Wrap, not rewrite.** When native evidence gates are met, preserve the
+  shared deterministic core and add native-backed capabilities through a
+  Capacitor-class boundary. A greenfield rewrite requires evidence.
+- **Gyms remain exploratory.** No major gym-specific build without paid-pilot
+  evidence.
 
 ## Superseded assumptions
 
-- Privacy/local-only as the market positioning headline (privacy supports
-  trust; it is not the pitch, and "Taurifer never uploads your training
-  data" softens to "your training record is yours; Taurifer works
-  local-first; cloud sync is optional" once optional services exist).
-- Coach-client SaaS, per-coach white-label deployments, and coach-paid
-  monetization as the business model.
-- Native apps as a Phase 1 prerequisite for validation.
-- The AI coach (plan 038, ADR 0002) as a live roadmap item — it remains a
-  brainstorming artifact, unimplemented and uncommitted; any future AI layer
-  is a Pro capability subordinate to the deterministic product.
-- Reading "anything already shipped free stays free" as binding the
-  pre-commercial prototype (it bound rule 17 of the draft constitution into
-  contradiction; the launch clock resolves it).
-
-## Carry-forward ledger
-
-Earlier session decisions survive with changed priority; they should not be
-rediscovered from scratch or silently dropped.
-
-Still strategically active (approved direction — none of it is shipped yet;
-the thesis §22 backlog assigns priorities): publisher attribution in shared
-programs, an approved Phase 1 extension whose implementation must respect
-ADR 0007's immutable existing payload contracts — the semantic
-`taurifer-shared-setup` version-1 document and both released envelopes are
-locked, so it requires an explicit compatible versioning path rather than
-mutating a locked schema (P0 before creator pilots); telemetry, funnel
-instrumentation, and the experimental paywall behind a billing-agnostic
-capability abstraction (P0 before quantitative external testing); the
-shared-arrival first-run gate recomposed around the creator/program handoff;
-block-end publisher attribution as subordinate provenance; program
-lifecycle / next-program transition preserving training history (P1 —
-without it H7's post-program retention cannot be measured); the reviewed,
-non-destructive program-replacement flow so a setup link can be applied to
-an existing install — archive the old program, never touch logs (P1, before
-cohorts need Block II).
-
-Still valid but demoted: share-with-coach surfaces (windowed plain-text +
-CSV export of per-session logs); other coach conveniences.
-
-Speculative / not part of the current thesis: a full coach workspace or
-multi-client CRM, ongoing coach proposals/monitoring, in-app coach-client
-messaging, gym-specific infrastructure, marketplace commerce.
+- Generator and BYOP as equally prominent acquisition paths.
+- A BYOP-first external cohort.
+- Powerlifting as an initial generated-program domain.
+- Named classic-program reproduction or program-specific progression engines.
+- Capacity/double progression as Taurifer's universal prescription policy.
+- A self-reported onboarding input for volume tolerance.
+- Fake-door-first Pro demand validation.
+- An annual-only three-price experiment.
+- Payment before a working Pro capability and complete entitlement lifecycle.
+- History-informed generation and next-block intelligence as distant later
+  layers rather than Pro MVP jobs.
+- Pro Generator v1 as muscle priorities/preferences/volume controls only.
+- A fixed plateau-escalation order.
+- Raw exit-note text as a normal analytics property or session-replay input.
 
 ## Consequences
 
-`docs/business-product-thesis.md` governs why Taurifer is being built and
-what strategic direction is authorized; `AGENTS.md` continues to govern how
-this repository works today (static PWA, no build step, service-worker
-discipline) and stays that way through Phase 1 — rewriting it now would
-violate validation-before-hardening. The quantitative figures in the thesis
-(price points, conversion/renewal/retention targets, SAM ranges) are
-management hypotheses and decision thresholds to test, never product
-requirements or validated facts — see its fact-vs-assumption ledger.
-`CONTEXT.md` marks the coach-era domain terms as speculative and gains the
-now-core strategy terms. Browser-backed persistence for Phase 1 pilot users
-is an accepted, mitigated risk; if durability becomes a real user problem,
-that is evidence for Phase 2, not for a PWA infrastructure project.
+- [`docs/business-product-thesis.md`](../business-product-thesis.md),
+  [`docs/pro-backlog.md`](../pro-backlog.md), and
+  [`Plan 044`](../../plans/044-posthog-measurement-experiments-paywall.md)
+  must express this amendment; older fake-door, price-test, cohort, and
+  progression language is non-authoritative.
+- The initial engine/family work and program lifecycle are prerequisites for
+  both the assisted alpha and Pro MVP. They are core product infrastructure,
+  not paid capabilities.
+- Pro implementation must be decomposed into separately reviewable science,
+  domain-model, UX, engine, intervention, and commerce plans. This ADR does not
+  authorize implementing those systems from labels alone.
+- `AGENTS.md` continues to govern how the repository works today. The static
+  PWA architecture remains until the evidence gates justify native/platform
+  work; task-specific validation infrastructure remains allowed.
+- The priority labels and two-primary maximum are product constraints. The
+  later allocation specification must still define maintenance floors,
+  direct/indirect set accounting, and what compromise is offered when the
+  athlete's time budget cannot support both primary targets.
