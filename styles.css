@@ -2009,11 +2009,17 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   display:inline-flex;align-items:center;justify-content:center;
 }
 .blockprompt__dismiss:hover{color:var(--ink)}
-.fatigue{background:transparent;border:0;border-left:3px solid var(--ink-soft);
-  border-radius:0;padding:12px 0 12px 14px;margin-bottom:14px;font-size:14px;color:var(--ink);line-height:1.45}
+.fatigue{position:relative;background:transparent;border:0;border-left:3px solid var(--ink-soft);
+  border-radius:0;padding:12px 40px 12px 14px;margin-bottom:14px;font-size:14px;color:var(--ink);line-height:1.45}
 .fatigue b{font-weight:600;color:var(--ink);margin-right:2px;text-transform:none;letter-spacing:0;font-family:inherit}
 .fatigue__trim{margin-left:6px;border:0;background:none;color:var(--accent-deep);
   padding:5px 0;cursor:pointer;font-weight:600;font-size:14px;text-decoration:underline}
+.fatigue__dismiss{
+  position:absolute;top:2px;right:0;width:40px;height:40px;margin:0;padding:0;
+  border:0;background:transparent;color:var(--ink-soft);cursor:pointer;
+  display:inline-flex;align-items:center;justify-content:center;
+}
+.fatigue__dismiss:hover{color:var(--ink)}
 
 .term{display:inline-flex;align-items:center;justify-content:center;border:0;background:transparent;color:inherit;padding:10px 8px;margin:-10px -8px;
   min-width:44px;min-height:44px;box-sizing:border-box;vertical-align:middle;

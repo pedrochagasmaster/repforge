@@ -2016,10 +2016,10 @@ function openSubstitutePicker(id){
     onPick:entry=>{
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
       else applyCustomSub(id,libraryName(entry),entry.id)}})}
+function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(sessionExercise(e));return r.status==="reduce"||r.stalled})}
 function applyFatigueTrim(){
-  const exs=exercises();
   skipped.clear();
-  for(const e of exs){const s=recommendation(sessionExercise(e)).status;if(!(s==="add"||s==="add2"))skipped.add(e.id)}
+  for(const e of fatigueFlagged())skipped.add(e.id);
   saveDraft();renderWorkout();toast(t("toast.trimmed_priority"))}
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let focusDrag=null,focusFlinging=false;
@@ -4526,10 +4526,12 @@ function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=re
 }
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
-  const flagged=exs.filter(e=>{const r=recommendation(e);return r.status==="reduce"||r.stalled}).length;
-  if(exs.length>=3&&flagged>=2){el.className="fatigue";el.innerHTML=`<b>${esc(t("log.fatigue.title"))}</b> ${esc(t("log.fatigue.body",{n:flagged}))} `+
-    `<button type="button" class="fatigue__trim">${esc(t("log.fatigue.trim"))}</button>`;
-    $("#fatigue .fatigue__trim").onclick=()=>applyFatigueTrim()}
+  const flagged=fatigueFlagged(),actedOn=flagged.length>0&&flagged.every(e=>skipped.has(e.id));
+  if(exs.length>=3&&flagged.length>=2&&!actedOn&&uiPrefs.fatigueDismissedOn!==today()){el.className="fatigue";el.innerHTML=`<b>${esc(t("log.fatigue.title"))}</b> ${esc(t("log.fatigue.body",{n:flagged.length}))} `+
+    `<button type="button" class="fatigue__trim">${esc(t("log.fatigue.trim"))}</button>`+
+    `<button type="button" class="fatigue__dismiss" aria-label="${esc(t("log.fatigue.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`;
+    $("#fatigue .fatigue__trim").onclick=()=>applyFatigueTrim();
+    $("#fatigue .fatigue__dismiss").onclick=()=>{setUiPref("fatigueDismissedOn",today());renderFatigue()}}
   else el.className="fatigue hidden",el.innerHTML="";}
 
 /* ============================================================
