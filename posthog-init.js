@@ -18,7 +18,9 @@
   script.onload = function () {
     window.posthog.init(token, {
       api_host: host,
+      ui_host: "https://us.posthog.com",
       defaults: "2026-05-30",
+      strict_script_versioning: true,
       capture_exceptions: {
         capture_unhandled_errors: true,
         capture_unhandled_rejections: true,
