@@ -7,9 +7,13 @@
     "simulate:quick": "REPFORGE_SIM_WEEKS=12 node simulation.mjs",
     "simulate:profile": "REPFORGE_PROFILE=1 node simulation.mjs",
     "test:focus": "node focus-mode.mjs",
-    "shots:focus": "node focus-shots.mjs"
+    "shots:focus": "node focus-shots.mjs",
+    "generative": "node generative/run.mjs",
+    "generative:ci": "node generative/run.mjs --profile ci",
+    "generative:deep": "node generative/run.mjs --profile deep"
   },
   "devDependencies": {
+    "fast-check": "^4.9.0",
     "playwright": "^1.61.1"
   }
 }

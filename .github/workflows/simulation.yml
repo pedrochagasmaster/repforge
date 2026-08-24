@@ -33,9 +33,12 @@ jobs:
 
       - name: Syntax check runtime and test JS
         run: |
-          for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs; do
+          for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs test/generative/*/*.mjs; do
             node --check "$f" || exit 1
           done
+
+      - name: Generative properties (fast-check)
+        run: node test/generative/run.mjs --profile ci
 
       - name: Start static server
         run: python3 -m http.server 8000 &

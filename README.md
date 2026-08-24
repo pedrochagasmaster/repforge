@@ -96,3 +96,7 @@ Then open:
 ```text
 http://localhost:8000
 ```
+
+## Testing
+
+Browser suites (Playwright) and the generative property suite (fast-check) live under `test/` with their own pinned dependencies — see `test/generative/README.md` for the property-based, stateful, and adversarial testing architecture.
