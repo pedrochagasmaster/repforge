@@ -10,7 +10,7 @@ const isProduction = branch === "main";
 const previewAnalyticsEnabled = process.env.POSTHOG_ENABLE_PREVIEWS === "true";
 const analyticsEnabled = isProduction || previewAnalyticsEnabled;
 const projectToken = process.env.POSTHOG_PROJECT_TOKEN?.trim();
-const host = (process.env.POSTHOG_HOST?.trim() || "https://us.i.posthog.com").replace(/\/+$/, "");
+const host = (process.env.POSTHOG_HOST?.trim() || "https://e.taurifer.com").replace(/\/+$/, "");
 
 if (isProduction && !projectToken) {
   throw new Error("POSTHOG_PROJECT_TOKEN is required for production Cloudflare Pages builds.");
