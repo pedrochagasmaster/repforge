@@ -17,3 +17,75 @@ export function launchChromium(opts = {}) {
     ...opts,
   });
 }
+
+const servedAppCache = new Map();
+
+/**
+ * Fail in seconds — with the likely fix in the message — when REPFORGE_URL
+ * is not serving this repository's app, instead of burning a browser-gate
+ * timeout on an opaque waitForFunction. The classic failure is a stale
+ * `python3 -m http.server` from another directory still holding the port
+ * and answering every request with a 404 page.
+ */
+export async function assertServingApp(base = process.env.REPFORGE_URL || "http://localhost:8000/") {
+  if (servedAppCache.has(base)) return servedAppCache.get(base);
+  let result;
+  try {
+    const response = await fetch(base);
+    const html = await response.text();
+    if (!response.ok) {
+      result = new Error(
+        `REPFORGE_URL (${base}) answered HTTP ${response.status}. Browser gates need a static server rooted at this repo. ` +
+          `Check for a stale server holding the port (kill it), then run: python3 -m http.server 8000`
+      );
+    } else if (!html.includes('id="dayTabs"')) {
+      result = new Error(
+        `REPFORGE_URL (${base}) served HTML without the app shell (#dayTabs missing). ` +
+          `Something other than this repository is answering on that port. ` +
+          `Kill the stale server, then run: python3 -m http.server 8000`
+      );
+    }
+  } catch (error) {
+    result = new Error(
+      `REPFORGE_URL (${base}) is not reachable (${error.message}). Start a static server in the repo root: python3 -m http.server 8000`
+    );
+  }
+  servedAppCache.set(base, result);
+  if (result instanceof Error) throw result;
+}
+
+/**
+ * Wait for the app to reach its interactive boot state, with a diagnosis on
+ * failure. The storage test export is assigned while app.js is still
+ * parsing; day tabs are rendered by init() only after async replica
+ * recovery and any first-run persistence complete, so their presence means
+ * the whole pipeline finished.
+ */
+export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
+  await assertServingApp(base);
+  try {
+    await page.waitForFunction(
+      () =>
+        document.readyState === "complete" &&
+        typeof window.__repforgeStorage?.flush === "function" &&
+        document.querySelector("#dayTabs button") !== null,
+      undefined,
+      { timeout }
+    );
+  } catch (error) {
+    let observed = "page unreachable";
+    try {
+      observed = JSON.stringify(
+        await page.evaluate(() => ({
+          url: location.href,
+          readyState: document.readyState,
+          storageHook: typeof window.__repforgeStorage?.flush === "function",
+          dayTabButtons: document.querySelectorAll("#dayTabs button").length,
+        }))
+      );
+    } catch {
+      // keep the fallback text
+    }
+    throw new Error(`app did not finish booting within ${timeout}ms; observed ${observed}`);
+  }
+}

@@ -7,7 +7,7 @@ import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import vm from "vm";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -215,6 +215,7 @@ async function runBrowserParity(en, pt) {
     { k: KEY, d: DRAFT }
   );
   await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { timeout: 10000, base: BASE });
   await page.waitForFunction(() => typeof window.RepForgeI18n === "object", { timeout: 10000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import { pathToFileURL } from "url";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 
@@ -116,20 +116,6 @@ export async function clearPersistenceArtifacts(page) {
     );
   }
   return { before, after };
-}
-
-async function waitForAppBoot(page) {
-  // The storage test export is assigned while app.js is still parsing. Day
-  // tabs are rendered by init() only after async replica recovery and any
-  // first-run persistence complete; they stay attached beneath onboarding.
-  await page.waitForFunction(
-    () =>
-      document.readyState === "complete" &&
-      typeof window.__repforgeStorage?.flush === "function" &&
-      document.querySelector("#dayTabs button") !== null,
-    undefined,
-    { timeout: 15000 }
-  );
 }
 
 export async function runPersistenceArtifactsSelfTest() {
