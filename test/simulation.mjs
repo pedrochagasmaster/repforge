@@ -4202,7 +4202,7 @@ async function main() {
     "Log → multiple lifts reduce/stall → fatigue banner"
   );
 
-  // Fatigue trim keeps only add-load priority lifts visible
+  // Fatigue trim skips exactly the flagged (backing-off/stalled) lifts
   await page.click("#fatigue .fatigue__trim");
   const hiddenAfterTrim = await page.locator("#workout .exercise.is-skipped").count();
   assert(
