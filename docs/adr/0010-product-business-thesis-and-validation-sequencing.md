@@ -10,6 +10,13 @@
 **Measurement/commercialization plan:**
 [`plans/044-posthog-measurement-experiments-paywall.md`](../../plans/044-posthog-measurement-experiments-paywall.md)
 
+**Later owner-decision register:**
+[`docs/product-grilling-decision-register.md`](../product-grilling-decision-register.md)
+
+The register contains decisions made after this amendment. Where it explicitly
+marks a position here as superseded, follow the register until this ADR and its
+companion documents are reconciled.
+
 ## Context
 
 The original ADR established Taurifer as a progression-first B2C freemium
