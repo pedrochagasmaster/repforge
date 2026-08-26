@@ -1,8 +1,10 @@
 # Taurifer product-grilling decision register
 
-**Status:** Owner decision record through August 25, 2026  
-**Answered coverage:** Q1–Q260, subject to the transcript notes below  
-**Pending:** Q261–Q271  
+**Status:** Owner decision record through August 26, 2026
+
+**Answered coverage:** Q1–Q602, subject to the transcript notes below
+
+**Pending:** No product-level branch remained when the owner closed the session
 **Purpose:** Preserve the owner’s answers, qualifications, corrections,
 supersessions, and the product decisions reached between numbered questions.
 
@@ -28,6 +30,14 @@ position that those documents must be revised to express.
 - The owner typed Q118 twice and Q131 twice while otherwise continuing in
   sequence. This register treats the second occurrences as Q119 and Q132,
   respectively, but marks that numbering inference rather than concealing it.
+- The later interview continued after PR #188. Some assistant prompt wording
+  between Q261 and Q556 is likewise unavailable in the retained compacted
+  transcript. This update preserves every retained numbered answer, correction,
+  qualification, and accepted recommendation, and records the resulting
+  decisions in the canonical sections. It does not invent missing option text.
+- Q271, Q314, Q362, Q371, and Q373 have no separate literal answer in the
+  retained answer trace. Later answers resolved the branches they belonged to;
+  the ledger marks that explicitly instead of manufacturing a selection.
 - While answering Q211–Q221, the owner wrote “127 — the ‘generate a custom
   program’ flow should still exist.” Because the original Q127 already had a
   different answer, this is recorded as an unnumbered correction to the entry
@@ -88,7 +98,7 @@ position that those documents must be revised to express.
 |---|---|---|
 | Q33 — external-program rights | Agreed with A | Named external programs require permission or a compatible licence. Otherwise Taurifer writes and owns its own programs. |
 | Q34 — fidelity versus Taurifer progression | B | Superseded by the stronger parallel-thread decision: Taurifer does not reproduce named classics. It owns original blueprints compiled through the shared engine. |
-| Q35 — initial library | Deferred to the parallel template-system plan | Working direction became original Taurifer program families, not a copied-classics catalogue. Public family naming and final library taxonomy remain pending in Q261–Q271. |
+| Q35 — initial library | Deferred to the parallel template-system plan | Resolved at Q261–Q281: original Taurifer families under the settled family/frequency/Home/Foundation policy, not a copied-classics catalogue. |
 | Q36 — what Free can do after a program | A | Generate another basic program, choose another available Taurifer program, repeat, edit, or import. Personalized historical selection is Pro. |
 | Q37 — end-of-program paywall | A | Free shows a useful retrospective and broad recommended direction; Pro turns the evidence into the detailed personalized prescription. |
 | Q38 — data for the next program | A | Logged performance plus a short review of goals, recovery, enjoyment, pain, and changed schedule/constraints. |
@@ -305,7 +315,15 @@ does not audit, approve, badge, or secretly repair each participant’s program.
 | Question | Answer / qualification |
 |---|---|
 | Q201 | A, while identifying a conflict with the current “Build muscle / Build muscle and Strength / Build consistency” goal question and requesting an overall redesign. |
-| Q202–Q210 | No individual letters retained. The owner requested a harsh adversarial review and approved the revised UX as a whole. The canonical result is recorded below. |
+| Q202 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q203 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q204 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q205 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q206 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q207 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q208 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q209 | No individual letter retained; included in the adversarially reviewed UX approval. |
+| Q210 | No individual letter retained; included in the adversarially reviewed UX approval. |
 | Q211 | A — desired result uses three plain choices: prioritize muscle growth, balance muscle and strength, prioritize strength. |
 | Q212 | A — Strength may choose suitable primary movements; the user may optionally name movements they care about. |
 | Q213 | A — structured-program experience controls complexity; recent consistency is a separate current-state input. |
@@ -380,21 +398,401 @@ custom program** flow must continue to exist.
 | Q259 | A | Save reusable context locally and snapshot the selected answers/rule versions into each draft. |
 | Q260 | A | Preference changes affect future programs unless explicitly applied to the active program. |
 
-### Q261–Q271 — asked but not answered
+### Q261–Q281 — public program families
 
-| Question | Status |
+| Question | Owner answer / retained qualification | Canonical outcome |
+|---|---|---|
+| Q261 — what defines a program family | A | A family is a durable training promise and programming structure, not a marketing label for every small variation. |
+| Q262 — Foundation placement | C | Foundation is a simple-start/re-entry profile used by recommendation logic, not a peer goal that confuses hypertrophy and strength choices. |
+| Q263 — initial public family set and naming | A | Use a small Taurifer-owned public set; public copy is authored around the job and structure rather than borrowed program names. |
+| Q264 — Volume family | A | Volume may exist as a distinct later family when it has a distinct training promise; it is not required for the first alpha set. |
+| Q265 — required frequency coverage | A | Public recommendations must cover realistic schedules; three- and five-day forms are mandatory for the principal families. |
+| Q266 — two- and six-day users | C | Recommend/Custom preserve two- and six-day coverage through generated schedule variants without requiring every public Browse family to expose both. |
+| Q267 — relationship among frequency variants | B | Frequency variants are sibling blueprints in one family, sharing intent and evidence but owning their actual weekly structure. |
+| Q268 — equipment variants | B | Equipment fit is compiled as a variant/substitution layer rather than multiplying public family identities. |
+| Q269 — Browse-card information | A | Cards show the facts needed to choose: purpose, frequency, session-time range, experience fit, equipment assumptions, structure, and progression style. |
+| Q270 — family updates | B | An activated program remains pinned to its blueprint/version; updates are offered, never silently applied. |
+| Q271 — unfinished catalogue visibility | No separate literal answer retained | The later catalogue rule controls: show only executable, tested programs; do not use disabled cards or future-feature placeholders. |
+| Q272 | B | Accepted as part of the family/catalogue branch; the resulting executable-only catalogue rule is authoritative. |
+| Q273 | B | Accepted as part of program selection and ownership; see §§4 and 14. |
+| Q274 | B | Accepted as part of program selection and ownership; see §§4 and 14. |
+| Q275 | B | Accepted as part of program selection and ownership; see §§4 and 14. |
+| Q276 | C | Accepted as part of program selection and ownership; see §§4 and 14. |
+| Q277 | A | A selected program is instantiated as the athlete's editable program. |
+| Q278 | C, qualified | Once selected, the program genuinely belongs to the user: it may be renamed or edited, and the shared engine continues to work with any supported progression strategy. |
+| Q279 | B | Preserve source/family/version provenance without restricting ownership. |
+| Q280 | B | Family identity is retained only while structurally meaningful; substantial edits become a customized descendant. |
+| Q281 | A after discussion | Home is a separate consistency-first family for limited home equipment. A full home gym uses the ordinary Recommend/Browse families. |
+
+### Q282–Q310 — equipment contexts, sibling programs, and substitutions
+
+| Question | Owner answer / retained qualification | Canonical outcome |
+|---|---|---|
+| Q282 | A | Accepted; Home remains a real family rather than a generic equipment filter. |
+| Q283 | B | Accepted; Home optimizes for the lowest-friction consistency path. |
+| Q284 | C | Accepted; fully equipped home gyms use normal program families. |
+| Q285 | A | Equipment context is reusable and user-managed. |
+| Q286 | B | Program equipment adaptation is explicit rather than silently inferred. |
+| Q287 | A, expanded | Support two or three gyms with similar but non-identical setups through user-curated sibling versions of the active program and an explicit location choice. |
+| Q288 | A | Each gym/equipment context keeps its own applicable exercise mapping. |
+| Q289 | A | Equivalent free-weight movements may share identity/history across gyms. |
+| Q290 | C | Machine identity may remain separate when equipment mechanics make loads non-comparable. |
+| Q291 | B | A Technogym and Cybex incline converging press may be sibling exercise instances, not one interchangeable load history. |
+| Q292 | C | Cross-gym comparison follows declared movement/equipment equivalence rather than name matching. |
+| Q293 | A | The user chooses the current gym/context before beginning the session. |
+| Q294 | B | Exercise alternatives are contextual choices, not automatic permanent rewrites. |
+| Q295 | A, expanded | Same-session substitutions are valuable in crowded gyms and remain available without changing the source blueprint. |
+| Q296 | B, qualified | The proposed edge case was intentionally left out of v1 scope. |
+| Q297 | B | Accepted as part of contextual substitution behavior. |
+| Q298 | C | Accepted as part of contextual substitution behavior. |
+| Q299 | A | Preserve distinct performance history when two implementations are not mechanically comparable. |
+| Q300 | A | Share history only across explicitly equivalent movement/equipment identities. |
+| Q301 | B | Accepted as part of sibling-context curation. |
+| Q302 | Explicitly rejected as too-specific edge work | Do not add bespoke product behavior for the hypothetical edge case. |
+| Q303 | A | Sibling program changes remain explicit and reviewable. |
+| Q304 | A | Accepted as part of the gym-context lifecycle. |
+| Q305 | A | Accepted as part of the gym-context lifecycle. |
+| Q306 | B | Accepted as part of the gym-context lifecycle. |
+| Q307 | A | Accepted as part of the gym-context lifecycle. |
+| Q308 | C | Accepted as part of the gym-context lifecycle. |
+| Q309 | Recommended option accepted | Final behavior is consolidated in §14. |
+| Q310 | Recommended option accepted | Final behavior is consolidated in §14. |
+
+### Q311–Q332 — program-week invariants and one-off-session boundary
+
+| Question | Owner answer / retained qualification | Canonical outcome |
+|---|---|---|
+| Q311 | B, clarified | Every programmed week in the initial fixed-week design is structurally the same; progression changes targets, not the weekly exercise schedule. |
+| Q312 | B | Accepted as part of the fixed-week program model. |
+| Q313 | Direct answer: keep six as the default | Six weeks remains the default block length, without forcing a scheduled deload. |
+| Q314 | No separate literal answer retained | Later answers preserve fixed-week structure and evidence-triggered deloads. |
+| Q315 | C | Accepted as part of block lifecycle behavior. |
+| Q316 | A | Accepted as part of block lifecycle behavior. |
+| Q317 | A | Accepted as part of program lifecycle behavior. |
+| Q318 | A | Accepted as part of program lifecycle behavior. |
+| Q319 | A | Accepted as part of program lifecycle behavior. |
+| Q320 | C | Accepted as part of program lifecycle behavior. |
+| Q321 | A | Accepted as part of program lifecycle behavior. |
+| Q322 | A | Accepted as part of program lifecycle behavior. |
+| Q323 | B | Accepted as part of the one-off-session Free/Pro boundary. |
+| Q324 | C, qualified | Use active design: show a Pro recommendation where justified and always provide an override. |
+| Q325 | A | Accepted as part of one-off-session generation. |
+| Q326 | A | Accepted as part of one-off-session generation. |
+| Q327 | A | Accepted as part of one-off-session generation. |
+| Q328 | A | Accepted as part of one-off-session ownership/history. |
+| Q329 | A | Accepted as part of one-off-session ownership/history. |
+| Q330 | A and C both initially judged valid | The final hybrid was resolved through the later adversarial Free/Pro review; see §15. |
+| Q331 | A | Accepted after narrowing the hybrid. |
+| Q332 | Alternative D was explored and adversarially reviewed | Final one-off Free/Pro boundary is recorded in §15 and the dedicated one-off-session spec. |
+
+### Q333–Q396 — one-off-session UX, alpha fit, and research operation
+
+The retained transcript preserves the selections and qualifications below but
+not every option sentence. Canonical product meaning is consolidated in §§9,
+10, 15, and 16 rather than reconstructed from missing prompt text.
+
+| Question | Owner answer / retained qualification |
 |---|---|
-| Q261 — what defines a program family | Pending |
-| Q262 — whether Foundation is separated from goal-based programs | Pending |
-| Q263 — initial public family set and naming | Pending |
-| Q264 — whether Volume remains a family | Pending |
-| Q265 — required schedule variants | Pending |
-| Q266 — treatment of two- and six-day users | Pending |
-| Q267 — relationship among frequency variants | Pending |
-| Q268 — equipment variants versus substitutions | Pending |
-| Q269 — Browse-card information | Pending |
-| Q270 — active-program behavior when a family is updated | Pending |
-| Q271 — whether unfinished catalogue work is shown | Pending |
+| Q333 | B |
+| Q334 | A |
+| Q335 | Recommended option accepted |
+| Q336 | Recommended option accepted |
+| Q337 | Recommended option accepted |
+| Q338 | A — generative/model-based testing was implemented to exercise long journeys and search for bugs |
+| Q339 | A |
+| Q340 | B |
+| Q341 | A |
+| Q342 | B — owner corrected a duplicate “340b” to Q342 |
+| Q343 | Recommended option accepted |
+| Q344 | Recommended option accepted |
+| Q345 | Recommended option accepted |
+| Q346 | Recommended option accepted |
+| Q347 | B |
+| Q348 | C |
+| Q349 | A |
+| Q350 | Recommended option accepted |
+| Q351 | Recommended option accepted |
+| Q352 | Answered through the supplied one-off-session mockups; see the dedicated spec and §15 |
+| Q353 | A |
+| Q354 | A |
+| Q355 | B |
+| Q356 | A |
+| Q357 | A |
+| Q358 | A |
+| Q359 | Scenario judged very improbable; no bespoke v1 behavior authorized |
+| Q360 | B |
+| Q361 | A |
+| Q362 | No separate literal answer retained; later one-off decisions govern |
+| Q363 | C — corrected from an initial B |
+| Q364 | A |
+| Q365 | B |
+| Q366 | B |
+| Q367 | A |
+| Q368 | A |
+| Q369 | A, with reminder that the complete Pro bundle is larger than the abbreviated list presented |
+| Q370 | Final choice B with a touch of C, followed by a deliberately bold C interpretation |
+| Q371 | No separate literal number retained; the “be bold” resolution controls the experiment posture |
+| Q372 | Users start Free; a user who reaches a real paywall and demonstrates purchase intent may receive complementary access for research |
+| Q373 | No separate literal answer retained; complementary-access rules were later completed at Q577 |
+| Q374 | Recommended option accepted |
+| Q375 | C |
+| Q376 | A |
+| Q377 | B |
+| Q378 | B |
+| Q379 | A |
+| Q380 | A |
+| Q381 | A |
+| Q382 | B |
+| Q383 | A |
+| Q384 | A |
+| Q385 | A |
+| Q386 | B |
+| Q387 | A |
+| Q388 | A |
+| Q389 | B |
+| Q390 | B |
+| Q391 | A |
+| Q392 | Recommended option accepted |
+| Q393 | Recommended option accepted |
+| Q394 | Recommended option accepted |
+| Q395 | Recommended option accepted |
+| Q396 | Recommended option accepted |
+
+### Q397–Q463 — editor authority, release sequencing, privacy, and evaluation
+
+| Question | Owner answer / retained qualification |
+|---|---|
+| Q397 | A |
+| Q398 | D |
+| Q399 | A |
+| Q400 | A |
+| Q401 | A |
+| Q402 | A |
+| Q403 | A |
+| Q404 | A |
+| Q405 | B — program creation exposes only progression systems Taurifer supports; unsupported strategies cannot be selected inside the app |
+| Q406 | B |
+| Q407 | C |
+| Q408 | B |
+| Q409 | A |
+| Q410 | B |
+| Q411 | Recommended option accepted |
+| Q412 | Recommended option accepted |
+| Q413 | Recommended option accepted |
+| Q414 | Recommended option accepted |
+| Q415 | Recommended option accepted |
+| Q416 | Recommended option accepted |
+| Q417 | Recommended option accepted |
+| Q418 | Recommended option accepted |
+| Q419 | Recommended option accepted |
+| Q420 | Recommended option accepted |
+| Q421 | Recommended option accepted |
+| Q422 | A |
+| Q423 | B |
+| Q424 | C |
+| Q425 | A |
+| Q426 | A |
+| Q427 | A |
+| Q428 | Trigger the deferred expansion only after the paid beta proves Taurifer's economics |
+| Q429 | B |
+| Q430 | A |
+| Q431 | C |
+| Q432 | B |
+| Q433 | Already decided earlier; no new branch created |
+| Q434 | A |
+| Q435 | A |
+| Q436 | A |
+| Q437 | A |
+| Q438 | C |
+| Q439 | B |
+| Q440 | A |
+| Q441 | A |
+| Q442 | A |
+| Q443 | A and B both apply |
+| Q444 | B |
+| Q445 | C |
+| Q446 | C |
+| Q447 | A |
+| Q448 | B |
+| Q449 | A |
+| Q450 | B |
+| Q451 | A |
+| Q452 | A |
+| Q453 | A |
+| Q454 | A |
+| Q455 | B |
+| Q456 | C |
+| Q457 | B |
+| Q458 | C |
+| Q459 | A |
+| Q460 | C |
+| Q461 | A |
+| Q462 | C |
+| Q463 | C |
+
+### Q464–Q508 — managed Taurifer AI product boundary
+
+| Question | Answer | Canonical outcome |
+|---|---|---|
+| Q464 — improvement-data constitution | A | A separate explicit improvement opt-in may copy redacted conversations into a dedicated research system; raw research copies live at most twelve months, deletion propagates, and anonymous derivatives/model improvements may persist. No transcripts enter PostHog. |
+| Q465 — provider model | A | Taurifer AI is a managed service. This supersedes BYOK as the intended product direction. |
+| Q466 — evidence shown to users | B | Show the conversation and a compact inspectable evidence summary, not a raw history dump. |
+| Q467 — proposal authority | C | AI may propose any edit the Taurifer editor supports, but the user explicitly approves every change. |
+| Q468 — sequencing | After paid beta | Build the managed AI layer only after the deterministic paid beta proves Taurifer's economics. |
+| Q469 — human review | A | Permit limited, logged human review of purpose-shared, redacted cases for evaluation/support. |
+| Q470 — sharing controls | A | Provide global improvement control plus the later reconciled conversation inventory and one-time sharing controls. |
+| Q471 — account boundary | A | Account is required only for paid cloud capabilities; Free/core remains local and accountless. |
+| Q472 — sensitive conversations | C | Sensitive conversations require contextual extra permission before research sharing. |
+| Q473 — proposal scrutiny | C | Apply scrutiny according to consequence/risk rather than one uniform confirmation burden. |
+| Q474 — proposal timing | C | Timing depends on the type of change and the evidence window it needs. |
+| Q475 — review sampling | B | Review reported/poorly rated cases plus a small random sample. |
+| Q476 — proposal presentation | B | Use a structured proposal, not prose-only advice or invisible mutation. |
+| Q477 — major changes | B | Consequential structural changes require a second explicit confirmation. |
+| Q478 — deterministic rules | A | AI cannot apply a change that violates Taurifer's hard rules; the user may still make a manual supported edit where permitted. |
+| Q479 — proactive AI | B | Surface only at checkpoints or when strong evidence indicates a problem; never interrupt an active workout. |
+| Q480 — rollback | A | Accepted AI changes create versioned program changes that can be rolled back; workout history is never rewritten. |
+| Q481 — sensitive sharing UX | B | Use a nonblocking contextual sharing card rather than coercive consent. |
+| Q482 — cloud scope | A | Account stores identity, subscription, AI conversations, and preferences; workout history remains local, and only request-relevant context is sent. |
+| Q483 — evidence baseline | C | Current program is primary; family/version and prior versions remain available when relevant. |
+| Q484 — proposal grouping | B | Group related edits into one coherent decision rather than many atomic approvals. |
+| Q485 — local evidence links | B | Each material claim links the exact local evidence supporting it. |
+| Q486 — uncertainty | C | State uncertainty and ask one focused question when it could change the decision. |
+| Q487 — answer order | B | Lead with conclusion, main reason, warning, and proposed differences; deeper detail is expandable. |
+| Q488 — editing a proposal | A | Users may edit the proposal inline and then ask Taurifer to recheck it. |
+| Q489 — AI telemetry | C | PostHog receives text-free events such as shown/opened/accepted/rejected/edited/reverted/outcome; never conversation or proposal text. |
+| Q490 — grouped decisions | C | Track independent and linked proposal groups distinctly. |
+| Q491 — drafts | B | Unaccepted AI drafts remain local. |
+| Q492 — audit trail | A | Program versions carry change records independently of conversation retention. |
+| Q493 — outcome window | C | Evidence/reassessment window depends on the change type. |
+| Q494 — outcome evaluation | A | Combine observed training metrics with a short user review. |
+| Q495 — pain | A | Pain opens a Free conservative safety path; AI does not diagnose. |
+| Q496 — analytics when sharing is off | A | Text-free product analytics may continue under analytics settings; detailed case use requires improvement consent. |
+| Q497 — account deletion | A | Delete cloud identity/AI data while leaving the local training record intact. |
+| Q498 — stale proposals | A | Freeze and mark proposals outdated when their evidence/program version is stale. |
+| Q499 — concurrent proposals | A | Allow only one active program-level proposal at a time. |
+| Q500 — follow-up | A | Follow-up recommends retain, revise, reverse, or gather more evidence; the user approves any action. |
+| Q501 — aggregate learning | C | Aggregate outcomes create human-reviewed research candidates; they never silently rewrite shared rules. |
+| Q502 — entry points | B | Place AI contextually in Program, Progress, and intervention surfaces; no permanent Chat tab. |
+| Q503 — primary UX | B | Structured proposal is primary; conversation supports it rather than replacing it. |
+| Q504 — allowed questions | B | Answer questions grounded in the user's program/history plus general hypertrophy/strength education; exclude medical, injury, and nutrition coaching. |
+| Q505 — knowledge system | B | Use an approved, sourced, versioned knowledge base. |
+| Q506 — offline/outage | A | Core and deterministic features continue; never silently queue sensitive AI context for later sending. |
+| Q507 — change management | A | Version model, prompt, knowledge, and rules; evaluate, stage, monitor, and roll back changes. |
+| Q508 — outside authority | A | Decline requests outside Taurifer's authority and redirect to safer product actions or appropriate professionals. |
+
+### Q509–Q542 — provider, pricing, evaluation, accounts, and research separation
+
+| Question | Answer | Canonical outcome |
+|---|---|---|
+| Q509 — provider selection | C | Run a bake-off on Taurifer-specific cases; do not choose from reputation or price alone. |
+| Q510 — provider retention | A | Zero provider retention is a launch gate. |
+| Q511 — model routing | A | Route by risk/complexity through product-owned models; users do not choose models. |
+| Q512 — allowance | A | Publish a visible monthly allowance. |
+| Q513 — provider disclosure | A | Disclose provider, processing location, and retention in settings/privacy; provider is not the product headline. |
+| Q514 — age | A | Taurifer AI is adult-only. |
+| Q515 — bake-off order | A | Safety/correctness are hard gates before quality, latency, and cost optimization. |
+| Q516 — evaluation cases | C | Use staged generated cases, founder cases, and explicitly consented real cases. |
+| Q517 — judging | A | Combine deterministic checks, blind founder review, and a separate judge model; investigate disagreement. |
+| Q518 — provider fallback | B | Maintain a validated backup provider; switch manually and version the change. |
+| Q519 — packaging | A | AI is included in the existing Pro subscription once stable, not sold as a separate add-on. |
+| Q520 — allowance classes | B | Separate ordinary questions from consequential program reviews. |
+| Q521 — limit reached | A | Pause AI at the limit, warn beforehand, and keep deterministic Taurifer working; no top-ups initially. |
+| Q522 — provider changes | A | Notify users of provider changes and require renewed acceptance if privacy materially changes. |
+| Q523 — adult gate | B | Use a simple 18+ attestation; do not collect date of birth. |
+| Q524 — release | A | Require the complete release-gate set rather than a partial quality sign-off. |
+| Q525 — preview | A | Begin with a small opt-in group of adult PT-BR Pro users. |
+| Q526 — shutdown | A | Start with an emergency global AI off switch. |
+| Q527 — knowledge entries | A | Knowledge entries are versioned and sourced. |
+| Q528 — regression set | A | Keep protected holdout cases and continually add newly generated cases. |
+| Q529 — conversation retention | B | Cloud AI conversation history has a rolling twelve-month limit. |
+| Q530 — sign-in | A | Use email one-time code/link sign-in. |
+| Q531 — lapse with pending work | B | Pending proposals remain reviewable/applicable after subscription expiry; no new AI generation or revision. |
+| Q532 — data region | C | Store Taurifer account/conversation/research data in the EU; prefer EU inference, but allow a US provider only if it wins evaluation and contractual/retention/disclosure safeguards are satisfied. |
+| Q533 — research separation | A, later strengthened by Q537 | A single service may be used only with real separation, not one boolean column. |
+| Q534 — deletion | A | Delete live cloud data promptly and expire backups within at most thirty days. |
+| Q535 — legal review | A | Obtain Brazilian privacy-counsel review before Preview. |
+| Q536 — export | A | Export conversations, proposals, and decision history; exclude hidden prompts, security controls, and internal metadata. |
+| Q537 — concrete separation | A | Separate account/conversation/research schemas or tables, credentials, access paths, and deletion jobs; research receives only consented redacted copies. |
+| Q538 — redaction timing | A | Redact before writing to research storage. |
+| Q539 — support access | A | Raw support access occurs only when the user explicitly shares it and is temporary and logged. |
+| Q540 — retrospective sharing | B | Global opt-in governs future sharing; a selective retrospective screen may share chosen past conversations. |
+| Q541 — research identity | A | Use a pseudonymous research subject ID with a separate deletion mapping; do not claim anonymity. |
+| Q542 — analytics join | A | Never join research records to PostHog at person level. |
+
+### Q543–Q561 — scientific claims, knowledge maintenance, and language release
+
+| Question | Answer | Canonical outcome |
+|---|---|---|
+| Q543 — first use of improvement data | A | Use it for evaluation cases, prompts, knowledge/rules, and regressions—not model fine-tuning initially. |
+| Q544 — provider comparison with real cases | A | Consented real cases may evaluate several disclosed providers only under no-retention/no-training and transfer safeguards. |
+| Q545 — uncertain redaction | A | Do not copy a case when redaction is uncertain; offer the user optional review/redaction. |
+| Q546 — improvement control | C, reconciled at Q549 | Prefer one global improvement switch over scattered per-conversation settings. |
+| Q547 — deleting a shared conversation | A | Delete both service and research copies; local program change history remains. |
+| Q548 — consent timing | B | Explain required processing at setup; invite optional improvement sharing only after the first successful answer. |
+| Q549 — shared-conversation inventory | A | Keep one global switch plus a secondary Shared conversations page listing title/date/status/sensitive permission/expiry/delete, without exposing internal redacted research records. |
+| Q550 — product name | A | Call the capability **Taurifer AI**. |
+| Q551 — marketing | A | Lead with concrete outcomes and capabilities, never “AI personal trainer.” |
+| Q552 — scientific authority | A and C | Use peer-reviewed primary studies plus high-quality reviews, consensus, and position documents; community/coaching material is not scientific authority. |
+| Q553 — disagreement | A | Explain the disagreement, Taurifer's assumption, what depends on it, and where user preference legitimately resolves the choice. |
+| Q554 — Preview exit | A | Graduate only after predeclared safety/privacy/program, quality, latency, cost, outcome, and support gates; define numeric thresholds before Preview. |
+| Q555 — claims | A and B, resolved by Q557 | Personalization may be described factually, but no superior-outcome claim is permitted without evidence. |
+| Q556 — voice | A | Be concise, analytical, and direct; distinguish facts, reports, and inferences; no motivational speeches or fake feelings. |
+| Q557 — “personalized” claim | A | “Personalized” is allowed because history and constraints are used; effectiveness claims require outcome evidence. |
+| Q558 — citations | A | Keep answers concise with expandable scientific/internal-rule evidence and exact local workout links. |
+| Q559 — new evidence | A | Review new studies in the broader evidence base, then version and test any knowledge change; never chase one study. |
+| Q560 — language order | B | Launch the AI Preview in PT-BR first; deterministic English remains available, and English AI waits for independent evaluation. |
+| Q561 — source titles | A | Explain in PT-BR while showing the original English source title/link; never imply an official translation. |
+
+### Q562–Q582 — conversation memory, feedback, and Preview operation
+
+| Question | Answer | Canonical outcome |
+|---|---|---|
+| Q562 — conversation structure | B | Use separate task/proposal conversations; carry confirmed facts and accepted decisions, not one endless transcript. |
+| Q563 — cross-conversation memory | B | Use current thread plus structured confirmed preferences/decisions; old chat affects work only when deliberately reopened. |
+| Q564 — memory inspection | A | Provide a page where remembered items can be inspected, corrected, or deleted. |
+| Q565 — ordinary feedback | B | Quick rating, closed reasons, and optional explicitly shared comment; written feedback never enters PostHog. |
+| Q566 — serious report | A | Provide Report a problem with reason and optional temporary conversation sharing to support. |
+| Q567 — maturity label | A | Label the capability Preview and explain once that it may be wrong and never changes a program without approval. |
+| Q568 — English UI | A | Hide AI actions in English until English evaluation passes; Pro copy states the PT-BR limitation truthfully. |
+| Q569 — creating memory | B | Offer to remember likely stable preferences and require confirmation; accepted program changes are separately recorded. |
+| Q570 — memory duration | B | Distinguish lasting preferences from temporary context with visible expiry. |
+| Q571 — conflicting memory | B | Ask whether the new statement is temporary or replaces the lasting preference when the distinction matters. |
+| Q572 — conversation discovery | B | Keep conversations in context plus a secondary AI history page; no permanent Chat tab. |
+| Q573 — one-time feedback sharing | B | A user may share one answer/comment without changing the global improvement setting. |
+| Q574 — support retention | A | Keep a reported conversation until closure, delete within thirty days after closure, and cap total retention at 180 days. |
+| Q575 — Preview enrollment | B | Eligible adult PT-BR Pro users self-select in controlled waves; pause enrollment at support/evaluation capacity. |
+| Q576 — full wave | A | Offer an honest free waiting list with no promised date and notify when a wave opens. |
+| Q577 — complementary access | B | For demonstrated purchase intent, grant access through the current program's next major decision, capped at twelve weeks. |
+| Q578 — research burden | A | Normal product/onboarding plus brief optional checkpoint feedback and an optional closing interview. |
+| Q579 — report status | A | Show Received, Investigating, or Closed, with optional email/in-app response. |
+| Q580 — independent language graduation | A | PT-BR may become stable before English AI; English earns release separately. |
+| Q581 — stable rollout | A | Expand PT-BR progressively while monitoring safety, cost, latency, and support; retain emergency shutdown. |
+| Q582 — Pro entitlement during limited Preview | A | Preview is not part of the generally available paid entitlement; the purchase page sells only working Pro features and describes AI separately. |
+
+### Q583–Q602 — lapse behavior, presentation, controls, and allowances
+
+| Question | Answer | Canonical outcome |
+|---|---|---|
+| Q583 — access after lapse | A | Reading/export/deletion and memory management remain available; new questions and proposals stop. |
+| Q584 — Preview around the paywall | A | Treat AI as a separate research Preview joined after purchase or verified purchase intent, not a Pro selling point. |
+| Q585 — commercial measurement | A | Report purchases, attempts, complementary access, and Preview participation separately; only payment counts as conversion/revenue. |
+| Q586 — discovery | A | Introduce AI at a real problem/checkpoint and on Pro information, not initial onboarding or a permanent Today card. |
+| Q587 — persona | A | No human name, face, or fictional coaching relationship; Taurifer AI is a capability. |
+| Q588 — conversation start | A | Offer contextual suggested actions plus free text. |
+| Q589 — push notifications | B | In-app by default; optional push only for major checkpoints or a proposal awaiting review. |
+| Q590 — master switch | A | A master switch stops new AI processing and hides AI actions while preserving read/export/delete controls. |
+| Q591 — labeling | A | Explicitly distinguish AI-generated output from deterministic progression. |
+| Q592 — outage fallback | A | Explain AI unavailability and separately offer an applicable deterministic alternative; never silently substitute. |
+| Q593 — push privacy | A | Generic lock-screen copy by default; detailed notifications require explicit enablement. |
+| Q594 — reminder frequency | A | At most one push per unresolved event; repeat only after material state change; provide category controls. |
+| Q595 — allowance visibility | A | Show remaining ordinary/review allowances in AI history/settings and warn when low, not before every request. |
+| Q596 — PT-BR boundary | A | Support Portuguese plus normal English exercise terms; full English requests are asked to continue in Portuguese. |
+| Q597 — usage unit | A | Count one completed task; necessary clarification and reasonable revision are included. A review counts when delivered. |
+| Q598 — unsuccessful requests | A | Technical failure, safety refusal, or unsupported request does not consume allowance; repeated misuse is rate-limited separately. |
+| Q599 — rollover | B | Ordinary questions reset monthly; unused program reviews accrue only to a small published cap. |
+| Q600 — Preview limits | A | Use intended commercial limits during Preview; restore uses consumed unfairly by bugs/research requests. |
+| Q601 — turning AI off | A | Stop new processing/prompts/notifications; retain but do not proactively surface history, memory, and proposals. Deletion is separate. |
+| Q602 — setting exact limits | A | Before Preview, derive published limits from measured cost and representative journeys; changes apply prospectively with notice. |
 
 ## Canonical decisions reached across the session
 
@@ -516,17 +914,22 @@ result. The redesign must separate them.
 - Supported progression mathematics and basic manual parameters remain Free.
   Pro pays for intelligent strategy selection, history interpretation, and
   adaptation—not access to mathematics.
-- Every program offered to the unpredictable alpha population needs realistic
-  schedule coverage. The owner explicitly requires three- and five-day
-  versions of the relevant families. The broader proposed rule that every
-  public family also requires a four-day version remains pending at Q265.
-- Recommend and Custom must preserve the existing simple generator’s schedule
-  coverage, including its two- and six-day cases. Whether every named public
-  family also needs those variants is the separate pending Q266 decision.
-- The earlier Base 3 / Strength 3 / Balanced 4 / Hypertrophy 4 / Volume 6 list
-  is a working historical direction, not final public catalogue policy. Public
-  family purpose, naming, Volume, two-/six-day handling, and update semantics
-  remain open in Q261–Q271.
+- Every principal public family needs genuine three- and five-day sibling
+  blueprints. Recommend and Custom also preserve two- and six-day schedule
+  coverage through generated variants; that does not force every Browse family
+  to expose every frequency.
+- Family siblings share purpose, evidence model, and progression vocabulary but
+  own their weekly structure. They are not one schedule mechanically stretched
+  across frequencies.
+- **Home** is a separate limited-equipment, consistency-first family. A person
+  with a full home gym uses the ordinary families. **Foundation** is an internal
+  simple-start/re-entry profile, not a public goal beside hypertrophy and
+  strength. A later high-volume family is valid only when it provides a truly
+  different training promise and is not an alpha prerequisite.
+- Browse exposes only complete executable programs. Cards communicate purpose,
+  frequency, time, maturity fit, equipment assumptions, structure, and
+  progression style. An activated instance stays pinned to its version; an
+  update is an explicit offered migration, never a silent rewrite.
 - Do not advertise program designs as “unvalidated.” The product may be
   transparently labeled an evolving alpha without attaching a misleading
   quality badge to each program.
@@ -623,8 +1026,8 @@ and useful end/interruption transitions rather than relying on a once-per-block
 generation event.
 
 Full cross-program dashboards, explicit multi-block planning, long-horizon
-stagnation analysis, optional sync, and history-grounded AI are later layers,
-not prerequisites hidden inside the first Pro MVP.
+stagnation analysis, optional sync, and managed Taurifer AI after paid-beta
+economics are later layers, not prerequisites hidden inside the first Pro MVP.
 
 ### 8. Commercialization and entitlement
 
@@ -774,14 +1177,149 @@ not prerequisites hidden inside the first Pro MVP.
   customer. Creator attribution is provenance, never a signal that steers the
   deterministic engine. A received creator program remains executable without
   a second consumer paywall.
-- AI, if introduced later, is subordinate to the deterministic engine and must
-  be grounded in owned history and declared rules. It cannot replace or obscure
-  those rules.
+- Managed Taurifer AI is a later Pro capability, sequenced after the paid beta.
+  It remains subordinate to the deterministic engine, grounded in owned local
+  evidence and declared rules, and visibly identified as AI output.
 - Native remains evidence-gated and follows **wrap, not rewrite**: preserve the
   deterministic core and add a native shell/boundary only when distribution or
   platform evidence justifies it.
 - Gyms and partner-specific product surfaces remain exploratory. Do not build a
   major gym product without paid-pilot evidence.
+
+### 14. Equipment contexts and sibling program instances
+
+- A user may train the same active program at two or three gyms. They explicitly
+  choose the current context and curate sibling program mappings where the
+  equipment differs.
+- Shared identity is based on real mechanical comparability, not an equal name.
+  A barbell movement can normally share history across gyms. Different machine
+  models may retain separate histories when the same displayed load does not
+  imply comparable effort.
+- Same-session substitution is a normal execution tool, including crowded-gym
+  use. It may be temporary, mapped to the current gym, or promoted into a
+  program change only through explicit user action.
+- Equipment contexts and mappings are owned data. Taurifer never silently
+  treats two machines as equivalent and never mutates the source blueprint.
+
+### 15. One-off session mode
+
+The dedicated specification is
+[`docs/superpowers/specs/2026-08-25-one-off-session-design.md`](superpowers/specs/2026-08-25-one-off-session-design.md).
+The governing decisions are:
+
+- Enter from the existing **Choose another day** control below Start session on
+  Today. One-off work is a route within that choice, not a new primary tab.
+- A one-off session can start from a classic focus, selected muscle groups,
+  an empty session, or a constrained recommendation that considers the active
+  program, recent work, available time, and current equipment.
+- The user chooses available time and equipment/context. A one-off session is
+  saved to History and contributes honest performed-work evidence but does not
+  silently alter the active program schedule or mark a programmed day complete.
+- Free supports useful manual/classic one-offs. Pro may recommend a program-
+  aware “best use of today” session and explain its trade-offs; the user can
+  always override it. The boundary sells interpretation, not the ability to
+  train off-program.
+- Proposals must respect recent work, supported exercise/progression rules,
+  current constraints, time estimates, and the same safety invariants as a
+  normal session. Long generated journeys belong in the fast-check model-based
+  suite.
+
+### 16. Managed Taurifer AI
+
+The prior BYOK direction is superseded. The product decision is a managed,
+adult-only, PT-BR-first **Taurifer AI** capability after the deterministic paid
+beta proves the business. It is not the acquisition headline and is never
+marketed as an “AI personal trainer.”
+
+#### Product role
+
+- AI lives contextually in Program, Progress, reviews, and intervention flows;
+  it has no permanent Chat tab, human avatar, fictional name, or coaching
+  relationship.
+- Structured, evidence-linked proposals are primary. Conversation explains,
+  asks a focused question, and helps revise a proposal. The user approves every
+  mutation; major structural changes require a second confirmation.
+- AI may propose any edit the supported Taurifer editor can express, but hard
+  deterministic rules still constrain application. AI never changes workout
+  history, diagnoses injury, provides nutrition/medical coaching, or invents an
+  unsupported progression system.
+- AI is visibly labeled and never silently substituted for deterministic
+  output. During outage, core Taurifer continues and may offer a separately
+  labeled deterministic alternative.
+
+#### Evidence, memory, and control
+
+- Only context necessary for the request leaves the device. Account identity,
+  subscription, conversations, preferences, and proposals may be cloud-backed;
+  the workout record remains local.
+- Claims distinguish observed facts, user reports, and inference. Concise
+  answers link exact local evidence and expandable scientific/rule support.
+- Separate conversations are tied to tasks or proposals. Confirmed stable
+  preferences and accepted decisions carry forward; old raw chats do not
+  silently become memory. Temporary context expires, conflicts are resolved
+  explicitly, and users can inspect, correct, or delete remembered items.
+- A master switch stops new AI processing, prompts, and notifications without
+  deleting records. Reading, export, deletion, and memory controls remain
+  available after cancellation or complementary access expires.
+
+#### Provider and scientific controls
+
+- Choose primary and backup providers through Taurifer-specific bake-offs.
+  Safety/correctness are hard gates before quality, latency, and cost. Provider
+  retention must be zero; model/prompt/knowledge/provider versions are staged,
+  measured, and reversible.
+- Product-owned risk routing chooses models. Users do not choose a provider or
+  model. Provider, processing region, and retention are disclosed in settings
+  and privacy materials rather than used as marketing.
+- Scientific authority is peer-reviewed primary research plus high-quality
+  reviews, consensus, and position documents. When evidence disagrees,
+  Taurifer explains the disagreement, its assumption, what depends on it, and
+  where preference legitimately decides. Knowledge updates consider the wider
+  evidence base and pass versioned evaluation.
+
+#### Preview, entitlement, and allowance
+
+- PT-BR Preview enrolls self-selected adult Pro users in controlled waves. It
+  is a separate research preview, not part of the generally available Pro
+  promise or paid conversion claim. English AI remains hidden until it passes
+  independent evaluation.
+- A free user who reaches a real paywall and demonstrates purchase intent may
+  receive complementary research access through the next major program
+  decision, capped at twelve weeks. Purchases, attempts, complementary grants,
+  and Preview participation are reported separately; only payment is revenue.
+- Ordinary questions and consequential reviews have separate published
+  allowances. One completed task includes necessary clarification/reasonable
+  revision. Failures and refusals do not consume allowance. Questions reset
+  monthly; reviews may accrue only to a small published cap. No top-ups at
+  launch.
+- Preview uses intended commercial limits. Exact counts are set before Preview
+  from measured cost and representative journeys and change only prospectively
+  with notice.
+
+### 17. AI privacy, research, support, and release
+
+- Required processing is explained at AI setup. Optional improvement sharing
+  is invited only after a successful answer and controlled by one global
+  switch, selective one-time sharing, and a Shared conversations inventory.
+- PostHog receives text-free lifecycle events only. Conversation, proposal,
+  comment, free text, and research data never enter PostHog and are never joined
+  to it at person level.
+- Research receives only an explicitly consented copy after redaction, into
+  separately credentialed schemas/tables/access paths/deletion jobs. If safe
+  redaction is uncertain, nothing is copied. A pseudonymous research ID retains
+  a separate deletion mapping; do not call it anonymous.
+- Service conversations expire on a rolling twelve-month schedule. Research
+  raw copies live at most twelve months. Deleting a shared conversation deletes
+  both copies; live deletion is prompt and backups expire within thirty days.
+  Anonymous aggregate derivatives may remain.
+- A serious report shares raw conversation only by explicit user action.
+  Access is temporary and logged; status is Received, Investigating, or Closed;
+  the report is deleted within thirty days after closure and no later than 180
+  days after submission.
+- Preview requires Brazilian privacy-counsel review, provider and transfer
+  safeguards, predeclared numeric safety/privacy/quality/cost/latency/support
+  gates, protected and generated evaluation sets, and an emergency global off
+  switch. PT-BR may graduate independently and rolls out progressively.
 
 ## Supersession index
 
@@ -812,33 +1350,46 @@ not prerequisites hidden inside the first Pro MVP.
 | Generated preview replaces current program | Draft only until explicit activation |
 | Pain and dislike must be separate screens | One combined avoid screen, but reason-specific semantics and safety handling remain separate |
 | Free/Pro history boundary was vague | Free uses history for safe current-program execution; Pro makes program-level decisions |
+| Public family/frequency policy pending | Principal families require three-/five-day siblings; generated coverage preserves two/six; Home is separate; Foundation is an internal simple-start profile |
+| One equipment list per athlete | Reusable gym contexts plus user-curated sibling program mappings and comparability-aware history |
+| Off-program training as an unmodeled exception | Explicit one-off sessions with honest history and a Free/manual versus Pro/interpretive boundary |
+| BYOK browser coach / provider key in the PWA | Managed Taurifer AI after paid-beta economics, product-owned providers/models, account only for cloud Pro |
+| AI as vague distant “history-grounded” layer | Fully bounded contextual proposal/review capability with inspectable evidence, memory controls, evaluation, and Preview gates |
+| One endless coach chat | Separate task conversations plus confirmed structured memory and AI history |
+| AI transcript as ordinary analytics/research data | Text-free PostHog; separately consented, redacted, purpose-specific research copies with deletion |
+| English and PT-BR AI released together | PT-BR Preview and graduation first; English AI earns an independent release |
+| AI Preview as a Pro purchase promise | Separate capacity-limited research Preview; paid economics count only working generally available Pro features |
 
 ## Required document reconciliation
 
-The following repository documents are materially obsolete relative to this
-register and require a coordinated rewrite rather than piecemeal edits:
+This PR reconciles the following documents to this register:
 
 - [`business-product-thesis.md`](business-product-thesis.md)
 - [`pro-backlog.md`](pro-backlog.md)
 - [`adr/0010-product-business-thesis-and-validation-sequencing.md`](adr/0010-product-business-thesis-and-validation-sequencing.md)
 - [`../plans/044-posthog-measurement-experiments-paywall.md`](../plans/044-posthog-measurement-experiments-paywall.md)
+- [`adr/0002-byok-ai-coach.md`](adr/0002-byok-ai-coach.md), superseded by the
+  managed-AI ADR
+- [`../plans/038-ai-coach.md`](../plans/038-ai-coach.md), retained only as a
+  historical superseded plan
 
-At minimum, that rewrite must remove individual participant program review,
-fixed-cohort assumptions, in-product future-capability previews, BYOP-first
-language, obsolete family/frequency claims, the current goal-to-family mapping,
-and any PostHog/free-text wording that conflicts with the rules above. It must
-add the four-job entry design, the Free/Pro history boundary, organic rolling
-alpha, normal participant onboarding, fast-check lifecycle gate, session-time
-model, and current analytics requirements.
+The reconciled sources must express the family/equipment/one-off decisions and
+the complete managed-AI constitution above in addition to the earlier entry,
+Free/Pro, organic-alpha, fast-check, session-time, and PostHog decisions.
 
-## Open decisions
+## Implementation work, not unresolved product branches
 
-- Q261–Q271: public program-family definition, Foundation placement, family
-  naming, Volume, exact schedule-variant rule, two-/six-day handling, variant
-  relationship, equipment adaptation, Browse-card content, updates, and
-  unfinished catalogue visibility.
-- Exact public/PT-BR copy remains a dedicated copy-design pass.
-- Detailed intervention cause-to-action rules remain to be specified and
-  tested; the policy constraints above are fixed.
-- The existing product documents must be reconciled in one coherent change so
-  no older section silently remains executable guidance.
+The owner closed the grilling session after Q602 and confirmed shared
+understanding. No product-level branch remains open. Successor specifications
+must still derive and verify:
+
+- exact public/PT-BR copy and final family names;
+- detailed cause-to-action intervention rules within the fixed policy;
+- exact AI numeric quality, safety, cost, latency, support, and allowance
+  thresholds before Preview;
+- provider selection from the approved evaluation rather than documentation;
+- schemas, APIs, redaction implementation, and LGPD transfer documents;
+- representative and model-based regression journeys for every new lifecycle.
+
+Those are implementation/evaluation outputs. If they expose a genuine product
+trade-off, reopen only that branch and add the resulting owner decision here.

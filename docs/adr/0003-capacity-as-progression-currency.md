@@ -38,7 +38,7 @@ extending the existing threshold-rule table (every new signal multiplies
 the case table, and RIR granularity stays collapsed into buckets).
 
 Unchanged: the engine stays deterministic and local ("recommendation"
-remains reserved for it; the BYOK coach of ADR 0002 is a separate
+remains reserved for it; later managed Taurifer AI under ADR 0011 is a separate
 surface). The status vocabulary (`new`/`add2`/`add`/`reduce`/`hold`
 variants), heat gauge, block-trend tempering, and stall/recover gates
 survive — only the trigger arithmetic underneath changes. No new

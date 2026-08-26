@@ -1,10 +1,13 @@
 # Taurifer Business & Product Thesis
 
-**Version:** 1.2
+**Version:** 1.3
 
-**Date:** August 23, 2026
+**Date:** August 26, 2026
 
-**Status:** Strategic source of truth. v1.2 incorporates the amended decisions ratified in the August 23 strategy session and recorded in [ADR 0010](adr/0010-product-business-thesis-and-validation-sequencing.md)
+**Status:** Strategic source of truth. v1.3 incorporates the completed owner
+grilling session through Q602, recorded in the
+[decision register](product-grilling-decision-register.md) and governed by
+[ADR 0010](adr/0010-product-business-thesis-and-validation-sequencing.md).
 
 **Primary beachhead:** Brazil
 
@@ -12,7 +15,18 @@
 
 **Core category:** Progression-first strength-training software
 
-**v1.2 amendments (see ADR 0010 for rationale):** generator-first acquisition becomes primary, followed by Taurifer-owned templates and BYOP as a migration/expert path; initial programming scope is hypertrophy and general strength rather than powerlifting; original versioned program families compile through one shared multi-strategy engine; Capacity becomes shared evidence rather than a universal prescription rule; supported progression primitives remain Free; Pro MVP becomes advanced first-program generation, history-aware next-program generation, and bounded within-block adaptation; incomplete programs remain usable evidence; a noncommercial assisted-program alpha precedes Pro; payment waits for working value and a real entitlement lifecycle; fake doors are prohibited; the first price pair is fixed at R$24.90/month and R$179.90/year; optional free-text research sharing receives a separate consented path rather than ordinary analytics.
+**v1.2 amendments (see ADR 0010 for rationale):** generator-first acquisition becomes primary, followed by Taurifer-owned templates and BYOP as a migration/expert path; initial programming scope is hypertrophy and general strength rather than powerlifting; original versioned program families compile through one shared multi-strategy engine; Capacity becomes shared evidence rather than a universal prescription rule; supported progression primitives remain Free; Pro MVP becomes advanced first-program generation, history-aware next-program generation, and bounded within-block adaptation; incomplete programs remain usable evidence; a noncommercial program-based alpha precedes Pro; payment waits for working value and a real entitlement lifecycle; fake doors are prohibited; the first price pair is fixed at R$24.90/month and R$179.90/year; optional free-text research sharing receives a separate consented path rather than ordinary analytics.
+
+**v1.3 amendments:** principal program families receive genuine three- and
+five-day siblings while generated coverage preserves two- and six-day users;
+Home becomes a separate consistency-first limited-equipment family and
+Foundation an internal simple-start profile; selected programs are fully owned
+and editable; multi-gym sibling instances preserve equipment-specific history;
+one-off sessions become an explicit execution mode; the rolling organic alpha
+and paid-beta evidence rules are finalized; and the old BYOK coach is replaced
+by a managed, adult-only, PT-BR-first Taurifer AI design sequenced after paid-
+beta economics, with product-owned providers, explicit proposals, inspectable
+evidence, strict research separation, and no transcript data in PostHog.
 
 ---
 
@@ -56,7 +70,10 @@ The first commercial Pro product includes:
 - history-aware next-program generation, including resume/repair/rebase/switch decisions from incomplete programs;
 - bounded within-block adaptation for recurring skip, plateau, override, session-length, and schedule problems.
 
-Later Pro may add full cross-program dashboards, multi-block planning, optional synchronization, and history-grounded AI. Those are not part of the minimum paid product.
+Later Pro may add full cross-program dashboards, multi-block planning, optional
+synchronization, and managed Taurifer AI. AI has a complete product/privacy
+constitution in §16 but remains sequenced after the deterministic paid beta;
+it is not part of the minimum paid product.
 
 Taurifer initially programs **hypertrophy and general strength**. It may include squat, bench press, and deadlift inside Strength, but it does not claim powerlifting, peaking, tapering, meet preparation, or attempt selection.
 
@@ -80,7 +97,7 @@ Three sequencing principles are also constitutional (§22, §29):
 
 > **Analytical independence.** Taurifer's deterministic training outputs are never altered by commercial interests (§16.3, §29).
 
-> **Working value before payment.** A noncommercial assisted-program alpha may begin once the core engine and initial families work; the paid beta waits until the complete Pro MVP and entitlement lifecycle work. Taurifer does not use fake doors.
+> **Working value before payment.** A rolling noncommercial program-based alpha may begin once the core engine and initial families work; the paid beta waits until the complete Pro MVP and entitlement lifecycle work. Taurifer does not use fake doors.
 
 Raw data ownership is also constitutional:
 
@@ -223,11 +240,12 @@ Internal product sources:
 - [Taurifer brand guide](https://github.com/pedrochagasmaster/repforge/blob/main/docs/brand-guide.md)
 - [Implementation-plan index](https://github.com/pedrochagasmaster/repforge/blob/main/plans/README.md)
 
-## 1.2 The three valid entry paths
+## 1.2 Four jobs in three entry groups
 
-Taurifer should explicitly own three entry paths with a deliberate hierarchy.
+Taurifer should explicitly own four authorship jobs within three deliberately
+weighted groups.
 
-### Path A — "Build my program"
+### Group A — "Create a Taurifer program"
 
 The athlete knows they want to train seriously but does not have a complete program they trust.
 
@@ -245,7 +263,15 @@ Taurifer asks for relevant inputs such as:
 - injury/constraint information where appropriate and safely handled;
 - training structure preference, if any.
 
-Taurifer then produces a structured, editable program.
+The UI offers two choices:
+
+- **Recommend a program:** Taurifer makes the consequential choices from the
+  minimum inputs that change the result.
+- **Generate a custom program:** the user makes bounded program-specific
+  choices such as split and optional exercise preferences; Taurifer still
+  authors the executable prescription.
+
+Taurifer then produces a structured, editable draft.
 
 The key design principle is:
 
@@ -255,7 +281,7 @@ The user should be able to inspect and edit the generated program.
 
 Taurifer should not require the user to surrender agency in order to benefit from progression intelligence.
 
-### Path B — "Choose a Taurifer program"
+### Group B — "Browse Taurifer programs"
 
 The athlete wants a trusted structure without completing a detailed generator.
 They choose from a small set of original, versioned Taurifer families covering
@@ -267,7 +293,7 @@ the product, but Taurifer owns the blueprint, progression semantics, copy, and
 identity. A named external program requires explicit permission or a clearly
 compatible licence.
 
-### Path C — "I already have a program"
+### Group C — "Bring or build my own"
 
 The athlete already has a program from:
 
@@ -280,16 +306,21 @@ The athlete already has a program from:
 - a community program;
 - another app.
 
-They can:
+The two distinct jobs are:
 
-- build it manually;
-- import it;
+- **Build a program:** name the program, create empty training days, and author
+  exercises, order, sets, targets, and a supported progression strategy.
+- **Import a program:** preserve an externally authored prescription and map it
+  into supported Taurifer semantics.
+
+They may also:
+
 - accept a shared Taurifer setup;
 - eventually migrate it from another platform.
 
 Once activated, the same execution/progression engine applies.
 
-### Why all three paths matter
+### Why all groups matter
 
 Owning all three paths increases the addressable market, but they are not
 equally important for acquisition.
@@ -298,9 +329,10 @@ A "bring your own program" product primarily targets users already sophisticated
 
 A generation-only product primarily targets users willing to delegate programming.
 
-The primary market proposition is generator-first. Templates reduce decision
-and onboarding burden. BYOP remains first-class migration infrastructure and
-expert control.
+The primary market proposition is generator-first. Browse reduces decision and
+onboarding burden. Build/Import remains first-class migration infrastructure
+and expert control. The authorship test is decisive: choosing preferences—even
+a split—is Custom; manually selecting the executable prescription is Build.
 
 Taurifer can still say:
 
@@ -854,12 +886,18 @@ Potential generator inputs:
 - training frequency;
 - session duration;
 - equipment/gym profile;
+- preferred rest interval for honest duration estimation;
 - preferred movements;
 - excluded movements;
 - muscle-group priorities;
 - split preference;
-- progression style where appropriate;
-- deload/block-length preferences.
+
+Recommend asks only questions that materially change the program. Custom may
+add bounded program-specific choices such as split, but it does not ask users
+to choose set volume, RIR targets, rep ranges, progression algorithms, or
+deload timing. Taurifer owns those programming decisions. Deload is never an
+onboarding preference: a whole-program deload requires observed performance
+stagnation or degradation plus relevant corroboration.
 
 Do not ask users to estimate a stable volume tolerance during onboarding.
 Most have not isolated volume from effort, load, frequency, exercise selection,
@@ -902,18 +940,35 @@ working boundary.
 
 ### Taurifer-owned program families
 
-The initial family direction is:
+A family is a durable training promise and programming structure, not a public
+name for every frequency or equipment variation.
 
-- Base 3 — ambitious beginner, three-day full body;
-- Strength 3 — intermediate general strength, three-day full body;
-- Balanced 4 — primary intermediate default, four-day upper/lower;
-- Hypertrophy 4 — later, four-day upper/lower;
-- Volume 6 — later, six-day push/pull/legs.
+- Principal families require genuine three- and five-day sibling blueprints.
+  They share intent and progression vocabulary but own their real weekly
+  structures; Taurifer does not mechanically stretch one schedule.
+- Recommend and Custom preserve the current generator's two- and six-day
+  schedule coverage through generated variants. Every public Browse family is
+  not required to expose every frequency.
+- **Home** is a separate consistency-first family for limited equipment. A
+  full home gym uses the ordinary families.
+- **Foundation** is an internal simple-start/re-entry profile for genuinely
+  new users or an explicitly simpler start, not a goal alongside hypertrophy
+  and strength.
+- A later high-volume family is valid only when its training promise is truly
+  distinct. It is not required for the alpha.
+
+Browse shows only complete executable programs. Cards state purpose,
+frequency, session-time range, maturity fit, equipment assumptions, structure,
+and progression style. An activated instance stays pinned to its blueprint
+version; future family updates are offered as migrations, never silently
+applied.
 
 Families are declarative, versioned blueprints compiled into program instances,
 blocks, days, slots, prescriptions, and declared progression strategies. The
-engine may not branch on a family/program id. Generated programs, templates,
-and imported/manual programs use the same primitives.
+engine may not branch on a family/program id. Generated, Browse, manual,
+imported, and shared programs use the same supported primitives. Once selected,
+the instance belongs to the athlete: it can be edited or renamed while
+provenance remains available.
 
 ## 7.4 Generated and external programs must converge
 
@@ -951,6 +1006,39 @@ receives an immediate Free conservative path.
 
 Users may accept, modify, snooze, or dismiss a proposal. Every accepted change
 belongs to the program instance rather than mutating the Taurifer family.
+
+## 7.6 Multi-gym equipment contexts
+
+Many athletes use two or three gyms whose equipment is similar but not
+mechanically identical. Taurifer should let the athlete curate sibling versions
+of the active program and choose the current gym before training.
+
+- Comparable free-weight movements may share identity and performance history.
+- Different machine models may remain separate when the same displayed load
+  does not imply comparable effort—for example, Technogym versus Cybex versions
+  of an incline converging press.
+- Crowded-gym substitutions are normal. A substitution may be temporary,
+  context-specific, or explicitly promoted into a program edit.
+- Name equality never silently merges histories; equivalence is declared and
+  user-reviewable.
+
+This is athlete-owned execution infrastructure. It is not a gym-enterprise
+product and does not justify a partner platform before the paid-beta gates.
+
+## 7.7 One-off sessions
+
+Travel, a disrupted week, a crowded gym, or training with a friend can make the
+scheduled program inappropriate for one day. Taurifer therefore supports an
+explicit one-off session from **Choose another day** on Today.
+
+Free can build a manual/classic one-off around focus, selected muscles, time,
+and available equipment. Pro may recommend the best use of today by considering
+the active program and recent work, but the athlete can override it. The one-off
+is saved to History and informs honest exposure/adherence evidence; it does not
+silently rewrite the active program or complete a scheduled day.
+
+The authoritative UX/domain specification is
+[`docs/superpowers/specs/2026-08-25-one-off-session-design.md`](superpowers/specs/2026-08-25-one-off-session-design.md).
 
 ---
 
@@ -1075,7 +1163,8 @@ optimization and next-program generation stop.
 
 Later Pro territory includes full cross-program dashboards, multi-block
 planning, longer-horizon career analysis, optional synchronization, and
-history-grounded AI. These are not part of the initial paid gate.
+managed Taurifer AI after paid-beta economics and the §16 gates. These are not
+part of the initial paid gate.
 
 The distinction:
 
@@ -1102,7 +1191,7 @@ external prototypes; Taurifer itself presents only implemented capabilities.
 
 ### Alpha and beta do not accidentally start the launch clock
 
-The noncommercial assisted-program alpha has no payment or paywall. A separate
+The noncommercial rolling alpha has no payment or paywall. A separate
 commercial beta begins only after the complete Pro MVP works and subscription
 terms, expiry, restoration, refunds, and purchase reconciliation are defined.
 Beta packaging may remain explicitly mutable before commercial launch. What
@@ -1753,6 +1842,12 @@ never duplicated through replay/autocapture/console/URL capture, and are
 deleted after review/coding and no later than 90 days. Free text is supporting
 context and may never solely trigger an automated program intervention.
 
+Managed AI follows an even stricter split. PostHog receives only allowlisted,
+text-free lifecycle events such as proposal shown/opened/accepted/rejected/
+edited/reverted and outcome recorded. Conversations, proposals, feedback
+comments, remembered text, support reports, and research cases never enter
+PostHog and are never joined to it at person level.
+
 The business question should determine the event.
 
 Do not collect data merely because a tool makes it easy.
@@ -1763,7 +1858,13 @@ Brazil's LGPD defines personal data broadly and considers health-related data se
 
 Source: [Brazil — Lei Geral de Proteção de Dados, Law 13.709/2018](https://www.planalto.gov.br/ccivil_03/_ato2015-2018/2018/lei/l13709compilado.htm)
 
-This means telemetry, sync, and future AI features require deliberate legal/product design.
+This means telemetry, sync, and managed AI require deliberate legal/product
+design. Before AI Preview, Taurifer obtains Brazilian privacy-counsel review,
+documents international-transfer safeguards, stores Taurifer account,
+conversation, and research data in the EU, and uses any US inference provider
+only when evaluation value and contractual zero-retention/no-training controls
+justify the disclosed transfer. Live deletion is prompt; backups expire within
+thirty days.
 
 This document is not legal advice.
 
@@ -1785,25 +1886,118 @@ The everyday value should be:
 
 without requiring a conversation.
 
-## 16.2 Appropriate future AI role
+## 16.2 Managed Taurifer AI
 
-AI is better suited to Pro questions that cross long histories:
+The old BYOK/browser-provider design is superseded. After the deterministic
+paid beta proves Taurifer's economics, Pro may add **Taurifer AI** as a managed,
+adult-only, PT-BR-first capability.
 
-- "Compare my last three blocks."
-- "Why does my incline press keep stalling?"
-- "Which exercises have produced the most sustained progress?"
-- "What changed after I moved from four to five days per week?"
-- "Suggest the next block based on my last year."
+It answers grounded hypertrophy/general-strength questions and helps interpret
+program-level decisions. It is not a nutrition, medical, injury-diagnosis, or
+general life coach. It has no fictional name, face, human relationship, or
+permanent Chat tab.
 
-The AI layer should be:
+The primary output is a structured proposal with:
 
-- grounded in deterministic context;
-- inspectable;
-- advisory;
-- never silently mutating history;
-- explicit when proposing program changes.
+1. the conclusion and main reason;
+2. exact local evidence links;
+3. clear separation of observations, user reports, and inference;
+4. the proposed program differences and material warnings;
+5. expandable scientific and Taurifer-rule support;
+6. Accept, edit/recheck, snooze/dismiss, and rollback controls.
 
-## 16.3 Analytical independence
+AI may propose any edit the supported Taurifer editor can express. It cannot
+apply unsupported programming, violate hard deterministic rules, rewrite
+workout history, or silently mutate the program. The user approves every
+change, and major structural changes receive a second confirmation. Only one
+program-level proposal can be active at a time; stale proposals freeze against
+their original evidence/version.
+
+AI appears at meaningful contexts—Program, Progress, a checkpoint, or a strong
+detected problem—never during an active workout. Suggested actions and free
+text coexist. A provider failure is stated plainly and may offer a separately
+labeled deterministic alternative; AI is never silently imitated.
+
+## 16.3 Evidence, memory, and conversation
+
+- Each task/proposal receives its own conversation. Confirmed stable
+  preferences and accepted decisions carry forward; one endless transcript
+  does not.
+- Taurifer asks before remembering a likely stable preference. Temporary
+  circumstances have visible expiry, contradictions ask whether they are
+  temporary or permanent, and a memory page supports correction/deletion.
+- The current program is primary evidence; family/version and prior versions
+  are retrieved when relevant. Only request-relevant context leaves the device.
+- Conversations are discoverable in their original context and a secondary AI
+  history page. Cloud conversation history expires on a rolling twelve-month
+  schedule.
+- A master switch stops new processing, prompts, and notifications while
+  preserving read/export/delete controls. Subscription lapse behaves the same:
+  accepted programs remain owned; pending proposals remain reviewable; no new
+  generation/revision occurs.
+
+## 16.4 Provider, knowledge, and evaluation constitution
+
+- Taurifer chooses primary and backup providers using Taurifer-specific cases.
+  Safety/correctness are hard gates before quality, latency, and cost.
+- Provider retention must be zero. Provider/model routing is product-owned and
+  risk-based; users do not choose models. Provider, region, and retention are
+  disclosed in settings/privacy, not marketed as product identity.
+- Prompt, model, provider, knowledge, and rule changes are versioned, evaluated,
+  staged, monitored, and reversible.
+- Scientific authority is peer-reviewed primary research plus high-quality
+  reviews, consensus, and position documents. Community/coaching content is not
+  scientific authority. Conflicting evidence is explained rather than hidden.
+- Evaluation combines deterministic checks, protected/generated cases, blind
+  founder review, and a separate judge model. Generated/model-based testing
+  also exercises long program journeys and promotes minimized failures into
+  permanent regressions.
+
+## 16.5 Preview, privacy, and research
+
+PT-BR Preview begins only after the paid beta, provider/legal gates, and
+predeclared numeric safety, privacy, program, quality, latency, cost, outcome,
+and support thresholds. Eligible adult PT-BR Pro users self-select in controlled
+waves; English AI remains hidden until independently evaluated. PT-BR may
+graduate and expand progressively without waiting for English.
+
+During Preview, AI is a separate research capability—not part of the generally
+available Pro purchase promise. A person who reaches a real paywall and shows
+purchase intent may receive complementary access through the next major program
+decision, capped at twelve weeks. Payments, attempts, grants, and Preview use
+remain separate measures.
+
+Required processing is explained at setup. Optional product-improvement sharing
+is invited only after a successful answer. One global switch, selective one-
+time sharing, and a Shared conversations inventory govern it. Research receives
+only explicitly consented redacted copies in separately credentialed storage;
+uncertain redaction means no copy. Research subject identifiers are
+pseudonymous, not anonymous, and retain a separate deletion mapping.
+
+Raw research copies live at most twelve months. Conversation deletion removes
+service and research copies; backups expire within thirty days. Support receives
+raw conversation only through an explicit Report a problem action, with logged
+temporary access and a 180-day absolute retention cap. PostHog receives no AI
+text and is never person-level joined to research.
+
+## 16.6 Allowance and notification contract
+
+Ordinary questions and consequential program reviews have separate published
+allowances. One completed task includes necessary clarification and reasonable
+revision. Technical failures, safety refusals, and unsupported requests do not
+consume the allowance. Questions reset monthly; unused reviews may accumulate
+only to a small published cap. There are no top-ups initially.
+
+Preview uses intended commercial limits. Exact counts are derived before
+Preview from provider cost and representative journeys and change only
+prospectively with notice.
+
+AI prompts remain inside Taurifer by default. Users may opt into push for a
+major checkpoint or waiting proposal. Lock-screen text is generic by default,
+one unresolved event receives at most one push, and a material state change is
+required before another.
+
+## 16.7 Analytical independence
 
 Constitutional principle (§29):
 
@@ -1922,7 +2116,7 @@ Monetization work splits by phase; optional synchronization is **not** a prerequ
 
 ### Phase 1 Pro product and validation
 
-- noncommercial assisted-program alpha on the web core;
+- noncommercial rolling program-based alpha on the web core;
 - advanced first-program generation;
 - history-aware next-program generation;
 - bounded within-block adaptation;
@@ -1954,7 +2148,7 @@ Monetization work splits by phase; optional synchronization is **not** a prerequ
 - multi-block planning;
 - richer periodization tools beyond bounded family profiles;
 - optional synchronization;
-- history-grounded AI after deterministic longitudinal value exists.
+- managed Taurifer AI after paid-beta economics and the §16 gates.
 
 ## 18.5 Later
 
@@ -2068,13 +2262,13 @@ abandonment require direct user research.
 
 Compare primary cohorts:
 
-### Generated-program users
+### Recommend / Generate custom users
 
 vs
 
-### Taurifer-template users
+### Browse users
 
-Track BYOP/manual/import users as a smaller secondary migration cohort rather
+Track Build/Import users as a smaller secondary migration cohort rather
 than treating them as the primary acquisition comparison.
 
 Measure:
@@ -2211,7 +2405,7 @@ Phase 1 is therefore:
 
 > **Market and business-model validation using the existing Taurifer web product, with engineering focused only on capabilities that materially improve or measure acquisition, activation, retention, or monetization.**
 
-Validate the funnel in two separated stages: noncommercial assisted-program
+Validate the funnel in two separated stages: noncommercial rolling program-based
 alpha for execution evidence, then a paid beta for working Pro value.
 
 Priorities:
@@ -2229,8 +2423,8 @@ Priorities:
 - recruiting real Brazilian users;
 - creator pilots;
 - D7/D30/D60 measurement;
-- generated vs Taurifer-template cohort analysis, with BYOP as a secondary
-  migration cohort;
+- Recommend/Custom versus Browse path analysis, with Build/Import as secondary
+  migration/expert groups;
 - post-program retention.
 
 The objective is not to maximize technical polish. It is to eliminate the largest business uncertainties as cheaply and quickly as possible. During Phase 1, the PWA is the primary validation product, not a preview channel.
@@ -2239,14 +2433,14 @@ The objective is not to maximize technical polish. It is to eliminate the larges
 
 The concrete implementation backlog, in priority order.
 
-#### P0 — before the noncommercial assisted-program alpha
+#### P0 — before the noncommercial rolling alpha
 
 **A. Telemetry and cohort attribution**
 
 - pseudonymous installation identifier;
 - acquisition/referral source;
 - explicit schema-driven funnel events;
-- generated/template/manual/import/shared cohort;
+- recommend/custom/browse/build/import/shared path;
 - activation and workout milestones;
 - D7/D30/D60 definitions frozen before reading results.
 
@@ -2277,7 +2471,7 @@ experiment in this stage.
 
 Required to test creator CAC and retention cleanly. Implementation must respect ADR 0007's immutable payload contracts (§13.5).
 
-#### P1 — before the assisted cohort approaches program transition
+#### P1 — before early alpha participants approach program transition
 
 **E. Program lifecycle / next-program transition**
 
@@ -2287,19 +2481,25 @@ Users need: current program → complete/archive → start another generated/man
 
 The current first-run-only setup-link rule is sufficient for initial acquisition but not for Block II / the next creator program. Ship the reviewed, non-destructive replacement/transition flow (archive the old program, never touch logs) before cohorts need it.
 
-### Assisted-program alpha
+### Rolling program-based alpha
 
-Recruit approximately 8–12 Brazil-based, PT-BR-comfortable self-directed
-lifters who train at least three times weekly and want Taurifer to create and
-adapt a coherent program. Provision a generated or Taurifer-template program
-with human review behind the scenes and run the alpha for approximately six
-weeks.
+Recruit organically, one person at a time, through the solo founder's direct
+network and social posts. Eight to twelve participants is a useful evidence
+milestone, not a synchronized cohort or enrollment gate. Participants
+self-select and use the normal onboarding, random installation identifier, and
+available Recommend, Custom, or Browse path. Churn and incomplete programs are
+expected evidence.
+
+Review family designs, rules, representative synthetic outputs, and generated
+regressions before alpha. Do **not** inspect, approve, or repair every
+participant's individual program. Each participant owns an approximately six-
+week clock, and evidence is read when the relevant denominator exists rather
+than at a cohort-wide date.
 
 The alpha has no payment, paywall, public launch claim, or stable entitlement
 promise. It validates logging/reliability, progression trust, spreadsheet
-abandonment, repeated workout completion, program-family behavior, and the
-intervention vocabulary. It does not validate automated generator quality or
-willingness to pay.
+abandonment, repeated workout completion, autonomous generator/family behavior,
+and the intervention vocabulary. It does not validate willingness to pay.
 
 ### Working Pro before monetization
 
@@ -2380,7 +2580,8 @@ Once users have enough history, add:
 - multi-block comparisons and planning;
 - long-horizon analysis beyond the MVP intervention catalogue;
 - optional synchronization when platform evidence justifies it;
-- history-grounded AI only after deterministic longitudinal value is proven.
+- managed Taurifer AI only after deterministic paid-beta economics and the
+  §16 safety/privacy/evaluation gates are proven.
 
 This tests whether "training career intelligence" becomes a durable renewal reason.
 
@@ -2557,7 +2758,7 @@ Mitigation:
 Mitigation:
 
 - advanced first-program generation for users with no Taurifer history;
-- assisted-alpha history ready when next-program generation is tested;
+- rolling-alpha history ready when next-program generation is tested;
 - use partial and unfinished-program history with explicit confidence;
 - do not require two completed blocks before Pro becomes useful.
 
@@ -2663,7 +2864,7 @@ The CEO/product dashboard should prioritize:
 ## Activation
 
 - program activated;
-- path: generated/template/manual/import/shared;
+- path: recommend/custom/browse/build/import/shared;
 - time to program;
 - first workout start;
 - first workout completion;
@@ -2830,7 +3031,7 @@ The following should govern final product alignment.
 25. Pro interventions are cause-routed, versioned, user-approved, and normally
     change one main variable at a time; no universal plateau ladder exists.
 26. Pro may later analyze across programs/blocks/time, synchronize optionally,
-    and offer history-grounded AI.
+    and offer managed Taurifer AI under §16 after the paid beta.
 27. Pro lapse never removes a program or accepted adaptation; it stops future
     program-level decisions.
 28. Pro must add value rather than degrade Free.
@@ -2874,6 +3075,32 @@ The following should govern final product alignment.
 49. Privacy supports trust but is not the headline.
 50. The product should never need theatrics to make progression feel valuable.
 
+## Families and execution contexts
+
+51. Principal program families have genuine three- and five-day siblings;
+    generated paths preserve two- and six-day users without forcing every
+    Browse family to expose every frequency.
+52. Home is a separate limited-equipment consistency family; Foundation is an
+    internal simple-start profile.
+53. A selected program is owned and editable; source/family/version provenance
+    informs, never restricts.
+54. Multi-gym sibling instances preserve equipment-specific identity and
+    history. Name equality never silently merges non-comparable machines.
+55. One-off sessions are honest History entries and never silently rewrite or
+    complete the active program.
+
+## Managed AI
+
+56. BYOK is superseded by managed Taurifer AI after paid-beta economics.
+57. AI output is labeled, evidence-linked, user-approved, and subordinate to
+    deterministic rules; it never mutates history or diagnoses injury.
+58. PT-BR adult Preview earns release before English; Preview is not a general
+    Pro purchase promise.
+59. Provider retention is zero; providers/models/knowledge are evaluated,
+    versioned, staged, disclosed, and reversible.
+60. AI text never enters PostHog. Improvement/research use is separately
+    consented, redacted, access-separated, pseudonymous, and deletable.
+
 ---
 
 # 30. Recommended north-star statements
@@ -2913,7 +3140,8 @@ executes it completely, exposes supported progression strategies, completes
 the block, and reviews what happened. Pro specializes the first program,
 detects recurring structural mismatch during it, and uses complete or partial
 history to personalize what should happen next. Later Pro expands into
-cross-program dashboards, multi-block planning, sync, and grounded AI.
+cross-program dashboards, multi-block planning, sync, and managed Taurifer AI
+after the paid beta and its release gates.
 
 ## Creator proposition
 
@@ -3181,6 +3409,14 @@ This is intentionally simplified and should be replaced by cohort cash-flow mode
 12. What proof threshold would justify any gym/enterprise pivot?
 13. What evidence would justify a marketplace?
 14. What is the minimum product quality required before paid acquisition begins?
+15. What numeric provider, safety, privacy, quality, latency, cost, and support
+    thresholds will be frozen before Taurifer AI Preview?
+16. What published ordinary-question and program-review allowances follow from
+    the measured provider bake-off and representative user journeys?
+
+Questions 15–16 are evaluation outputs under the fixed §16 constitution, not
+permission to revisit managed service, PT-BR-first release, zero provider
+retention, or the research/telemetry separation.
 
 ---
 
@@ -3206,9 +3442,10 @@ retrospective, and Free export.
 **Pro:** Advanced first-program specialization, bounded within-block
 adaptation, and history-aware next-program generation from complete or partial
 history. Later: cross-program dashboards, multi-block planning, optional sync,
-and grounded AI. Never control over the engine's conclusions.
+and managed Taurifer AI after paid-beta economics and independent release
+gates. Never control over the engine's conclusions.
 
-**Sequencing:** A noncommercial assisted-program alpha validates the execution
+**Sequencing:** A noncommercial rolling program-based alpha validates the execution
 loop on the web core. Payment waits for the working three-job Pro MVP and a
 real entitlement lifecycle. Native Android/iOS remains an evidence-triggered
 wrap of the tested core, not a greenfield rewrite.

@@ -67,10 +67,13 @@ these should hit a STOP condition:
   evidence gates.**
 - No social feed, leaderboards, sharing, or gamification (streaks/badges/XP).
 - ~~No AI chat coach or auto-generated programs.~~ **Amended 2026-08 by
-  owner decision ([ADR 0002](../docs/adr/0002-byok-ai-coach.md), plan 038):
-  an opt-in BYOK AI coach is in scope. Still rejected: any AI feature that
-  requires a RepForge-operated backend, ships on by default, mutates state
-  without explicit user approval, or leaks data/keys into exports.**
+  owner decisions Q464–Q602 ([ADR 0011](../docs/adr/0011-managed-taurifer-ai.md)):
+  a managed, adult-only, PT-BR-first Taurifer AI is later Pro scope after the
+  deterministic paid beta. BYOK/browser-direct providers and Plan 038 are
+  superseded. Still rejected: AI as the acquisition headline, active-workout
+  interruption, silent mutation, diagnosis, unsupported programming, provider
+  retention/training, transcript data in PostHog, or cloud dependence for core
+  training.**
 - No sixth nav tab; new depth ships hidden/collapsed/off the Log tab.
 - Protect the Log tab's speed above all else.
 
@@ -288,13 +291,14 @@ bars; mic emoji → SVG; one-time coach marks / first-run tips (needs a
 Written from interactive product-owner decision sessions (grilled
 decision-by-decision, all choices recorded in each plan's "Product
 decisions" section and an ADR). Plan 038 was written against `5023c1c`
-(2026-08-09, [ADR 0002](../docs/adr/0002-byok-ai-coach.md)); plan 039
+(2026-08-09, [ADR 0002](../docs/adr/0002-byok-ai-coach.md)) and is now
+superseded by [ADR 0011](../docs/adr/0011-managed-taurifer-ai.md); plan 039
 against `5b34d2f` (2026-08-12,
 [ADR 0003](../docs/adr/0003-capacity-as-progression-currency.md)).
 
 | # | Plan | Category | Effort | Risk | Source |
 |---|------|----------|--------|------|--------|
-| 038 | [BYOK AI coach — chat sheet + user-approved program proposals](./038-ai-coach.md) | direction | L | HIGH | Product owner decision; ADR 0002 supersedes the prior AI rejection |
+| 038 | [BYOK AI coach — historical superseded plan](./038-ai-coach.md) | direction | L | HIGH | SUPERSEDED by Q464–Q602 and ADR 0011; do not execute |
 | 039 | [Capacity-driven load & rep suggestions](./039-capacity-driven-suggestions.md) | direction / correctness | L | MED-HIGH | Product owner grill session 2026-08-12; ADR 0003 |
 
 ## Wave 6 — launch-readiness UI/UX audit and remediation
@@ -335,13 +339,13 @@ sanctioned on-demand arithmetic surface. Written against `4e3d044`
 |---|------|----------|--------|------|--------|
 | 043 | ["Why this weight?" — on-demand recommendation inspector](./043-why-this-weight-inspector.md) | direction / dx | M | MED | Owner GTM session 2026-08-20; plan 039 decision 8 follow-up |
 
-## Wave 8 — Measurement, assisted alpha, and staged Pro commercialization
+## Wave 8 — Measurement, rolling alpha, and staged Pro commercialization
 
 Revised after the 2026-08-23 strategy session that produced
-`docs/business-product-thesis.md` v1.2 and amended
+`docs/business-product-thesis.md` v1.3 and amended
 [ADR 0010](../docs/adr/0010-product-business-thesis-and-validation-sequencing.md):
 Phase 1 validates the market and business model on the existing web core,
-starting with instrumentation and a noncommercial assisted-program alpha.
+starting with instrumentation and a noncommercial rolling program-based alpha.
 Payment and a real paywall wait for advanced generation, history-aware next
 programming, bounded within-block adaptation, and complete entitlement
 lifecycle behavior. Fake doors and the former three-price annual experiment
@@ -351,7 +355,7 @@ per-submission-consented path.
 
 | # | Plan | Category | Effort | Risk | Source |
 |---|------|----------|--------|------|--------|
-| 044 | [Measurement, assisted alpha, and staged Pro commercialization](./044-posthog-measurement-experiments-paywall.md) | measurement / validation / monetization | XL | HIGH | Owner strategy session 2026-08-23; amended ADR 0010; thesis §22 |
+| 044 | [Measurement, rolling alpha, staged Pro commercialization, and AI Preview](./044-posthog-measurement-experiments-paywall.md) | measurement / validation / monetization | XL | HIGH | Owner strategy session through Q602; amended ADR 0010; thesis §22 |
 
 ## Backlog (not yet planned in detail)
 
@@ -378,9 +382,9 @@ export → 017, beginner program variant → 022, mesocycle blocks → 023 (spik
 Consensus across ≥5 personas that these betray the product:
 
 - Social feed / leaderboards / PR sharing / community.
-- ~~AI coaching chat, auto-generated programs.~~ Superseded 2026-08 for the
-  BYOK-only shape — see [ADR 0002](../docs/adr/0002-byok-ai-coach.md) and
-  [plan 038](./038-ai-coach.md). Cloud/backend-dependent AI remains rejected.
+- ~~AI coaching chat, auto-generated programs.~~ Superseded only for the
+  bounded managed shape in [ADR 0011](../docs/adr/0011-managed-taurifer-ai.md)
+  after paid-beta economics. BYOK Plan 038 is not the replacement.
 - Full coach SaaS (billing, scheduling, nutrition, in-app messaging).
 - Wearable / HRV / sleep / readiness dashboards.
 - Exercise GIF/video library, form-check empire.
@@ -438,7 +442,7 @@ Consensus across ≥5 personas that these betray the product:
 | 034 | DONE |
 | 035 | DONE |
 | 036 | DONE |
-| 038 | READY — execute per plan; STOP conditions guard the amended guardrails |
+| 038 | SUPERSEDED — historical only; ADR 0011 requires a future replacement plan after paid beta |
 | 039 | DONE |
 | 040 | AUDIT — launch remediation not yet implemented |
 | 041 | TODO — all 24 retained findings are pre-launch |

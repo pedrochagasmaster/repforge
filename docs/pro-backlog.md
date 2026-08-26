@@ -1,12 +1,14 @@
 # Taurifer Pro — capability backlog and maturity roadmap
 
-**Status:** Living product document, revised after the August 23, 2026
-strategy session.
+**Status:** Living product document, reconciled through owner decision Q602 on
+August 26, 2026.
 
 **Governed by:** [`docs/business-product-thesis.md`](business-product-thesis.md)
 and
-[`ADR 0010`](adr/0010-product-business-thesis-and-validation-sequencing.md).
-On conflict, those documents win.
+[`ADR 0010`](adr/0010-product-business-thesis-and-validation-sequencing.md),
+and the
+[`decision register`](product-grilling-decision-register.md). On conflict, the
+later owner decision in the register wins.
 
 **Commercialization plan:**
 [`Plan 044`](../plans/044-posthog-measurement-experiments-paywall.md).
@@ -31,9 +33,9 @@ collection of locked inputs.
 
 The primary entry hierarchy is:
 
-1. **Generate for me** — primary acquisition and onboarding path.
-2. **Choose a Taurifer template** — a trusted, lower-input alternative.
-3. **Bring my own program** — migration and expert-control path.
+1. **Create a Taurifer program** — Recommend or Generate custom.
+2. **Browse Taurifer programs** — a trusted, lower-input alternative.
+3. **Bring or build my own** — Build manually or Import.
 
 The initial programming domain is **hypertrophy and general strength**.
 Squat, bench press, and deadlift may appear within Strength, but Taurifer does
@@ -46,17 +48,26 @@ external programs require explicit permission or a compatible licence; when
 rights are unclear, Taurifer uses independently written blueprints, copy, and
 identity.
 
-The settled family direction is:
+The settled family policy is:
 
-- **Base 3** — ambitious beginner, three-day full body;
-- **Strength 3** — intermediate general strength, three-day full body;
-- **Balanced 4** — primary intermediate default, four-day upper/lower;
-- **Hypertrophy 4** — later, four-day upper/lower with more accessory volume;
-- **Volume 6** — later, six-day push/pull/legs.
+- principal public families have genuine three- and five-day sibling
+  blueprints;
+- Recommend/Custom preserve two- and six-day generated coverage without
+  requiring every Browse family to expose those frequencies;
+- **Home** is a distinct limited-equipment consistency family;
+- **Foundation** is an internal simple-start/re-entry profile, not a public
+  goal family;
+- a later high-volume family is valid only when its training promise is truly
+  distinct and is not an alpha prerequisite.
+
+Final public names remain copy work. Do not revive Base 3 / Strength 3 /
+Balanced 4 / Hypertrophy 4 / Volume 6 as implementation requirements.
 
 Every family is a declarative, versioned blueprint compiled into the same
 program-instance model. No engine branch may ask whether a program id equals a
-particular family.
+particular family. Activated instances stay pinned to their version; an update
+is an offered migration. Once selected, an instance is owned, editable, and
+renameable while provenance remains visible.
 
 ---
 
@@ -83,9 +94,10 @@ athlete, never for access to the mathematics.
 
 Every program family uses the same lifecycle primitives: program instance,
 block, day, slot, prescription, strategy, exercise identity, Capacity anchor,
-and versioned intervention. The initial family lifecycle may use a six-week
-Calibrate → Build → Consolidate → Deload/review profile, but Pro may select a
-different bounded block profile where the family supports it.
+and versioned intervention. Six weeks is the default block length, and initial
+fixed-week programs repeat the same weekly structure. A lifecycle may schedule
+review but never a deload: a whole-program deload requires performance
+stagnation or degradation plus relevant corroboration.
 
 ---
 
@@ -101,6 +113,8 @@ Free includes:
 - manual selection of supported progression strategies and basic parameters;
 - prior-performance context, explanations, substitutions, history, session
   summaries, and current-block review;
+- one reusable equipment context, contextual crowded-gym substitutions, and
+  manual/classic/muscle-focus one-off sessions;
 - manual edits, repeats, template changes, and another basic generation after
   a program ends;
 - structured skip, override, exit, pain/discomfort, and constraint capture;
@@ -256,6 +270,24 @@ Program identity should not change casually mid-block. Split, primary
 exercise, or strategy changes are permissible only when the diagnosed issue
 requires them and the user explicitly approves them.
 
+### 4.4 Approved contextual Pro extensions
+
+These are real Pro capabilities when implemented, not new top-level product
+paths and not fake-door material:
+
+- **Program-aware one-off planning:** for a disrupted week, choose the best use
+  of today's time/equipment from active-program priorities and recent/upcoming
+  work, explain what is preserved/sacrificed, and allow override. Free retains
+  manual, classic, muscle-focus, and temporary user-directed adaptation.
+- **Multi-gym sibling programs:** manage two or three equipment contexts,
+  curate sibling exercise mappings, choose today's gym, and preserve separate
+  machine histories when loads are not comparable. Compatible free-weight
+  movements may share identity/history.
+
+These extensions may ship with or after the three-job MVP. Payment may name
+them only when they work end to end. They do not delay the first paid beta
+unless its offer includes them.
+
 ---
 
 ## 5. Intervention mechanics
@@ -376,9 +408,11 @@ beta.
 ## 8. Validation sequence
 
 1. Finish the shared multi-strategy engine and initial Taurifer families.
-2. Run a **noncommercial assisted-program alpha** with 8–12 target lifters.
-   Participants receive generated/template-based programs with human review
-   behind the scenes and train for approximately six weeks.
+2. Run a **noncommercial rolling program-based alpha**. Recruit organically,
+   one person at a time; eight to twelve participants is an evidence milestone,
+   not a synchronized cohort. Participants self-select and use normal
+   onboarding. Review designs/rules/synthetic outputs before alpha; do not audit
+   each participant's individual program.
 3. Use the alpha to validate logging speed and reliability, progression trust,
    spreadsheet abandonment, workout completion, and the intervention
    vocabulary while history accumulates.
@@ -400,11 +434,47 @@ Legitimate later capabilities, excluded from the Pro MVP:
 - long-horizon trend and stagnation surfaces beyond the v1 intervention
   catalogue;
 - optional synchronization;
-- history-grounded AI subordinate to deterministic evidence;
+- managed Taurifer AI after paid-beta economics and its independent gates;
 - advanced creator or coach conveniences;
 - broader periodization tools beyond bounded family profiles.
 
 Powerlifting-specific programming remains out of scope.
+
+### 9.1 Managed Taurifer AI — after paid beta
+
+AI is included in Pro once stable, but it is neither a Pro-MVP launch gate nor
+a separate add-on. During PT-BR Preview it is a capacity-limited research
+capability, not part of the generally available purchase promise.
+
+Approved scope:
+
+- contextual entry in Program, Progress, checkpoints, and strong-problem
+  surfaces; no Chat tab or fictional coach persona;
+- concise conversation plus structured, evidence-linked, user-approved
+  program proposals; major changes receive a second confirmation;
+- separate task conversations, confirmed/inspectable structured memory,
+  versioned proposals, staleness detection, rollback, and outcome follow-up;
+- product-owned risk routing across evaluated primary/backup providers with
+  zero provider retention and disclosed processing location;
+- PT-BR adult Preview first; independently evaluated English later;
+- ordinary-question and program-review allowances, published before Preview;
+- optional generic push for major checkpoints/proposals; no active-workout
+  interruption.
+
+Privacy/research scope:
+
+- only request-relevant local context is sent;
+- AI text never enters PostHog;
+- improvement data is explicitly consented, redacted before separately
+  credentialed research storage, pseudonymous, deletable, and retained raw for
+  at most twelve months;
+- support sees raw conversation only after explicit sharing, with temporary
+  logged access and a 180-day absolute cap;
+- Brazilian privacy-counsel review, transfer safeguards, protected/generated
+  evaluations, numeric release gates, and emergency shutdown precede Preview.
+
+The governing detail is §16 of the thesis, ADR 0011, and Q464–Q602 in the
+decision register.
 
 ---
 
@@ -414,22 +484,29 @@ Powerlifting-specific programming remains out of scope.
 |---|---|---|
 | Shared program-instance schema | Required foundation | Architecture/specification |
 | Multi-strategy progression engine | Required foundation | Strategy specs and tests |
-| Base 3 / Strength 3 / Balanced 4 | Initial family backlog | Blueprint, compiler, validation |
-| Hypertrophy 4 / Volume 6 | Later family backlog | Initial-family evidence |
+| Principal 3-/5-day family siblings | Initial family backlog | Blueprint, compiler, representative and generated validation |
+| Home family | Initial family backlog | Limited-equipment blueprint and schedule siblings |
+| Two-/six-day generated coverage | Free generator requirement | Generator parity and tests |
+| Later high-volume family | Later family backlog | Distinct job + initial-family evidence |
 | Program lifecycle and transition | Free prerequisite | Persistence and UX specification |
-| Advanced first-program generation | Pro MVP | Foundation + specialization spec |
+| Advanced first-program generation | Pro MVP | Shared engine + specialization spec |
 | History-aware next program | Pro MVP | Lifecycle + history interpretation |
 | Bounded within-block adaptation | Pro MVP | Issue/trigger/intervention specs |
 | Capability and entitlement abstraction | Commercial prerequisite | Working Pro MVP |
 | Monthly/annual purchase lifecycle | Commercial prerequisite | Expiry/restore/refund/reconciliation |
-| Assisted-program alpha | Authorized before Pro | Core engine and initial families work |
+| Rolling program-based alpha | Authorized before Pro | Core engine/families, telemetry, regressions, reliability |
 | Paid commercial beta | Blocked | Complete Pro MVP + commerce lifecycle |
 | Cross-program dashboards | Later | Multi-block evidence |
 | Multi-block planning | Later | Renewal/use evidence |
 | Sync | Later / Phase 2 | Platform evidence gates |
-| History-grounded AI | Later | Useful deterministic longitudinal data |
+| Program-aware one-off planning | Approved Pro extension | Working Free one-off semantics + entitlement |
+| Multi-gym sibling programs | Approved Pro extension | Equipment-context identity/history specification |
+| Managed Taurifer AI | After paid beta | Economics + ADR 0011 legal/provider/evaluation/Preview gates |
 
-## 11. Remaining unresolved decisions
+## 11. Required specifications and measured outputs
+
+The owner closed the product interview through Q602. The following are
+implementation/evaluation outputs, not open product branches:
 
 1. The versioned evidence thresholds and observation windows for each
    strategy-specific plateau detector.
@@ -437,5 +514,9 @@ Powerlifting-specific programming remains out of scope.
 3. The initial specialization allocation model, including maintenance floors
    and direct/indirect set accounting.
 4. The payment provider and restoration/refund mechanics for the web beta.
+5. Final public/PT-BR family names and copy under the settled family policy.
+6. Multi-gym movement/equipment equivalence rules and migrations.
+7. AI provider bake-off result, numeric release gates, allowance counts,
+   schemas, redaction implementation, and international-transfer documents.
 
 Do not resolve these through implementation accidents.
