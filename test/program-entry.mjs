@@ -73,6 +73,9 @@ function driveToTerminal(route) {
   const visited = [state.step];
   while (true) {
     if (state.step === "result") state = Entry.setResult(state, { fingerprint: `${route}-fixture` });
+    if (["catalogue", "import_source", "shared_review"].includes(state.step)) {
+      state = Entry.setResult(state, { fingerprint: `${route}-fixture` });
+    }
     if (["preview", "editor"].includes(state.step)) return { state, visited };
     const transition = Entry.advance(state);
     assert.equal(transition.ok, true, `${route}:${state.step} should advance`);

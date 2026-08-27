@@ -660,15 +660,30 @@
       case "environment": return answers.environment ? [] : ["environment_required"];
       case "priorities": return [];
       case "custom_shape": return answers.splitPreference ? [] : ["split_preference_required"];
-      case "catalogue": return answers.catalogueSelection ? [] : ["catalogue_selection_required"];
+      case "catalogue": {
+        const issues = [];
+        if (!answers.catalogueSelection) issues.push("catalogue_selection_required");
+        if (!state.result) issues.push("catalogue_preview_required");
+        return issues;
+      }
       case "build_setup": {
         const issues = [];
         if (!answers.programName) issues.push("program_name_required");
         if (!answers.daysPerWeek) issues.push("days_per_week_required");
         return issues;
       }
-      case "import_source": return answers.importReady ? [] : ["import_source_required"];
-      case "shared_review": return answers.sharedReady ? [] : ["shared_review_required"];
+      case "import_source": {
+        const issues = [];
+        if (!answers.importReady) issues.push("import_source_required");
+        if (!state.result) issues.push("import_preview_required");
+        return issues;
+      }
+      case "shared_review": {
+        const issues = [];
+        if (!answers.sharedReady) issues.push("shared_review_required");
+        if (!state.result) issues.push("shared_preview_required");
+        return issues;
+      }
       case "result": return state.result ? [] : ["result_required"];
       case "preview": return state.result ? [] : ["preview_required"];
       case "editor": return [];
