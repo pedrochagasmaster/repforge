@@ -46,6 +46,126 @@ A proposed blueprint fails review if any of these statements is true:
 
 The repository must not contain the supplied PDFs. Review this boundary again before a fixture changes and before a blueprint becomes executable.
 
+## Family catalogue
+
+The proposed public names below need owner approval. The internal IDs do not depend on them.
+
+| Internal ID | Proposed English name | Proposed PT-BR name | Promise | Explicit non-goals |
+|---|---|---|---|---|
+| `growth` | Build Muscle | Ganhar massa | Allocate the available week toward balanced muscle growth while retaining repeatable compound performance markers. | Strength peaking, maximal-volume training, and a strength-sport claim. |
+| `balanced` | Muscle + Strength | Massa + força | Progress selected primary movement patterns while retaining substantial hypertrophy work. | Equal emphasis on every quality, competition-lift specialization, and meet preparation. |
+| `strength` | Strength Priority | Prioridade em força | Prioritize general-strength primary movements while maintaining a coherent hypertrophy base. | Powerlifting, competition percentages, peaking, tapering, and attempt selection. |
+| `home` | Home Momentum | Ritmo em casa | Reduce setup and equipment friction for a progressive limited-equipment program. | Treating every home trainee as new, serving a full home gym, or filtering machines out of an ordinary family. |
+
+### Shared fit vocabulary
+
+The fixture contract uses these closed inputs:
+
+- Goals: `muscle_growth`, `balanced`, and `strength_priority`.
+- Structured-program maturity: `new`, `some`, and `established`.
+- Recent consistency: `consistent`, `interrupted`, and `returning`.
+- Environments: `commercial`, `full_home`, and `limited_home`.
+- Session ceilings: 30, 45, 60, 75, and 90 minutes. A 90-minute selection means 90 minutes or more.
+
+`growth`, `balanced`, and `strength` fit `commercial` and `full_home`. `home` fits only `limited_home`. All families accept the three maturity bands. Foundation and re-entry alter the selected blueprint without changing the desired result.
+
+## Authored 3-day and 5-day siblings
+
+Each day-role row states structure, not an exercise list. A slot later resolves to an exercise-library entry and retains its `libraryId`.
+
+### `growth`
+
+The 3-day sibling uses three whole-body exposures with different local emphasis. This structure gives every major muscle group repeated weekly work when only three sessions are available.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `growth_3_d1` | Knee and horizontal emphasis | knee-dominant primary; horizontal press; horizontal pull; hamstring assistance; lateral-deltoid assistance; arm assistance |
+| `growth_3_d2` | Hinge and vertical emphasis | hinge primary; vertical pull; vertical press; quadriceps assistance; chest assistance; calf assistance |
+| `growth_3_d3` | Mixed hypertrophy emphasis | unilateral knee; incline or horizontal press; supported pull; hip extension; rear-deltoid assistance; arm assistance |
+
+The 5-day sibling separates upper and lower fatigue, then uses a mixed fifth day to close coverage and host bounded priorities. It does not split the 3-day rows across more calendar days.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `growth_5_d1` | Upper push emphasis | horizontal press; vertical pull; incline press; supported pull; lateral-deltoid assistance; triceps assistance |
+| `growth_5_d2` | Lower knee emphasis | knee-dominant primary; hinge assistance; unilateral knee; leg curl; calf assistance |
+| `growth_5_d3` | Upper pull emphasis | horizontal pull; vertical press; vertical pull; chest assistance; rear-deltoid assistance; biceps assistance |
+| `growth_5_d4` | Lower hip emphasis | hinge primary; knee assistance; hip extension; leg curl; calf assistance |
+| `growth_5_d5` | Mixed coverage and priority | stable press; supported pull; quadriceps assistance; hamstring assistance; one priority-eligible slot; arm assistance |
+
+### `balanced`
+
+The 3-day sibling pairs one repeatable primary pattern with hypertrophy work in each whole-body session. Primary patterns rotate their stress across the week.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `balanced_3_d1` | Knee and horizontal press | knee-dominant primary; horizontal-press primary; supported pull; hamstring assistance; lateral-deltoid assistance |
+| `balanced_3_d2` | Hinge and vertical pull | hinge primary; vertical-pull primary; vertical press; unilateral knee; arm assistance |
+| `balanced_3_d3` | Volume counterparts | knee-volume exposure; horizontal-press volume exposure; horizontal pull; hip extension; chest or back assistance |
+
+The 5-day sibling gives primary and volume exposures separate days. A middle assistance day preserves hypertrophy coverage without making all five sessions primary sessions.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `balanced_5_d1` | Lower primary | knee-dominant primary; hinge assistance; unilateral knee; calf assistance |
+| `balanced_5_d2` | Upper primary | horizontal-press primary; vertical-pull primary; supported pull; triceps assistance |
+| `balanced_5_d3` | Hypertrophy assistance | hip extension; chest assistance; horizontal pull; lateral and rear deltoid assistance; biceps assistance |
+| `balanced_5_d4` | Lower volume | hinge primary; knee-volume exposure; leg curl; calf assistance |
+| `balanced_5_d5` | Upper volume | horizontal-press volume exposure; vertical pull; vertical press; supported pull; arm assistance |
+
+### `strength`
+
+The 3-day sibling makes one movement pattern primary on each day. It spreads secondary practice so no session contains every heavy stressor.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `strength_3_d1` | Knee primary | knee-dominant primary; horizontal-press volume exposure; supported pull; hamstring assistance |
+| `strength_3_d2` | Horizontal-press primary | horizontal-press primary; hinge-volume exposure; vertical pull; unilateral knee assistance |
+| `strength_3_d3` | Hinge primary | hinge primary; knee-volume exposure; vertical press; horizontal pull; arm assistance |
+
+The 5-day sibling uses two primary days, two bounded volume-practice days, and one assistance day. The volume days use lower-stress prescriptions and do not become extra maximal sessions.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `strength_5_d1` | Lower primary | knee-dominant primary; hinge assistance; unilateral knee; trunk assistance |
+| `strength_5_d2` | Upper primary | horizontal-press primary; vertical pull; supported pull; triceps assistance |
+| `strength_5_d3` | Lower volume practice | hinge primary; knee-volume exposure; leg curl; calf assistance |
+| `strength_5_d4` | Upper volume practice | horizontal-press volume exposure; horizontal pull; vertical press; biceps assistance |
+| `strength_5_d5` | Hypertrophy base | unilateral knee; hip extension; stable press; supported pull; lateral-deltoid assistance; arm assistance |
+
+### `home`
+
+The Home siblings assume adjustable dumbbells, resistance bands, a bench or stable support, and bodyweight movements. A capability correction may remove the bench. The compiler must then choose compatible floor-supported slots or return an incompatibility.
+
+The 3-day sibling uses total-body sessions and groups equipment states to reduce changes within a session.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `home_3_d1` | Dumbbell-supported total body | goblet or front-loaded knee; supported press; one-arm pull; hip extension; arm assistance |
+| `home_3_d2` | Floor and band total body | unilateral knee; floor press or push-up; band vertical pull; dumbbell hinge; lateral-deltoid assistance |
+| `home_3_d3` | Bench-supported total body | split squat; incline press; supported row; leg curl pattern; calf assistance |
+
+The 5-day sibling uses shorter, focused sessions. It is authored for more frequent practice, not made by dividing the 3-day exercise count.
+
+| Day | Day role | Ordered slot roles |
+|---|---|---|
+| `home_5_d1` | Knee and push | front-loaded knee; supported press; unilateral knee; triceps assistance |
+| `home_5_d2` | Pull and hinge | one-arm pull; dumbbell hinge; band vertical pull; biceps assistance |
+| `home_5_d3` | Low-friction mixed | split squat; push-up or floor press; band row; lateral-deltoid assistance |
+| `home_5_d4` | Hip and pull | hip extension; supported row; leg curl pattern; biceps assistance |
+| `home_5_d5` | Push and coverage | incline or floor press; squat pattern; band pull; calf assistance; triceps assistance |
+
+### Sibling review rule
+
+A sibling pair passes structural review only when all these statements are true:
+
+- Each sibling has its own day-role IDs and ordered slot table.
+- The 3-day form distributes the family promise across three complete sessions.
+- The 5-day form changes fatigue distribution and exposure placement to fit five sessions.
+- Removing two days from the 5-day form does not reproduce the 3-day form.
+- Repeating or splitting the 3-day slot sequence does not reproduce the 5-day form.
+- Both forms retain the same promise, eligible goals, equipment boundary, progression vocabulary, and six-week default.
+
 ## Version and approval state
 
 Stable internal family IDs are `growth`, `balanced`, `strength`, and `home`. Public names remain proposals and do not control those IDs.
