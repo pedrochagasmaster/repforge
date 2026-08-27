@@ -36,9 +36,9 @@ const iso = (daysAgo) => {
   return d.toISOString().slice(0, 10);
 };
 
-const settings = (lang) => ({
+const settings = (lang, { unit = "kg", rirMode = "numeric" } = {}) => ({
   jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 0, lastExport: "",
-  unit: "kg", lang, rirMode: "numeric", voiceInputEnabled: false,
+  unit, lang, rirMode, voiceInputEnabled: false,
   notify: { enabled: false, timer: true, session: true, unfinished: true, missed: true },
 });
 
@@ -125,9 +125,9 @@ async function seed(page, blob) {
   }, { k: KEY, value: blob });
 }
 
-async function capture(page, { lang, program, rows, current }) {
+async function capture(page, { lang, program, rows, current, unit = "kg", rirMode = "numeric" }) {
   await seed(page, {
-    settings: settings(lang),
+    settings: settings(lang, { unit, rirMode }),
     programMeta: {
       id: "prog-strategy", name: "Strategy fixture", started: iso(90),
       created: "2026-05-01T00:00:00.000Z", updated: "2026-05-01T00:00:00.000Z",
@@ -187,6 +187,36 @@ async function saveStrategy(details) {
   await details.locator('button[type="submit"]').click();
 }
 
+async function workoutSurface(page) {
+  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.waitForSelector('#workout article[data-ex="ex0"] .setrow');
+  const list = await page.evaluate(() => {
+    const card = document.querySelector('#workout article[data-ex="ex0"]');
+    return {
+      loads: [...card.querySelectorAll('.setrow input[data-k$="_load"]')].map((input) => input.value),
+      reps: [...card.querySelectorAll('.setrow input[data-k$="_reps"]')].map((input) => input.value),
+      recommendation: card.querySelector('.recblock__body')?.textContent?.trim() || "",
+      effortControls: card.querySelectorAll('.effort[role="radiogroup"]').length,
+    };
+  });
+  await page.locator('#workout article[data-ex="ex0"] [data-why="ex0"]').click();
+  await page.waitForSelector('#whySheet.is-open');
+  const why = (await page.locator('#whyBody').textContent()).trim();
+  await page.click('#whyClose');
+  await page.click('#modeFocus');
+  await page.waitForSelector('#workout.is-focus article.is-current .curset');
+  const focus = await page.evaluate(() => {
+    const card = document.querySelector('#workout.is-focus article.is-current');
+    return {
+      load: card.querySelector('.curset input[data-k$="_load"]')?.value || "",
+      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value || "",
+      whyName: card.querySelector('[data-why]')?.getAttribute('aria-label') || "",
+      effortSpinner: !!card.querySelector('[role="spinbutton"][data-effspin]'),
+    };
+  });
+  return { list, focus, why };
+}
+
 /** Nothing the lifter reads may carry an internal identifier or a raw key. */
 const LEAKS = [/rep_goal/i, /anchor_backoff/i, /@1\b/, /\brange@/i, /^[a-z]+\.[a-z_.]+$/];
 function prose(capture) {
@@ -217,6 +247,13 @@ try {
     "every set carries the redistributed target", JSON.stringify(goalMet.suggestions));
   assert(goalMet.explain.length > 0, "the explanation sheet has rows");
   assert(leaked(goalMet).length === 0, "no strategy id or raw key reaches the lifter", leaked(goalMet).join(" | "));
+  const goalSurface = await workoutSurface(page);
+  assert(goalSurface.list.loads.every((value) => value === "102.5") && goalSurface.list.reps.every((value) => value === "10"),
+    "List renders the engine's total-rep load and per-set targets", JSON.stringify(goalSurface.list));
+  assert(goalSurface.focus.load === goalSurface.list.loads[0] && goalSurface.focus.reps === goalSurface.list.reps[0],
+    "Focus renders the same engine target as List", JSON.stringify(goalSurface.focus));
+  assert(goalMet.explain.filter((row) => row.text).every((row) => goalSurface.why.includes(row.text)),
+    "Why this weight renders the same engine-backed explanation", goalSurface.why);
 
   const goalMissed = await capture(page, { lang: "en", program: repGoalProgram, rows: log([[7, three(100, 8, 2)]]) });
   assert(goalMissed.rec.status === "hold", "missing the total holds the load", goalMissed.rec.status);
@@ -229,6 +266,15 @@ try {
   });
   assert(partial.suggestions[2].reps === 9, "the third set asks for the exact remaining reps", partial.suggestions[2].reps);
   assert(partial.suggestions[2].load === 100, "an in-session target holds the session load", partial.suggestions[2].load);
+  await capture(page, { lang: "en", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
+  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.locator('[data-k="ex0_2_load"]').fill("77.5");
+  await page.locator('[data-k="ex0_2_reps"]').fill("7");
+  await page.locator('[data-save="ex0_1"]').click();
+  await page.waitForSelector('[data-save="ex0_1"][aria-pressed="true"]');
+  assert(await page.locator('[data-k="ex0_2_load"]').inputValue() === "77.5" &&
+    await page.locator('[data-k="ex0_2_reps"]').inputValue() === "7",
+  "logging a completed set preserves a user-touched future set");
 
   console.log("anchor_backoff@1");
   const anchorAdvance = await capture(page, {
@@ -242,6 +288,11 @@ try {
   assert(anchorAdvance.suggestions[0].load > anchorAdvance.suggestions[1].load,
     "the anchor is always heavier than its back-offs");
   assert(leaked(anchorAdvance).length === 0, "no strategy id or raw key reaches the lifter", leaked(anchorAdvance).join(" | "));
+  const anchorSurface = await workoutSurface(page);
+  assert(anchorSurface.list.loads[0] === "102.5" && anchorSurface.list.loads.slice(1).every((value) => value === "82.5"),
+    "List renders the engine's heavy and lighter targets", JSON.stringify(anchorSurface.list));
+  assert(anchorSurface.focus.load === anchorSurface.list.loads[0] && anchorSurface.focus.reps === anchorSurface.list.reps[0],
+    "Focus starts from the same heavy target as List", JSON.stringify(anchorSurface.focus));
 
   const anchorLogged = await capture(page, {
     lang: "en", program: anchorProgram,
@@ -279,6 +330,31 @@ try {
   assert(ptAnchor.rec.label !== anchorAdvance.rec.label, "the anchor label follows the UI language", ptAnchor.rec.label);
   assert(leaked(ptAnchor).length === 0, "Portuguese anchor copy leaks nothing", leaked(ptAnchor).join(" | "));
 
+  console.log("units and effort mode");
+  const lbGoal = await capture(page, { lang: "en", unit: "lb", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
+  assert(lbGoal.rec.status === goalMet.rec.status && lbGoal.rec.load === goalMet.rec.load &&
+    JSON.stringify(lbGoal.suggestions) === JSON.stringify(goalMet.suggestions),
+  "kg and lb use the same internal recommendation and actionable grid");
+  const lbSurface = await workoutSurface(page);
+  assert(lbSurface.list.loads.every((value) => Number(value) > 220) && lbSurface.why.includes("lb"),
+    "lb converts display values and explanation units without changing strategy", JSON.stringify(lbSurface));
+
+  const effortGoal = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
+  assert(effortGoal.rec.status === goalMet.rec.status && effortGoal.rec.load === goalMet.rec.load,
+    "effort entry mode does not change the recommendation");
+  const effortSurface = await workoutSurface(page);
+  assert(effortSurface.list.effortControls === 3 && effortSurface.focus.effortSpinner,
+    "new strategy targets remain operable in List and Focus effort controls", JSON.stringify(effortSurface));
+
+  const missingEffort = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, null)]]) });
+  const conservativeEffort = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, 1)]]) });
+  assert(missingEffort.rec.status === conservativeEffort.rec.status && missingEffort.rec.load === conservativeEffort.rec.load,
+    "missing effort stays conservative instead of becoming extra evidence");
+  const cappedEffort = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, 99)]]) });
+  const trustedCeiling = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, 4)]]) });
+  assert(cappedEffort.rec.status === trustedCeiling.rec.status && cappedEffort.rec.load === trustedCeiling.rec.load,
+    "untrusted effort is capped at the trusted ceiling");
+
   console.log("legacy programs are untouched");
   const legacySlot = slot({ sets: 3, min: 6, max: 10, progression: null });
   delete legacySlot[0].progression;
@@ -292,6 +368,17 @@ try {
   console.log("strategy editor");
   let details = await openProgressionEditor(page);
   await chooseStrategy(page, details, "rep_goal");
+  await details.locator("[data-progression-strategy]").focus();
+  await page.keyboard.press("Tab");
+  assert(await page.evaluate(() => document.activeElement?.getAttribute("name")) === "sets",
+    "the editor's keyboard order moves from method to its first value");
+  const editorA11y = await details.evaluate((element) => ({
+    unlabeled: [...element.querySelectorAll("input, select")].filter((control) => !control.closest("label")?.querySelector("span")?.textContent?.trim()).length,
+    errorRole: element.querySelector("[data-progression-error]")?.getAttribute("role"),
+    saveHeight: Math.round(element.querySelector('button[type="submit"]')?.getBoundingClientRect().height || 0),
+  }));
+  assert(editorA11y.unlabeled === 0 && editorA11y.errorRole === "alert" && editorA11y.saveHeight >= 44,
+    "editor controls have labels, an announced error, and a touch-sized save action", JSON.stringify(editorA11y));
   await setFormValues(details, {
     sets: 4, repGoal: 32, repMin: 6, repMax: 10, rirMin: 1, rirMax: 3, increment: 2.5, jump: 2.5,
   });
@@ -342,6 +429,16 @@ try {
   assert((await details.locator("summary").textContent()).includes("Progressão") &&
     (await details.locator("[data-progression-strategy] option").allTextContents()).some((text) => text.includes("Total de repetições")),
   "the editor is usable in Portuguese");
+  await page.setViewportSize({ width: 320, height: 800 });
+  await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+  const largeText = await details.evaluate((element) => ({
+    pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+    fields: [...element.querySelectorAll("input, select, button")].filter((control) => control.getBoundingClientRect().right > document.documentElement.clientWidth + 1).length,
+  }));
+  assert(largeText.pageOverflow <= 1 && largeText.fields === 0,
+    "the editor keeps controls on-screen at 320px with large text", JSON.stringify(largeText));
+  await page.evaluate(() => { document.documentElement.style.fontSize = ""; });
+  await page.setViewportSize({ width: 1280, height: 720 });
 
   console.log("forward compatibility");
   const futureSlot = slot({ sets: 3, min: 6, max: 10, progression: {

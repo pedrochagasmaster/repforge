@@ -132,6 +132,13 @@ jobs:
       - name: Exercise library integrity
         run: node test/exercise-library.mjs
 
+      - name: Progression contracts and 52-week strategy simulations
+        run: |
+          node test/progression-fixtures.mjs
+          node test/progression-engine.mjs
+          node test/progression-range-simulation.mjs
+          node test/progression-strategies-simulation.mjs
+
       - name: Persistence artifact helper self-test
         env:
           REPFORGE_URL: http://localhost:8000/
@@ -191,6 +198,14 @@ jobs:
         env:
           REPFORGE_URL: http://localhost:8000/
         run: node test/focus-mode.mjs
+
+      - name: Progression recommendation parity and browser surfaces
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: |
+          node test/recommendation-parity.mjs
+          node test/progression-strategies-ui.mjs
+          node test/progression-strategies-offline.mjs
 
       - name: Program editor text fields
         env:
