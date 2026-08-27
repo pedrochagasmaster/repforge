@@ -1012,7 +1012,8 @@ const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
-const captureEvent=(event,properties)=>window.posthog?.capture(event,properties);
+const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
+const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
@@ -2212,7 +2213,6 @@ async function saveCustomExercise(draft,io=storageIO){
   proposal.customExercises=normalizeCustomExercises(
     existing?list.map(e=>e.id===id?entry:e):list.concat(entry));
   const result=await commitProposedState(proposal,io);
-  if((result.localOk||result.idbOk)&&!existing)captureEvent("custom_exercise_created",{equipment_count:entry.equipment.length});
   return{result,entry:proposal.customExercises.find(e=>e.id===id)||null}}
 /* A definition with anything pointing at it — a program slot, an archived
    block, a logged set — is still the meaning of that data, so it is archived
@@ -3725,7 +3725,6 @@ function focusDragEnd(e){
   focusAnimateTo(dir)}
 function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return false;
   workoutLeft=false;setWorkoutActive(true);
-  captureEvent("workout_started",{program_day_count:days().length});
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true)logMode="focus";
   else if(opts.focus===false)logMode="full";
@@ -4652,7 +4651,11 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   const effect=consumedDraftClearEffect(rawDraft);
   const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
   if(!(result.localOk||result.idbOk))return result;
-  captureEvent("workout_completed",{logged_set_count:rows.length,exercise_count:new Set(rows.map(row=>row.exerciseId)).size});
+  if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
+  captureEvent("session_completed",{
+    set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
+    exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
+    duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
   resetDraftSessionState();
   resetSessionContextFields();
   // Nothing left to rest for. Left running, the clock would count down behind
@@ -4822,6 +4825,7 @@ function openSessionSummary(s){
     const stats=el.querySelector(".sum-stats");
     rampSessionStats(stats,stats?parseFloat(getComputedStyle(stats).animationDelay)*1000||0:0)});
   el.scrollTop=0;
+  captureEvent("session_summary_viewed",{});
   return true}
 
 function closeSessionSummary(opts={}){
@@ -5421,7 +5425,6 @@ async function deleteSession(sid,io=storageIO){
   proposal.log=proposal.log.filter(row=>row.session!==sid);
   const result=await commitProposedState(proposal,io);
   if(result.localOk||result.idbOk){
-    captureEvent("workout_session_deleted");
     if(editSession===sid)editSession=null;
     render();toast(t("toast.session_deleted"))}
   return result}
@@ -6217,7 +6220,6 @@ async function exportJson(){
   if(!(result.localOk||result.idbOk))return result;
   const text=JSON.stringify(exportableState(state),null,2),name=`taurifer_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");
-  captureEvent("backup_exported");
   renderSettings();
   return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
@@ -7292,6 +7294,7 @@ function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportR
 
 function openImportReview(draft){
   importDraft=draft;
+  captureEvent("program_path_selected",{route:"import"});
   importReturn=document.activeElement;
   // The review renders inside the app shell, so the first-run gate steps aside
   // for it rather than covering it.
@@ -7338,14 +7341,14 @@ async function commitImportReview(io=storageIO){
       const merged=mergeImportedCustomExercises(staged,exercises,proposal);
       proposal.customExercises=merged.customExercises}
     const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
-      origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal});
+      origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
+      telemetryRoute:"import"});
     if(setup&&!(setup.localOk||setup.idbOk)){
       // The write was refused; leave the screen it came from standing so it can
       // be retried.
       if(draft.fromFirstRun)openFirstRun();else{showOnboardingView();renderOnboarding()}
       toast(t("toast.program_import_failed"));return setup}
     closeImportReview({toProgram:false});
-    captureEvent("program_imported",{exercise_count:counts.total,source:"onboarding"});
     toast(t("toast.program_imported",{n:counts.total}));
     return setup||{localOk:true,idbOk:true}}
   const transition=programTransitionPrecondition(state);
@@ -7370,7 +7373,7 @@ async function commitImportReview(io=storageIO){
   render();
   // An import replaces the program outright — the box shows the new one.
   syncProgramJson({force:true});
-  captureEvent("program_imported",{exercise_count:counts.total,source:"program"});
+  captureEvent("program_activated",{route:"import",version_category:"import_v1"});
   toast(t("toast.program_imported",{n:counts.total}));
   return result}
 
@@ -7487,7 +7490,7 @@ async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()
   proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect,...transition});
-  if(result.localOk||result.idbOk){resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
+  if(result.localOk||result.idbOk){captureEvent("program_path_selected",{route:"browse"});captureEvent("program_activated",{route:"browse",version_category:"legacy_v1"});resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
   return result}
 
 const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
@@ -7510,6 +7513,7 @@ function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboa
   render()}
 function startOnboarding(origin){
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
+  captureEvent("program_path_selected",{route:"custom"});captureEvent("generator_started",{mode:"baseline"});
   onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
 function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run")}
 function cancelOnboarding(){
@@ -7577,7 +7581,8 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null}={}){
+function telemetryGoal(goal){return goal==="hypertrophy"?"muscle_growth":goal==="strength_hypertrophy"?"balanced":null}
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom"}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -7604,7 +7609,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
-  captureEvent("onboarding_completed",{origin:originEff,program_day_count:new Set(exercises.map(exercise=>exercise.day)).size});
+  const goal=telemetryGoal(meta.goal),frequency=String(new Set(exercises.map(exercise=>exercise.day)).size);
+  if(telemetryRoute==="custom"&&goal&&["2","3","4","5","6"].includes(frequency))
+    captureEvent("generator_completed",{goal,frequency,family:"legacy"});
+  captureEvent("program_activated",{route:telemetryRoute,version_category:telemetryRoute==="import"?"import_v1":"legacy_v1"});
   resetDraftSessionState();
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
@@ -7818,6 +7826,7 @@ async function commitSharedSetup(io=storageIO){
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();syncLang();
   if(isStandalone())SharedSetup?.clearHandoffCookie();
   sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
+  captureEvent("program_path_selected",{route:"shared"});captureEvent("program_activated",{route:"shared",version_category:"shared_v1"});
   render();toast(t("toast.onboarding_saved"));
   if(!maybeStartTour())maybeShowInstallBanner();
   return result}
@@ -8693,6 +8702,7 @@ async function boot(){
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init();
+  captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass()});
   if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
   if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
 boot();
