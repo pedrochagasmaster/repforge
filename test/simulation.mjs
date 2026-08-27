@@ -28,6 +28,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const OPTIONAL_DEPLOYMENT_SHELL_ASSET = "/posthog-config.js";
 const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
 const PROFILE = process.env.REPFORGE_PROFILE === "1";
 
@@ -9985,6 +9986,13 @@ async function main() {
       "Register service worker → caches.keys() includes CACHE from sw.js"
     );
     const shellFail = shellChecks.results.filter((r) => !r.ok);
+    const optionalDeploymentAsset = shellChecks.results.find((r) => r.path === OPTIONAL_DEPLOYMENT_SHELL_ASSET);
+    assert(
+      optionalDeploymentAsset?.optionalMissing === true,
+      "A missing local PostHog config is explicitly identified as optional",
+      JSON.stringify(optionalDeploymentAsset),
+      "Fetch /posthog-config.js without a deploy-generated local config"
+    );
     assert(
       shellFail.length === 0,
       "Each SHELL asset matches CacheStorage bytes and content-type after cache-bypass fetch",
