@@ -33,10 +33,27 @@ function isPlainStateObject(value){
   if(!value||typeof value!=="object"||Array.isArray(value))return false;
   const proto=Object.getPrototypeOf(value);
   return proto===Object.prototype||proto===null}
+const PROGRESSION_VALUE_LIMITS=Object.freeze({depth:32,nodes:1000,keys:128,arrayItems:128,stringLength:4000});
+function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
+  if(++state.nodes>PROGRESSION_VALUE_LIMITS.nodes||depth>PROGRESSION_VALUE_LIMITS.depth)return false;
+  if(typeof value==="string")return value.length<=PROGRESSION_VALUE_LIMITS.stringLength;
+  if(value===null||typeof value==="boolean")return true;
+  if(typeof value==="number")return Number.isFinite(value);
+  if(Array.isArray(value))return value.length<=PROGRESSION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedProgressionValue(item,depth+1,state));
+  if(!isPlainStateObject(value)||Object.keys(value).length>PROGRESSION_VALUE_LIMITS.keys)return false;
+  return Object.keys(value).every(key=>isBoundedProgressionValue(value[key],depth+1,state));
+}
+function isSafeProgressionFields(value){
+  if(!isPlainStateObject(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"progressionType")&&
+    (typeof value.progressionType!=="string"||Array.from(value.progressionType.trim()).length>80))return false;
+  for(const key of ["progression","progressionIncompatibility"])
+    if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
+  return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
-  return Array.isArray(entry.program)&&entry.program.every(isPlainStateObject)}
+  return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
@@ -48,7 +65,7 @@ function isSafeCustomExercise(entry){
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
 function isValidStateShape(s){
   try{
-    if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
+    if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     // Optional: backups written before custom exercises existed stay importable.
@@ -1594,19 +1611,25 @@ class Exercise{
     // without claiming the slot is a different movement. Identity stays with
     // libraryId; only the label moves.
     if(d.displayName!=null&&String(d.displayName).trim())this.displayName=String(d.displayName).trim();
-    if(d.progressionType!=null)this.progressionType=String(d.progressionType).trim();
+    if(d.progressionType!=null){
+      const progressionType=String(d.progressionType).trim();
+      if(Array.from(progressionType).length>80)throw new TypeError("progressionType: string too long");
+      if(progressionType)this.progressionType=progressionType}
     if(d.targetRirStart!=null&&Number.isFinite(+d.targetRirStart))this.targetRirStart=+d.targetRirStart;
     if(d.targetRirEnd!=null&&Number.isFinite(+d.targetRirEnd))this.targetRirEnd=+d.targetRirEnd;
     if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
     if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
     if(d.priority!=null)this.priority=String(d.priority).trim();
     if(d.progression!=null){
+      if(!isBoundedProgressionValue(d.progression))throw new TypeError("progression: structure exceeds safety bounds");
       const progression=normalizeProgressionEnvelope(d.progression);
       if(progression)this.progression=progression;
       else this.progressionIncompatibility=progressionIncompatibility("prescription",d.progression,null,"program-json");
     }
-    if(d.progressionIncompatibility!=null&&!this.progression)
+    if(d.progressionIncompatibility!=null&&!this.progression){
+      if(!isBoundedProgressionValue(d.progressionIncompatibility))throw new TypeError("progressionIncompatibility: structure exceeds safety bounds");
       this.progressionIncompatibility=cloneSnapshot(d.progressionIncompatibility);
+    }
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
   /* Resolves a linked slot's label and muscles from the library definition, so
