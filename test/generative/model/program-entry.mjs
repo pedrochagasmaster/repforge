@@ -135,7 +135,8 @@ export function runProgramEntryJourney(Entry, services, actions) {
         liveActiveProgramRevision: model.liveRevision,
         currentVersions: MODEL_VERSIONS,
       });
-      if (model.liveRevision === model.state.activeProgramRevisionAtStart) assert.equal(readiness.ok, true);
+      if (model.liveRevision === model.state.activeProgramRevisionAtStart && model.state.result !== null) assert.equal(readiness.ok, true);
+      else if (model.liveRevision === model.state.activeProgramRevisionAtStart) assert.equal(readiness.code, "preview_not_ready");
       else assert.equal(readiness.code, "active_program_changed");
     }
     assertInvariants(Entry, model);

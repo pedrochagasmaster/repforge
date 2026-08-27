@@ -23,10 +23,21 @@ const action = fc.oneof(
 );
 
 export function buildSuites() {
+  const previewInvalidationRegression = [
+    { type: "select", route: "import" }, { type: "advance" }, { type: "fill" },
+    { type: "advance" }, { type: "fill" }, { type: "activate" }, { type: "fill" },
+    { type: "reload" }, { type: "advance" },
+  ];
   return [
     {
       name: "program entry: generated route switching resume restart and conflict journeys preserve state",
       property: fc.property(fc.array(action, { minLength: 1, maxLength: 80 }), (actions) => {
+        runProgramEntryJourney(Entry, services, actions);
+      }),
+    },
+    {
+      name: "program entry regression: editing an import preview invalidates activation until rebuilt",
+      property: fc.property(fc.constant(previewInvalidationRegression), (actions) => {
         runProgramEntryJourney(Entry, services, actions);
       }),
     },

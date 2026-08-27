@@ -8,9 +8,8 @@ next to the code it exercises. Only cases whose value is inherently
 generative (pathological shapes, long action sequences, rare interleavings)
 belong here, frozen as seed/path pairs with the property they guard.
 
-This directory is intentionally empty at Phase 1: no property failure has
-survived investigation as an application bug yet. The first entry should
-look like:
+Each entry records the original replay metadata and points to the deterministic
+regression that now guards it. An entry looks like:
 
 ```
 ---
