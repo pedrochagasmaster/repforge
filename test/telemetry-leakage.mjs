@@ -145,13 +145,19 @@ try {
 
     ok((await page.evaluate(() => window.__hostileReplayResults.every(value => value === null))) === true,
       "every hostile replay payload is rejected before a request");
-    ok(requests.length === 3, `only three reviewed requests leave the SDK double (saw ${requests.length})`);
+    ok(requests.length >= 3 && requests.length <= 4,
+      `only the three required requests and an async app_boot may leave the SDK double (saw ${requests.length})`);
     const rendered = requests.map(requestText).join("\n");
     for (const sentinel of HOSTILE_SENTINELS) {
       ok(!rendered.includes(sentinel), `raw sentinel is absent: ${sentinel.slice(0, 36)}`);
       ok(!rendered.includes(encodeURIComponent(sentinel)), `encoded sentinel is absent: ${sentinel.slice(0, 36)}`);
     }
     const envelopes = requests.map(request => JSON.parse(request.postData() || "{}"));
+    const allowedRequestEvents = new Set(["app_boot", "program_path_selected", "$autocapture", "$snapshot"]);
+    ok(envelopes.every(envelope => allowedRequestEvents.has(envelope.event)),
+      "every request is one of the four explicitly reviewed event shapes");
+    ok(envelopes.some(envelope => envelope.event === "program_path_selected"),
+      "the approved product event reaches the request boundary");
     const auto = envelopes.find(envelope => envelope.event === "$autocapture");
     ok(auto?.properties?.telemetry_action === "nav_history", "autocapture retains only the reviewed action token");
     ok(!("$elements" in auto.properties) && !("$current_url" in auto.properties), "autocapture strips DOM chains and URLs");
