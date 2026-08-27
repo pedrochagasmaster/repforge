@@ -177,6 +177,259 @@
     };
   }
 
+  // These validators own only the versioned data boundary. They deliberately
+  // do not infer pending strategy parameters or execute pending modifiers.
+  function canonicalizeJson(value, path) {
+    if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+    if (isFiniteNumber(value)) return value;
+    if (Array.isArray(value)) return value.map((entry, index) => canonicalizeJson(entry, `${path}[${index}]`));
+    if (isPlainObject(value)) {
+      const result = {};
+      for (const key of Object.keys(value).sort()) result[key] = canonicalizeJson(value[key], `${path}.${key}`);
+      return result;
+    }
+    throw new TypeError(`${path}: expected JSON-safe value`);
+  }
+
+  function canonicalizeChecked(value, path) {
+    try {
+      return { ok: true, value: canonicalizeJson(value, path) };
+    } catch (error) {
+      return validationFailure([error.message]);
+    }
+  }
+
+  function validateVersionedEnvelope(value, path, allowedKeys) {
+    const issues = [];
+    if (!isPlainObject(value)) return validationFailure([`${path}: expected object`]);
+    for (const key of unexpectedKeys(value, allowedKeys)) issues.push(`${path}.${key}: unknown key`);
+    if (value.schemaVersion !== 1) issues.push(`${path}.schemaVersion: unsupported`);
+    return issues.length ? validationFailure(issues) : { ok: true, value };
+  }
+
+  function validatePrescription(prescription) {
+    const envelope = validateVersionedEnvelope(
+      prescription,
+      "prescription",
+      new Set(["schemaVersion", "strategy", "modifiers"]),
+    );
+    if (!envelope.ok) return envelope;
+    const strategy = prescription.strategy;
+    const issues = [];
+    if (!isPlainObject(strategy)) return validationFailure(["prescription.strategy: expected object"]);
+    for (const key of unexpectedKeys(strategy, new Set(["id", "version", "params"]))) {
+      issues.push(`prescription.strategy.${key}: unknown key`);
+    }
+    if (!STRATEGY_IDS.includes(strategy.id)) issues.push("prescription.strategy.id: unsupported");
+    if (strategy.version !== 1) issues.push("prescription.strategy.version: unsupported");
+    if (!isPlainObject(strategy.params)) issues.push("prescription.strategy.params: expected object");
+    if (issues.length) return validationFailure(issues);
+
+    // Range is the only strategy whose parameter bounds are approved. The
+    // other strategy envelopes are preserved without inventing their rules.
+    if (strategy.id === "range") return validateRangePrescription(prescription);
+
+    const params = canonicalizeChecked(strategy.params, "prescription.strategy.params");
+    if (!params.ok) return params;
+    if (!Array.isArray(prescription.modifiers)) return validationFailure(["prescription.modifiers: expected array"]);
+    const modifiers = validateModifiers(prescription.modifiers);
+    if (!modifiers.ok) return modifiers;
+    return {
+      ok: true,
+      value: {
+        schemaVersion: 1,
+        strategy: { id: strategy.id, version: 1, params: params.value },
+        modifiers: modifiers.value,
+      },
+    };
+  }
+
+  function canonicalizePrescription(prescription) {
+    const checked = validatePrescription(prescription);
+    if (!checked.ok) throw new TypeError(checked.issues.join("; "));
+    return checked.value;
+  }
+
+  function normalizePrescription(prescription) {
+    return validatePrescription(prescription);
+  }
+
+  function validateRelation(relation) {
+    if (relation === null) return { ok: true, value: null };
+    const envelope = validateVersionedEnvelope(
+      relation,
+      "relation",
+      new Set(["schemaVersion", "id", "type", "version", "movementId", "members"]),
+    );
+    if (!envelope.ok) return envelope;
+    const issues = [];
+    if (typeof relation.id !== "string" || !relation.id.trim()) issues.push("relation.id: expected non-empty string");
+    if (relation.type !== "paired_exposure") issues.push("relation.type: unsupported");
+    if (relation.version !== 1) issues.push("relation.version: unsupported");
+    if (typeof relation.movementId !== "string" || !relation.movementId.trim()) {
+      issues.push("relation.movementId: expected non-empty string");
+    }
+    if (!Array.isArray(relation.members) || relation.members.length !== 2) {
+      issues.push("relation.members: expected exactly two members");
+    }
+    if (issues.length) return validationFailure(issues);
+
+    const roles = new Set();
+    const exerciseIds = new Set();
+    const members = [];
+    for (let index = 0; index < relation.members.length; index++) {
+      const member = relation.members[index];
+      const path = `relation.members[${index}]`;
+      if (!isPlainObject(member)) {
+        issues.push(`${path}: expected object`);
+        continue;
+      }
+      for (const key of unexpectedKeys(member, new Set(["exerciseId", "role"]))) {
+        issues.push(`${path}.${key}: unknown key`);
+      }
+      if (typeof member.exerciseId !== "string" || !member.exerciseId.trim() || exerciseIds.has(member.exerciseId)) {
+        issues.push(`${path}.exerciseId: expected distinct non-empty string`);
+      } else exerciseIds.add(member.exerciseId);
+      if (member.role !== "heavy" && member.role !== "volume") issues.push(`${path}.role: unsupported`);
+      else if (roles.has(member.role)) issues.push(`${path}.role: duplicate`);
+      else roles.add(member.role);
+      members.push({ exerciseId: member.exerciseId, role: member.role });
+    }
+    if (!roles.has("heavy") || !roles.has("volume")) issues.push("relation.members: heavy and volume roles required");
+    if (issues.length) return validationFailure(issues);
+    members.sort((left, right) => left.role === "heavy" ? -1 : right.role === "heavy" ? 1 : left.exerciseId.localeCompare(right.exerciseId));
+    return {
+      ok: true,
+      value: {
+        schemaVersion: 1,
+        id: relation.id,
+        type: "paired_exposure",
+        version: 1,
+        movementId: relation.movementId,
+        members,
+      },
+    };
+  }
+
+  function canonicalizeRelation(relation) {
+    const checked = validateRelation(relation);
+    if (!checked.ok) throw new TypeError(checked.issues.join("; "));
+    return checked.value;
+  }
+
+  function normalizeRelation(relation) {
+    return validateRelation(relation);
+  }
+
+  function validateRelations(relations) {
+    if (!Array.isArray(relations)) return validationFailure(["relations: expected array"]);
+    const issues = [];
+    const ids = new Set();
+    const slots = new Set();
+    const value = [];
+    for (let index = 0; index < relations.length; index++) {
+      const checked = validateRelation(relations[index]);
+      if (!checked.ok) {
+        issues.push(...checked.issues.map((issue) => `relations[${index}].${issue}`));
+        continue;
+      }
+      if (checked.value === null) {
+        issues.push(`relations[${index}]: null relation is not a collection member`);
+        continue;
+      }
+      if (ids.has(checked.value.id)) issues.push(`relations[${index}].id: duplicate`);
+      ids.add(checked.value.id);
+      for (const member of checked.value.members) {
+        if (slots.has(member.exerciseId)) issues.push(`relations[${index}].members: slot belongs to multiple relations`);
+        slots.add(member.exerciseId);
+      }
+      value.push(checked.value);
+    }
+    return issues.length ? validationFailure(issues) : { ok: true, value };
+  }
+
+  function canonicalizeRelations(relations) {
+    const checked = validateRelations(relations);
+    if (!checked.ok) throw new TypeError(checked.issues.join("; "));
+    return checked.value;
+  }
+
+  function normalizeRelations(relations) {
+    return validateRelations(relations);
+  }
+
+  function validateModifier(modifier) {
+    if (!isPlainObject(modifier)) return validationFailure(["modifier: expected object"]);
+    const issues = [];
+    for (const key of unexpectedKeys(modifier, new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]))) {
+      issues.push(`modifier.${key}: unknown key`);
+    }
+    if (typeof modifier.id !== "string" || !modifier.id.trim()) issues.push("modifier.id: expected non-empty string");
+    if (!Number.isInteger(modifier.version) || modifier.version < 1) issues.push("modifier.version: expected positive integer");
+    if (!Array.isArray(modifier.compatibleStrategies) || !modifier.compatibleStrategies.length
+      || modifier.compatibleStrategies.some((strategy) => typeof strategy !== "string" || !/^([a-z_]+)@[1-9][0-9]*$/.test(strategy))) {
+      issues.push("modifier.compatibleStrategies: expected non-empty strategy version list");
+    }
+    if (hasOwn(modifier, "weekNumber") && (!Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1 || modifier.weekNumber > 6)) {
+      issues.push("modifier.weekNumber: out of range");
+    }
+    if (hasOwn(modifier, "target") && (typeof modifier.target !== "string" || !modifier.target.trim())) {
+      issues.push("modifier.target: expected non-empty string");
+    }
+    if (!isPlainObject(modifier.params)) issues.push("modifier.params: expected object");
+    if (issues.length) return validationFailure(issues);
+    const params = canonicalizeChecked(modifier.params, "modifier.params");
+    if (!params.ok) return params;
+    const value = {
+      id: modifier.id,
+      version: modifier.version,
+      compatibleStrategies: modifier.compatibleStrategies.slice().sort(),
+    };
+    if (hasOwn(modifier, "weekNumber")) value.weekNumber = modifier.weekNumber;
+    if (hasOwn(modifier, "target")) value.target = modifier.target;
+    value.params = params.value;
+    return { ok: true, value };
+  }
+
+  function validateModifiers(modifiers) {
+    if (!Array.isArray(modifiers)) return validationFailure(["modifiers: expected array"]);
+    const issues = [];
+    const identities = new Set();
+    const value = [];
+    for (let index = 0; index < modifiers.length; index++) {
+      const checked = validateModifier(modifiers[index]);
+      if (!checked.ok) {
+        issues.push(...checked.issues.map((issue) => `modifiers[${index}].${issue}`));
+        continue;
+      }
+      const identity = `${checked.value.id}@${checked.value.version}`;
+      if (identities.has(identity)) issues.push(`modifiers[${index}]: duplicate`);
+      identities.add(identity);
+      value.push(checked.value);
+    }
+    return issues.length ? validationFailure(issues) : { ok: true, value };
+  }
+
+  function canonicalizeModifier(modifier) {
+    const checked = validateModifier(modifier);
+    if (!checked.ok) throw new TypeError(checked.issues.join("; "));
+    return checked.value;
+  }
+
+  function normalizeModifier(modifier) {
+    return validateModifier(modifier);
+  }
+
+  function canonicalizeModifiers(modifiers) {
+    const checked = validateModifiers(modifiers);
+    if (!checked.ok) throw new TypeError(checked.issues.join("; "));
+    return checked.value;
+  }
+
+  function normalizeModifiers(modifiers) {
+    return validateModifiers(modifiers);
+  }
+
   function normalizeWorkingSet(set, path) {
     const issues = [];
     if (!isPlainObject(set)) return validationFailure([`${path}: expected object`]);
@@ -668,6 +921,21 @@
     jumpAmount,
     validateSettings,
     validateRangePrescription,
+    validatePrescription,
+    normalizePrescription,
+    canonicalizePrescription,
+    validateRelation,
+    validateRelations,
+    normalizeRelation,
+    normalizeRelations,
+    canonicalizeRelation,
+    canonicalizeRelations,
+    validateModifier,
+    validateModifiers,
+    normalizeModifier,
+    normalizeModifiers,
+    canonicalizeModifier,
+    canonicalizeModifiers,
     normalizeHistory,
     normalizeCurrentSession,
     summarizeSession,

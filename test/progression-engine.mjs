@@ -64,6 +64,105 @@ Object.freeze(history[0]);
 Object.freeze(history);
 
 assert.equal(Engine.validateRangePrescription(prescription).ok, true);
+const canonicalPrescriptionInput = {
+  modifiers: [],
+  strategy: {
+    params: { repMax: 8, repMin: 6, workingSets: 3 },
+    version: 1,
+    id: "range",
+  },
+  schemaVersion: 1,
+};
+const canonicalPrescription = Engine.validatePrescription(canonicalPrescriptionInput);
+assert.equal(canonicalPrescription.ok, true);
+assert.deepEqual(canonicalPrescription.value, prescription);
+assert.deepEqual(canonicalPrescriptionInput.strategy.params, { repMax: 8, repMin: 6, workingSets: 3 }, "prescription validation must not mutate input");
+
+const manualPrescription = Engine.validatePrescription({
+  schemaVersion: 1,
+  strategy: { id: "manual", version: 1, params: { authored: { label: "as written" } } },
+  modifiers: [],
+});
+assert.equal(manualPrescription.ok, true, "manual envelope is structurally valid without inventing numeric bounds");
+assert.deepEqual(manualPrescription.value.strategy, {
+  id: "manual",
+  version: 1,
+  params: { authored: { label: "as written" } },
+});
+
+for (const id of ["rep_goal", "anchor_backoff"]) {
+  const pending = Engine.validatePrescription({
+    schemaVersion: 1,
+    strategy: { id, version: 1, params: { pending: true } },
+    modifiers: [],
+  });
+  assert.equal(pending.ok, true, `${id} envelope validation must not invent unapproved bounds`);
+  assert.equal(pending.value.strategy.id, id);
+}
+
+const relation = Engine.validateRelation({
+  version: 1,
+  members: [
+    { role: "volume", exerciseId: "slot-volume" },
+    { exerciseId: "slot-heavy", role: "heavy" },
+  ],
+  movementId: "library:bench-press",
+  id: "relation-1",
+  type: "paired_exposure",
+  schemaVersion: 1,
+});
+assert.equal(relation.ok, true);
+assert.deepEqual(relation.value.members, [
+  { exerciseId: "slot-heavy", role: "heavy" },
+  { exerciseId: "slot-volume", role: "volume" },
+], "relation members must have deterministic heavy/volume order");
+assert.equal(Engine.validateRelation(null).value, null);
+assert.deepEqual(Engine.canonicalizeRelation(relation.value), relation.value);
+assert.equal(Engine.validateRelations([relation.value, null]).ok, false);
+assert.deepEqual(Engine.canonicalizeRelations([relation.value]), [relation.value]);
+
+for (const invalidRelation of [
+  {
+    schemaVersion: 1,
+    id: "relation-1",
+    type: "paired_exposure",
+    version: 1,
+    movementId: "library:bench-press",
+    members: [
+      { exerciseId: "slot-a", role: "heavy" },
+      { exerciseId: "slot-a", role: "volume" },
+    ],
+  },
+  {
+    schemaVersion: 1,
+    id: "relation-1",
+    type: "paired_exposure",
+    version: 1,
+    movementId: "library:bench-press",
+    members: [
+      { exerciseId: "slot-a", role: "heavy" },
+      { exerciseId: "slot-b", role: "heavy" },
+    ],
+  },
+]) {
+  assert.equal(Engine.validateRelation(invalidRelation).ok, false, "paired relation identity and roles are closed");
+}
+
+const modifier = Engine.validateModifier({
+  params: { pending: true },
+  target: "repMin",
+  weekNumber: 1,
+  compatibleStrategies: ["range@1"],
+  version: 1,
+  id: "pending-modifier",
+});
+assert.equal(modifier.ok, true, "modifier envelope can be preserved before numeric approval");
+assert.deepEqual(modifier.value.compatibleStrategies, ["range@1"]);
+assert.deepEqual(Engine.canonicalizeModifier(modifier.value), modifier.value);
+assert.deepEqual(Engine.canonicalizeModifiers([modifier.value]), [modifier.value]);
+assert.deepEqual(Engine.canonicalizePrescription(manualPrescription.value), manualPrescription.value);
+assert.equal(Engine.validateModifier({ id: "bad", version: 1, compatibleStrategies: [], params: {} }).ok, false);
+
 assert.equal(Engine.validateSettings(settings).ok, true);
 const normalized = Engine.normalizeHistory(history);
 assert.equal(normalized.ok, true);
@@ -163,6 +262,15 @@ const unsupported = Engine.evaluateProgression({
 });
 assert.equal(unsupported.kind, "incompatible");
 assert.deepEqual(unsupported.reasonCodes, ["engine.unsupported_strategy"]);
+
+const unsupportedModifier = Engine.evaluateProgression({
+  ...structuredClone(rangeFixtures.defaults),
+  engineVersion: 1,
+  history: [],
+  modifiers: [modifier.value],
+});
+assert.equal(unsupportedModifier.kind, "incompatible");
+assert.deepEqual(unsupportedModifier.reasonCodes, ["engine.unsupported_modifier"]);
 
 const polluted = Engine.evaluateProgression({
   ...structuredClone(rangeFixtures.defaults),
