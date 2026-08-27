@@ -1,21 +1,21 @@
 # Product/business thesis and validation sequencing
 
-**Status:** Accepted; amended August 23, 2026
+**Status:** Accepted; reconciled through owner decision Q602 on August 26, 2026
 
 **Strategic source of truth:**
 [`docs/business-product-thesis.md`](../business-product-thesis.md)
 
-**Capability detail:** [`docs/pro-backlog.md`](../pro-backlog.md)
+**Execution order:** [`docs/backlog.md`](../backlog.md)
 
 **Measurement/commercialization plan:**
 [`plans/044-posthog-measurement-experiments-paywall.md`](../../plans/044-posthog-measurement-experiments-paywall.md)
 
-**Later owner-decision register:**
+**Owner-decision register:**
 [`docs/product-grilling-decision-register.md`](../product-grilling-decision-register.md)
 
-The register contains decisions made after this amendment. Where it explicitly
-marks a position here as superseded, follow the register until this ADR and its
-companion documents are reconciled.
+This ADR and its companion documents are reconciled to the completed register.
+If a later owner decision is added, the register wins until another coordinated
+reconciliation.
 
 ## Context
 
@@ -37,9 +37,10 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
 - **Taurifer remains a progression-first strength-training system.** It owns
   program creation, execution, interpretation, and the transition to what
   comes next.
-- **Generator-first acquisition is primary.** Entry hierarchy is: generate
-  for me → choose a Taurifer template → bring my own program. BYOP remains a
-  first-class migration/expert path, not the primary acquisition thesis.
+- **Generator-first acquisition is primary.** Entry hierarchy is: Create a
+  Taurifer program (Recommend or Generate custom) → Browse Taurifer programs →
+  Bring or build my own (Build or Import). BYOP remains a first-class
+  migration/expert path, not the primary acquisition thesis.
 - **The primary initial customer is a self-directed intermediate lifter** who
   wants Taurifer to create and adapt a coherent program. Ambitious beginners
   and advanced external-program users remain supported without defining the
@@ -66,6 +67,17 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
 - **Manual progression is legitimate.** An imported or authored exercise may
   declare that Taurifer should show history and preserve the prescription
   without inventing a target.
+- **Family policy is structural.** Principal families receive genuine three-
+  and five-day siblings; generated paths preserve two- and six-day users
+  without requiring every Browse family to expose every frequency. Home is a
+  separate limited-equipment consistency family. Foundation is an internal
+  simple-start profile. Browse shows only complete executable programs.
+- **Program instances are owned and version-pinned.** The athlete may edit or
+  rename a selected program. Family updates are offered, never silently
+  applied.
+- **Fixed-week v1 structure repeats.** Six weeks is the default block length;
+  progression changes prescriptions, not the weekly schedule. A scheduled
+  review never implies an automatic deload.
 
 ### Free and Pro
 
@@ -107,6 +119,10 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
   The program remains editable and executable and Free set progression
   continues; future program-level optimization and next-program generation
   stop.
+- **Contextual extensions are legitimate Pro territory.** Program-aware one-
+  off planning and multi-gym sibling program management may ship with or after
+  the three-job MVP, but may be sold only when working. Free retains useful
+  manual/classic one-offs, substitutions, and ordinary execution.
 
 ### Intervention policy
 
@@ -133,9 +149,11 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
 - **Validation before platform hardening remains constitutional.** Phase 1
   continues on the existing web core; native remains an evidence-triggered
   wrap-not-rewrite destination.
-- **A noncommercial assisted-program alpha precedes Pro.** Recruit 8–12
-  target lifters, provision generated/template-based programs with human
-  review, and test the gym-floor execution loop for approximately six weeks.
+- **A rolling noncommercial program-based alpha precedes Pro.** Recruit
+  organically one person at a time; eight to twelve participants is an evidence
+  milestone, not a synchronized cohort. Participants self-select and use normal
+  onboarding. Review designs/rules/synthetic outputs before alpha; do not audit
+  each participant's individual program.
 - **The metric hierarchy is:** logging speed/reliability guardrail →
   progression trust mechanism → spreadsheet abandonment switching behavior →
   repeated workout completion/retention outcome.
@@ -168,6 +186,33 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
   normal PostHog property, is never captured by replay/autocapture/console/URL,
   is deleted within 90 days, and never solely triggers an automated
   intervention.
+- **AI text is never PostHog data.** Conversations, proposals, comments,
+  remembered text, support reports, and research cases use purpose-specific
+  systems and are never joined to PostHog at person level.
+
+### Managed Taurifer AI
+
+- **BYOK is superseded.** After the deterministic paid beta proves Taurifer's
+  economics, Pro may add a managed, adult-only, PT-BR-first Taurifer AI under
+  [`ADR 0011`](0011-managed-taurifer-ai.md).
+- **AI is contextual and subordinate.** No Chat tab, fictional coach, silent
+  mutation, history rewrite, diagnosis, or unsupported programming. Structured
+  evidence-linked proposals require approval; major changes require a second
+  confirmation.
+- **Only necessary context leaves the device.** Workout history remains local;
+  cloud scope is identity, subscription, AI conversation/preferences/proposals,
+  and request-specific context.
+- **Provider and knowledge changes are governed.** Zero provider retention,
+  product-owned risk routing, disclosed provider/region, primary and backup
+  evaluation, sourced/versioned knowledge, staged changes, rollback, and
+  protected/generated evaluation cases are required.
+- **Research is separately consented and separated.** Redact before writing to
+  separately credentialed research storage; use pseudonymous research IDs and
+  deletion mapping; raw copies live at most twelve months; uncertain redaction
+  means no copy.
+- **Preview is not a paid promise.** Eligible adult PT-BR Pro users self-select
+  in controlled waves. English AI earns a separate release. Preview use,
+  complementary grants, purchase attempts, and revenue are measured separately.
 
 ### Distribution and platform
 
@@ -196,16 +241,22 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
 - Pro Generator v1 as muscle priorities/preferences/volume controls only.
 - A fixed plateau-escalation order.
 - Raw exit-note text as a normal analytics property or session-replay input.
+- Public family/frequency policy left open.
+- One equipment profile with name-based cross-gym history.
+- Off-program training as an unmodeled exception.
+- BYOK browser-provider AI and a user-supplied provider key.
+- Vague “history-grounded AI later” without provider, memory, consent,
+  evaluation, support, language, allowance, and Preview contracts.
 
 ## Consequences
 
 - [`docs/business-product-thesis.md`](../business-product-thesis.md),
-  [`docs/pro-backlog.md`](../pro-backlog.md), and
+  [`docs/backlog.md`](../backlog.md), and
   [`Plan 044`](../../plans/044-posthog-measurement-experiments-paywall.md)
-  must express this amendment; older fake-door, price-test, cohort, and
-  progression language is non-authoritative.
+  express this reconciliation. ADR 0011 governs managed AI; ADR 0002 and Plan
+  038 are historical superseded records.
 - The initial engine/family work and program lifecycle are prerequisites for
-  both the assisted alpha and Pro MVP. They are core product infrastructure,
+  both the rolling alpha and Pro MVP. They are core product infrastructure,
   not paid capabilities.
 - Pro implementation must be decomposed into separately reviewable science,
   domain-model, UX, engine, intervention, and commerce plans. This ADR does not

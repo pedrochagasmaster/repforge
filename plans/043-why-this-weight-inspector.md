@@ -44,8 +44,8 @@
    result (`recommendation()` gains additive fields in Step 1). It never
    re-derives a trigger in parallel. If the sheet needs a number the engine
    didn't attach, attach it — do not recompute the condition.
-3. **Deterministic engine only.** The BYOK AI coach (plan 038, ADR 0002) is
-   a separate surface and out of scope here.
+3. **Deterministic engine only.** Managed Taurifer AI (ADR 0011) is a later,
+   separate surface and out of scope here.
 4. **No new settings, no new tab, no render-path cost.** The sheet's content
    is built on tap, never during `renderWorkout`. The only render-path
    addition is one static button per card. Log-tab speed remains the top
@@ -702,7 +702,7 @@ change to those thresholds must revisit both strings.
 
 ## Maintenance notes
 
-- **F3 (lb display policy, `docs/prelaunch-deferrals.md`) will land on this
+- **The lb display/actionable-increment debt in `docs/backlog.md` reaches this
   surface.** The load rows format `minJump` and loads through
   `fmtLoad`/`unitLabel`, so in lb mode they inherit today's unloadable
   values (e.g. a "2.5 kg" step shown as 5.51 lb). When F3 is resolved,
@@ -718,5 +718,5 @@ change to those thresholds must revisit both strings.
   "why"), showing the freshness percentage, and a "today's sets" row in
   the sheet — all cut to keep v1 tap-cheap. Re-open only with a product
   decision.
-- The BYOK coach (plan 038) may later want to *reference* this sheet's
-  facts in chat; it must call `explainRecommendation`, not duplicate it.
+- Managed Taurifer AI (ADR 0011) may later *reference* this sheet's facts in
+  chat; it must call `explainRecommendation`, not duplicate it.

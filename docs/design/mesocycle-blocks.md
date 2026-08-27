@@ -1,8 +1,10 @@
-# Mesocycle blocks — design spike
+# Mesocycle blocks — historical design spike
 
-> **Status**: Design spike output from Plan 023 (commit `ff67850`, 2026-07-01).
-> **Build plan**: `plans/024-mesocycle-blocks.md` (DRAFT — do not execute until
-> a human reviews this document).
+> **Status**: Historical input to the implemented block/mesocycle lifecycle.
+> The design review and Plan 024 build shipped; this document's old line
+> anchors and open questions are not current backlog. See
+> [`docs/backlog.md`](../backlog.md) for current work.
+> **Build plan**: `plans/024-mesocycle-blocks.md` (implemented; historical).
 >
 > **Evidence base**: Read against live `app.js`, `index.html`, and
 > `test/simulation.mjs` at workspace HEAD. Line citations below match that tree;
@@ -346,6 +348,6 @@ before Plan 024 execution.
 
 - Plan 023 spike brief: `plans/023-mesocycle-blocks-design-spike.md`
 - Draft build plan: `plans/024-mesocycle-blocks.md`
-- Persona source: `docs/persona-product-feedback-report.md` (spreadsheet
-  maximalist — mesocycle block ID in export)
+- Historical source: the July 2026 spreadsheet-oriented product review
+  (preserved in git history)
 - Program persistence philosophy: `app.js:84-90`

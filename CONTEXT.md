@@ -1,6 +1,6 @@
 # Taurifer
 
-Taurifer (formerly RepForge; internal storage keys and globals keep the `repforge` codename) is a local-first progressive-overload tracker. Workout logs, drafts, and history stay on the device; setup links intentionally share a program and selected settings. The app helps lifters log sets, follow a program template, and see whether they are progressing. Strategic direction — market, business model, Free/Pro boundaries, validation sequencing — lives in `docs/business-product-thesis.md` (decisions recorded in `docs/adr/0010-product-business-thesis-and-validation-sequencing.md`).
+Taurifer (formerly RepForge; internal storage keys and globals keep the `repforge` codename) is a local-first progressive-overload tracker. Workout logs, drafts, and history stay on the device; setup links intentionally share a program and selected settings. The app helps lifters log sets, follow a program template, and see whether they are progressing. Strategic direction lives in `docs/business-product-thesis.md`; the ordered work lives only in `docs/backlog.md`; governing decisions live in ADR 0010, ADR 0011, and the product decision register.
 
 ## Language
 
@@ -88,29 +88,22 @@ _Avoid_: Report card, grade, score
 A program created from onboarding answers; the user can edit it before saving.
 _Avoid_: Auto-plan, AI workout, recommended routine
 
-**Coach**:
-_Status: speculative — plan 038 is a brainstorming artifact, unimplemented and not part of the current product thesis (see `docs/business-product-thesis.md` §16, ADR 0010). Any future AI layer is a Pro capability subordinate to the deterministic product._
-The opt-in, bring-your-own-key LLM chat surface (plan 038, ADR 0002). Grounded in coach context; may emit coach proposals. Distinct from the deterministic signals (recommendations, program status), which exist without it.
-_Avoid_: AI assistant, chatbot, trainer
+**Taurifer AI**:
+_Status: approved later Pro direction after paid-beta economics; unimplemented. Governed by ADR 0011._
+The managed, adult, PT-BR-first capability that explains evidence and proposes bounded, versioned program changes. It appears in context rather than as a permanent Chat tab, uses product-evaluated providers, and never changes a program without approval.
+_Avoid_: Coach, AI personal trainer, chatbot, BYOK assistant
 
-**Coach context**:
-_Status: speculative — belongs to the unimplemented coach direction above._
-The scoped, deterministic payload sent with a coach request — program, derived signals, and a bounded window of log data chosen per entry point. Bodyweight is excluded unless the lifter opts in; the payload is inspectable in the coach sheet.
-_Avoid_: Prompt (the persona/system text), data dump
+**AI request context**:
+The minimum request-relevant local program/history evidence sent for one Taurifer AI task. Core workout history remains local; the product distinguishes observed facts, user reports, and inference.
+_Avoid_: Data dump, full workout upload, coach context
 
-**Coach proposal**:
-_Status: speculative — belongs to the unimplemented coach direction above._
-A structured, validated program change emitted by the coach and applied only by an explicit user tap. Proposals target the program (templates and metadata), never the log.
-_Avoid_: Auto-adjustment, AI edit, recommendation (reserved for the deterministic engine)
+**AI proposal**:
+A structured, evidence-linked, versioned program change proposed by Taurifer AI. The user approves every mutation; consequential structural changes receive a second confirmation; workout history is immutable.
+_Avoid_: Automatic adjustment, recommendation (reserved for the deterministic engine), coach proposal
 
 **Session summary**:
-The full-screen close of a finished session, opened by Finish workout. Reads back what the session did — sets, load moved, lifts, any personal records, how the lifts moved, hard sets per muscle, where the week now stands — and returns to Today when dismissed. Every figure is one an existing surface already computes, so it can never disagree with History or Progress. Deterministic and offline; unrelated to the coach.
+The full-screen close of a finished session, opened by Finish workout. Reads back what the session did — sets, load moved, lifts, any personal records, how the lifts moved, hard sets per muscle, where the week now stands — and returns to Today when dismissed. Every figure is one an existing surface already computes, so it can never disagree with History or Progress. Deterministic and offline; unrelated to Taurifer AI.
 _Avoid_: Score, rating, streak, badge, points, celebration screen
-
-**Session review**:
-_Status: speculative — belongs to the unimplemented coach direction above; the session summary (deterministic, shipped) is unaffected._
-A coach conversation seeded with the just-saved session and its previous comparable session, offered (never auto-opened) after Save workout. Distinct from the session summary, which is deterministic and always shown.
-_Avoid_: Workout grade, post-workout report
 
 **Shared program**:
 A program received through a setup link (`#setup=` fragment): externally authored — by a coach, creator, or friend — carried self-contained in the URL, confirmed at the first-run gate, and first-class once started: it runs on the same execution and progression engine as any other program.
@@ -126,7 +119,7 @@ The permanent free floor of the launched product: a capable baseline program gen
 _Avoid_: Lite version, basic plan, free trial (Free is permanent, not a trial)
 
 **Taurifer Pro**:
-The additive paid layer: advanced and history-informed program generation, cross-program and multi-block intelligence, long-horizon analysis, optional cross-device synchronization, and future history-grounded AI. Pro adds capability around the engine; it never buys different engine conclusions and never subtracts from the Free floor.
+The additive paid layer whose first complete product is advanced first-program generation, history-aware next-program generation, and bounded within-program adaptation. Later it may add cross-program intelligence, sync, and managed Taurifer AI behind their evidence gates. Pro never buys different deterministic engine conclusions and never subtracts from the Free floor.
 _Avoid_: Premium unlock, upsell tier, paywall (the surface, not the product)
 
 **Commercial-launch boundary**:

@@ -1,5 +1,11 @@
 # Plan 038: BYOK AI coach — chat sheet with structured, user-approved program proposals
 
+> **SUPERSEDED — DO NOT EXECUTE.** Owner decisions Q464–Q602 replace BYOK,
+> browser-direct providers, user API keys, local-only chat, and this proposal
+> protocol with managed Taurifer AI after the deterministic paid beta. See
+> [`ADR 0011`](../docs/adr/0011-managed-taurifer-ai.md). This file remains only
+> as historical design context.
+
 > **Executor instructions**: Follow this plan step by step. Run every
 > verification command and confirm the expected result before moving to the
 > next step. If anything in the "STOP conditions" section occurs, stop and
@@ -26,7 +32,7 @@
 
 ## Status
 
-- **Priority**: P1
+- **Priority**: SUPERSEDED
 - **Effort**: L
 - **Risk**: HIGH (first network feature in a local-only app; first LLM
   surface; touches export/import invariants and program mutation paths)
