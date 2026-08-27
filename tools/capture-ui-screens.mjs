@@ -52,6 +52,7 @@ const LABELS = {
   "20-program-text": "Program text export sheet",
   "21-settings": "Settings",
   "22-settings-appearance": "Settings — Appearance row",
+  "34-settings-privacy": "Settings — privacy and analytics",
   "23-exercise-picker": "Exercise picker sheet",
   "24-custom-exercise": "Custom exercise sheet",
   "25-session-summary": "Session summary",
@@ -512,6 +513,9 @@ async function captureMain(browser, theme) {
       await page.evaluate(() => document.querySelector("#theme")?.closest("label, .settings-row")?.scrollIntoView({ block: "center" }));
       await sleep(page, 200);
       await shot(page, theme, "22-settings-appearance");
+      await page.evaluate(() => document.querySelector("#telemetryToggle")?.closest(".settings-group")?.scrollIntoView({ block: "center" }));
+      await sleep(page, 200);
+      await shot(page, theme, "34-settings-privacy");
       await page.click("#settingsBack");
       await sleep(page, 300);
     });

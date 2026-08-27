@@ -1,0 +1,117 @@
+export const ALPHA_EVENT_NAMES = Object.freeze([
+  "app_boot",
+  "program_path_selected",
+  "generator_started",
+  "generator_completed",
+  "template_selected",
+  "program_activated",
+  "first_set_logged",
+  "set_saved",
+  "recommendation_explained",
+  "recommendation_overridden",
+  "exercise_skipped",
+  "substitution_used",
+  "equipment_context_selected",
+  "one_off_started",
+  "one_off_completed",
+  "session_completed",
+  "session_abandoned",
+  "session_summary_viewed",
+  "block_review_viewed",
+  "program_transition_selected",
+]);
+
+export const VALID_ALPHA_EVENTS = Object.freeze([
+  ["app_boot", { first_run: true, language: "en", platform_class: "desktop" }],
+  ["program_path_selected", { route: "import" }],
+  ["generator_started", { mode: "baseline" }],
+  ["generator_completed", { goal: "balanced", frequency: "3", family: "legacy" }],
+  ["template_selected", { family: "growth_v1" }],
+  ["program_activated", { route: "shared", version_category: "shared_v1" }],
+  ["first_set_logged", {}],
+  ["set_saved", { vs_suggestion: "matched" }],
+  ["recommendation_explained", { surface: "workout" }],
+  ["recommendation_overridden", { reason: "other" }],
+  ["exercise_skipped", { context: "planned_session" }],
+  ["substitution_used", { reason: "equipment" }],
+  ["equipment_context_selected", { context_count: "2" }],
+  ["one_off_started", { kind: "manual", time: "45", equipment: "limited" }],
+  ["one_off_completed", { kind: "manual", duration: "31_60" }],
+  ["session_completed", { set_count: "6_10", exercise_count: "4_6", duration: "31_60" }],
+  ["session_abandoned", { stage: "working", reason: "time" }],
+  ["session_summary_viewed", {}],
+  ["block_review_viewed", { completion: "complete" }],
+  ["program_transition_selected", { transition: "resume" }],
+]);
+
+export const INVALID_EVENTS = Object.freeze([
+  ["unknown_event", {}],
+  ["workout_completed", {}],
+  ["first_set_logged", { exercise_id: "sq_bb" }],
+  ["set_saved", { vs_suggestion: "matched", load: 100 }],
+  ["session_completed", { set_count: 10, exercise_count: "4_6", duration: "31_60" }],
+  ["program_path_selected", { route: "recommend", $current_url: "https://example.test/?secret" }],
+  ["generator_completed", { goal: "balanced", frequency: "3", family: { id: "growth" } }],
+]);
+
+export const HOSTILE_SENTINELS = Object.freeze([
+  "TAURIFER_SENTINEL_FREE_TEXT_7ab0",
+  "https://taurifer.example/?TAURIFER_SENTINEL_QUERY_7ab0#setup=v2.secret",
+  "v2.TAURIFER_SENTINEL_SETUP_7ab0",
+  "Squat TAURIFER_SENTINEL_EXERCISE_7ab0",
+  "100.25kgx7@RIR2_TAURIFER_SENTINEL_WORKOUT_7ab0",
+  "Error: TAURIFER_SENTINEL_STACK_7ab0",
+  "%23setup%3Dv2.TAURIFER_SENTINEL_ENCODED_7ab0",
+]);
+
+/* The duplicate expectation every event must declare, held beside the schema
+   rather than only inside the module it describes. A funnel that cannot say
+   how often an event may legitimately repeat cannot tell a double-fire
+   regression from a change in behavior. */
+export const DUPLICATE_POLICY_VOCABULARY = Object.freeze([
+  "once_per_boot",
+  "once_per_setup_flow",
+  "once_per_session",
+  "milestone",
+  "repeatable",
+]);
+
+export const EVENT_DUPLICATE_POLICIES = Object.freeze({
+  app_boot: "once_per_boot",
+  program_path_selected: "once_per_setup_flow",
+  generator_started: "once_per_setup_flow",
+  generator_completed: "once_per_setup_flow",
+  template_selected: "once_per_setup_flow",
+  program_activated: "once_per_setup_flow",
+  first_set_logged: "milestone",
+  set_saved: "repeatable",
+  recommendation_explained: "repeatable",
+  recommendation_overridden: "repeatable",
+  exercise_skipped: "repeatable",
+  substitution_used: "repeatable",
+  equipment_context_selected: "repeatable",
+  one_off_started: "once_per_session",
+  one_off_completed: "once_per_session",
+  session_completed: "once_per_session",
+  session_abandoned: "once_per_session",
+  session_summary_viewed: "once_per_session",
+  block_review_viewed: "repeatable",
+  program_transition_selected: "once_per_setup_flow",
+});
+
+export const FORBIDDEN_PROPERTY_NAMES = Object.freeze([
+  "$current_url",
+  "$referrer",
+  "bodyweight",
+  "cookie",
+  "exercise_id",
+  "exercise_name",
+  "free_text",
+  "load",
+  "notes",
+  "program_id",
+  "reps",
+  "rir",
+  "setup",
+  "url",
+]);
