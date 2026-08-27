@@ -6371,18 +6371,21 @@ function exportProgram(){
  * The program as something a lifter can read or paste into a chat: the name and
  * how many days it runs, then each training day with its muscles and its
  * exercise templates numbered in order, "3× 6 to 10" for sets × rep range.
- * Lossy by design — the text can be imported back, while ids, per-exercise
- * muscles, notes, and alternates require the lossless JSON export. */
+ * The readable body intentionally omits editor-only details; the structured
+ * appendix round-trips progression envelopes and incompatibility provenance.
+ * Per-exercise muscles, notes, and alternates still require the JSON export. */
 const programTextReps=e=>e.min===e.max?`${e.min}`:t("program.export_text.rep_range",{min:e.min,max:e.max});
 const PROGRAM_TEXT_DATA_MARKER="TAURIFER-DATA";
 function programTextData(meta,program){
   const relations=normalizeProgressionRelations(meta?.progressionRelations,program);
   const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
-  const exercises=program.filter(ex=>ex?.progression||relationSlots.has(ex?.id)).map(ex=>({day:ex.day,order:ex.order,id:ex.id,
-    movementId:ex.movementId,progression:cloneSnapshot(ex.progression)}));
+  const exercises=program.filter(ex=>ex?.progression||ex?.progressionIncompatibility||relationSlots.has(ex?.id)).map(ex=>({day:ex.day,order:ex.order,id:ex.id,
+    movementId:ex.movementId,...(ex.progression?{progression:cloneSnapshot(ex.progression)}:{}),
+    ...(ex.progressionIncompatibility?{progressionIncompatibility:cloneSnapshot(ex.progressionIncompatibility)}:{})}));
   const modifiers=normalizeProgressionModifiers(meta?.progressionModifiers);
-  if(!exercises.length&&!relations.length&&!modifiers.length)return null;
-  return{version:1,exercises,relations,modifiers};
+  const incompatibilities=Array.isArray(meta?.progressionIncompatibilities)?cloneSnapshot(meta.progressionIncompatibilities):[];
+  if(!exercises.length&&!relations.length&&!modifiers.length&&!incompatibilities.length)return null;
+  return{version:1,exercises,relations,modifiers,incompatibilities};
 }
 function programText(){
   const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
@@ -6941,11 +6944,12 @@ function parseProgramTextExport(text){
       const carried=data?.exercises?.find(ex=>ex?.day===d.day&&ex?.order===i+1);
       exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max,
         ...(carried?.id?{id:carried.id}:{ }),...(carried?.movementId?{movementId:carried.movementId}:{ }),
-        ...(carried?.progression?{progression:carried.progression}:r.progression?{progression:r.progression}:{ })});
+        ...(carried?.progression?{progression:carried.progression}:r.progression?{progression:r.progression}:{}),
+        ...(carried?.progressionIncompatibility?{progressionIncompatibility:carried.progressionIncompatibility}:{} )});
     });
   if(!exercises.length)return null;
   const metaOut=title?{name:title}:null;
-  if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers}
+  if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers;if(Array.isArray(data.incompatibilities))metaOut.progressionIncompatibilities=data.incompatibilities}
   return{exercises,meta:metaOut,customExercises:[]}}
 
 /* Reads whatever the file turns out to be. JSON first, then the text export. */

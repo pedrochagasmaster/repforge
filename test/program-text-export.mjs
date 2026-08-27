@@ -47,6 +47,12 @@ function fixture(lang) {
           modifiers: [],
         },
       } : {}),
+      ...(i === 1 ? {
+        progressionIncompatibility: {
+          version: 1, kind: "prescription", source: "test", reason: "future",
+          value: { schemaVersion: 1, strategy: { id: "future_strategy", version: 99, params: { authored: true } }, modifiers: [] },
+        },
+      } : {}),
     };
   });
   return {
@@ -67,6 +73,10 @@ function fixture(lang) {
         members: [{ exerciseId: "ex0", role: "heavy" }, { exerciseId: "ex1", role: "volume" }],
       }],
       progressionModifiers: [{ id: "modifier-text", version: 1, compatibleStrategies: ["range@1"], params: { pending: true } }],
+      progressionIncompatibilities: [{
+        version: 1, kind: "modifiers", source: "test", reason: "future",
+        value: [{ id: "future-modifier", version: 1, compatibleStrategies: ["range@1"], params: { pending: true }, futureField: true }],
+      }],
     },
     program,
     log: [],
@@ -159,6 +169,9 @@ async function run() {
   assert(parsed?.meta?.progressionRelations?.[0]?.id === "relation-text" &&
     parsed?.meta?.progressionModifiers?.[0]?.id === "modifier-text",
     "text import preserves structured relation and modifier data");
+  assert(parsed?.exercises?.[1]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy" &&
+    parsed?.meta?.progressionIncompatibilities?.[0]?.value?.[0]?.id === "future-modifier",
+    "text import preserves incompatible progression provenance");
 
   assert(lines[0] === "TREINO CECELA, 2 dias/semana", "header carries the program name and days per week", lines[0]);
   assert(lines[1] === "", "a blank line separates the header from the first day");
