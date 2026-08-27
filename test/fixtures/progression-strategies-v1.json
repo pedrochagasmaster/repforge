@@ -1,0 +1,498 @@
+{
+  "kind": "taurifer-progression-strategy-fixtures",
+  "schemaVersion": 1,
+  "engineVersion": 1,
+  "contract": "docs/progression-strategy-contract.md",
+  "strategies": {
+    "range@1": {
+      "approval": "locked",
+      "source": [
+        "plans/039-capacity-driven-suggestions.md",
+        "plans/043-why-this-weight-inspector.md",
+        "docs/adr/0003-capacity-as-progression-currency.md"
+      ],
+      "defaults": {
+        "prescription": {
+          "schemaVersion": 1,
+          "strategy": {
+            "id": "range",
+            "version": 1,
+            "params": {
+              "workingSets": 2,
+              "repMin": 6,
+              "repMax": 8
+            }
+          },
+          "modifiers": []
+        },
+        "settings": {
+          "minLoadIncrement": 2.5,
+          "jumpPercent": 2.5,
+          "hardRir": 4
+        },
+        "relation": null,
+        "modifiers": [],
+        "currentSession": [],
+        "context": {
+          "weekNumber": 1,
+          "blockLength": 6,
+          "blockStart": null
+        }
+      },
+      "cases": [
+        {
+          "id": "range-no-history",
+          "approval": "locked",
+          "history": [],
+          "expected": {
+            "kind": "recommendation",
+            "status": "new",
+            "legacyStatus": "new",
+            "reasonCodes": ["range.no_history"],
+            "targetLoad": null,
+            "targetReps": 6
+          }
+        },
+        {
+          "id": "range-capacity-extends-jump",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 6, "rir": 3},
+                {"load": 100, "reps": 6, "rir": 3}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add",
+            "reasonCodes": ["range.capacity_top", "range.reentry"],
+            "targetLoad": 102.5,
+            "targetReps": 6,
+            "capacityReps": 9
+          }
+        },
+        {
+          "id": "range-rir-credit-is-capped",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 6, "rir": 6},
+                {"load": 100, "reps": 6, "rir": 6}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add",
+            "reasonCodes": ["range.capacity_top", "range.reentry"],
+            "targetLoad": 102.5,
+            "targetReps": 6,
+            "capacityReps": 10
+          }
+        },
+        {
+          "id": "range-performed-top-never-retracted",
+          "approval": "locked",
+          "overrides": {"prescription.strategy.params.workingSets": 3},
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 8, "rir": 0},
+                {"load": 100, "reps": 8, "rir": 0},
+                {"load": 100, "reps": 8, "rir": 0}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add",
+            "reasonCodes": ["range.performed_top", "range.reentry"],
+            "targetLoad": 102.5,
+            "targetReps": 7,
+            "capacityReps": 8
+          }
+        },
+        {
+          "id": "range-near-top-majority",
+          "approval": "locked",
+          "overrides": {"prescription.strategy.params.workingSets": 3},
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 8, "rir": 0},
+                {"load": 100, "reps": 8, "rir": 0},
+                {"load": 100, "reps": 7, "rir": 0}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add",
+            "reasonCodes": ["range.performed_top", "range.reentry"],
+            "targetLoad": 102.5,
+            "targetReps": 7,
+            "capacityReps": 8
+          }
+        },
+        {
+          "id": "range-capacity-double-jump",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 7, "rir": 4},
+                {"load": 100, "reps": 7, "rir": 4}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add2",
+            "reasonCodes": ["range.capacity_top_double", "range.reentry"],
+            "targetLoad": 105,
+            "targetReps": 6,
+            "capacityReps": 11
+          }
+        },
+        {
+          "id": "range-capacity-below-floor-reduces",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 5, "rir": 0},
+                {"load": 100, "reps": 5, "rir": 0}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "reduce",
+            "legacyStatus": "reduce",
+            "reasonCodes": ["range.below_floor", "range.reentry"],
+            "targetLoad": 97.5,
+            "targetReps": 6,
+            "capacityReps": 5
+          }
+        },
+        {
+          "id": "range-early-stop-capacity-holds",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 5, "rir": 2},
+                {"load": 100, "reps": 5, "rir": 2}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "legacyStatus": "hold",
+            "reasonCodes": ["range.capacity_room"],
+            "targetLoad": 100,
+            "targetReps": 6,
+            "capacityReps": 7
+          }
+        },
+        {
+          "id": "range-room-holds-and-chases",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 6, "rir": 0},
+                {"load": 100, "reps": 6, "rir": 0}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "legacyStatus": "hold",
+            "reasonCodes": ["range.room_in_range"],
+            "targetLoad": 100,
+            "targetReps": 7,
+            "capacityReps": 6
+          }
+        },
+        {
+          "id": "range-capacity-room-holds-and-chases",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 100, "reps": 6, "rir": 2},
+                {"load": 100, "reps": 6, "rir": 2}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "legacyStatus": "hold",
+            "reasonCodes": ["range.capacity_room"],
+            "targetLoad": 100,
+            "targetReps": 7,
+            "capacityReps": 8
+          }
+        },
+        {
+          "id": "range-grid-step-dominates-light-jump",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 20, "reps": 8, "rir": 0},
+                {"load": 20, "reps": 8, "rir": 0}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add",
+            "reasonCodes": ["range.performed_top", "range.reentry"],
+            "targetLoad": 22.5,
+            "targetReps": 6,
+            "capacityReps": 8
+          }
+        },
+        {
+          "id": "range-off-grid-hold-snaps",
+          "approval": "locked",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {"load": 101, "reps": 6, "rir": 0},
+                {"load": 101, "reps": 6, "rir": 0}
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "legacyStatus": "hold",
+            "reasonCodes": ["range.room_in_range", "range.grid_rounded", "range.reentry"],
+            "targetLoad": 100,
+            "targetReps": 6,
+            "capacityReps": 6
+          }
+        },
+        {
+          "id": "range-three-session-stall",
+          "approval": "locked",
+          "history": [
+            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 6, "rir": 1}, {"load": 100, "reps": 6, "rir": 1}]},
+            {"sessionId": "s2", "date": "2026-01-08", "sets": [{"load": 100, "reps": 6, "rir": 1}, {"load": 100, "reps": 6, "rir": 1}]},
+            {"sessionId": "s3", "date": "2026-01-15", "sets": [{"load": 100, "reps": 6, "rir": 1}, {"load": 100, "reps": 6, "rir": 1}]}
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "recalibrate",
+            "legacyStatus": "reduce",
+            "reasonCodes": ["range.stalled"],
+            "targetLoad": 100,
+            "targetReps": 6,
+            "capacityReps": 7
+          }
+        },
+        {
+          "id": "range-two-session-recovery",
+          "approval": "locked",
+          "history": [
+            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 0}, {"load": 100, "reps": 7, "rir": 0}]},
+            {"sessionId": "s2", "date": "2026-01-08", "sets": [{"load": 100, "reps": 7, "rir": 0}, {"load": 100, "reps": 7, "rir": 0}]}
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "legacyStatus": "hold",
+            "reasonCodes": ["range.recovery"],
+            "targetLoad": 100,
+            "targetReps": 7,
+            "capacityReps": 7
+          }
+        },
+        {
+          "id": "range-falling-block-tempers-double-jump",
+          "approval": "locked",
+          "overrides": {"context.blockStart": "2026-01-01"},
+          "history": [
+            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 10, "rir": 0}, {"load": 100, "reps": 10, "rir": 0}]},
+            {"sessionId": "s2", "date": "2026-01-08", "sets": [{"load": 100, "reps": 8, "rir": 0}, {"load": 100, "reps": 8, "rir": 0}]},
+            {"sessionId": "s3", "date": "2026-01-15", "sets": [{"load": 100, "reps": 7, "rir": 4}, {"load": 100, "reps": 7, "rir": 4}]}
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add",
+            "reasonCodes": ["range.capacity_top_double", "range.block_tempered", "range.reentry"],
+            "targetLoad": 102.5,
+            "targetReps": 8,
+            "capacityReps": 11
+          }
+        },
+        {
+          "id": "range-current-set-holds",
+          "approval": "locked",
+          "history": [
+            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+          ],
+          "currentSession": [
+            {"load": 100, "reps": 8, "rir": 1}
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "legacyStatus": "hold",
+            "reasonCodes": ["range.current_hold"],
+            "targetLoad": 100,
+            "targetReps": 8,
+            "capacityReps": 9
+          }
+        },
+        {
+          "id": "range-current-set-observed-drop",
+          "approval": "locked",
+          "history": [
+            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+          ],
+          "currentSession": [
+            {"load": 100, "reps": 8, "rir": 1},
+            {"load": 100, "reps": 7, "rir": 1}
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "legacyStatus": "hold",
+            "reasonCodes": ["range.current_hold", "range.current_drop"],
+            "targetLoad": 100,
+            "targetReps": 6,
+            "capacityReps": 7.025641
+          }
+        },
+        {
+          "id": "range-current-set-advances",
+          "approval": "locked",
+          "history": [
+            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+          ],
+          "currentSession": [
+            {"load": 100, "reps": 8, "rir": 3}
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "legacyStatus": "add",
+            "reasonCodes": ["range.current_advance", "range.reentry"],
+            "targetLoad": 102.5,
+            "targetReps": 8,
+            "capacityReps": 11
+          }
+        },
+        {
+          "id": "range-current-set-reduces",
+          "approval": "locked",
+          "history": [
+            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+          ],
+          "currentSession": [
+            {"load": 100, "reps": 5, "rir": 0}
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "reduce",
+            "legacyStatus": "reduce",
+            "reasonCodes": ["range.current_reduce", "range.reentry"],
+            "targetLoad": 97.5,
+            "targetReps": 6,
+            "capacityReps": 5
+          }
+        }
+      ]
+    },
+    "rep_goal@1": {
+      "approval": "pending",
+      "requiredDecisions": [
+        "total-goal advancement at the effort boundary",
+        "post-advance distribution policy",
+        "partial-session expected set drop",
+        "missed and extra-set treatment",
+        "bodyweight and load-rounding behavior"
+      ],
+      "cases": []
+    },
+    "anchor_backoff@1": {
+      "approval": "pending",
+      "requiredDecisions": [
+        "back-off derivation rule and bounds",
+        "anchor advancement and failed-anchor response",
+        "missing-anchor fallback",
+        "back-off rounding and bodyweight behavior"
+      ],
+      "cases": []
+    },
+    "manual@1": {
+      "approval": "pending",
+      "requiredDecisions": [
+        "structured authored-field bounds and backup preservation shape"
+      ],
+      "lockedBehavior": [
+        "returns kind manual and status manual",
+        "does not invent load reps RIR sets or ghost targets"
+      ],
+      "cases": []
+    }
+  },
+  "relations": {
+    "paired_exposure@1": {
+      "approval": "pending",
+      "requiredDecisions": [
+        "first compatible heavy and volume strategy pair",
+        "shared evidence window and confidence reduction",
+        "capacity anchor bounds"
+      ],
+      "cases": []
+    }
+  },
+  "modifiers": {
+    "approval": "pending",
+    "requiredDecisions": [
+      "complete six-week values for every modifier",
+      "compatible strategies and fixed modifier order"
+    ],
+    "cases": []
+  }
+}
