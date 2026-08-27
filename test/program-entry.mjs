@@ -7,13 +7,45 @@ const require = createRequire(import.meta.url);
 const Entry = require("../program-entry.js");
 
 const NOW = "2026-08-27T12:00:00.000Z";
+const VERSIONS = {
+  compiler: "fixture-1",
+  family: "fixture-1",
+  blueprint: "fixture-1",
+  catalogue: "fixture-1",
+  allocation: "fixture-1",
+  timeModel: "fixture-1",
+  contextSchema: "1",
+  progression: "range-1",
+};
 
 function fresh() {
   return Entry.createState({
     draftId: "00000000-0000-4000-8000-000000000048",
     activeProgramRevisionAtStart: 12,
     now: NOW,
+    versions: VERSIONS,
   });
+}
+
+function validContext() {
+  return {
+    schemaVersion: 1,
+    desiredResult: "balanced",
+    structuredExperience: "6_to_24m",
+    recentConsistency: "most",
+    availability: {
+      daysPerWeek: 4,
+      sessionMinutes: 60,
+      preferredRestSeconds: 120,
+    },
+    environment: { kind: "commercial_gym", capabilities: ["barbell", "cable"] },
+    primaryMuscles: ["back"],
+    deEmphasizedMuscles: [],
+    ignoredMuscles: [],
+    priorityMovements: ["bench_press"],
+    exerciseConstraints: [{ exerciseId: "exercise-1", reason: "dislike" }],
+    reviewedAt: NOW,
+  };
 }
 
 function validAnswers(route) {
@@ -126,4 +158,65 @@ test("transitions do not mutate their inputs", () => {
   assert.notEqual(advanced.state, state);
   advanced.state.answers.environment.kind = "changed";
   assert.equal(state.answers.environment.kind, "commercial_gym");
+});
+
+test("programming context accepts only the versioned bounded shape", () => {
+  const context = validContext();
+  const normalized = Entry.normalizeProgrammingContext(context);
+  assert.equal(normalized.ok, true);
+  assert.deepEqual(normalized.value, context);
+  assert.notEqual(normalized.value, context);
+  assert.deepEqual(Entry.normalizeProgrammingContext(JSON.stringify(context)), normalized);
+
+  for (const change of [
+    { desiredResult: "build_consistency" },
+    { structuredExperience: "advanced" },
+    { volumeTolerance: "high" },
+    { primaryMuscles: ["back", "chest", "quads"] },
+  ]) {
+    const rejected = Entry.normalizeProgrammingContext({ ...context, ...change });
+    assert.equal(rejected.ok, false, JSON.stringify(change));
+    assert.equal(rejected.code, "invalid-programming-context");
+  }
+});
+
+test("setup draft round-trips partial progress without normalization drift", () => {
+  const state = Entry.setAnswers(Entry.selectRoute(fresh(), "recommend"), {
+    desiredResult: "muscle_growth",
+  });
+  const first = Entry.normalizeSetupDraft(state);
+  assert.equal(first.ok, true, first.issues?.join(","));
+  const second = Entry.normalizeSetupDraft(JSON.stringify(first.value));
+  assert.deepEqual(second, first);
+  assert.deepEqual(state.answers, { desiredResult: "muscle_growth" });
+});
+
+test("draft schema rejects corrupt, oversized, deep, unknown, and polluted input", () => {
+  const base = fresh();
+  const deep = {};
+  let cursor = deep;
+  for (let index = 0; index < 20; index++) cursor = cursor.next = {};
+  const polluted = JSON.parse('{"schemaVersion":1,"__proto__":{"polluted":true}}');
+  const cases = [
+    "{",
+    `"${"x".repeat(Entry.MAX_DRAFT_BYTES)}"`,
+    { ...base, legacyHints: deep },
+    { ...base, volumeTolerance: "high" },
+    polluted,
+  ];
+  for (const input of cases) {
+    const result = Entry.normalizeSetupDraft(input);
+    assert.equal(result.ok, false);
+    assert.equal(result.code, "invalid-setup-draft");
+  }
+  assert.equal({}.polluted, undefined);
+});
+
+test("hostile answer patches fail without mutating state or prototypes", () => {
+  const state = Entry.selectRoute(fresh(), "recommend");
+  const polluted = JSON.parse('{"__proto__":{"polluted":true}}');
+  assert.throws(() => Entry.setAnswers(state, polluted), /Invalid answer patch/);
+  assert.throws(() => Entry.setAnswers(state, { volumeTolerance: "high" }), /unknown_key/);
+  assert.deepEqual(state.answers, {});
+  assert.equal({}.polluted, undefined);
 });
