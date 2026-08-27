@@ -4870,6 +4870,14 @@ function strengthDashboard(){
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
+/* Test-only view of the recommendation surface. The parity gate calls exactly
+   what the Log tab and the "why this weight" sheet call, so it can prove that
+   routing the arithmetic through progression-engine.js leaves every displayed
+   target and every displayed explanation byte-identical. Read-only. */
+window.__repforgeProgression={
+  recommendation,explainRecommendation,setSuggestion,baseSuggestion,baseSetReps,
+  sessionsFor:ex=>sessionsFor(ex),
+  programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
 function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
