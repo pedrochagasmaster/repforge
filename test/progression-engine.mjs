@@ -90,7 +90,7 @@ assert.deepEqual(manualPrescription.value.strategy, {
   params: { authored: { label: "as written" } },
 });
 
-for (const id of ["rep_goal", "anchor_backoff"]) {
+for (const id of ["anchor_backoff"]) {
   const pending = Engine.validatePrescription({
     schemaVersion: 1,
     strategy: { id, version: 1, params: { pending: true } },
@@ -99,6 +99,20 @@ for (const id of ["rep_goal", "anchor_backoff"]) {
   assert.equal(pending.ok, true, `${id} envelope validation must not invent unapproved bounds`);
   assert.equal(pending.value.strategy.id, id);
 }
+
+// rep_goal@1 has owner-approved bounds now, so its envelope is validated
+// against them rather than preserved as an opaque shape.
+assert.equal(Engine.validatePrescription({
+  schemaVersion: 1,
+  strategy: { id: "rep_goal", version: 1, params: { pending: true } },
+  modifiers: [],
+}).ok, false, "an approved strategy no longer accepts an arbitrary parameter bag");
+assert.deepEqual(Engine.balancedFrontload(30, 3, 6, 12), [10, 10, 10]);
+assert.deepEqual(Engine.balancedFrontload(31, 3, 6, 12), [11, 10, 10]);
+assert.deepEqual(Engine.balancedFrontload(32, 3, 6, 12), [11, 11, 10]);
+assert.deepEqual(Engine.balancedFrontload(25, 3, 6, 12), [9, 8, 8]);
+assert.deepEqual(Engine.balancedFrontload(3, 3, 6, 12), [6, 6, 6], "a tiny remainder never goes under the authored floor");
+assert.deepEqual(Engine.balancedFrontload(60, 3, 6, 12), [12, 12, 12], "a catch-up set never goes over the authored ceiling");
 
 const hostileParams = {};
 Object.defineProperty(hostileParams, "__proto__", { enumerable: true, value: { retained: true } });
@@ -298,13 +312,89 @@ for (const testCase of rangeFixtures.cases) {
   }
 }
 
+// --- owner-approved strategy contracts ---------------------------------------
+// Every locked case in the fixture is executed here. The fixture is the review
+// record; this is where it has to hold.
+function runLockedCases(collection, namespace) {
+  for (const testCase of collection.cases) {
+    const input = structuredClone(collection.defaults);
+    input.engineVersion = fixtures.engineVersion;
+    input.history = structuredClone(testCase.history);
+    if (testCase.currentSession) input.currentSession = structuredClone(testCase.currentSession);
+    for (const [dottedPath, value] of Object.entries(testCase.overrides || {})) {
+      const parts = dottedPath.split(".");
+      let cursor = input;
+      for (const part of parts.slice(0, -1)) cursor = cursor[part];
+      cursor[parts.at(-1)] = { ...cursor[parts.at(-1)], ...value };
+    }
+    const before = JSON.stringify(input);
+    const result = Engine.evaluateProgression(input);
+    const again = Engine.evaluateProgression(input);
+
+    assert.equal(JSON.stringify(input), before, `${testCase.id}: evaluation must not mutate input`);
+    assert.deepEqual(result, again, `${testCase.id}: evaluation must be deterministic`);
+    assert.equal(result.kind, testCase.expected.kind, `${testCase.id}: kind`);
+    assert.equal(result.status, testCase.expected.status, `${testCase.id}: status`);
+    assert.deepEqual(result.reasonCodes, testCase.expected.reasonCodes, `${testCase.id}: reason codes`);
+    assert.equal(result.strategy.id, namespace, `${testCase.id}: strategy id`);
+    assert.equal(result.strategy.version, 1, `${testCase.id}: strategy version`);
+    assert.equal(result.engineVersion, 1, `${testCase.id}: engine version`);
+    assert.equal(result.target.sets.length, testCase.expected.sets.length, `${testCase.id}: prescribed set count`);
+    result.target.sets.forEach((set, index) => {
+      const expected = testCase.expected.sets[index];
+      assert.equal(set.role, expected.role, `${testCase.id}: set ${index} role`);
+      assert.equal(set.load, expected.load, `${testCase.id}: set ${index} load`);
+      assert.equal(set.reps, expected.reps, `${testCase.id}: set ${index} reps`);
+    });
+    if (testCase.expected.capacityReps !== undefined) {
+      assert.ok(Math.abs(result.facts.capacityReps - testCase.expected.capacityReps) < 1e-6, `${testCase.id}: capacity reps`);
+    }
+  }
+  return collection.cases.length;
+}
+
+const repGoalFixtures = fixtures.strategies["rep_goal@1"];
+const repGoalCount = runLockedCases(repGoalFixtures, "rep_goal");
+
+// The authored goal is evidence-independent: no branch may rewrite it.
+for (const testCase of repGoalFixtures.cases) {
+  const input = structuredClone(repGoalFixtures.defaults);
+  input.engineVersion = 1;
+  input.history = structuredClone(testCase.history);
+  if (testCase.currentSession) input.currentSession = structuredClone(testCase.currentSession);
+  for (const [dottedPath, value] of Object.entries(testCase.overrides || {})) {
+    const parts = dottedPath.split(".");
+    let cursor = input;
+    for (const part of parts.slice(0, -1)) cursor = cursor[part];
+    cursor[parts.at(-1)] = { ...cursor[parts.at(-1)], ...value };
+  }
+  const result = Engine.evaluateProgression(input);
+  if (result.kind !== "recommendation") continue;
+  const authoredGoal = input.prescription.strategy.params.repGoal;
+  assert.equal(result.facts.repGoal, authoredGoal, `${testCase.id}: the authored goal is never rewritten`);
+  for (const set of result.target.sets) {
+    assert.ok(set.reps >= input.prescription.strategy.params.repFloor, `${testCase.id}: never under the authored floor`);
+    assert.ok(set.reps <= input.prescription.strategy.params.repCeiling, `${testCase.id}: never over the authored ceiling`);
+  }
+  // Exceeding the goal never buys a double jump: one advancement magnitude.
+  if (result.status === "advance") {
+    const jump = Math.abs(result.facts.targetLoad - result.facts.latestLoad);
+    const single = Math.max(result.facts.latestLoad * input.prescription.strategy.params.jumpPercent / 100,
+      input.prescription.strategy.params.minLoadIncrement);
+    assert.ok(jump <= single + input.settings.minLoadIncrement, `${testCase.id}: rep_goal@1 has one advancement magnitude`);
+  }
+}
+
+const manualFixtures = fixtures.strategies["manual@1"];
+const manualCount = runLockedCases(manualFixtures, "manual");
+
 const unsupported = Engine.evaluateProgression({
   ...structuredClone(rangeFixtures.defaults),
   engineVersion: 1,
   history: [],
   prescription: {
     schemaVersion: 1,
-    strategy: { id: "rep_goal", version: 1, params: {} },
+    strategy: { id: "anchor_backoff", version: 1, params: {} },
     modifiers: [],
   },
 });
@@ -344,4 +434,4 @@ const polluted = Engine.evaluateProgression({
 assert.equal(polluted.kind, "invalid");
 assert.deepEqual(polluted.reasonCodes, ["engine.invalid_input"]);
 
-console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} deterministic range fixtures`);
+console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} range, ${repGoalCount} rep_goal and ${manualCount} manual locked fixtures`);

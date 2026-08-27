@@ -17,6 +17,7 @@
   const LIMITS = Object.freeze({
     workingSets: Object.freeze([1, 20]),
     reps: Object.freeze([1, 100]),
+    repGoal: Object.freeze([1, 200]),
     targetRir: Object.freeze([0, 10]),
     hardRir: Object.freeze([1, 10]),
     minLoadIncrement: Object.freeze([0.000001, 1000]),
@@ -245,9 +246,11 @@
     if (!isPlainObject(strategy.params)) issues.push("prescription.strategy.params: expected object");
     if (issues.length) return validationFailure(issues);
 
-    // Range is the only strategy whose parameter bounds are approved. The
-    // other strategy envelopes are preserved without inventing their rules.
+    // A strategy whose parameter bounds are owner-approved is validated
+    // against them. The rest are preserved as envelopes without inventing
+    // rules they have not been given.
     if (strategy.id === "range") return validateRangePrescription(prescription);
+    if (strategy.id === "rep_goal") return validateRepGoalPrescription(prescription);
 
     const params = canonicalizeChecked(strategy.params, "prescription.strategy.params");
     if (!params.ok) return params;
@@ -712,6 +715,222 @@
     );
   }
 
+  /* ---- rep_goal@1 -------------------------------------------------------
+     Owner-approved 2026-08-27 and locked in
+     test/fixtures/progression-strategies-v1.json. The strategy owns a total
+     working-rep goal across a fixed authored set count. It never changes the
+     set count and it never rewrites the authored goal. */
+
+  function validateRepGoalPrescription(prescription) {
+    const issues = [];
+    if (!isPlainObject(prescription)) return validationFailure(["prescription: expected object"]);
+    for (const key of unexpectedKeys(prescription, new Set(["schemaVersion", "strategy", "modifiers"]))) {
+      issues.push(`prescription.${key}: unknown key`);
+    }
+    if (prescription.schemaVersion !== 1) issues.push("prescription.schemaVersion: unsupported");
+    if (!Array.isArray(prescription.modifiers) || prescription.modifiers.length) {
+      issues.push("prescription.modifiers: Wave 2 requires an empty array");
+    }
+    const strategy = prescription.strategy;
+    if (!isPlainObject(strategy)) return validationFailure(issues.concat(["prescription.strategy: expected object"]));
+    const params = strategy.params;
+    if (!isPlainObject(params)) return validationFailure(issues.concat(["prescription.strategy.params: expected object"]));
+    const allowed = new Set([
+      "workingSets", "repGoal", "repFloor", "repCeiling",
+      "targetRirMin", "targetRirMax", "minLoadIncrement", "jumpPercent",
+      "distributionPolicy", "loadMode",
+    ]);
+    for (const key of unexpectedKeys(params, allowed)) issues.push(`prescription.strategy.params.${key}: unknown key`);
+    if (!integerInRange(params.workingSets, LIMITS.workingSets)) issues.push("params.workingSets: out of range");
+    if (!integerInRange(params.repGoal, LIMITS.repGoal)) issues.push("params.repGoal: out of range");
+    if (!integerInRange(params.repFloor, LIMITS.reps)) issues.push("params.repFloor: out of range");
+    if (!integerInRange(params.repCeiling, LIMITS.reps) || params.repCeiling < params.repFloor) {
+      issues.push("params.repCeiling: out of range");
+    }
+    if (!inRange(params.targetRirMin, LIMITS.targetRir)) issues.push("params.targetRirMin: out of range");
+    if (!inRange(params.targetRirMax, LIMITS.targetRir) || params.targetRirMax < params.targetRirMin) {
+      issues.push("params.targetRirMax: out of range");
+    }
+    if (!inRange(params.minLoadIncrement, LIMITS.minLoadIncrement)) issues.push("params.minLoadIncrement: out of range");
+    if (!inRange(params.jumpPercent, LIMITS.jumpPercent)) issues.push("params.jumpPercent: out of range");
+    if (params.distributionPolicy !== "balanced_frontload_v1") issues.push("params.distributionPolicy: unsupported");
+    if (hasOwn(params, "loadMode") && params.loadMode !== "external" && params.loadMode !== "bodyweight") {
+      issues.push("params.loadMode: unsupported");
+    }
+    if (issues.length) return validationFailure(issues);
+    const value = {
+      workingSets: params.workingSets,
+      repGoal: params.repGoal,
+      repFloor: params.repFloor,
+      repCeiling: params.repCeiling,
+      targetRirMin: params.targetRirMin,
+      targetRirMax: params.targetRirMax,
+      minLoadIncrement: params.minLoadIncrement,
+      jumpPercent: params.jumpPercent,
+      distributionPolicy: params.distributionPolicy,
+    };
+    if (hasOwn(params, "loadMode")) value.loadMode = params.loadMode;
+    return { ok: true, value: { schemaVersion: 1, strategy: { id: "rep_goal", version: 1, params: value }, modifiers: [] } };
+  }
+
+  // The authored goal has to be reachable inside the authored per-set window.
+  // A prescription that fails this is unsatisfiable rather than malformed, so
+  // it gets the strategy's own code instead of engine.invalid_input.
+  function repGoalIsSatisfiable(params) {
+    return params.workingSets * params.repFloor <= params.repGoal
+      && params.repGoal <= params.workingSets * params.repCeiling;
+  }
+
+  // balanced_frontload_v1: split evenly, give the remainder to the earlier
+  // sets, clamp every set into the authored window. The clamp is what keeps a
+  // catch-up set off the ceiling and a small remainder off the floor.
+  function balancedFrontload(total, sets, repFloor, repCeiling) {
+    const goal = Math.max(0, total);
+    const base = Math.floor(goal / sets);
+    const remainder = goal % sets;
+    return Array.from({ length: sets }, (unused, index) => clamp(base + (index < remainder ? 1 : 0), repFloor, repCeiling));
+  }
+
+  function frontloadShare(total, sets) {
+    const goal = Math.max(0, total);
+    return Math.floor(goal / sets) + (goal % sets > 0 ? 1 : 0);
+  }
+
+  // The most one set can be asked for at this load on this evidence.
+  function perSetCapacity(params, capacity, load) {
+    return clamp(Math.floor(repsAtLoad(capacity, load)), params.repFloor, params.repCeiling);
+  }
+
+  function repGoalSets(params, load, distribution) {
+    return distribution.map((reps) => ({
+      role: "working",
+      load,
+      reps,
+      repMin: params.repFloor,
+      repMax: params.repCeiling,
+      targetRir: params.targetRirMax,
+    }));
+  }
+
+  const repGoalJump = (params, load) => Math.max(load * params.jumpPercent / 100, params.minLoadIncrement);
+
+  function evaluateNextRepGoal(params, settings, summaries, provenance) {
+    const strategy = { id: "rep_goal", version: 1 };
+    if (!summaries.length) {
+      const distribution = balancedFrontload(params.repGoal, params.workingSets, params.repFloor, params.repCeiling);
+      return baseResult("recommendation", "new", strategy, ["rep_goal.no_history"],
+        repGoalSets(params, null, distribution),
+        { repGoal: params.repGoal, distribution, targetLoad: null }, provenance);
+    }
+    // Only the authored working sets are goal evidence. Extra sets stay
+    // recorded evidence: they never earn the goal and never redefine the
+    // authored set count.
+    const latest = summaries.at(-1);
+    const authored = latest.sets.slice(0, params.workingSets);
+    const performedTotal = authored.reduce((total, set) => total + set.reps, 0);
+    const referenceLoad = median(authored.map((set) => set.load));
+    const capacity = median(authored.map((set) => capE1rm(set.load, set.reps, set.rir, settings.hardRir)));
+    const medianRir = median(authored.map((set) => capRir(set.rir, settings.hardRir)));
+    const capacityReps = repsAtLoad(capacity, referenceLoad);
+    const goalEarned = latest.sets.length >= params.workingSets && performedTotal >= params.repGoal;
+    const facts = {
+      repGoal: params.repGoal,
+      performedTotal,
+      latestLoad: referenceLoad,
+      capacityE1rm: capacity,
+      capacityReps,
+      medianTrustedRir: medianRir,
+      goalEarned,
+    };
+
+    // targetRirMax describes acceptable room, not a second hurdle, and
+    // exceeding the goal never earns a double jump.
+    if (goalEarned && medianRir >= params.targetRirMin) {
+      const rawLoad = referenceLoad + repGoalJump(params, referenceLoad);
+      const load = roundToGrid(rawLoad, settings.minLoadIncrement);
+      const reasonCodes = ["rep_goal.goal_met", "rep_goal.advance"];
+      if (Math.abs(load - rawLoad) > 1e-9) reasonCodes.push("rep_goal.grid_rounded");
+      // The authored goal is never lowered. When capacity cannot carry it at
+      // the new load, prescribe the closest bounded feasible total and say the
+      // target is rebuilding toward the goal.
+      const cap = perSetCapacity(params, capacity, load);
+      const feasible = params.workingSets * cap;
+      const total = params.repGoal > feasible ? feasible : params.repGoal;
+      if (total !== params.repGoal) reasonCodes.push("rep_goal.rebuild_after_advance");
+      const distribution = balancedFrontload(total, params.workingSets, params.repFloor, params.repCeiling);
+      return baseResult("recommendation", "advance", strategy, reasonCodes,
+        repGoalSets(params, load, distribution),
+        { ...facts, targetLoad: load, perSetCapacity: cap, prescribedTotal: total, distribution }, provenance);
+    }
+
+    const heldLoad = roundToGrid(referenceLoad, settings.minLoadIncrement);
+    const distribution = balancedFrontload(params.repGoal, params.workingSets, params.repFloor, params.repCeiling);
+    if (goalEarned) {
+      return baseResult("recommendation", "hold", strategy, ["rep_goal.goal_met", "rep_goal.effort_too_high"],
+        repGoalSets(params, heldLoad, distribution),
+        { ...facts, targetLoad: heldLoad, distribution }, provenance);
+    }
+    // A conservative capacity floor, not a plateau algorithm: missing the
+    // total on its own never reduces load.
+    if (capacityReps < params.repFloor) {
+      const rawLoad = referenceLoad - repGoalJump(params, referenceLoad);
+      const load = Math.max(roundToGrid(rawLoad, settings.minLoadIncrement), settings.minLoadIncrement);
+      const reasonCodes = ["rep_goal.capacity_below_floor"];
+      if (Math.abs(load - rawLoad) > 1e-9) reasonCodes.push("rep_goal.grid_rounded");
+      return baseResult("recommendation", "reduce", strategy, reasonCodes,
+        repGoalSets(params, load, distribution),
+        { ...facts, targetLoad: load, distribution }, provenance);
+    }
+    return baseResult("recommendation", "hold", strategy, ["rep_goal.progress"],
+      repGoalSets(params, heldLoad, distribution),
+      { ...facts, targetLoad: heldLoad, distribution }, provenance);
+  }
+
+  function evaluateCurrentRepGoal(params, settings, summaries, currentSession, provenance) {
+    const strategy = { id: "rep_goal", version: 1 };
+    const completed = currentSession.slice(0, params.workingSets);
+    const completedReps = completed.reduce((total, set) => total + set.reps, 0);
+    const untouched = Math.max(0, params.workingSets - currentSession.length);
+    const load = currentSession.at(-1).load;
+    const remaining = params.repGoal - completedReps;
+    const facts = {
+      repGoal: params.repGoal,
+      completedReps,
+      remainingGoal: remaining,
+      untouchedSets: untouched,
+      latestLoad: load,
+      targetLoad: load,
+    };
+    if (!untouched) {
+      // Every authored set is done, so there is nothing further to prescribe.
+      return baseResult("recommendation", "hold", strategy,
+        [remaining <= 0 ? "rep_goal.goal_met" : "rep_goal.current_progress"], [], facts, provenance);
+    }
+    const capacities = currentSession.map((set) => capE1rm(set.load, set.reps, set.rir, settings.hardRir));
+    const drop = expectedSetDrop(capacities, historicalSetDrops(summaries, settings.hardRir));
+    const predictedCapacity = capacities.at(-1) * (1 - drop);
+    const cap = perSetCapacity(params, predictedCapacity, load);
+    const share = frontloadShare(remaining, untouched);
+    const reps = clamp(Math.min(share, cap), params.repFloor, params.repCeiling);
+    const reasonCodes = ["rep_goal.current_progress"];
+    if (drop > 0) reasonCodes.push("rep_goal.current_drop");
+    // The drop and the authored window shape the distribution. Neither ever
+    // changes the authored total.
+    if (reps !== share) reasonCodes.push("rep_goal.partial_distribution");
+    return baseResult("recommendation", "hold", strategy, reasonCodes,
+      repGoalSets(params, load, [reps]),
+      {
+        ...facts,
+        expectedSetDrop: drop,
+        capacityE1rm: predictedCapacity,
+        capacityReps: repsAtLoad(predictedCapacity, load),
+        perSetCapacity: cap,
+        exactShare: share,
+        targetReps: reps,
+      },
+      provenance);
+  }
+
   function targetSets(params, load, reps, count) {
     const targetRir = hasOwn(params, "targetRirMax") ? params.targetRirMax : null;
     return Array.from({ length: count }, () => ({
@@ -951,6 +1170,40 @@
         : "manual.authored_target";
       return manualResult({ id: "manual", version: 1 }, reason, provenance);
     }
+    if (strategy.id === "rep_goal" && strategy.version === 1) {
+      const prescription = validateRepGoalPrescription(input.prescription);
+      const settings = validateSettings(input.settings);
+      const history = summarizeHistory(input.history, settings.ok ? settings.value.hardRir : 4);
+      const currentSession = normalizeCurrentSession(input.currentSession);
+      const context = validateContext(input.context);
+      const issues = [];
+      for (const checked of [prescription, settings, history, currentSession, context]) {
+        if (!checked.ok) issues.push(...checked.issues);
+      }
+      if (issues.length) return invalidResult(strategy, issues);
+      if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
+      if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+      const params = prescription.value.strategy.params;
+      // Bodyweight load semantics are not executable; body mass is never
+      // treated as hidden external load. manual@1 is the alternative.
+      if (params.loadMode === "bodyweight") {
+        return incompatibleResult({ id: "rep_goal", version: 1 }, "rep_goal.bodyweight_incompatible");
+      }
+      if (!repGoalIsSatisfiable(params)) {
+        return baseResult("invalid", "manual", { id: "rep_goal", version: 1 },
+          ["rep_goal.invalid_distribution"], [],
+          { issues: ["params.repGoal: unreachable inside workingSets x [repFloor, repCeiling]"] },
+          { evidenceWindow: { sessionCount: 0, currentSetCount: 0 }, modifierVersions: [], relationVersion: null });
+      }
+      const provenance = {
+        evidenceWindow: { sessionCount: history.value.length, currentSetCount: currentSession.value.length },
+        modifierVersions: [],
+        relationVersion: null,
+      };
+      return currentSession.value.length
+        ? evaluateCurrentRepGoal(params, settings.value, history.value, currentSession.value, provenance)
+        : evaluateNextRepGoal(params, settings.value, history.value, provenance);
+    }
     if (strategy.id !== "range" || strategy.version !== 1) return incompatibleResult(strategy, "engine.unsupported_strategy");
     if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
     if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
@@ -1007,6 +1260,8 @@
     jumpAmount,
     validateSettings,
     validateRangePrescription,
+    validateRepGoalPrescription,
+    balancedFrontload,
     validatePrescription,
     normalizePrescription,
     canonicalizePrescription,
