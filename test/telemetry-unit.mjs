@@ -117,6 +117,33 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
   assert.ok(Object.isFrozen(sent[0][1]));
 }
 
+{
+  const { status } = boot();
+  const accepted = status.beforeSend({
+    event: "program_path_selected",
+    properties: {
+      route: "import",
+      telemetry_schema_version: 1,
+      app_version: "112.98d5335",
+      release_channel: "preview",
+      distinct_id: FIXED_UUID,
+      $session_id: "session_12345678",
+      $current_url: "https://example.test/?secret#setup=v2.secret",
+      $lib: "web",
+    },
+  });
+  assert.deepEqual(accepted.properties, {
+    route: "import",
+    telemetry_schema_version: 1,
+    app_version: "112.98d5335",
+    release_channel: "preview",
+    distinct_id: FIXED_UUID,
+    $session_id: "session_12345678",
+  });
+  assert.equal(status.beforeSend({ event: "$pageview", properties: {} }), null);
+  assert.equal(status.beforeSend({ event: "first_set_logged", properties: { telemetry_schema_version: 1 } }), null);
+}
+
 assert.equal(Telemetry.getSchemaVersion(), 1);
 assert.equal(Telemetry.bucketCount(0, "sets"), "0");
 assert.equal(Telemetry.bucketCount(6, "sets"), "6_10");

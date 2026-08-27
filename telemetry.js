@@ -155,6 +155,7 @@
       if (runtime.adapter && typeof runtime.adapter.setEnabled === "function") runtime.adapter.setEnabled(runtime.enabled);
     } catch {}
     return Object.freeze({
+      beforeSend: filterOutbound,
       enabled: runtime.enabled,
       installationId: identity?.installationId || null,
       safeLocation: safeLocation(runtime.location),
@@ -188,6 +189,33 @@
       runtime.adapter.capture(eventName, Object.freeze(payload));
       return true;
     } catch { return false; }
+  }
+
+  function filterOutbound(envelope) {
+    if (!runtime.enabled || !envelope || typeof envelope !== "object" || Array.isArray(envelope)) return null;
+    const definition = EVENTS[envelope.event];
+    const properties = envelope.properties;
+    if (!definition || definition.phase !== "alpha" || !properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+    const clean = {};
+    for (const [key, validator] of Object.entries(definition.properties)) {
+      if (!validProperty(properties[key], validator)) return null;
+      if (properties[key] !== undefined) clean[key] = properties[key];
+    }
+    if (properties.telemetry_schema_version !== SCHEMA_VERSION ||
+      properties.app_version !== runtime.appVersion ||
+      properties.release_channel !== runtime.releaseChannel) return null;
+    clean.telemetry_schema_version = SCHEMA_VERSION;
+    clean.app_version = runtime.appVersion;
+    clean.release_channel = runtime.releaseChannel;
+    const identity = installationIdentity();
+    if (!identity || properties.distinct_id !== identity.installationId) return null;
+    clean.distinct_id = identity.installationId;
+    for (const key of ["$session_id", "$window_id"]) {
+      if (properties[key] === undefined) continue;
+      if (typeof properties[key] !== "string" || properties[key].length < 8 || properties[key].length > 64 || !/^[a-zA-Z0-9_-]+$/.test(properties[key])) return null;
+      clean[key] = properties[key];
+    }
+    return Object.freeze({ event: envelope.event, properties: Object.freeze(clean) });
   }
 
   function setEnabled(enabled) {
