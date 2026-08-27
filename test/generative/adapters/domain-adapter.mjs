@@ -21,10 +21,12 @@ let cached;
 export function loadDomain() {
   if (cached) return cached;
   const Setup = requireRoot("shared-setup.js");
+  const Progression = requireRoot("progression-engine.js");
   const { EXERCISE_LIBRARY, LEGACY_LIBRARY_IDS } = requireRoot("exercises.js");
   cached = {
     ROOT,
     Setup,
+    Progression,
     EXERCISE_LIBRARY,
     LEGACY_LIBRARY_IDS,
     BUILT_IN_IDS: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)),

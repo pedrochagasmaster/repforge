@@ -10,6 +10,71 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  telemetry-privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+
+      - name: Install pinned test-only browser harness
+        working-directory: test
+        run: |
+          npm ci
+          npx playwright install chromium --with-deps
+
+      - name: Start static server
+        run: python3 -m http.server 8000 &
+
+      - name: Wait for server
+        run: |
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          exit 1
+
+      - name: Telemetry contracts
+        run: |
+          node test/telemetry-fixtures.mjs
+          node test/telemetry-unit.mjs
+          node test/posthog-adapter.mjs
+          node test/posthog-config.mjs
+          node test/telemetry-call-sites.mjs
+
+      - name: Runtime event meaning
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/telemetry-runtime.mjs
+
+      - name: Hostile-sentinel leakage and failure modes
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/telemetry-leakage.mjs
+
+      - name: Regenerate UI evidence
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node tools/capture-ui-screens.mjs
+
+      - name: Upload UI evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ui-screens-${{ github.sha }}
+          path: docs/ui-screens/
+          if-no-files-found: error
+          retention-days: 14
+
   simulation:
     runs-on: ubuntu-latest
     timeout-minutes: 30
@@ -39,6 +104,9 @@ jobs:
 
       - name: Generative properties (fast-check)
         run: node test/generative/run.mjs --profile ci
+
+      - name: Generate analytics-disabled preview config
+        run: node scripts/generate-posthog-config.mjs
 
       - name: Start static server
         run: python3 -m http.server 8000 &

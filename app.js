@@ -1012,7 +1012,12 @@ const $=s=>document.querySelector(s),$$=s=>Array.from(document.querySelectorAll(
 const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
-const captureEvent=(event,properties)=>window.posthog?.capture(event,properties);
+const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
+const bootTelemetry=()=>{try{const config=window.__POSTHOG_CONFIG__||{};
+  return window.RepForgeTelemetry?.boot({appVersion:config.appVersion||"dev",crypto:window.crypto,
+    location:window.location,navigator:window.navigator,releaseChannel:config.releaseChannel||"preview",
+    storage:window.localStorage})||null}catch{return null}};
+const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
   const langSel=$("#lang");if(langSel){if(state?.settings?.lang)langSel.value=state.settings.lang;[...langSel.options].forEach(o=>{o.textContent=t("settings.lang."+o.value)})}
@@ -2212,7 +2217,6 @@ async function saveCustomExercise(draft,io=storageIO){
   proposal.customExercises=normalizeCustomExercises(
     existing?list.map(e=>e.id===id?entry:e):list.concat(entry));
   const result=await commitProposedState(proposal,io);
-  if((result.localOk||result.idbOk)&&!existing)captureEvent("custom_exercise_created",{equipment_count:entry.equipment.length});
   return{result,entry:proposal.customExercises.find(e=>e.id===id)||null}}
 /* A definition with anything pointing at it — a program slot, an archived
    block, a logged set — is still the meaning of that data, so it is archived
@@ -2878,66 +2882,98 @@ function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
 
 // Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
 // sessions inside the current block. Only tempers aggressiveness / rep targets.
-function blockTrendFor(sess){
-  const started=state.programMeta?.started;
-  if(!started)return{dir:null,sessions:0};
-  const block=sess.filter(s=>String(s.date)>=started);
-  if(block.length<3)return{dir:null,sessions:block.length};
-  const values=block.map(s=>s.bestE1rm);
-  if(values.some(v=>!(v>0)))return{dir:null,sessions:block.length};
-  const xMean=(values.length-1)/2,yMean=avg(values);
-  let covariance=0,variance=0;
-  values.forEach((value,index)=>{covariance+=(index-xMean)*(value-yMean);variance+=(index-xMean)**2});
-  const projectedChange=variance&&yMean?covariance/variance*(values.length-1)/yMean:0;
-  const dir=projectedChange>=.02?"rising":projectedChange<=-.02?"falling":"flat";
-  return{dir,sessions:block.length,ratio:1+projectedChange}}
+// The regression itself now lives in progression-engine.js and reaches here as
+// facts.blockTrend; this file keeps only the sentence it turns into.
 function blockTrendNote(trend){
   if(!trend||!trend.dir||trend.sessions<3)return"";
   return t(`rec.block.${trend.dir}`,{sessions:trend.sessions})}
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 // Primary signal is the previous session; the block trend nudges it weakly.
+/* ---- Progression adapter (Plan 046) ----
+   The range arithmetic now lives in progression-engine.js, which was
+   extracted from exactly this behavior and is locked by 19 parity fixtures.
+   Everything below turns app state into that engine's evidence and turns its
+   typed result back into the object the Log tab, the per-set suggestions and
+   the "why this weight" sheet already read. No arithmetic here, and no second
+   engine: the pure module knows nothing about the DOM, storage, i18n, a
+   program family, or an entitlement, and nothing here teaches it.
+
+   `range@1` is the only executable strategy. Anything else comes back typed
+   as incompatible rather than silently falling back, so a proposed strategy
+   cannot become live by accident. */
+/** Raw rows for this lift, grouped and ordered exactly the way sessionsFor
+ *  groups and orders them, so the engine's own summaries land on the same
+ *  numbers the app used to compute inline. */
+function progressionHistory(ex){
+  const match=matchLift(ex),m=new Map();
+  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
+    if(!m.has(x.session))m.set(x.session,{sessionId:x.session,date:x.date,created:x.created,sets:[]});
+    m.get(x.session).sets.push({load:+x.load,reps:+x.reps,rir:x.rir==null?null:+x.rir})}
+  return[...m.values()]
+    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))
+    .map(s=>({sessionId:s.sessionId,date:s.date,sets:s.sets}))}
+/** The engine's closed input. Settings are the lifter's own grid and jump;
+ *  context carries only the block, never a family or a program identity. */
+function progressionInput(ex,currentSession,freshnessFactor){
+  const context={weekNumber:1,blockLength:+state.programMeta?.mesocycleLengthWeeks||6,
+    blockStart:state.programMeta?.started||null};
+  if(freshnessFactor!=null&&freshnessFactor<1)context.freshnessFactor=freshnessFactor;
+  return{engineVersion:1,
+    prescription:{schemaVersion:1,modifiers:[],
+      strategy:{id:"range",version:1,params:{workingSets:+ex.sets||1,repMin:+ex.min,repMax:+ex.max}}},
+    relation:null,modifiers:[],
+    settings:{minLoadIncrement:(()=>{const raw=+state.settings.minJump;return Number.isFinite(raw)&&raw>0?raw:2.5})(),
+      jumpPercent:+state.settings.jumpPct||0,
+      hardRir:+state.settings.hardRir||DEFAULTS.hardRir},
+    history:progressionHistory(ex),
+    currentSession:currentSession||[],
+    context}}
+/* One engine reason code, one UI status. The heats and copy keys are the
+   product's, not the engine's — that is the whole point of the split. */
+const RANGE_REASON_UI={
+  "range.no_history":{status:"new",reason:"new",heat:.12},
+  "range.capacity_top_double":{status:"add2",reason:"cap_top2",heat:1},
+  "range.performed_top":{status:"add",reason:"top",heat:.82},
+  "range.capacity_top":{status:"add",reason:"cap_top",heat:.82},
+  "range.below_floor":{status:"reduce",reason:"below_range",heat:.18},
+  "range.stalled":{status:"reduce",reason:"stalled",heat:.3},
+  "range.recovery":{status:"hold",reason:"recover",heat:.42},
+  "range.capacity_room":{status:"hold",reason:"push_reps",heat:.6},
+  "range.room_in_range":{status:"hold",reason:"hold",heat:.48}};
+function rangeCopy(ex,reason){
+  if(reason==="cap_top2")return{label:t("rec.add2.label"),text:t("rec.add2.text")};
+  if(reason==="top"||reason==="cap_top")return{label:t("rec.add.label"),text:t("rec.add.text")};
+  if(reason==="below_range")return{label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min})};
+  if(reason==="stalled")return{label:t("rec.stalled.label"),text:t("rec.stalled.text")};
+  if(reason==="recover")return{label:t("rec.recover.label"),text:t("rec.recover.text")};
+  if(reason==="push_reps")return{label:t("rec.push_reps.label"),text:t("rec.push_reps.text")};
+  return{label:t("rec.hold_add_reps.label"),
+    text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text")}}
 function recommendation(ex){
-  const sess=sessionsFor(ex);
-  if(!sess.length)return{status:"new",heat:.12,label:t("rec.new.label"),
+  const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
+  const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
+  // No history, or evidence the locked strategy will not act on: the same
+  // "start here" card the app has always drawn, with no invented number.
+  if(!ui||ui.reason==="new")return{status:"new",heat:.12,label:t("rec.new.label"),
     text:isEffortMode()
       ?t("rec.new.text_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
       :t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),
     load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true,reason:"new"};
-  const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length;
-  const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
-  // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
-  const nearTop=n>=3&&atTop>=n-1&&l.minReps>=ex.max-1;
-  // Which disjunct fired the add branch, recorded for the "why this weight" sheet.
-  const topFloor=allTop||nearTop;
-  const stalled=isStalled(sess);
-  // Capacity reps at the session's typical load: what the lifter demonstrated they
-  // could have done there, reps + trusted RIR, normalized across loads (ADR 0003).
-  const medCap=l.medCap,cr=repsAtLoad(medCap,load);
-  const rec=(()=>{
-    if(cr>=ex.max+CAPACITY.bigJumpMargin)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false,pushReps:false,reason:"cap_top2",jumpMult:2};
-    // Capacity extends the jump; performed reps at the top still fire it on their own.
-    if(topFloor||cr>=ex.max+CAPACITY.jumpMargin)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false,reason:topFloor?"top":"cap_top",jumpMult:1};
-    // Back off only when capacity itself falls short of the range — stopping early is not failing.
-    if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false,reason:"below_range",jumpMult:1};
-    // Hold-family loads keep the session median as the capacity reference (ADR 0003) but snap onto minJump.
-    // Nearest-grid round of a sub-increment history load (1 kg vs 2.5) can land on 0; same floor as reduce.
-    const holdLoad=Math.max(round(load),+state.settings.minJump||2.5);
-    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:holdLoad,stalled:true,pushReps:false,reason:"stalled"};
-    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:holdLoad,stalled:false,pushReps:false,reason:"recover"};
-    // Room left inside the range: chase reps before load.
-    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:holdLoad,stalled:false,pushReps:true,reason:"push_reps"};
-    return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
-      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:holdLoad,stalled:false,pushReps:true,reason:"hold"};
-  })();
-  const trend=blockTrendFor(sess);
+  const copy=rangeCopy(ex,ui.reason);
+  const rec={status:ui.status,heat:ui.heat,label:copy.label,text:copy.text,load:facts.targetLoad,
+    stalled:ui.reason==="stalled"?true:ui.reason==="below_range"?facts.stalled:false,
+    pushReps:facts.pushReps,reason:ui.reason};
+  if(facts.jumpMultiplier>0)rec.jumpMult=facts.jumpMultiplier;
   // Weak block tempering: a block that is losing strength should not double-jump.
-  if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
-    rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1));rec.jumpMult=1;rec.temperedBlock=true}
+  if(codes.includes("range.block_tempered")){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
+    rec.text=t("rec.add.tempered.text");rec.jumpMult=facts.jumpMultiplier;rec.temperedBlock=true}
+  const trend={dir:facts.blockTrend.direction,sessions:facts.blockTrend.sessionCount};
+  if(facts.blockTrend.ratio!=null)trend.ratio=facts.blockTrend.ratio;
   rec.block=trend;rec.blockNote=blockTrendNote(trend);
-  rec.cap=medCap;rec.typRir=typicalRir(ex,sess);
+  rec.cap=facts.capacityE1rm;rec.typRir=facts.typicalRir;
   // Read-only inputs the "why this weight" sheet narrates; nothing here steers a trigger.
-  rec.cr=cr;rec.lastLoad=load;rec.lastMedReps=l.medReps;
-  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,load);
+  rec.cr=facts.capacityReps;rec.lastLoad=facts.latestLoad;rec.lastMedReps=facts.latestMedianReps;
+  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,facts.latestLoad);
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -3725,7 +3761,6 @@ function focusDragEnd(e){
   focusAnimateTo(dir)}
 function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return false;
   workoutLeft=false;setWorkoutActive(true);
-  captureEvent("workout_started",{program_day_count:days().length});
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true)logMode="focus";
   else if(opts.focus===false)logMode="full";
@@ -4652,7 +4687,11 @@ async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(sa
   const effect=consumedDraftClearEffect(rawDraft);
   const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
   if(!(result.localOk||result.idbOk))return result;
-  captureEvent("workout_completed",{logged_set_count:rows.length,exercise_count:new Set(rows.map(row=>row.exerciseId)).size});
+  if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
+  captureEvent("session_completed",{
+    set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
+    exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
+    duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
   resetDraftSessionState();
   resetSessionContextFields();
   // Nothing left to rest for. Left running, the clock would count down behind
@@ -4822,6 +4861,7 @@ function openSessionSummary(s){
     const stats=el.querySelector(".sum-stats");
     rampSessionStats(stats,stats?parseFloat(getComputedStyle(stats).animationDelay)*1000||0:0)});
   el.scrollTop=0;
+  captureEvent("session_summary_viewed",{});
   return true}
 
 function closeSessionSummary(opts={}){
@@ -4862,6 +4902,14 @@ function strengthDashboard(){
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
+/* Test-only view of the recommendation surface. The parity gate calls exactly
+   what the Log tab and the "why this weight" sheet call, so it can prove that
+   routing the arithmetic through progression-engine.js leaves every displayed
+   target and every displayed explanation byte-identical. Read-only. */
+window.__repforgeProgression={
+  recommendation,explainRecommendation,setSuggestion,baseSuggestion,baseSetReps,
+  sessionsFor:ex=>sessionsFor(ex),
+  programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
 function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
@@ -5421,7 +5469,6 @@ async function deleteSession(sid,io=storageIO){
   proposal.log=proposal.log.filter(row=>row.session!==sid);
   const result=await commitProposedState(proposal,io);
   if(result.localOk||result.idbOk){
-    captureEvent("workout_session_deleted");
     if(editSession===sid)editSession=null;
     render();toast(t("toast.session_deleted"))}
   return result}
@@ -6145,6 +6192,8 @@ function renderSettings(){
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
+  const telemetryEnabled=window.RepForgeTelemetry?.isEnabled?.()!==false;
+  const tt=$("#telemetryToggle");if(tt){tt.classList.toggle("is-on",telemetryEnabled);tt.setAttribute("aria-pressed",telemetryEnabled?"true":"false")}
   reconcileNotifyPermission();
   paintNotifyControls();
   updateVoiceBtn();
@@ -6217,7 +6266,6 @@ async function exportJson(){
   if(!(result.localOk||result.idbOk))return result;
   const text=JSON.stringify(exportableState(state),null,2),name=`taurifer_backup_${today()}.json`;
   shareOrDownload(text,name,"application/json");
-  captureEvent("backup_exported");
   renderSettings();
   return result}
 const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace(/^-+|-+$/g,"").slice(0,40);
@@ -7292,6 +7340,7 @@ function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportR
 
 function openImportReview(draft){
   importDraft=draft;
+  captureEvent("program_path_selected",{route:"import"});
   importReturn=document.activeElement;
   // The review renders inside the app shell, so the first-run gate steps aside
   // for it rather than covering it.
@@ -7338,14 +7387,14 @@ async function commitImportReview(io=storageIO){
       const merged=mergeImportedCustomExercises(staged,exercises,proposal);
       proposal.customExercises=merged.customExercises}
     const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
-      origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal});
+      origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
+      telemetryRoute:"import"});
     if(setup&&!(setup.localOk||setup.idbOk)){
       // The write was refused; leave the screen it came from standing so it can
       // be retried.
       if(draft.fromFirstRun)openFirstRun();else{showOnboardingView();renderOnboarding()}
       toast(t("toast.program_import_failed"));return setup}
     closeImportReview({toProgram:false});
-    captureEvent("program_imported",{exercise_count:counts.total,source:"onboarding"});
     toast(t("toast.program_imported",{n:counts.total}));
     return setup||{localOk:true,idbOk:true}}
   const transition=programTransitionPrecondition(state);
@@ -7370,7 +7419,7 @@ async function commitImportReview(io=storageIO){
   render();
   // An import replaces the program outright — the box shows the new one.
   syncProgramJson({force:true});
-  captureEvent("program_imported",{exercise_count:counts.total,source:"program"});
+  captureEvent("program_activated",{route:"import",version_category:"import_v1"});
   toast(t("toast.program_imported",{n:counts.total}));
   return result}
 
@@ -7487,7 +7536,7 @@ async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()
   proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,io,{effect,...transition});
-  if(result.localOk||result.idbOk){resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
+  if(result.localOk||result.idbOk){captureEvent("program_path_selected",{route:"browse"});captureEvent("program_activated",{route:"browse",version_category:"legacy_v1"});resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
   return result}
 
 const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
@@ -7508,10 +7557,22 @@ function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboa
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
   render()}
-function startOnboarding(origin){
+/* Onboarding that opens by itself on first run is not a route anybody chose.
+   Counting it would enter every install into the generator funnel and make
+   the drop-off after it meaningless. So an automatic open stays silent until
+   the first answer, which is the user actually choosing this path; an open
+   the user asked for reports immediately. Either way the flow reports once —
+   Start over inside it continues the same attempt. */
+let onbEngaged=false;
+function reportOnboardingEngagement(){if(onbEngaged)return;
+  onbEngaged=true;
+  captureEvent("program_path_selected",{route:"custom"});captureEvent("generator_started",{mode:"baseline"})}
+function startOnboarding(origin,opts={}){
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
-function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run")}
+  onbEngaged=false;
+  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding();
+  if(opts.userInitiated!==false)reportOnboardingEngagement()}
+function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run",{userInitiated:false})}
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
   onboardingOrigin=null;closeOnboarding()}
@@ -7522,7 +7583,8 @@ function onbEquipmentSupportsDays(a){
 function onbCanNext(){const a=onbAnswers;
   if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
   if(onbStep===3)return!!a.splitType;if(onbStep===4)return onbEquipmentSupportsDays(a);if(onbStep===6)return!!a.sessionLength;return true}
-function onbPick(key,val,multi){if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
+function onbPick(key,val,multi){reportOnboardingEngagement();
+  if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
   if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
   if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
   renderOnboarding()}
@@ -7577,7 +7639,19 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null}={}){
+/* What the generator actually built, not what the answer was called.
+   "Beginner consistency" is not a third goal: onbGenAnswers compiles it to
+   the same hypertrophy program, given the beginner treatment — which is
+   Foundation. Reporting nothing for it deleted every beginner from the
+   generator funnel, which is the cohort the alpha most needs to see. The
+   legacy generator has no family of its own, so everything else reports
+   legacy until Plan 047 supplies real ones. */
+function telemetryGeneratedProgram(goal){
+  if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
+  if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
+  if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
+  return null}
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom"}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -7604,7 +7678,12 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
-  captureEvent("onboarding_completed",{origin:originEff,program_day_count:new Set(exercises.map(exercise=>exercise.day)).size});
+  const generated=telemetryGeneratedProgram(meta.goal);
+  // A frequency outside the reviewed 2-6 range is rejected by the boundary,
+  // where the rejection is visible, rather than dropped silently here.
+  if(telemetryRoute==="custom"&&generated)captureEvent("generator_completed",
+    {goal:generated.goal,frequency:String(new Set(exercises.map(exercise=>exercise.day)).size),family:generated.family});
+  captureEvent("program_activated",{route:telemetryRoute,version_category:telemetryRoute==="import"?"import_v1":"legacy_v1"});
   resetDraftSessionState();
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
@@ -7818,6 +7897,7 @@ async function commitSharedSetup(io=storageIO){
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();syncLang();
   if(isStandalone())SharedSetup?.clearHandoffCookie();
   sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
+  captureEvent("program_path_selected",{route:"shared"});captureEvent("program_activated",{route:"shared",version_category:"shared_v1"});
   render();toast(t("toast.onboarding_saved"));
   if(!maybeStartTour())maybeShowInstallBanner();
   return result}
@@ -8309,6 +8389,9 @@ function init(){
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
+  const telemetryTog=$("#telemetryToggle");if(telemetryTog)telemetryTog.onclick=()=>{
+    try{window.RepForgeTelemetry?.setEnabled(!(window.RepForgeTelemetry?.isEnabled?.()!==false))}catch{}
+    renderSettings()};
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
@@ -8684,6 +8767,7 @@ async function boot(){
   // language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
+  bootTelemetry();
   let decision=await resolveBootReplicas();
   while(decision.kind==="unresolved"){
     const candidate=await presentStorageRecovery(decision);
@@ -8693,6 +8777,7 @@ async function boot(){
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init();
+  captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass()});
   if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
   if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}
 boot();

@@ -60,6 +60,30 @@ The app should become available at:
 https://pedrochagasmaster.github.io/repforge/
 ```
 
+## Cloudflare Pages and analytics
+
+The production Cloudflare Pages build command is:
+
+```bash
+node scripts/generate-posthog-config.mjs
+```
+
+Set `POSTHOG_PROJECT_TOKEN` to the public `phc_...` project token and set
+`POSTHOG_HOST` to the HTTPS ingestion origin (the default is
+`https://e.taurifer.com`). Production builds fail closed when the token is
+missing or either value is malformed. Preview analytics stays disabled unless
+`POSTHOG_ENABLE_PREVIEWS=true` is set explicitly.
+
+For a local analytics check, copy `posthog-config.js.example` to the ignored
+`posthog-config.js`, replace the public token, and temporarily load it directly
+before `posthog-init.js` in `index.html`. Do not commit the generated config or
+any project credential. Ordinary local development needs no analytics config.
+
+The service worker treats `posthog-config.js` as a network-first shell file. It
+is intentionally not part of the atomic precache because the file only exists
+in configured deployments; a missing local analytics config must never prevent
+the offline app shell from installing.
+
 ## Files
 
 ```text

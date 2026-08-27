@@ -1,8 +1,9 @@
-const CACHE = "repforge-v112";
+const CACHE = "repforge-v114";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
-  "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./shared-setup.js", "./shared-setup.js?v=112", "./app.js", "./app.js?v=112",
+  "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
+  "./progression-engine.js",
+  "./shared-setup.js", "./shared-setup.js?v=114", "./app.js", "./app.js?v=114",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -49,7 +50,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {
   if (!SCOPE_PATH) return pathname;
