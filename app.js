@@ -3027,6 +3027,55 @@ function rangeCopy(ex,reason){
   if(reason==="push_reps")return{label:t("rec.push_reps.label"),text:t("rec.push_reps.text")};
   return{label:t("rec.hold_add_reps.label"),
     text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text")}}
+/* The strategies approved in the Plan 046 numeric gate. Their copy is the
+   product's, exactly as range@1's is: the engine hands over a status, a set of
+   codes and its own facts, and this table turns them into plain sentences.
+   A strategy id is never shown to the lifter. */
+function strategySets(result){return result?.target?.sets||[]}
+function repGoalCopy(ex,result){
+  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result);
+  if(codes.includes("rep_goal.no_history"))
+    return{status:"new",heat:.12,label:t("rec.repgoal.new.label"),
+      text:t("rec.repgoal.new.text",{floor:ex.min,ceiling:ex.max,goal:f.repGoal})};
+  if(codes.includes("rep_goal.current_progress")||codes.includes("rep_goal.goal_met")&&f.completedReps!=null){
+    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.repgoal.session.done.label"),
+      text:t("rec.repgoal.session.done.text",{sets:ex.sets,done:f.completedReps,goal:f.repGoal})};
+    return{status:"hold",heat:.6,label:t("rec.repgoal.session.label"),
+      text:t("rec.repgoal.session.text",{done:f.completedReps,goal:f.repGoal,reps:sets[0].reps})}}
+  if(codes.includes("rep_goal.advance"))
+    return codes.includes("rep_goal.rebuild_after_advance")
+      ?{status:"add",heat:.82,label:t("rec.repgoal.rebuild.label"),
+        text:t("rec.repgoal.rebuild.text",{goal:f.repGoal,reps:sets[0]?.reps})}
+      :{status:"add",heat:.82,label:t("rec.repgoal.advance.label"),
+        text:t("rec.repgoal.advance.text",{goal:f.repGoal})};
+  if(codes.includes("rep_goal.effort_too_high"))
+    return{status:"hold",heat:.42,label:t("rec.repgoal.effort.label"),
+      text:t("rec.repgoal.effort.text",{goal:f.repGoal})};
+  if(codes.includes("rep_goal.capacity_below_floor"))
+    return{status:"reduce",heat:.18,label:t("rec.repgoal.reduce.label"),
+      text:t("rec.repgoal.reduce.text",{floor:ex.min})};
+  return{status:"hold",heat:.48,label:t("rec.repgoal.progress.label"),
+    text:t("rec.repgoal.progress.text",{done:f.performedTotal,goal:f.repGoal})}}
+function anchorCopy(ex,result,params){
+  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result),u=unitLabel();
+  const min=params.anchorRepMin,max=params.anchorRepMax;
+  if(result.kind==="insufficient_evidence")
+    return{status:"hold",heat:.3,label:t("rec.anchor.insufficient.label"),text:t("rec.anchor.insufficient.text")};
+  if(codes.includes("anchor_backoff.no_history"))
+    return{status:"new",heat:.12,label:t("rec.anchor.new.label"),
+      text:t("rec.anchor.new.text",{min,max,backoffs:params.backoffSets})};
+  if(codes.includes("anchor_backoff.current_anchor")){
+    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.anchor.session.done.label"),text:t("rec.anchor.session.done.text")};
+    if(result.status==="recalibrate")return{status:"reduce",heat:.3,label:t("rec.anchor.recalibrate.label"),
+      text:t("rec.anchor.recalibrate.text",{min})};
+    return{status:"hold",heat:.6,label:t("rec.anchor.session.label"),
+      text:t("rec.anchor.session.text",{load:fmtLoad(f.backoffLoad),unit:u,reps:f.backoffReps})}}
+  if(codes.includes("anchor_backoff.anchor_advance"))
+    return{status:"add",heat:.82,label:t("rec.anchor.advance.label"),text:t("rec.anchor.advance.text",{max})};
+  if(codes.includes("anchor_backoff.anchor_below_floor"))
+    return{status:"reduce",heat:.18,label:t("rec.anchor.reduce.label"),text:t("rec.anchor.reduce.text",{min})};
+  return{status:"hold",heat:.48,label:t("rec.anchor.hold.label"),text:t("rec.anchor.hold.text",{min,max})}}
+
 /* Legacy progression markers are compatibility data, not a formula switch.
  * This is the complete alias table: the old double-progression marker is the
  * released range contract. Everything else remains recoverable but executes
@@ -3041,8 +3090,24 @@ function progressionForExercise(ex){
     return{schemaVersion:1,modifiers:[],strategy:{id:"manual",version:1,params:{unsupportedImport:legacy}}};
   return rangeProgressionProjection(ex||{});
 }
+const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
+/* One engine call, one rendered recommendation, for every strategy. range@1
+   keeps its released mapping untouched; the strategies approved in the numeric
+   gate read their own facts off the same result object. */
+function strategyRecommendation(ex,result,id){
+  const params=progressionForExercise(ex)?.strategy?.params||{};
+  const copy=id==="rep_goal"?repGoalCopy(ex,result):anchorCopy(ex,result,params);
+  const sets=strategySets(result);
+  return{...copy,load:sets[0]?.load??result.facts.targetLoad??null,
+    stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
+    reason:result.reasonCodes[0],strategy:id,engineSets:sets,
+    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,lastLoad:result.facts.latestLoad}}
 function recommendation(ex){
+  const strategy=strategyIdFor(ex);
   const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
+  if(strategy==="rep_goal"||strategy==="anchor_backoff"){
+    if(result.kind==="recommendation"||result.kind==="insufficient_evidence")
+      return strategyRecommendation(ex,result,strategy)}
   const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
   if(result.kind==="manual"||result.kind==="incompatible"||result.kind==="invalid")return{status:"manual",heat:0,label:"",text:"",load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,reason:codes[0]};
   // No history, or evidence the locked strategy will not act on: the same
@@ -3167,12 +3232,10 @@ function baseSuggestion(ex,rec,draft,old){
 //  3. block trend (folded into rec) — weak
 // In-session prediction is anticipatory: it reads every completed set so far and
 // projects the NEXT one, rather than echoing the last set back at the lifter.
-function setSuggestion(ex,n,rec,draft,old){
-  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
-  const minJ=+state.settings.minJump||2.5;
-  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
-  // Every completed working set for this lift earlier in THIS session, in order.
-  const sets=[];
+/* Working sets this lift has already completed earlier in THIS session, in
+   order. Shared by every strategy's in-session path. */
+function completedCurrentSets(ex,n,draft){
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),sets=[];
   for(let k=1;k<n;k++){const key=`${ex.id}_${k}`;
     if(!done.has(key)||warm.has(key))continue;
     const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
@@ -3180,6 +3243,26 @@ function setSuggestion(ex,n,rec,draft,old){
     let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
     else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
     sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
+  return sets}
+/* The approved strategies have no second arithmetic here: their in-session
+   target is the engine's own current-session result for the sets logged so
+   far, and their base target is the nth set of the engine's distribution. */
+function strategySuggestion(ex,n,rec,draft){
+  const done=completedCurrentSets(ex,n,draft);
+  if(!done.length){const set=rec.engineSets[n-1]||rec.engineSets.at(-1);
+    return set?{load:set.load,reps:set.reps,src:"base"}:{load:null,reps:null,src:"manual"}}
+  const result=RepForgeProgression.evaluateProgression(
+    progressionInput(ex,done.map(s=>({load:s.load,reps:s.reps,rir:s.rir}))));
+  const set=strategySets(result)[0];
+  if(!set)return{load:null,reps:null,src:"manual"};
+  return{load:set.load,reps:set.reps,src:result.status==="advance"?"session-up"
+    :result.status==="reduce"||result.status==="recalibrate"?"session-down":"session-hold",
+    drop:result.reasonCodes.some(code=>code.endsWith(".current_drop"))}}
+function setSuggestion(ex,n,rec,draft,old){
+  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
+  if(rec.strategy&&rec.strategy!=="range")return strategySuggestion(ex,n,rec,draft);
+  const minJ=+state.settings.minJump||2.5;
+  const sets=completedCurrentSets(ex,n,draft);
   if(!sets.length)return baseSuggestion(ex,rec,draft,old);
   const typRir=rec.typRir!=null?rec.typRir:typicalRir(ex);
   const lastSet=sets.at(-1),L=lastSet.load;
@@ -3211,6 +3294,33 @@ function inSessionNote(ex,draft){
     if((rec.status==="add"||rec.status==="add2")&&sg.load!=null&&sg.reps>ex.min)
       return t("log.insession.reentry",{load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
   return""}
+/* The same sheet for the strategies approved in the numeric gate. Every number
+   is a fact the engine attached to its own result; nothing is re-derived. */
+function explainStrategy(ex,rec,u){
+  const rows=[],params=progressionForExercise(ex)?.strategy?.params||{};
+  const prev=last(ex).filter(x=>+x.load>0);
+  if(prev.length)rows.push({label:t("why.last"),
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
+  const result=RepForgeProgression.evaluateProgression(progressionInput(ex)),f=result.facts;
+  if(rec.strategy==="rep_goal"){
+    if(f.performedTotal!=null)rows.push({text:t("why.repgoal.total",
+      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})});
+    if(f.medianTrustedRir!=null)rows.push({text:t("why.repgoal.effort",
+      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})});
+    if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
+      rows.push({text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})});
+    if(f.completedReps!=null)rows.push({text:t("why.repgoal.distribution")})}
+  else{
+    if(f.anchorLoad!=null)rows.push({text:t("why.anchor.top",
+      {load:fmtLoad(f.anchorLoad),unit:u,reps:Math.round(f.capacityReps)})});
+    if(f.backoffLoad!=null)rows.push({text:t("why.anchor.backoff",
+      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})});
+    if(result.reasonCodes.includes("anchor_backoff.backoff_recalculated"))
+      rows.push({text:t("why.anchor.untouched")})}
+  if(rec.text)rows.push({text:rec.text});
+  const note=inSessionNote(ex,loadDraft());
+  if(note)rows.push({label:t("why.session"),text:note});
+  return rows}
 // On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
 // never during renderWorkout: the Log tab's render path stays free of this work.
 // One brain — every number here is a field the engine attached to its own result;
@@ -3222,6 +3332,7 @@ function explainRecommendation(ex){
   if(rec.status==="manual")return rows;
   // A never-trained lift has no history and no arithmetic; the button is hidden there.
   if(rec.status==="new")return rows;
+  if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push({label:t("why.last"),
     text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
