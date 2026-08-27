@@ -14,16 +14,20 @@ drift and current governing decisions.
 | Plan | State | Meaning |
 |---|---|---|
 | [044](./044-posthog-measurement-experiments-paywall.md) | **ACTIVE CONTRACT** | Governs measurement, rolling alpha, working-Pro commercialization, and later AI Preview sequencing. It explicitly requires smaller successor implementation plans; do not implement it as one change. |
+| [045](./045-posthog-measurement-foundation.md) | **READY — 1 OF 4** | Implements the strict PostHog boundary, pseudonymous identity, opt-out, leakage tests, and versioned alpha funnels/dashboards. |
+| [046](./046-multi-strategy-progression-engine.md) | **READY — 2 OF 4** | Extracts and evolves the shared Free engine through reviewed, versioned range, rep-goal, anchor/back-off, paired-exposure, block-modifier, and manual contracts. |
+| [047](./047-taurifer-program-families-compiler.md) | **READY — 3 OF 4** | Authors the initial original Taurifer families and compiles their 3-/5-day siblings plus reviewed 2-/6-day recipes through the shared engine. |
+| [048](./048-program-entry-onboarding-redesign.md) | **READY — 4 OF 4** | Separates Recommend, Generate custom, Browse, Build, and Import, then converges them on one resumable draft/preview/activation path. |
 | [041](./041-prelaunch-all-findings-remediation.md) | **IMPLEMENTED; EVIDENCE PENDING** | PR #114 shipped the retained findings. Remaining work is the exact physical iOS/VoiceOver and Android/TalkBack release-evidence matrix recorded in the plan and canonical backlog. |
 | [038](./038-ai-coach.md) | **SUPERSEDED** | Historical BYOK design only. ADR 0011 governs any future managed Taurifer AI plan after paid-beta economics. |
 | [040](./040-launch-readiness-ui-ux-audit.md) | **HISTORICAL AUDIT** | Provenance for Plan 041, not an open remediation queue. |
 | [029](./029-phased-roadmap-pr-breakdown.md) | **HISTORICAL META-PLAN** | Its old four-phase roadmap shipped or was superseded. It is not current sequencing. |
 
-Approved work that does not yet have a numbered execution plan includes the
-shared multi-strategy engine, Taurifer program families, new entry/onboarding
-architecture, lifecycle/transitions, equipment contexts, and the three-job Pro
-MVP. Create a focused plan only when the canonical backlog gate for that slice
-is satisfied.
+Plans 045–048 are the current ordered foundation. Their numbering records the
+dependency order: measurement boundary → shared engine → family/compiler →
+entry/onboarding. Lifecycle/transitions, equipment contexts, and the three-job
+Pro MVP remain approved without numbered execution plans; create a focused plan
+for each only when its canonical backlog gate is satisfied.
 
 ## Implemented plans
 

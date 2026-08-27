@@ -51,6 +51,26 @@ This plan now defines gates and contracts. Separate implementation plans must
 specify the engine, family compiler, lifecycle, interventions, UI, PostHog
 integration, feedback service, checkout, and entitlement service.
 
+### First successor implementation sequence
+
+The first four bounded plans are now explicit and must be executed in this
+dependency order:
+
+1. [Plan 045 — strict PostHog boundary and alpha measurement
+   foundation](./045-posthog-measurement-foundation.md).
+2. [Plan 046 — versioned multi-strategy progression
+   engine](./046-multi-strategy-progression-engine.md).
+3. [Plan 047 — Taurifer program families and deterministic
+   compiler](./047-taurifer-program-families-compiler.md).
+4. [Plan 048 — program entry and onboarding
+   redesign](./048-program-entry-onboarding-redesign.md).
+
+Plan 045 can establish the analytics boundary independently. Plan 046 consumes
+that boundary and establishes the executable strategy contract. Plan 047 may
+then author blueprints against real supported strategies. Plan 048 is last
+because it must not offer a route, family, frequency, or preview that the
+compiler cannot actually deliver.
+
 ---
 
 ## Product decisions — locked
