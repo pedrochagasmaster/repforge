@@ -1546,6 +1546,19 @@ function exerciseFieldsFromLibrary(entry){
   return{name:libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||"",
     notes:entry.notes||"",libraryId:entry.id,displayName:null}}
 
+function normalizeProgressionEnvelope(value){
+  const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const checked=validator?.validatePrescription?.(value);
+  return checked?.ok?cloneSnapshot(checked.value):cloneSnapshot(value)}
+function normalizeProgressionRelations(value,program=[]){
+  const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const checked=validator?.validateRelations?.(value,{slots:program});
+  return checked?.ok?cloneSnapshot(checked.value):[]}
+function normalizeProgressionModifiers(value){
+  const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const checked=validator?.validateModifiers?.(value);
+  return checked?.ok?cloneSnapshot(checked.value):[]}
+
 /* ============================================================
    Program model
    Exercise — one movement: day, sequence, rep range, muscles.
@@ -1580,6 +1593,7 @@ class Exercise{
     if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
     if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
     if(d.priority!=null)this.priority=String(d.priority).trim();
+    if(d.progression!=null)this.progression=normalizeProgressionEnvelope(d.progression);
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
   /* Resolves a linked slot's label and muscles from the library definition, so
@@ -1609,6 +1623,7 @@ class Exercise{
     if(this.minSets!==undefined)o.minSets=this.minSets;
     if(this.maxSets!==undefined)o.maxSets=this.maxSets;
     if(this.priority!==undefined)o.priority=this.priority;
+    if(this.progression!==undefined)o.progression=cloneSnapshot(this.progression);
     return o}
 }
 
@@ -2076,7 +2091,8 @@ function migrateLog(){return migrateLogSnapshot(state)}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
-  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
+  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
+  progressionRelations:[],progressionModifiers:[]}}
 function buildProgramMeta({name, answers}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
@@ -2084,8 +2100,9 @@ function buildProgramMeta({name, answers}={}){
     goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
     equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
     sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
+    progressionRelations:[],progressionModifiers:[],
     blockPromptDismissedId:null}}
-function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
+function normalizeProgramMeta(m,log=[],program=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
@@ -2100,10 +2117,12 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
   const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
   const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
   const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
+  const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program);
+  const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers);
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    blockPromptDismissedId}}
+    progressionRelations,progressionModifiers,blockPromptDismissedId}}
 function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
@@ -2145,13 +2164,14 @@ function normalizeLoaded(s){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:starterProgram(),log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
-  const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
+  const out={settings:normalizeSettings(s.settings),programMeta:null,
     program:[],log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
     customExercises:customs};
   // Resolved against this snapshot's own custom definitions: during an import
   // or a boot they are not in live state yet.
   out.program=new Program(s.program,lookup).toJSON();
+  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program);
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
@@ -2623,26 +2643,29 @@ function sharedSettingsPatch(raw){
     unit:raw?.unit==="lb"?"lb":"kg",
     lang:I18N?.normalizeLang(raw?.lang)||"en",
     rirMode:raw?.rirMode==="effort"?"effort":"numeric"}}
-function buildSharedProgramMeta(raw){
+function buildSharedProgramMeta(raw,program=[]){
   const now=new Date().toISOString();
   return{id:uid(),name:String(raw?.name||"").trim(),started:today(),created:now,updated:now,
     goal:raw?.goal??null,experience:raw?.experience??null,daysPerWeek:raw?.daysPerWeek??null,
     splitType:raw?.splitType??null,equipment:Array.isArray(raw?.equipment)?[...raw.equipment]:[],
     priorityMuscles:Array.isArray(raw?.priorityMuscles)?[...raw.priorityMuscles]:[],
     sessionLength:raw?.sessionLength??null,mesocycleLengthWeeks:raw?.mesocycleLengthWeeks||6,
-    mesocycleStatus:"active",completedAt:null,onboarded:true,blockPromptDismissedId:null}}
+    mesocycleStatus:"active",completedAt:null,onboarded:true,
+    progressionRelations:normalizeProgressionRelations(raw?.progressionRelations,program),
+    progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
+    blockPromptDismissedId:null}}
 function proposalFromSharedSetup(payload,baseState=state){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
   if(!checked.ok)throw new TypeError("Invalid shared setup");
   const clean=checked.value,proposal=cloneSnapshot(baseState);
-  const exercises=clean.program.exercises.map(sharedExercise);
+  const exercises=clean.program.exercises.map(ex=>sharedExercise(ex,true));
   const merged=mergeImportedCustomExercises(clean.program.customExercises,exercises,proposal);
   proposal.customExercises=merged.customExercises;
   const lookup=snapshotLookup(proposal.customExercises);
   if(exercises.some(ex=>!lookup(ex.libraryId)))throw new TypeError("Unresolved shared exercise");
   proposal.program=new Program(exercises,lookup).toJSON();
-  proposal.programMeta=buildSharedProgramMeta(clean.program.meta);
+  proposal.programMeta=buildSharedProgramMeta(clean.program.meta,proposal.program);
   proposal.settings={...normalizeSettings(proposal.settings),...sharedSettingsPatch(clean.settings)};
   proposal.log=[];
   proposal.programHistory=[];
@@ -6291,13 +6314,17 @@ function sharedProgramMeta(meta,program){
     priorityMuscles:[...new Set((Array.isArray(meta?.priorityMuscles)?meta.priorityMuscles:[])
       .map(value=>String(value).trim()).filter(Boolean))],
     sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
-    mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks}}
-function sharedExercise(ex){
+    mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
+    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON()),
+    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)}}
+function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
+  if(preserveIdentity){out.id=ex?.id;out.movementId=ex?.movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
+  if(ex?.progression!==undefined)out.progression=cloneSnapshot(ex.progression);
   return out}
 function sharedCustomExercise(entry){
   return{id:entry.id,name:entry.name,namePt:entry.namePt||entry.name,
@@ -6309,7 +6336,10 @@ function sharedSettings(settings){
     lang:settings.lang||I18N?.getLang?.()||I18N?.detectLang?.()||"en",rirMode:settings.rirMode}}
 function buildSharedSetupPayload(){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
-  const exercises=prog.toJSON().map(sharedExercise);
+  const source=prog.toJSON();
+  const relations=normalizeProgressionRelations(state.programMeta?.progressionRelations,source);
+  const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
+  const exercises=source.map(ex=>sharedExercise(ex,relationSlots.has(ex.id)));
   return{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
     program:{meta:sharedProgramMeta(state.programMeta,prog),exercises,
       customExercises:referencedCustomExercises(exercises).map(sharedCustomExercise)},
@@ -6328,6 +6358,10 @@ function exportProgram(){
  * Lossy by design — the text can be imported back, while ids, per-exercise
  * muscles, notes, and alternates require the lossless JSON export. */
 const programTextReps=e=>e.min===e.max?`${e.min}`:t("program.export_text.rep_range",{min:e.min,max:e.max});
+function programTextExerciseName(ex){
+  const strategy=ex?.progression?.strategy;
+  return strategy?.id&&Number.isInteger(strategy.version)?`${ex.name} [${strategy.id}@${strategy.version}]`:ex.name;
+}
 function programText(){
   const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
   const up=s=>String(s??"").toLocaleUpperCase(locTag());
@@ -6335,7 +6369,7 @@ function programText(){
   for(const d of ds){
     const mus=dayMuscles(d).map(muscleLabel);
     lines.push("",`${up(d)}${mus.length?`: ${mus.join(" · ")}`:""}`);
-    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name}: ${e.sets}× ${programTextReps(e)}`))}
+    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${programTextExerciseName(e)}: ${e.sets}× ${programTextReps(e)}`))}
   return lines.join("\n")}
 const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
   return `taurifer_program_${slug?`${slug}_`:""}${today()}.txt`};
@@ -6851,15 +6885,18 @@ function stripProgramTextTitleMeta(label){
 function parseProgramTextExport(text){
   const lines=String(text||"").split(/\r?\n/);
   const days=[];let current=null,title="";
-  const exRe=/^\s*(\d+)\.\s*(.+?)(?:\s*[—-]\s*|\s*:\s*)(\d+)\s*[×x]\s*(\d+)(?:\s*(?:[–-]|to|a)\s*(\d+))?\s*$/iu;
+  const exRe=/^\s*(\d+)\.\s*(.+?)(?:\s+\[([a-z_]+)@(\d+)\])?(?:\s*[—-]\s*|\s*:\s*)(\d+)\s*[×x]\s*(\d+)(?:\s*(?:[–-]|to|a)\s*(\d+))?\s*$/iu;
   for(const raw of lines){
     const line=raw.trim();
     if(!line)continue;
     const ex=line.match(exRe);
     if(ex){
       if(!current){current={day:`Day ${days.length+1}`,rows:[]};days.push(current)}
-      const min=+ex[4],max=ex[5]?+ex[5]:min;
-      current.rows.push({name:ex[2].trim(),sets:+ex[3],min,max});
+      const min=+ex[6],max=ex[7]?+ex[7]:min;
+      const progression=ex[3]&&Number.isInteger(+ex[4])?{schemaVersion:1,
+        strategy:{id:ex[3].toLowerCase(),version:+ex[4],params:ex[3].toLowerCase()==="range"
+          ?{workingSets:+ex[5],repMin:min,repMax:max}:{}},modifiers:[]}:undefined;
+      current.rows.push({name:ex[2].trim(),sets:+ex[5],min,max,progression});
       continue}
     // A non-exercise line starts a day, except the first which is the title.
     if(!title&&!days.length){title=restoreExportCase(stripProgramTextTitleMeta(line));continue}
@@ -6868,7 +6905,7 @@ function parseProgramTextExport(text){
     current={day:restoreExportCase(label),rows:[]};days.push(current)}
   const exercises=[];
   for(const d of days)
-    d.rows.forEach((r,i)=>exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max}));
+    d.rows.forEach((r,i)=>exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max,...(r.progression?{progression:r.progression}:{})}));
   if(!exercises.length)return null;
   return{exercises,meta:title?{name:title}:null,customExercises:[]}}
 
@@ -7386,6 +7423,9 @@ async function commitImportReview(io=storageIO){
     if(staged.length){
       const merged=mergeImportedCustomExercises(staged,exercises,proposal);
       proposal.customExercises=merged.customExercises}
+    proposal.programMeta={...proposal.programMeta,
+      progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
+      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[])};
     const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
       origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
       telemetryRoute:"import"});
@@ -7406,6 +7446,8 @@ async function commitImportReview(io=storageIO){
   meta.updated=new Date().toISOString();
   proposal.programMeta=meta;
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  meta.progressionRelations=normalizeProgressionRelations(draft.meta?.progressionRelations,proposal.program);
+  meta.progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,adapter,{effect,...transition});
@@ -7668,8 +7710,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
     archiveCapturedBlock(proposal,blockCap)}
   const meta=buildProgramMeta({name,answers:answers||onbAnswers});
-  proposal.programMeta=meta;
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
+  meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
+  proposal.programMeta=meta;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
@@ -8681,7 +8725,7 @@ async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
   prog=new Program(state.program);state.program=prog.toJSON();
-  state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
+  state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
