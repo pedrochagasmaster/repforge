@@ -26,8 +26,11 @@
   const UNITS = new Set(UNIT_VALUES);
   const LANGS = new Set(LANG_VALUES);
   const RIR_MODES = new Set(RIR_MODE_VALUES);
-  const META_OPTIONAL_BITS = 8;
-  const EXERCISE_OPTIONAL_BITS = 12;
+  // v2 is released and immutable. New optional fields belong to v3 only.
+  const META_OPTIONAL_BITS = 6;
+  const EXERCISE_OPTIONAL_BITS = 9;
+  const V3_META_OPTIONAL_BITS = 8;
+  const V3_EXERCISE_OPTIONAL_BITS = 12;
   const CUSTOM_OPTIONAL_BITS = 4;
   const BASE64URL_RE = /^[A-Za-z0-9_-]*$/;
   const VERSION_PREFIX_RE = /^v(\d+)\.(.*)$/;
@@ -595,6 +598,14 @@
     const settings = pickSettings(raw.settings, issues);
     if (issues.length) return schemaFail(issues);
 
+    const allExerciseIds = new Set();
+    for (const exercise of exercises) {
+      if (exercise.id === undefined) continue;
+      if (allExerciseIds.has(exercise.id)) issues.push(`program.exercises: duplicate id ${exercise.id}`);
+      allExerciseIds.add(exercise.id);
+    }
+    if (issues.length) return schemaFail(issues);
+
     // Slot and movement identities are shared only when a validated relation
     // needs them. Device-local identifiers otherwise remain history/UI data.
     const relationSlots = new Set((meta?.progressionRelations || [])
@@ -607,21 +618,37 @@
     }
 
     const positions = new Set();
+    const exerciseIds = new Set();
     const days = new Set();
     for (const exercise of exercises) {
       days.add(exercise.day);
       const pos = `${exercise.day}\0${exercise.order}`;
       if (positions.has(pos)) issues.push(`program.exercises: duplicate ${exercise.day}#${exercise.order}`);
       positions.add(pos);
+      if (exercise.id !== undefined) {
+        if (exerciseIds.has(exercise.id)) issues.push(`program.exercises: duplicate id ${exercise.id}`);
+        exerciseIds.add(exercise.id);
+      }
     }
     if (meta?.progressionRelations) {
-      const exerciseIds = new Set(exercises.map((exercise) => exercise.id).filter(Boolean));
+      const identityMap = isPlainObject(options?.movementIdentityByLibraryId) ? options.movementIdentityByLibraryId : {};
+      const derivedMovementId = (exercise) => {
+        const libraryId = typeof exercise?.libraryId === "string" ? exercise.libraryId : "";
+        const mapped = identityMap[libraryId];
+        return typeof mapped === "string" && mapped.trim() ? mapped.trim() : libraryId;
+      };
       for (const relation of meta.progressionRelations) {
         for (const member of relation.members) {
           if (!exerciseIds.has(member.exerciseId)) issues.push(`program.meta.progressionRelations: unknown slot ${member.exerciseId}`);
           const slot = exercises.find((exercise) => exercise.id === member.exerciseId);
-          if (slot && (!slot.movementId || slot.movementId !== relation.movementId)) {
-            issues.push(`program.meta.progressionRelations: movement identity mismatch for ${member.exerciseId}`);
+          if (slot) {
+            const derived = derivedMovementId(slot);
+            if (!derived || derived !== relation.movementId) {
+              issues.push(`program.meta.progressionRelations: movement identity mismatch for ${member.exerciseId}`);
+            }
+            if (slot.movementId !== undefined && slot.movementId !== derived) {
+              issues.push(`program.exercises.${member.exerciseId}.movementId: unapproved identity`);
+            }
           }
         }
       }
@@ -834,7 +861,7 @@
     return days;
   }
 
-  function packMeta(meta) {
+  function packMeta(meta, includeProgression = false) {
     const values = [];
     let mask = 0;
     if (hasOwn(meta, "goal")) {
@@ -855,8 +882,8 @@
     if (hasOwn(meta, "sessionLength")) {
       mask = pushOptional(mask, values, 5, true, meta.sessionLength === null ? 0 : encodeRequiredEnum(meta.sessionLength, SESSION_LENGTH_VALUES));
     }
-    if (hasOwn(meta, "progressionRelations")) mask = pushOptional(mask, values, 6, true, meta.progressionRelations);
-    if (hasOwn(meta, "progressionModifiers")) mask = pushOptional(mask, values, 7, true, meta.progressionModifiers);
+    if (includeProgression && hasOwn(meta, "progressionRelations")) mask = pushOptional(mask, values, 6, true, meta.progressionRelations);
+    if (includeProgression && hasOwn(meta, "progressionModifiers")) mask = pushOptional(mask, values, 7, true, meta.progressionModifiers);
     return [meta.name, meta.mesocycleLengthWeeks, mask, ...values];
   }
 
@@ -873,7 +900,7 @@
     ];
   }
 
-  function packExercise(exercise, days, customIndex) {
+  function packExercise(exercise, days, customIndex, includeProgression = false) {
     const values = [];
     let mask = 0;
     mask = pushOptional(mask, values, 0, !!(hasOwn(exercise, "displayName") && exercise.displayName), exercise.displayName);
@@ -885,9 +912,11 @@
     mask = pushOptional(mask, values, 6, hasOwn(exercise, "minSets"), exercise.minSets);
     mask = pushOptional(mask, values, 7, hasOwn(exercise, "maxSets"), exercise.maxSets);
     mask = pushOptional(mask, values, 8, !!(hasOwn(exercise, "priority") && exercise.priority), exercise.priority);
-    mask = pushOptional(mask, values, 9, !!(hasOwn(exercise, "id") && exercise.id), exercise.id);
-    mask = pushOptional(mask, values, 10, hasOwn(exercise, "progression"), exercise.progression);
-    mask = pushOptional(mask, values, 11, !!(hasOwn(exercise, "movementId") && exercise.movementId), exercise.movementId);
+    if (includeProgression) {
+      mask = pushOptional(mask, values, 9, !!(hasOwn(exercise, "id") && exercise.id), exercise.id);
+      mask = pushOptional(mask, values, 10, hasOwn(exercise, "progression"), exercise.progression);
+      mask = pushOptional(mask, values, 11, !!(hasOwn(exercise, "movementId") && exercise.movementId), exercise.movementId);
+    }
     const libraryRef = exercise.libraryId.startsWith(CUSTOM_ID_PREFIX)
       ? customIndex.get(exercise.libraryId)
       : exercise.libraryId;
@@ -918,6 +947,19 @@
     ];
   }
 
+  function packV3(payload) {
+    const days = packDistinctDays(payload.program.exercises);
+    const customs = payload.program.customExercises || [];
+    const customIndex = new Map(customs.map((entry, index) => [entry.id, index]));
+    return [
+      packMeta(payload.program.meta, true),
+      packSettings(payload.settings),
+      days,
+      payload.program.exercises.map((exercise) => packExercise(exercise, days, customIndex, true)),
+      customs.map(packCustom),
+    ];
+  }
+
   function unpackEquipmentCodes(raw, path, issues) {
     if (!Array.isArray(raw)) {
       issues.push(`${path}: expected array`);
@@ -941,12 +983,12 @@
     return out;
   }
 
-  function unpackMeta(raw, dayCount, issues) {
+  function unpackMeta(raw, dayCount, issues, includeProgression = false) {
     if (!Array.isArray(raw) || raw.length < 3) {
       issues.push("program.meta: wrong arity");
       return null;
     }
-    const mask = acceptMask(raw[2], META_OPTIONAL_BITS, "program.meta", issues);
+    const mask = acceptMask(raw[2], includeProgression ? V3_META_OPTIONAL_BITS : META_OPTIONAL_BITS, "program.meta", issues);
     if (mask == null || !expectMaskedArity(raw, 3, mask, "program.meta", issues)) return null;
     const meta = {};
     setOwn(meta, "name", raw[0]);
@@ -1009,11 +1051,13 @@
       }
       setOwn(meta, "sessionLength", decoded.value);
     }
-    const progressionRelations = takeOptional(raw, offset, mask, 6);
-    offset = progressionRelations.offset;
-    if (progressionRelations.present) setOwn(meta, "progressionRelations", progressionRelations.value);
-    const progressionModifiers = takeOptional(raw, offset, mask, 7);
-    if (progressionModifiers.present) setOwn(meta, "progressionModifiers", progressionModifiers.value);
+    if (includeProgression) {
+      const progressionRelations = takeOptional(raw, offset, mask, 6);
+      offset = progressionRelations.offset;
+      if (progressionRelations.present) setOwn(meta, "progressionRelations", progressionRelations.value);
+      const progressionModifiers = takeOptional(raw, offset, mask, 7);
+      if (progressionModifiers.present) setOwn(meta, "progressionModifiers", progressionModifiers.value);
+    }
     return meta;
   }
 
@@ -1087,13 +1131,13 @@
     return { customIndex: raw, id: customs[raw].id };
   }
 
-  function unpackExercise(raw, index, days, customs, referencedDays, referencedCustoms, issues) {
+  function unpackExercise(raw, index, days, customs, referencedDays, referencedCustoms, issues, includeProgression = false) {
     const path = `program.exercises[${index}]`;
     if (!Array.isArray(raw) || raw.length < 7) {
       issues.push(`${path}: wrong arity`);
       return null;
     }
-    const mask = acceptMask(raw[6], EXERCISE_OPTIONAL_BITS, path, issues);
+    const mask = acceptMask(raw[6], includeProgression ? V3_EXERCISE_OPTIONAL_BITS : EXERCISE_OPTIONAL_BITS, path, issues);
     if (mask == null || !expectMaskedArity(raw, 7, mask, path, issues)) return null;
     const dayIndex = raw[0];
     if (!Number.isInteger(dayIndex) || dayIndex < 0 || dayIndex >= days.length) {
@@ -1142,14 +1186,16 @@
     const priority = takeOptional(raw, offset, mask, 8);
     offset = priority.offset;
     if (priority.present) setOwn(exercise, "priority", priority.value);
-    const id = takeOptional(raw, offset, mask, 9);
-    offset = id.offset;
-    if (id.present) setOwn(exercise, "id", id.value);
-    const progression = takeOptional(raw, offset, mask, 10);
-    offset = progression.offset;
-    if (progression.present) setOwn(exercise, "progression", progression.value);
-    const movementId = takeOptional(raw, offset, mask, 11);
-    if (movementId.present) setOwn(exercise, "movementId", movementId.value);
+    if (includeProgression) {
+      const id = takeOptional(raw, offset, mask, 9);
+      offset = id.offset;
+      if (id.present) setOwn(exercise, "id", id.value);
+      const progression = takeOptional(raw, offset, mask, 10);
+      offset = progression.offset;
+      if (progression.present) setOwn(exercise, "progression", progression.value);
+      const movementId = takeOptional(raw, offset, mask, 11);
+      if (movementId.present) setOwn(exercise, "movementId", movementId.value);
+    }
     return exercise;
   }
 
@@ -1184,13 +1230,14 @@
     return custom;
   }
 
-  function expandV2(parsed) {
+  function expandCompact(parsed, envelopeVersion, includeProgression) {
     try {
       const issues = [];
-      if (!Array.isArray(parsed)) return schemaFail(["v2: expected array"]);
-      collectForbiddenKeys(parsed, issues, "v2");
+      const label = `v${envelopeVersion}`;
+      if (!Array.isArray(parsed)) return schemaFail([`${label}: expected array`]);
+      collectForbiddenKeys(parsed, issues, label);
       if (issues.length) return schemaFail(issues);
-      if (parsed.length !== 5) return schemaFail(["v2: wrong arity"]);
+      if (parsed.length !== 5) return schemaFail([`${label}: wrong arity`]);
       const days = unpackDays(parsed[2], issues);
       if (!days) return schemaFail(issues);
       if (!Array.isArray(parsed[4])) {
@@ -1221,7 +1268,7 @@
       const referencedCustoms = new Set();
       const exercises = [];
       for (let i = 0; i < parsed[3].length; i++) {
-        const exercise = unpackExercise(parsed[3][i], i, days, customs, referencedDays, referencedCustoms, issues);
+        const exercise = unpackExercise(parsed[3][i], i, days, customs, referencedDays, referencedCustoms, issues, includeProgression);
         if (!exercise) return schemaFail(issues);
         exercises.push(exercise);
       }
@@ -1237,7 +1284,7 @@
           return schemaFail(issues);
         }
       }
-      const meta = unpackMeta(parsed[0], days.length, issues);
+      const meta = unpackMeta(parsed[0], days.length, issues, includeProgression);
       if (!meta) return schemaFail(issues);
       const settings = unpackSettings(parsed[1], issues);
       if (!settings) return schemaFail(issues);
@@ -1253,9 +1300,12 @@
       setOwn(payload, "settings", settings);
       return { ok: true, value: payload };
     } catch {
-      return schemaFail(["v2: invalid tuple"]);
+      return schemaFail([`v${envelopeVersion}: invalid tuple`]);
     }
   }
+
+  function expandV2(parsed) { return expandCompact(parsed, 2, false); }
+  function expandV3(parsed) { return expandCompact(parsed, 3, true); }
 
   async function encodeCandidate(prefix, serializable) {
     let jsonText;
@@ -1287,10 +1337,13 @@
     const checked = validate(raw, options);
     if (!checked.ok) return checked;
     const v1 = await encodeCandidate("v1.", checked.value);
-    const v2 = await encodeCandidate("v2.", packV2(checked.value));
-    if (v1.ok && v2.ok) return v2.value.length < v1.value.length ? v2 : v1;
-    if (v1.ok) return v1;
-    if (v2.ok) return v2;
+    const needsV3 = hasOwn(checked.value.program.meta, "progressionRelations") ||
+      hasOwn(checked.value.program.meta, "progressionModifiers") ||
+      checked.value.program.exercises.some((exercise) => hasOwn(exercise, "id") || hasOwn(exercise, "movementId") || hasOwn(exercise, "progression"));
+    const v2 = needsV3 ? { ok: false, code: "incompatible" } : await encodeCandidate("v2.", packV2(checked.value));
+    const v3 = await encodeCandidate("v3.", packV3(checked.value));
+    const candidates = [v1, v2, v3].filter((candidate) => candidate.ok);
+    if (candidates.length) return candidates.reduce((best, candidate) => candidate.value.length < best.value.length ? candidate : best);
     return v1;
   }
 
@@ -1301,7 +1354,7 @@
     const match = encoded.match(VERSION_PREFIX_RE);
     if (!match) return { ok: false, code: "invalid-base64" };
     const envelopeVersion = Number(match[1]);
-    if (envelopeVersion !== 1 && envelopeVersion !== 2) return { ok: false, code: "unsupported-version" };
+    if (envelopeVersion !== 1 && envelopeVersion !== 2 && envelopeVersion !== 3) return { ok: false, code: "unsupported-version" };
     const payload = match[2];
     const compressed = fromBase64Url(payload);
     if (!compressed) return { ok: false, code: "invalid-base64" };
@@ -1317,8 +1370,8 @@
       return { ok: false, code: "invalid-json" };
     }
     let checked;
-    if (envelopeVersion === 2) {
-      const expanded = expandV2(parsed);
+    if (envelopeVersion === 2 || envelopeVersion === 3) {
+      const expanded = envelopeVersion === 2 ? expandV2(parsed) : expandV3(parsed);
       if (!expanded.ok) return expanded;
       checked = validate(expanded.value, options);
     } else {
@@ -1368,7 +1421,7 @@
     const match = value.match(VERSION_PREFIX_RE);
     if (!match) return false;
     const version = Number(match[1]);
-    if (version !== 1 && version !== 2) return false;
+    if (version !== 1 && version !== 2 && version !== 3) return false;
     const payload = match[2];
     return payload.length > 0 && BASE64URL_RE.test(payload) && payload.length % 4 !== 1;
   }

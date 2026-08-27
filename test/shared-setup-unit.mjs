@@ -24,6 +24,13 @@ const { EXERCISE_LIBRARY } = require(join(__dirname, "..", "exercises.js"));
 
 const OPTS = { builtInIds: BUILT_IN_IDS };
 const LIBRARY_OPTS = { builtInIds: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)) };
+const PROGRESSION_OPTS = {
+  ...LIBRARY_OPTS,
+  movementIdentityByLibraryId: {
+    "pr_mc": "movement:bench-press", "custom:row-1": "movement:bench-press",
+    "ab_mc": "movement:bench-press", "cu_db": "movement:bench-press",
+  },
+};
 
 let passed = 0, failed = 0;
 function assert(cond, name, detail = "") {
@@ -255,21 +262,46 @@ console.log("progression envelopes and program relations");
     target: "repMin",
     params: { pending: true },
   }];
-  const checked = Setup.validate(payload, LIBRARY_OPTS);
+  const checked = Setup.validate(payload, PROGRESSION_OPTS);
   assert(checked.ok, "versioned progression payload validates", JSON.stringify(checked));
   assert(checked.ok && checked.value.program.exercises[0].progression?.strategy.id === "range", "exercise progression survives validation");
   assert(checked.ok && checked.value.program.exercises[0].movementId === "movement:bench-press", "movement identity survives validation");
   assert(checked.ok && checked.value.program.meta.progressionRelations?.[0].members.length === 2, "program relations survive validation");
   assert(checked.ok && checked.value.program.meta.progressionModifiers?.[0].id === "pending-modifier", "program modifiers survive validation");
   if (checked.ok) {
-    const encoded = await Setup.encode(payload, LIBRARY_OPTS);
+    const encoded = await Setup.encode(payload, PROGRESSION_OPTS);
     assert(encoded.ok, "versioned progression payload encodes", JSON.stringify(encoded));
     if (encoded.ok) {
-      const decoded = await Setup.decode(encoded.value, LIBRARY_OPTS);
+      const decoded = await Setup.decode(encoded.value, PROGRESSION_OPTS);
       assert(decoded.ok, "versioned progression payload decodes", JSON.stringify(decoded));
-      assert(decoded.ok && json(decoded.value) === json(checked.value), "versioned progression payload round-trips byte-equivalently");
+      assert(decoded.ok && json(decoded.value) === json(checked.value), "versioned progression payload round-trips byte-equivalently", json({ decoded: decoded.value, checked: checked.value }));
     }
   }
+}
+
+console.log("schema: progression slot identity boundaries");
+{
+  const duplicate = completeRoundTripPayload();
+  duplicate.program.exercises[0].id = "duplicate-slot";
+  duplicate.program.exercises[1].id = duplicate.program.exercises[0].id;
+  const duplicateResult = Setup.validate(duplicate, PROGRESSION_OPTS);
+  assert(!duplicateResult.ok && duplicateResult.issues?.some((issue) => issue.includes("duplicate id")),
+    "globally duplicate exercise slot ids are rejected", JSON.stringify(duplicateResult));
+
+  const sibling = completeRoundTripPayload();
+  sibling.program.exercises[0].id = "slot-heavy";
+  sibling.program.exercises[0].movementId = "movement:bench-press";
+  sibling.program.exercises[1].id = "slot-volume";
+  sibling.program.exercises[1].movementId = "movement:bench-press";
+  sibling.program.exercises[1].libraryId = "pd_mc";
+  sibling.program.meta.progressionRelations = [{
+    schemaVersion: 1, id: "relation-sibling", type: "paired_exposure", version: 1,
+    movementId: "movement:bench-press",
+    members: [{ exerciseId: "slot-heavy", role: "heavy" }, { exerciseId: "slot-volume", role: "volume" }],
+  }];
+  const siblingResult = Setup.validate(sibling, PROGRESSION_OPTS);
+  assert(!siblingResult.ok && siblingResult.issues?.some((issue) => issue.includes("movement identity mismatch")),
+    "paired relations reject sibling-machine identities without an approved mapping", JSON.stringify(siblingResult));
 }
 
 console.log("schema: language and settings");
@@ -336,12 +368,12 @@ console.log("schema: excluded keys cannot reach the proposal");
   raw.program.meta.onboarded = true;
   raw.program.meta.blockPromptDismissedId = "block";
   raw.program.exercises[0].id = "slot-1";
-  raw.program.exercises[0].movementId = "movement-1";
+  raw.program.exercises[0].movementId = "movement:bench-press";
   raw.program.exercises[1].id = "slot-2";
-  raw.program.exercises[1].movementId = "movement-1";
+  raw.program.exercises[1].movementId = "movement:bench-press";
   raw.program.meta.progressionRelations = [{
     schemaVersion: 1, id: "relation-1", type: "paired_exposure", version: 1,
-    movementId: "movement-1",
+    movementId: "movement:bench-press",
     members: [{ exerciseId: "slot-1", role: "heavy" }, { exerciseId: "slot-2", role: "volume" }],
   }];
   raw.program.customExercises[0].archived = true;
@@ -350,8 +382,8 @@ console.log("schema: excluded keys cannot reach the proposal");
   raw.program.customExercises[0].beginnerFriendly = false;
   raw.program.customExercises[0].custom = true;
   const snapshot = json(raw);
-  const result = Setup.validate(raw, OPTS);
-  assert(result.ok, "payload with excluded keys still validates after picking", result.code);
+  const result = Setup.validate(raw, PROGRESSION_OPTS);
+  assert(result.ok, "payload with excluded keys still validates after picking", `${result.code}: ${JSON.stringify(result.issues)}`);
   assert(json(raw) === snapshot, "validate does not mutate the input");
   if (result.ok) {
     const text = json(result.value);
@@ -373,7 +405,7 @@ console.log("schema: excluded keys cannot reach the proposal");
     assert(!("onboarded" in result.value.program.meta), "onboarded is absent");
     assert(!("blockPromptDismissedId" in result.value.program.meta), "blockPromptDismissedId is absent");
     assert(result.value.program.exercises[0].id === "slot-1", "exercise slot id is preserved for relation references");
-    assert(result.value.program.exercises[0].movementId === "movement-1", "recognized movement identity is preserved");
+    assert(result.value.program.exercises[0].movementId === "movement:bench-press", "recognized movement identity is preserved");
     assert(!("archived" in result.value.program.customExercises[0]), "custom archived is absent");
     assert(!("created" in result.value.program.customExercises[0]), "custom created is absent");
     assert(!("patterns" in result.value.program.customExercises[0]), "custom patterns are absent");
@@ -529,8 +561,8 @@ console.log("schema: deeply nested untrusted values");
 console.log("encode/decode round trip");
 {
   const en = await Setup.encode(cloneFixture(MINIMAL_PAYLOAD), OPTS);
-  assert(en.ok && typeof en.value === "string" && /^v[12]\./.test(en.value), "encodes a valid English payload", en.code);
-  assert(en.ok && /^v[12]\.[A-Za-z0-9_-]+$/.test(en.value), "encoded value is a supported unpadded base64url envelope");
+  assert(en.ok && typeof en.value === "string" && /^v[123]\./.test(en.value), "encodes a valid English payload", en.code);
+  assert(en.ok && /^v[123]\.[A-Za-z0-9_-]+$/.test(en.value), "encoded value is a supported unpadded base64url envelope");
   assert(en.ok && en.value.length <= MAX_ENCODED_CHARS, "encoded English payload fits the character ceiling", String(en.value && en.value.length));
   assert(en.ok && en.compressedBytes <= MAX_COMPRESSED_BYTES, "compressed English payload fits the byte ceiling");
   assert(en.ok && en.decompressedBytes <= MAX_DECOMPRESSED_BYTES, "uncompressed English payload fits the output ceiling");
@@ -794,6 +826,38 @@ console.log("v2 decode of a hand-built tuple");
   );
 }
 
+console.log("v3 progression tuple and immutable v2 boundary");
+{
+  const v3Relation = {
+    schemaVersion: 1, id: "relation-v3", type: "paired_exposure", version: 1,
+    movementId: "movement:bench-press",
+    members: [{ exerciseId: "slot-heavy", role: "heavy" }, { exerciseId: "slot-volume", role: "volume" }],
+  };
+  const v3Modifier = { id: "modifier-v3", version: 1, compatibleStrategies: ["range@1"], params: { pending: true } };
+  const v3Progression = { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 6, repMax: 10 } }, modifiers: [] };
+  const oldExercise = MINIMAL_V2_TUPLE[3][0];
+  const v3Tuple = [
+    ["Coach program", 6, 255, 1, 2, 1, [1], ["Chest"], 2, [v3Relation], [v3Modifier]],
+    MINIMAL_V2_TUPLE[1],
+    ["Day 1", "Day 2"],
+    [[oldExercise[0], oldExercise[1], oldExercise[2], oldExercise[3], oldExercise[4], oldExercise[5], oldExercise[6] | 3584,
+      ...oldExercise.slice(7), "slot-heavy", v3Progression, "movement:bench-press"],
+      [1, 1, "pr_mc", 3, 6, 10, 3584, "slot-volume", { schemaVersion: 1, strategy: { id: "manual", version: 1, params: {} }, modifiers: [] }, "movement:bench-press"]],
+    [],
+  ];
+  const v3 = await encodeVersionedBytes(3, new TextEncoder().encode(json(v3Tuple)));
+  const decoded = await Setup.decode(v3, PROGRESSION_OPTS);
+  assert(decoded.ok, "v3 tuple decodes", decoded.code);
+  assert(decoded.ok && decoded.value.program.meta.progressionRelations?.[0]?.id === "relation-v3" &&
+    decoded.value.program.exercises[0]?.progression?.strategy?.params?.repMax === 10,
+    "v3 tuple preserves progression fields", json(decoded));
+  const v2WithNewBit = [...MINIMAL_V2_TUPLE];
+  v2WithNewBit[3] = [[...MINIMAL_V2_TUPLE[3][0], 512]];
+  const rejected = await Setup.decode(await encodeVersionedBytes(2, new TextEncoder().encode(json(v2WithNewBit))), OPTS);
+  assert(!rejected.ok && rejected.code === "invalid-schema", "released v2 rejects future optional bits", rejected.code);
+  assert(MINIMAL_V2_TUPLE[0][2] === 63 && MINIMAL_V2_TUPLE[3][0][6] === 506, "released v2 tuple masks remain frozen");
+}
+
 console.log("encode selects the shorter envelope");
 {
   const minValidated = Setup.validate(cloneFixture(MINIMAL_PAYLOAD), OPTS);
@@ -1032,7 +1096,7 @@ console.log("cookie v2 and safety");
 
   const unsafe = [
     ["attribute injection", "v1.abc; Path=/stolen"],
-    ["unsupported version", "v3.abc"],
+    ["unsupported version", "v4.abc"],
     ["unlabeled value", "not-a-setup"],
     ["padded base64", "v1.e30="],
     ["plus in payload", "v1.not+base64"],

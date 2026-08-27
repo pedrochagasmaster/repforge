@@ -165,7 +165,7 @@ and not proof of identity. Taurifer never uploads ordinary workout data.
 The fragment is local-first and unencrypted. Workout logs, completed
 sessions, prior blocks, notification permission, and device UI
 preferences never travel with the link. A temporary `repforge_setup_v1`
-cookie — the historical name, kept even when the value is a `v2.`
+cookie — the historical name, kept even when the value is a `v2.` or `v3.`
 envelope — exists only so iOS 17.2+ Add to Home Screen can recover the
 same proposal. It is compressed, not encrypted, is sent to the static
 host with matching app-page requests for up to seven days, and is not
@@ -321,7 +321,7 @@ carries the short enforcement note.
 | Export filenames | `taurifer_*` (`log`, `program`, `backup`, `copy_a`/`copy_b`) | Brand, lowercase |
 | localStorage keys | `repforge_v1`, `repforge_draft_v1`, `repforge_pending_v1:*` | Codename — frozen |
 | IndexedDB database / store | `repforge` / `kv` | Codename — frozen |
-| Setup-link handoff cookie | `repforge_setup_v1` | Codename — frozen, including when the value is a `v2.` envelope |
+| Setup-link handoff cookie | `repforge_setup_v1` | Codename — frozen, including when the value is a `v2.` or `v3.` envelope |
 | Service-worker cache prefix | `repforge-vNN` (bump `NN` only) | Codename — frozen |
 | Cross-tab lock name | `repforge:state-write` | Codename — frozen |
 | JS globals and test hooks | `RepForgeI18n`, `RepForgeSchedule`, `RepForgeNotify`, `RepForgeSharedSetup`, `window.__repforge*` | Codename — frozen |

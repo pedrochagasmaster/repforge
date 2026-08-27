@@ -103,11 +103,14 @@ it; both are gzip via Compression Streams, then unpadded base64url, and
 both are self-contained:
 
 - `v1.` — deterministic canonical JSON of the semantic document.
-- `v2.` — an immutable compact tuple JSON of the same document.
+- `v2.` — an immutable compact tuple JSON of the same document. Its optional
+  bit masks and tuple layout are frozen forever.
+- `v3.` — a compact tuple extension for the versioned progression envelope.
+  It does not change the v1/v2 decoder contract.
 
-The decoder must accept both prefixes forever. New encoding validates the
-semantic payload once, builds both envelopes, and emits the shortest
-valid candidate; equal length keeps `v1.`. A later unsupported prefix is
+The decoder must accept all three released prefixes forever. New encoding
+validates the semantic payload once, builds every applicable envelope, and
+emits the shortest valid candidate; equal length keeps `v1.`. A later unsupported prefix is
 rejected before decompression. Compression and encoding are not
 encryption.
 
@@ -119,7 +122,7 @@ masks with arity equal to the fixed prefix plus the set-bit count.
 Unpacking is bounded and strict — wrong arity, unknown mask bits, or an
 unreferenced day or custom fails closed — and the expanded object then
 runs the existing semantic validator. Exact slot layouts live in
-`shared-setup.js`; this ADR locks the shape, not every bit.
+`shared-setup.js`; this ADR locks each released tuple layout and mask.
 
 We rejected a query parameter (hosts, proxies, and referrers would log the
 program), an arbitrary remote payload URL (that re-enters a backend and a
@@ -138,7 +141,7 @@ proposal therefore also lives for up to seven days in a first-party cookie:
 
 ```text
 Name:      repforge_setup_v1
-Value:     v1.<base64url-gzip> or v2.<base64url-gzip>
+Value:     v1.<base64url-gzip>, v2.<base64url-gzip>, or v3.<base64url-gzip>
 Path:      pathname of index.html
            (/repforge/index.html in production, /index.html locally)
 Max-Age:   604800
@@ -147,8 +150,9 @@ Secure:    yes outside localhost
 HttpOnly:  no — client JavaScript must read it
 ```
 
-The cookie name stays `repforge_setup_v1` even when the value is a `v2.`
-envelope. It is a historical identifier; renaming it would break already
+The cookie name stays `repforge_setup_v1` even when the value is a `v2.` or
+`v3.` envelope. The cookie carries the encoded value verbatim. It is a
+historical identifier; renaming it would break already
 installed handoff. The seven-day disclosure is unchanged.
 
 The cookie is encoded and compressed, not encrypted. It is sent with the
@@ -191,7 +195,7 @@ Copy link writes the URL only. Do not paste the privacy or cookie
 paragraph into recipient messages. Do not advertise authenticity. A
 modified but valid payload is still just a bearer link.
 
-The encoded value, including the three-character `v1.` or `v2.` prefix,
+The encoded value, including its three-character `v1.`, `v2.`, or `v3.` prefix,
 must be at most **3,072** characters (`MAX_ENCODED_CHARS`). The matching
 compressed ceiling is 2,301 bytes: 2,301 bytes encode to 3,071
 characters and fit; 2,302 bytes encode to 3,073 and must fail. Sharing
@@ -205,8 +209,8 @@ regression target of **at most 700 characters**. That is not a universal
 maximum.
 
 Gzip bytes need not be identical across engines. Interoperability is
-semantic equality after decode, and canonical tuple equality for a v2
-envelope, not identical compressed bytes.
+semantic equality after decode, and canonical tuple equality for a compact
+v2 or v3 envelope, not identical compressed bytes.
 
 There is no hosted short-link service in this version, so URLs can be
 long and cannot be revoked. That is the cost of keeping the payload off

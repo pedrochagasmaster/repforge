@@ -341,7 +341,8 @@ remain immutable.
 Future persistence work must round-trip recognized prescriptions, modifiers,
 relations, and provenance through durable state, full backup, program JSON,
 verbose and compact setup links, and human-readable export before any new
-format can be written. Released setup `v1` and `v2` decoders remain permanent.
+format can be written. Released setup `v1` and `v2` decoders remain permanent;
+the v3 compact envelope is the only place for new progression fields.
 
 ## Review checklist
 
@@ -434,8 +435,8 @@ no fallback: an unsupported prescription never silently becomes `range@1`.
   block modifiers → hardening. Do not merge a slice that writes a progression,
   relation, or modifier shape it cannot also read, back up, export to program
   JSON, encode in verbose and compact setup links, and render in text export.
-- **Compatibility.** Released setup `v1` and `v2` decoders remain permanent and
-  logged rows stay immutable. A legacy exercise with no meaningful
+- **Compatibility.** Released setup `v1` and `v2` decoders remain permanent;
+  v3 carries the progression extension. Logged rows stay immutable. A legacy exercise with no meaningful
   `progressionType` gets an in-memory `range@1` projection; an unknown
   non-empty legacy type must execute as `manual@1` with an unsupported-import
   reason while full backup preserves the original value.

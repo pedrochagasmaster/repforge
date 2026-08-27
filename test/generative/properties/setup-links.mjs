@@ -2,7 +2,7 @@
  * Setup-link properties (INV-012 scoped to setup proposals, INV-013).
  *
  * The setup pipeline is: validate → canonical payload → envelope encode
- * (v1 JSON+gzip or v2 compact tuple) → decode → validate. These properties
+ * (v1 JSON+gzip or v2/v3 compact tuple) → decode → validate. These properties
  * hold the whole pipeline to exact semantic preservation, cross-envelope
  * equivalence, privacy exclusions, and the size contract.
  */
@@ -54,8 +54,9 @@ export function buildSuites() {
         if (!deepEqual(viaV1.value, viaSelected.value)) {
           throw new Error("v1 JSON envelope and the selected envelope disagree semantically");
         }
-        // Envelope selection rule: v2 only when strictly shorter than v1.
-        if (selected.value.startsWith("v2.") && selected.value.length >= v1.length) {
+        // Envelope selection rule: compact candidates are chosen only when
+        // strictly shorter than the v1 candidate.
+        if ((selected.value.startsWith("v2.") || selected.value.startsWith("v3.")) && selected.value.length >= v1.length) {
           throw new Error(`v2 selected despite not being shorter (${selected.value.length} vs ${v1.length})`);
         }
       }),
@@ -84,7 +85,7 @@ export function buildSuites() {
       property: fc.asyncProperty(payloadArbitrary(), async (payload) => {
         const encoded = await Setup.encode(payload, OPTS);
         if (encoded.ok) {
-          if (!/^v[12]\.[A-Za-z0-9_-]+$/.test(encoded.value)) {
+          if (!/^v[123]\.[A-Za-z0-9_-]+$/.test(encoded.value)) {
             throw new Error(`malformed envelope shape: ${encoded.value.slice(0, 12)}…`);
           }
           if (encoded.value.length > Setup.MAX_ENCODED_CHARS) {

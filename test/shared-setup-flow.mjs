@@ -673,7 +673,7 @@ export async function runSharedSetupFlow(browser) {
     assert(payload && !payload.log && !payload.programHistory, "builder omits log and history", JSON.stringify({ log: payload?.log, history: payload?.programHistory, payload: !!payload }));
     const encoded = await encodeSharedPayload(page, payload || MINIMAL_PAYLOAD);
     assert(
-      encoded.ok === true && typeof encoded.value === "string" && /^v[12]\./.test(encoded.value),
+      encoded.ok === true && typeof encoded.value === "string" && /^v[123]\./.test(encoded.value),
       "encode returns an install-safe supported envelope",
       JSON.stringify(encoded)
     );
