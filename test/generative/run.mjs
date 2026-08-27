@@ -32,6 +32,7 @@ const SUITE_FILES = [
   "identity",
   "malformed-inputs",
   "progression-range",
+  "progression-strategies",
   "program-entry",
 ];
 

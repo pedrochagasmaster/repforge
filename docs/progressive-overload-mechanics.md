@@ -14,22 +14,65 @@ that — suggestions. Anything you type over them wins, always.
 
 ---
 
-## 1. The goal: progressive overload by double progression
+## 1. One engine, four progression methods
 
 Muscles grow when they are asked to do slightly more than last time.
 "Slightly more" can mean more weight on the bar or more repetitions with the
-same weight. Taurifer uses the classic **double progression** scheme to
-combine the two:
+same weight. Taurifer lets each exercise use one of four reviewed methods. All
+four run through the same local, deterministic engine and the same saved
+history. A program family or entitlement never changes their rules.
+
+### Rep range
+
+The original method is the classic **double progression** scheme:
 
 1. Every exercise has a **rep range** you chose for it — say 6 to 8.
 2. You work with a fixed weight and try to add repetitions from workout to
    workout, climbing from the bottom of the range toward the top.
 3. When you've shown you're strong enough beyond the top of the range, the
    weight goes up and the rep target comes back down inside the range.
-4. Repeat, forever.
+4. Repeat.
 
-The rest of this document is about how the app decides where you are on
-that ladder — and when it's safe, or overdue, to take the next step.
+Sections 3 through 8 explain this rep-range method in detail because it has the
+largest set of live autoregulation signals. The other approved methods use the
+same capacity evidence and safety boundaries but own their narrower decisions.
+
+### Total reps
+
+You author a fixed number of working sets, one total-rep goal, a minimum and
+maximum per set, and an acceptable effort window. Taurifer distributes the
+goal evenly, placing any remainder on the earlier sets. Only the authored
+working sets count toward the goal; extra sets remain in history but cannot
+earn an increase. Reaching the goal at acceptable effort earns one load step.
+Missing the goal holds unless demonstrated capacity falls below the authored
+per-set floor. After an increase, capacity may temporarily cap the prescribed
+reps while the authored goal stays unchanged.
+
+### Heavy set and lighter sets
+
+You author exactly one heavy set followed by a fixed number of lighter sets.
+The lighter load is an authored percentage of the heavy load, within the
+reviewed 70–95% band, snapped to the equipment grid. The heavy set progresses
+inside its own rep and effort window. During a workout, a completed heavy set
+may recalculate only the still-untouched lighter sets. It never rewrites a set
+you edited or saved.
+
+### Manual
+
+Manual progression records the workout without inventing a load, rep, effort,
+or set target. Prior history remains visible; every target is yours.
+
+### Paired heavy and volume exposures
+
+The one reviewed pair connects a heavy-set-and-lighter-sets exposure to a
+total-reps exposure of the same movement identity. Paired evidence can only
+temper an independent recommendation; it can never make either exposure more
+aggressive and cannot turn a hold into a reduction. Different machines are
+not treated as the same movement. Other pairings remain incompatible.
+
+None of these methods schedules a deload or changes the weekly program
+structure. The rep-range method's observed three-session stall notice is a
+response to recorded performance, not a calendar event.
 
 ## 2. What you record
 
@@ -279,9 +322,9 @@ exercise saying why, in words rather than arithmetic:
 The goal is trust: the moment a suggestion surprises you is exactly the
 moment it must be able to say why.
 
-## 10. The dials in Settings — and what deliberately isn't one
+## 10. The dials in Settings and the exercise editor
 
-Four settings shape the engine:
+Device settings establish the normal load grid and effort trust boundary:
 
 - **Weight jump (%)** — the size of a load step relative to the bar
   (default 2.5%).
@@ -290,8 +333,14 @@ Four settings shape the engine:
 - **Hard-set ceiling** — the reps-in-reserve value above which a set no
   longer counts as hard (default 4). The same number is the capacity
   trust ceiling from section 3.
-- **Rep range per exercise** — set on each exercise template; the entire
-  ladder pivots around it.
+- **Rep range per exercise** — used by the rep-range method.
+
+The Program editor selects the method for each exercise and shows only its
+reviewed basic values. Total reps owns its set count, total, per-set limits,
+effort window, and load step. Heavy-and-lighter owns one heavy-set window, the
+number and rep window of lighter sets, their percentage, and the load step.
+Saving validates the whole prescription first. An unsupported imported method
+is preserved and named as incompatible until you explicitly replace it.
 
 (A fifth setting, the target reps-in-reserve shown when starting a brand-new
 lift, only shapes that first-session guidance text — it no longer influences
