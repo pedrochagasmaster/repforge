@@ -343,6 +343,8 @@ try {
       await page.evaluate(key => JSON.parse(window.localStorage.getItem(key) || "{}").log?.length > 0, KEY),
       "the workout still commits while telemetry is off",
     );
+    await page.click("#sumDone");
+    await page.waitForSelector("#sessionSummary.hidden", { timeout: 8000 });
     await page.evaluate(() => window.__repforgeShowSettings());
     assert(await page.locator("#telemetryToggle").getAttribute("aria-pressed") === "false", "Settings shows the persisted opt-out");
     await page.click("#telemetryToggle");
