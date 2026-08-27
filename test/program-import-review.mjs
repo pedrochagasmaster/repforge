@@ -428,6 +428,35 @@ async function main() {
       "program JSON import preserves unvalidated progression as non-executable provenance",
       JSON.stringify(after.program?.[0]));
 
+    const legacyProgression = await page.evaluate(() => {
+      const common = { id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", sets: 3, min: 6, max: 10 };
+      const project = (extra) => window.__repforgeProgressionForExercise({ ...common, ...extra });
+      return {
+        empty: project({ progressionType: "   " }),
+        alias: project({ progressionType: "double_progression" }),
+        unknown: project({ progressionType: "old_custom_rule" }),
+        invalid: project({ progressionIncompatibility: { version: 1, kind: "prescription", reason: "future", value: { strategy: { id: "future", version: 9 } } } }),
+      };
+    });
+    assert(legacyProgression.empty.strategy.id === "range" && legacyProgression.alias.strategy.id === "range",
+      "empty and documented legacy progression markers project to range in memory",
+      JSON.stringify(legacyProgression));
+    assert(legacyProgression.unknown.strategy.id === "manual" &&
+      legacyProgression.unknown.strategy.params.unsupportedImport === "old_custom_rule",
+      "unknown legacy progression markers remain manual and preserve their reason",
+      JSON.stringify(legacyProgression.unknown));
+    assert(legacyProgression.invalid.strategy.id === "manual" &&
+      legacyProgression.invalid.strategy.params.unsupportedImport === "incompatible_prescription",
+      "invalid or future progression markers cannot reach the range adapter",
+      JSON.stringify(legacyProgression.invalid));
+    const legacyRecommendation = await page.evaluate(() => window.__repforgeRecommendation({
+      id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", day: "Day 1", sets: 3, min: 6, max: 10,
+      progressionType: "old_custom_rule",
+    }));
+    assert(legacyRecommendation.status === "manual" && legacyRecommendation.load === null && legacyRecommendation.reason === "manual.unsupported_import",
+      "unknown legacy progression produces no range recommendation target",
+      JSON.stringify(legacyRecommendation));
+
     // ---- an id collision must not overwrite a different local definition ----
     // Seeded through the app so the write goes through the durability layer
     // rather than racing the IndexedDB mirror.

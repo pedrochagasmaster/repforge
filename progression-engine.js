@@ -700,6 +700,18 @@
     );
   }
 
+  function manualResult(strategy, reason, provenance) {
+    return baseResult(
+      "manual",
+      "manual",
+      strategy,
+      [reason],
+      [],
+      {},
+      provenance,
+    );
+  }
+
   function targetSets(params, load, reps, count) {
     const targetRir = hasOwn(params, "targetRirMax") ? params.targetRirMax : null;
     return Array.from({ length: count }, () => ({
@@ -915,6 +927,30 @@
     const keyIssues = unexpectedKeys(input, inputKeys).map((key) => `input.${key}: unknown key`);
     if (keyIssues.length) return invalidResult(strategy, keyIssues);
     if (input.engineVersion !== ENGINE_VERSION) return invalidResult(strategy, ["engineVersion: unsupported"]);
+    if (strategy.id === "manual" && strategy.version === 1) {
+      const prescription = validatePrescription(input.prescription);
+      const settings = validateSettings(input.settings);
+      const history = summarizeHistory(input.history, settings.ok ? settings.value.hardRir : 4);
+      const currentSession = normalizeCurrentSession(input.currentSession);
+      const context = validateContext(input.context);
+      const issues = [];
+      for (const checked of [prescription, settings, history, currentSession, context]) {
+        if (!checked.ok) issues.push(...checked.issues);
+      }
+      if (issues.length) return invalidResult(strategy, issues);
+      if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
+      if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+      const provenance = {
+        evidenceWindow: { sessionCount: history.value.length, currentSetCount: currentSession.value.length },
+        modifierVersions: [],
+        relationVersion: null,
+      };
+      const params = prescription.value.strategy.params;
+      const reason = Object.prototype.hasOwnProperty.call(params, "unsupportedImport")
+        ? "manual.unsupported_import"
+        : "manual.authored_target";
+      return manualResult({ id: "manual", version: 1 }, reason, provenance);
+    }
     if (strategy.id !== "range" || strategy.version !== 1) return incompatibleResult(strategy, "engine.unsupported_strategy");
     if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
     if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");

@@ -2937,9 +2937,9 @@ function blockTrendNote(trend){
    engine: the pure module knows nothing about the DOM, storage, i18n, a
    program family, or an entitlement, and nothing here teaches it.
 
-   `range@1` is the only executable strategy. Anything else comes back typed
-   as incompatible rather than silently falling back, so a proposed strategy
-   cannot become live by accident. */
+   `range@1` is the only arithmetic strategy. Unsupported imported markers are
+   represented as typed manual results rather than silently falling back, so a
+   proposed strategy cannot become live by accident. */
 /** Raw rows for this lift, grouped and ordered exactly the way sessionsFor
  *  groups and orders them, so the engine's own summaries land on the same
  *  numbers the app used to compute inline. */
@@ -2958,8 +2958,7 @@ function progressionInput(ex,currentSession,freshnessFactor){
     blockStart:state.programMeta?.started||null};
   if(freshnessFactor!=null&&freshnessFactor<1)context.freshnessFactor=freshnessFactor;
   return{engineVersion:1,
-    prescription:{schemaVersion:1,modifiers:[],
-      strategy:{id:"range",version:1,params:{workingSets:+ex.sets||1,repMin:+ex.min,repMax:+ex.max}}},
+    prescription:progressionForExercise(ex),
     relation:null,modifiers:[],
     settings:{minLoadIncrement:(()=>{const raw=+state.settings.minJump;return Number.isFinite(raw)&&raw>0?raw:2.5})(),
       jumpPercent:+state.settings.jumpPct||0,
@@ -2988,9 +2987,24 @@ function rangeCopy(ex,reason){
   if(reason==="push_reps")return{label:t("rec.push_reps.label"),text:t("rec.push_reps.text")};
   return{label:t("rec.hold_add_reps.label"),
     text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text")}}
+/* Legacy progression markers are compatibility data, not a formula switch.
+ * This is the complete alias table: the old double-progression marker is the
+ * released range contract. Everything else remains recoverable but executes
+ * as a manual envelope until an owner-approved rule exists. */
+const LEGACY_PROGRESSION_ALIASES=Object.freeze({double_progression:"range"});
+function rangeProgressionProjection(ex){return{schemaVersion:1,modifiers:[],strategy:{id:"range",version:1,params:{workingSets:+ex.sets||1,repMin:+ex.min,repMax:+ex.max}}}}
+function progressionForExercise(ex){
+  if(ex?.progressionIncompatibility)return{schemaVersion:1,modifiers:[],strategy:{id:"manual",version:1,params:{unsupportedImport:"incompatible_prescription"}}};
+  if(ex?.progression)return cloneSnapshot(ex.progression);
+  const legacy=typeof ex?.progressionType==="string"?ex.progressionType.trim():"";
+  if(legacy&&!Object.prototype.hasOwnProperty.call(LEGACY_PROGRESSION_ALIASES,legacy))
+    return{schemaVersion:1,modifiers:[],strategy:{id:"manual",version:1,params:{unsupportedImport:legacy}}};
+  return rangeProgressionProjection(ex||{});
+}
 function recommendation(ex){
   const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
   const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
+  if(result.kind==="manual"||result.kind==="incompatible"||result.kind==="invalid")return{status:"manual",heat:0,label:"",text:"",load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,reason:codes[0]};
   // No history, or evidence the locked strategy will not act on: the same
   // "start here" card the app has always drawn, with no invented number.
   if(!ui||ui.reason==="new")return{status:"new",heat:.12,label:t("rec.new.label"),
@@ -5287,6 +5301,7 @@ function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const
   return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
 window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
+window.__repforgeProgressionForExercise=progressionForExercise;
 window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir,capacityBaseline,
   sessionsFor,expectedSetDrop,sessionFreshness,baseSetReps,setSuggestion};
 window.__repforgeAttention=attentionGroups;

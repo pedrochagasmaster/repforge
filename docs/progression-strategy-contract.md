@@ -338,6 +338,14 @@ unknown non-empty legacy type must later execute as manual with an unsupported
 import reason while full backup preserves the original value. Historical rows
 remain immutable.
 
+The recognized legacy aliases are deliberately closed. The value is trimmed
+before lookup; matching is otherwise case-sensitive, and no value outside this
+table is recognized:
+
+| Legacy `progressionType` | In-memory envelope |
+| --- | --- |
+| `double_progression` | `range@1` |
+
 Future persistence work must round-trip recognized prescriptions, modifiers,
 relations, and provenance through durable state, full backup, program JSON,
 verbose and compact setup links, and human-readable export before any new

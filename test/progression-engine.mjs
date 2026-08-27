@@ -311,6 +311,21 @@ const unsupported = Engine.evaluateProgression({
 assert.equal(unsupported.kind, "incompatible");
 assert.deepEqual(unsupported.reasonCodes, ["engine.unsupported_strategy"]);
 
+const unsupportedImportManual = Engine.evaluateProgression({
+  ...structuredClone(rangeFixtures.defaults),
+  engineVersion: 1,
+  history: [],
+  prescription: {
+    schemaVersion: 1,
+    strategy: { id: "manual", version: 1, params: { unsupportedImport: "legacy_custom_rule" } },
+    modifiers: [],
+  },
+});
+assert.equal(unsupportedImportManual.kind, "manual");
+assert.equal(unsupportedImportManual.status, "manual");
+assert.deepEqual(unsupportedImportManual.reasonCodes, ["manual.unsupported_import"]);
+assert.deepEqual(unsupportedImportManual.target.sets, [], "manual import must never invent a target");
+
 const unsupportedModifier = Engine.evaluateProgression({
   ...structuredClone(rangeFixtures.defaults),
   engineVersion: 1,
