@@ -836,7 +836,7 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
-  await runCase("App-generated setup link is accepted whether encode selects v1 or v2", async () => {
+  await runCase("App-generated setup link is accepted whether encode selects v1, v2, or v3", async () => {
     const coach = await openAppPage(browser);
     await clearSite(coach.page);
     await persistState(coach.page, configuredState({
