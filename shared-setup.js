@@ -26,8 +26,8 @@
   const UNITS = new Set(UNIT_VALUES);
   const LANGS = new Set(LANG_VALUES);
   const RIR_MODES = new Set(RIR_MODE_VALUES);
-  const META_OPTIONAL_BITS = 6;
-  const EXERCISE_OPTIONAL_BITS = 9;
+  const META_OPTIONAL_BITS = 8;
+  const EXERCISE_OPTIONAL_BITS = 12;
   const CUSTOM_OPTIONAL_BITS = 4;
   const BASE64URL_RE = /^[A-Za-z0-9_-]*$/;
   const VERSION_PREFIX_RE = /^v(\d+)\.(.*)$/;
@@ -259,6 +259,8 @@
     if (sessionLength !== undefined) meta.sessionLength = sessionLength;
     if (!isIntInRange(raw.mesocycleLengthWeeks, 1, 52)) issues.push("program.meta.mesocycleLengthWeeks: invalid");
     else meta.mesocycleLengthWeeks = raw.mesocycleLengthWeeks;
+    if (hasOwn(raw, "progressionRelations")) meta.progressionRelations = pickRelations(raw.progressionRelations, issues);
+    if (hasOwn(raw, "progressionModifiers")) meta.progressionModifiers = pickModifiers(raw.progressionModifiers, issues);
     return meta;
   }
 
@@ -280,6 +282,157 @@
     return raw[key];
   }
 
+  function canonicalJsonField(value, path, issues) {
+    try {
+      return canonicalize(value);
+    } catch {
+      issues.push(`${path}: invalid JSON value`);
+      return undefined;
+    }
+  }
+
+  function pickModifier(raw, index, issues, path = `program.meta.progressionModifiers[${index}]`) {
+    if (!isPlainObject(raw)) {
+      issues.push(`${path}: expected object`);
+      return null;
+    }
+    const allowed = new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]);
+    for (const key of Object.keys(raw)) if (!allowed.has(key)) issues.push(`${path}.${key}: unknown key`);
+    const modifier = {};
+    const id = requireString(raw, "id", issues, path, { max: 120, min: 1, trim: true });
+    if (id !== undefined) modifier.id = id;
+    if (!isIntInRange(raw.version, 1, Number.MAX_SAFE_INTEGER)) issues.push(`${path}.version: invalid`);
+    else modifier.version = raw.version;
+    const compatible = uniqueTrimmedStrings(raw, "compatibleStrategies", issues, path, {
+      maxItems: 8,
+      maxItem: 80,
+      required: true,
+      minItems: 1,
+    });
+    if (compatible) modifier.compatibleStrategies = compatible;
+    if (hasOwn(raw, "weekNumber")) {
+      if (!isIntInRange(raw.weekNumber, 1, 6)) issues.push(`${path}.weekNumber: invalid`);
+      else modifier.weekNumber = raw.weekNumber;
+    }
+    const target = requireString(raw, "target", issues, path, { max: 80, min: 1, trim: true, required: false });
+    if (target) modifier.target = target;
+    if (!isPlainObject(raw.params)) issues.push(`${path}.params: expected object`);
+    else {
+      const params = canonicalJsonField(raw.params, `${path}.params`, issues);
+      if (params !== undefined) modifier.params = params;
+    }
+    return modifier;
+  }
+
+  function pickProgression(raw, issues, path) {
+    if (!isPlainObject(raw)) {
+      issues.push(`${path}: expected object`);
+      return null;
+    }
+    const allowed = new Set(["schemaVersion", "strategy", "modifiers"]);
+    for (const key of Object.keys(raw)) if (!allowed.has(key)) issues.push(`${path}.${key}: unknown key`);
+    if (raw.schemaVersion !== 1) issues.push(`${path}.schemaVersion: unsupported`);
+    if (!isPlainObject(raw.strategy)) {
+      issues.push(`${path}.strategy: expected object`);
+      return null;
+    }
+    for (const key of Object.keys(raw.strategy)) if (!["id", "version", "params"].includes(key)) issues.push(`${path}.strategy.${key}: unknown key`);
+    if (!["range", "rep_goal", "anchor_backoff", "manual"].includes(raw.strategy.id)) issues.push(`${path}.strategy.id: unsupported`);
+    if (raw.strategy.version !== 1) issues.push(`${path}.strategy.version: unsupported`);
+    if (!isPlainObject(raw.strategy.params)) issues.push(`${path}.strategy.params: expected object`);
+    const progression = { schemaVersion: 1, strategy: { id: raw.strategy.id, version: 1, params: {} }, modifiers: [] };
+    if (isPlainObject(raw.strategy.params)) {
+      const params = canonicalJsonField(raw.strategy.params, `${path}.strategy.params`, issues);
+      if (params !== undefined) progression.strategy.params = params;
+    }
+    if (!Array.isArray(raw.modifiers)) issues.push(`${path}.modifiers: expected array`);
+    else {
+      const seen = new Set();
+      for (let index = 0; index < raw.modifiers.length; index++) {
+        const modifier = pickModifier(raw.modifiers[index], index, issues, `${path}.modifiers[${index}]`);
+        if (!modifier) continue;
+        const identity = `${modifier.id}@${modifier.version}`;
+        if (seen.has(identity)) issues.push(`${path}.modifiers[${index}]: duplicate`);
+        seen.add(identity);
+        progression.modifiers.push(modifier);
+      }
+    }
+    return progression;
+  }
+
+  function pickRelation(raw, index, issues, path = `program.meta.progressionRelations[${index}]`) {
+    if (!isPlainObject(raw)) {
+      issues.push(`${path}: expected object`);
+      return null;
+    }
+    const allowed = new Set(["schemaVersion", "id", "type", "version", "movementId", "members"]);
+    for (const key of Object.keys(raw)) if (!allowed.has(key)) issues.push(`${path}.${key}: unknown key`);
+    if (raw.schemaVersion !== 1) issues.push(`${path}.schemaVersion: unsupported`);
+    const id = requireString(raw, "id", issues, path, { max: 120, min: 1, trim: true });
+    if (raw.type !== "paired_exposure") issues.push(`${path}.type: unsupported`);
+    if (raw.version !== 1) issues.push(`${path}.version: unsupported`);
+    const movementId = requireString(raw, "movementId", issues, path, { max: 200, min: 1, trim: true });
+    if (!Array.isArray(raw.members) || raw.members.length !== 2) issues.push(`${path}.members: expected exactly two members`);
+    const relation = { schemaVersion: 1, id, type: "paired_exposure", version: 1, movementId, members: [] };
+    const roles = new Set(), ids = new Set();
+    for (let memberIndex = 0; memberIndex < (Array.isArray(raw.members) ? raw.members.length : 0); memberIndex++) {
+      const member = raw.members[memberIndex];
+      const memberPath = `${path}.members[${memberIndex}]`;
+      if (!isPlainObject(member)) {
+        issues.push(`${memberPath}: expected object`);
+        continue;
+      }
+      for (const key of Object.keys(member)) if (!["exerciseId", "role"].includes(key)) issues.push(`${memberPath}.${key}: unknown key`);
+      const exerciseId = requireString(member, "exerciseId", issues, memberPath, { max: 200, min: 1, trim: true });
+      if (exerciseId && ids.has(exerciseId)) issues.push(`${memberPath}.exerciseId: duplicate`);
+      if (exerciseId) ids.add(exerciseId);
+      if (member.role !== "heavy" && member.role !== "volume") issues.push(`${memberPath}.role: unsupported`);
+      else if (roles.has(member.role)) issues.push(`${memberPath}.role: duplicate`);
+      else roles.add(member.role);
+      relation.members.push({ exerciseId, role: member.role });
+    }
+    if (!roles.has("heavy") || !roles.has("volume")) issues.push(`${path}.members: heavy and volume roles required`);
+    relation.members.sort((left, right) => left.role === "heavy" ? -1 : right.role === "heavy" ? 1 : 0);
+    return relation;
+  }
+
+  function pickRelations(raw, issues) {
+    if (!Array.isArray(raw)) {
+      issues.push("program.meta.progressionRelations: expected array");
+      return [];
+    }
+    const relations = [], relationIds = new Set(), slots = new Set();
+    for (let index = 0; index < raw.length; index++) {
+      const relation = pickRelation(raw[index], index, issues);
+      if (!relation) continue;
+      if (relationIds.has(relation.id)) issues.push(`program.meta.progressionRelations[${index}].id: duplicate`);
+      relationIds.add(relation.id);
+      for (const member of relation.members) {
+        if (slots.has(member.exerciseId)) issues.push(`program.meta.progressionRelations[${index}].members: slot belongs to multiple relations`);
+        slots.add(member.exerciseId);
+      }
+      relations.push(relation);
+    }
+    return relations;
+  }
+
+  function pickModifiers(raw, issues) {
+    if (!Array.isArray(raw)) {
+      issues.push("program.meta.progressionModifiers: expected array");
+      return [];
+    }
+    const modifiers = [], identities = new Set();
+    for (let index = 0; index < raw.length; index++) {
+      const modifier = pickModifier(raw[index], index, issues);
+      if (!modifier) continue;
+      const identity = `${modifier.id}@${modifier.version}`;
+      if (identities.has(identity)) issues.push(`program.meta.progressionModifiers[${index}]: duplicate`);
+      identities.add(identity);
+      modifiers.push(modifier);
+    }
+    return modifiers;
+  }
+
   function pickExercise(raw, index, issues) {
     const path = `program.exercises[${index}]`;
     if (!isPlainObject(raw)) {
@@ -287,6 +440,10 @@
       return null;
     }
     const exercise = {};
+    const id = requireString(raw, "id", issues, path, { max: 200, min: 1, trim: true, required: false });
+    if (id) exercise.id = id;
+    const movementId = requireString(raw, "movementId", issues, path, { max: 200, min: 1, trim: true, required: false });
+    if (movementId) exercise.movementId = movementId;
     const day = requireString(raw, "day", issues, path, { max: 80, min: 1, trim: true });
     if (day !== undefined) exercise.day = day;
     if (!isIntInRange(raw.order, 1, 1000)) issues.push(`${path}.order: invalid`);
@@ -331,6 +488,10 @@
     }
     const priority = requireString(raw, "priority", issues, path, { max: 80, trim: true, required: false });
     if (priority) exercise.priority = priority;
+    if (hasOwn(raw, "progression")) {
+      const progression = pickProgression(raw.progression, issues, `${path}.progression`);
+      if (progression) exercise.progression = progression;
+    }
     return exercise;
   }
 
@@ -441,6 +602,18 @@
       const pos = `${exercise.day}\0${exercise.order}`;
       if (positions.has(pos)) issues.push(`program.exercises: duplicate ${exercise.day}#${exercise.order}`);
       positions.add(pos);
+    }
+    if (meta?.progressionRelations) {
+      const exerciseIds = new Set(exercises.map((exercise) => exercise.id).filter(Boolean));
+      for (const relation of meta.progressionRelations) {
+        for (const member of relation.members) {
+          if (!exerciseIds.has(member.exerciseId)) issues.push(`program.meta.progressionRelations: unknown slot ${member.exerciseId}`);
+          const slot = exercises.find((exercise) => exercise.id === member.exerciseId);
+          if (slot && (!slot.movementId || slot.movementId !== relation.movementId)) {
+            issues.push(`program.meta.progressionRelations: movement identity mismatch for ${member.exerciseId}`);
+          }
+        }
+      }
     }
     if (days.size > 7) issues.push("program.exercises: too many days");
     if (meta && meta.daysPerWeek !== days.size) issues.push("program.meta.daysPerWeek: day count mismatch");
@@ -671,6 +844,8 @@
     if (hasOwn(meta, "sessionLength")) {
       mask = pushOptional(mask, values, 5, true, meta.sessionLength === null ? 0 : encodeRequiredEnum(meta.sessionLength, SESSION_LENGTH_VALUES));
     }
+    if (hasOwn(meta, "progressionRelations")) mask = pushOptional(mask, values, 6, true, meta.progressionRelations);
+    if (hasOwn(meta, "progressionModifiers")) mask = pushOptional(mask, values, 7, true, meta.progressionModifiers);
     return [meta.name, meta.mesocycleLengthWeeks, mask, ...values];
   }
 
@@ -699,6 +874,9 @@
     mask = pushOptional(mask, values, 6, hasOwn(exercise, "minSets"), exercise.minSets);
     mask = pushOptional(mask, values, 7, hasOwn(exercise, "maxSets"), exercise.maxSets);
     mask = pushOptional(mask, values, 8, !!(hasOwn(exercise, "priority") && exercise.priority), exercise.priority);
+    mask = pushOptional(mask, values, 9, !!(hasOwn(exercise, "id") && exercise.id), exercise.id);
+    mask = pushOptional(mask, values, 10, hasOwn(exercise, "progression"), exercise.progression);
+    mask = pushOptional(mask, values, 11, !!(hasOwn(exercise, "movementId") && exercise.movementId), exercise.movementId);
     const libraryRef = exercise.libraryId.startsWith(CUSTOM_ID_PREFIX)
       ? customIndex.get(exercise.libraryId)
       : exercise.libraryId;
@@ -811,6 +989,7 @@
       setOwn(meta, "priorityMuscles", priorityMuscles.value);
     }
     const sessionLength = takeOptional(raw, offset, mask, 5);
+    offset = sessionLength.offset;
     if (sessionLength.present) {
       const decoded = decodeNullableEnum(sessionLength.value, SESSION_LENGTH_VALUES);
       if (!decoded.ok) {
@@ -819,6 +998,11 @@
       }
       setOwn(meta, "sessionLength", decoded.value);
     }
+    const progressionRelations = takeOptional(raw, offset, mask, 6);
+    offset = progressionRelations.offset;
+    if (progressionRelations.present) setOwn(meta, "progressionRelations", progressionRelations.value);
+    const progressionModifiers = takeOptional(raw, offset, mask, 7);
+    if (progressionModifiers.present) setOwn(meta, "progressionModifiers", progressionModifiers.value);
     return meta;
   }
 
@@ -945,7 +1129,16 @@
     offset = maxSets.offset;
     if (maxSets.present) setOwn(exercise, "maxSets", maxSets.value);
     const priority = takeOptional(raw, offset, mask, 8);
+    offset = priority.offset;
     if (priority.present) setOwn(exercise, "priority", priority.value);
+    const id = takeOptional(raw, offset, mask, 9);
+    offset = id.offset;
+    if (id.present) setOwn(exercise, "id", id.value);
+    const progression = takeOptional(raw, offset, mask, 10);
+    offset = progression.offset;
+    if (progression.present) setOwn(exercise, "progression", progression.value);
+    const movementId = takeOptional(raw, offset, mask, 11);
+    if (movementId.present) setOwn(exercise, "movementId", movementId.value);
     return exercise;
   }
 

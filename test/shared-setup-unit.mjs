@@ -219,6 +219,59 @@ console.log("canonicalization");
   assert(threw, "throws for Date");
 }
 
+console.log("progression envelopes and program relations");
+{
+  const payload = completeRoundTripPayload();
+  payload.program.exercises[0].id = "slot-heavy";
+  payload.program.exercises[0].movementId = "movement:bench-press";
+  payload.program.exercises[0].progression = {
+    schemaVersion: 1,
+    strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 6, repMax: 10 } },
+    modifiers: [],
+  };
+  payload.program.exercises[1].id = "slot-volume";
+  payload.program.exercises[1].movementId = "movement:bench-press";
+  payload.program.exercises[1].progression = {
+    schemaVersion: 1,
+    strategy: { id: "manual", version: 1, params: { authored: { label: "as written" } } },
+    modifiers: [],
+  };
+  payload.program.meta.progressionRelations = [{
+    schemaVersion: 1,
+    id: "relation-1",
+    type: "paired_exposure",
+    version: 1,
+    movementId: "movement:bench-press",
+    members: [
+      { exerciseId: "slot-volume", role: "volume" },
+      { exerciseId: "slot-heavy", role: "heavy" },
+    ],
+  }];
+  payload.program.meta.progressionModifiers = [{
+    id: "pending-modifier",
+    version: 1,
+    compatibleStrategies: ["range@1"],
+    weekNumber: 1,
+    target: "repMin",
+    params: { pending: true },
+  }];
+  const checked = Setup.validate(payload, LIBRARY_OPTS);
+  assert(checked.ok, "versioned progression payload validates", JSON.stringify(checked));
+  assert(checked.ok && checked.value.program.exercises[0].progression?.strategy.id === "range", "exercise progression survives validation");
+  assert(checked.ok && checked.value.program.exercises[0].movementId === "movement:bench-press", "movement identity survives validation");
+  assert(checked.ok && checked.value.program.meta.progressionRelations?.[0].members.length === 2, "program relations survive validation");
+  assert(checked.ok && checked.value.program.meta.progressionModifiers?.[0].id === "pending-modifier", "program modifiers survive validation");
+  if (checked.ok) {
+    const encoded = await Setup.encode(payload, LIBRARY_OPTS);
+    assert(encoded.ok, "versioned progression payload encodes", JSON.stringify(encoded));
+    if (encoded.ok) {
+      const decoded = await Setup.decode(encoded.value, LIBRARY_OPTS);
+      assert(decoded.ok, "versioned progression payload decodes", JSON.stringify(decoded));
+      assert(decoded.ok && json(decoded.value) === json(checked.value), "versioned progression payload round-trips byte-equivalently");
+    }
+  }
+}
+
 console.log("schema: language and settings");
 {
   const missingLang = cloneFixture();
@@ -312,15 +365,15 @@ console.log("schema: excluded keys cannot reach the proposal");
     assert(!("completedAt" in result.value.program.meta), "completedAt is absent");
     assert(!("onboarded" in result.value.program.meta), "onboarded is absent");
     assert(!("blockPromptDismissedId" in result.value.program.meta), "blockPromptDismissedId is absent");
-    assert(!("id" in result.value.program.exercises[0]), "exercise slot id is absent");
-    assert(!("movementId" in result.value.program.exercises[0]), "exercise movementId is absent");
+    assert(result.value.program.exercises[0].id === "slot-1", "exercise slot id is preserved for relation references");
+    assert(result.value.program.exercises[0].movementId === "movement-1", "recognized movement identity is preserved");
     assert(!("archived" in result.value.program.customExercises[0]), "custom archived is absent");
     assert(!("created" in result.value.program.customExercises[0]), "custom created is absent");
     assert(!("patterns" in result.value.program.customExercises[0]), "custom patterns are absent");
     assert(!("beginnerFriendly" in result.value.program.customExercises[0]), "custom beginnerFriendly is absent");
     assert(!("custom" in result.value.program.customExercises[0]), "custom bookkeeping flag is absent");
     assert(!text.includes("src-id"), "source identity does not leak into JSON");
-    assert(!text.includes("slot-1"), "slot id does not leak into JSON");
+    assert(text.includes("slot-1"), "recognized slot id remains in the shared proposal");
   }
 }
 
