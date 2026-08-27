@@ -71,7 +71,9 @@ function metaArbitrary(dayCount) {
     daysPerWeek: fc.constant(dayCount),
     splitType: optionalEnum(SPLITS),
     equipment: equipmentList(),
-    priorityMuscles: fc.array(nameText(30), { maxLength: 4 }).map((list) => [...new Set(list)]),
+    priorityMuscles: fc
+      .array(nameText(30), { maxLength: 4 })
+      .map((list) => [...new Set(list.map((value) => value.trim()))]),
     sessionLength: optionalEnum(SESSION_LENGTHS),
     mesocycleLengthWeeks: intIn(1, 52),
   });
