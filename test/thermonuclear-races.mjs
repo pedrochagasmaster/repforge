@@ -1604,6 +1604,13 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
     moved.find((exercise) => exercise.id === "audit-row").day = "Day 2";
     await page.locator("#programJson").fill(JSON.stringify(moved));
     await page.click("#saveProgram");
+    // Playwright's click resolves after dispatch, not after the async onclick
+    // has committed and rendered. Waiting for its success toast keeps the
+    // following evaluate out of the render/navigation context boundary.
+    await page.locator("#toast").filter({ hasText: "Program saved" }).waitFor({
+      state: "visible",
+      timeout: 5000,
+    });
     await page.evaluate(() => window.__repforgeStorage.flush());
 
     const final = await readBoth(page);
