@@ -296,3 +296,114 @@ test("legacy migration rejects hostile structures and ignores historical metadat
   assert.equal(migrated.value.legacyHints.programMeta, undefined);
   assert.equal({}.polluted, undefined);
 });
+
+test("Back and JSON resume preserve normalized answers", () => {
+  let state = Entry.setAnswers(Entry.selectRoute(fresh(), "custom"), validAnswers("custom"));
+  state = { ...state, step: "environment" };
+  const before = structuredClone(state.answers);
+  const previous = Entry.back(state);
+  assert.equal(previous.step, "schedule");
+  assert.deepEqual(previous.answers, before);
+  const resumed = Entry.resumeSetupDraft(JSON.stringify(previous), {
+    currentVersions: VERSIONS,
+    liveActiveProgramRevision: 12,
+  });
+  assert.equal(resumed.ok, true);
+  assert.equal(resumed.value.status, "resumable");
+  assert.deepEqual(resumed.value.state.answers, before);
+});
+
+test("resume reports rule changes without regenerating a saved preview", () => {
+  const preview = driveToTerminal("recommend").state;
+  const currentVersions = { ...VERSIONS, compiler: "fixture-2" };
+  const changed = Entry.resumeSetupDraft(preview, {
+    currentVersions,
+    liveActiveProgramRevision: 12,
+    pinnedVersionsExecutable: false,
+  });
+  assert.equal(changed.value.status, "rules_changed");
+  assert.deepEqual(changed.value.versionChanges, ["compiler"]);
+  assert.equal(changed.value.savedPreviewPreserved, true);
+  assert.equal(changed.value.pinnedPreviewExecutable, false);
+  assert.deepEqual(changed.value.state.result, preview.result);
+
+  const executable = Entry.resumeSetupDraft(preview, {
+    currentVersions,
+    liveActiveProgramRevision: 12,
+    pinnedVersionsExecutable: true,
+  });
+  assert.equal(executable.value.pinnedPreviewExecutable, true);
+  assert.deepEqual(executable.value.state.result, preview.result);
+});
+
+test("activation refuses stale revisions and returns a reviewable conflict state", () => {
+  const preview = driveToTerminal("recommend").state;
+  const readiness = Entry.activationReadiness(preview, {
+    liveActiveProgramRevision: 13,
+    currentVersions: VERSIONS,
+  });
+  assert.equal(readiness.ok, false);
+  assert.equal(readiness.code, "active_program_changed");
+  assert.equal(readiness.state.step, "activation_conflict");
+  assert.equal(Entry.back(readiness.state).step, "preview");
+  assert.deepEqual(preview, driveToTerminal("recommend").state);
+
+  const resumed = Entry.resumeSetupDraft(preview, {
+    liveActiveProgramRevision: 13,
+    currentVersions: { ...VERSIONS, compiler: "fixture-2" },
+  });
+  assert.equal(resumed.value.status, "activation_conflict");
+});
+
+test("activation allows unchanged or explicitly executable pinned rules only", () => {
+  const preview = driveToTerminal("custom").state;
+  assert.equal(Entry.activationReadiness(preview, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  }).ok, true);
+
+  const changed = { ...VERSIONS, blueprint: "fixture-2" };
+  const blocked = Entry.activationReadiness(preview, {
+    liveActiveProgramRevision: 12,
+    currentVersions: changed,
+  });
+  assert.equal(blocked.code, "rules_changed_rebuild_required");
+  const pinned = Entry.activationReadiness(preview, {
+    liveActiveProgramRevision: 12,
+    currentVersions: changed,
+    pinnedVersionsExecutable: true,
+  });
+  assert.equal(pinned.ok, true);
+  assert.equal(pinned.pinned, true);
+});
+
+test("start over requests deletion of only the setup draft", () => {
+  const restarted = Entry.startOver({
+    draftId: "new-draft",
+    activeProgramRevisionAtStart: 21,
+    now: "2026-08-27T13:00:00.000Z",
+    versions: VERSIONS,
+  });
+  assert.deepEqual(restarted.effects, { deleteSetupDraft: true });
+  assert.equal(restarted.state.step, "entry");
+  assert.equal(restarted.state.activeProgramRevisionAtStart, 21);
+  assert.deepEqual(restarted.state.answers, {});
+});
+
+test("timestamps advance deterministically and never move backwards", () => {
+  const state = fresh();
+  const later = Entry.updateTimestamp(state, "2026-08-27T12:01:00.000Z");
+  assert.equal(later.updatedAt, "2026-08-27T12:01:00.000Z");
+  assert.equal(state.updatedAt, NOW);
+  assert.throws(() => Entry.updateTimestamp(later, NOW), /cannot move backwards/);
+  assert.throws(() => Entry.updateTimestamp(state, "tomorrow"), /Invalid update timestamp/);
+});
+
+test("corrupt saved drafts return typed resume failure", () => {
+  const resumed = Entry.resumeSetupDraft("{");
+  assert.deepEqual(resumed, {
+    ok: false,
+    code: "invalid-setup-draft",
+    issues: ["invalid_json"],
+  });
+});

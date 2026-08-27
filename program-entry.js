@@ -442,7 +442,8 @@
     if (typeof raw.draftId !== "string" || raw.draftId.length < 1 || raw.draftId.length > 64) issues.push("$.draftId:invalid");
     if (raw.route !== null && !ROUTE_SET.has(raw.route)) issues.push("$.route:invalid");
     if (raw.route === null && raw.step !== "entry") issues.push("$.step:invalid_for_route");
-    if (ROUTE_SET.has(raw.route) && raw.step !== "entry" && !ROUTE_STEPS[raw.route].includes(raw.step)) {
+    if (ROUTE_SET.has(raw.route) && raw.step !== "entry" && raw.step !== "activation_conflict" &&
+      !ROUTE_STEPS[raw.route].includes(raw.step)) {
       issues.push("$.step:invalid_for_route");
     }
     const answers = normalizeAnswers(raw.answers, issues);
@@ -594,7 +595,8 @@
     if (!isPlainObject(state)) throw new TypeError("Program-entry state must be an object");
     if (state.route !== null && !ROUTE_SET.has(state.route)) throw new TypeError("Unknown program-entry route");
     if (state.route === null && state.step !== "entry") throw new TypeError("Entry state cannot name a route step");
-    if (state.route !== null && state.step !== "entry" && !ROUTE_STEPS[state.route].includes(state.step)) {
+    if (state.route !== null && state.step !== "entry" && state.step !== "activation_conflict" &&
+      !ROUTE_STEPS[state.route].includes(state.step)) {
       throw new TypeError("Step does not belong to route");
     }
   }
@@ -688,10 +690,79 @@
   function back(state) {
     assertState(state);
     if (state.step === "entry") return clone(state);
+    if (state.step === "activation_conflict") return { ...clone(state), step: "preview" };
     const steps = ROUTE_STEPS[state.route];
     const index = steps.indexOf(state.step);
     if (index === 0) return { ...clone(state), step: "entry" };
     return { ...clone(state), step: steps[index - 1] };
+  }
+
+  function changedVersions(saved, current) {
+    if (!isPlainObject(saved) || !isPlainObject(current)) return VERSION_KEYS.slice();
+    return VERSION_KEYS.filter((key) => saved[key] !== current[key]);
+  }
+
+  function resumeSetupDraft(input, options) {
+    const normalized = normalizeSetupDraft(input);
+    if (!normalized.ok) return normalized;
+    const config = isPlainObject(options) ? options : {};
+    const state = normalized.value;
+    const versionChanges = changedVersions(state.versions, config.currentVersions || state.versions);
+    const liveRevision = config.liveActiveProgramRevision;
+    const activeRevisionChanged = Number.isInteger(liveRevision) &&
+      liveRevision !== state.activeProgramRevisionAtStart;
+    let status = "resumable";
+    if (activeRevisionChanged) status = "activation_conflict";
+    else if (versionChanges.length) status = "rules_changed";
+    return {
+      ok: true,
+      value: {
+        state,
+        status,
+        versionChanges,
+        activeRevisionChanged,
+        savedPreviewPreserved: state.result !== null,
+        pinnedPreviewExecutable: state.result !== null && config.pinnedVersionsExecutable === true,
+      },
+    };
+  }
+
+  function updateTimestamp(state, now) {
+    assertState(state);
+    if (!validIsoTimestamp(now)) throw new TypeError("Invalid update timestamp");
+    if (validIsoTimestamp(state.updatedAt) && Date.parse(now) < Date.parse(state.updatedAt)) {
+      throw new RangeError("Update timestamp cannot move backwards");
+    }
+    return { ...clone(state), updatedAt: now };
+  }
+
+  function startOver(options) {
+    return {
+      state: createState(options),
+      effects: Object.freeze({ deleteSetupDraft: true }),
+    };
+  }
+
+  function activationReadiness(state, options) {
+    assertState(state);
+    const config = isPlainObject(options) ? options : {};
+    if (!Number.isInteger(config.liveActiveProgramRevision) || config.liveActiveProgramRevision < 0) {
+      return { ok: false, code: "live_revision_required" };
+    }
+    if (config.liveActiveProgramRevision !== state.activeProgramRevisionAtStart) {
+      return { ok: false, code: "active_program_changed", state: { ...clone(state), step: "activation_conflict" } };
+    }
+    if (state.step !== "preview" || state.result === null) return { ok: false, code: "preview_not_ready" };
+    const versionChanges = changedVersions(state.versions, config.currentVersions || state.versions);
+    if (versionChanges.length && config.pinnedVersionsExecutable !== true) {
+      return { ok: false, code: "rules_changed_rebuild_required", versionChanges };
+    }
+    return {
+      ok: true,
+      pinned: versionChanges.length > 0,
+      versionChanges,
+      activeProgramRevisionAtStart: state.activeProgramRevisionAtStart,
+    };
   }
 
   const api = Object.freeze({
@@ -711,6 +782,10 @@
     validationIssues,
     advance,
     back,
+    resumeSetupDraft,
+    updateTimestamp,
+    startOver,
+    activationReadiness,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
