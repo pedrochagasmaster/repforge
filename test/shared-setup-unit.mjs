@@ -337,6 +337,13 @@ console.log("schema: excluded keys cannot reach the proposal");
   raw.program.meta.blockPromptDismissedId = "block";
   raw.program.exercises[0].id = "slot-1";
   raw.program.exercises[0].movementId = "movement-1";
+  raw.program.exercises[1].id = "slot-2";
+  raw.program.exercises[1].movementId = "movement-1";
+  raw.program.meta.progressionRelations = [{
+    schemaVersion: 1, id: "relation-1", type: "paired_exposure", version: 1,
+    movementId: "movement-1",
+    members: [{ exerciseId: "slot-1", role: "heavy" }, { exerciseId: "slot-2", role: "volume" }],
+  }];
   raw.program.customExercises[0].archived = true;
   raw.program.customExercises[0].created = "2020-01-01T00:00:00.000Z";
   raw.program.customExercises[0].patterns = ["row"];

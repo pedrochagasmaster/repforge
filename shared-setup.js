@@ -595,6 +595,17 @@
     const settings = pickSettings(raw.settings, issues);
     if (issues.length) return schemaFail(issues);
 
+    // Slot and movement identities are shared only when a validated relation
+    // needs them. Device-local identifiers otherwise remain history/UI data.
+    const relationSlots = new Set((meta?.progressionRelations || [])
+      .flatMap((relation) => relation.members.map((member) => member.exerciseId)));
+    for (const exercise of exercises) {
+      if (!relationSlots.has(exercise.id)) {
+        delete exercise.id;
+        delete exercise.movementId;
+      }
+    }
+
     const positions = new Set();
     const days = new Set();
     for (const exercise of exercises) {
