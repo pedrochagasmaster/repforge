@@ -47,6 +47,7 @@ seeded three-day program with enough history for Progress and History to look li
 | `20-program-text.png` | Program text export sheet |
 | `21-settings.png` | Settings |
 | `22-settings-appearance.png` | Settings — Appearance row |
+| `34-settings-privacy.png` | Settings — privacy and analytics |
 | `23-exercise-picker.png` | Exercise picker sheet |
 | `24-custom-exercise.png` | Custom exercise sheet |
 | `25-session-summary.png` | Session summary |
@@ -72,4 +73,4 @@ The script is the only supported way to refresh these images. Do not hand-edit t
 and do not capture against an unseeded or partial install — designers need a stable,
 comparable pair. Appearance (System/Light/Dark) must be present in the running app.
 
-Captured 2026-08-24 · 33 screens × 2 themes.
+Captured 2026-08-27 · 34 screens × 2 themes.

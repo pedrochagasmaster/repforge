@@ -1,32 +1,126 @@
-(function () {
-  const config = window.__POSTHOG_CONFIG__;
-  const token = config?.projectToken;
-  const host = config?.host;
+(function (root, factory) {
+  const api = factory();
+  if (typeof module === "object" && module.exports) module.exports = api;
+  if (root && root.document) api.start(root);
+})(typeof globalThis !== "undefined" ? globalThis : this, function () {
+  "use strict";
 
-  if (!token || !host) {
-    if (location.hostname === "localhost" || location.hostname === "127.0.0.1") {
-      const missingVariable = token ? "POSTHOG_HOST" : "POSTHOG_PROJECT_TOKEN";
-      console.warn(`${missingVariable} variable required by PostHog is missing or un-configured, so analytics stays off. This warning stops appearing once ${missingVariable} is configured`);
-    }
-    return;
-  }
+  const SDK_VERSION = "1.400.0";
 
-  const script = document.createElement("script");
-  script.async = true;
-  script.crossOrigin = "anonymous";
-  script.src = host.replace(".i.posthog.com", "-assets.i.posthog.com") + "/static/array.js";
-  script.onload = function () {
-    window.posthog.init(token, {
-      api_host: host,
-      ui_host: "https://us.posthog.com",
-      defaults: "2026-05-30",
-      strict_script_versioning: true,
-      capture_exceptions: {
-        capture_unhandled_errors: true,
-        capture_unhandled_rejections: true,
-        capture_console_errors: false,
+  function createAdapter(posthog) {
+    return Object.freeze({
+      capture(eventName, properties) {
+        try { posthog.capture(eventName, properties); } catch {}
+      },
+      setEnabled(enabled) {
+        try {
+          if (enabled) {
+            if (posthog.has_opted_out_capturing?.()) posthog.opt_in_capturing();
+            posthog.startSessionRecording?.();
+          }
+          else {
+            posthog.stopSessionRecording?.();
+            posthog.opt_out_capturing();
+            posthog._requestQueue?.clear?.();
+          }
+        } catch {}
       },
     });
-  };
-  document.head.appendChild(script);
-})();
+  }
+
+  function createConfig({ host, installationId, enabled, safeLocation, beforeSend }) {
+    return {
+      advanced_disable_flags: true,
+      api_host: host,
+      autocapture: {
+        dom_event_allowlist: ["click"],
+        element_allowlist: ["button"],
+        css_selector_allowlist: ["[data-telemetry-action]"],
+      },
+      before_send: beforeSend,
+      bootstrap: { distinctID: installationId, isIdentifiedID: false },
+      capture_dead_clicks: false,
+      capture_exceptions: false,
+      capture_heatmaps: false,
+      capture_pageleave: false,
+      capture_pageview: false,
+      capture_performance: false,
+      cross_subdomain_cookie: false,
+      defaults: "2026-05-30",
+      disable_capture_url_hashes: true,
+      disable_session_recording: false,
+      disable_surveys: true,
+      get_current_url: () => `${safeLocation.origin}${safeLocation.pathname}`,
+      loaded(posthog) {
+        try {
+          if (!enabled) posthog.opt_out_capturing();
+        } catch {}
+      },
+      logs: { captureConsoleLogs: false },
+      mask_all_element_attributes: true,
+      mask_all_text: true,
+      opt_out_capturing_by_default: !enabled,
+      opt_out_capturing_persistence_type: "local_storage",
+      person_profiles: "never",
+      persistence: "memory",
+      rageclick: false,
+      rate_limiting: { events_per_second: 4, events_burst_limit: 12 },
+      session_recording: {
+        blockSelector: ".ph-no-capture",
+        maskAllInputs: true,
+        maskTextSelector: "*",
+        recordCanvas: false,
+        recordCrossOriginIframes: false,
+        recordHeaders: false,
+        recordBody: false,
+        streamNetworkBody: false,
+        maskCapturedNetworkRequestFn(request) {
+          if (!request || typeof request !== "object") return null;
+          return {
+            ...request,
+            name: `${safeLocation.origin}${safeLocation.pathname}`,
+            requestBody: undefined,
+            responseBody: undefined,
+            requestHeaders: undefined,
+            responseHeaders: undefined,
+          };
+        },
+      },
+      strict_script_versioning: true,
+      tracing_headers: [],
+      ui_host: "https://us.posthog.com",
+    };
+  }
+
+  function start(browser) {
+    const config = browser.__POSTHOG_CONFIG__;
+    const telemetry = browser.RepForgeTelemetry;
+    const token = config?.projectToken;
+    const host = config?.host;
+    if (!telemetry || !token || !host || config.sdkVersion !== SDK_VERSION) return false;
+    const status = telemetry.boot({
+      appVersion: config.appVersion,
+      crypto: browser.crypto,
+      location: browser.location,
+      navigator: browser.navigator,
+      releaseChannel: config.releaseChannel,
+      storage: browser.localStorage,
+    });
+    if (!status.installationId) return false;
+    const script = browser.document.createElement("script");
+    script.async = true;
+    script.crossOrigin = "anonymous";
+    script.src = `${host}/static/${SDK_VERSION}/array.js`;
+    script.onload = function () {
+      try {
+        const posthog = browser.posthog;
+        posthog.init(token, createConfig({ ...status, host }));
+        telemetry.boot({ adapter: createAdapter(posthog) });
+      } catch {}
+    };
+    browser.document.head.appendChild(script);
+    return true;
+  }
+
+  return Object.freeze({ SDK_VERSION, createAdapter, createConfig, start });
+});
