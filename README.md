@@ -15,7 +15,7 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 - Stats dashboard with top-load chart
 - Training history and session deletion
 - Exercise library of 270 movements with English and Portuguese names, searchable by either
-- Illustrations for 24 movements; everything else shows a plain placeholder
+- Illustrations for 96 movements; everything else shows a plain placeholder
 - Browse, preview and add several exercises at once, then set their sets and reps
 - Custom exercises you create yourself, reusable across programs and portable with them
 - Program import reviewed name by name before anything is written
@@ -68,7 +68,7 @@ styles.css
 app.js
 shared-setup.js         # setup-link codec (v1/v2 envelopes)
 exercises.js            # generated exercise library (see tools/README.md)
-assets/exercises/       # the 24 licensed exercise illustrations
+assets/exercises/       # the 96 licensed exercise illustrations
 manifest.webmanifest
 sw.js
 icons/                  # SVG source, PWA icons, Apple touch icon, and iOS launch images
