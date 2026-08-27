@@ -156,6 +156,9 @@ async function run() {
   const parsed = await page.evaluate((value) => window.__repforgeParseProgramSource(value, "progression.txt"), text);
   assert(parsed?.exercises?.[0]?.progression?.strategy?.id === "range", "text import recognizes the versioned progression marker");
   assert(parsed?.exercises?.[0]?.progression?.strategy?.params?.repMax === 8, "text import preserves range parameters");
+  assert(parsed?.meta?.progressionRelations?.[0]?.id === "relation-text" &&
+    parsed?.meta?.progressionModifiers?.[0]?.id === "modifier-text",
+    "text import preserves structured relation and modifier data");
 
   assert(lines[0] === "TREINO CECELA, 2 dias/semana", "header carries the program name and days per week", lines[0]);
   assert(lines[1] === "", "a blank line separates the header from the first day");
@@ -164,7 +167,8 @@ async function run() {
     "day headers are uppercased and list their localized muscles",
     lines[2]
   );
-  assert(lines[3] === "1. Hack squat [range@1]: 3× 4 a 8", "exercise templates are numbered with sets × rep range", lines[3]);
+  assert(lines[3] === "1. Hack squat: 3× 4 a 8", "exercise templates are numbered with sets × rep range", lines[3]);
+  assert(lines.includes("TAURIFER-DATA"), "structured progression data is separated from user-facing copy");
   assert(
     lines.includes("2. Abdução em pé no cabo: 2× 12"),
     "a single-value rep target is not printed as a range",
@@ -207,7 +211,7 @@ async function run() {
   const en = (await openSheet(page)).split("\n");
   assert(en[0] === "TREINO CECELA, 2 days/week", "the header is localized", en[0]);
   assert(en[2] === "DIA 1: Quads · Glutes · Hamstrings", "muscles follow the UI language", en[2]);
-  assert(en[3] === "1. Hack squat [range@1]: 3× 4 to 8", "the rep range follows the UI language", en[3]);
+  assert(en[3] === "1. Hack squat: 3× 4 to 8", "the rep range follows the UI language", en[3]);
 
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 

@@ -6358,9 +6358,15 @@ function exportProgram(){
  * Lossy by design — the text can be imported back, while ids, per-exercise
  * muscles, notes, and alternates require the lossless JSON export. */
 const programTextReps=e=>e.min===e.max?`${e.min}`:t("program.export_text.rep_range",{min:e.min,max:e.max});
-function programTextExerciseName(ex){
-  const strategy=ex?.progression?.strategy;
-  return strategy?.id&&Number.isInteger(strategy.version)?`${ex.name} [${strategy.id}@${strategy.version}]`:ex.name;
+const PROGRAM_TEXT_DATA_MARKER="TAURIFER-DATA";
+function programTextData(meta,program){
+  const relations=normalizeProgressionRelations(meta?.progressionRelations,program);
+  const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
+  const exercises=program.filter(ex=>ex?.progression||relationSlots.has(ex?.id)).map(ex=>({day:ex.day,order:ex.order,id:ex.id,
+    movementId:ex.movementId,progression:cloneSnapshot(ex.progression)}));
+  const modifiers=normalizeProgressionModifiers(meta?.progressionModifiers);
+  if(!exercises.length&&!relations.length&&!modifiers.length)return null;
+  return{version:1,exercises,relations,modifiers};
 }
 function programText(){
   const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
@@ -6369,7 +6375,9 @@ function programText(){
   for(const d of ds){
     const mus=dayMuscles(d).map(muscleLabel);
     lines.push("",`${up(d)}${mus.length?`: ${mus.join(" · ")}`:""}`);
-    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${programTextExerciseName(e)}: ${e.sets}× ${programTextReps(e)}`))}
+    prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name}: ${e.sets}× ${programTextReps(e)}`))}
+  const data=programTextData(meta,prog.toJSON());
+  if(data)lines.push("",PROGRAM_TEXT_DATA_MARKER,JSON.stringify(data));
   return lines.join("\n")}
 const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
   return `taurifer_program_${slug?`${slug}_`:""}${today()}.txt`};
@@ -6884,19 +6892,27 @@ function stripProgramTextTitleMeta(label){
   return String(label||"").replace(/\s*(?:\(\s*|,\s*)\d+\s*(?:days?\s*\/\s*week|days?\s+per\s+week|dias?\s*\/\s*semana|dias?\s+por\s+semana)\s*\)?\s*$/iu,"").trim()}
 function parseProgramTextExport(text){
   const lines=String(text||"").split(/\r?\n/);
+  const dataIndex=lines.findIndex(line=>line.trim()===PROGRAM_TEXT_DATA_MARKER);
+  let data=null;
+  if(dataIndex>=0){try{const parsed=JSON.parse(lines[dataIndex+1]||"");if(parsed&&parsed.version===1)data=parsed}catch{}}
+  const content=dataIndex<0?lines:lines.filter((_,index)=>index!==dataIndex&&index!==dataIndex+1);
   const days=[];let current=null,title="";
-  const exRe=/^\s*(\d+)\.\s*(.+?)(?:\s+\[([a-z_]+)@(\d+)\])?(?:\s*[—-]\s*|\s*:\s*)(\d+)\s*[×x]\s*(\d+)(?:\s*(?:[–-]|to|a)\s*(\d+))?\s*$/iu;
-  for(const raw of lines){
+  const exRe=/^\s*(\d+)\.\s*(.+?)(?:\s*[—-]\s*|\s*:\s*)(\d+)\s*[×x]\s*(\d+)(?:\s*(?:[–-]|to|a)\s*(\d+))?\s*$/iu;
+  for(const raw of content){
     const line=raw.trim();
     if(!line)continue;
     const ex=line.match(exRe);
     if(ex){
       if(!current){current={day:`Day ${days.length+1}`,rows:[]};days.push(current)}
       const min=+ex[6],max=ex[7]?+ex[7]:min;
-      const progression=ex[3]&&Number.isInteger(+ex[4])?{schemaVersion:1,
-        strategy:{id:ex[3].toLowerCase(),version:+ex[4],params:ex[3].toLowerCase()==="range"
-          ?{workingSets:+ex[5],repMin:min,repMax:max}:{}},modifiers:[]}:undefined;
-      current.rows.push({name:ex[2].trim(),sets:+ex[5],min,max,progression});
+      const legacy=ex[2].trim().match(/^(.*)\s+\[(range|manual|rep_goal|anchor_backoff)@(\d+)\]$/iu);
+      const row={name:(legacy?.[1]||ex[2]).trim(),sets:+ex[3],min,max};
+      // Read the pre-appendix range marker without exposing it in the new
+      // export. Its parameters are the already-authored text targets; other
+      // strategy markers remain structural and cannot invent executable data.
+      if(legacy?.[2].toLowerCase()==="range"&&legacy[3]==="1")row.progression={
+        schemaVersion:1,strategy:{id:"range",version:1,params:{workingSets:row.sets,repMin:row.min,repMax:row.max}},modifiers:[]};
+      current.rows.push(row);
       continue}
     // A non-exercise line starts a day, except the first which is the title.
     if(!title&&!days.length){title=restoreExportCase(stripProgramTextTitleMeta(line));continue}
@@ -6905,9 +6921,16 @@ function parseProgramTextExport(text){
     current={day:restoreExportCase(label),rows:[]};days.push(current)}
   const exercises=[];
   for(const d of days)
-    d.rows.forEach((r,i)=>exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max,...(r.progression?{progression:r.progression}:{})}));
+    d.rows.forEach((r,i)=>{
+      const carried=data?.exercises?.find(ex=>ex?.day===d.day&&ex?.order===i+1);
+      exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max,
+        ...(carried?.id?{id:carried.id}:{ }),...(carried?.movementId?{movementId:carried.movementId}:{ }),
+        ...(carried?.progression?{progression:carried.progression}:r.progression?{progression:r.progression}:{ })});
+    });
   if(!exercises.length)return null;
-  return{exercises,meta:title?{name:title}:null,customExercises:[]}}
+  const metaOut=title?{name:title}:null;
+  if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers}
+  return{exercises,meta:metaOut,customExercises:[]}}
 
 /* Reads whatever the file turns out to be. JSON first, then the text export. */
 function parseProgramSource(text,fileName=""){
