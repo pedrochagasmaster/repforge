@@ -54,7 +54,8 @@ function isSafeProgressionMeta(value){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
   for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
-    if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
+    if(Object.prototype.hasOwnProperty.call(value,key)&&
+      (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
   return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
@@ -1579,6 +1580,7 @@ function progressionIncompatibility(kind,value,checked,source){
   return{version:1,kind,source:source||"state-restore",reason:Array.isArray(checked?.issues)?checked.issues.join("; "):"incompatible",value:cloneSnapshot(value)}
 }
 function normalizeProgressionRelations(value,program=[],options={}){
+  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionRelations: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateRelations?.(value,{slots:program});
@@ -1586,6 +1588,7 @@ function normalizeProgressionRelations(value,program=[],options={}){
     options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
   return checked?.ok?cloneSnapshot(checked.value):[]}
 function normalizeProgressionModifiers(value,options={}){
+  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateModifiers?.(value);
@@ -2166,6 +2169,8 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
   if(m.progressionIncompatibilities!=null&&!isBoundedProgressionValue(m.progressionIncompatibilities))
     throw new TypeError("progressionIncompatibilities: structure exceeds safety bounds");
+  if(m.progressionIncompatibilities!=null&&!Array.isArray(m.progressionIncompatibilities))
+    throw new TypeError("progressionIncompatibilities: expected array");
   const incompatibilities=Array.isArray(m.progressionIncompatibilities)?cloneSnapshot(m.progressionIncompatibilities):[];
   const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
   const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
