@@ -355,3 +355,90 @@ format can be written. Released setup `v1` and `v2` decoders remain permanent.
 - Confirm manual remains a no-invented-target state.
 - Reject any strategy branch keyed by family, program, public name, or
   entitlement.
+
+## Extracted engine reference
+
+`progression-engine.js` is the pure artifact produced by Wave 1. It is a UMD
+module: `module.exports` in Node, `window.RepForgeProgression` in the browser.
+It reads no DOM, storage, `i18n`, network, clock, or randomness, and depends on
+no other application file.
+
+### Public surface
+
+`ENGINE_VERSION`, `STRATEGY_IDS`, `CAPACITY`, `LIMITS`, the entry point
+`evaluateProgression(input)`, and the pure helpers `isFiniteNumber`, `clamp`,
+`median`, `capRir`, `capReps`, `repsAtLoad`, `roundToGrid`, `jumpAmount`,
+`validateSettings`, `validateRangePrescription`, `normalizeHistory`,
+`normalizeCurrentSession`, `summarizeSession`, `summarizeHistory`,
+`typicalRir`, and `expectedSetDrop`.
+
+### `evaluateProgression(input)`
+
+`input` must contain exactly these keys:
+`engineVersion`, `prescription` (`{ schemaVersion, strategy: { id, version,
+params }, modifiers }`), `relation`, `modifiers`, `settings`, `history`,
+`currentSession`, `context`. Any other top-level key makes the call invalid.
+`engineVersion` must equal `ENGINE_VERSION`. No time, entitlement, family,
+program, or public-name field may appear; supplying one is an invalid input,
+not a branch.
+
+The result is always the same shape:
+
+```
+{ kind, engineVersion, strategy: { id, version },
+  target: { sets: [...] }, status, reasonCodes, facts, provenance }
+```
+
+- `kind`:
+  - `recommendation` — a strategy executed against evidence.
+  - `invalid` — malformed input; `status: "manual"`,
+    `reasonCodes: ["engine.invalid_input"]`, `facts.issues` lists the reasons.
+  - `incompatible` — well-formed but unsupported; `reasonCodes` is one of
+    `engine.unsupported_strategy`, `engine.unsupported_relation`,
+    `engine.unsupported_modifier`. At `range@1` any strategy other than
+    `range` v1, any non-null `relation`, and any non-empty `modifiers` land
+    here. That is intended until the contract is approved and fixtured.
+  - `manual` — `manual@1` no-invention state.
+- `status`: `advance`, `hold`, `reduce`, or `manual`.
+- `target.sets[]`: `{ role: "working", load, reps, repMin, repMax, targetRir }`.
+  `load` is `null` when it cannot be known. With a non-empty `currentSession`
+  exactly one set is returned; otherwise `params.workingSets` sets.
+- `provenance.evidenceWindow`: `{ sessionCount, currentSetCount }`;
+  `modifierVersions: []` and `relationVersion: null` at `range@1`.
+- `reasonCodes`: stable dot-namespaced strings, never localized. The UI maps
+  each code to copy. `range@1` emits `range.performed_top`,
+  `range.capacity_top`, `range.capacity_top_double`, `range.room_in_range`,
+  `range.capacity_room`, `range.stalled`, `range.recovery`,
+  `range.below_floor`, `range.no_history`, `range.block_tempered`,
+  `range.grid_rounded`, `range.reentry`, `range.freshness_temper`, and the
+  `range.current_advance` / `range.current_reduce` / `range.current_hold` /
+  `range.current_drop` set for the current-session path.
+
+### Guarantees
+
+Deep-equal input produces deep-equal output. Input is never mutated. There is
+no fallback: an unsupported prescription never silently becomes `range@1`.
+
+## Wave 2 contract
+
+- **Commit 5 (blocked).** The `app.js` evidence adapter calls
+  `evaluateProgression` with normalized evidence and renders the pure result
+  back into the current UI strings **without changing any displayed value**.
+  When Plan 045 (PR #195) reaches `main`, run `git merge origin/main` into this
+  branch with an explicit merge commit — never rebase — then land commit 5.
+- **New strategies and modifiers.** None executes until its numeric contract is
+  owner-approved and captured as executable fixtures. Until then
+  `evaluateProgression` returns `incompatible` for it by design.
+- **Slice order** (Plan 046): versioned model and round-trips → `rep_goal@1`
+  plus `manual@1` persistence → `anchor_backoff@1` → `paired_exposure@1` and
+  block modifiers → hardening. Do not merge a slice that writes a progression,
+  relation, or modifier shape it cannot also read, back up, export to program
+  JSON, encode in verbose and compact setup links, and render in text export.
+- **Compatibility.** Released setup `v1` and `v2` decoders remain permanent and
+  logged rows stay immutable. A legacy exercise with no meaningful
+  `progressionType` gets an in-memory `range@1` projection; an unknown
+  non-empty legacy type must execute as `manual@1` with an unsupported-import
+  reason while full backup preserves the original value.
+- **API stability.** `kind`, `status`, and every reason code are an API
+  surface. Add new codes; never repurpose an existing one. Each new strategy
+  adds its own `<strategyId>.*` reason namespace.
