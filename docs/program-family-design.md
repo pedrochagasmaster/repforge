@@ -166,6 +166,131 @@ A sibling pair passes structural review only when all these statements are true:
 - Repeating or splitting the 3-day slot sequence does not reproduce the 5-day form.
 - Both forms retain the same promise, eligible goals, equipment boundary, progression vocabulary, and six-week default.
 
+## Proposed allocation rule `allocation@1`
+
+All numbers in this section need owner review. They exist so fixtures and later compiler work can discuss one exact proposal instead of hidden constants.
+
+The rule first finds a per-session cap from structured-program maturity and the session ceiling.
+
+| Maturity | 30 min | 45 min | 60 min | 75 min | 90+ min |
+|---|---:|---:|---:|---:|---:|
+| `new` | 8 | 11 | 14 | 16 | 18 |
+| `some` | 9 | 12 | 16 | 19 | 22 |
+| `established` | 10 | 14 | 18 | 22 | 26 |
+
+The rule then limits the total planned working sets for the week. The weekly budget is the smaller of the per-session cap multiplied by frequency and the value below.
+
+| Maturity | 2 days | 3 days | 4 days | 5 days | 6 days |
+|---|---:|---:|---:|---:|---:|
+| `new` | 16 | 24 | 28 | 32 | 36 |
+| `some` | 18 | 27 | 36 | 42 | 48 |
+| `established` | 20 | 30 | 40 | 50 | 60 |
+
+These are whole-program working-set limits, not direct sets per muscle and not goals to fill. A blueprint can use fewer sets. The compiler cannot add filler work to reach a cap.
+
+Slot bounds preserve the role hierarchy:
+
+| Slot role | `new` | `some` | `established` |
+|---|---|---|---|
+| Primary | 2 to 3 | 3 to 4 | 3 to 5 |
+| Volume counterpart | 2 to 3 | 2 to 4 | 3 to 4 |
+| Compound assistance | 1 to 3 | 2 to 3 | 2 to 4 |
+| Isolation assistance | 1 to 2 | 2 to 3 | 2 to 4 |
+
+The allocation order is fixed:
+
+1. Allocate each protected family-defining primary slot at its minimum.
+2. Allocate minimum whole-program movement and muscle coverage.
+3. Allocate volume-counterpart minima where the blueprint declares a relation.
+4. Distribute remaining sets to normal assistance in blueprint order.
+5. Reallocate eligible assistance toward no more than two primary muscles.
+6. Trim in reverse priority order if the time model exceeds the ceiling.
+
+A priority can move sets only among steps 4 and 5. It cannot raise the weekly budget, remove protected work, or reduce a muscle below the blueprint's minimum coverage. `ignored` removes eligible direct isolation work, while indirect compound work remains. Pain and discomfort do not use this rule.
+
+The allocation input contains no volume-tolerance value, recent-consistency score, family-name branch, entitlement, or performed-history inference. Recent consistency can apply only the temporary re-entry rule below.
+
+### Allocation examples
+
+- `new`, 3 days, and 45 minutes produces a maximum of 24 weekly working sets. The raw session product is 33, so the weekly cap controls.
+- `some`, 4 days, and 60 minutes produces a maximum of 36 weekly working sets. The raw session product is 64, so the weekly cap controls.
+- `established`, 2 days, and 30 minutes produces a maximum of 20 weekly working sets. Both the session product and weekly cap equal 20.
+
+## Proposed time model `time@1`
+
+The estimator works in seconds and rounds the final result up to a whole minute. The selected session duration is a ceiling.
+
+| Component | Proposed constant |
+|---|---:|
+| Working-set execution | 45 seconds per set |
+| First primary-pattern warm-up | 300 seconds |
+| Later primary-pattern warm-up | 180 seconds |
+| Compound-assistance warm-up | 120 seconds |
+| Isolation-assistance warm-up | 60 seconds |
+| New commercial or full-home station | 90 seconds |
+| New limited-home equipment state | 45 seconds |
+| Same-station transition | 20 seconds |
+| Uncertainty buffer | Greater of 300 seconds or 10% of the subtotal |
+
+The estimator clamps preferred rest by slot role:
+
+| Slot role | Minimum rest | Maximum rest |
+|---|---:|---:|
+| Primary | 120 seconds | 240 seconds |
+| Volume counterpart | 90 seconds | 180 seconds |
+| Compound assistance | 90 seconds | 180 seconds |
+| Isolation assistance | 60 seconds | 120 seconds |
+
+For each slot, working time is `sets * 45`. Working-set rest is `(sets - 1) * clamped preferred rest`. The first slot has no transition cost. Every later slot uses either the same-station cost or the environment's new-station cost. The warm-up allowance comes from the slot's declared class. A slot may declare `warmupClass: none` only when the preceding slot prepares the same movement pattern and the fixture says so.
+
+The estimator sums working time, working-set rest, warm-ups, transitions, and the uncertainty buffer. It never subtracts the last rest period because the formula does not add one after a slot's last working set.
+
+### Time examples
+
+An established commercial-gym day has four slots with 3, 3, 2, and 2 working sets. The slots are primary, compound assistance, compound assistance, and isolation assistance. Preferred rest is 120 seconds, and every slot uses a new station.
+
+- Working time is 450 seconds.
+- Working-set rest is 720 seconds.
+- Warm-up time is 600 seconds: 300, 120, 120, and 60.
+- Transitions total 270 seconds.
+- The subtotal is 2,040 seconds. The 300-second minimum buffer applies.
+- The estimate is 39 minutes after rounding up.
+
+The day fits a 45-minute ceiling. It does not fit a 30-minute ceiling. The compiler must use the declared trim order or return a typed compromise. It cannot report 30 minutes for the unchanged day.
+
+A limited-home day with the same slots and sets saves 135 seconds across three equipment changes. It still uses the same rest and buffer rules.
+
+## Foundation profile `simple_start@1`
+
+Foundation is an internal profile for `new` maturity or an explicit request for the simplest start. It does not replace the selected family or desired result.
+
+The proposed transformation is:
+
+- retain every protected primary pattern and minimum whole-program coverage;
+- select only candidates marked stable and low-coordination for their slot;
+- use `range@1` for every slot until another Plan 046 strategy receives owner-approved fixtures;
+- omit paired exposures and block-profile modifiers;
+- cap each slot at two working sets;
+- keep at most five slots in one session by trimming optional assistance in declared order;
+- retain the blueprint's day count and the six-week block length;
+- never add a scheduled deload.
+
+Foundation is not selected from recent inconsistency alone. An established returner keeps the selected family's movement and progression complexity.
+
+## Re-entry profile `reentry@1`
+
+Re-entry changes only the first one or two weeks of an otherwise unchanged family instance. It does not rotate exercises, change days, remove relations, lower maturity, or alter weeks 3 through 6.
+
+| Recent consistency | Week 1 | Week 2 | Weeks 3 to 6 |
+|---|---|---|---|
+| `consistent` | Normal prescription | Normal prescription | Normal prescription |
+| `interrupted` | Remove one set from each reducible slot, with a minimum of one set. Keep protected primary minima. | Normal prescription | Normal prescription |
+| `returning` | Remove one set from each slot, with a minimum of one set. A protected primary may fall below its normal minimum only in this week. | Restore protected primary minima. Remove one set from each reducible assistance slot, with a minimum of one set. | Normal prescription |
+
+The proposed effort change raises target RIR by 1 in every affected re-entry week. Plan 046 must approve and encode that change as a versioned modifier before production use. If Plan 046 does not support it, the compiler must omit the effort change rather than invent a family-specific formula.
+
+The re-entry rule never interprets performance history, schedules a deload, or permanently changes the normal allocation. `interrupted` and `returning` are broad recent-state inputs chosen in Plan 048. They are not diagnoses.
+
 ## Version and approval state
 
 Stable internal family IDs are `growth`, `balanced`, `strength`, and `home`. Public names remain proposals and do not control those IDs.
