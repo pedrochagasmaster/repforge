@@ -406,6 +406,28 @@ async function main() {
       JSON.stringify(archived)
     );
 
+    // An editor import may carry a future prescription, but it must never make
+    // that unvalidated value executable. The explicit incompatibility marker
+    // keeps the original data recoverable for a later reader.
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "future-progression.json", JSON.stringify({
+      version: 3, meta: { name: "Future progression" },
+      exercises: [{ day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8,
+        progression: { schemaVersion: 1, strategy: { id: "future_strategy", version: 99, params: { authored: true } }, modifiers: [] } }],
+    }));
+    model = await draftModel(page);
+    assert(model?.counts.total === 1 && model.counts.review === 0,
+      "a future progression file reaches the editor review", JSON.stringify(model?.counts));
+    await page.click("#importCommit");
+    await settle(page, 600);
+    after = await getState(page);
+    assert(after.program[0]?.progression === undefined &&
+      after.program[0]?.progressionIncompatibility?.kind === "prescription" &&
+      after.program[0]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy",
+      "program JSON import preserves unvalidated progression as non-executable provenance",
+      JSON.stringify(after.program?.[0]));
+
     // ---- an id collision must not overwrite a different local definition ----
     // Seeded through the app so the write goes through the durability layer
     // rather than racing the IndexedDB mirror.
@@ -502,7 +524,7 @@ async function main() {
       after.program[0]?.progression?.strategy?.id === "range" &&
         after.program[0]?.progression?.strategy?.params?.repMax === 8,
       "text import carries the versioned progression envelope",
-      JSON.stringify(after.program[0]?.progression)
+      JSON.stringify(after.program)
     );
     assert(
       after.programMeta.name === "Upper / Lower",
@@ -610,7 +632,10 @@ async function main() {
           movementId: "movement:backup-pair",
           members: [{ exerciseId: "backup-volume", role: "volume" }, { exerciseId: "backup-heavy", role: "heavy" }],
         }],
-        progressionModifiers: [{ id: "modifier-backup", version: 1, compatibleStrategies: ["manual@1"], params: { pending: true } }],
+        progressionModifiers: [
+          { id: "modifier-backup", version: 1, compatibleStrategies: ["manual@1"], params: { pending: true } },
+          { id: "modifier-future", version: 1, compatibleStrategies: ["manual@1"], params: { pending: true }, futureField: true },
+        ],
       },
       program: [
         { id: "backup-heavy", movementId: "movement:backup-pair", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8,
@@ -654,8 +679,10 @@ async function main() {
     assert(
       restored.program.find((e) => e.id === "backup-heavy")?.progression?.strategy?.id === "range" &&
         restored.programMeta.progressionRelations?.[0]?.id === "relation-backup" &&
-        restored.programMeta.progressionModifiers?.[0]?.id === "modifier-backup",
-      "backup restore round-trips progression envelopes, relations, and modifiers",
+        restored.programMeta.progressionModifiers?.length === 0 &&
+        restored.programMeta.progressionIncompatibilities?.some((item) => item.kind === "modifiers" &&
+          item.value?.some?.((modifier) => modifier.id === "modifier-future")),
+      "backup restore round-trips valid progression and preserves invalid collections with provenance",
       JSON.stringify({ program: restored.program, meta: restored.programMeta })
     );
 

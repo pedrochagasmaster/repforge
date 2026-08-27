@@ -1549,14 +1549,21 @@ function exerciseFieldsFromLibrary(entry){
 function normalizeProgressionEnvelope(value){
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validatePrescription?.(value);
-  return checked?.ok?cloneSnapshot(checked.value):cloneSnapshot(value)}
-function normalizeProgressionRelations(value,program=[]){
+  return checked?.ok?cloneSnapshot(checked.value):null}
+function progressionIncompatibility(kind,value,checked,source){
+  return{version:1,kind,source:source||"state-restore",reason:Array.isArray(checked?.issues)?checked.issues.join("; "):"incompatible",value:cloneSnapshot(value)}
+}
+function normalizeProgressionRelations(value,program=[],options={}){
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateRelations?.(value,{slots:program});
+  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
   return checked?.ok?cloneSnapshot(checked.value):[]}
-function normalizeProgressionModifiers(value){
+function normalizeProgressionModifiers(value,options={}){
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateModifiers?.(value);
+  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("modifiers",value,checked,options.source));
   return checked?.ok?cloneSnapshot(checked.value):[]}
 
 /* ============================================================
@@ -1593,7 +1600,13 @@ class Exercise{
     if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
     if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
     if(d.priority!=null)this.priority=String(d.priority).trim();
-    if(d.progression!=null)this.progression=normalizeProgressionEnvelope(d.progression);
+    if(d.progression!=null){
+      const progression=normalizeProgressionEnvelope(d.progression);
+      if(progression)this.progression=progression;
+      else this.progressionIncompatibility=progressionIncompatibility("prescription",d.progression,null,"program-json");
+    }
+    if(d.progressionIncompatibility!=null&&!this.progression)
+      this.progressionIncompatibility=cloneSnapshot(d.progressionIncompatibility);
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
   /* Resolves a linked slot's label and muscles from the library definition, so
@@ -1624,6 +1637,7 @@ class Exercise{
     if(this.maxSets!==undefined)o.maxSets=this.maxSets;
     if(this.priority!==undefined)o.priority=this.priority;
     if(this.progression!==undefined)o.progression=cloneSnapshot(this.progression);
+    if(this.progressionIncompatibility!==undefined)o.progressionIncompatibility=cloneSnapshot(this.progressionIncompatibility);
     return o}
 }
 
@@ -2092,7 +2106,7 @@ function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
-  progressionRelations:[],progressionModifiers:[]}}
+  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[]}}
 function buildProgramMeta({name, answers}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
@@ -2102,7 +2116,7 @@ function buildProgramMeta({name, answers}={}){
     sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
     progressionRelations:[],progressionModifiers:[],
     blockPromptDismissedId:null}}
-function normalizeProgramMeta(m,log=[],program=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
+function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
@@ -2117,12 +2131,14 @@ function normalizeProgramMeta(m,log=[],program=[]){const now=new Date().toISOStr
   const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
   const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
   const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
-  const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program);
-  const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers);
+  const incompatibilities=Array.isArray(m.progressionIncompatibilities)?cloneSnapshot(m.progressionIncompatibilities):[];
+  const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
+  const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
+  const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,blockPromptDismissedId}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId}}
 function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
@@ -2160,7 +2176,7 @@ function normalizeProgramHistory(history,lookup){
     if(Object.prototype.hasOwnProperty.call(normalized,"program"))
       normalized.program=new Program(normalized.program,lookup).toJSON();
     return normalized})}
-function normalizeLoaded(s){
+function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:starterProgram(),log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
@@ -2171,13 +2187,13 @@ function normalizeLoaded(s){
   // Resolved against this snapshot's own custom definitions: during an import
   // or a boot they are not in live state yet.
   out.program=new Program(s.program,lookup).toJSON();
-  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program);
+  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,options);
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
 function proposalFromImport(incoming){
   if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
-  return normalizeLoaded(stripStorageMeta(incoming))}
+  return normalizeLoaded(stripStorageMeta(incoming),{preserveInvalidProgression:true,source:"backup-restore"})}
 async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"replaceImportedState");
   const transition=programTransitionPrecondition(state);
@@ -6904,7 +6920,7 @@ function parseProgramTextExport(text){
     const ex=line.match(exRe);
     if(ex){
       if(!current){current={day:`Day ${days.length+1}`,rows:[]};days.push(current)}
-      const min=+ex[6],max=ex[7]?+ex[7]:min;
+      const min=+ex[4],max=ex[5]?+ex[5]:min;
       const legacy=ex[2].trim().match(/^(.*)\s+\[(range|manual|rep_goal|anchor_backoff)@(\d+)\]$/iu);
       const row={name:(legacy?.[1]||ex[2]).trim(),sets:+ex[3],min,max};
       // Read the pre-appendix range marker without exposing it in the new
