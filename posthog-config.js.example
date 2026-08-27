@@ -1,0 +1,7 @@
+window.__POSTHOG_CONFIG__ = Object.freeze({
+  projectToken: "phc_replace_with_public_project_token",
+  host: "https://e.taurifer.com",
+  sdkVersion: "1.400.0",
+  appVersion: "local",
+  releaseChannel: "preview",
+});
