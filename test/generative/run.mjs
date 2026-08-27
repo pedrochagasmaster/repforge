@@ -31,6 +31,7 @@ const SUITE_FILES = [
   "schema-boundaries",
   "identity",
   "malformed-inputs",
+  "progression-range",
 ];
 
 function parseArgs(argv) {

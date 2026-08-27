@@ -2882,66 +2882,98 @@ function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
 
 // Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
 // sessions inside the current block. Only tempers aggressiveness / rep targets.
-function blockTrendFor(sess){
-  const started=state.programMeta?.started;
-  if(!started)return{dir:null,sessions:0};
-  const block=sess.filter(s=>String(s.date)>=started);
-  if(block.length<3)return{dir:null,sessions:block.length};
-  const values=block.map(s=>s.bestE1rm);
-  if(values.some(v=>!(v>0)))return{dir:null,sessions:block.length};
-  const xMean=(values.length-1)/2,yMean=avg(values);
-  let covariance=0,variance=0;
-  values.forEach((value,index)=>{covariance+=(index-xMean)*(value-yMean);variance+=(index-xMean)**2});
-  const projectedChange=variance&&yMean?covariance/variance*(values.length-1)/yMean:0;
-  const dir=projectedChange>=.02?"rising":projectedChange<=-.02?"falling":"flat";
-  return{dir,sessions:block.length,ratio:1+projectedChange}}
+// The regression itself now lives in progression-engine.js and reaches here as
+// facts.blockTrend; this file keeps only the sentence it turns into.
 function blockTrendNote(trend){
   if(!trend||!trend.dir||trend.sessions<3)return"";
   return t(`rec.block.${trend.dir}`,{sessions:trend.sessions})}
 // Recommendation -> RIR-aware double progression, mapped to a temperature/status.
 // Primary signal is the previous session; the block trend nudges it weakly.
+/* ---- Progression adapter (Plan 046) ----
+   The range arithmetic now lives in progression-engine.js, which was
+   extracted from exactly this behavior and is locked by 19 parity fixtures.
+   Everything below turns app state into that engine's evidence and turns its
+   typed result back into the object the Log tab, the per-set suggestions and
+   the "why this weight" sheet already read. No arithmetic here, and no second
+   engine: the pure module knows nothing about the DOM, storage, i18n, a
+   program family, or an entitlement, and nothing here teaches it.
+
+   `range@1` is the only executable strategy. Anything else comes back typed
+   as incompatible rather than silently falling back, so a proposed strategy
+   cannot become live by accident. */
+/** Raw rows for this lift, grouped and ordered exactly the way sessionsFor
+ *  groups and orders them, so the engine's own summaries land on the same
+ *  numbers the app used to compute inline. */
+function progressionHistory(ex){
+  const match=matchLift(ex),m=new Map();
+  for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
+    if(!m.has(x.session))m.set(x.session,{sessionId:x.session,date:x.date,created:x.created,sets:[]});
+    m.get(x.session).sets.push({load:+x.load,reps:+x.reps,rir:x.rir==null?null:+x.rir})}
+  return[...m.values()]
+    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))
+    .map(s=>({sessionId:s.sessionId,date:s.date,sets:s.sets}))}
+/** The engine's closed input. Settings are the lifter's own grid and jump;
+ *  context carries only the block, never a family or a program identity. */
+function progressionInput(ex,currentSession,freshnessFactor){
+  const context={weekNumber:1,blockLength:+state.programMeta?.mesocycleLengthWeeks||6,
+    blockStart:state.programMeta?.started||null};
+  if(freshnessFactor!=null&&freshnessFactor<1)context.freshnessFactor=freshnessFactor;
+  return{engineVersion:1,
+    prescription:{schemaVersion:1,modifiers:[],
+      strategy:{id:"range",version:1,params:{workingSets:+ex.sets||1,repMin:+ex.min,repMax:+ex.max}}},
+    relation:null,modifiers:[],
+    settings:{minLoadIncrement:(()=>{const raw=+state.settings.minJump;return Number.isFinite(raw)&&raw>0?raw:2.5})(),
+      jumpPercent:+state.settings.jumpPct||0,
+      hardRir:+state.settings.hardRir||DEFAULTS.hardRir},
+    history:progressionHistory(ex),
+    currentSession:currentSession||[],
+    context}}
+/* One engine reason code, one UI status. The heats and copy keys are the
+   product's, not the engine's — that is the whole point of the split. */
+const RANGE_REASON_UI={
+  "range.no_history":{status:"new",reason:"new",heat:.12},
+  "range.capacity_top_double":{status:"add2",reason:"cap_top2",heat:1},
+  "range.performed_top":{status:"add",reason:"top",heat:.82},
+  "range.capacity_top":{status:"add",reason:"cap_top",heat:.82},
+  "range.below_floor":{status:"reduce",reason:"below_range",heat:.18},
+  "range.stalled":{status:"reduce",reason:"stalled",heat:.3},
+  "range.recovery":{status:"hold",reason:"recover",heat:.42},
+  "range.capacity_room":{status:"hold",reason:"push_reps",heat:.6},
+  "range.room_in_range":{status:"hold",reason:"hold",heat:.48}};
+function rangeCopy(ex,reason){
+  if(reason==="cap_top2")return{label:t("rec.add2.label"),text:t("rec.add2.text")};
+  if(reason==="top"||reason==="cap_top")return{label:t("rec.add.label"),text:t("rec.add.text")};
+  if(reason==="below_range")return{label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min})};
+  if(reason==="stalled")return{label:t("rec.stalled.label"),text:t("rec.stalled.text")};
+  if(reason==="recover")return{label:t("rec.recover.label"),text:t("rec.recover.text")};
+  if(reason==="push_reps")return{label:t("rec.push_reps.label"),text:t("rec.push_reps.text")};
+  return{label:t("rec.hold_add_reps.label"),
+    text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text")}}
 function recommendation(ex){
-  const sess=sessionsFor(ex);
-  if(!sess.length)return{status:"new",heat:.12,label:t("rec.new.label"),
+  const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
+  const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
+  // No history, or evidence the locked strategy will not act on: the same
+  // "start here" card the app has always drawn, with no invented number.
+  if(!ui||ui.reason==="new")return{status:"new",heat:.12,label:t("rec.new.label"),
     text:isEffortMode()
       ?t("rec.new.text_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
       :t("rec.new.text",{min:ex.min,max:ex.max,rirHigh:state.settings.rirHigh}),
     load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:true,reason:"new"};
-  const l=sess.at(-1),load=l.med,reps=l.reps,n=reps.length;
-  const atTop=reps.filter(r=>r>=ex.max).length,allTop=atTop===n;
-  // Majority rule: on 3+ sets, one near-miss (within a rep of top) shouldn't veto the jump.
-  const nearTop=n>=3&&atTop>=n-1&&l.minReps>=ex.max-1;
-  // Which disjunct fired the add branch, recorded for the "why this weight" sheet.
-  const topFloor=allTop||nearTop;
-  const stalled=isStalled(sess);
-  // Capacity reps at the session's typical load: what the lifter demonstrated they
-  // could have done there, reps + trusted RIR, normalized across loads (ADR 0003).
-  const medCap=l.medCap,cr=repsAtLoad(medCap,load);
-  const rec=(()=>{
-    if(cr>=ex.max+CAPACITY.bigJumpMargin)return{status:"add2",heat:1,label:t("rec.add2.label"),text:t("rec.add2.text"),load:round(load+jump(load,2)),stalled:false,pushReps:false,reason:"cap_top2",jumpMult:2};
-    // Capacity extends the jump; performed reps at the top still fire it on their own.
-    if(topFloor||cr>=ex.max+CAPACITY.jumpMargin)return{status:"add",heat:.82,label:t("rec.add.label"),text:t("rec.add.text"),load:round(load+jump(load,1)),stalled:false,pushReps:false,reason:topFloor?"top":"cap_top",jumpMult:1};
-    // Back off only when capacity itself falls short of the range — stopping early is not failing.
-    if(cr<ex.min)return{status:"reduce",heat:.18,label:t("rec.reduce.label"),text:t("rec.reduce.text",{min:ex.min}),load:Math.max(round(load-jump(load,1)),+state.settings.minJump||2.5),stalled,pushReps:false,reason:"below_range",jumpMult:1};
-    // Hold-family loads keep the session median as the capacity reference (ADR 0003) but snap onto minJump.
-    // Nearest-grid round of a sub-increment history load (1 kg vs 2.5) can land on 0; same floor as reduce.
-    const holdLoad=Math.max(round(load),+state.settings.minJump||2.5);
-    if(stalled)return{status:"reduce",heat:.3,label:t("rec.stalled.label"),text:t("rec.stalled.text"),load:holdLoad,stalled:true,pushReps:false,reason:"stalled"};
-    if(recoverSignal(ex,sess))return{status:"hold",heat:.42,label:t("rec.recover.label"),text:t("rec.recover.text"),load:holdLoad,stalled:false,pushReps:false,reason:"recover"};
-    // Room left inside the range: chase reps before load.
-    if(cr-l.medReps>=CAPACITY.pushGap&&cr<=ex.max)return{status:"hold",heat:.6,label:t("rec.push_reps.label"),text:t("rec.push_reps.text"),load:holdLoad,stalled:false,pushReps:true,reason:"push_reps"};
-    return{status:"hold",heat:.48,label:t("rec.hold_add_reps.label"),
-      text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text"),load:holdLoad,stalled:false,pushReps:true,reason:"hold"};
-  })();
-  const trend=blockTrendFor(sess);
+  const copy=rangeCopy(ex,ui.reason);
+  const rec={status:ui.status,heat:ui.heat,label:copy.label,text:copy.text,load:facts.targetLoad,
+    stalled:ui.reason==="stalled"?true:ui.reason==="below_range"?facts.stalled:false,
+    pushReps:facts.pushReps,reason:ui.reason};
+  if(facts.jumpMultiplier>0)rec.jumpMult=facts.jumpMultiplier;
   // Weak block tempering: a block that is losing strength should not double-jump.
-  if(rec.status==="add2"&&trend.dir==="falling"){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
-    rec.text=t("rec.add.tempered.text");rec.load=round(load+jump(load,1));rec.jumpMult=1;rec.temperedBlock=true}
+  if(codes.includes("range.block_tempered")){rec.status="add";rec.heat=.82;rec.label=t("rec.add.label");
+    rec.text=t("rec.add.tempered.text");rec.jumpMult=facts.jumpMultiplier;rec.temperedBlock=true}
+  const trend={dir:facts.blockTrend.direction,sessions:facts.blockTrend.sessionCount};
+  if(facts.blockTrend.ratio!=null)trend.ratio=facts.blockTrend.ratio;
   rec.block=trend;rec.blockNote=blockTrendNote(trend);
-  rec.cap=medCap;rec.typRir=typicalRir(ex,sess);
+  rec.cap=facts.capacityE1rm;rec.typRir=facts.typicalRir;
   // Read-only inputs the "why this weight" sheet narrates; nothing here steers a trigger.
-  rec.cr=cr;rec.lastLoad=load;rec.lastMedReps=l.medReps;
-  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,load);
+  rec.cr=facts.capacityReps;rec.lastLoad=facts.latestLoad;rec.lastMedReps=facts.latestMedianReps;
+  rec.reenterReps=rec.status==="add"||rec.status==="add2"||rec.status==="reduce"||!sameLoad(rec.load,facts.latestLoad);
   return rec;
 }
 // Re-entry after a load change: the reps this capacity predicts at the NEW load,
@@ -4870,6 +4902,14 @@ function strengthDashboard(){
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
+/* Test-only view of the recommendation surface. The parity gate calls exactly
+   what the Log tab and the "why this weight" sheet call, so it can prove that
+   routing the arithmetic through progression-engine.js leaves every displayed
+   target and every displayed explanation byte-identical. Read-only. */
+window.__repforgeProgression={
+  recommendation,explainRecommendation,setSuggestion,baseSuggestion,baseSetReps,
+  sessionsFor:ex=>sessionsFor(ex),
+  programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
 function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}

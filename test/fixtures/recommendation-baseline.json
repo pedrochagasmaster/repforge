@@ -1,0 +1,2625 @@
+{
+  "capacity above top, reps below": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×8 @3 · 60×8 @3 · 60×8 @3"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 11 at 60 kg."
+      },
+      {
+        "text": "The range tops out at 10 and your capacity showed about 11. The load goes up."
+      },
+      {
+        "text": "New load: 60 kg plus one 2.5 kg step: 62.5 kg."
+      },
+      {
+        "text": "At 62.5 kg, the rep capacity is about 9. Minus your usual 3 RIR, the rep target starts at 6."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 82,
+      "cr": 11,
+      "heat": 0.82,
+      "jumpMult": 1,
+      "label": "Add load",
+      "lastLoad": 60,
+      "lastMedReps": 8,
+      "load": 62.5,
+      "pushReps": false,
+      "reason": "cap_top",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "add",
+      "text": "Every set hit the top of the range. Add weight.",
+      "typRir": 3
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 62.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 62.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 62.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 62.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 62.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "capacity below floor": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×4 @0 · 60×4 @0 · 60×4 @0"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 4 at 60 kg."
+      },
+      {
+        "text": "Your rep capacity fell below the range floor of 6. The load comes down."
+      },
+      {
+        "text": "New load: 60 kg minus one 2.5 kg step: 57.5 kg."
+      },
+      {
+        "text": "At 57.5 kg, the rep capacity is about 5. Minus your usual 0 RIR, the rep target starts at 6."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 68,
+      "cr": 4,
+      "heat": 0.18,
+      "jumpMult": 1,
+      "label": "Back off",
+      "lastLoad": 60,
+      "lastMedReps": 4,
+      "load": 57.5,
+      "pushReps": false,
+      "reason": "below_range",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "reduce",
+      "text": "Most sets fell below 6 reps. Reduce the load until you can complete at least 6 reps per set.",
+      "typRir": 0
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        }
+      ]
+    }
+  },
+  "capacity far above top (double jump)": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×10 @5 · 60×10 @5 · 60×10 @5"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 14 at 60 kg."
+      },
+      {
+        "text": "You showed about 14 reps, at least 3 above the range top of 10. The larger increase applies."
+      },
+      {
+        "text": "New load: 60 kg plus 5%, rounded to the nearest 2.5 kg: 62.5 kg."
+      },
+      {
+        "text": "At 62.5 kg, the rep capacity is about 12. Minus your usual 4 RIR, the rep target starts at 8."
+      },
+      {
+        "label": "This session",
+        "text": "At 62.5 kg, start with 8 reps at your usual effort."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 88,
+      "cr": 14,
+      "heat": 1,
+      "jumpMult": 2,
+      "label": "Add load ++",
+      "lastLoad": 60,
+      "lastMedReps": 10,
+      "load": 62.5,
+      "pushReps": false,
+      "reason": "cap_top2",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "add2",
+      "text": "You reached the top of the range with reps to spare. Use the larger load increase.",
+      "typRir": 4
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "capacity room, push reps": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×6 @3 · 60×6 @3 · 60×6 @3"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 9 at 60 kg."
+      },
+      {
+        "text": "You showed about 3 more reps than you performed. Add reps before load."
+      },
+      {
+        "text": "The load stays at 60 kg."
+      },
+      {
+        "text": "Keep the load and aim for one more rep than last time, inside 6-10."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 78,
+      "cr": 9,
+      "heat": 0.6,
+      "label": "Add reps",
+      "lastLoad": 60,
+      "lastMedReps": 6,
+      "load": 60,
+      "pushReps": true,
+      "reason": "push_reps",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "typRir": 3
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "falling block trend, double jump tempered": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "65×10 @5 · 65×10 @5 · 65×10 @5"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 14 at 65 kg."
+      },
+      {
+        "text": "You reached the top of the range, but strength fell during this block. Use the smallest load increase."
+      },
+      {
+        "text": "New load: 65 kg plus one 2.5 kg step: 67.5 kg."
+      },
+      {
+        "text": "At 67.5 kg, the rep capacity is about 12. Minus your usual 4 RIR, the rep target starts at 8."
+      },
+      {
+        "label": "This session",
+        "text": "At 67.5 kg, start with 8 reps at your usual effort."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": "falling",
+        "ratio": 0.793103,
+        "sessions": 4
+      },
+      "blockNote": "Strength fell across 4 sessions. Recover before adding load.",
+      "cap": 95.333333,
+      "cr": 14,
+      "heat": 0.82,
+      "jumpMult": 1,
+      "label": "Add load",
+      "lastLoad": 65,
+      "lastMedReps": 10,
+      "load": 67.5,
+      "pushReps": false,
+      "reason": "cap_top2",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "add",
+      "temperedBlock": true,
+      "text": "You reached the top of the range, but strength fell during this block. Use the smallest load increase.",
+      "typRir": 4
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 67.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 67.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 67.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 67.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 67.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 67.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 67.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "long history, twelve sessions": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "87.5×8 @2 · 87.5×8 @2 · 87.5×8 @2"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 10 at 87.5 kg."
+      },
+      {
+        "text": "You showed about 2 more reps than you performed. Add reps before load."
+      },
+      {
+        "text": "The load stays at 87.5 kg."
+      },
+      {
+        "text": "Keep the load and aim for one more rep than last time, inside 6-10."
+      },
+      {
+        "text": "Strength rose across 12 sessions. Keep the current plan."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": "rising",
+        "ratio": 1.372881,
+        "sessions": 12
+      },
+      "blockNote": "Strength rose across 12 sessions. Keep the current plan.",
+      "cap": 116.666667,
+      "cr": 10,
+      "heat": 0.6,
+      "label": "Add reps",
+      "lastLoad": 87.5,
+      "lastMedReps": 8,
+      "load": 87.5,
+      "pushReps": true,
+      "reason": "push_reps",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "typRir": 2
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 87.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 87.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 87.5,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 87.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 87.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 87.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 87.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "mixed reps within session": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×10 @1 · 60×8 @2 · 60×7 @2"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 10 at 60 kg."
+      },
+      {
+        "text": "You showed about 2 more reps than you performed. Add reps before load."
+      },
+      {
+        "text": "The load stays at 60 kg."
+      },
+      {
+        "text": "Keep the load and aim for one more rep than last time, inside 6-10."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 80,
+      "cr": 10,
+      "heat": 0.6,
+      "label": "Add reps",
+      "lastLoad": 60,
+      "lastMedReps": 8,
+      "load": 60,
+      "pushReps": true,
+      "reason": "push_reps",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "typRir": 2
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 7,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "narrow range 8-8": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×8 @1 · 60×8 @1 · 60×8 @1"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 9 at 60 kg."
+      },
+      {
+        "text": "Every set reached the top of the range, which is 8. The load goes up."
+      },
+      {
+        "text": "New load: 60 kg plus one 2.5 kg step: 62.5 kg."
+      },
+      {
+        "text": "At 62.5 kg, the rep capacity is about 7. Minus your usual 1 RIR, the rep target starts at 8."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 78,
+      "cr": 9,
+      "heat": 0.82,
+      "jumpMult": 1,
+      "label": "Add load",
+      "lastLoad": 60,
+      "lastMedReps": 8,
+      "load": 62.5,
+      "pushReps": false,
+      "reason": "top",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "add",
+      "text": "Every set hit the top of the range. Add weight.",
+      "typRir": 1
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "session-up"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "session-up"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "session-up"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "session-up"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 8,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 8,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "session-up"
+        },
+        {
+          "load": 57.5,
+          "reps": 8,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "near top, 3 sets, one rep short": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×10 @1 · 60×10 @1 · 60×9 @1"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 11 at 60 kg."
+      },
+      {
+        "text": "Every set reached the top of the range, which is 10. The load goes up."
+      },
+      {
+        "text": "New load: 60 kg plus one 2.5 kg step: 62.5 kg."
+      },
+      {
+        "text": "At 62.5 kg, the rep capacity is about 9. Minus your usual 1 RIR, the rep target starts at 8."
+      },
+      {
+        "label": "This session",
+        "text": "At 62.5 kg, start with 8 reps at your usual effort."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 82,
+      "cr": 11,
+      "heat": 0.82,
+      "jumpMult": 1,
+      "label": "Add load",
+      "lastLoad": 60,
+      "lastMedReps": 10,
+      "load": 62.5,
+      "pushReps": false,
+      "reason": "top",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "add",
+      "text": "Every set hit the top of the range. Add weight.",
+      "typRir": 1
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 7,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "no history": {
+    "explain": [],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 0
+      },
+      "blockNote": "",
+      "heat": 0.12,
+      "label": "New lift",
+      "load": null,
+      "pushReps": true,
+      "reason": "new",
+      "stalled": false,
+      "status": "new",
+      "text": "No history yet. Pick a load you can hold for 6-10 reps at 0-2 RIR."
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": null,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": null,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": null,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": null,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": null,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": null,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": null,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 7,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "null rir throughout": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×8 @0 · 60×8 @0 · 60×8 @0"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 8 at 60 kg."
+      },
+      {
+        "text": "Hard sets without new reps. The load holds while you recover."
+      },
+      {
+        "text": "The load stays at 60 kg."
+      },
+      {
+        "text": "The rep target stays where it was."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 76,
+      "cr": 8,
+      "heat": 0.42,
+      "label": "Hold · recover",
+      "lastLoad": 60,
+      "lastMedReps": 8,
+      "load": 60,
+      "pushReps": false,
+      "reason": "recover",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "Hard sets, but reps didn't move. Hold the load and recover before the next session.",
+      "typRir": 0
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        }
+      ]
+    }
+  },
+  "performed top of range": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×10 @1 · 60×10 @1 · 60×10 @1"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 11 at 60 kg."
+      },
+      {
+        "text": "Every set reached the top of the range, which is 10. The load goes up."
+      },
+      {
+        "text": "New load: 60 kg plus one 2.5 kg step: 62.5 kg."
+      },
+      {
+        "text": "At 62.5 kg, the rep capacity is about 9. Minus your usual 1 RIR, the rep target starts at 8."
+      },
+      {
+        "label": "This session",
+        "text": "At 62.5 kg, start with 8 reps at your usual effort."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 82,
+      "cr": 11,
+      "heat": 0.82,
+      "jumpMult": 1,
+      "label": "Add load",
+      "lastLoad": 60,
+      "lastMedReps": 10,
+      "load": 62.5,
+      "pushReps": false,
+      "reason": "top",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "add",
+      "text": "Every set hit the top of the range. Add weight.",
+      "typRir": 1
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 7,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "rising block trend": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "75×8 @2 · 75×8 @2 · 75×8 @2"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 10 at 75 kg."
+      },
+      {
+        "text": "You showed about 2 more reps than you performed. Add reps before load."
+      },
+      {
+        "text": "The load stays at 75 kg."
+      },
+      {
+        "text": "Keep the load and aim for one more rep than last time, inside 6-10."
+      },
+      {
+        "text": "Strength rose across 4 sessions. Keep the current plan."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": "rising",
+        "ratio": 1.222222,
+        "sessions": 4
+      },
+      "blockNote": "Strength rose across 4 sessions. Keep the current plan.",
+      "cap": 100,
+      "cr": 10,
+      "heat": 0.6,
+      "label": "Add reps",
+      "lastLoad": 75,
+      "lastMedReps": 8,
+      "load": 75,
+      "pushReps": true,
+      "reason": "push_reps",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "typRir": 2
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 75,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 75,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 75,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 75,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 75,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 75,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 75,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "room in range": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×7 @1 · 60×7 @1 · 60×7 @1"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 8 at 60 kg."
+      },
+      {
+        "text": "The range still has room, so the load stays while reps climb."
+      },
+      {
+        "text": "The load stays at 60 kg."
+      },
+      {
+        "text": "Keep the load and aim for one more rep than last time, inside 6-10."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 76,
+      "cr": 8,
+      "heat": 0.48,
+      "label": "Hold · add reps",
+      "lastLoad": 60,
+      "lastMedReps": 7,
+      "load": 60,
+      "pushReps": true,
+      "reason": "hold",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "Keep the load and add reps within your RIR target.",
+      "typRir": 1
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 7,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "single session only": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×8 @2 · 60×8 @2 · 60×8 @2"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 10 at 60 kg."
+      },
+      {
+        "text": "You showed about 2 more reps than you performed. Add reps before load."
+      },
+      {
+        "text": "The load stays at 60 kg."
+      },
+      {
+        "text": "Keep the load and aim for one more rep than last time, inside 6-10."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 1
+      },
+      "blockNote": "",
+      "cap": 80,
+      "cr": 10,
+      "heat": 0.6,
+      "label": "Add reps",
+      "lastLoad": 60,
+      "lastMedReps": 8,
+      "load": 60,
+      "pushReps": true,
+      "reason": "push_reps",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "typRir": 2
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "single working set": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×10 @1"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 11 at 60 kg."
+      },
+      {
+        "text": "Every set reached the top of the range, which is 10. The load goes up."
+      },
+      {
+        "text": "New load: 60 kg plus one 2.5 kg step: 62.5 kg."
+      },
+      {
+        "text": "At 62.5 kg, the rep capacity is about 9. Minus your usual 1 RIR, the rep target starts at 8."
+      },
+      {
+        "label": "This session",
+        "text": "At 62.5 kg, start with 8 reps at your usual effort."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 82,
+      "cr": 11,
+      "heat": 0.82,
+      "jumpMult": 1,
+      "label": "Add load",
+      "lastLoad": 60,
+      "lastMedReps": 10,
+      "load": 62.5,
+      "pushReps": false,
+      "reason": "top",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "add",
+      "text": "Every set hit the top of the range. Add weight.",
+      "typRir": 1
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 62.5,
+          "reps": 8,
+          "src": "base"
+        }
+      ]
+    }
+  },
+  "stalled across sessions": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×7 @1 · 60×7 @1 · 60×7 @1"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 8 at 60 kg."
+      },
+      {
+        "text": "Three sessions at the same load without new reps. Use a lighter load for one session, or add one set."
+      },
+      {
+        "text": "The load stays at 60 kg."
+      },
+      {
+        "text": "At 60 kg, the rep capacity is about 8. Minus your usual 1 RIR, the rep target starts at 7."
+      },
+      {
+        "text": "Strength held steady across 4 sessions."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": "flat",
+        "ratio": 1,
+        "sessions": 4
+      },
+      "blockNote": "Strength held steady across 4 sessions.",
+      "cap": 76,
+      "cr": 8,
+      "heat": 0.3,
+      "label": "Stalled · deload",
+      "lastLoad": 60,
+      "lastMedReps": 7,
+      "load": 60,
+      "pushReps": false,
+      "reason": "stalled",
+      "reenterReps": true,
+      "stalled": true,
+      "status": "reduce",
+      "text": "No progress in three sessions. Use a lighter load for one session, or add one set.",
+      "typRir": 1
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 7,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 7,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 7,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 7,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 7,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 7,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 7,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 9,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 7,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "sub-increment history load": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "61×8 @2 · 61×8 @2 · 61×8 @2"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 10 at 61 kg."
+      },
+      {
+        "text": "You showed about 2 more reps than you performed. Add reps before load."
+      },
+      {
+        "text": "Logged loads sit off the 2.5 kg step, so the target rounds to 60 kg."
+      },
+      {
+        "text": "At 60 kg, the rep capacity is about 11. Minus your usual 2 RIR, the rep target starts at 9."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 81.333333,
+      "cr": 10,
+      "heat": 0.6,
+      "label": "Add reps",
+      "lastLoad": 61,
+      "lastMedReps": 8,
+      "load": 60,
+      "pushReps": true,
+      "reason": "push_reps",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "hold",
+      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "typRir": 2
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 9,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 9,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 9,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 9,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 9,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 9,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 9,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  },
+  "very light load, floor clamp": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "2.5×4 @0 · 2.5×4 @0 · 2.5×4 @0"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 4 at 2.5 kg."
+      },
+      {
+        "text": "Your rep capacity fell below the range floor of 6. The load comes down."
+      },
+      {
+        "text": "New load: 2.5 kg minus one 2.5 kg step: 2.5 kg."
+      },
+      {
+        "text": "At 2.5 kg, the rep capacity is about 4. Minus your usual 0 RIR, the rep target starts at 6."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 2.833333,
+      "cr": 4,
+      "heat": 0.18,
+      "jumpMult": 1,
+      "label": "Back off",
+      "lastLoad": 2.5,
+      "lastMedReps": 4,
+      "load": 2.5,
+      "pushReps": false,
+      "reason": "below_range",
+      "reenterReps": true,
+      "stalled": false,
+      "status": "reduce",
+      "text": "Most sets fell below 6 reps. Reduce the load until you can complete at least 6 reps per set.",
+      "typRir": 0
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 2.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 2.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 2.5,
+          "reps": 6,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 2.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 2.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 2.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 2.5,
+          "reps": 6,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 10,
+          "src": "session-hold"
+        },
+        {
+          "drop": true,
+          "load": 60,
+          "reps": 6,
+          "src": "session-hold"
+        }
+      ]
+    }
+  },
+  "wide range 5-15": {
+    "explain": [
+      {
+        "label": "Last session",
+        "text": "60×12 @2 · 60×12 @2 · 60×12 @2"
+      },
+      {
+        "text": "Counting reps plus up to 4 RIR, last session showed a rep capacity of about 14 at 60 kg."
+      },
+      {
+        "text": "You showed about 2 more reps than you performed. Add reps before load."
+      },
+      {
+        "text": "The load stays at 60 kg."
+      },
+      {
+        "text": "Keep the load and aim for one more rep than last time, inside 5-15."
+      }
+    ],
+    "rec": {
+      "block": {
+        "dir": null,
+        "sessions": 2
+      },
+      "blockNote": "",
+      "cap": 88,
+      "cr": 14,
+      "heat": 0.6,
+      "label": "Add reps",
+      "lastLoad": 60,
+      "lastMedReps": 12,
+      "load": 60,
+      "pushReps": true,
+      "reason": "push_reps",
+      "reenterReps": false,
+      "stalled": false,
+      "status": "hold",
+      "text": "You left reps in reserve. Train closer to failure before adding load.",
+      "typRir": 2
+    },
+    "suggestions": {
+      "no sets logged today": [
+        {
+          "load": 60,
+          "reps": 5,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 5,
+          "src": "base"
+        },
+        {
+          "load": 60,
+          "reps": 5,
+          "src": "base"
+        }
+      ],
+      "one on-target set logged": [
+        {
+          "load": 60,
+          "reps": 5,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one strong set logged": [
+        {
+          "load": 60,
+          "reps": 5,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        }
+      ],
+      "one weak set logged": [
+        {
+          "load": 60,
+          "reps": 5,
+          "src": "base"
+        },
+        {
+          "load": 57.5,
+          "reps": 5,
+          "src": "session-down"
+        },
+        {
+          "load": 57.5,
+          "reps": 5,
+          "src": "session-down"
+        }
+      ],
+      "two fading sets logged": [
+        {
+          "load": 60,
+          "reps": 5,
+          "src": "base"
+        },
+        {
+          "drop": false,
+          "load": 60,
+          "reps": 8,
+          "src": "session-hold"
+        },
+        {
+          "load": 57.5,
+          "reps": 6,
+          "src": "session-down"
+        }
+      ]
+    }
+  }
+}
