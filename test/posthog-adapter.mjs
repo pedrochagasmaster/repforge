@@ -16,8 +16,12 @@ assert.equal(SDK_VERSION, "1.400.0");
     installationId: "123e4567-e89b-42d3-a456-426614174000",
     safeLocation,
   });
-  assert.equal(config.autocapture, false);
-  assert.equal(config.disable_session_recording, true);
+  assert.deepEqual(config.autocapture, {
+    dom_event_allowlist: ["click"],
+    element_allowlist: ["button"],
+    css_selector_allowlist: ["[data-telemetry-action]"],
+  });
+  assert.equal(config.disable_session_recording, false);
   assert.equal(config.capture_pageview, false);
   assert.equal(config.capture_pageleave, false);
   assert.equal(config.capture_exceptions, false);
@@ -35,6 +39,7 @@ assert.equal(SDK_VERSION, "1.400.0");
   assert.equal(config.mask_all_element_attributes, true);
   assert.equal(config.session_recording.maskAllInputs, true);
   assert.equal(config.session_recording.maskTextSelector, "*");
+  assert.equal(config.session_recording.blockSelector, ".ph-no-capture");
   assert.equal(config.session_recording.recordHeaders, false);
   assert.equal(config.session_recording.recordBody, false);
   assert.equal(config.get_current_url(), "https://taurifer.example/index.html");
@@ -49,12 +54,13 @@ assert.equal(SDK_VERSION, "1.400.0");
     has_opted_out_capturing: () => true,
     opt_out_capturing: () => calls.push(["out"]),
     stopSessionRecording: () => calls.push(["stop"]),
+    startSessionRecording: () => calls.push(["start"]),
     _requestQueue: { clear: () => calls.push(["clear"]) },
   });
   adapter.capture("first_set_logged", { telemetry_schema_version: 1 });
   adapter.setEnabled(false);
   adapter.setEnabled(true);
-  assert.deepEqual(calls.map(call => call[0]), ["capture", "stop", "out", "clear", "in"]);
+  assert.deepEqual(calls.map(call => call[0]), ["capture", "stop", "out", "clear", "in", "start"]);
 }
 
 {
@@ -90,4 +96,4 @@ assert.equal(SDK_VERSION, "1.400.0");
 }
 
 assert.equal(start({ __POSTHOG_CONFIG__: {}, document: {} }), false);
-console.log("posthog adapter: exact SDK pin, disabled products, opt-out, and loader pass");
+console.log("posthog adapter: exact SDK pin, controlled autocapture, masked replay, opt-out, and loader pass");

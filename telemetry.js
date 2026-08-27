@@ -11,6 +11,13 @@
   const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const VERSION_PATTERN = /^[a-zA-Z0-9._-]{1,32}$/;
   const CHANNELS = Object.freeze(["production", "preview"]);
+  const AUTOCAPTURE_ACTIONS = Object.freeze([
+    "nav_today",
+    "nav_progress",
+    "nav_history",
+    "nav_program",
+    "settings_open",
+  ]);
 
   const values = (...allowed) => Object.freeze({ kind: "enum", allowed: Object.freeze(allowed) });
   const boolean = Object.freeze({ kind: "boolean" });
@@ -222,6 +229,8 @@
 
   function filterOutbound(envelope) {
     if (!runtime.enabled || !envelope || typeof envelope !== "object" || Array.isArray(envelope)) return null;
+    if (envelope.event === "$autocapture") return filterAutocapture(envelope);
+    if (envelope.event === "$snapshot") return filterReplay(envelope);
     const definition = EVENTS[envelope.event];
     const properties = envelope.properties;
     if (!definition || definition.phase !== "alpha" || !properties || typeof properties !== "object" || Array.isArray(properties)) return null;
@@ -245,6 +254,82 @@
       clean[key] = properties[key];
     }
     return Object.freeze({ event: envelope.event, properties: Object.freeze(clean) });
+  }
+
+  function transportIdentity(properties) {
+    const identity = installationIdentity();
+    if (!identity || properties?.distinct_id !== identity.installationId) return null;
+    const clean = { distinct_id: identity.installationId };
+    for (const key of ["$session_id", "$window_id"]) {
+      if (properties[key] === undefined) continue;
+      if (typeof properties[key] !== "string" || properties[key].length < 8 || properties[key].length > 64 || !/^[a-zA-Z0-9_-]+$/.test(properties[key])) return null;
+      clean[key] = properties[key];
+    }
+    return clean;
+  }
+
+  function autocaptureAction(properties) {
+    if (AUTOCAPTURE_ACTIONS.includes(properties?.telemetry_action)) return properties.telemetry_action;
+    if (!Array.isArray(properties?.$elements)) return null;
+    for (const element of properties.$elements) {
+      const action = element?.attributes?.["data-telemetry-action"] || element?.["attr__data-telemetry-action"];
+      if (AUTOCAPTURE_ACTIONS.includes(action)) return action;
+    }
+    return null;
+  }
+
+  function filterAutocapture(envelope) {
+    const properties = envelope.properties;
+    if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+    if (properties.$event_type !== undefined && properties.$event_type !== "click") return null;
+    const telemetry_action = autocaptureAction(properties);
+    const transport = transportIdentity(properties);
+    if (!telemetry_action || !transport) return null;
+    return Object.freeze({
+      event: "$autocapture",
+      properties: Object.freeze({
+        telemetry_action,
+        $event_type: "click",
+        telemetry_schema_version: SCHEMA_VERSION,
+        app_version: runtime.appVersion,
+        release_channel: runtime.releaseChannel,
+        ...transport,
+      }),
+    });
+  }
+
+  function replayValueIsMasked(value, key = "", depth = 0, seen = new Set()) {
+    if (depth > 32) return false;
+    if (value == null || typeof value === "boolean" || typeof value === "number") return true;
+    if (typeof value === "string") {
+      if (/[?#]setup=|(?:^|[^a-z0-9_])v[12]\.[a-z0-9_-]{4,}/i.test(value)) return false;
+      if (/^(?:https?:)?\/\//i.test(value) && /[?#]/.test(value)) return false;
+      if (/^(?:text|textContent|value|placeholder|title|aria-label|name)$/i.test(key)) return /^(?:\s|\*|•|x)*$/i.test(value);
+      return true;
+    }
+    if (typeof value !== "object" || seen.has(value)) return false;
+    seen.add(value);
+    const entries = Array.isArray(value) ? value.map((entry, index) => [String(index), entry]) : Object.entries(value);
+    for (const [childKey, child] of entries) {
+      if (!replayValueIsMasked(child, childKey, depth + 1, seen)) return false;
+    }
+    seen.delete(value);
+    return true;
+  }
+
+  function filterReplay(envelope) {
+    const properties = envelope.properties;
+    if (!properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+    const transport = transportIdentity(properties);
+    if (!transport || !properties.$snapshot_data || !replayValueIsMasked(properties.$snapshot_data)) return null;
+    return Object.freeze({
+      event: "$snapshot",
+      properties: Object.freeze({
+        $snapshot_data: properties.$snapshot_data,
+        $current_url: `${safeLocation(runtime.location).origin}${safeLocation(runtime.location).pathname}`,
+        ...transport,
+      }),
+    });
   }
 
   function setEnabled(enabled) {
@@ -276,6 +361,7 @@
     capture,
     getEventNames: () => Object.freeze(Object.keys(EVENTS)),
     getEventPolicy: name => EVENTS[name]?.duplicates || null,
+    getAutocaptureActions: () => AUTOCAPTURE_ACTIONS,
     getSchemaVersion: () => SCHEMA_VERSION,
     isEnabled: () => runtime.enabled,
     setEnabled,

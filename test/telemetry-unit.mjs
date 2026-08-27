@@ -144,6 +144,43 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
   });
   assert.equal(status.beforeSend({ event: "$pageview", properties: {} }), null);
   assert.equal(status.beforeSend({ event: "first_set_logged", properties: { telemetry_schema_version: 1 } }), null);
+
+  const auto = status.beforeSend({
+    event: "$autocapture",
+    properties: {
+      $event_type: "click",
+      $elements: [{ tag_name: "button", text: HOSTILE_SENTINELS[0], attributes: { "data-telemetry-action": "nav_history", "aria-label": HOSTILE_SENTINELS[1] } }],
+      $current_url: HOSTILE_SENTINELS[1],
+      distinct_id: FIXED_UUID,
+      $session_id: "session_12345678",
+    },
+  });
+  assert.deepEqual(auto.properties, {
+    telemetry_action: "nav_history",
+    $event_type: "click",
+    telemetry_schema_version: 1,
+    app_version: "112.98d5335",
+    release_channel: "preview",
+    distinct_id: FIXED_UUID,
+    $session_id: "session_12345678",
+  });
+  assert.equal(JSON.stringify(auto).includes("TAURIFER_SENTINEL"), false);
+  assert.equal(status.beforeSend({ event: "$autocapture", properties: { telemetry_action: "workout_value", distinct_id: FIXED_UUID } }), null);
+
+  const replay = status.beforeSend({
+    event: "$snapshot",
+    properties: {
+      $snapshot_data: { type: 2, data: { tagName: "div", text: "***", value: "•••", attributes: { role: "button" } } },
+      $current_url: HOSTILE_SENTINELS[1],
+      distinct_id: FIXED_UUID,
+      $window_id: "window_12345678",
+    },
+  });
+  assert.equal(replay.properties.$current_url, "https://taurifer.example/index.html");
+  assert.equal(replay.properties.$window_id, "window_12345678");
+  for (const sentinel of HOSTILE_SENTINELS) {
+    assert.equal(status.beforeSend({ event: "$snapshot", properties: { $snapshot_data: { data: { text: sentinel } }, distinct_id: FIXED_UUID } }), null);
+  }
 }
 
 // Every event declares a duplicate expectation, drawn from the closed

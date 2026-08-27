@@ -16,6 +16,7 @@
         try {
           if (enabled) {
             if (posthog.has_opted_out_capturing?.()) posthog.opt_in_capturing();
+            posthog.startSessionRecording?.();
           }
           else {
             posthog.stopSessionRecording?.();
@@ -31,7 +32,11 @@
     return {
       advanced_disable_flags: true,
       api_host: host,
-      autocapture: false,
+      autocapture: {
+        dom_event_allowlist: ["click"],
+        element_allowlist: ["button"],
+        css_selector_allowlist: ["[data-telemetry-action]"],
+      },
       before_send: beforeSend,
       bootstrap: { distinctID: installationId, isIdentifiedID: false },
       capture_dead_clicks: false,
@@ -43,7 +48,7 @@
       cross_subdomain_cookie: false,
       defaults: "2026-05-30",
       disable_capture_url_hashes: true,
-      disable_session_recording: true,
+      disable_session_recording: false,
       disable_surveys: true,
       get_current_url: () => `${safeLocation.origin}${safeLocation.pathname}`,
       loaded(posthog) {
@@ -61,6 +66,7 @@
       rageclick: false,
       rate_limiting: { events_per_second: 4, events_burst_limit: 12 },
       session_recording: {
+        blockSelector: ".ph-no-capture",
         maskAllInputs: true,
         maskTextSelector: "*",
         recordCanvas: false,

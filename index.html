@@ -79,7 +79,7 @@
             <p class="page-date" id="todayDate"></p>
           </div>
           <div class="pagehead__actions">
-            <button type="button" class="settings-btn" id="openSettings" data-i18n-aria="nav.settings" aria-label="Settings">
+            <button type="button" class="settings-btn" id="openSettings" data-telemetry-action="settings_open" data-i18n-aria="nav.settings" aria-label="Settings">
               <span class="icon-mask icon-mask--gear" aria-hidden="true"></span>
             </button>
           </div>
@@ -135,7 +135,7 @@
         <div id="dayTabs" class="seg" role="tablist" data-i18n-aria="log.training_day_aria" aria-label="Training day"></div>
         <div id="logBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
         <div id="fatigue" class="fatigue hidden"></div>
-        <form id="logForm">
+        <form id="logForm" class="ph-no-capture">
           <div id="woProgress" class="wo-progress hidden" aria-live="polite"></div>
           <div id="workout"></div>
           <label class="field"><span data-i18n="log.notes">Session notes</span>
@@ -239,7 +239,7 @@
       </div>
       <div id="historyCalendar" class="cal"></div>
       <p class="section-label" data-i18n="history.recent">Recent</p>
-      <div id="sessions" class="sessions"></div>
+      <div id="sessions" class="sessions ph-no-capture"></div>
       <details class="advanced">
         <summary data-i18n="history.every_set">Every set</summary>
         <div id="historyTable" class="table"></div>
@@ -270,7 +270,7 @@
       <div id="programEditorWrap" class="is-hidden">
         <button id="endBlock" class="btn btn--steel program__endblock" type="button" data-i18n="program.end_block">End block</button>
         <p class="lede" data-i18n="program.lede">Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit.</p>
-        <div id="programEditor" class="peditor"></div>
+        <div id="programEditor" class="peditor ph-no-capture"></div>
         <button id="addDay" class="btn btn--steel peditor__addday" type="button" data-i18n="program.add_day">+ Add day</button>
         <details class="advanced">
           <summary data-i18n="program.advanced.summary">Advanced · edit raw JSON</summary>
@@ -325,7 +325,7 @@
       <div id="previewBody" class="preview"></div>
     </section>
 
-    <section id="importReview" class="view" data-i18n-aria="import.aria" aria-label="Review imported program">
+    <section id="importReview" class="view ph-no-capture" data-i18n-aria="import.aria" aria-label="Review imported program">
       <div class="exview-head">
         <button type="button" class="back-link" id="importBack" data-i18n="import.back">‹ Back</button>
         <h1 class="exview-head__title" data-i18n="import.title">Import program</h1>
@@ -516,7 +516,7 @@
       <p class="visually-hidden" data-i18n="settings.danger_lede">Taurifer deletes the saved log and any unfinished workout. It keeps your program and settings. Export a backup first.</p>
     </section>
 
-    <section id="onboarding" class="view onboarding hidden" data-i18n-aria="onb.aria" aria-label="Create program">
+    <section id="onboarding" class="view onboarding hidden ph-no-capture" data-i18n-aria="onb.aria" aria-label="Create program">
       <div class="onb">
         <div class="onb__head">
           <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
@@ -536,10 +536,10 @@
   </main>
 
   <nav data-i18n-aria="nav.aria" aria-label="Sections">
-    <button data-view="log" class="active"><span class="nav__icon" data-i="log"></span><span data-i18n="nav.log">Today</span></button>
-    <button data-view="stats"><span class="nav__icon" data-i="stats"></span><span data-i18n="nav.stats">Progress</span></button>
-    <button data-view="history"><span class="nav__icon" data-i="history"></span><span data-i18n="nav.history">History</span></button>
-    <button data-view="program"><span class="nav__icon" data-i="program"></span><span data-i18n="nav.program">Program</span></button>
+    <button data-view="log" data-telemetry-action="nav_today" class="active"><span class="nav__icon" data-i="log"></span><span data-i18n="nav.log">Today</span></button>
+    <button data-view="stats" data-telemetry-action="nav_progress"><span class="nav__icon" data-i="stats"></span><span data-i18n="nav.stats">Progress</span></button>
+    <button data-view="history" data-telemetry-action="nav_history"><span class="nav__icon" data-i="history"></span><span data-i18n="nav.history">History</span></button>
+    <button data-view="program" data-telemetry-action="nav_program"><span class="nav__icon" data-i="program"></span><span data-i18n="nav.program">Program</span></button>
   </nav>
 
   <div id="glossary" class="glossary hidden" role="dialog" data-i18n-aria="dialog.glossary.aria" aria-label="Definition">
@@ -592,7 +592,7 @@
   <!-- First-run setup. The install section is written by app.js from what the
        browser actually offers — a captured beforeinstallprompt, iOS Safari's
        manual Home Screen flow, or nothing at all — never from screen size. -->
-  <div id="firstRun" class="firstrun hidden" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
+  <div id="firstRun" class="firstrun hidden ph-no-capture" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
     <div class="firstrun__inner">
       <div class="firstrun__brand">
         <!-- The gate draws the mark on the page, not on a plate, so it uses the
@@ -670,7 +670,7 @@
        arithmetic. Inline recommendation copy still names the signal, not the
        maths; this sheet answers only when the lifter taps to ask. -->
   <div id="whyScrim" class="sheet-scrim hidden"></div>
-  <div id="whySheet" class="sheet sheet--why hidden" role="dialog" aria-modal="true" aria-labelledby="whyTitle" hidden>
+  <div id="whySheet" class="sheet sheet--why hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="whyTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
     <div class="whysheet">
       <div class="whysheet__head">
@@ -761,7 +761,7 @@
     </div>
   </div>
   <div id="programTextScrim" class="sheet-scrim hidden"></div>
-  <div id="programTextSheet" class="sheet hidden" role="dialog" aria-modal="true" aria-labelledby="programTextTitle" hidden>
+  <div id="programTextSheet" class="sheet hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="programTextTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
     <div class="sheet__head">
       <button type="button" class="sheet__act" id="programTextClose" data-i18n="dialog.close">Close</button>
@@ -779,7 +779,7 @@
     </div>
   </div>
   <div id="shareSetupScrim" class="sheet-scrim hidden"></div>
-  <div id="shareSetupSheet" class="sheet sheet--setup hidden" role="dialog" aria-modal="true" aria-labelledby="shareSetupTitle" hidden>
+  <div id="shareSetupSheet" class="sheet sheet--setup hidden ph-no-capture" role="dialog" aria-modal="true" aria-labelledby="shareSetupTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
     <div class="sheet__head">
       <button type="button" class="sheet__act" id="shareSetupClose" data-i18n="dialog.close">Close</button>
