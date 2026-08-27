@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import {
+  DUPLICATE_POLICY_VOCABULARY,
+  EVENT_DUPLICATE_POLICIES,
   HOSTILE_SENTINELS,
   INVALID_EVENTS,
   VALID_ALPHA_EVENTS,
@@ -143,6 +145,16 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
   assert.equal(status.beforeSend({ event: "$pageview", properties: {} }), null);
   assert.equal(status.beforeSend({ event: "first_set_logged", properties: { telemetry_schema_version: 1 } }), null);
 }
+
+// Every event declares a duplicate expectation, drawn from the closed
+// vocabulary, matching the fixture contract exactly. An event added without
+// one cannot be defined at all: the module throws while building EVENTS.
+assert.deepEqual([...Telemetry.DUPLICATE_POLICIES], [...DUPLICATE_POLICY_VOCABULARY]);
+assert.deepEqual([...Telemetry.getEventNames()].sort(), Object.keys(EVENT_DUPLICATE_POLICIES).sort());
+for (const [name, expected] of Object.entries(EVENT_DUPLICATE_POLICIES)) {
+  assert.equal(Telemetry.getEventPolicy(name), expected, `${name} duplicate policy`);
+}
+assert.equal(Telemetry.getEventPolicy("unknown_event"), null);
 
 assert.equal(Telemetry.getSchemaVersion(), 1);
 assert.equal(Telemetry.bucketCount(0, "sets"), "0");

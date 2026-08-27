@@ -15,33 +15,62 @@
   const values = (...allowed) => Object.freeze({ kind: "enum", allowed: Object.freeze(allowed) });
   const boolean = Object.freeze({ kind: "boolean" });
   const optional = validator => Object.freeze({ ...validator, optional: true });
-  const event = (properties, metric) => Object.freeze({
-    phase: "alpha",
-    properties: Object.freeze(properties),
-    metric,
-  });
+
+  /* How often analysis may legitimately see one event for one subject.
+     Undeclared, a double-fire regression and a real change in behavior are
+     the same shape in the data, and every funnel built on the event inherits
+     that ambiguity. This is a declaration dashboards and tests assert
+     against, not runtime suppression: silently dropping a second event would
+     hide the regression instead of surfacing it.
+
+     once_per_boot        one app start
+     once_per_setup_flow  one program-entry attempt, from first answer to
+                          activation; restarting inside the same flow does
+                          not begin a new one
+     once_per_session     one training session
+     milestone            expected once for the install; recurs only if the
+                          user erases the history that defined it
+     repeatable           many per subject by design */
+  const DUPLICATE_POLICIES = Object.freeze([
+    "once_per_boot",
+    "once_per_setup_flow",
+    "once_per_session",
+    "milestone",
+    "repeatable",
+  ]);
+  const event = (properties, metric, duplicates) => {
+    if (!DUPLICATE_POLICIES.includes(duplicates)) {
+      throw new TypeError(`Telemetry event needs a duplicate-expectation policy, received ${String(duplicates)}`);
+    }
+    return Object.freeze({
+      phase: "alpha",
+      properties: Object.freeze(properties),
+      metric,
+      duplicates,
+    });
+  };
 
   const EVENTS = Object.freeze({
-    app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other") }, "Successful app boot"),
-    program_path_selected: event({ route: values("recommend", "custom", "browse", "build", "import", "shared") }, "Program entry route chosen"),
-    generator_started: event({ mode: values("baseline") }, "Working baseline generator started"),
-    generator_completed: event({ goal: values("muscle_growth", "balanced", "strength"), frequency: values("2", "3", "4", "5", "6"), family: values("legacy", "growth", "balanced", "strength", "home", "foundation") }, "Generator produced a reviewable program"),
-    template_selected: event({ family: values("growth_v1", "balanced_v1", "strength_v1", "home_v1") }, "Executable Taurifer template selected"),
-    program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1") }, "Program activation committed"),
-    first_set_logged: event({}, "First working set committed"),
-    set_saved: event({ vs_suggestion: values("matched", "raised", "lowered", "no_suggestion") }, "Working set committed relative to its suggestion"),
-    recommendation_explained: event({ surface: values("workout", "focus", "exercise") }, "Recommendation explanation opened"),
-    recommendation_overridden: event({ reason: optional(values("adjustment", "preference", "equipment", "pain", "other")) }, "Recommendation deliberately overridden"),
-    exercise_skipped: event({ context: values("planned_session", "one_off") }, "Exercise explicitly skipped"),
-    substitution_used: event({ reason: values("equipment", "preference", "pain", "crowded", "other") }, "Exercise substitution committed"),
-    equipment_context_selected: event({ context_count: values("1", "2", "3_plus") }, "Equipment context chosen"),
-    one_off_started: event({ kind: values("manual", "classic", "recommended"), time: values("30", "45", "60", "75", "90_plus"), equipment: values("full", "limited", "bodyweight", "other") }, "One-off session started"),
-    one_off_completed: event({ kind: values("manual", "classic", "recommended"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus") }, "One-off session completed"),
-    session_completed: event({ set_count: values("0", "1_5", "6_10", "11_20", "21_plus"), exercise_count: values("0", "1_3", "4_6", "7_plus"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus") }, "Planned session completed"),
-    session_abandoned: event({ stage: values("before_set", "working", "review"), reason: values("time", "recovery", "pain", "equipment", "schedule", "other") }, "Session explicitly abandoned"),
-    session_summary_viewed: event({}, "Completed-session summary opened"),
-    block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened"),
-    program_transition_selected: event({ transition: values("resume", "repair", "rebase", "switch") }, "Program transition selected"),
+    app_boot: event({ first_run: boolean, language: values("en", "pt"), platform_class: values("ios", "android", "desktop", "other") }, "Successful app boot", "once_per_boot"),
+    program_path_selected: event({ route: values("recommend", "custom", "browse", "build", "import", "shared") }, "Program entry route chosen", "once_per_setup_flow"),
+    generator_started: event({ mode: values("baseline") }, "Working baseline generator started", "once_per_setup_flow"),
+    generator_completed: event({ goal: values("muscle_growth", "balanced", "strength"), frequency: values("2", "3", "4", "5", "6"), family: values("legacy", "growth", "balanced", "strength", "home", "foundation") }, "Generator produced a reviewable program", "once_per_setup_flow"),
+    template_selected: event({ family: values("growth_v1", "balanced_v1", "strength_v1", "home_v1") }, "Executable Taurifer template selected", "once_per_setup_flow"),
+    program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1") }, "Program activation committed", "once_per_setup_flow"),
+    first_set_logged: event({}, "First working set committed", "milestone"),
+    set_saved: event({ vs_suggestion: values("matched", "raised", "lowered", "no_suggestion") }, "Working set committed relative to its suggestion", "repeatable"),
+    recommendation_explained: event({ surface: values("workout", "focus", "exercise") }, "Recommendation explanation opened", "repeatable"),
+    recommendation_overridden: event({ reason: optional(values("adjustment", "preference", "equipment", "pain", "other")) }, "Recommendation deliberately overridden", "repeatable"),
+    exercise_skipped: event({ context: values("planned_session", "one_off") }, "Exercise explicitly skipped", "repeatable"),
+    substitution_used: event({ reason: values("equipment", "preference", "pain", "crowded", "other") }, "Exercise substitution committed", "repeatable"),
+    equipment_context_selected: event({ context_count: values("1", "2", "3_plus") }, "Equipment context chosen", "repeatable"),
+    one_off_started: event({ kind: values("manual", "classic", "recommended"), time: values("30", "45", "60", "75", "90_plus"), equipment: values("full", "limited", "bodyweight", "other") }, "One-off session started", "once_per_session"),
+    one_off_completed: event({ kind: values("manual", "classic", "recommended"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus") }, "One-off session completed", "once_per_session"),
+    session_completed: event({ set_count: values("0", "1_5", "6_10", "11_20", "21_plus"), exercise_count: values("0", "1_3", "4_6", "7_plus"), duration: values("0_15", "16_30", "31_60", "61_90", "90_plus") }, "Planned session completed", "once_per_session"),
+    session_abandoned: event({ stage: values("before_set", "working", "review"), reason: values("time", "recovery", "pain", "equipment", "schedule", "other") }, "Session explicitly abandoned", "once_per_session"),
+    session_summary_viewed: event({}, "Completed-session summary opened", "once_per_session"),
+    block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),
+    program_transition_selected: event({ transition: values("resume", "repair", "rebase", "switch") }, "Program transition selected", "once_per_setup_flow"),
   });
 
   let runtime = emptyRuntime();
@@ -240,10 +269,13 @@
   }
 
   return Object.freeze({
+    DUPLICATE_POLICIES,
     boot,
     bucketCount,
     bucketDuration,
     capture,
+    getEventNames: () => Object.freeze(Object.keys(EVENTS)),
+    getEventPolicy: name => EVENTS[name]?.duplicates || null,
     getSchemaVersion: () => SCHEMA_VERSION,
     isEnabled: () => runtime.enabled,
     setEnabled,

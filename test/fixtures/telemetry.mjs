@@ -64,6 +64,41 @@ export const HOSTILE_SENTINELS = Object.freeze([
   "%23setup%3Dv2.TAURIFER_SENTINEL_ENCODED_7ab0",
 ]);
 
+/* The duplicate expectation every event must declare, held beside the schema
+   rather than only inside the module it describes. A funnel that cannot say
+   how often an event may legitimately repeat cannot tell a double-fire
+   regression from a change in behavior. */
+export const DUPLICATE_POLICY_VOCABULARY = Object.freeze([
+  "once_per_boot",
+  "once_per_setup_flow",
+  "once_per_session",
+  "milestone",
+  "repeatable",
+]);
+
+export const EVENT_DUPLICATE_POLICIES = Object.freeze({
+  app_boot: "once_per_boot",
+  program_path_selected: "once_per_setup_flow",
+  generator_started: "once_per_setup_flow",
+  generator_completed: "once_per_setup_flow",
+  template_selected: "once_per_setup_flow",
+  program_activated: "once_per_setup_flow",
+  first_set_logged: "milestone",
+  set_saved: "repeatable",
+  recommendation_explained: "repeatable",
+  recommendation_overridden: "repeatable",
+  exercise_skipped: "repeatable",
+  substitution_used: "repeatable",
+  equipment_context_selected: "repeatable",
+  one_off_started: "once_per_session",
+  one_off_completed: "once_per_session",
+  session_completed: "once_per_session",
+  session_abandoned: "once_per_session",
+  session_summary_viewed: "once_per_session",
+  block_review_viewed: "repeatable",
+  program_transition_selected: "once_per_setup_flow",
+});
+
 export const FORBIDDEN_PROPERTY_NAMES = Object.freeze([
   "$current_url",
   "$referrer",

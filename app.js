@@ -7511,11 +7511,22 @@ function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboa
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
   render()}
-function startOnboarding(origin){
+/* Onboarding that opens by itself on first run is not a route anybody chose.
+   Counting it would enter every install into the generator funnel and make
+   the drop-off after it meaningless. So an automatic open stays silent until
+   the first answer, which is the user actually choosing this path; an open
+   the user asked for reports immediately. Either way the flow reports once —
+   Start over inside it continues the same attempt. */
+let onbEngaged=false;
+function reportOnboardingEngagement(){if(onbEngaged)return;
+  onbEngaged=true;
+  captureEvent("program_path_selected",{route:"custom"});captureEvent("generator_started",{mode:"baseline"})}
+function startOnboarding(origin,opts={}){
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  captureEvent("program_path_selected",{route:"custom"});captureEvent("generator_started",{mode:"baseline"});
-  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding()}
-function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run")}
+  onbEngaged=false;
+  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding();
+  if(opts.userInitiated!==false)reportOnboardingEngagement()}
+function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run",{userInitiated:false})}
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
   onboardingOrigin=null;closeOnboarding()}
@@ -7526,7 +7537,8 @@ function onbEquipmentSupportsDays(a){
 function onbCanNext(){const a=onbAnswers;
   if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
   if(onbStep===3)return!!a.splitType;if(onbStep===4)return onbEquipmentSupportsDays(a);if(onbStep===6)return!!a.sessionLength;return true}
-function onbPick(key,val,multi){if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
+function onbPick(key,val,multi){reportOnboardingEngagement();
+  if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
   if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
   if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
   renderOnboarding()}
@@ -7581,7 +7593,18 @@ function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$
   const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
   const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
   if(next)next.disabled=!onbCanNext()}
-function telemetryGoal(goal){return goal==="hypertrophy"?"muscle_growth":goal==="strength_hypertrophy"?"balanced":null}
+/* What the generator actually built, not what the answer was called.
+   "Beginner consistency" is not a third goal: onbGenAnswers compiles it to
+   the same hypertrophy program, given the beginner treatment — which is
+   Foundation. Reporting nothing for it deleted every beginner from the
+   generator funnel, which is the cohort the alpha most needs to see. The
+   legacy generator has no family of its own, so everything else reports
+   legacy until Plan 047 supplies real ones. */
+function telemetryGeneratedProgram(goal){
+  if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
+  if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
+  if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
+  return null}
 async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom"}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
@@ -7609,9 +7632,11 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
-  const goal=telemetryGoal(meta.goal),frequency=String(new Set(exercises.map(exercise=>exercise.day)).size);
-  if(telemetryRoute==="custom"&&goal&&["2","3","4","5","6"].includes(frequency))
-    captureEvent("generator_completed",{goal,frequency,family:"legacy"});
+  const generated=telemetryGeneratedProgram(meta.goal);
+  // A frequency outside the reviewed 2-6 range is rejected by the boundary,
+  // where the rejection is visible, rather than dropped silently here.
+  if(telemetryRoute==="custom"&&generated)captureEvent("generator_completed",
+    {goal:generated.goal,frequency:String(new Set(exercises.map(exercise=>exercise.day)).size),family:generated.family});
   captureEvent("program_activated",{route:telemetryRoute,version_category:telemetryRoute==="import"?"import_v1":"legacy_v1"});
   resetDraftSessionState();
   if(originEff==="block")pendingBlockTransition=null;
