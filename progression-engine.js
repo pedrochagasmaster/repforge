@@ -283,7 +283,7 @@
     const envelope = validateVersionedEnvelope(
       relation,
       "relation",
-      new Set(["schemaVersion", "id", "type", "version", "movementId", "members"]),
+      new Set(["schemaVersion", "id", "type", "version", "movementId", "members", "selfRole", "counterpart"]),
     );
     if (!envelope.ok) return envelope;
     const issues = [];
@@ -323,6 +323,34 @@
       members.push({ exerciseId, role: member.role });
     }
     if (!roles.has("heavy") || !roles.has("volume")) issues.push("relation.members: heavy and volume roles required");
+    // selfRole and counterpart are evaluation-time context, not part of the
+    // persisted relation: they are validated here but never canonicalized, so
+    // storage, backup, and setup links keep the same shape they always had.
+    if (hasOwn(relation, "selfRole") && relation.selfRole !== "heavy" && relation.selfRole !== "volume") {
+      issues.push("relation.selfRole: unsupported");
+    }
+    if (hasOwn(relation, "counterpart")) {
+      const counterpart = relation.counterpart;
+      if (!isPlainObject(counterpart)) issues.push("relation.counterpart: expected object");
+      else {
+        for (const key of unexpectedKeys(counterpart, new Set(["strategy", "sessionsInWindow", "mostRecentExpectedExposureCompleted", "status"]))) {
+          issues.push(`relation.counterpart.${key}: unknown key`);
+        }
+        if (typeof counterpart.strategy !== "string" || !/^([a-z_]+)@[1-9][0-9]*$/.test(counterpart.strategy)) {
+          issues.push("relation.counterpart.strategy: expected strategy version");
+        }
+        if (!Number.isInteger(counterpart.sessionsInWindow) || counterpart.sessionsInWindow < 0
+          || counterpart.sessionsInWindow > PAIRED_WINDOW_SESSIONS) {
+          issues.push("relation.counterpart.sessionsInWindow: out of range");
+        }
+        if (typeof counterpart.mostRecentExpectedExposureCompleted !== "boolean") {
+          issues.push("relation.counterpart.mostRecentExpectedExposureCompleted: expected boolean");
+        }
+        if (hasOwn(counterpart, "status") && !["new", "advance", "hold", "reduce", "recalibrate", "manual"].includes(counterpart.status)) {
+          issues.push("relation.counterpart.status: unsupported");
+        }
+      }
+    }
     if (issues.length) return validationFailure(issues);
     members.sort((left, right) => left.role === "heavy" ? -1 : right.role === "heavy" ? 1 : left.exerciseId.localeCompare(right.exerciseId));
     return {
@@ -409,7 +437,7 @@
   function validateModifier(modifier) {
     if (!isPlainObject(modifier)) return validationFailure(["modifier: expected object"]);
     const issues = [];
-    for (const key of unexpectedKeys(modifier, new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]))) {
+    for (const key of unexpectedKeys(modifier, new Set(["schemaVersion", "id", "version", "compatibleStrategies", "weekNumber", "target", "weekValues", "params"]))) {
       issues.push(`modifier.${key}: unknown key`);
     }
     const modifierId = typeof modifier.id === "string" ? modifier.id.trim() : "";
@@ -426,8 +454,16 @@
     if (hasOwn(modifier, "weekNumber") && (!Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1 || modifier.weekNumber > 6)) {
       issues.push("modifier.weekNumber: out of range");
     }
-    if (hasOwn(modifier, "target") && (typeof modifier.target !== "string" || !modifier.target.trim())) {
-      issues.push("modifier.target: expected non-empty string");
+    // A null target is how a modifier declares that it adjusts no field at
+    // all — the shape identity_block@1 needs.
+    if (hasOwn(modifier, "target") && modifier.target !== null
+      && (typeof modifier.target !== "string" || !modifier.target.trim())) {
+      issues.push("modifier.target: expected null or a non-empty string");
+    }
+    if (hasOwn(modifier, "schemaVersion") && modifier.schemaVersion !== 1) issues.push("modifier.schemaVersion: unsupported");
+    if (hasOwn(modifier, "weekValues") && (!Array.isArray(modifier.weekValues) || modifier.weekValues.length !== 6
+      || !modifier.weekValues.every((value) => isFiniteNumber(value)))) {
+      issues.push("modifier.weekValues: expected six finite week values");
     }
     if (!isPlainObject(modifier.params)) issues.push("modifier.params: expected object");
     if (issues.length) return validationFailure(issues);
@@ -440,6 +476,7 @@
     };
     if (hasOwn(modifier, "weekNumber")) value.weekNumber = modifier.weekNumber;
     if (hasOwn(modifier, "target")) value.target = modifier.target;
+    if (hasOwn(modifier, "weekValues")) value.weekValues = modifier.weekValues.slice();
     value.params = params.value;
     return { ok: true, value };
   }
@@ -1159,6 +1196,91 @@
       { ...facts, backoffLoad: back.load, backoffReps: back.reps }, provenance);
   }
 
+  /* ---- paired_exposure@1 ------------------------------------------------
+     A program-level relation, not a strategy. Owner-approved 2026-08-27 for
+     exactly one heavy/volume combination. It never copies a target, a set
+     count, or a status from one exposure into the other; it exposes the
+     counterpart's evidence and may only make a result more conservative. */
+
+  const PAIRED_PAIRS = Object.freeze([Object.freeze({ heavy: "anchor_backoff@1", volume: "rep_goal@1" })]);
+  const PAIRED_WINDOW_SESSIONS = 3;
+
+  function pairedExposureCompatibility(pair) {
+    if (!isPlainObject(pair)) return { compatible: false, reasonCodes: ["paired_exposure.incompatible_strategy_pair"] };
+    // Roles are not interchangeable: the same two strategies swapped is a
+    // different, unapproved pair.
+    const allowed = PAIRED_PAIRS.some((entry) => entry.heavy === pair.heavy && entry.volume === pair.volume);
+    return allowed
+      ? { compatible: true, reasonCodes: [] }
+      : { compatible: false, reasonCodes: ["paired_exposure.incompatible_strategy_pair"] };
+  }
+
+  function pairedMovementCompatibility(movements) {
+    // Matching display text proves nothing; distinct machine identities are
+    // never paired.
+    const compatible = isPlainObject(movements)
+      && typeof movements.heavy === "string" && movements.heavy.trim().length > 0
+      && movements.heavy === movements.volume;
+    return compatible
+      ? { compatible: true, reasonCodes: [] }
+      : { compatible: false, reasonCodes: ["paired_exposure.incompatible_movement"] };
+  }
+
+  function pairedExposureConfidence(counterpart) {
+    if (!isPlainObject(counterpart) || !(counterpart.sessionsInWindow > 0)) {
+      return { confidence: "none", reasonCodes: ["paired_exposure.no_counterpart_evidence"] };
+    }
+    return counterpart.mostRecentExpectedExposureCompleted === true
+      ? { confidence: "full", reasonCodes: ["paired_exposure.full_confidence"] }
+      : { confidence: "reduced", reasonCodes: ["paired_exposure.reduced_confidence"] };
+  }
+
+  // Temper-only. The paired result is never more aggressive than the
+  // independent one on any target-changing dimension, and a poor counterpart
+  // on its own never reduces load — that still needs the slot's own evidence.
+  // A tempered advance becomes a hold at the load the evidence already
+  // supported, keeping the reps the strategy had already prescribed.
+  function applyPairedExposure(result, options) {
+    const agrees = !isPlainObject(options) || options.counterpartAgrees !== false;
+    if (agrees || result.status !== "advance") return result;
+    const heldLoad = isFiniteNumber(result.facts.latestLoad) ? result.facts.latestLoad : result.facts.targetLoad;
+    return {
+      ...result,
+      status: "hold",
+      reasonCodes: [...result.reasonCodes, "paired_exposure.tempered"],
+      target: { sets: result.target.sets.map((set) => ({ ...set, load: heldLoad })) },
+      facts: { ...result.facts, targetLoad: heldLoad, pairedTempered: true },
+    };
+  }
+
+  /* ---- block-profile modifiers -----------------------------------------
+     Infrastructure only. identity_block@1 is the one approved modifier and it
+     changes no target; it exists to prove versioning, ordering, serialization
+     and determinism. No step-loading, volume-emphasis, rep-range-emphasis or
+     scheduled-deload profile is approved, so every other modifier stays
+     incompatible by design. */
+
+  const APPROVED_MODIFIERS = Object.freeze({ "identity_block@1": Object.freeze([1, 1, 1, 1, 1, 1]) });
+
+  function isApprovedModifier(modifier) {
+    return isPlainObject(modifier)
+      && hasOwn(APPROVED_MODIFIERS, `${modifier.id}@${modifier.version}`)
+      && !modifier.target;
+  }
+
+  // Application order is the serialized prescription order after validation.
+  // Only the identity modifier is approved, so no non-commutative
+  // target-changing combination can exist in Wave 2.
+  function applyModifiers(result, modifiers) {
+    return {
+      ...result,
+      provenance: {
+        ...result.provenance,
+        modifierVersions: modifiers.map((modifier) => `${modifier.id}@${modifier.version}`),
+      },
+    };
+  }
+
   function targetSets(params, load, reps, count) {
     const targetRir = hasOwn(params, "targetRirMax") ? params.targetRirMax : null;
     return Array.from({ length: count }, () => ({
@@ -1362,6 +1484,60 @@
     );
   }
 
+  // One gate for every strategy: a relation is accepted only when it is the
+  // approved paired_exposure pair for this slot's role, and a modifier only
+  // when it is on the approved list and compatible with this strategy version.
+  // Anything else is typed incompatible; nothing silently falls back.
+  function pairingGate(input, strategy) {
+    const strategyKey = `${strategy.id}@${strategy.version}`;
+    if (!Array.isArray(input.modifiers)) return { ok: false, result: incompatibleResult(strategy, "engine.unsupported_modifier") };
+    for (const modifier of input.modifiers) {
+      const checked = validateModifier(modifier);
+      if (!checked.ok || !isApprovedModifier(checked.value)
+        || !checked.value.compatibleStrategies.includes(strategyKey)) {
+        return { ok: false, result: incompatibleResult(strategy, "engine.unsupported_modifier") };
+      }
+    }
+    if (input.relation === null) return { ok: true, relation: null, modifiers: input.modifiers };
+    const checked = validateRelation(input.relation);
+    if (!checked.ok) return { ok: false, result: invalidResult(strategy, checked.issues) };
+    const relation = input.relation;
+    // Without a declared role and counterpart strategy the pair cannot be
+    // proven, and an unproven pair never executes.
+    if (!relation.selfRole || !isPlainObject(relation.counterpart)) {
+      return { ok: false, result: incompatibleResult(strategy, "engine.unsupported_relation") };
+    }
+    const pair = relation.selfRole === "heavy"
+      ? { heavy: strategyKey, volume: relation.counterpart.strategy }
+      : { heavy: relation.counterpart.strategy, volume: strategyKey };
+    const compatibility = pairedExposureCompatibility(pair);
+    if (!compatibility.compatible) {
+      return { ok: false, result: incompatibleResult(strategy, "paired_exposure.incompatible_strategy_pair") };
+    }
+    return { ok: true, relation, modifiers: input.modifiers };
+  }
+
+  // The relation is applied after the strategy has decided on its own
+  // evidence. It annotates confidence and may only temper.
+  function withPairing(result, gate) {
+    const paired = gate.relation
+      ? (() => {
+        const confidence = pairedExposureConfidence(gate.relation.counterpart);
+        const status = gate.relation.counterpart.status;
+        const tempered = confidence.confidence === "none"
+          ? result
+          : applyPairedExposure(result, { counterpartAgrees: status !== "reduce" && status !== "recalibrate" });
+        return {
+          ...tempered,
+          reasonCodes: [...tempered.reasonCodes, ...confidence.reasonCodes],
+          facts: { ...tempered.facts, pairedConfidence: confidence.confidence },
+          provenance: { ...tempered.provenance, relationVersion: 1 },
+        };
+      })()
+      : result;
+    return applyModifiers(paired, gate.modifiers);
+  }
+
   function evaluateProgression(input) {
     const unknownStrategy = { id: "unknown", version: 0 };
     if (!isPlainObject(input)) return invalidResult(unknownStrategy, ["input: expected object"]);
@@ -1385,8 +1561,8 @@
         if (!checked.ok) issues.push(...checked.issues);
       }
       if (issues.length) return invalidResult(strategy, issues);
-      if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
-      if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+      const gate = pairingGate(input, strategy);
+      if (!gate.ok) return gate.result;
       const provenance = {
         evidenceWindow: { sessionCount: history.value.length, currentSetCount: currentSession.value.length },
         modifierVersions: [],
@@ -1396,7 +1572,7 @@
       const reason = Object.prototype.hasOwnProperty.call(params, "unsupportedImport")
         ? "manual.unsupported_import"
         : "manual.authored_target";
-      return manualResult({ id: "manual", version: 1 }, reason, provenance);
+      return withPairing(manualResult({ id: "manual", version: 1 }, reason, provenance), gate);
     }
     if (strategy.id === "rep_goal" && strategy.version === 1) {
       const prescription = validateRepGoalPrescription(input.prescription);
@@ -1409,8 +1585,8 @@
         if (!checked.ok) issues.push(...checked.issues);
       }
       if (issues.length) return invalidResult(strategy, issues);
-      if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
-      if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+      const gate = pairingGate(input, strategy);
+      if (!gate.ok) return gate.result;
       const params = prescription.value.strategy.params;
       // Bodyweight load semantics are not executable; body mass is never
       // treated as hidden external load. manual@1 is the alternative.
@@ -1428,9 +1604,9 @@
         modifierVersions: [],
         relationVersion: null,
       };
-      return currentSession.value.length
+      return withPairing(currentSession.value.length
         ? evaluateCurrentRepGoal(params, settings.value, history.value, currentSession.value, provenance)
-        : evaluateNextRepGoal(params, settings.value, history.value, provenance);
+        : evaluateNextRepGoal(params, settings.value, history.value, provenance), gate);
     }
     if (strategy.id === "anchor_backoff" && strategy.version === 1) {
       const prescription = validateAnchorBackoffPrescription(input.prescription);
@@ -1443,8 +1619,8 @@
         if (!checked.ok) issues.push(...checked.issues);
       }
       if (issues.length) return invalidResult(strategy, issues);
-      if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
-      if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+      const gate = pairingGate(input, strategy);
+      if (!gate.ok) return gate.result;
       const params = prescription.value.strategy.params;
       if (params.loadMode === "bodyweight") {
         return incompatibleResult({ id: "anchor_backoff", version: 1 }, "anchor_backoff.bodyweight_incompatible");
@@ -1454,13 +1630,13 @@
         modifierVersions: [],
         relationVersion: null,
       };
-      return currentSession.value.length
+      return withPairing(currentSession.value.length
         ? evaluateCurrentAnchorBackoff(params, settings.value, history.value, currentSession.value, provenance)
-        : evaluateNextAnchorBackoff(params, settings.value, history.value, provenance);
+        : evaluateNextAnchorBackoff(params, settings.value, history.value, provenance), gate);
     }
     if (strategy.id !== "range" || strategy.version !== 1) return incompatibleResult(strategy, "engine.unsupported_strategy");
-    if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
-    if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+    const rangeGate = pairingGate(input, strategy);
+    if (!rangeGate.ok) return rangeGate.result;
 
     const prescription = validateRangePrescription(input.prescription);
     const settings = validateSettings(input.settings);
@@ -1478,7 +1654,7 @@
       modifierVersions: [],
       relationVersion: null,
     };
-    return currentSession.value.length
+    return withPairing(currentSession.value.length
       ? evaluateCurrentRange(
         prescription.value.strategy.params,
         settings.value,
@@ -1493,7 +1669,7 @@
         history.value,
         context.value,
         provenance,
-      );
+      ), rangeGate);
   }
 
   const api = Object.freeze({
@@ -1517,6 +1693,14 @@
     validateRepGoalPrescription,
     validateAnchorBackoffPrescription,
     balancedFrontload,
+    PAIRED_PAIRS,
+    PAIRED_WINDOW_SESSIONS,
+    APPROVED_MODIFIERS,
+    pairedExposureCompatibility,
+    pairedMovementCompatibility,
+    pairedExposureConfidence,
+    applyPairedExposure,
+    isApprovedModifier,
     validatePrescription,
     normalizePrescription,
     canonicalizePrescription,

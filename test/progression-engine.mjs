@@ -449,6 +449,149 @@ const unsupportedModifier = Engine.evaluateProgression({
 assert.equal(unsupportedModifier.kind, "incompatible");
 assert.deepEqual(unsupportedModifier.reasonCodes, ["engine.unsupported_modifier"]);
 
+// --- paired_exposure@1 and block-profile modifiers ----------------------------
+const pairedFixtures = fixtures.relations["paired_exposure@1"];
+assert.deepEqual(Engine.PAIRED_PAIRS.map((pair) => ({ ...pair })), pairedFixtures.allowedPairs,
+  "the engine executes exactly the approved pairs");
+assert.equal(Engine.PAIRED_WINDOW_SESSIONS, pairedFixtures.evidenceWindowSessions);
+
+for (const testCase of pairedFixtures.cases) {
+  if (testCase.pair) {
+    const actual = Engine.pairedExposureCompatibility(testCase.pair);
+    assert.equal(actual.compatible, testCase.expected.compatible, `${testCase.id}: compatibility`);
+    assert.deepEqual(actual.reasonCodes, testCase.expected.reasonCodes || [], `${testCase.id}: reason codes`);
+  }
+  if (testCase.movements) {
+    const actual = Engine.pairedMovementCompatibility(testCase.movements);
+    assert.equal(actual.compatible, testCase.expected.compatible, `${testCase.id}: movement compatibility`);
+    assert.deepEqual(actual.reasonCodes, testCase.expected.reasonCodes || [], `${testCase.id}: reason codes`);
+  }
+  if (testCase.counterpart) {
+    const actual = Engine.pairedExposureConfidence(testCase.counterpart);
+    assert.equal(actual.confidence, testCase.expected.confidence, `${testCase.id}: confidence`);
+    assert.deepEqual(actual.reasonCodes, testCase.expected.reasonCodes, `${testCase.id}: reason codes`);
+  }
+  if (testCase.independent) {
+    const independent = {
+      status: testCase.independent.status,
+      reasonCodes: [],
+      target: { sets: [{ role: "working", load: 102.5, reps: 8 }] },
+      facts: { latestLoad: 100, targetLoad: 102.5 },
+    };
+    const actual = Engine.applyPairedExposure(independent, { counterpartAgrees: testCase.counterpartAgrees });
+    assert.equal(actual.status, testCase.expected.status, `${testCase.id}: tempered status`);
+    assert.deepEqual(actual.reasonCodes, testCase.expected.reasonCodes, `${testCase.id}: reason codes`);
+    // Temper-only, proven on the target itself and not just the status.
+    for (const [index, set] of actual.target.sets.entries()) {
+      assert.ok(set.load <= independent.target.sets[index].load, `${testCase.id}: never a larger load`);
+      assert.ok(set.reps <= independent.target.sets[index].reps, `${testCase.id}: never more reps`);
+    }
+    assert.ok(actual.target.sets.length <= independent.target.sets.length, `${testCase.id}: never more sets`);
+  }
+}
+
+// The one approved modifier, end to end through the entry point.
+const identityModifier = {
+  id: "identity_block",
+  version: 1,
+  compatibleStrategies: ["anchor_backoff@1", "range@1", "rep_goal@1"],
+  target: null,
+  params: {},
+};
+assert.ok(Engine.isApprovedModifier({ id: "identity_block", version: 1, target: null }));
+assert.ok(!Engine.isApprovedModifier({ id: "step_loading", version: 1, target: "load" }),
+  "no target-changing block profile is approved");
+assert.ok(!Engine.isApprovedModifier({ id: "identity_block", version: 1, target: "load" }),
+  "even the approved modifier may not claim a target field");
+
+const baselineInput = { ...structuredClone(rangeFixtures.defaults), engineVersion: 1, history: [] };
+const withoutModifier = Engine.evaluateProgression(baselineInput);
+const withModifier = Engine.evaluateProgression({ ...baselineInput, modifiers: [{ ...identityModifier }] });
+assert.equal(withModifier.kind, "recommendation", "the approved modifier is executable");
+assert.deepEqual(withModifier.target, withoutModifier.target, "identity_block@1 changes no target");
+assert.deepEqual(withModifier.status, withoutModifier.status);
+assert.deepEqual(withModifier.provenance.modifierVersions, ["identity_block@1"], "modifier provenance is recorded");
+assert.deepEqual(withoutModifier.provenance.modifierVersions, []);
+
+const stepLoading = Engine.evaluateProgression({
+  ...baselineInput,
+  modifiers: [{ id: "step_loading", version: 1, compatibleStrategies: ["range@1"], target: "load", params: {} }],
+});
+assert.equal(stepLoading.kind, "incompatible", "an unapproved block profile never executes");
+assert.deepEqual(stepLoading.reasonCodes, ["engine.unsupported_modifier"]);
+
+// The approved pair, end to end: the volume slot runs rep_goal@1 while its
+// heavy counterpart runs anchor_backoff@1.
+const pairedRelation = {
+  schemaVersion: 1,
+  id: "relation-1",
+  type: "paired_exposure",
+  version: 1,
+  movementId: "library:barbell-bench-press",
+  members: [
+    { exerciseId: "slot-heavy", role: "heavy" },
+    { exerciseId: "slot-volume", role: "volume" },
+  ],
+  selfRole: "volume",
+  counterpart: { strategy: "anchor_backoff@1", sessionsInWindow: 3, mostRecentExpectedExposureCompleted: true, status: "advance" },
+};
+const repGoalAdvance = repGoalFixtures.cases.find((testCase) => testCase.id === "rep-goal-goal-met-advances");
+const pairedInput = {
+  ...structuredClone(repGoalFixtures.defaults),
+  engineVersion: 1,
+  history: structuredClone(repGoalAdvance.history),
+  relation: pairedRelation,
+};
+const pairedResult = Engine.evaluateProgression(pairedInput);
+assert.equal(pairedResult.kind, "recommendation", "the approved pair executes");
+assert.equal(pairedResult.status, "advance", "an agreeing counterpart changes nothing");
+assert.equal(pairedResult.provenance.relationVersion, 1);
+assert.ok(pairedResult.reasonCodes.includes("paired_exposure.full_confidence"));
+
+const contradicting = Engine.evaluateProgression({
+  ...pairedInput,
+  relation: { ...pairedRelation, counterpart: { ...pairedRelation.counterpart, status: "reduce" } },
+});
+assert.equal(contradicting.status, "hold", "a contradicting counterpart tempers an advance to a hold");
+assert.ok(contradicting.reasonCodes.includes("paired_exposure.tempered"));
+assert.ok(contradicting.target.sets.every((set) => set.load <= pairedResult.target.sets[0].load),
+  "tempering is never more aggressive");
+
+const poorCounterpartOnHold = Engine.evaluateProgression({
+  ...structuredClone(repGoalFixtures.defaults),
+  engineVersion: 1,
+  history: structuredClone(repGoalFixtures.cases.find((testCase) => testCase.id === "rep-goal-goal-miss-holds").history),
+  relation: { ...pairedRelation, counterpart: { ...pairedRelation.counterpart, status: "reduce" } },
+});
+assert.equal(poorCounterpartOnHold.status, "hold", "paired evidence alone never turns a hold into a reduction");
+
+const swappedRoles = Engine.evaluateProgression({
+  ...pairedInput,
+  relation: { ...pairedRelation, selfRole: "heavy", counterpart: { ...pairedRelation.counterpart, strategy: "rep_goal@1" } },
+});
+assert.equal(swappedRoles.kind, "incompatible", "roles are not interchangeable");
+assert.deepEqual(swappedRoles.reasonCodes, ["paired_exposure.incompatible_strategy_pair"]);
+
+const unprovenPair = Engine.evaluateProgression({
+  ...pairedInput,
+  relation: { schemaVersion: 1, id: "relation-1", type: "paired_exposure", version: 1, movementId: "library:barbell-bench-press", members: pairedRelation.members },
+});
+assert.equal(unprovenPair.kind, "incompatible", "an unproven pair never executes");
+assert.deepEqual(unprovenPair.reasonCodes, ["engine.unsupported_relation"]);
+
+// Evaluation-time pairing context never reaches the persisted relation shape.
+assert.deepEqual(Engine.canonicalizeRelation(pairedRelation), {
+  schemaVersion: 1,
+  id: "relation-1",
+  type: "paired_exposure",
+  version: 1,
+  movementId: "library:barbell-bench-press",
+  members: [
+    { exerciseId: "slot-heavy", role: "heavy" },
+    { exerciseId: "slot-volume", role: "volume" },
+  ],
+}, "selfRole and counterpart are evaluation-time only");
+
 const polluted = Engine.evaluateProgression({
   ...structuredClone(rangeFixtures.defaults),
   engineVersion: 1,
@@ -458,4 +601,4 @@ const polluted = Engine.evaluateProgression({
 assert.equal(polluted.kind, "invalid");
 assert.deepEqual(polluted.reasonCodes, ["engine.invalid_input"]);
 
-console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} range, ${repGoalCount} rep_goal, ${anchorCount} anchor_backoff and ${manualCount} manual locked fixtures`);
+console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} range, ${repGoalCount} rep_goal, ${anchorCount} anchor_backoff, ${manualCount} manual, ${pairedFixtures.cases.length} paired and ${fixtures.modifiers.cases.length} modifier locked fixtures`);
