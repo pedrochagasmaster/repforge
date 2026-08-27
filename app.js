@@ -50,8 +50,15 @@ function isSafeProgressionFields(value){
   for(const key of ["progression","progressionIncompatibility"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
   return true}
+function isSafeProgressionMeta(value){
+  if(value==null)return true;
+  if(!isPlainStateObject(value))return false;
+  for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
+    if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
+  return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
@@ -67,6 +74,7 @@ function isValidStateShape(s){
   try{
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     // Optional: backups written before custom exercises existed stay importable.
     if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
@@ -1571,12 +1579,14 @@ function progressionIncompatibility(kind,value,checked,source){
   return{version:1,kind,source:source||"state-restore",reason:Array.isArray(checked?.issues)?checked.issues.join("; "):"incompatible",value:cloneSnapshot(value)}
 }
 function normalizeProgressionRelations(value,program=[],options={}){
+  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateRelations?.(value,{slots:program});
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
     options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
   return checked?.ok?cloneSnapshot(checked.value):[]}
 function normalizeProgressionModifiers(value,options={}){
+  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
   const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
   const checked=validator?.validateModifiers?.(value);
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
@@ -2154,6 +2164,8 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
   const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
   const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
+  if(m.progressionIncompatibilities!=null&&!isBoundedProgressionValue(m.progressionIncompatibilities))
+    throw new TypeError("progressionIncompatibilities: structure exceeds safety bounds");
   const incompatibilities=Array.isArray(m.progressionIncompatibilities)?cloneSnapshot(m.progressionIncompatibilities):[];
   const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
   const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
@@ -3134,6 +3146,7 @@ function sessionFreshness(ex,draft){
  *  session freshness. Freshness moves reps; it only touches load when the tempered
  *  target would otherwise fall out of the bottom of the range. */
 function baseSuggestion(ex,rec,draft,old){
+  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
   const reps=rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min);
   if(rec.load==null||!(rec.cap>0))return{load:rec.load,reps,src:"base"};
   const factor=sessionFreshness(ex,draft);
@@ -3150,6 +3163,7 @@ function baseSuggestion(ex,rec,draft,old){
 // In-session prediction is anticipatory: it reads every completed set so far and
 // projects the NEXT one, rather than echoing the last set back at the lifter.
 function setSuggestion(ex,n,rec,draft,old){
+  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
   const minJ=+state.settings.minJump||2.5;
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
   // Every completed working set for this lift earlier in THIS session, in order.
@@ -3179,6 +3193,7 @@ function setSuggestion(ex,n,rec,draft,old){
 function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
   const rec=recommendation(ex),u=unitLabel();
+  if(rec.status==="manual")return"";
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
     if(done.has(key)||warm.has(key)||changed.has(key))continue;
     const sg=setSuggestion(ex,n,rec,draft,null);
@@ -3199,6 +3214,7 @@ function explainRecommendation(ex){
   const rows=[];
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
+  if(rec.status==="manual")return rows;
   // A never-trained lift has no history and no arithmetic; the button is hidden there.
   if(rec.status==="new")return rows;
   const prev=last(ex).filter(x=>+x.load>0);
@@ -3995,8 +4011,8 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
 
 function setFieldVals(ex,n,r,draft,prev){
   const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
-  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(old&&old.load!=null?fmtLoadPlain(old.load):""));
-  const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
+  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(r.status==="manual"?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
+  const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
   const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
   const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
@@ -4055,6 +4071,7 @@ function focusRefLoad(ex,n,draft,prev){
 function focusCue(ex,n,r,draft,prev,editing){
   if(editing)return{kind:"edit",label:t("focus.cue.editing"),text:t("focus.cue.editing_set",{n,total:ex.sets})};
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
+  if(r.status==="manual")return{kind:"manual",label:"",text:""};
   if(sg.load==null)return{kind:"start",label:t("focus.cue.start"),text:t("focus.cue.pick_load",{min:ex.min,max:ex.max})};
   const ref=focusRefLoad(ex,n,draft,prev);
   const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
@@ -5325,6 +5342,7 @@ function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const
 window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
 window.__repforgeProgressionForExercise=progressionForExercise;
+window.__repforgeValidateStateShape=isValidStateShape;
 window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir,capacityBaseline,
   sessionsFor,expectedSetDrop,sessionFreshness,baseSetReps,setSuggestion};
 window.__repforgeAttention=attentionGroups;

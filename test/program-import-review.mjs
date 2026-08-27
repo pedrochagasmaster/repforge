@@ -457,6 +457,29 @@ async function main() {
       "unknown legacy progression produces no range recommendation target",
       JSON.stringify(legacyRecommendation));
 
+    const manualSuggestions = await page.evaluate(() => {
+      const ex = { id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", day: "Day 1", sets: 3, min: 6, max: 10,
+        progressionType: "old_custom_rule" };
+      const rec = window.__repforgeProgression.recommendation(ex);
+      return {
+        suggestion: window.__repforgeProgression.setSuggestion(ex, 1, rec, {}, null),
+        base: window.__repforgeProgression.baseSuggestion(ex, rec, {}, null),
+        explanation: window.__repforgeProgression.explainRecommendation(ex),
+      };
+    });
+    assert(manualSuggestions.suggestion.load === null && manualSuggestions.suggestion.reps === null,
+      "manual progression does not invent ghost load or reps for a set",
+      JSON.stringify(manualSuggestions.suggestion));
+    assert(manualSuggestions.base.load === null && manualSuggestions.base.reps === null && manualSuggestions.explanation.length === 0,
+      "manual progression has no base target or arithmetic explanation",
+      JSON.stringify(manualSuggestions));
+    const oversizedMeta = await page.evaluate(() => window.__repforgeValidateStateShape({
+      program: [{ id: "ex1", name: "Press", day: "Day 1", order: 1, sets: 3, min: 6, max: 10 }], log: [],
+      programMeta: { progressionIncompatibilities: [{ value: { text: "x".repeat(4001) } }] },
+    }));
+    assert(oversizedMeta === false,
+      "oversized progression incompatibility metadata is rejected before backup normalization");
+
     // ---- an id collision must not overwrite a different local definition ----
     // Seeded through the app so the write goes through the durability layer
     // rather than racing the IndexedDB mirror.
