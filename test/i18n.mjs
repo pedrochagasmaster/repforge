@@ -193,6 +193,11 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes('"picker.group."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.group.")) },
   { test: (s) => s.includes('"picker.tab_head."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.tab_head.")) },
   { test: (s) => s.includes('"picker.tab."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.tab.")) },
+  { test: (s) => s.includes("program.progression.strategy.${"), keys: () => [
+    "program.progression.strategy.range", "program.progression.strategy.rep_goal",
+    "program.progression.strategy.anchor_backoff", "program.progression.strategy.manual",
+    "program.progression.strategy.unsupported",
+  ] },
 ];
 
 async function runBrowserParity(en, pt) {

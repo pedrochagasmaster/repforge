@@ -1836,6 +1836,18 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .pex__num input{margin-top:5px;text-align:center;font-weight:500;padding:9px 4px;background:var(--surface)}
 .pex__mus{margin-top:11px}
 .pex__mus input{margin-top:5px;padding:10px 11px;font-size:16px;background:var(--surface)}
+.pstrategy{margin-top:12px;border-top:1px solid var(--rule)}
+.pstrategy summary{min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;font-size:14px;font-weight:600;color:var(--ink)}
+.pstrategy summary span{font-size:12px;font-weight:500;color:var(--ink-soft);text-align:right}
+.pstrategy__body{padding:2px 0 4px}
+.pstrategy__select,.pstrategy__field{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--ink-soft)}
+.pstrategy__select select,.pstrategy__field input{margin-top:5px;background:var(--surface);font-size:16px}
+.pstrategy__help,.pstrategy__manual{margin:8px 0 12px;color:var(--ink-soft);font-size:13px;line-height:1.45}
+.pstrategy__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.pstrategy__field input{padding:10px 8px}
+.pstrategy__error{min-height:20px;margin:8px 0 0;color:var(--danger);font-size:13px;line-height:1.4}
+.pstrategy__save{width:100%;min-height:44px}
+@media(max-width:350px){.pstrategy__grid{grid-template-columns:1fr}}
 .iconbtn{flex:none;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;
   border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:9px;cursor:pointer;font-size:12px;line-height:1}
 .iconbtn:hover:not(:disabled){color:var(--ink);border-color:var(--ink-soft)}

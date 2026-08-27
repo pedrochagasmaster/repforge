@@ -6054,8 +6054,59 @@ function dayCard(d){
   `</div>`;
 }
 
+const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","anchor_backoff","manual"]);
+const progressionNumber=(name,label,value,{min=0,max=100,step="1"}={})=>
+  `<label class="pstrategy__field"><span>${esc(label)}</span><input type="number" inputmode="decimal" name="${name}" value="${esc(value)}" min="${min}" max="${max}" step="${step}" required></label>`;
+function progressionEditorParams(e,strategy){
+  const current=progressionForExercise(e),same=current?.strategy?.id===strategy;
+  const p=same?current.strategy.params:{};
+  const increment=+p.minLoadIncrement||+state.settings.minJump||2.5;
+  const jump=Number.isFinite(+p.jumpPercent)?+p.jumpPercent:+state.settings.jumpPct||2.5;
+  if(strategy==="range")return `<div class="pstrategy__grid">`+
+    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
+    progressionNumber("repMin",t("program.progression.rep_min"),+p.repMin||e.min,{min:1,max:100})+
+    progressionNumber("repMax",t("program.progression.rep_max"),+p.repMax||e.max,{min:1,max:100})+`</div>`;
+  if(strategy==="rep_goal")return `<div class="pstrategy__grid">`+
+    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
+    progressionNumber("repGoal",t("program.progression.total_reps"),+p.repGoal||Math.max(e.sets*e.max,e.sets*e.min),{min:1,max:200})+
+    progressionNumber("repMin",t("program.progression.rep_floor"),+p.repFloor||e.min,{min:1,max:100})+
+    progressionNumber("repMax",t("program.progression.rep_ceiling"),+p.repCeiling||e.max,{min:1,max:100})+
+    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:1,{min:0,max:10,step:"0.5"})+
+    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
+    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
+    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
+  if(strategy==="anchor_backoff")return `<div class="pstrategy__grid">`+
+    progressionNumber("anchorRepMin",t("program.progression.anchor_rep_min"),+p.anchorRepMin||Math.min(e.min,5),{min:1,max:100})+
+    progressionNumber("anchorRepMax",t("program.progression.anchor_rep_max"),+p.anchorRepMax||Math.min(Math.max(e.min,5),e.max),{min:1,max:100})+
+    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.anchorTargetRirMin)?+p.anchorTargetRirMin:1,{min:0,max:10,step:"0.5"})+
+    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.anchorTargetRirMax)?+p.anchorTargetRirMax:3,{min:0,max:10,step:"0.5"})+
+    progressionNumber("backoffSets",t("program.progression.backoff_sets"),+p.backoffSets||Math.max(1,e.sets-1),{min:1,max:20})+
+    progressionNumber("backoffRepMin",t("program.progression.backoff_rep_min"),+p.backoffRepMin||Math.max(e.min,6),{min:1,max:100})+
+    progressionNumber("backoffRepMax",t("program.progression.backoff_rep_max"),+p.backoffRepMax||Math.max(e.max,10),{min:1,max:100})+
+    progressionNumber("backoffPercent",t("program.progression.backoff_percent"),Number.isFinite(+p.backoffPercent)?Math.round(+p.backoffPercent*100):80,{min:70,max:95,step:"1"})+
+    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
+    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
+  return `<p class="pstrategy__manual">${esc(t("program.progression.manual_help"))}</p>`;
+}
+function progressionEditorCard(e){
+  const unsupported=!!e.progressionIncompatibility;
+  const current=unsupported?"unsupported":strategyIdFor(e);
+  const options=(unsupported?[`<option value="unsupported">${esc(t("program.progression.unsupported"))}</option>`]:[])
+    .concat(PROGRESSION_EDITOR_STRATEGIES.map(id=>`<option value="${id}"${id===current?" selected":""}>${esc(t(`program.progression.strategy.${id}`))}</option>`)).join("");
+  return `<details class="pstrategy" data-progression-editor="${esc(e.id)}">`+
+    `<summary>${esc(t("program.progression.summary"))}<span>${esc(t(`program.progression.strategy.${current}`))}</span></summary>`+
+    `<div class="pstrategy__body"><label class="pstrategy__select"><span>${esc(t("program.progression.method"))}</span>`+
+      `<select data-progression-strategy aria-describedby="progression_help_${esc(e.id)}">${options}</select></label>`+
+    `<p class="pstrategy__help" id="progression_help_${esc(e.id)}">${esc(t(unsupported?"program.progression.unsupported_help":"program.progression.help"))}</p>`+
+    `<form data-progression-form data-id="${esc(e.id)}"><div data-progression-fields>${unsupported?"":progressionEditorParams(e,current)}</div>`+
+      `<p class="pstrategy__error" data-progression-error role="alert" aria-live="assertive"></p>`+
+      `<button class="btn btn--steel pstrategy__save" type="submit"${unsupported?" disabled":""}>${esc(t("program.progression.save"))}</button>`+
+    `</form></div></details>`;
+}
+
 function exCard(e,i,n){
-  const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"></label>`;
+  const progressionOwnsShape=!!e.progression&&["range","rep_goal","anchor_backoff"].includes(e.progression.strategy?.id);
+  const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"${progressionOwnsShape?" disabled":""}></label>`;
   // The name stays an editable field — a slot can be renamed to what the plate
   // on the machine says — with the library one tap away beside it.
   const linked=e.libraryId?libraryEntry(e.libraryId):null;
@@ -6083,6 +6134,7 @@ function exCard(e,i,n){
         `${esc((e.alternates||[]).join(", ")||t("program.exercise.alternates_empty"))}`+
       `</button>`+
     `</div>`+
+    progressionEditorCard(e)+
   `</div>`;
 }
 
@@ -6099,6 +6151,67 @@ function commitEditorField(id,field,value,effect){
   const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
   nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
   return commitProposedState(proposal,storageIO,{effect})}
+
+const progressionFormNumber=(data,name)=>Number(data.get(name));
+function authoredProgressionFromForm(strategy,data,e){
+  let params={};
+  if(strategy==="range")params={workingSets:progressionFormNumber(data,"sets"),repMin:progressionFormNumber(data,"repMin"),repMax:progressionFormNumber(data,"repMax")};
+  else if(strategy==="rep_goal")params={
+    workingSets:progressionFormNumber(data,"sets"),repGoal:progressionFormNumber(data,"repGoal"),
+    repFloor:progressionFormNumber(data,"repMin"),repCeiling:progressionFormNumber(data,"repMax"),
+    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
+    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump"),
+    distributionPolicy:"balanced_frontload_v1"};
+  else if(strategy==="anchor_backoff")params={
+    anchorRepMin:progressionFormNumber(data,"anchorRepMin"),anchorRepMax:progressionFormNumber(data,"anchorRepMax"),
+    anchorTargetRirMin:progressionFormNumber(data,"rirMin"),anchorTargetRirMax:progressionFormNumber(data,"rirMax"),
+    backoffSets:progressionFormNumber(data,"backoffSets"),backoffRepMin:progressionFormNumber(data,"backoffRepMin"),
+    backoffRepMax:progressionFormNumber(data,"backoffRepMax"),backoffPercent:progressionFormNumber(data,"backoffPercent")/100,
+    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump")};
+  else if(strategy==="manual"){
+    const existing=progressionForExercise(e);
+    params=existing?.strategy?.id==="manual"&&!e.progressionIncompatibility?cloneSnapshot(existing.strategy.params):{}}
+  return{schemaVersion:1,strategy:{id:strategy,version:1,params},modifiers:[]}}
+function progressionAuthoredShape(strategy,params,e){
+  if(strategy==="rep_goal")return{sets:params.workingSets,min:params.repFloor,max:params.repCeiling};
+  if(strategy==="anchor_backoff")return{sets:1+params.backoffSets,min:Math.min(params.anchorRepMin,params.backoffRepMin),max:Math.max(params.anchorRepMax,params.backoffRepMax)};
+  if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
+  return{sets:e.sets,min:e.min,max:e.max}}
+function progressionPairCompatible(id,prescription,program){
+  const relations=state.programMeta?.progressionRelations;
+  if(!Array.isArray(relations))return true;
+  const relation=relations.find(item=>Array.isArray(item?.members)&&item.members.some(member=>member.exerciseId===id));
+  if(!relation)return true;
+  const byRole={};
+  for(const member of relation.members||[]){const slot=program.find(member.exerciseId);if(!slot)return false;
+    const selected=member.exerciseId===id?prescription:progressionForExercise(slot);
+    byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
+  return RepForgeProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
+async function saveProgressionEditor(form){
+  const id=form.dataset.id,e=prog.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
+  error.textContent="";
+  if(!form.reportValidity())return;
+  const select=form.closest("[data-progression-editor]")?.querySelector("[data-progression-strategy]");
+  const strategy=select?.value;
+  if(!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)){error.textContent=t("program.progression.error.unsupported");return}
+  const prescription=authoredProgressionFromForm(strategy,new FormData(form),e);
+  const checked=RepForgeProgression.validatePrescription(prescription);
+  if(!checked.ok){error.textContent=t("program.progression.error.invalid");return}
+  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program),next=nextProgram.find(id);
+  if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
+  const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);
+  let effect=null;
+  if(shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
+    try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
+    if(draftHasProgressInRemovedSets(id,shape.sets,next.sets,draft)){error.textContent=t("program.progression.error.active_sets");return}
+    effect=draftPreservationEffect(draftRaw);
+    if(effect.status!==DRAFT_EFFECT_VALID){error.textContent=t("program.progression.error.active_sets");return}}
+  next.progression=cloneSnapshot(checked.value);delete next.progressionIncompatibility;
+  next.sets=shape.sets;next.min=shape.min;next.max=shape.max;
+  proposal.program=nextProgram.toJSON();
+  const result=await commitProposedState(proposal,storageIO,{effect});
+  if(!(result.localOk||result.idbOk)){error.textContent=t("program.progression.error.save");return}
+  render();toast(t("program.progression.saved"))}
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
@@ -6172,6 +6285,15 @@ function bindEditor(){
       renameCollapsedDay(old,next);
       if(day===old)day=next;
       render();toast(t("toast.day_renamed"))};
+  });
+  $$("#programEditor [data-progression-editor]").forEach(editor=>{
+    const e=prog.find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
+    const form=editor.querySelector("[data-progression-form]"),fields=editor.querySelector("[data-progression-fields]");
+    select.onchange=()=>{const strategy=select.value;
+      fields.innerHTML=PROGRESSION_EDITOR_STRATEGIES.includes(strategy)?progressionEditorParams(e,strategy):"";
+      form.querySelector("[data-progression-error]").textContent="";
+      form.querySelector('button[type="submit"]').disabled=!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)};
+    form.onsubmit=event=>{event.preventDefault();saveProgressionEditor(form)};
   });
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }
