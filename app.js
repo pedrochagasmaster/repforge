@@ -1013,6 +1013,10 @@ const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
+const bootTelemetry=()=>{try{const config=window.__POSTHOG_CONFIG__||{};
+  return window.RepForgeTelemetry?.boot({appVersion:config.appVersion||"dev",crypto:window.crypto,
+    location:window.location,navigator:window.navigator,releaseChannel:config.releaseChannel||"preview",
+    storage:window.localStorage})||null}catch{return null}};
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
@@ -6148,6 +6152,8 @@ function renderSettings(){
   $$('input[name="rirMode"]').forEach(r=>{r.checked=r.value===state.settings.rirMode});
   const vi=$("#voiceInputEnabled");if(vi)vi.checked=!!state.settings.voiceInputEnabled;
   const vt=$("#voiceToggle");if(vt){vt.classList.toggle("is-on",!!state.settings.voiceInputEnabled);vt.setAttribute("aria-pressed",state.settings.voiceInputEnabled?"true":"false")}
+  const telemetryEnabled=window.RepForgeTelemetry?.isEnabled?.()!==false;
+  const tt=$("#telemetryToggle");if(tt){tt.classList.toggle("is-on",telemetryEnabled);tt.setAttribute("aria-pressed",telemetryEnabled?"true":"false")}
   reconcileNotifyPermission();
   paintNotifyControls();
   updateVoiceBtn();
@@ -8343,6 +8349,9 @@ function init(){
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};
+  const telemetryTog=$("#telemetryToggle");if(telemetryTog)telemetryTog.onclick=()=>{
+    try{window.RepForgeTelemetry?.setEnabled(!(window.RepForgeTelemetry?.isEnabled?.()!==false))}catch{}
+    renderSettings()};
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
@@ -8718,6 +8727,7 @@ async function boot(){
   // language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
+  bootTelemetry();
   let decision=await resolveBootReplicas();
   while(decision.kind==="unresolved"){
     const candidate=await presentStorageRecovery(decision);

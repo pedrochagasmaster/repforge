@@ -24,6 +24,7 @@ import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/t
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
+const PREFERENCE_KEY = "repforge_telemetry_enabled_v1";
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
@@ -68,13 +69,19 @@ const RECORDER = () => {
   });
 };
 
-async function openApp(browser, { seed } = {}) {
+async function openApp(browser, { seed, telemetryEnabled } = {}) {
   const context = await browser.newContext();
   await context.addInitScript(RECORDER);
   if (seed) {
     await context.addInitScript(
       ([key, value]) => window.localStorage.setItem(key, value),
       [KEY, JSON.stringify(seed)],
+    );
+  }
+  if (telemetryEnabled !== undefined) {
+    await context.addInitScript(
+      ([key, value]) => window.localStorage.setItem(key, value),
+      [PREFERENCE_KEY, String(telemetryEnabled)],
     );
   }
   const page = await context.newPage();
@@ -303,6 +310,54 @@ try {
       countOf(events, "session_summary_viewed") <= 1,
       "the summary is reported once per session",
       String(countOf(events, "session_summary_viewed")),
+    );
+    await context.close();
+  }
+
+  phase("Persistent opt-out blocks telemetry without blocking a workout");
+  {
+    const { context, page } = await openApp(browser, { seed: loggableProgram(), telemetryEnabled: false });
+    assert((await captured(page)).length === 0, "opted-out boot reaches no adapter event");
+    await page.evaluate(() => {
+      window.closeFirstRun?.();
+      window.__repforgeEnterWorkout({ focus: false });
+    });
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
+    await page.evaluate(() => {
+      for (const [suffix, value] of [["load", 60], ["reps", 8], ["rir", 1]]) {
+        const cell = document.querySelector(`[data-k="ex0_1_${suffix}"]`);
+        cell.value = String(value);
+        cell.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+      document.querySelector('.saveset[data-save="ex0_1"]')?.click();
+    });
+    await page.waitForTimeout(120);
+    await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+    await page.waitForFunction(
+      key => JSON.parse(window.localStorage.getItem(key) || "{}").log?.length > 0,
+      KEY,
+      { timeout: 10000 },
+    );
+    assert((await captured(page)).length === 0, "an opted-out saved workout reaches no adapter event");
+    assert(
+      await page.evaluate(key => JSON.parse(window.localStorage.getItem(key) || "{}").log?.length > 0, KEY),
+      "the workout still commits while telemetry is off",
+    );
+    await page.evaluate(() => window.__repforgeShowSettings());
+    assert(await page.locator("#telemetryToggle").getAttribute("aria-pressed") === "false", "Settings shows the persisted opt-out");
+    await page.click("#telemetryToggle");
+    assert(await page.locator("#telemetryToggle").getAttribute("aria-pressed") === "true", "Settings can opt back in");
+    assert(
+      await page.evaluate(key => window.localStorage.getItem(key) === "true", PREFERENCE_KEY),
+      "opt-in persists",
+    );
+    assert(await page.evaluate(() => window.RepForgeTelemetry.capture("first_set_logged", {})) === true, "future approved events resume after opt-in");
+    assert(countOf(await captured(page), "first_set_logged") === 1, "the re-enabled adapter receives the approved event");
+    await page.click("#telemetryToggle");
+    assert(await page.evaluate(() => window.RepForgeTelemetry.capture("first_set_logged", {})) === false, "future events stop immediately after opt-out");
+    assert(
+      await page.evaluate(key => window.localStorage.getItem(key) === "false", PREFERENCE_KEY),
+      "the renewed opt-out persists",
     );
     await context.close();
   }
