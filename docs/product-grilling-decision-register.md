@@ -1365,7 +1365,7 @@ marketed as an “AI personal trainer.”
 This PR reconciles the following documents to this register:
 
 - [`business-product-thesis.md`](business-product-thesis.md)
-- [`pro-backlog.md`](pro-backlog.md)
+- [`backlog.md`](backlog.md)
 - [`adr/0010-product-business-thesis-and-validation-sequencing.md`](adr/0010-product-business-thesis-and-validation-sequencing.md)
 - [`../plans/044-posthog-measurement-experiments-paywall.md`](../plans/044-posthog-measurement-experiments-paywall.md)
 - [`adr/0002-byok-ai-coach.md`](adr/0002-byok-ai-coach.md), superseded by the

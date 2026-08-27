@@ -702,7 +702,7 @@ change to those thresholds must revisit both strings.
 
 ## Maintenance notes
 
-- **F3 (lb display policy, `docs/prelaunch-deferrals.md`) will land on this
+- **The lb display/actionable-increment debt in `docs/backlog.md` reaches this
   surface.** The load rows format `minJump` and loads through
   `fmtLoad`/`unitLabel`, so in lb mode they inherit today's unloadable
   values (e.g. a "2.5 kg" step shown as 5.51 lb). When F3 is resolved,

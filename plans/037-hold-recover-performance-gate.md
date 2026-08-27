@@ -1,7 +1,7 @@
 # Plan 037: Performance-gated Hold · recover
 
 > **Spec**: `docs/superpowers/specs/2026-07-10-hold-recover-performance-gate-design.md`
-> **Status**: Ready to execute
+> **Status**: Implemented; retained as historical decision/test context
 
 ## Goal
 

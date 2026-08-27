@@ -1170,8 +1170,8 @@ The distinction:
 
 > **Free can build you a good program. Pro can build a program around you and what Taurifer has learned about your training.**
 
-The exhaustive Pro capability backlog and maturity roadmap lives in
-[`docs/pro-backlog.md`](pro-backlog.md).
+The ordered implementation and capability queue lives in the
+[`canonical backlog`](backlog.md).
 
 ## 8.4 Validating the generation boundary
 
@@ -2429,57 +2429,21 @@ Priorities:
 
 The objective is not to maximize technical polish. It is to eliminate the largest business uncertainties as cheaply and quickly as possible. During Phase 1, the PWA is the primary validation product, not a preview channel.
 
-### Phase 1 validation backlog
+### Canonical Phase 1 backlog
 
-The concrete implementation backlog, in priority order.
+The ordered implementation queue lives in
+[`docs/backlog.md`](backlog.md). This thesis defines the strategy and gates; it
+does not maintain a second list of work.
 
-#### P0 — before the noncommercial rolling alpha
-
-**A. Telemetry and cohort attribution**
-
-- pseudonymous installation identifier;
-- acquisition/referral source;
-- explicit schema-driven funnel events;
-- recommend/custom/browse/build/import/shared path;
-- activation and workout milestones;
-- D7/D30/D60 definitions frozen before reading results.
-
-**B. Pilot data-safety mitigations**
-
-The browser-persistence mitigations listed under "Accepted Phase 1 risk" below: persistent-storage request, backup/export prominence, explicit beta/pilot durability language — and no major PWA-storage infrastructure project.
-
-**C. Core engine, initial families, and alpha instrumentation**
-
-Before the alpha, build enough of the shared engine and original Taurifer
-families to provision credible hypertrophy/general-strength programs and run
-them through one declarative strategy system. Add structured skip, override,
-session-friction, pain/discomfort, and transition reasons. Freeze the metric
-hierarchy and telemetry schemas before reading cohort results.
+In summary, alpha readiness requires trustworthy release evidence,
+leakage-safe measurement, the shared multi-strategy engine, credible Taurifer
+families and entry flows, lifecycle/friction capture, generated regression
+coverage, and honest browser-persistence mitigations. Publisher attribution is
+required before creator pilots. Non-destructive existing-user program handoff
+and next-program transition must work before participants reach those cases.
 
 Do not add a paywall, locked future capability, waitlist CTA, or price
-experiment in this stage.
-
-#### P0 — before creator pilots
-
-**D. Publisher/referral attribution**
-
-- publisher name;
-- handle;
-- program description;
-- stable attribution/referral identifier;
-- creator-specific acquisition events.
-
-Required to test creator CAC and retention cleanly. Implementation must respect ADR 0007's immutable payload contracts (§13.5).
-
-#### P1 — before early alpha participants approach program transition
-
-**E. Program lifecycle / next-program transition**
-
-Users need: current program → complete/archive → start another generated/manual/imported/shared program → preserve training history. Without this, H7's post-program retention cannot actually be measured.
-
-**F. Shared-program application for existing users**
-
-The current first-run-only setup-link rule is sufficient for initial acquisition but not for Block II / the next creator program. Ship the reviewed, non-destructive replacement/transition flow (archive the old program, never touch logs) before cohorts need it.
+experiment during the noncommercial alpha.
 
 ### Rolling program-based alpha
 

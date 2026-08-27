@@ -162,8 +162,9 @@ Settings lede must state: notifications work best with RepForge installed to the
 - Playwright checks in `test/simulation.mjs` or a focused `test/notifications.mjs`: settings persist, session banner from seeded overdue history, unfinished reopen prompt, `?goto=` selects day.
 - Manual: grant permission in a real browser and confirm rest-timer OS notification while tab is backgrounded (Android Chromium preferred for reliability).
 
-## Out of scope follow-ups
+## Follow-up boundary
 
-- Optional future Web Push sidecar (separate hosting) without moving training data off-device.
-- Backup reminder (persona request) as its own plan.
-- Flexible schedule / missed-day *queue* UI beyond the banner.
+The [`canonical backlog`](../../backlog.md) controls follow-up work. Web Push
+and extra reminder types are evidence-only; pilot backup prominence is already
+part of alpha readiness; a separate missed-day queue is superseded unless user
+evidence reopens it.

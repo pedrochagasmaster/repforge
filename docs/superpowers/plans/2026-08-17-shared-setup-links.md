@@ -126,6 +126,11 @@ caption from English word fragments or rely on English word order in Portuguese.
 
 ### Out of scope for the first implementation
 
+This is the historical boundary of the first setup-link implementation, not a
+live backlog. Existing-user handoff, publisher attribution, and any hosted
+opaque-token service now follow [`docs/backlog.md`](../../backlog.md); the other
+items remain unauthorized unless a later owner decision adds them there.
+
 - Replacing an existing user's configured program from a setup link.
 - Merging a setup link into an existing program.
 - Verified-coach identity, signatures, accounts, revocation, or server-side

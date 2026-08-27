@@ -1,5 +1,9 @@
 # Plan 040: Launch-readiness UI/UX audit
 
+> **HISTORICAL AUDIT.** Plan 041 implemented the retained findings in PR #114.
+> This file is provenance, not a current remediation queue. The remaining
+> physical-device evidence is tracked in [`docs/backlog.md`](../docs/backlog.md).
+>
 > This is an audit and remediation brief, not an implementation. It was written
 > for a separate executor. Do not treat a finding as fixed until its done
 > criteria pass.
@@ -29,7 +33,9 @@ the light editorial redesign is coherent, Focus mode is genuinely useful on a
 phone, local-first storage is legible, and History/Progress/Program form a
 credible post-workout loop.
 
-The current build is **not ready to ship unchanged**, however. The remaining
+At the audited commit, the build was **not ready to ship unchanged**. The
+findings below describe that historical baseline; they are not claims about
+the current build. The remaining
 problems are not broad visual polish. They cluster at trust boundaries:
 
 1. a one-sided storage failure can make a newer local copy lose to stale

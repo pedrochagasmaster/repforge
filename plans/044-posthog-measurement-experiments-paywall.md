@@ -18,7 +18,7 @@
   [`ADR 0011`](../docs/adr/0011-managed-taurifer-ai.md),
   [`decision register`](../docs/product-grilling-decision-register.md),
   [`business-product-thesis.md`](../docs/business-product-thesis.md), and
-  [`pro-backlog.md`](../docs/pro-backlog.md).
+  [`canonical backlog`](../docs/backlog.md).
 - **Category:** measurement / product validation / monetization.
 - **Revised:** 2026-08-26 after owner decision Q602 and session close.
 

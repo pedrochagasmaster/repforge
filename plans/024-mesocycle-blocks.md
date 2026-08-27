@@ -1,9 +1,10 @@
 # Plan 024: Mesocycle blocks
 
-> **DRAFT — pending design review of `docs/design/mesocycle-blocks.md`**
->
-> **Do not execute this plan until a human has reviewed the design document
-> and resolved open questions marked "Blocks build? = Yes" in that doc.**
+> **HISTORICAL — IMPLEMENTED.** The design gate was resolved and the block /
+> mesocycle lifecycle subsequently shipped. This file retains the original
+> implementation reasoning and stale code anchors; it is not executable work
+> or an open backlog item. Current product sequencing lives in
+> [`docs/backlog.md`](../docs/backlog.md).
 >
 > **Executor instructions**: Follow step by step. Run every verification
 > command and confirm the result before moving on. On a STOP condition, stop
@@ -18,12 +19,10 @@
 - **Priority**: P3
 - **Effort**: L
 - **Risk**: MED (data-model touch across Stats/History/export)
-- **Depends on**: Plan 023 design review (this plan); Plan 018 merge and Plan
-  019 warmup may land first — composition notes in the design doc still apply
-- **Category**: direction (feature)
+- **Depends on**: historical only; the design review and implementation shipped
+- **Category**: historical direction (implemented feature)
 - **Planned at**: commit `ff67850`, 2026-07-02 (drafted from Plan 023 spike)
-- **Source**: `docs/design/mesocycle-blocks.md`; Report §5 "Mesocycle blocks";
-  spreadsheet maximalist persona
+- **Source**: `docs/design/mesocycle-blocks.md` and the implemented lifecycle
 
 ## Why this matters
 

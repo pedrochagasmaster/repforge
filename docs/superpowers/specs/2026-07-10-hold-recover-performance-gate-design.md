@@ -157,11 +157,15 @@ No storage / schema / settings changes. No UI markup changes beyond the two copy
 4. Effort-mode smoke: two Max sets that add a rep vs prior → **Hold · add reps**, not recover.
 5. Existing `test/simulation.mjs` suite still passes (no intentional assertion on recover copy today; re-grep if any appear).
 
-## Out of scope / follow-ups (explicitly deferred)
+## Out of scope, not standing backlog
 
 - Within-session set-to-set collapse heuristics (e.g. set 1 @8 RIR1 → set 4 @4 RIR0).
 - Changing `isStalled` window or fatigue-watch thresholds.
 - Surfacing recover as a distinct attention group separate from fatigue.
+
+These are model-tuning possibilities, not accepted follow-up work. Reopen them
+only from observed evidence and record any resulting work in the
+[`canonical backlog`](../../backlog.md).
 
 ## Success criteria
 

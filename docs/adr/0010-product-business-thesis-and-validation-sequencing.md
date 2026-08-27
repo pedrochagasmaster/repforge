@@ -5,7 +5,7 @@
 **Strategic source of truth:**
 [`docs/business-product-thesis.md`](../business-product-thesis.md)
 
-**Capability detail:** [`docs/pro-backlog.md`](../pro-backlog.md)
+**Execution order:** [`docs/backlog.md`](../backlog.md)
 
 **Measurement/commercialization plan:**
 [`plans/044-posthog-measurement-experiments-paywall.md`](../../plans/044-posthog-measurement-experiments-paywall.md)
@@ -251,7 +251,7 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
 ## Consequences
 
 - [`docs/business-product-thesis.md`](../business-product-thesis.md),
-  [`docs/pro-backlog.md`](../pro-backlog.md), and
+  [`docs/backlog.md`](../backlog.md), and
   [`Plan 044`](../../plans/044-posthog-measurement-experiments-paywall.md)
   express this reconciliation. ADR 0011 governs managed AI; ADR 0002 and Plan
   038 are historical superseded records.
