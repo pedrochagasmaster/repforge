@@ -279,6 +279,378 @@
     return clamp(observed.length ? average(observed) : fallback, 0, CAPACITY.dropClamp);
   }
 
+  function isStalled(summaries) {
+    if (summaries.length < 3) return false;
+    const recent = summaries.slice(-3);
+    const load = recent[0].medianLoad;
+    const reps = recent[0].maximumReps;
+    return recent.every((session) => Math.abs(session.medianLoad - load) < 0.01)
+      && recent.every((session) => session.maximumReps <= reps);
+  }
+
+  function recoverSignal(summaries, rirCeiling) {
+    if (summaries.length < 2) return false;
+    const latest = summaries.at(-1);
+    const prior = summaries.at(-2);
+    if (latest.averageRir > rirCeiling) return false;
+    if (latest.medianLoad - prior.medianLoad >= 0.01) return false;
+    return latest.maximumReps <= prior.maximumReps && latest.medianReps <= prior.medianReps;
+  }
+
+  function blockTrend(summaries, blockStart) {
+    if (blockStart == null) return { direction: null, sessionCount: 0 };
+    const block = summaries.filter((session) => session.date >= blockStart);
+    if (block.length < 3) return { direction: null, sessionCount: block.length };
+    const values = block.map((session) => session.bestE1rm);
+    if (values.some((value) => value <= 0)) return { direction: null, sessionCount: block.length };
+    const xMean = (values.length - 1) / 2;
+    const yMean = average(values);
+    let covariance = 0;
+    let variance = 0;
+    values.forEach((value, index) => {
+      covariance += (index - xMean) * (value - yMean);
+      variance += (index - xMean) ** 2;
+    });
+    const projectedChange = variance && yMean ? covariance / variance * (values.length - 1) / yMean : 0;
+    return {
+      direction: projectedChange >= 0.02 ? "rising" : projectedChange <= -0.02 ? "falling" : "flat",
+      sessionCount: block.length,
+      ratio: 1 + projectedChange,
+    };
+  }
+
+  function historicalSetDrops(summaries, hardRir) {
+    const drops = [];
+    for (const session of summaries.slice(-CAPACITY.baselineSessions)) {
+      const capacities = session.sets.map((set) => capE1rm(set.load, set.reps, set.rir, hardRir));
+      for (let index = 0; index + 1 < capacities.length; index++) {
+        if (capacities[index] > 0) drops.push(Math.max(0, (capacities[index] - capacities[index + 1]) / capacities[index]));
+      }
+    }
+    return drops;
+  }
+
+  const sameLoad = (left, right) => left != null && right != null && Math.abs(left - right) <= 1e-6;
+
+  function reentryReps(params, capacity, load, recentRir) {
+    return clamp(Math.round(repsAtLoad(capacity, load) - (recentRir || 0)), params.repMin, params.repMax);
+  }
+
+  function validateContext(context) {
+    const issues = [];
+    if (!isPlainObject(context)) return validationFailure(["context: expected object"]);
+    for (const key of unexpectedKeys(context, new Set(["weekNumber", "blockLength", "blockStart", "freshnessFactor"]))) {
+      issues.push(`context.${key}: unknown key`);
+    }
+    if (!Number.isInteger(context.blockLength) || context.blockLength < 1 || context.blockLength > 52) issues.push("context.blockLength: out of range");
+    if (!Number.isInteger(context.weekNumber) || context.weekNumber < 1 || context.weekNumber > context.blockLength) issues.push("context.weekNumber: out of range");
+    if (context.blockStart !== null && (typeof context.blockStart !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(context.blockStart))) {
+      issues.push("context.blockStart: expected null or YYYY-MM-DD");
+    }
+    if (hasOwn(context, "freshnessFactor") && (!isFiniteNumber(context.freshnessFactor)
+      || context.freshnessFactor < 1 - CAPACITY.temperClamp || context.freshnessFactor > 1)) {
+      issues.push("context.freshnessFactor: out of range");
+    }
+    if (issues.length) return validationFailure(issues);
+    const value = {
+      weekNumber: context.weekNumber,
+      blockLength: context.blockLength,
+      blockStart: context.blockStart,
+    };
+    if (hasOwn(context, "freshnessFactor")) value.freshnessFactor = context.freshnessFactor;
+    return { ok: true, value };
+  }
+
+  function baseResult(kind, status, strategy, reasonCodes, target, facts, provenance) {
+    return {
+      kind,
+      engineVersion: ENGINE_VERSION,
+      strategy,
+      target: { sets: target },
+      status,
+      reasonCodes,
+      facts,
+      provenance,
+    };
+  }
+
+  function invalidResult(strategy, issues) {
+    return baseResult(
+      "invalid",
+      "manual",
+      strategy,
+      ["engine.invalid_input"],
+      [],
+      { issues: issues.slice() },
+      { evidenceWindow: { sessionCount: 0, currentSetCount: 0 }, modifierVersions: [], relationVersion: null },
+    );
+  }
+
+  function incompatibleResult(strategy, reason) {
+    return baseResult(
+      "incompatible",
+      "manual",
+      strategy,
+      [reason],
+      [],
+      {},
+      { evidenceWindow: { sessionCount: 0, currentSetCount: 0 }, modifierVersions: [], relationVersion: null },
+    );
+  }
+
+  function targetSets(params, load, reps, count) {
+    const targetRir = hasOwn(params, "targetRirMax") ? params.targetRirMax : null;
+    return Array.from({ length: count }, () => ({
+      role: "working",
+      load,
+      reps,
+      repMin: params.repMin,
+      repMax: params.repMax,
+      targetRir,
+    }));
+  }
+
+  function evaluateCurrentRange(params, settings, summaries, currentSession, context, provenance) {
+    const recentRir = typicalRir(summaries);
+    const capacities = currentSession.map((set) => capE1rm(set.load, set.reps, set.rir, settings.hardRir));
+    const drop = expectedSetDrop(capacities, historicalSetDrops(summaries, settings.hardRir));
+    const latest = currentSession.at(-1);
+    const predictedCapacity = capacities.at(-1) * (1 - drop);
+    const capacityReps = repsAtLoad(predictedCapacity, latest.load);
+    const predictedPerformedReps = capacityReps - recentRir;
+    const jump = jumpAmount(latest.load, 1, settings);
+    let status;
+    let legacyStatus;
+    let reason;
+    let load;
+    let reps;
+    if (predictedPerformedReps >= params.repMax + CAPACITY.jumpMargin) {
+      status = "advance";
+      legacyStatus = "add";
+      reason = "range.current_advance";
+      load = roundToGrid(latest.load + jump, settings.minLoadIncrement);
+      reps = reentryReps(params, predictedCapacity, load, recentRir);
+    } else if (predictedPerformedReps < params.repMin) {
+      status = "reduce";
+      legacyStatus = "reduce";
+      reason = "range.current_reduce";
+      load = Math.max(roundToGrid(latest.load - jump, settings.minLoadIncrement), settings.minLoadIncrement);
+      reps = reentryReps(params, predictedCapacity, load, recentRir);
+    } else {
+      status = "hold";
+      legacyStatus = "hold";
+      reason = "range.current_hold";
+      load = latest.load;
+      reps = clamp(Math.round(predictedPerformedReps), params.repMin, params.repMax);
+    }
+    const reasonCodes = [reason];
+    if (drop > 0 && status === "hold" && reps < latest.reps) reasonCodes.push("range.current_drop");
+    if (status === "advance" || status === "reduce") reasonCodes.push("range.reentry");
+    return baseResult(
+      "recommendation",
+      status,
+      { id: "range", version: 1 },
+      reasonCodes,
+      targetSets(params, load, reps, 1),
+      {
+        legacyStatus,
+        capacityE1rm: predictedCapacity,
+        capacityReps,
+        typicalRir: recentRir,
+        expectedSetDrop: drop,
+        latestLoad: latest.load,
+        targetLoad: load,
+        targetReps: reps,
+        pushReps: status === "hold",
+        stalled: false,
+      },
+      provenance,
+    );
+  }
+
+  function evaluateNextRange(params, settings, summaries, context, provenance) {
+    if (!summaries.length) {
+      return baseResult(
+        "recommendation",
+        "new",
+        { id: "range", version: 1 },
+        ["range.no_history"],
+        targetSets(params, null, params.repMin, params.workingSets),
+        { legacyStatus: "new", targetLoad: null, targetReps: params.repMin, pushReps: true, stalled: false },
+        provenance,
+      );
+    }
+
+    const latest = summaries.at(-1);
+    const load = latest.medianLoad;
+    const capacityReps = repsAtLoad(latest.medianCapacity, load);
+    const atTop = latest.sets.filter((set) => set.reps >= params.repMax).length;
+    const allTop = atTop === latest.sets.length;
+    const nearTop = latest.sets.length >= 3 && atTop >= latest.sets.length - 1 && latest.minimumReps >= params.repMax - 1;
+    const performedTop = allTop || nearTop;
+    const stalled = isStalled(summaries);
+    let status;
+    let legacyStatus;
+    let reason;
+    let jumpMultiplier = 0;
+    let pushReps = false;
+    if (capacityReps >= params.repMax + CAPACITY.bigJumpMargin) {
+      status = "advance";
+      legacyStatus = "add2";
+      reason = "range.capacity_top_double";
+      jumpMultiplier = 2;
+    } else if (performedTop || capacityReps >= params.repMax + CAPACITY.jumpMargin) {
+      status = "advance";
+      legacyStatus = "add";
+      reason = performedTop ? "range.performed_top" : "range.capacity_top";
+      jumpMultiplier = 1;
+    } else if (capacityReps < params.repMin) {
+      status = "reduce";
+      legacyStatus = "reduce";
+      reason = "range.below_floor";
+      jumpMultiplier = 1;
+    } else if (stalled) {
+      status = "recalibrate";
+      legacyStatus = "reduce";
+      reason = "range.stalled";
+    } else if (recoverSignal(summaries, 0.5)) {
+      status = "hold";
+      legacyStatus = "hold";
+      reason = "range.recovery";
+    } else if (capacityReps - latest.medianReps >= CAPACITY.pushGap && capacityReps <= params.repMax) {
+      status = "hold";
+      legacyStatus = "hold";
+      reason = "range.capacity_room";
+      pushReps = true;
+    } else {
+      status = "hold";
+      legacyStatus = "hold";
+      reason = "range.room_in_range";
+      pushReps = true;
+    }
+
+    const trend = blockTrend(summaries, context.blockStart);
+    const reasonCodes = [reason];
+    if (legacyStatus === "add2" && trend.direction === "falling") {
+      legacyStatus = "add";
+      jumpMultiplier = 1;
+      reasonCodes.push("range.block_tempered");
+    }
+
+    let targetLoad;
+    if (jumpMultiplier && status === "advance") {
+      targetLoad = roundToGrid(load + jumpAmount(load, jumpMultiplier, settings), settings.minLoadIncrement);
+    } else if (reason === "range.below_floor") {
+      targetLoad = Math.max(
+        roundToGrid(load - jumpAmount(load, 1, settings), settings.minLoadIncrement),
+        settings.minLoadIncrement,
+      );
+    } else targetLoad = Math.max(roundToGrid(load, settings.minLoadIncrement), settings.minLoadIncrement);
+
+    const changedLoad = !sameLoad(targetLoad, load);
+    const usesReentry = legacyStatus === "add" || legacyStatus === "add2" || legacyStatus === "reduce" || changedLoad;
+    const recentRir = typicalRir(summaries);
+    const previousFirstReps = latest.sets[0]?.reps;
+    let targetReps = usesReentry
+      ? reentryReps(params, latest.medianCapacity, targetLoad, recentRir)
+      : previousFirstReps == null
+        ? params.repMin
+        : pushReps
+          ? clamp(previousFirstReps + 1, params.repMin, params.repMax)
+          : clamp(previousFirstReps, params.repMin, params.repMax);
+    if (changedLoad && status === "hold") reasonCodes.push("range.grid_rounded");
+    if (usesReentry && changedLoad) reasonCodes.push("range.reentry");
+
+    const freshnessFactor = hasOwn(context, "freshnessFactor") ? context.freshnessFactor : 1;
+    if (freshnessFactor < 1 && latest.medianCapacity > 0) {
+      const temperedCapacity = latest.medianCapacity * freshnessFactor;
+      let rawReps = Math.round(repsAtLoad(temperedCapacity, targetLoad) - recentRir);
+      if (rawReps < params.repMin) {
+        targetLoad = Math.max(
+          roundToGrid(targetLoad - jumpAmount(targetLoad, 1, settings), settings.minLoadIncrement),
+          settings.minLoadIncrement,
+        );
+        rawReps = Math.round(repsAtLoad(temperedCapacity, targetLoad) - recentRir);
+      }
+      targetReps = Math.min(targetReps, clamp(rawReps, params.repMin, params.repMax));
+      reasonCodes.push("range.freshness_temper");
+    }
+
+    return baseResult(
+      "recommendation",
+      status,
+      { id: "range", version: 1 },
+      reasonCodes,
+      targetSets(params, targetLoad, targetReps, params.workingSets),
+      {
+        legacyStatus,
+        latestLoad: load,
+        latestMedianReps: latest.medianReps,
+        capacityE1rm: latest.medianCapacity,
+        capacityReps,
+        typicalRir: recentRir,
+        jumpMultiplier,
+        blockTrend: trend,
+        targetLoad,
+        targetReps,
+        pushReps,
+        stalled,
+        freshnessFactor,
+      },
+      provenance,
+    );
+  }
+
+  function evaluateProgression(input) {
+    const unknownStrategy = { id: "unknown", version: 0 };
+    if (!isPlainObject(input)) return invalidResult(unknownStrategy, ["input: expected object"]);
+    const strategyValue = isPlainObject(input.prescription?.strategy) ? input.prescription.strategy : null;
+    const strategy = {
+      id: typeof strategyValue?.id === "string" ? strategyValue.id : "unknown",
+      version: Number.isInteger(strategyValue?.version) ? strategyValue.version : 0,
+    };
+    const inputKeys = new Set(["engineVersion", "prescription", "relation", "modifiers", "settings", "history", "currentSession", "context"]);
+    const keyIssues = unexpectedKeys(input, inputKeys).map((key) => `input.${key}: unknown key`);
+    if (keyIssues.length) return invalidResult(strategy, keyIssues);
+    if (input.engineVersion !== ENGINE_VERSION) return invalidResult(strategy, ["engineVersion: unsupported"]);
+    if (strategy.id !== "range" || strategy.version !== 1) return incompatibleResult(strategy, "engine.unsupported_strategy");
+    if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
+    if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+
+    const prescription = validateRangePrescription(input.prescription);
+    const settings = validateSettings(input.settings);
+    const history = summarizeHistory(input.history, settings.ok ? settings.value.hardRir : 4);
+    const currentSession = normalizeCurrentSession(input.currentSession);
+    const context = validateContext(input.context);
+    const issues = [];
+    for (const checked of [prescription, settings, history, currentSession, context]) {
+      if (!checked.ok) issues.push(...checked.issues);
+    }
+    if (issues.length) return invalidResult(strategy, issues);
+
+    const provenance = {
+      evidenceWindow: { sessionCount: history.value.length, currentSetCount: currentSession.value.length },
+      modifierVersions: [],
+      relationVersion: null,
+    };
+    return currentSession.value.length
+      ? evaluateCurrentRange(
+        prescription.value.strategy.params,
+        settings.value,
+        history.value,
+        currentSession.value,
+        context.value,
+        provenance,
+      )
+      : evaluateNextRange(
+        prescription.value.strategy.params,
+        settings.value,
+        history.value,
+        context.value,
+        provenance,
+      );
+  }
+
   const api = Object.freeze({
     ENGINE_VERSION,
     STRATEGY_IDS,
@@ -302,6 +674,7 @@
     summarizeHistory,
     typicalRir,
     expectedSetDrop,
+    evaluateProgression,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

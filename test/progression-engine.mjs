@@ -113,4 +113,64 @@ for (const [name, run] of invalidInputs) {
   assert.ok(result.issues.length, `${name}: issue list required`);
 }
 
-console.log("PASS: progression primitives are pure, bounded, deterministic, and Node-reachable");
+const fixtures = JSON.parse(fs.readFileSync(path.join(root, "test/fixtures/progression-strategies-v1.json"), "utf8"));
+const rangeFixtures = fixtures.strategies["range@1"];
+
+function setPath(target, dottedPath, value) {
+  const parts = dottedPath.split(".");
+  let cursor = target;
+  for (const part of parts.slice(0, -1)) cursor = cursor[part];
+  cursor[parts.at(-1)] = value;
+}
+
+for (const testCase of rangeFixtures.cases) {
+  const input = structuredClone(rangeFixtures.defaults);
+  input.engineVersion = fixtures.engineVersion;
+  input.history = structuredClone(testCase.history);
+  if (testCase.currentSession) input.currentSession = structuredClone(testCase.currentSession);
+  for (const [dottedPath, value] of Object.entries(testCase.overrides || {})) setPath(input, dottedPath, value);
+  const before = JSON.stringify(input);
+  const result = Engine.evaluateProgression(input);
+  const again = Engine.evaluateProgression(input);
+
+  assert.equal(JSON.stringify(input), before, `${testCase.id}: evaluation must not mutate input`);
+  assert.deepEqual(result, again, `${testCase.id}: evaluation must be deterministic`);
+  assert.equal(result.kind, testCase.expected.kind, `${testCase.id}: kind`);
+  assert.equal(result.status, testCase.expected.status, `${testCase.id}: status`);
+  assert.equal(result.facts.legacyStatus, testCase.expected.legacyStatus, `${testCase.id}: legacy status`);
+  assert.deepEqual(result.reasonCodes, testCase.expected.reasonCodes, `${testCase.id}: reason codes`);
+  assert.equal(result.target.sets[0].load, testCase.expected.targetLoad, `${testCase.id}: target load`);
+  assert.equal(result.target.sets[0].reps, testCase.expected.targetReps, `${testCase.id}: target reps`);
+  assert.equal(result.strategy.id, "range", `${testCase.id}: strategy id`);
+  assert.equal(result.strategy.version, 1, `${testCase.id}: strategy version`);
+  assert.equal(result.engineVersion, 1, `${testCase.id}: engine version`);
+  assert.equal(result.provenance.evidenceWindow.sessionCount, input.history.length, `${testCase.id}: session provenance`);
+  assert.equal(result.provenance.evidenceWindow.currentSetCount, input.currentSession.length, `${testCase.id}: current-set provenance`);
+  if (testCase.expected.capacityReps !== undefined) {
+    assert.ok(Math.abs(result.facts.capacityReps - testCase.expected.capacityReps) < 1e-6, `${testCase.id}: capacity reps`);
+  }
+}
+
+const unsupported = Engine.evaluateProgression({
+  ...structuredClone(rangeFixtures.defaults),
+  engineVersion: 1,
+  history: [],
+  prescription: {
+    schemaVersion: 1,
+    strategy: { id: "rep_goal", version: 1, params: {} },
+    modifiers: [],
+  },
+});
+assert.equal(unsupported.kind, "incompatible");
+assert.deepEqual(unsupported.reasonCodes, ["engine.unsupported_strategy"]);
+
+const polluted = Engine.evaluateProgression({
+  ...structuredClone(rangeFixtures.defaults),
+  engineVersion: 1,
+  history: [],
+  entitlement: "pro",
+});
+assert.equal(polluted.kind, "invalid");
+assert.deepEqual(polluted.reasonCodes, ["engine.invalid_input"]);
+
+console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} deterministic range fixtures`);
