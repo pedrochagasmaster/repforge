@@ -291,6 +291,94 @@ The proposed effort change raises target RIR by 1 in every affected re-entry wee
 
 The re-entry rule never interprets performance history, schedules a deload, or permanently changes the normal allocation. `interrupted` and `returning` are broad recent-state inputs chosen in Plan 048. They are not diagnoses.
 
+## Generated recipes for 2, 4, and 6 days
+
+Recommend and Custom can use these recipes. They are not Browse cards by default. Each recipe owns its day roles and slot order, and all recipes use the same allocation and time models as the authored siblings.
+
+The notation below lists ordered slot roles. A semicolon separates slots.
+
+### `growth` recipes
+
+| Recipe | Day | Ordered slot roles |
+|---|---|---|
+| `growth_2_v1` | `growth_2_d1` | knee primary; horizontal press; horizontal pull; hinge assistance; lateral deltoid; arms |
+| `growth_2_v1` | `growth_2_d2` | hinge primary; vertical pull; vertical press; unilateral knee; chest assistance; hamstrings; calves |
+| `growth_4_v1` | `growth_4_d1` | horizontal press; vertical pull; incline press; supported pull; lateral deltoid; triceps |
+| `growth_4_v1` | `growth_4_d2` | knee primary; hinge assistance; unilateral knee; leg curl; calves |
+| `growth_4_v1` | `growth_4_d3` | horizontal pull; vertical press; vertical pull; chest assistance; rear deltoid; biceps |
+| `growth_4_v1` | `growth_4_d4` | hinge primary; knee assistance; hip extension; leg curl; calves |
+| `growth_6_v1` | `growth_6_d1` | horizontal press; vertical pull; incline press; lateral deltoid; triceps |
+| `growth_6_v1` | `growth_6_d2` | knee primary; hinge assistance; unilateral knee; calves |
+| `growth_6_v1` | `growth_6_d3` | horizontal pull; vertical press; vertical pull; rear deltoid; biceps |
+| `growth_6_v1` | `growth_6_d4` | stable press; supported pull; chest assistance; lateral deltoid; triceps |
+| `growth_6_v1` | `growth_6_d5` | hinge primary; knee assistance; hip extension; leg curl; calves |
+| `growth_6_v1` | `growth_6_d6` | supported pull; stable press; vertical pull; rear deltoid; biceps |
+
+The 2-day form uses dense whole-body sessions. The 4-day form separates upper and lower work. The 6-day form uses shorter push-pull-lower exposures and repeats those roles with different emphasis. None is a truncated or repeated authored sibling.
+
+### `balanced` recipes
+
+| Recipe | Day | Ordered slot roles |
+|---|---|---|
+| `balanced_2_v1` | `balanced_2_d1` | knee primary; horizontal-press primary; vertical pull; hinge assistance; lateral deltoid; arms |
+| `balanced_2_v1` | `balanced_2_d2` | hinge primary; horizontal-press volume; supported pull; unilateral knee; chest or back assistance; calves |
+| `balanced_4_v1` | `balanced_4_d1` | knee primary; hinge assistance; unilateral knee; calves |
+| `balanced_4_v1` | `balanced_4_d2` | horizontal-press primary; vertical-pull primary; supported pull; triceps |
+| `balanced_4_v1` | `balanced_4_d3` | hinge primary; knee-volume exposure; leg curl; calves |
+| `balanced_4_v1` | `balanced_4_d4` | horizontal-press volume; horizontal pull; vertical press; lateral and rear deltoid; biceps |
+| `balanced_6_v1` | `balanced_6_d1` | knee primary; hinge assistance; unilateral knee |
+| `balanced_6_v1` | `balanced_6_d2` | horizontal-press primary; vertical pull; triceps |
+| `balanced_6_v1` | `balanced_6_d3` | supported pull; chest assistance; lateral and rear deltoid; biceps |
+| `balanced_6_v1` | `balanced_6_d4` | hinge primary; knee-volume exposure; leg curl; calves |
+| `balanced_6_v1` | `balanced_6_d5` | horizontal-press volume; horizontal pull; vertical press; triceps |
+| `balanced_6_v1` | `balanced_6_d6` | unilateral knee; hip extension; vertical pull; arm assistance |
+
+The 2-day form pairs primary work with whole-body coverage. The 4-day form gives each lower and upper primary a separate volume counterpart. The 6-day form separates assistance from primary practice to keep sessions bounded.
+
+### `strength` recipes
+
+| Recipe | Day | Ordered slot roles |
+|---|---|---|
+| `strength_2_v1` | `strength_2_d1` | knee primary; horizontal-press primary; supported pull; hinge assistance; trunk assistance |
+| `strength_2_v1` | `strength_2_d2` | hinge primary; horizontal-press volume; vertical pull; knee-volume exposure; arm assistance |
+| `strength_4_v1` | `strength_4_d1` | knee primary; hinge assistance; unilateral knee; trunk assistance |
+| `strength_4_v1` | `strength_4_d2` | horizontal-press primary; vertical pull; supported pull; triceps |
+| `strength_4_v1` | `strength_4_d3` | hinge primary; knee-volume exposure; leg curl; calves |
+| `strength_4_v1` | `strength_4_d4` | horizontal-press volume; horizontal pull; vertical press; biceps |
+| `strength_6_v1` | `strength_6_d1` | knee primary; hinge assistance; trunk assistance |
+| `strength_6_v1` | `strength_6_d2` | horizontal-press primary; vertical pull; triceps |
+| `strength_6_v1` | `strength_6_d3` | hinge volume; unilateral knee; leg curl; calves |
+| `strength_6_v1` | `strength_6_d4` | horizontal-press volume; supported pull; biceps |
+| `strength_6_v1` | `strength_6_d5` | hinge primary; knee-volume exposure; trunk assistance |
+| `strength_6_v1` | `strength_6_d6` | vertical press; horizontal pull; chest assistance; rear deltoid; arms |
+
+The 2-day form alternates dense primary sessions. The 4-day form separates lower and upper primary and volume work. The 6-day form limits each primary day to one main stressor and reserves the final day for the hypertrophy base.
+
+### `home` recipes
+
+| Recipe | Day | Ordered slot roles |
+|---|---|---|
+| `home_2_v1` | `home_2_d1` | front-loaded knee; supported press; one-arm pull; dumbbell hinge; arm assistance |
+| `home_2_v1` | `home_2_d2` | split squat; floor press or push-up; band vertical pull; hip extension; lateral deltoid; calves |
+| `home_4_v1` | `home_4_d1` | front-loaded knee; supported press; unilateral knee; triceps |
+| `home_4_v1` | `home_4_d2` | one-arm pull; dumbbell hinge; band vertical pull; biceps |
+| `home_4_v1` | `home_4_d3` | split squat; floor press or push-up; lateral deltoid; calves |
+| `home_4_v1` | `home_4_d4` | hip extension; supported row; leg curl pattern; arm assistance |
+| `home_6_v1` | `home_6_d1` | front-loaded knee; supported press; triceps |
+| `home_6_v1` | `home_6_d2` | one-arm pull; dumbbell hinge; biceps |
+| `home_6_v1` | `home_6_d3` | split squat; floor press or push-up; lateral deltoid |
+| `home_6_v1` | `home_6_d4` | hip extension; supported row; leg curl pattern |
+| `home_6_v1` | `home_6_d5` | squat pattern; incline or floor press; calves |
+| `home_6_v1` | `home_6_d6` | band vertical pull; band row; arm assistance |
+
+The 2-day form minimizes total weekly setup events. The 4-day form pairs upper and lower patterns by equipment state. The 6-day form uses short sessions with no more than one equipment change per day.
+
+### Coverage and fixed-week rules
+
+Every family now has one structure for each frequency from 2 through 6 days. The compiler repeats the selected weekly structure for all six default weeks. Recipes cannot contain week-specific day, slot, exercise, or deload fields.
+
+The 2-day, 4-day, and 6-day recipes require the same owner review as the 3-day and 5-day siblings. Frequency coverage does not make a recipe public or eligible for Browse.
+
 ## Version and approval state
 
 Stable internal family IDs are `growth`, `balanced`, `strength`, and `home`. Public names remain proposals and do not control those IDs.
