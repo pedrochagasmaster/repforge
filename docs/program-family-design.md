@@ -379,6 +379,104 @@ Every family now has one structure for each frequency from 2 through 6 days. The
 
 The 2-day, 4-day, and 6-day recipes require the same owner review as the 3-day and 5-day siblings. Frequency coverage does not make a recipe public or eligible for Browse.
 
+## Fixture contract
+
+[`test/fixtures/program-families-v1.json`](../test/fixtures/program-families-v1.json) is the machine-readable Wave 1 design. [`test/program-family-fixtures.mjs`](../test/program-family-fixtures.mjs) validates it without a browser or application state.
+
+The compact fixture derives stable IDs as follows:
+
+- A day ID removes `_v1` from the blueprint ID and adds `_dN`, where `N` is the one-based day position.
+- A slot ID adds `_sN` to the day ID, where `N` is the one-based slot position.
+- Each slot token resolves through `slotContracts` to one role, movement-pattern set, muscle set, substitution class, proposed strategy, priority behavior, warm-up class, transition class, and `libraryId` requirement.
+- Each role and strategy pair resolves through `rules.prescriptions.byRoleAndStrategy` to one proposed prescription profile.
+- Paired relations refer to zero-based day and slot positions in one immutable blueprint version. The validator resolves those positions to the derived stable slot IDs.
+
+The compact form is a Wave 1 authoring fixture, not the production `program-blueprints.js` schema. Production compiler work may change the encoding only with a versioned migration and equivalent invariant coverage.
+
+## Synthetic fixed-structure outputs
+
+These examples prove schedule semantics, not training outcomes. A future compiler must add selected exercises, exact time estimates, allocation summaries, and deterministic fingerprints.
+
+| Example | Pinned input | Expected structural output |
+|---|---|---|
+| `balanced_3_six_week` | `balanced_3_v1`, one six-week block | Three derived day IDs repeat in the same order for 6 weeks. The schedule contains 18 planned sessions. No week rotates a slot or schedules a deload. |
+| `home_5_fifty_two_week` | `home_5_v1`, 52 weeks of pinned blocks | Five derived day IDs repeat inside each block. The span contains 8 complete six-week blocks and 4 trailing weeks, or 260 planned sessions if no session is skipped. No block update silently changes a pinned structure. |
+
+The 52-week example does not prescribe uninterrupted training or eight automatic renewals. It tests the arithmetic and fixed-structure rule across a long horizon.
+
+## Known compromises
+
+| Decision | Accepted compromise | Rejected alternative |
+|---|---|---|
+| Four initial families | The set covers the three desired results plus limited-home consistency. It does not add a public high-volume family. | A larger catalogue would add names before Taurifer can support and test distinct promises. |
+| Complete frequency coverage | Recommend and Custom have 2-day through 6-day recipes, while Browse remains disabled in the fixtures. | Showing incomplete Browse cards would represent work that does not yet execute. |
+| Strength scope | Strength uses general primary patterns and retains hypertrophy work. | Competition-lift percentages, peaking, tapering, and attempt selection exceed the product scope. |
+| Home equipment | Home assumes adjustable dumbbells, bands, bodyweight options, and optional stable support. | Treating every home location as limited equipment would misroute full-home gyms. |
+| Foundation | Foundation reduces coordination and prescription variety while retaining the selected family's coverage. | Sending every inconsistent or returning athlete to a beginner program would discard relevant maturity. |
+| Re-entry | The proposed rule changes only one or two weeks and restores the normal prescription by week 3. | A scheduled deload or permanent volume downgrade would confuse current consistency with training maturity. |
+| Progression references | Fixtures name the proposed Plan 046 contracts so incompatibility is visible now. All families remain `browse: false`. | A family-specific engine or silent fallback would hide an unresolved dependency. |
+
+## Owner review inventory
+
+No item in this section is approved merely because the fixture validator passes.
+
+### Public names and copy
+
+The owner must approve or replace all four English and PT-BR name pairs: Build Muscle and Ganhar massa, Muscle + Strength and Massa + força, Strength Priority and Prioridade em força, and Home Momentum and Ritmo em casa. The owner must also approve the promise and non-goal copy before Plan 048 exposes it.
+
+### Numeric fixtures
+
+The owner must approve or amend:
+
+- all per-session and weekly working-set caps in `allocation@1`;
+- every slot-role set bound by maturity;
+- the working-set, warm-up, transition, rest-bound, and buffer constants in `time@1`;
+- every set count, rep range, total-rep goal, and target-RIR range in `rules.prescriptions`;
+- the two-set and five-slot Foundation caps;
+- every re-entry set delta, target-RIR delta, and restoration week;
+- all slot orders and every paired-relation member in the 20 blueprints.
+
+### Science and product implementation decisions
+
+The owner must confirm:
+
+- whether the proposed family structures and coverage maps express each promise;
+- whether the proposed whole-program volume caps are conservative enough for alpha;
+- whether each family uses the right primary, volume-counterpart, compound-assistance, and isolation-assistance mix;
+- whether Home's equipment assumptions and loading-granularity behavior are credible;
+- whether Foundation preserves enough work while reducing coordination burden;
+- whether the one-week `interrupted` and two-week `returning` treatments are appropriate;
+- whether strength and balanced blueprints use anchor and paired exposures in the right slots;
+- whether the six-week and 52-week structural examples are sufficient for the compiler handoff.
+
+### Plan 046 interface status
+
+Plan 046 PR #193 published `docs/progression-strategy-contract.md`, range parity fixtures, pure capacity primitives, and a deterministic `range@1` engine through commit `1dac9ab`. That branch has not merged to `main`.
+
+Only the locked `range@1` behavior is implemented. The Plan 046 contract marks `rep_goal@1`, `anchor_backoff@1`, the first `paired_exposure@1` combination, and all numeric block modifiers as pending owner review. Plan 047's `reentry@1` modifier proposal is not an approved Plan 046 modifier.
+
+Therefore all 20 family fixtures remain `browse: false`, and production compiler work is blocked. Before Slice 2 or later compiler work begins:
+
+1. Merge the stable Plan 046 contract to `main`.
+2. Merge current `origin/main` into this branch with an explicit merge commit.
+3. Replace each unapproved strategy or relation with an owner-approved contract, or use an honest compatible `range@1` or `manual@1` prescription.
+4. Update the fixture's interface-status metadata and validator in the same commit.
+5. Re-run the fixture validator and Plan 046 compatibility tests.
+
+## Production compiler handoff
+
+Wave 2 starts with the explicit program-day and provenance model, not compiler code. Follow this order:
+
+1. Add stable day containers and legacy day-string migration after Plan 046's persistence shape stabilizes.
+2. Preserve family, blueprint, compiler, allocation, time, catalogue, context-schema, and strategy versions through state, archive, backup, import, and shared setup.
+3. Define a production schema that expands each compact fixture slot into a frozen record with the derived ID and all selection and prescription fields.
+4. Build the dependency-free compiler against injected catalogue and rule snapshots.
+5. Require every selected exercise to retain its current `libraryId`. Never fuzzy-match a display name or repoint an old library ID.
+6. Compile the fixture coverage matrix before enabling one family for Browse.
+7. Add deterministic six-week and 52-week simulations with real engine results.
+
+Do not modify `app.js`, onboarding, or the production catalogue as part of this handoff step. Plan 048 can consume fixture services until the real compiler and persistence model land.
+
 ## Version and approval state
 
 Stable internal family IDs are `growth`, `balanced`, `strength`, and `home`. Public names remain proposals and do not control those IDs.
