@@ -179,6 +179,15 @@ try {
   {
     const context = await browser.newContext();
     await context.route(`**${SDK_PATH}`, route => route.abort("failed"));
+    await context.addInitScript(([key, value]) => window.localStorage.setItem(key, value), [
+      "repforge_v1",
+      JSON.stringify({
+        settings: { lang: "en", unit: "kg" },
+        programMeta: { onboarded: true, name: "Failure fixture", daysPerWeek: 1 },
+        program: [{ id: "failure-exercise", day: "Day 1", order: 1, name: "Squat", sets: 1, min: 5, max: 8, primary: "Quads", secondary: "Glutes" }],
+        log: [], programHistory: [], customExercises: [],
+      }),
+    ]);
     await context.addInitScript(() => {
       window.__POSTHOG_CONFIG__ = {
         appVersion: "browser-failure",
