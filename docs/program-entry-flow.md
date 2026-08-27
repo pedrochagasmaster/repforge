@@ -1,0 +1,176 @@
+# Program entry flow
+
+This document fixes the route and screen contract for Taurifer's program-entry
+redesign. It implements the Wave 1 design boundary in
+[Plan 048](../plans/048-program-entry-onboarding-redesign.md). Production UI
+work remains deferred until Plans 045 through 047 land.
+
+## Authorship decides the route
+
+The person choosing a split does not make a program manual. The route depends
+on who writes the executable prescription.
+
+| Route | Who chooses the prescription? | First destination | End of Wave 1 |
+|---|---|---|---|
+| Recommend | Taurifer chooses structure, exercises, sets, targets, and progression from factual context. | Desired result | Injected compiler preview |
+| Custom | The user chooses bounded preferences. Taurifer still writes the prescription. | Desired result | Injected compiler preview |
+| Browse | The user chooses a complete, executable Taurifer program. | Compatibility context | Injected catalogue preview |
+| Build | The user writes days, exercises, sets, targets, and a supported progression method. | Program name and day count | Empty-day editor handoff |
+| Import | The user brings an external prescription. | Import source and review handoff | Import preview handoff |
+| Shared | Another Taurifer user supplied a released setup payload. | Existing shared-program review | Existing first-run confirmation handoff |
+
+Recommend is the default inside the primary **Create a program** group. Custom
+is its deliberate alternative. Browse is a lower-emphasis choice. Build and
+Import sit under **Bring or build my own**.
+
+Research participants use these routes without a special entry path. Pro,
+payment, future-family teasers, and disabled controls do not belong here.
+
+## Screen contract
+
+The state machine uses stable semantic step IDs. UI adapters may group closely
+related questions on one screen, but they must not replace these IDs with
+display indexes.
+
+| Step ID | Routes | Required before Continue | Notes |
+|---|---|---|---|
+| `entry` | all | Route selection | Back exits only through an explicit UI cancellation decision. |
+| `desired_result` | Recommend, Custom | `muscle_growth`, `balanced`, or `strength` | Consistency is never a desired result. |
+| `background` | Recommend, Custom | Structured-program experience and recent six-week consistency | Experience is factual time, not beginner/intermediate/advanced. |
+| `schedule` | Recommend, Custom, Browse | 2-6 days, 30/45/60/75/90+ minutes, and preferred rest for generated routes | Browse may reuse reviewed compatibility context and ask only missing facts. |
+| `environment` | Recommend, Custom, Browse | A reviewed environment shortcut | Equipment correction is compact and capability-based. |
+| `priorities` | Recommend, Custom | A valid bounded selection, including none | At most two primary muscles. Avoided exercises carry one closed reason. |
+| `custom_shape` | Custom | One of at most two compiler-approved split choices | The compiler supplies the choices and default after frequency is known. |
+| `catalogue` | Browse | One complete, executable, browseable version | Disabled and future entries never enter the service result. |
+| `build_setup` | Build | Non-empty bounded name and 2-6 days | The editor receives real empty day containers, never placeholder exercises. |
+| `import_source` | Import | A validated import handoff | This module never reads files or decodes payloads. |
+| `shared_review` | Shared | A validated released setup handoff | Preserve [ADR 0007](adr/0007-shared-setup-links.md) first-run precedence and consent. |
+| `result` | Recommend, Custom | A deterministic selected candidate and snapshot | Recommend has one primary result and at most one close alternative. Custom has one result and no reroll. |
+| `preview` | Recommend, Custom, Browse, Import, Shared | A complete preview snapshot | Edits affect the draft only. The active program remains untouched. |
+| `editor` | Build | Empty-day draft created | Activation stays blocked until the later production editor validates it. |
+| `activation_conflict` | Preview routes | Fresh review after a revision mismatch | A stale setup can never overwrite a newer active program. |
+
+Recommend groups `desired_result`, `background`, `schedule`, `environment`,
+and `priorities` into roughly five short sections. Custom reuses those facts,
+then adds `custom_shape`. It must not ask for Taurifer's set-volume logic,
+RIR, rep ranges, progression formulas, or deload timing.
+
+Browse asks only the compatibility facts that the chosen catalogue version
+needs. Build asks only for a name and day count before the editor. Import and
+Shared accept validated handoffs from their owning adapters; neither parser
+belongs in `program-entry.js`.
+
+## Route transitions
+
+`Back` follows the graph and preserves answers. Optional omissions never create
+an impossible step. UI cancellation is separate because the user must choose
+whether to keep or discard the setup draft.
+
+| Route | Forward path | Back from terminal |
+|---|---|---|
+| Recommend | `entry -> desired_result -> background -> schedule -> environment -> priorities -> result -> preview` | `preview -> result` |
+| Custom | `entry -> desired_result -> background -> schedule -> environment -> priorities -> custom_shape -> result -> preview` | `preview -> result` |
+| Browse | `entry -> schedule -> environment -> catalogue -> preview` | `preview -> catalogue` |
+| Build | `entry -> build_setup -> editor` | `editor -> build_setup` |
+| Import | `entry -> import_source -> preview` | `preview -> import_source` |
+| Shared | `entry -> shared_review -> preview` | `preview -> shared_review` |
+
+Switching between Recommend and Custom keeps their shared factual context.
+Switching to Browse keeps schedule, environment, and factual experience where
+compatible, then removes generator-only choices such as desired result,
+priorities, split, result, and preview. Switching to Build, Import, or Shared
+removes every generator prescription and result. No switch changes the active
+program.
+
+## Context and draft ownership
+
+Reusable programming context and the setup draft are different records.
+
+- Reusable context belongs to the user, is included in full backup, and is
+  omitted from program export and setup sharing.
+- The setup draft snapshots route answers, service versions, result selection,
+  preview, timestamps, and the active-program revision observed at start.
+- A later setup may prefill reusable context, but the UI must require review of
+  result, schedule, environment, consistency, and constraints before compiling.
+- Starting over deletes only the setup draft.
+- Corrupt, oversized, too-deep, or unsupported drafts fail closed and leave the
+  active program, reusable context, history, and import source unchanged.
+- A saved old-version preview stays readable. The application must not silently
+  regenerate it under new rules.
+
+The pure module normalizes these records. A production storage adapter will own
+the `repforge_program_setup_draft_v1` key and durable-state integration later.
+Wave 1 performs no storage writes.
+
+## Service boundary
+
+Wave 1 tests state-machine behavior with injected fixture services. These
+services describe the future compiler and catalogue contract; they are not a
+temporary production generator.
+
+- The compiler receives normalized answers and an explicit version set. It
+  returns candidates, diagnostics, a complete preview snapshot, and a stable
+  fingerprint.
+- The split service returns zero to two compatible choices and identifies its
+  deterministic default.
+- The catalogue returns only complete, executable, tested versions marked for
+  browsing. It owns card facts and mismatch explanations.
+- Import and shared adapters return validated preview handoffs. The state
+  machine never reads a file, URL, fragment, cookie, DOM node, or global.
+
+The same normalized inputs and versions must produce the same semantic result.
+Changing a named input permits recompilation. Calling the same service again is
+not a reroll.
+
+## Activation boundary
+
+The state machine reports readiness; it does not activate a program. Before a
+production adapter commits activation, it must compare the draft's
+`activeProgramRevisionAtStart` with live durable state.
+
+- Equal revisions allow the existing activation transaction to proceed.
+- Different revisions move the setup to `activation_conflict` and require a
+  fresh review.
+- Cancel, Back, preview edits, route switches, reload, resume, and start-over
+  never archive or replace the active program.
+- First-run activation uses **Use this program**. Existing-program activation
+  uses **Archive current program and use this one**.
+
+This boundary preserves Taurifer's current transition and workout-draft
+protections instead of introducing a second commit path.
+
+## Legacy answers
+
+Legacy answers are reviewable hints, not new factual claims.
+
+| Old answer | Prefill or hint |
+|---|---|
+| Goal `hypertrophy` | Prefill desired result `muscle_growth`; require review. |
+| Goal `strength_hypertrophy` or `strength` | Prefill `balanced`; require review. |
+| Goal `beginner_consistency` | Leave desired result unanswered. Preserve a legacy hint. |
+| Self-rating `beginner`, `intermediate`, or `advanced` | Preserve a legacy hint. Ask structured-program time. |
+| `daysPerWeek` from 2 through 6 | Prefill days and require schedule review. |
+| Vague `sessionLength` | Preserve a hint. Ask for 30/45/60/75/90+ minutes. |
+| Exact known equipment semantics | Prefill a reviewable environment mapping. Unknown values remain hints. |
+| `splitType` | Keep only for Custom and only if the injected split service still accepts it. |
+| More than two priorities | Preserve the whole legacy hint and require a new choice. Never truncate it. |
+
+Historical `programMeta` is unchanged. New provenance begins only when a new
+draft is created.
+
+## Production integration gates
+
+Wave 1 ends at the pure module and fixture services. Production work may start
+only after the dependent contracts land on `main`:
+
+1. Merge Plan 045 before adding semantic telemetry calls.
+2. Merge Plan 046 before exposing progression choices in the manual editor.
+3. Merge Plan 047 before connecting Recommend, Custom, Browse, or Build to real
+   program output.
+4. Replace the legacy DOM only after pure, browser, accessibility, privacy,
+   screenshot, and physical-device gates cover the new route.
+
+The production adapter must continue to honor the local-first and shared-setup
+rules in [AGENTS.md](../AGENTS.md), the owner decisions in the
+[decision register](product-grilling-decision-register.md), and the strategy in
+[the business and product thesis](business-product-thesis.md).
