@@ -220,3 +220,79 @@ test("hostile answer patches fail without mutating state or prototypes", () => {
   assert.deepEqual(state.answers, {});
   assert.equal({}.polluted, undefined);
 });
+
+test("legacy goal aliases prefill only reviewable desired results", () => {
+  const cases = [
+    ["hypertrophy", "muscle_growth"],
+    ["strength_hypertrophy", "balanced"],
+    ["strength", "balanced"],
+    ["beginner_consistency", undefined],
+  ];
+  for (const [goal, expected] of cases) {
+    const migrated = Entry.migrateLegacyAnswers({ goal });
+    assert.equal(migrated.ok, true);
+    assert.equal(migrated.value.answers.desiredResult, expected);
+    assert.equal(migrated.value.legacyHints.goal, goal);
+    assert.ok(migrated.value.reviewRequired.includes("desired_result"));
+  }
+});
+
+test("legacy self-rating and vague duration remain hints, not factual answers", () => {
+  const legacy = {
+    experience: "advanced",
+    sessionLength: "long",
+    daysPerWeek: 5,
+  };
+  const migrated = Entry.migrateLegacyAnswers(legacy);
+  assert.equal(migrated.ok, true);
+  assert.equal(migrated.value.answers.structuredExperience, undefined);
+  assert.equal(migrated.value.answers.sessionMinutes, undefined);
+  assert.equal(migrated.value.answers.daysPerWeek, 5);
+  assert.deepEqual(migrated.value.legacyHints, legacy);
+  assert.deepEqual(legacy, {
+    experience: "advanced",
+    sessionLength: "long",
+    daysPerWeek: 5,
+  });
+});
+
+test("legacy equipment maps only exact new semantics and always requires review", () => {
+  const exact = Entry.migrateLegacyAnswers({ equipment: "limited_home" });
+  assert.deepEqual(exact.value.answers.environment, { kind: "limited_home" });
+  const oldArray = Entry.migrateLegacyAnswers({ equipment: ["dumbbells", "bodyweight"] });
+  assert.equal(oldArray.value.answers.environment, undefined);
+  assert.deepEqual(oldArray.value.legacyHints.equipment, ["dumbbells", "bodyweight"]);
+  assert.ok(oldArray.value.reviewRequired.includes("environment"));
+});
+
+test("legacy split carries only into compatible Custom and priorities never truncate", () => {
+  const legacy = {
+    splitType: "upper_lower",
+    priorityMuscles: ["back", "chest", "quads"],
+  };
+  const compatible = Entry.migrateLegacyAnswers(legacy, {
+    route: "custom",
+    compatibleSplits: ["full_body", "upper_lower"],
+  });
+  assert.equal(compatible.value.answers.splitPreference, "upper_lower");
+  assert.equal(compatible.value.answers.primaryMuscles, undefined);
+  assert.deepEqual(compatible.value.legacyHints.priorityMuscles, legacy.priorityMuscles);
+
+  const recommend = Entry.migrateLegacyAnswers(legacy, {
+    route: "recommend",
+    compatibleSplits: ["upper_lower"],
+  });
+  assert.equal(recommend.value.answers.splitPreference, undefined);
+});
+
+test("legacy migration rejects hostile structures and ignores historical metadata", () => {
+  const polluted = JSON.parse('{"__proto__":{"polluted":true}}');
+  assert.equal(Entry.migrateLegacyAnswers(polluted).ok, false);
+  const migrated = Entry.migrateLegacyAnswers({
+    goal: "hypertrophy",
+    programMeta: { source: "legacy" },
+  });
+  assert.equal(migrated.ok, true);
+  assert.equal(migrated.value.legacyHints.programMeta, undefined);
+  assert.equal({}.polluted, undefined);
+});

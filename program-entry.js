@@ -470,6 +470,86 @@
     return schemaResult("setup-draft", issues, output);
   }
 
+  function migrateLegacyAnswers(input, options) {
+    const parsed = parseBounded(input, MAX_CONTEXT_BYTES);
+    if (!parsed.ok) return schemaResult("legacy-answers", parsed.issues);
+    const raw = parsed.value;
+    const structural = inspectJson(raw, MAX_CONTEXT_BYTES);
+    if (structural.length) return schemaResult("legacy-answers", structural);
+    if (!isPlainObject(raw)) return schemaResult("legacy-answers", ["root:not_object"]);
+    const config = isPlainObject(options) ? options : {};
+    const route = config.route;
+    const compatibleSplits = Array.isArray(config.compatibleSplits) && config.compatibleSplits.length <= 2
+      ? config.compatibleSplits.filter(validToken)
+      : [];
+    const answers = {};
+    const legacyHints = {};
+    const reviewRequired = [];
+
+    function hint(key, value) {
+      if (value === undefined) return;
+      legacyHints[key] = clone(value);
+    }
+
+    if (hasOwn(raw, "goal")) {
+      hint("goal", raw.goal);
+      if (raw.goal === "hypertrophy") answers.desiredResult = "muscle_growth";
+      else if (raw.goal === "strength_hypertrophy" || raw.goal === "strength") answers.desiredResult = "balanced";
+      reviewRequired.push("desired_result");
+    }
+
+    if (hasOwn(raw, "experience")) {
+      hint("experience", raw.experience);
+      reviewRequired.push("structured_experience");
+    }
+
+    if (hasOwn(raw, "daysPerWeek")) {
+      hint("daysPerWeek", raw.daysPerWeek);
+      if (Number.isInteger(raw.daysPerWeek) && raw.daysPerWeek >= 2 && raw.daysPerWeek <= 6) {
+        answers.daysPerWeek = raw.daysPerWeek;
+      }
+      reviewRequired.push("schedule");
+    }
+
+    if (hasOwn(raw, "sessionLength")) {
+      hint("sessionLength", raw.sessionLength);
+      reviewRequired.push("session_minutes");
+    }
+
+    if (hasOwn(raw, "equipment")) {
+      hint("equipment", raw.equipment);
+      if (typeof raw.equipment === "string" && ENVIRONMENTS.has(raw.equipment)) {
+        answers.environment = { kind: raw.equipment };
+      }
+      reviewRequired.push("environment");
+    }
+
+    if (hasOwn(raw, "splitType")) {
+      hint("splitType", raw.splitType);
+      if (route === "custom" && compatibleSplits.includes(raw.splitType)) {
+        answers.splitPreference = raw.splitType;
+      }
+      if (route === "custom") reviewRequired.push("custom_shape");
+    }
+
+    if (hasOwn(raw, "priorityMuscles")) {
+      hint("priorityMuscles", raw.priorityMuscles);
+      if (Array.isArray(raw.priorityMuscles) && raw.priorityMuscles.length <= 2 && raw.priorityMuscles.every(validToken)) {
+        answers.primaryMuscles = normalizeTokenList(raw.priorityMuscles, "$.priorityMuscles", [], 2);
+      }
+      reviewRequired.push("priorities");
+    }
+
+    return {
+      ok: true,
+      value: {
+        answers,
+        legacyHints,
+        reviewRequired: [...new Set(reviewRequired)],
+      },
+    };
+  }
+
   function copyKeys(source, keys) {
     const result = {};
     if (!isPlainObject(source)) return result;
@@ -627,6 +707,7 @@
     setResult,
     normalizeProgrammingContext,
     normalizeSetupDraft,
+    migrateLegacyAnswers,
     validationIssues,
     advance,
     back,
