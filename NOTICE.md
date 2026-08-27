@@ -42,11 +42,22 @@ redistributed there under a written permission granted to that repository
 alone. Its `NOTICE.md` is explicit that cloning does not convey any license to
 the media.
 
-Taurifer uses **none** of it. `tools/build-exercises.mjs` reads only
-`data/exercises.json` and never opens the media directories, and
+The Taurifer application uses **none** of it. `tools/build-exercises.mjs` reads
+only `data/exercises.json` and never opens the media directories, and
 `test/exercise-library.mjs` fails if a generated entry so much as mentions an
 upstream media path. Using that project's demo media would require a license
 obtained directly from Gym visual.
+
+#### Exception: the style-transfer experiment pack
+
+`taurifer-style-transfer-experiment-pack-v4-codex-judge.zip` at the repository
+root is a research artifact, not part of the shipped application. It contains
+four `reference_exdb_*.jpg` frames and a contact sheet derived from that
+dataset's `videos/` directory — that is, from the Gym visual media described
+above. Their provenance is recorded in the pack's
+`benchmark/selected_pairs_manifest.csv`. They are **not** covered by the
+dataset's MIT license, no license to them is granted by this repository, and
+nothing in the app reads them.
 
 ## Exercise illustrations
 
