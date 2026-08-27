@@ -105,6 +105,9 @@ jobs:
       - name: Generative properties (fast-check)
         run: node test/generative/run.mjs --profile ci
 
+      - name: Generate analytics-disabled preview config
+        run: node scripts/generate-posthog-config.mjs
+
       - name: Start static server
         run: python3 -m http.server 8000 &
 
