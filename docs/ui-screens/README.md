@@ -59,6 +59,7 @@ seeded three-day program with enough history for Progress and History to look li
 | `31-install-banner.png` | Install banner |
 | `32-ios-install-sheet.png` | iOS install instruction sheet |
 | `33-why-this-weight.png` | Why this weight sheet |
+| `35-program-progression-editor.png` | Program — progression editor |
 
 ## Regeneration
 
@@ -73,4 +74,4 @@ The script is the only supported way to refresh these images. Do not hand-edit t
 and do not capture against an unseeded or partial install — designers need a stable,
 comparable pair. Appearance (System/Light/Dark) must be present in the running app.
 
-Captured 2026-08-27 · 34 screens × 2 themes.
+Captured 2026-08-27 · 35 screens × 2 themes.
