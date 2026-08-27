@@ -100,13 +100,35 @@ for (const id of ["rep_goal", "anchor_backoff"]) {
   assert.equal(pending.value.strategy.id, id);
 }
 
+const hostileParams = {};
+Object.defineProperty(hostileParams, "__proto__", { enumerable: true, value: { retained: true } });
+const hostileEnvelope = Engine.validatePrescription({
+  schemaVersion: 1,
+  strategy: { id: "manual", version: 1, params: hostileParams },
+  modifiers: [],
+});
+assert.equal(hostileEnvelope.ok, true, "JSON-safe hostile keys can be canonicalized without changing prototypes");
+assert.equal(hostileEnvelope.ok && Object.prototype.hasOwnProperty.call(hostileEnvelope.value.strategy.params, "__proto__"), true, "canonicalization retains an own __proto__ key safely");
+assert.equal(Engine.validatePrescription({
+  schemaVersion: 1,
+  strategy: { id: "manual", version: 1, params: { deep: { value: 1 } } },
+  modifiers: [],
+}).ok, true);
+let deeplyNested = { value: true };
+for (let index = 0; index < 40; index++) deeplyNested = { next: deeplyNested };
+assert.equal(Engine.validatePrescription({
+  schemaVersion: 1,
+  strategy: { id: "manual", version: 1, params: deeplyNested },
+  modifiers: [],
+}).ok, false, "canonicalization rejects hostile nesting depth");
+
 const relation = Engine.validateRelation({
   version: 1,
   members: [
     { role: "volume", exerciseId: "slot-volume" },
     { exerciseId: "slot-heavy", role: "heavy" },
   ],
-  movementId: "library:bench-press",
+  movementId: "movement:bench-press",
   id: "relation-1",
   type: "paired_exposure",
   schemaVersion: 1,
@@ -117,9 +139,34 @@ assert.deepEqual(relation.value.members, [
   { exerciseId: "slot-volume", role: "volume" },
 ], "relation members must have deterministic heavy/volume order");
 assert.equal(Engine.validateRelation(null).value, null);
+const trimmedRelation = Engine.validateRelation({
+  ...relation.value,
+  id: " relation-1 ",
+  members: relation.value.members.map((member) => ({ ...member, exerciseId: ` ${member.exerciseId} ` })),
+});
+assert.equal(trimmedRelation.ok, true);
+assert.equal(trimmedRelation.value.id, "relation-1");
+assert.deepEqual(trimmedRelation.value.members.map((member) => member.exerciseId), ["slot-heavy", "slot-volume"]);
 assert.deepEqual(Engine.canonicalizeRelation(relation.value), relation.value);
 assert.equal(Engine.validateRelations([relation.value, null]).ok, false);
 assert.deepEqual(Engine.canonicalizeRelations([relation.value]), [relation.value]);
+const contextual = Engine.validateRelations([relation.value], { slots: [
+  { id: "slot-heavy", movementId: "library:bench-press" },
+  { id: "slot-volume", movementId: "library:bench-press" },
+] });
+assert.equal(contextual.ok, false, "a relation cannot persist without matching live movement identity");
+const contextualRelation = Engine.validateRelation({
+  ...relation.value,
+  movementId: "library:bench-press",
+});
+assert.equal(Engine.validateRelations([contextualRelation.value], { slots: [
+  { id: "slot-heavy", movementId: "library:bench-press" },
+  { id: "slot-volume", movementId: "library:bench-press" },
+] }).ok, true, "contextual relation validation accepts matching live identities");
+assert.equal(Engine.validateRelations([contextualRelation.value], { slots: [
+  { id: "slot-heavy", movementId: "library:bench-press" },
+  { id: "slot-volume", movementId: "library:machine-row" },
+] }).ok, false, "contextual relation validation rejects mismatched live identities");
 
 for (const invalidRelation of [
   {
@@ -162,6 +209,7 @@ assert.deepEqual(Engine.canonicalizeModifier(modifier.value), modifier.value);
 assert.deepEqual(Engine.canonicalizeModifiers([modifier.value]), [modifier.value]);
 assert.deepEqual(Engine.canonicalizePrescription(manualPrescription.value), manualPrescription.value);
 assert.equal(Engine.validateModifier({ id: "bad", version: 1, compatibleStrategies: [], params: {} }).ok, false);
+assert.equal(Engine.validateModifier({ id: "bad", version: 1, compatibleStrategies: ["range@1", "range@1"], params: {} }).ok, false, "duplicate modifier compatibility entries are rejected");
 
 assert.equal(Engine.validateSettings(settings).ok, true);
 const normalized = Engine.normalizeHistory(history);

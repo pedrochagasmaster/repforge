@@ -24,6 +24,13 @@
     historySessions: 1000,
     setsPerSession: 100,
   });
+  const CANONICAL_LIMITS = Object.freeze({
+    depth: 32,
+    nodes: 1000,
+    keys: 128,
+    arrayItems: 128,
+    stringLength: 4000,
+  });
 
   const hasOwn = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
   const isFiniteNumber = (value) => typeof value === "number" && Number.isFinite(value);
@@ -179,13 +186,26 @@
 
   // These validators own only the versioned data boundary. They deliberately
   // do not infer pending strategy parameters or execute pending modifiers.
-  function canonicalizeJson(value, path) {
-    if (value === null || typeof value === "string" || typeof value === "boolean") return value;
+  function canonicalizeJson(value, path, state = { nodes: 0 }, depth = 0) {
+    if (++state.nodes > CANONICAL_LIMITS.nodes) throw new TypeError(`${path}: structure too large`);
+    if (depth > CANONICAL_LIMITS.depth) throw new TypeError(`${path}: structure too deep`);
+    if (typeof value === "string") {
+      if (value.length > CANONICAL_LIMITS.stringLength) throw new TypeError(`${path}: string too long`);
+      return value;
+    }
+    if (value === null || typeof value === "boolean") return value;
     if (isFiniteNumber(value)) return value;
-    if (Array.isArray(value)) return value.map((entry, index) => canonicalizeJson(entry, `${path}[${index}]`));
+    if (Array.isArray(value)) {
+      if (value.length > CANONICAL_LIMITS.arrayItems) throw new TypeError(`${path}: too many items`);
+      return value.map((entry, index) => canonicalizeJson(entry, `${path}[${index}]`, state, depth + 1));
+    }
     if (isPlainObject(value)) {
+      if (Object.keys(value).length > CANONICAL_LIMITS.keys) throw new TypeError(`${path}: too many keys`);
       const result = {};
-      for (const key of Object.keys(value).sort()) result[key] = canonicalizeJson(value[key], `${path}.${key}`);
+      for (const key of Object.keys(value).sort()) {
+        const child = canonicalizeJson(value[key], `${path}.${key}`, state, depth + 1);
+        Object.defineProperty(result, key, { value: child, enumerable: true, writable: true, configurable: true });
+      }
       return result;
     }
     throw new TypeError(`${path}: expected JSON-safe value`);
@@ -263,10 +283,12 @@
     );
     if (!envelope.ok) return envelope;
     const issues = [];
-    if (typeof relation.id !== "string" || !relation.id.trim()) issues.push("relation.id: expected non-empty string");
+    const relationId = typeof relation.id === "string" ? relation.id.trim() : "";
+    const movementId = typeof relation.movementId === "string" ? relation.movementId.trim() : "";
+    if (!relationId) issues.push("relation.id: expected non-empty string");
     if (relation.type !== "paired_exposure") issues.push("relation.type: unsupported");
     if (relation.version !== 1) issues.push("relation.version: unsupported");
-    if (typeof relation.movementId !== "string" || !relation.movementId.trim()) {
+    if (!movementId) {
       issues.push("relation.movementId: expected non-empty string");
     }
     if (!Array.isArray(relation.members) || relation.members.length !== 2) {
@@ -287,13 +309,14 @@
       for (const key of unexpectedKeys(member, new Set(["exerciseId", "role"]))) {
         issues.push(`${path}.${key}: unknown key`);
       }
-      if (typeof member.exerciseId !== "string" || !member.exerciseId.trim() || exerciseIds.has(member.exerciseId)) {
+      const exerciseId = typeof member.exerciseId === "string" ? member.exerciseId.trim() : "";
+      if (!exerciseId || exerciseIds.has(exerciseId)) {
         issues.push(`${path}.exerciseId: expected distinct non-empty string`);
-      } else exerciseIds.add(member.exerciseId);
+      } else exerciseIds.add(exerciseId);
       if (member.role !== "heavy" && member.role !== "volume") issues.push(`${path}.role: unsupported`);
       else if (roles.has(member.role)) issues.push(`${path}.role: duplicate`);
       else roles.add(member.role);
-      members.push({ exerciseId: member.exerciseId, role: member.role });
+      members.push({ exerciseId, role: member.role });
     }
     if (!roles.has("heavy") || !roles.has("volume")) issues.push("relation.members: heavy and volume roles required");
     if (issues.length) return validationFailure(issues);
@@ -302,10 +325,10 @@
       ok: true,
       value: {
         schemaVersion: 1,
-        id: relation.id,
+        id: relationId,
         type: "paired_exposure",
         version: 1,
-        movementId: relation.movementId,
+        movementId,
         members,
       },
     };
@@ -321,7 +344,7 @@
     return validateRelation(relation);
   }
 
-  function validateRelations(relations) {
+  function validateRelations(relations, options = {}) {
     if (!Array.isArray(relations)) return validationFailure(["relations: expected array"]);
     const issues = [];
     const ids = new Set();
@@ -345,6 +368,27 @@
       }
       value.push(checked.value);
     }
+    if (Array.isArray(options.slots)) {
+      const liveSlots = new Map();
+      for (const slot of options.slots) {
+        if (!isPlainObject(slot) || typeof slot.id !== "string" || !slot.id.trim()) continue;
+        liveSlots.set(slot.id.trim(), slot);
+      }
+      for (const relation of value) {
+        for (const member of relation.members) {
+          const slot = liveSlots.get(member.exerciseId);
+          if (!slot) {
+            issues.push(`relation.${relation.id}.members: unknown live slot ${member.exerciseId}`);
+            continue;
+          }
+          const liveMovementId = typeof slot.movementId === "string" ? slot.movementId.trim() : "";
+          if (!liveMovementId || liveMovementId !== relation.movementId) {
+            issues.push(`relation.${relation.id}.members: movement identity mismatch for ${member.exerciseId}`);
+          }
+        }
+      }
+    }
+    value.sort((left, right) => left.id < right.id ? -1 : left.id > right.id ? 1 : 0);
     return issues.length ? validationFailure(issues) : { ok: true, value };
   }
 
@@ -364,10 +408,15 @@
     for (const key of unexpectedKeys(modifier, new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]))) {
       issues.push(`modifier.${key}: unknown key`);
     }
-    if (typeof modifier.id !== "string" || !modifier.id.trim()) issues.push("modifier.id: expected non-empty string");
+    const modifierId = typeof modifier.id === "string" ? modifier.id.trim() : "";
+    if (!modifierId) issues.push("modifier.id: expected non-empty string");
     if (!Number.isInteger(modifier.version) || modifier.version < 1) issues.push("modifier.version: expected positive integer");
-    if (!Array.isArray(modifier.compatibleStrategies) || !modifier.compatibleStrategies.length
-      || modifier.compatibleStrategies.some((strategy) => typeof strategy !== "string" || !/^([a-z_]+)@[1-9][0-9]*$/.test(strategy))) {
+    const compatibleStrategies = Array.isArray(modifier.compatibleStrategies)
+      ? modifier.compatibleStrategies.map((strategy) => typeof strategy === "string" ? strategy.trim() : strategy)
+      : [];
+    if (!compatibleStrategies.length
+      || compatibleStrategies.some((strategy) => typeof strategy !== "string" || !/^([a-z_]+)@[1-9][0-9]*$/.test(strategy))
+      || new Set(compatibleStrategies).size !== compatibleStrategies.length) {
       issues.push("modifier.compatibleStrategies: expected non-empty strategy version list");
     }
     if (hasOwn(modifier, "weekNumber") && (!Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1 || modifier.weekNumber > 6)) {
@@ -381,9 +430,9 @@
     const params = canonicalizeChecked(modifier.params, "modifier.params");
     if (!params.ok) return params;
     const value = {
-      id: modifier.id,
+      id: modifierId,
       version: modifier.version,
-      compatibleStrategies: modifier.compatibleStrategies.slice().sort(),
+      compatibleStrategies: compatibleStrategies.slice().sort(),
     };
     if (hasOwn(modifier, "weekNumber")) value.weekNumber = modifier.weekNumber;
     if (hasOwn(modifier, "target")) value.target = modifier.target;
@@ -909,6 +958,7 @@
     STRATEGY_IDS,
     CAPACITY,
     LIMITS,
+    CANONICAL_LIMITS,
     isFiniteNumber,
     clamp,
     median,
