@@ -35,10 +35,10 @@ used to compute the Week chip and adherence context).
 Concretely: a coach exports a program they started on 2026-01-05 and a lifter
 imports it on 2026-07-02 — the lifter's Program tab now claims they are on
 Week 26 of a program they began today, and their `programMeta.id`/`created`
-are silently replaced by the coach's. The PR's own tracker row (PROG-19 in
-`docs/feature-tracker.csv`) states the intent: "shared templates carry a name
-and start **anchor**" — the name should transfer; the recipient's lifecycle
-should not be overwritten by the sender's.
+are silently replaced by the coach's. The accepted program-abstraction
+contract says shared programs carry identity while the recipient owns the
+active lifecycle: the name should transfer, but the recipient's start date and
+local lifecycle must not be overwritten by the sender's.
 
 The confirm dialog also still says "Your training log and settings are not
 touched", which is true, but the user is not told their program name/start

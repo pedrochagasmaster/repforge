@@ -1,4 +1,4 @@
-# Plan 044: measurement, assisted alpha, and staged Pro commercialization
+# Plan 044: measurement, rolling alpha, staged Pro commercialization, and AI Preview
 
 > **Executor warning:** This is a revised sequencing plan, not authorization
 > to implement all phases in one change. Execute only the phase for which the
@@ -15,10 +15,12 @@
   adaptive behavior, and paid entitlement lifecycle.
 - **Depends on:**
   [`ADR 0010`](../docs/adr/0010-product-business-thesis-and-validation-sequencing.md),
+  [`ADR 0011`](../docs/adr/0011-managed-taurifer-ai.md),
+  [`decision register`](../docs/product-grilling-decision-register.md),
   [`business-product-thesis.md`](../docs/business-product-thesis.md), and
-  [`pro-backlog.md`](../docs/pro-backlog.md).
+  [`canonical backlog`](../docs/backlog.md).
 - **Category:** measurement / product validation / monetization.
-- **Revised:** 2026-08-23 owner strategy session.
+- **Revised:** 2026-08-26 after owner decision Q602 and session close.
 
 ## What changed
 
@@ -31,7 +33,8 @@ That implementation sequence is superseded.
 Locked replacements:
 
 - no fake doors or planned-feature affordances inside Taurifer;
-- noncommercial assisted-program alpha before Pro;
+- rolling organic noncommercial program-based alpha before Pro, with normal
+  onboarding and no individual program audit;
 - working Pro MVP before payment;
 - Pro MVP = advanced first-program generation + history-aware next-program
   generation + bounded within-block adaptation;
@@ -41,6 +44,8 @@ Locked replacements:
 - schema-defined events remain the measurement source of truth;
 - free-text feedback uses a separately consented, purpose-specific path and
   never ordinary PostHog capture.
+- managed Taurifer AI is after paid-beta economics, adult/PT-BR-first, and uses
+  a separately governed Preview/research system; AI text never enters PostHog.
 
 This plan now defines gates and contracts. Separate implementation plans must
 specify the engine, family compiler, lifecycle, interventions, UI, PostHog
@@ -81,6 +86,15 @@ integration, feedback service, checkout, and entitlement service.
     de-emphasized allocation intents, with at most two primary muscle groups.
     It does not ask the athlete to estimate volume tolerance or prescribe
     direct set targets during onboarding.
+12. **Family/schedule policy is settled.** Principal families have genuine
+    three-/five-day siblings; generated paths preserve two/six; Home is a
+    limited-equipment family; Foundation is an internal simple-start profile.
+13. **One-offs and multi-gym are explicit.** Free retains useful one-off and
+    substitution behavior. Program-aware one-off planning and multi-gym sibling
+    management may be sold only when working.
+14. **Managed AI is later.** BYOK is superseded. AI work/Preview begins only
+    after paid-beta economics and ADR 0011's provider, legal, privacy,
+    evaluation, allowance, support, and language gates.
 
 ---
 
@@ -88,7 +102,7 @@ integration, feedback service, checkout, and entitlement service.
 
 ### Gate A0 — required product state
 
-Before recruiting the assisted alpha:
+Before recruiting the rolling alpha:
 
 - the initial shared multi-strategy engine and Taurifer-owned program
   families must work;
@@ -101,6 +115,10 @@ Before recruiting the assisted alpha:
 - the participant can report skip, override, session friction,
   pain/discomfort, and exit/transition reasons using structured values;
 - prototype durability limitations and backup behavior are disclosed.
+- the fast-check/model-based lifecycle suite covers onboarding, generation,
+  workouts, progression, skips, stalls, overrides, interruption, abandonment,
+  transition, one-offs, and relevant equipment-context changes; minimized
+  failures become permanent regressions.
 
 ### PostHog implementation contract
 
@@ -136,7 +154,7 @@ reviewed schema versioning.
 | Event | Allowed product properties | Purpose |
 |---|---|---|
 | `app_boot` | `first_run`, `language`, `platform_class` | Reliability/entry |
-| `program_path_selected` | `route` | `generated` / `template` / `manual` / `import` / `shared` |
+| `program_path_selected` | `route` | `recommend` / `custom` / `browse` / `build` / `import` / `shared` |
 | `generator_started` | `mode` | Baseline or working Pro only |
 | `generator_completed` | closed goal/frequency/family enums | Activation; no program contents |
 | `template_selected` | versioned family category | Template route |
@@ -147,6 +165,9 @@ reviewed schema versioning.
 | `recommendation_overridden` | closed reason if supplied | Trust/problem signal |
 | `exercise_skipped` | closed context, no exercise id | Pattern vocabulary |
 | `substitution_used` | closed reason | Constraint signal |
+| `equipment_context_selected` | context count bucket, no name | Multi-gym behavior |
+| `one_off_started` | closed kind/time/equipment buckets | Temporary-training demand |
+| `one_off_completed` | closed kind/duration bucket | Honest off-program use |
 | `session_completed` | coarse counts and duration bucket | Retention/reliability |
 | `session_abandoned` | closed stage/reason | Friction |
 | `session_summary_viewed` | — | Completion flow |
@@ -160,6 +181,10 @@ reviewed schema versioning.
 | `purchase_completed` | monthly/annual, reconciliation result | Commercial beta only |
 | `entitlement_restored` | monthly/annual | Commercial beta only |
 | `refund_recorded` | monthly/annual | Commercial beta only |
+| `ai_preview_joined` | wave/version category | Phase E only; no text |
+| `ai_proposal_shown` | risk/outcome category | Phase E only; no text |
+| `ai_proposal_decided` | accept/edit/reject/snooze | Phase E only; no text |
+| `ai_proposal_outcome` | retain/revise/reverse/more-evidence | Phase E only; no text |
 
 Closed enums and coarse counts are reviewed against the shadow-database
 boundary. Do not transmit library ids or stable exercise ids merely because
@@ -167,7 +192,7 @@ they are convenient.
 
 ### Measurement hierarchy
 
-The assisted alpha scorecard is hierarchical:
+The rolling alpha scorecard is hierarchical:
 
 1. **Guardrail — speed and reliability:** fast logging and no lost workouts.
 2. **Mechanism — progression trust:** users understand and trust the next
@@ -205,22 +230,24 @@ If the purpose-specific path and controls do not exist, the text remains local.
 
 ---
 
-## Phase B — Noncommercial assisted-program alpha
+## Phase B — Noncommercial rolling program-based alpha
 
-### Cohort
+### Recruitment and clocks
 
-Recruit approximately 8–12 Brazil-based, PT-BR-comfortable self-directed
-lifters who:
+Recruit organically one person at a time through the solo founder's direct
+network and social posts. Eight to twelve participants is a useful milestone,
+not a synchronized cohort, selection quota, or launch gate. Taurifer does not
+assume it can balance participants by maturity, goal, or schedule.
 
-- train resistance exercise at least three times weekly;
-- want Taurifer to create/adapt a coherent hypertrophy or general-strength
-  program;
-- can commit to roughly six weeks;
-- are willing to complete structured check-ins.
+Participants self-select and use the normal onboarding, random installation
+identifier, and available Recommend, Custom, or Browse path. BYOP may appear as
+a secondary migration path. Each participant has an approximately six-week
+clock; read each hypothesis when its relevant denominator exists. Churn,
+interruption, and incomplete programs are expected evidence.
 
-Do not require them to bring a program. Provision a Taurifer-generated or
-Taurifer-template program with human review behind the scenes. BYOP users may
-appear as a small secondary migration cohort but do not define the alpha.
+Before recruitment, review the underlying family designs, rules,
+representative synthetic programs, and generated/model-based regressions. Do
+not inspect, approve, badge, or repair each participant's individual program.
 
 ### Alpha boundaries
 
@@ -229,12 +256,11 @@ appear as a small secondary migration cohort but do not define the alpha.
 - no public launch claim;
 - no stable Free/Pro entitlement promise;
 - no in-product future-feature concepts;
-- no claim that assisted provisioning validates automated generation quality;
 - no claim that the alpha validates willingness to pay.
 
 ### Alpha outputs
 
-By the end of the alpha, determine:
+Across rolling evidence milestones, determine:
 
 - whether logging is sufficiently fast and reliable;
 - whether users understand and trust recommendations;
@@ -346,6 +372,84 @@ without cohort qualification.
 
 ---
 
+## Phase E — Managed Taurifer AI Preview (after paid-beta economics)
+
+Phase E is blocked until Phase D demonstrates credible paid economics and a
+successor AI implementation plan satisfies ADR 0011. AI is not a shortcut for
+weak deterministic Pro value.
+
+### Gate E0 — legal, provider, and product readiness
+
+Before the first Preview request:
+
+- Brazilian privacy counsel has reviewed purpose, consent, deletion,
+  international transfer, provider contracts, and support/research access;
+- Taurifer account, conversation, and research storage is EU-hosted;
+- primary and backup providers pass Taurifer-specific safety/correctness gates,
+  contractually retain/train on no data, and have disclosed processing regions;
+- model, prompt, knowledge, rule, redaction, and provider versions are recorded
+  and rollbackable;
+- protected holdouts, generated/model-based cases, founder cases, and consented
+  real cases pass predeclared numeric safety, privacy, program, quality,
+  latency, cost, outcome, and support thresholds;
+- emergency global disable, master user disable, outage fallback, stale-
+  proposal handling, rollback, deletion, export, and lapse behavior pass;
+- ordinary-question and program-review allowances are published from measured
+  cost and representative journeys;
+- English AI actions are absent; PT-BR copy and common English exercise-term
+  handling pass review.
+
+### Preview access and commercial interpretation
+
+- Eligible adult PT-BR Pro users opt in through controlled waves. A full wave
+  offers a free waiting list with no promised date; pause at founder support or
+  evaluation capacity.
+- AI is described as a separate Preview, not a generally available Pro purchase
+  entitlement. Checkout sells only working stable Pro capabilities.
+- A user who reaches a real paywall and shows purchase intent may receive
+  complementary access through the next major program decision, capped at
+  twelve weeks.
+- Completed purchases, purchase attempts, complementary grants, waitlist,
+  Preview activation, and AI use are distinct funnels. Only payment is
+  conversion/revenue.
+- Participants use normal onboarding. Brief checkpoint feedback and a closing
+  interview are optional.
+
+### AI analytics and research separation
+
+PostHog receives only the allowlisted text-free AI events in Phase A. It never
+receives prompts, answers, proposal text, comments, remembered items, reports,
+local evidence, or research identifiers.
+
+Required processing is explained at AI setup. Improvement sharing is invited
+after a successful answer and uses:
+
+- one global switch for future sharing;
+- one-time sharing without changing that switch;
+- selective retrospective sharing;
+- contextual extra permission for sensitive conversations;
+- a Shared conversations inventory with deletion/expiry status;
+- redaction before separately credentialed research storage;
+- no copy when safe redaction is uncertain;
+- pseudonymous research subject ID with separate deletion mapping;
+- raw research retention of at most twelve months and service/research deletion
+  propagation;
+- no person-level join to PostHog.
+
+Serious support reports share raw conversation only by explicit choice. Access
+is temporary/logged; status is Received/Investigating/Closed; deletion occurs
+within thirty days after closure and no later than 180 days after submission.
+
+### Preview graduation
+
+PT-BR graduates only when the predeclared Gate E0 thresholds remain satisfied
+under real waves, harmful/reverted proposals are rare and investigated,
+cost/latency are stable, useful outcomes are demonstrated, and support is
+manageable. Roll out progressively and retain emergency disable. English earns
+an independent evaluation and release.
+
+---
+
 ## Research without fake doors
 
 Permitted:
@@ -387,6 +491,15 @@ Not permitted:
   thresholds.
 - STOP if Phase 2 platform architecture is introduced without satisfying ADR
   0010's evidence gates or receiving a separate owner decision.
+- STOP if alpha operation introduces a research-only onboarding, handpicked
+  program assignment, or individual participant program audit.
+- STOP if BYOK, browser-direct provider keys, or Plan 038 is treated as the
+  current AI implementation path.
+- STOP if AI work begins before paid-beta economics or is represented as a
+  generally available Pro purchase capability during limited Preview.
+- STOP if provider retention/training is nonzero, AI text enters PostHog,
+  research is joined to analytics at person level, redaction occurs after the
+  research write, or English AI ships without independent evaluation.
 
 ---
 
@@ -406,6 +519,11 @@ Every implementation plan derived from Plan 044 must include:
 - PT-BR and English copy review;
 - light/dark UI catalog regeneration for any changed surface;
 - an explicit statement of which phase gate the change satisfies.
+- model-based lifecycle journeys for any changed generator, one-off,
+  equipment-context, intervention, entitlement, or AI proposal flow;
+- for AI successors: provider/knowledge/version rollback, zero-retention,
+  consent/redaction/deletion, support-retention, allowance, language, outage,
+  stale-proposal, and emergency-disable tests.
 
 Plan 044 is complete only when its successor plans and evidence gates have
 carried Taurifer through the paid commercial beta. It is not a single PR.

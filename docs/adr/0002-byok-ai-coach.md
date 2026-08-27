@@ -1,5 +1,13 @@
 # BYOK AI coach supersedes the "no AI coach" rejection
 
+**Status:** Superseded on August 26, 2026 by
+[`ADR 0011 — Managed Taurifer AI`](0011-managed-taurifer-ai.md)
+
+This ADR is retained as historical decision context. Do not implement BYOK,
+browser-direct provider calls, custom endpoints, Ollama, or user-supplied API
+keys. The current product decision is managed, product-routed Taurifer AI after
+the deterministic paid-beta sequencing gate.
+
 The improvement-plan guardrails (`plans/README.md`) rejected "AI coaching
 chat, auto-generated programs" by persona consensus, largely because the
 imagined shapes betrayed local-first: a cloud coach, accounts, a backend.

@@ -1,6 +1,8 @@
 # Program abstraction — design note
 
-> **Status**: Accepted (Phase 0 + Phase 1 implementation).
+> **Status**: Accepted description of the shipped single-active-program model;
+> not a roadmap. Future family/library work is tracked only in
+> [`docs/backlog.md`](../backlog.md).
 > **Related**: [`CONTEXT.md`](../../CONTEXT.md), ADR [`0001-program-metadata-sibling-key.md`](../adr/0001-program-metadata-sibling-key.md), plan 024 mesocycle blocks (orthogonal).
 
 ## Problem
@@ -11,7 +13,7 @@ The Program tab edits exercise templates but the split has no identity: no name,
 
 | Topic | Choice |
 |-------|--------|
-| Multi-program library | Deferred (Phase 3 backlog) |
+| Program ownership | One active editable instance plus archived program history; future Taurifer families/library follow the canonical backlog |
 | Metadata placement | Sibling `state.programMeta` |
 | Exercise storage | Unchanged `state.program: Exercise[]` |
 | Primary progress metric | **Adherence** — unique program days logged in last 7 days |

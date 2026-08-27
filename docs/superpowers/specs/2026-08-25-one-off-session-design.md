@@ -7,7 +7,7 @@
 > workout** on Today.
 > **Strategic context:**
 > [`docs/product-grilling-decision-register.md`](../../product-grilling-decision-register.md),
-> [`docs/pro-backlog.md`](../../pro-backlog.md), and
+> [`docs/backlog.md`](../../backlog.md), and
 > [`ADR 0010`](../../adr/0010-product-business-thesis-and-validation-sequencing.md).
 
 ## 1. Summary
@@ -873,17 +873,12 @@ The feature is complete when:
 11. Free routes are genuinely usable and no unavailable Pro capability is
     presented as a working action.
 
-## 20. Deferred follow-ups
+## 20. Follow-up boundary
 
-- Saved gym/location equipment presets.
-- Repeating or saving a one-off as a reusable personal session template.
-- A true two-athlete buddy session built from both users' constraints and
-  programs.
-- Explicit progression credit for a program-mix exercise. This would require a
-  separate design for slot-level equivalence and partial program completion.
-- Program-fit detection based on repeated use of one-offs. That belongs to the
-  bounded Pro intervention system and must distinguish temporary disruption
-  from persistent schedule mismatch.
-- Automatically proposing a permanent program change from travel or one busy
-  week.
-- Syncing one-off drafts or sessions across devices.
+The [`canonical backlog`](../../backlog.md) owns all follow-up sequencing.
+Equipment contexts, program-fit interventions, and optional sync are already
+tracked there behind their proper gates.
+
+Reusable one-off templates, a two-athlete optimizer, and progression credit for
+pure one-offs are not authorized by this specification. They require a new
+product decision; they must not appear as incidental implementation scope.

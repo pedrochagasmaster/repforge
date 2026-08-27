@@ -1,5 +1,10 @@
 # Plan 041: Remediate every launch-readiness finding before release
 
+> **IMPLEMENTED IN PR #114; PHYSICAL-DEVICE EVIDENCE PENDING.** Do not execute
+> the remediation steps again. The only open item from this plan is the exact
+> iOS/VoiceOver and Android/TalkBack evidence matrix recorded in its final gate
+> and in [`docs/backlog.md`](../docs/backlog.md).
+>
 > **Executor instructions**: This plan implements every retained finding in
 > `plans/040-launch-readiness-ui-ux-audit.md`. Follow the steps in order. Run
 > each step's verification and keep every commit green before continuing. If a
@@ -29,7 +34,8 @@
   provenance only; this plan is executable without reading it)
 - **Category**: correctness / accessibility / performance / docs / UX
 - **Planned at**: commit `a909933`, 2026-08-13
-- **Implementation status**: TODO
+- **Implementation status**: IMPLEMENTED; manual physical-device release
+  evidence pending
 
 ## Why this matters
 

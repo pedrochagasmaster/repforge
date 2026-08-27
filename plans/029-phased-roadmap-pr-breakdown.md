@@ -1,5 +1,10 @@
 # Plan 029: Phased roadmap — PR breakdown & dependency structure
 
+> **HISTORICAL — DO NOT USE FOR CURRENT SEQUENCING.** Its child work shipped
+> or was superseded. The only current queue is
+> [`docs/backlog.md`](../docs/backlog.md); this file remains as decomposition
+> history.
+>
 > **Meta-plan (roadmap), not a single executable plan.** It slices the
 > four-phase RepForge implementation plan (Phase 1.1 session deltas, Phase 2
 > onboarding + mesocycle lifecycle, Phase 3 analytics upgrade, Phase 4 command
