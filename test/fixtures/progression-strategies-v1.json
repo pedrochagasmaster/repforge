@@ -48,7 +48,9 @@
             "kind": "recommendation",
             "status": "new",
             "legacyStatus": "new",
-            "reasonCodes": ["range.no_history"],
+            "reasonCodes": [
+              "range.no_history"
+            ],
             "targetLoad": null,
             "targetReps": 6
           }
@@ -61,8 +63,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 6, "rir": 3},
-                {"load": 100, "reps": 6, "rir": 3}
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 3
+                },
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 3
+                }
               ]
             }
           ],
@@ -70,7 +80,10 @@
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add",
-            "reasonCodes": ["range.capacity_top", "range.reentry"],
+            "reasonCodes": [
+              "range.capacity_top",
+              "range.reentry"
+            ],
             "targetLoad": 102.5,
             "targetReps": 6,
             "capacityReps": 9
@@ -84,8 +97,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 6, "rir": 6},
-                {"load": 100, "reps": 6, "rir": 6}
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 6
+                },
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 6
+                }
               ]
             }
           ],
@@ -93,7 +114,10 @@
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add",
-            "reasonCodes": ["range.capacity_top", "range.reentry"],
+            "reasonCodes": [
+              "range.capacity_top",
+              "range.reentry"
+            ],
             "targetLoad": 102.5,
             "targetReps": 6,
             "capacityReps": 10
@@ -102,15 +126,29 @@
         {
           "id": "range-performed-top-never-retracted",
           "approval": "locked",
-          "overrides": {"prescription.strategy.params.workingSets": 3},
+          "overrides": {
+            "prescription.strategy.params.workingSets": 3
+          },
           "history": [
             {
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 8, "rir": 0},
-                {"load": 100, "reps": 8, "rir": 0},
-                {"load": 100, "reps": 8, "rir": 0}
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 0
+                }
               ]
             }
           ],
@@ -118,7 +156,10 @@
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add",
-            "reasonCodes": ["range.performed_top", "range.reentry"],
+            "reasonCodes": [
+              "range.performed_top",
+              "range.reentry"
+            ],
             "targetLoad": 102.5,
             "targetReps": 7,
             "capacityReps": 8
@@ -127,15 +168,29 @@
         {
           "id": "range-near-top-majority",
           "approval": "locked",
-          "overrides": {"prescription.strategy.params.workingSets": 3},
+          "overrides": {
+            "prescription.strategy.params.workingSets": 3
+          },
           "history": [
             {
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 8, "rir": 0},
-                {"load": 100, "reps": 8, "rir": 0},
-                {"load": 100, "reps": 7, "rir": 0}
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 0
+                }
               ]
             }
           ],
@@ -143,7 +198,10 @@
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add",
-            "reasonCodes": ["range.performed_top", "range.reentry"],
+            "reasonCodes": [
+              "range.performed_top",
+              "range.reentry"
+            ],
             "targetLoad": 102.5,
             "targetReps": 7,
             "capacityReps": 8
@@ -157,8 +215,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 7, "rir": 4},
-                {"load": 100, "reps": 7, "rir": 4}
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 4
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 4
+                }
               ]
             }
           ],
@@ -166,7 +232,10 @@
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add2",
-            "reasonCodes": ["range.capacity_top_double", "range.reentry"],
+            "reasonCodes": [
+              "range.capacity_top_double",
+              "range.reentry"
+            ],
             "targetLoad": 105,
             "targetReps": 6,
             "capacityReps": 11
@@ -180,8 +249,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 5, "rir": 0},
-                {"load": 100, "reps": 5, "rir": 0}
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 0
+                }
               ]
             }
           ],
@@ -189,7 +266,10 @@
             "kind": "recommendation",
             "status": "reduce",
             "legacyStatus": "reduce",
-            "reasonCodes": ["range.below_floor", "range.reentry"],
+            "reasonCodes": [
+              "range.below_floor",
+              "range.reentry"
+            ],
             "targetLoad": 97.5,
             "targetReps": 6,
             "capacityReps": 5
@@ -203,8 +283,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 5, "rir": 2},
-                {"load": 100, "reps": 5, "rir": 2}
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 2
+                }
               ]
             }
           ],
@@ -212,7 +300,9 @@
             "kind": "recommendation",
             "status": "hold",
             "legacyStatus": "hold",
-            "reasonCodes": ["range.capacity_room"],
+            "reasonCodes": [
+              "range.capacity_room"
+            ],
             "targetLoad": 100,
             "targetReps": 6,
             "capacityReps": 7
@@ -226,8 +316,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 6, "rir": 0},
-                {"load": 100, "reps": 6, "rir": 0}
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 0
+                }
               ]
             }
           ],
@@ -235,7 +333,9 @@
             "kind": "recommendation",
             "status": "hold",
             "legacyStatus": "hold",
-            "reasonCodes": ["range.room_in_range"],
+            "reasonCodes": [
+              "range.room_in_range"
+            ],
             "targetLoad": 100,
             "targetReps": 7,
             "capacityReps": 6
@@ -249,8 +349,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 100, "reps": 6, "rir": 2},
-                {"load": 100, "reps": 6, "rir": 2}
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 2
+                }
               ]
             }
           ],
@@ -258,7 +366,9 @@
             "kind": "recommendation",
             "status": "hold",
             "legacyStatus": "hold",
-            "reasonCodes": ["range.capacity_room"],
+            "reasonCodes": [
+              "range.capacity_room"
+            ],
             "targetLoad": 100,
             "targetReps": 7,
             "capacityReps": 8
@@ -272,8 +382,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 20, "reps": 8, "rir": 0},
-                {"load": 20, "reps": 8, "rir": 0}
+                {
+                  "load": 20,
+                  "reps": 8,
+                  "rir": 0
+                },
+                {
+                  "load": 20,
+                  "reps": 8,
+                  "rir": 0
+                }
               ]
             }
           ],
@@ -281,7 +399,10 @@
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add",
-            "reasonCodes": ["range.performed_top", "range.reentry"],
+            "reasonCodes": [
+              "range.performed_top",
+              "range.reentry"
+            ],
             "targetLoad": 22.5,
             "targetReps": 6,
             "capacityReps": 8
@@ -295,8 +416,16 @@
               "sessionId": "s1",
               "date": "2026-01-01",
               "sets": [
-                {"load": 101, "reps": 6, "rir": 0},
-                {"load": 101, "reps": 6, "rir": 0}
+                {
+                  "load": 101,
+                  "reps": 6,
+                  "rir": 0
+                },
+                {
+                  "load": 101,
+                  "reps": 6,
+                  "rir": 0
+                }
               ]
             }
           ],
@@ -304,7 +433,11 @@
             "kind": "recommendation",
             "status": "hold",
             "legacyStatus": "hold",
-            "reasonCodes": ["range.room_in_range", "range.grid_rounded", "range.reentry"],
+            "reasonCodes": [
+              "range.room_in_range",
+              "range.grid_rounded",
+              "range.reentry"
+            ],
             "targetLoad": 100,
             "targetReps": 6,
             "capacityReps": 6
@@ -314,15 +447,62 @@
           "id": "range-three-session-stall",
           "approval": "locked",
           "history": [
-            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 6, "rir": 1}, {"load": 100, "reps": 6, "rir": 1}]},
-            {"sessionId": "s2", "date": "2026-01-08", "sets": [{"load": 100, "reps": 6, "rir": 1}, {"load": 100, "reps": 6, "rir": 1}]},
-            {"sessionId": "s3", "date": "2026-01-15", "sets": [{"load": 100, "reps": 6, "rir": 1}, {"load": 100, "reps": 6, "rir": 1}]}
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 1
+                }
+              ]
+            },
+            {
+              "sessionId": "s2",
+              "date": "2026-01-08",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 1
+                }
+              ]
+            },
+            {
+              "sessionId": "s3",
+              "date": "2026-01-15",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 6,
+                  "rir": 1
+                }
+              ]
+            }
           ],
           "expected": {
             "kind": "recommendation",
             "status": "recalibrate",
             "legacyStatus": "reduce",
-            "reasonCodes": ["range.stalled"],
+            "reasonCodes": [
+              "range.stalled"
+            ],
             "targetLoad": 100,
             "targetReps": 6,
             "capacityReps": 7
@@ -332,14 +512,46 @@
           "id": "range-two-session-recovery",
           "approval": "locked",
           "history": [
-            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 0}, {"load": 100, "reps": 7, "rir": 0}]},
-            {"sessionId": "s2", "date": "2026-01-08", "sets": [{"load": 100, "reps": 7, "rir": 0}, {"load": 100, "reps": 7, "rir": 0}]}
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 0
+                }
+              ]
+            },
+            {
+              "sessionId": "s2",
+              "date": "2026-01-08",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 0
+                }
+              ]
+            }
           ],
           "expected": {
             "kind": "recommendation",
             "status": "hold",
             "legacyStatus": "hold",
-            "reasonCodes": ["range.recovery"],
+            "reasonCodes": [
+              "range.recovery"
+            ],
             "targetLoad": 100,
             "targetReps": 7,
             "capacityReps": 7
@@ -348,17 +560,68 @@
         {
           "id": "range-falling-block-tempers-double-jump",
           "approval": "locked",
-          "overrides": {"context.blockStart": "2026-01-01"},
+          "overrides": {
+            "context.blockStart": "2026-01-01"
+          },
           "history": [
-            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 10, "rir": 0}, {"load": 100, "reps": 10, "rir": 0}]},
-            {"sessionId": "s2", "date": "2026-01-08", "sets": [{"load": 100, "reps": 8, "rir": 0}, {"load": 100, "reps": 8, "rir": 0}]},
-            {"sessionId": "s3", "date": "2026-01-15", "sets": [{"load": 100, "reps": 7, "rir": 4}, {"load": 100, "reps": 7, "rir": 4}]}
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 0
+                }
+              ]
+            },
+            {
+              "sessionId": "s2",
+              "date": "2026-01-08",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 0
+                }
+              ]
+            },
+            {
+              "sessionId": "s3",
+              "date": "2026-01-15",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 4
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 4
+                }
+              ]
+            }
           ],
           "expected": {
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add",
-            "reasonCodes": ["range.capacity_top_double", "range.block_tempered", "range.reentry"],
+            "reasonCodes": [
+              "range.capacity_top_double",
+              "range.block_tempered",
+              "range.reentry"
+            ],
             "targetLoad": 102.5,
             "targetReps": 8,
             "capacityReps": 11
@@ -368,16 +631,37 @@
           "id": "range-current-set-holds",
           "approval": "locked",
           "history": [
-            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                }
+              ]
+            }
           ],
           "currentSession": [
-            {"load": 100, "reps": 8, "rir": 1}
+            {
+              "load": 100,
+              "reps": 8,
+              "rir": 1
+            }
           ],
           "expected": {
             "kind": "recommendation",
             "status": "hold",
             "legacyStatus": "hold",
-            "reasonCodes": ["range.current_hold"],
+            "reasonCodes": [
+              "range.current_hold"
+            ],
             "targetLoad": 100,
             "targetReps": 8,
             "capacityReps": 9
@@ -387,17 +671,43 @@
           "id": "range-current-set-observed-drop",
           "approval": "locked",
           "history": [
-            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                }
+              ]
+            }
           ],
           "currentSession": [
-            {"load": 100, "reps": 8, "rir": 1},
-            {"load": 100, "reps": 7, "rir": 1}
+            {
+              "load": 100,
+              "reps": 8,
+              "rir": 1
+            },
+            {
+              "load": 100,
+              "reps": 7,
+              "rir": 1
+            }
           ],
           "expected": {
             "kind": "recommendation",
             "status": "hold",
             "legacyStatus": "hold",
-            "reasonCodes": ["range.current_hold", "range.current_drop"],
+            "reasonCodes": [
+              "range.current_hold",
+              "range.current_drop"
+            ],
             "targetLoad": 100,
             "targetReps": 6,
             "capacityReps": 7.025641
@@ -407,16 +717,38 @@
           "id": "range-current-set-advances",
           "approval": "locked",
           "history": [
-            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                }
+              ]
+            }
           ],
           "currentSession": [
-            {"load": 100, "reps": 8, "rir": 3}
+            {
+              "load": 100,
+              "reps": 8,
+              "rir": 3
+            }
           ],
           "expected": {
             "kind": "recommendation",
             "status": "advance",
             "legacyStatus": "add",
-            "reasonCodes": ["range.current_advance", "range.reentry"],
+            "reasonCodes": [
+              "range.current_advance",
+              "range.reentry"
+            ],
             "targetLoad": 102.5,
             "targetReps": 8,
             "capacityReps": 11
@@ -426,16 +758,38 @@
           "id": "range-current-set-reduces",
           "approval": "locked",
           "history": [
-            {"sessionId": "s1", "date": "2026-01-01", "sets": [{"load": 100, "reps": 7, "rir": 1}, {"load": 100, "reps": 7, "rir": 1}]}
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 7,
+                  "rir": 1
+                }
+              ]
+            }
           ],
           "currentSession": [
-            {"load": 100, "reps": 5, "rir": 0}
+            {
+              "load": 100,
+              "reps": 5,
+              "rir": 0
+            }
           ],
           "expected": {
             "kind": "recommendation",
             "status": "reduce",
             "legacyStatus": "reduce",
-            "reasonCodes": ["range.current_reduce", "range.reentry"],
+            "reasonCodes": [
+              "range.current_reduce",
+              "range.reentry"
+            ],
             "targetLoad": 97.5,
             "targetReps": 6,
             "capacityReps": 5
@@ -444,55 +798,1712 @@
       ]
     },
     "rep_goal@1": {
-      "approval": "pending",
-      "requiredDecisions": [
-        "total-goal advancement at the effort boundary",
-        "post-advance distribution policy",
-        "partial-session expected set drop",
-        "missed and extra-set treatment",
-        "bodyweight and load-rounding behavior"
+      "approval": "locked",
+      "source": [
+        "docs/progression-strategy-contract.md",
+        "owner approval 2026-08-27: Wave 2 Plan 046 numeric gate"
       ],
-      "cases": []
+      "distributionPolicy": {
+        "id": "balanced_frontload_v1",
+        "note": "Even split; the remainder lands on the earlier sets; every set is clamped to [repFloor, repCeiling].",
+        "vectors": [
+          {
+            "total": 30,
+            "sets": 3,
+            "repFloor": 6,
+            "repCeiling": 12,
+            "expected": [
+              10,
+              10,
+              10
+            ]
+          },
+          {
+            "total": 31,
+            "sets": 3,
+            "repFloor": 6,
+            "repCeiling": 12,
+            "expected": [
+              11,
+              10,
+              10
+            ]
+          },
+          {
+            "total": 32,
+            "sets": 3,
+            "repFloor": 6,
+            "repCeiling": 12,
+            "expected": [
+              11,
+              11,
+              10
+            ]
+          },
+          {
+            "total": 25,
+            "sets": 3,
+            "repFloor": 6,
+            "repCeiling": 12,
+            "expected": [
+              9,
+              8,
+              8
+            ]
+          }
+        ]
+      },
+      "defaults": {
+        "prescription": {
+          "schemaVersion": 1,
+          "strategy": {
+            "id": "rep_goal",
+            "version": 1,
+            "params": {
+              "workingSets": 3,
+              "repGoal": 30,
+              "repFloor": 6,
+              "repCeiling": 12,
+              "targetRirMin": 1,
+              "targetRirMax": 3,
+              "minLoadIncrement": 2.5,
+              "jumpPercent": 2.5,
+              "distributionPolicy": "balanced_frontload_v1"
+            }
+          },
+          "modifiers": []
+        },
+        "settings": {
+          "minLoadIncrement": 2.5,
+          "jumpPercent": 2.5,
+          "hardRir": 4
+        },
+        "relation": null,
+        "modifiers": [],
+        "currentSession": [],
+        "context": {
+          "weekNumber": 1,
+          "blockLength": 6,
+          "blockStart": null
+        }
+      },
+      "cases": [
+        {
+          "id": "rep-goal-no-history",
+          "approval": "locked",
+          "note": "No comparable evidence prescribes the authored distribution with no invented load.",
+          "history": [],
+          "expected": {
+            "kind": "recommendation",
+            "status": "new",
+            "reasonCodes": [
+              "rep_goal.no_history"
+            ],
+            "sets": [
+              {
+                "role": "working",
+                "load": null,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": null,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": null,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-goal-met-advances",
+          "approval": "locked",
+          "note": "Authored total earned at acceptable effort advances one load step.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "reasonCodes": [
+              "rep_goal.goal_met",
+              "rep_goal.advance"
+            ],
+            "capacityReps": 12,
+            "sets": [
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-effort-too-high-holds",
+          "approval": "locked",
+          "note": "The total is earned but median trusted RIR is under the authored floor, so load holds.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 0
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.goal_met",
+              "rep_goal.effort_too_high"
+            ],
+            "capacityReps": 10,
+            "sets": [
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-incomplete-session-holds",
+          "approval": "locked",
+          "note": "Fewer than the authored working sets cannot earn the goal.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.progress"
+            ],
+            "capacityReps": 12,
+            "sets": [
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-extra-set-does-not-earn",
+          "approval": "locked",
+          "note": "A fourth unplanned set is evidence only; the first three authored sets decide.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 1
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "reasonCodes": [
+              "rep_goal.goal_met",
+              "rep_goal.advance"
+            ],
+            "capacityReps": 12,
+            "sets": [
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-off-grid-advance-snaps",
+          "approval": "locked",
+          "note": "An off-grid reference load advances and snaps deterministically to the actionable grid.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 101,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 101,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 101,
+                  "reps": 10,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "reasonCodes": [
+              "rep_goal.goal_met",
+              "rep_goal.advance",
+              "rep_goal.grid_rounded"
+            ],
+            "capacityReps": 12,
+            "sets": [
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 102.5,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-goal-miss-holds",
+          "approval": "locked",
+          "note": "Missing the total once holds load; it never reduces on that evidence alone.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 8,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.progress"
+            ],
+            "capacityReps": 10,
+            "sets": [
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-capacity-below-floor-reduces",
+          "approval": "locked",
+          "note": "Capacity below the authored per-set floor reduces exactly one grid step.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 0
+                },
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 0
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "reduce",
+            "reasonCodes": [
+              "rep_goal.capacity_below_floor"
+            ],
+            "capacityReps": 5,
+            "sets": [
+              {
+                "role": "working",
+                "load": 97.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 97.5,
+                "reps": 10
+              },
+              {
+                "role": "working",
+                "load": 97.5,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-rebuild-after-advance",
+          "approval": "locked",
+          "note": "After a large authored jump the goal is rebuilt toward, never rewritten.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 1
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 1
+                }
+              ]
+            }
+          ],
+          "overrides": {
+            "prescription.strategy.params": {
+              "jumpPercent": 10
+            }
+          },
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "reasonCodes": [
+              "rep_goal.goal_met",
+              "rep_goal.advance",
+              "rep_goal.rebuild_after_advance"
+            ],
+            "capacityReps": 11,
+            "sets": [
+              {
+                "role": "working",
+                "load": 110,
+                "reps": 7
+              },
+              {
+                "role": "working",
+                "load": 110,
+                "reps": 7
+              },
+              {
+                "role": "working",
+                "load": 110,
+                "reps": 7
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-current-remaining-goal",
+          "approval": "locked",
+          "note": "A partial session distributes only the remaining goal across untouched authored sets.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 11,
+              "rir": 3
+            },
+            {
+              "load": 100,
+              "reps": 10,
+              "rir": 3
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.current_progress",
+              "rep_goal.current_drop"
+            ],
+            "sets": [
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 9
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-current-drop-clamps-distribution",
+          "approval": "locked",
+          "note": "The bounded observed drop shapes the remaining distribution but never the authored total.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 11,
+              "rir": 2
+            },
+            {
+              "load": 100,
+              "reps": 9,
+              "rir": 1
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.current_progress",
+              "rep_goal.current_drop",
+              "rep_goal.partial_distribution"
+            ],
+            "sets": [
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 8
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-current-floor-applies",
+          "approval": "locked",
+          "note": "An exact remaining goal equal to the authored floor is prescribed as authored.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 12,
+              "rir": 3
+            },
+            {
+              "load": 100,
+              "reps": 12,
+              "rir": 3
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.current_progress"
+            ],
+            "sets": [
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 6
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-current-remainder-below-floor",
+          "approval": "locked",
+          "note": "A remaining goal below the authored floor is raised to the floor, never below it.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 12,
+              "rir": 3
+            },
+            {
+              "load": 100,
+              "reps": 13,
+              "rir": 3
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.current_progress",
+              "rep_goal.partial_distribution"
+            ],
+            "sets": [
+              {
+                "role": "working",
+                "load": 100,
+                "reps": 6
+              }
+            ]
+          }
+        },
+        {
+          "id": "rep-goal-current-session-complete",
+          "approval": "locked",
+          "note": "With every authored set complete the strategy prescribes no further set.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 10,
+              "rir": 2
+            },
+            {
+              "load": 100,
+              "reps": 10,
+              "rir": 2
+            },
+            {
+              "load": 100,
+              "reps": 10,
+              "rir": 2
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "rep_goal.goal_met"
+            ],
+            "sets": []
+          }
+        },
+        {
+          "id": "rep-goal-bodyweight-incompatible",
+          "approval": "locked",
+          "note": "Bodyweight-only load semantics are not executable; the engine offers manual@1 instead of inventing external load.",
+          "history": [],
+          "overrides": {
+            "prescription.strategy.params": {
+              "loadMode": "bodyweight"
+            }
+          },
+          "expected": {
+            "kind": "incompatible",
+            "status": "manual",
+            "reasonCodes": [
+              "rep_goal.bodyweight_incompatible"
+            ],
+            "sets": []
+          }
+        },
+        {
+          "id": "rep-goal-invalid-distribution",
+          "approval": "locked",
+          "note": "A goal outside workingSets x [repFloor, repCeiling] is an unsatisfiable prescription, not a strategy decision.",
+          "history": [],
+          "overrides": {
+            "prescription.strategy.params": {
+              "repGoal": 50
+            }
+          },
+          "expected": {
+            "kind": "invalid",
+            "status": "manual",
+            "reasonCodes": [
+              "rep_goal.invalid_distribution"
+            ],
+            "sets": []
+          }
+        }
+      ]
     },
     "anchor_backoff@1": {
-      "approval": "pending",
-      "requiredDecisions": [
-        "back-off derivation rule and bounds",
-        "anchor advancement and failed-anchor response",
-        "missing-anchor fallback",
-        "back-off rounding and bodyweight behavior"
+      "approval": "locked",
+      "source": [
+        "docs/progression-strategy-contract.md",
+        "owner approval 2026-08-27: Wave 2 Plan 046 numeric gate"
       ],
-      "cases": []
+      "derivationMethod": {
+        "id": "percentage_of_anchor_load_v1",
+        "backoffPercentRange": [
+          0.7,
+          0.95
+        ],
+        "note": "Back-off load is the anchor load times the authored percentage, snapped to the actionable grid. No effort-derived percentage exists in v1."
+      },
+      "defaults": {
+        "prescription": {
+          "schemaVersion": 1,
+          "strategy": {
+            "id": "anchor_backoff",
+            "version": 1,
+            "params": {
+              "anchorRepMin": 3,
+              "anchorRepMax": 5,
+              "anchorTargetRirMin": 1,
+              "anchorTargetRirMax": 3,
+              "backoffSets": 3,
+              "backoffRepMin": 6,
+              "backoffRepMax": 10,
+              "backoffPercent": 0.8,
+              "minLoadIncrement": 2.5,
+              "jumpPercent": 2.5
+            }
+          },
+          "modifiers": []
+        },
+        "settings": {
+          "minLoadIncrement": 2.5,
+          "jumpPercent": 2.5,
+          "hardRir": 4
+        },
+        "relation": null,
+        "modifiers": [],
+        "currentSession": [],
+        "context": {
+          "weekNumber": 1,
+          "blockLength": 6,
+          "blockStart": null
+        }
+      },
+      "cases": [
+        {
+          "id": "anchor-backoff-no-history",
+          "approval": "locked",
+          "note": "The authored structure is prescribed with no invented load.",
+          "history": [],
+          "expected": {
+            "kind": "recommendation",
+            "status": "new",
+            "reasonCodes": [
+              "anchor_backoff.no_history"
+            ],
+            "sets": [
+              {
+                "role": "anchor",
+                "load": null,
+                "reps": 3
+              },
+              {
+                "role": "backoff",
+                "load": null,
+                "reps": 6
+              },
+              {
+                "role": "backoff",
+                "load": null,
+                "reps": 6
+              },
+              {
+                "role": "backoff",
+                "load": null,
+                "reps": 6
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-anchor-advances",
+          "approval": "locked",
+          "note": "A top-of-range anchor at acceptable effort advances exactly one load step.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 5,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "advance",
+            "reasonCodes": [
+              "anchor_backoff.prior_anchor",
+              "anchor_backoff.anchor_advance",
+              "anchor_backoff.backoff_percent",
+              "anchor_backoff.grid_rounded"
+            ],
+            "capacityReps": 7,
+            "sets": [
+              {
+                "role": "anchor",
+                "load": 102.5,
+                "reps": 5
+              },
+              {
+                "role": "backoff",
+                "load": 82.5,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 82.5,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 82.5,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-anchor-holds",
+          "approval": "locked",
+          "note": "An anchor inside its authored range holds.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 4,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "anchor_backoff.prior_anchor",
+              "anchor_backoff.anchor_hold",
+              "anchor_backoff.backoff_percent"
+            ],
+            "capacityReps": 6,
+            "sets": [
+              {
+                "role": "anchor",
+                "load": 100,
+                "reps": 5
+              },
+              {
+                "role": "backoff",
+                "load": 80,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 80,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 80,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-anchor-below-floor-reduces",
+          "approval": "locked",
+          "note": "Capacity below the anchor floor reduces exactly one grid step.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 2,
+                  "rir": 0
+                },
+                {
+                  "load": 80,
+                  "reps": 6,
+                  "rir": 0
+                },
+                {
+                  "load": 80,
+                  "reps": 6,
+                  "rir": 0
+                },
+                {
+                  "load": 80,
+                  "reps": 6,
+                  "rir": 0
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "reduce",
+            "reasonCodes": [
+              "anchor_backoff.prior_anchor",
+              "anchor_backoff.anchor_below_floor",
+              "anchor_backoff.backoff_percent",
+              "anchor_backoff.grid_rounded"
+            ],
+            "capacityReps": 2,
+            "sets": [
+              {
+                "role": "anchor",
+                "load": 97.5,
+                "reps": 3
+              },
+              {
+                "role": "backoff",
+                "load": 77.5,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 77.5,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 77.5,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-off-grid-percent-snaps",
+          "approval": "locked",
+          "note": "An off-grid derived back-off load snaps deterministically.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 4,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "overrides": {
+            "prescription.strategy.params": {
+              "backoffPercent": 0.82
+            }
+          },
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "anchor_backoff.prior_anchor",
+              "anchor_backoff.anchor_hold",
+              "anchor_backoff.backoff_percent",
+              "anchor_backoff.grid_rounded"
+            ],
+            "capacityReps": 6,
+            "sets": [
+              {
+                "role": "anchor",
+                "load": 100,
+                "reps": 5
+              },
+              {
+                "role": "backoff",
+                "load": 82.5,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 82.5,
+                "reps": 10
+              },
+              {
+                "role": "backoff",
+                "load": 82.5,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-current-anchor-derives-backoffs",
+          "approval": "locked",
+          "note": "Today's completed anchor derives every untouched back-off.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 5,
+              "rir": 2
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "anchor_backoff.current_anchor",
+              "anchor_backoff.backoff_percent",
+              "anchor_backoff.backoff_recalculated"
+            ],
+            "capacityReps": 7,
+            "sets": [
+              {
+                "role": "backoff",
+                "load": 80,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-current-partial-backoffs",
+          "approval": "locked",
+          "note": "A partial back-off session never redefines the authored back-off count.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 5,
+              "rir": 2
+            },
+            {
+              "load": 80,
+              "reps": 8,
+              "rir": 2
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "anchor_backoff.current_anchor",
+              "anchor_backoff.backoff_percent",
+              "anchor_backoff.backoff_recalculated"
+            ],
+            "capacityReps": 7,
+            "sets": [
+              {
+                "role": "backoff",
+                "load": 80,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-failed-anchor-recalibrates",
+          "approval": "locked",
+          "note": "A failed anchor recalibrates untouched back-offs; it schedules no deload.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 2,
+              "rir": 0
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "recalibrate",
+            "reasonCodes": [
+              "anchor_backoff.current_anchor",
+              "anchor_backoff.anchor_below_floor",
+              "anchor_backoff.backoff_percent",
+              "anchor_backoff.backoff_recalculated"
+            ],
+            "capacityReps": 2,
+            "sets": [
+              {
+                "role": "backoff",
+                "load": 80,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-all-backoffs-complete",
+          "approval": "locked",
+          "note": "With the authored back-offs complete the strategy prescribes no further set.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 100,
+              "reps": 5,
+              "rir": 2
+            },
+            {
+              "load": 80,
+              "reps": 8,
+              "rir": 2
+            },
+            {
+              "load": 80,
+              "reps": 8,
+              "rir": 2
+            },
+            {
+              "load": 80,
+              "reps": 8,
+              "rir": 2
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "anchor_backoff.current_anchor"
+            ],
+            "capacityReps": 7,
+            "sets": []
+          }
+        },
+        {
+          "id": "anchor-backoff-insufficient-anchor",
+          "approval": "locked",
+          "note": "Back-offs are never derived from a missing anchor: with no current anchor and no prior anchor the result is insufficient evidence.",
+          "history": [],
+          "currentSession": [
+            {
+              "load": 80,
+              "reps": 8,
+              "rir": 2,
+              "role": "backoff"
+            }
+          ],
+          "expected": {
+            "kind": "insufficient_evidence",
+            "status": "manual",
+            "reasonCodes": [
+              "anchor_backoff.insufficient_anchor"
+            ],
+            "sets": []
+          }
+        },
+        {
+          "id": "anchor-backoff-missing-current-anchor-uses-prior",
+          "approval": "locked",
+          "note": "Today's anchor is absent but a valid prior anchor exists, so the prior-anchor path runs.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 4,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                },
+                {
+                  "load": 80,
+                  "reps": 8,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "currentSession": [
+            {
+              "load": 80,
+              "reps": 8,
+              "rir": 2,
+              "role": "backoff"
+            }
+          ],
+          "expected": {
+            "kind": "recommendation",
+            "status": "hold",
+            "reasonCodes": [
+              "anchor_backoff.prior_anchor",
+              "anchor_backoff.anchor_hold",
+              "anchor_backoff.backoff_percent"
+            ],
+            "capacityReps": 6,
+            "sets": [
+              {
+                "role": "backoff",
+                "load": 80,
+                "reps": 10
+              }
+            ]
+          }
+        },
+        {
+          "id": "anchor-backoff-bodyweight-incompatible",
+          "approval": "locked",
+          "note": "Bodyweight-only anchor semantics are not executable; manual@1 is the compatible alternative.",
+          "history": [],
+          "overrides": {
+            "prescription.strategy.params": {
+              "loadMode": "bodyweight"
+            }
+          },
+          "expected": {
+            "kind": "incompatible",
+            "status": "manual",
+            "reasonCodes": [
+              "anchor_backoff.bodyweight_incompatible"
+            ],
+            "sets": []
+          }
+        }
+      ]
     },
     "manual@1": {
-      "approval": "pending",
-      "requiredDecisions": [
-        "structured authored-field bounds and backup preservation shape"
+      "approval": "locked",
+      "source": [
+        "docs/progression-strategy-contract.md",
+        "owner approval 2026-08-27: Wave 2 Plan 046 numeric gate"
       ],
       "lockedBehavior": [
         "returns kind manual and status manual",
         "does not invent load reps RIR sets or ghost targets"
       ],
-      "cases": []
+      "cases": [
+        {
+          "id": "manual-authored-target",
+          "approval": "locked",
+          "note": "The program or user owns the target; the engine prescribes nothing.",
+          "history": [],
+          "expected": {
+            "kind": "manual",
+            "status": "manual",
+            "reasonCodes": [
+              "manual.authored_target"
+            ],
+            "sets": []
+          }
+        },
+        {
+          "id": "manual-unsupported-import",
+          "approval": "locked",
+          "note": "An unsupported imported rule executes as manual and never silently becomes range.",
+          "history": [],
+          "overrides": {
+            "prescription.strategy.params": {
+              "unsupportedImport": "legacy_custom_rule"
+            }
+          },
+          "expected": {
+            "kind": "manual",
+            "status": "manual",
+            "reasonCodes": [
+              "manual.unsupported_import"
+            ],
+            "sets": []
+          }
+        },
+        {
+          "id": "manual-history-invents-nothing",
+          "approval": "locked",
+          "note": "Comparable history never turns manual into a prescribed target.",
+          "history": [
+            {
+              "sessionId": "s1",
+              "date": "2026-01-01",
+              "sets": [
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                },
+                {
+                  "load": 100,
+                  "reps": 10,
+                  "rir": 2
+                }
+              ]
+            }
+          ],
+          "expected": {
+            "kind": "manual",
+            "status": "manual",
+            "reasonCodes": [
+              "manual.authored_target"
+            ],
+            "sets": []
+          }
+        }
+      ],
+      "defaults": {
+        "prescription": {
+          "schemaVersion": 1,
+          "strategy": {
+            "id": "manual",
+            "version": 1,
+            "params": {}
+          },
+          "modifiers": []
+        },
+        "settings": {
+          "minLoadIncrement": 2.5,
+          "jumpPercent": 2.5,
+          "hardRir": 4
+        },
+        "relation": null,
+        "modifiers": [],
+        "currentSession": [],
+        "context": {
+          "weekNumber": 1,
+          "blockLength": 6,
+          "blockStart": null
+        }
+      }
     }
   },
   "relations": {
     "paired_exposure@1": {
-      "approval": "pending",
-      "requiredDecisions": [
-        "first compatible heavy and volume strategy pair",
-        "shared evidence window and confidence reduction",
-        "capacity anchor bounds"
+      "approval": "locked",
+      "source": [
+        "docs/progression-strategy-contract.md",
+        "owner approval 2026-08-27: Wave 2 Plan 046 numeric gate"
       ],
-      "cases": []
+      "allowedPairs": [
+        {
+          "heavy": "anchor_backoff@1",
+          "volume": "rep_goal@1"
+        }
+      ],
+      "evidenceWindowSessions": 3,
+      "boundingRule": "temper-only: a paired result is never more aggressive than the independent strategy result on any target-changing dimension",
+      "cases": [
+        {
+          "id": "paired-heavy-anchor-volume-rep-goal-compatible",
+          "approval": "locked",
+          "note": "The only approved v1 pair.",
+          "pair": {
+            "heavy": "anchor_backoff@1",
+            "volume": "rep_goal@1"
+          },
+          "expected": {
+            "compatible": true
+          }
+        },
+        {
+          "id": "paired-range-heavy-incompatible",
+          "approval": "locked",
+          "note": "Every other v1 combination is typed incompatible.",
+          "pair": {
+            "heavy": "range@1",
+            "volume": "rep_goal@1"
+          },
+          "expected": {
+            "compatible": false,
+            "reasonCodes": [
+              "paired_exposure.incompatible_strategy_pair"
+            ]
+          }
+        },
+        {
+          "id": "paired-rep-goal-heavy-incompatible",
+          "approval": "locked",
+          "note": "Roles are not interchangeable.",
+          "pair": {
+            "heavy": "rep_goal@1",
+            "volume": "anchor_backoff@1"
+          },
+          "expected": {
+            "compatible": false,
+            "reasonCodes": [
+              "paired_exposure.incompatible_strategy_pair"
+            ]
+          }
+        },
+        {
+          "id": "paired-full-confidence",
+          "approval": "locked",
+          "note": "The counterpart's most recent expected exposure was completed.",
+          "counterpart": {
+            "sessionsInWindow": 3,
+            "mostRecentExpectedExposureCompleted": true
+          },
+          "expected": {
+            "confidence": "full",
+            "reasonCodes": [
+              "paired_exposure.full_confidence"
+            ]
+          }
+        },
+        {
+          "id": "paired-reduced-confidence",
+          "approval": "locked",
+          "note": "Older comparable evidence exists but the most recent expected exposure was skipped.",
+          "counterpart": {
+            "sessionsInWindow": 2,
+            "mostRecentExpectedExposureCompleted": false
+          },
+          "expected": {
+            "confidence": "reduced",
+            "reasonCodes": [
+              "paired_exposure.reduced_confidence"
+            ]
+          }
+        },
+        {
+          "id": "paired-no-counterpart-evidence",
+          "approval": "locked",
+          "note": "Nothing comparable inside the three-session window.",
+          "counterpart": {
+            "sessionsInWindow": 0,
+            "mostRecentExpectedExposureCompleted": false
+          },
+          "expected": {
+            "confidence": "none",
+            "reasonCodes": [
+              "paired_exposure.no_counterpart_evidence"
+            ]
+          }
+        },
+        {
+          "id": "paired-agreeing-evidence-leaves-advance",
+          "approval": "locked",
+          "note": "Paired evidence that agrees changes nothing.",
+          "independent": {
+            "status": "advance"
+          },
+          "counterpartAgrees": true,
+          "expected": {
+            "status": "advance",
+            "reasonCodes": []
+          }
+        },
+        {
+          "id": "paired-contradicting-evidence-tempers-advance",
+          "approval": "locked",
+          "note": "Contradicting paired evidence may temper an advance to a hold.",
+          "independent": {
+            "status": "advance"
+          },
+          "counterpartAgrees": false,
+          "expected": {
+            "status": "hold",
+            "reasonCodes": [
+              "paired_exposure.tempered"
+            ]
+          }
+        },
+        {
+          "id": "paired-never-promotes-hold",
+          "approval": "locked",
+          "note": "Paired evidence never increases aggressiveness.",
+          "independent": {
+            "status": "hold"
+          },
+          "counterpartAgrees": true,
+          "expected": {
+            "status": "hold",
+            "reasonCodes": []
+          }
+        },
+        {
+          "id": "paired-never-forces-reduction",
+          "approval": "locked",
+          "note": "A poor counterpart alone never reduces load.",
+          "independent": {
+            "status": "hold"
+          },
+          "counterpartAgrees": false,
+          "expected": {
+            "status": "hold",
+            "reasonCodes": []
+          }
+        },
+        {
+          "id": "paired-distinct-machine-identity-incompatible",
+          "approval": "locked",
+          "note": "Distinct machine identities are never paired.",
+          "movements": {
+            "heavy": "library:chest-press-machine-a",
+            "volume": "library:chest-press-machine-b"
+          },
+          "expected": {
+            "compatible": false,
+            "reasonCodes": [
+              "paired_exposure.incompatible_movement"
+            ]
+          }
+        },
+        {
+          "id": "paired-shared-movement-identity-valid",
+          "approval": "locked",
+          "note": "One explicit compatible movement identity is required.",
+          "movements": {
+            "heavy": "library:barbell-bench-press",
+            "volume": "library:barbell-bench-press"
+          },
+          "expected": {
+            "compatible": true
+          }
+        }
+      ]
     }
   },
   "modifiers": {
-    "approval": "pending",
-    "requiredDecisions": [
-      "complete six-week values for every modifier",
-      "compatible strategies and fixed modifier order"
+    "approval": "locked",
+    "source": [
+      "docs/progression-strategy-contract.md",
+      "owner approval 2026-08-27: Wave 2 Plan 046 numeric gate"
     ],
-    "cases": []
+    "decision": "Wave 2 approves modifier infrastructure only. No target-changing block profile (step loading, volume emphasis, rep-range emphasis, scheduled deload) is approved.",
+    "applicationOrder": "the serialized prescription order after validation",
+    "cases": [
+      {
+        "id": "modifier-identity-block-changes-nothing",
+        "approval": "locked",
+        "note": "The identity modifier proves plumbing, versioning, ordering, serialization and determinism without training periodization. It is never surfaced in Browse or editing UI.",
+        "modifier": {
+          "schemaVersion": 1,
+          "id": "identity_block",
+          "version": 1,
+          "compatibleStrategies": [
+            "range@1",
+            "rep_goal@1",
+            "anchor_backoff@1"
+          ],
+          "target": null,
+          "weekValues": [
+            1,
+            1,
+            1,
+            1,
+            1,
+            1
+          ],
+          "params": {}
+        },
+        "expected": {
+          "targetChanged": false
+        }
+      },
+      {
+        "id": "modifier-unknown-is-incompatible",
+        "approval": "locked",
+        "note": "An unknown modifier is typed incompatible; it never silently disappears and never falls back.",
+        "modifier": {
+          "schemaVersion": 1,
+          "id": "step_loading",
+          "version": 1,
+          "compatibleStrategies": [
+            "range@1"
+          ],
+          "target": "load",
+          "weekValues": [
+            1,
+            1.02,
+            1.04,
+            1.06,
+            1.08,
+            1
+          ],
+          "params": {}
+        },
+        "expected": {
+          "kind": "incompatible",
+          "reasonCodes": [
+            "engine.unsupported_modifier"
+          ]
+        }
+      }
+    ]
   }
 }
