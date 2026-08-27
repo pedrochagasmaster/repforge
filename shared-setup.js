@@ -631,11 +631,9 @@
       }
     }
     if (meta?.progressionRelations) {
-      const identityMap = isPlainObject(options?.movementIdentityByLibraryId) ? options.movementIdentityByLibraryId : {};
       const derivedMovementId = (exercise) => {
         const libraryId = typeof exercise?.libraryId === "string" ? exercise.libraryId : "";
-        const mapped = identityMap[libraryId];
-        return typeof mapped === "string" && mapped.trim() ? mapped.trim() : libraryId;
+        return libraryId.trim();
       };
       for (const relation of meta.progressionRelations) {
         for (const member of relation.members) {

@@ -24,13 +24,7 @@ const { EXERCISE_LIBRARY } = require(join(__dirname, "..", "exercises.js"));
 
 const OPTS = { builtInIds: BUILT_IN_IDS };
 const LIBRARY_OPTS = { builtInIds: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)) };
-const PROGRESSION_OPTS = {
-  ...LIBRARY_OPTS,
-  movementIdentityByLibraryId: {
-    "pr_mc": "movement:bench-press", "custom:row-1": "movement:bench-press",
-    "ab_mc": "movement:bench-press", "cu_db": "movement:bench-press",
-  },
-};
+const PROGRESSION_OPTS = LIBRARY_OPTS;
 
 let passed = 0, failed = 0;
 function assert(cond, name, detail = "") {
@@ -230,14 +224,15 @@ console.log("progression envelopes and program relations");
 {
   const payload = completeRoundTripPayload();
   payload.program.exercises[0].id = "slot-heavy";
-  payload.program.exercises[0].movementId = "movement:bench-press";
+  payload.program.exercises[0].movementId = "pr_mc";
   payload.program.exercises[0].progression = {
     schemaVersion: 1,
     strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 6, repMax: 10 } },
     modifiers: [],
   };
   payload.program.exercises[1].id = "slot-volume";
-  payload.program.exercises[1].movementId = "movement:bench-press";
+  payload.program.exercises[1].libraryId = "pr_mc";
+  payload.program.exercises[1].movementId = "pr_mc";
   payload.program.exercises[1].progression = {
     schemaVersion: 1,
     strategy: { id: "manual", version: 1, params: { authored: { label: "as written" } } },
@@ -248,7 +243,7 @@ console.log("progression envelopes and program relations");
     id: "relation-1",
     type: "paired_exposure",
     version: 1,
-    movementId: "movement:bench-press",
+    movementId: "pr_mc",
     members: [
       { exerciseId: "slot-volume", role: "volume" },
       { exerciseId: "slot-heavy", role: "heavy" },
@@ -265,7 +260,7 @@ console.log("progression envelopes and program relations");
   const checked = Setup.validate(payload, PROGRESSION_OPTS);
   assert(checked.ok, "versioned progression payload validates", JSON.stringify(checked));
   assert(checked.ok && checked.value.program.exercises[0].progression?.strategy.id === "range", "exercise progression survives validation");
-  assert(checked.ok && checked.value.program.exercises[0].movementId === "movement:bench-press", "movement identity survives validation");
+  assert(checked.ok && checked.value.program.exercises[0].movementId === "pr_mc", "movement identity survives validation");
   assert(checked.ok && checked.value.program.meta.progressionRelations?.[0].members.length === 2, "program relations survive validation");
   assert(checked.ok && checked.value.program.meta.progressionModifiers?.[0].id === "pending-modifier", "program modifiers survive validation");
   if (checked.ok) {
@@ -290,13 +285,13 @@ console.log("schema: progression slot identity boundaries");
 
   const sibling = completeRoundTripPayload();
   sibling.program.exercises[0].id = "slot-heavy";
-  sibling.program.exercises[0].movementId = "movement:bench-press";
+  sibling.program.exercises[0].movementId = "pr_mc";
   sibling.program.exercises[1].id = "slot-volume";
-  sibling.program.exercises[1].movementId = "movement:bench-press";
+  sibling.program.exercises[1].movementId = "pr_mc";
   sibling.program.exercises[1].libraryId = "pd_mc";
   sibling.program.meta.progressionRelations = [{
     schemaVersion: 1, id: "relation-sibling", type: "paired_exposure", version: 1,
-    movementId: "movement:bench-press",
+    movementId: "pr_mc",
     members: [{ exerciseId: "slot-heavy", role: "heavy" }, { exerciseId: "slot-volume", role: "volume" }],
   }];
   const siblingResult = Setup.validate(sibling, PROGRESSION_OPTS);
@@ -368,12 +363,14 @@ console.log("schema: excluded keys cannot reach the proposal");
   raw.program.meta.onboarded = true;
   raw.program.meta.blockPromptDismissedId = "block";
   raw.program.exercises[0].id = "slot-1";
-  raw.program.exercises[0].movementId = "movement:bench-press";
+  raw.program.exercises[0].libraryId = "pr_mc";
+  raw.program.exercises[0].movementId = "pr_mc";
   raw.program.exercises[1].id = "slot-2";
-  raw.program.exercises[1].movementId = "movement:bench-press";
+  raw.program.exercises[1].libraryId = "pr_mc";
+  raw.program.exercises[1].movementId = "pr_mc";
   raw.program.meta.progressionRelations = [{
     schemaVersion: 1, id: "relation-1", type: "paired_exposure", version: 1,
-    movementId: "movement:bench-press",
+    movementId: "pr_mc",
     members: [{ exerciseId: "slot-1", role: "heavy" }, { exerciseId: "slot-2", role: "volume" }],
   }];
   raw.program.customExercises[0].archived = true;
@@ -405,7 +402,7 @@ console.log("schema: excluded keys cannot reach the proposal");
     assert(!("onboarded" in result.value.program.meta), "onboarded is absent");
     assert(!("blockPromptDismissedId" in result.value.program.meta), "blockPromptDismissedId is absent");
     assert(result.value.program.exercises[0].id === "slot-1", "exercise slot id is preserved for relation references");
-    assert(result.value.program.exercises[0].movementId === "movement:bench-press", "recognized movement identity is preserved");
+    assert(result.value.program.exercises[0].movementId === "pr_mc", "recognized movement identity is preserved");
     assert(!("archived" in result.value.program.customExercises[0]), "custom archived is absent");
     assert(!("created" in result.value.program.customExercises[0]), "custom created is absent");
     assert(!("patterns" in result.value.program.customExercises[0]), "custom patterns are absent");
@@ -830,7 +827,7 @@ console.log("v3 progression tuple and immutable v2 boundary");
 {
   const v3Relation = {
     schemaVersion: 1, id: "relation-v3", type: "paired_exposure", version: 1,
-    movementId: "movement:bench-press",
+    movementId: "pr_mc",
     members: [{ exerciseId: "slot-heavy", role: "heavy" }, { exerciseId: "slot-volume", role: "volume" }],
   };
   const v3Modifier = { id: "modifier-v3", version: 1, compatibleStrategies: ["range@1"], params: { pending: true } };
@@ -841,8 +838,8 @@ console.log("v3 progression tuple and immutable v2 boundary");
     MINIMAL_V2_TUPLE[1],
     ["Day 1", "Day 2"],
     [[oldExercise[0], oldExercise[1], oldExercise[2], oldExercise[3], oldExercise[4], oldExercise[5], oldExercise[6] | 3584,
-      ...oldExercise.slice(7), "slot-heavy", v3Progression, "movement:bench-press"],
-      [1, 1, "pr_mc", 3, 6, 10, 3584, "slot-volume", { schemaVersion: 1, strategy: { id: "manual", version: 1, params: {} }, modifiers: [] }, "movement:bench-press"]],
+      ...oldExercise.slice(7), "slot-heavy", v3Progression, "pr_mc"],
+      [1, 1, "pr_mc", 3, 6, 10, 3584, "slot-volume", { schemaVersion: 1, strategy: { id: "manual", version: 1, params: {} }, modifiers: [] }, "pr_mc"]],
     [],
   ];
   const v3 = await encodeVersionedBytes(3, new TextEncoder().encode(json(v3Tuple)));
