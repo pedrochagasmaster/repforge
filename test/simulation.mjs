@@ -28,6 +28,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const OPTIONAL_DEPLOYMENT_SHELL_ASSET = "/posthog-config.js";
 const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
 const PROFILE = process.env.REPFORGE_PROFILE === "1";
 
@@ -9930,7 +9931,7 @@ async function main() {
     );
 
     const shellChecks = await pwaPage.evaluate(
-      async ({ origin, cacheName, shell }) => {
+      async ({ origin, cacheName, shell, optionalDeploymentShellAsset }) => {
         const cache = await caches.open(cacheName);
         const reqs = await cache.keys();
         const cacheUrls = reqs.map((r) => r.url);
@@ -9963,10 +9964,13 @@ async function main() {
           const netType = net.headers.get("content-type") || "";
           const cachedType = cached.headers.get("content-type") || "";
           const bytesEqual = netBuf.length === cachedBuf.length && netBuf.every((b, i) => b === cachedBuf[i]);
+          const optionalMissing = path === optionalDeploymentShellAsset && net.status === 404;
           results.push({
             path,
-            ok: net.ok && bytesEqual && netType === cachedType,
+            ok: optionalMissing || (net.ok && bytesEqual && netType === cachedType),
+            optionalMissing,
             netOk: net.ok,
+            netStatus: net.status,
             bytesEqual,
             netType,
             cachedType,
@@ -9976,7 +9980,12 @@ async function main() {
         }
         return { cacheNamePresent: (await caches.keys()).includes(cacheName), results };
       },
-      { origin, cacheName: swMeta.cache, shell: swMeta.shell }
+      {
+        origin,
+        cacheName: swMeta.cache,
+        shell: swMeta.shell,
+        optionalDeploymentShellAsset: OPTIONAL_DEPLOYMENT_SHELL_ASSET,
+      }
     );
     assert(
       shellChecks.cacheNamePresent,
@@ -9985,6 +9994,26 @@ async function main() {
       "Register service worker → caches.keys() includes CACHE from sw.js"
     );
     const shellFail = shellChecks.results.filter((r) => !r.ok);
+    const optionalDeploymentAsset = shellChecks.results.find((r) => r.path === OPTIONAL_DEPLOYMENT_SHELL_ASSET);
+    assert(
+      optionalDeploymentAsset && (optionalDeploymentAsset.optionalMissing || optionalDeploymentAsset.netOk === true),
+      "The PostHog config is either present or explicitly identified as an optional local absence",
+      JSON.stringify(optionalDeploymentAsset),
+      "Fetch /posthog-config.js without a deploy-generated local config"
+    );
+    const noConfigBoot = optionalDeploymentAsset?.optionalMissing
+      ? await pwaPage.evaluate(() => ({
+        appReady: typeof window.__repforgeStorage?.flush === "function" && !!document.querySelector("#dayTabs button"),
+        telemetryBoundaryReady: typeof window.RepForgeTelemetry?.boot === "function",
+        configAbsent: typeof window.__POSTHOG_CONFIG__ === "undefined",
+      }))
+      : { appReady: true, telemetryBoundaryReady: true, configAbsent: true };
+    assert(
+      noConfigBoot.appReady && noConfigBoot.telemetryBoundaryReady && noConfigBoot.configAbsent,
+      "The app boots and telemetry stays harmless without local PostHog config",
+      JSON.stringify(noConfigBoot),
+      "Boot the installed app with /posthog-config.js absent"
+    );
     assert(
       shellFail.length === 0,
       "Each SHELL asset matches CacheStorage bytes and content-type after cache-bypass fetch",
@@ -10013,6 +10042,13 @@ async function main() {
       ]);
       offlineShell.push({ path, fromSW: resp?.fromServiceWorker?.() === true, status: resp?.status() });
     }
+    const optionalOffline = offlineShell.find((r) => r.path === OPTIONAL_DEPLOYMENT_SHELL_ASSET);
+    assert(
+      optionalOffline?.fromSW === true,
+      "Service worker safely serves the absent local PostHog config offline",
+      JSON.stringify(optionalOffline),
+      "Go offline → fetch /posthog-config.js"
+    );
     assert(
       offlineShell.every((r) => r.fromSW),
       "Offline SHELL fetches report fromServiceWorker()",
