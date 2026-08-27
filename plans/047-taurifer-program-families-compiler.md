@@ -113,21 +113,36 @@ Re-check these findings against `HEAD`:
 
 ## Reference and copyright boundary
 
-The two supplied “Powerbuilding System” PDFs identify themselves as Jeff
-Nippard's copyrighted material and prohibit reproduction. They may be used as
-a primary structural research reference only for broad ideas such as:
+The supplied “Powerbuilding System” PDFs were planning inspiration only. They
+are not implementation sources, validation material, or acceptance evidence.
+Implementation agents must not inspect or derive schedules, prescriptions,
+exercise order, progression rules, fixtures, tests, or review claims from
+them. Whether those files are available in a particular workspace is
+irrelevant to implementation.
+
+The only implementation authority is Taurifer's own plan, decision register,
+strategy contracts, and reviewed fixtures. Those sources preserve structural
+ideas already abstracted during planning:
 
 - primary versus assistance slot roles;
-- an anchor set followed by back-off work;
+- an anchor set followed by back-off work where the selected strategy supports
+  it;
 - separate heavy and volume exposures for a comparable movement;
 - effort targets and practical rest/time constraints;
-- distributing hypertrophy assistance around strength-priority work.
+- distributing hypertrophy assistance around strength-priority work;
+- one unchanged weekly structure throughout the block;
+- six weeks as the default block length;
+- evidence-triggered deloads only after observed performance stagnation or
+  degradation, never scheduled deloads;
+- original Taurifer structures at every frequency from two through six days;
+- one shared progression engine with no family-specific algorithm branch; and
+- deterministic compilation under bounded time and volume rules.
 
-Do not commit the PDFs. Do not copy or closely paraphrase their names,
-explanations, tables, exercise order, exact set/rep/load prescriptions,
-percentage progressions, week alternation, or schedule. In particular, their
-alternating-week and scheduled-deload structures conflict with Taurifer's
-fixed-week and evidence-triggered-deload decisions.
+Do not copy or closely paraphrase the PDFs' names, explanations, tables,
+exercise order, exact set/rep/load prescriptions, percentage progressions,
+week alternation, or schedule. Do not use them to fill a gap in an incomplete
+Taurifer contract. An incomplete or owner-gated Taurifer rule remains blocked
+until its authoritative contract and reviewed fixture exist.
 
 The family design document must keep a source ledger separating:
 

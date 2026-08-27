@@ -22,11 +22,11 @@ The audit rejects parity with the current generator as a design goal. The old ge
 
 ## Source and originality ledger
 
-The ledger classifies each source before a blueprint uses it. Broad concepts and research findings can constrain Taurifer's choices. Neither category supplies a program table to copy.
+The ledger classifies each source before a blueprint uses it. Broad concepts and research findings can constrain Taurifer's choices. Neither category supplies a program table to copy. For implementation, Taurifer's plan, decision register, strategy contracts, and reviewed fixtures are the only authority.
 
 | Source | Source class | Permitted use | Prohibited use | Taurifer result |
 |---|---|---|---|---|
-| Supplied copyrighted "Powerbuilding System" PDFs described in Plan 047 | Copyrighted structural reference. The files are not in this repository or workspace. | Broad concepts only: primary and assistance roles, an anchor with back-off work, distinct heavy and volume exposures, effort targets, practical rest/time constraints, and assistance around strength-priority work. | Names, prose, tables, exact schedule, exercise order, prescriptions, percentages, alternating weeks, or scheduled deloads. | No blueprint may be derived row by row. Fixed weekly structures and evidence-triggered deload policy override the references. |
+| Supplied copyrighted "Powerbuilding System" PDFs described in Plan 047 | Planning inspiration only; not an implementation source, validation material, or acceptance evidence. | No direct implementation use. The already-abstracted structural ideas are expressed authoritatively in Taurifer's plan and reviewed design: explicit primary/assistance roles; supported anchor/back-off work; separate heavy/volume exposures; effort, rest, and session-time constraints; and hypertrophy assistance around strength-priority work. | Deriving schedules, prescriptions, exercise order, progression rules, fixtures, tests, or review claims; copying names, prose, tables, percentages, alternating weeks, or scheduled deloads. | Original Taurifer structures cover 2–6 days, repeat the same weekly structure for the six-week default block, use no scheduled deload, share one progression engine without family branches, and compile deterministically within bounded time and volume. |
 | [ACSM progression models position stand](https://doi.org/10.1249/MSS.0b013e3181915670) | Published position stand. | General support for progressive resistance training, load/repetition ranges, exercise order, rest, and frequency as programming variables. | Treating broad recommendations as proof of one exact Taurifer slot table or threshold. | Families declare roles and progression needs. Plan 046 owns the executable method. |
 | [Weekly-set dose-response meta-analysis](https://doi.org/10.1080/02640414.2016.1210197) | Published systematic review and meta-analysis. | General support for treating weekly volume as a meaningful variable. | Inferring a person's volume tolerance or copying study-group doses into a product rule. | The proposed allocation table uses conservative maturity/frequency/time bands and remains owner-gated. |
 | [Resistance-training frequency meta-analysis](https://doi.org/10.1519/JSC.0000000000002855) | Published systematic review and meta-analysis. | General support for separating frequency from weekly volume and reviewing how work is distributed. | Claiming that one split or one frequency is universally superior. | Sibling blueprints distribute a family's promise differently at 3 and 5 days. Recipes cover 2, 4, and 6 days without mechanical stretching. |
@@ -44,7 +44,7 @@ A proposed blueprint fails review if any of these statements is true:
 - It uses alternating exercise weeks or a scheduled deload from a reference.
 - Its originality argument depends only on renamed exercises or reordered rows.
 
-The repository must not contain the supplied PDFs. Review this boundary again before a fixture changes and before a blueprint becomes executable.
+Review this boundary again before a fixture changes and before a blueprint becomes executable. PDF availability is irrelevant: implementation and acceptance must be justified entirely from the authoritative Taurifer sources.
 
 ## Family catalogue
 
@@ -451,7 +451,7 @@ The owner must confirm:
 
 ### Plan 046 interface status
 
-Plan 046 PR #193 published `docs/progression-strategy-contract.md`, range parity fixtures, pure capacity primitives, and a deterministic `range@1` engine through commit `1dac9ab`. That branch has not merged to `main`.
+Plan 046 PR #193 published `docs/progression-strategy-contract.md`, locked executable range parity fixtures, pure capacity primitives, and a deterministic `range@1` engine through commit `1dac9ab`. That branch has not merged to `main`.
 
 Only the locked `range@1` behavior is implemented. The Plan 046 contract marks `rep_goal@1`, `anchor_backoff@1`, the first `paired_exposure@1` combination, and all numeric block modifiers as pending owner review. Plan 047's `reentry@1` modifier proposal is not an approved Plan 046 modifier.
 
@@ -481,7 +481,7 @@ Do not modify `app.js`, onboarding, or the production catalogue as part of this 
 
 Stable internal family IDs are `growth`, `balanced`, `strength`, and `home`. Public names remain proposals and do not control those IDs.
 
-Wave 1 may reference the proposed Plan 046 IDs `range@1`, `rep_goal@1`, `anchor_backoff@1`, `manual@1`, and `paired_exposure@1`. Plan 046 PR #193 has not yet published a stable strategy fixture. The production compiler must not use these references until Plan 046 merges a compatible contract to `main`.
+Wave 1 may reference Plan 046 IDs `range@1`, `rep_goal@1`, `anchor_backoff@1`, `manual@1`, and `paired_exposure@1`, but their approval states differ. `range@1` is locked, executable, and backed by stable fixtures in PR #193. Other strategies, relations, and modifiers remain proposed and owner-gated. The production compiler must not execute an owner-gated reference, silently fall back to another strategy, or derive the missing behavior from external material. Cross-branch production integration still waits for a compatible Plan 046 contract on `main`.
 
 The owner must approve these items before production compiler work uses them:
 
