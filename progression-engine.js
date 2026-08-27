@@ -251,6 +251,7 @@
     // rules they have not been given.
     if (strategy.id === "range") return validateRangePrescription(prescription);
     if (strategy.id === "rep_goal") return validateRepGoalPrescription(prescription);
+    if (strategy.id === "anchor_backoff") return validateAnchorBackoffPrescription(prescription);
 
     const params = canonicalizeChecked(strategy.params, "prescription.strategy.params");
     if (!params.ok) return params;
@@ -482,16 +483,24 @@
     return validateModifiers(modifiers);
   }
 
+  // `role` is optional and additive. A set without one behaves exactly as it
+  // always has, and range@1 ignores it entirely; it exists so anchor_backoff@1
+  // can tell a logged back-off apart from a missing anchor.
+  const SET_ROLES = Object.freeze(["working", "anchor", "backoff"]);
+
   function normalizeWorkingSet(set, path) {
     const issues = [];
     if (!isPlainObject(set)) return validationFailure([`${path}: expected object`]);
-    for (const key of unexpectedKeys(set, new Set(["load", "reps", "rir"]))) issues.push(`${path}.${key}: unknown key`);
+    for (const key of unexpectedKeys(set, new Set(["load", "reps", "rir", "role"]))) issues.push(`${path}.${key}: unknown key`);
     if (!isFiniteNumber(set.load) || set.load <= 0) issues.push(`${path}.load: expected positive finite number`);
     if (!Number.isInteger(set.reps) || set.reps <= 0 || set.reps > LIMITS.reps[1]) issues.push(`${path}.reps: out of range`);
     const rirIsBlank = set.rir === "" || set.rir == null;
     if (!rirIsBlank && !isFiniteNumber(set.rir)) issues.push(`${path}.rir: expected finite number or blank`);
+    if (hasOwn(set, "role") && !SET_ROLES.includes(set.role)) issues.push(`${path}.role: unsupported`);
     if (issues.length) return validationFailure(issues);
-    return { ok: true, value: { load: set.load, reps: set.reps, rir: rirIsBlank ? null : set.rir } };
+    const value = { load: set.load, reps: set.reps, rir: rirIsBlank ? null : set.rir };
+    if (hasOwn(set, "role")) value.role = set.role;
+    return { ok: true, value };
   }
 
   function normalizeHistory(history) {
@@ -931,6 +940,225 @@
       provenance);
   }
 
+  /* ---- anchor_backoff@1 -------------------------------------------------
+     Owner-approved 2026-08-27 and deliberately narrow: one anchor working set
+     plus authored back-offs, one derivation method, no peaking, no attempt
+     selection, no deload. */
+
+  const BACKOFF_PERCENT = Object.freeze([0.7, 0.95]);
+
+  function validateAnchorBackoffPrescription(prescription) {
+    const issues = [];
+    if (!isPlainObject(prescription)) return validationFailure(["prescription: expected object"]);
+    for (const key of unexpectedKeys(prescription, new Set(["schemaVersion", "strategy", "modifiers"]))) {
+      issues.push(`prescription.${key}: unknown key`);
+    }
+    if (prescription.schemaVersion !== 1) issues.push("prescription.schemaVersion: unsupported");
+    if (!Array.isArray(prescription.modifiers) || prescription.modifiers.length) {
+      issues.push("prescription.modifiers: Wave 2 requires an empty array");
+    }
+    const strategy = prescription.strategy;
+    if (!isPlainObject(strategy)) return validationFailure(issues.concat(["prescription.strategy: expected object"]));
+    const params = strategy.params;
+    if (!isPlainObject(params)) return validationFailure(issues.concat(["prescription.strategy.params: expected object"]));
+    const allowed = new Set([
+      "anchorRepMin", "anchorRepMax", "anchorTargetRirMin", "anchorTargetRirMax",
+      "backoffSets", "backoffRepMin", "backoffRepMax", "backoffPercent",
+      "minLoadIncrement", "jumpPercent", "loadMode",
+    ]);
+    for (const key of unexpectedKeys(params, allowed)) issues.push(`prescription.strategy.params.${key}: unknown key`);
+    if (!integerInRange(params.anchorRepMin, LIMITS.reps)) issues.push("params.anchorRepMin: out of range");
+    if (!integerInRange(params.anchorRepMax, LIMITS.reps) || params.anchorRepMax < params.anchorRepMin) {
+      issues.push("params.anchorRepMax: out of range");
+    }
+    if (!inRange(params.anchorTargetRirMin, LIMITS.targetRir)) issues.push("params.anchorTargetRirMin: out of range");
+    if (!inRange(params.anchorTargetRirMax, LIMITS.targetRir) || params.anchorTargetRirMax < params.anchorTargetRirMin) {
+      issues.push("params.anchorTargetRirMax: out of range");
+    }
+    if (!integerInRange(params.backoffSets, LIMITS.workingSets)) issues.push("params.backoffSets: out of range");
+    if (!integerInRange(params.backoffRepMin, LIMITS.reps)) issues.push("params.backoffRepMin: out of range");
+    if (!integerInRange(params.backoffRepMax, LIMITS.reps) || params.backoffRepMax < params.backoffRepMin) {
+      issues.push("params.backoffRepMax: out of range");
+    }
+    // The percentage is authored inside the approved band. It is never
+    // inferred from a family, program name, movement, or training goal.
+    if (!inRange(params.backoffPercent, BACKOFF_PERCENT)) issues.push("params.backoffPercent: out of range");
+    if (!inRange(params.minLoadIncrement, LIMITS.minLoadIncrement)) issues.push("params.minLoadIncrement: out of range");
+    if (!inRange(params.jumpPercent, LIMITS.jumpPercent)) issues.push("params.jumpPercent: out of range");
+    if (hasOwn(params, "loadMode") && params.loadMode !== "external" && params.loadMode !== "bodyweight") {
+      issues.push("params.loadMode: unsupported");
+    }
+    if (issues.length) return validationFailure(issues);
+    const value = {
+      anchorRepMin: params.anchorRepMin,
+      anchorRepMax: params.anchorRepMax,
+      anchorTargetRirMin: params.anchorTargetRirMin,
+      anchorTargetRirMax: params.anchorTargetRirMax,
+      backoffSets: params.backoffSets,
+      backoffRepMin: params.backoffRepMin,
+      backoffRepMax: params.backoffRepMax,
+      backoffPercent: params.backoffPercent,
+      minLoadIncrement: params.minLoadIncrement,
+      jumpPercent: params.jumpPercent,
+    };
+    if (hasOwn(params, "loadMode")) value.loadMode = params.loadMode;
+    return { ok: true, value: { schemaVersion: 1, strategy: { id: "anchor_backoff", version: 1, params: value }, modifiers: [] } };
+  }
+
+  // percentage_of_anchor_load_v1: the anchor load times the authored
+  // percentage, snapped to the actionable grid. There is no effort-derived
+  // percentage in v1.
+  function derivedBackoff(params, settings, anchorLoad, anchorCapacity) {
+    const raw = anchorLoad * params.backoffPercent;
+    const load = Math.max(roundToGrid(raw, settings.minLoadIncrement), settings.minLoadIncrement);
+    return {
+      load,
+      reps: clamp(Math.floor(repsAtLoad(anchorCapacity, load)), params.backoffRepMin, params.backoffRepMax),
+      snapped: Math.abs(load - raw) > 1e-9,
+    };
+  }
+
+  function anchorSet(params, load, reps) {
+    return { role: "anchor", load, reps, repMin: params.anchorRepMin, repMax: params.anchorRepMax, targetRir: params.anchorTargetRirMax };
+  }
+
+  function backoffSet(params, load, reps) {
+    return { role: "backoff", load, reps, repMin: params.backoffRepMin, repMax: params.backoffRepMax, targetRir: params.anchorTargetRirMax };
+  }
+
+  // Where today's anchor is. With no explicit roles the session's first set is
+  // the anchor; with explicit roles and no anchor among them, today's anchor
+  // is genuinely absent and -1 says so.
+  function currentAnchorIndex(currentSession) {
+    const explicit = currentSession.findIndex((set) => set.role === "anchor");
+    if (explicit >= 0) return explicit;
+    return currentSession.some((set) => set.role != null) ? -1 : 0;
+  }
+
+  // The anchor decision from prior evidence: the same narrow range-style rule
+  // for advance, hold, and reduce. No double jump and no deload.
+  function priorAnchorDecision(params, settings, summaries) {
+    const anchor = summaries.at(-1).sets[0];
+    const capacity = capE1rm(anchor.load, anchor.reps, anchor.rir, settings.hardRir);
+    const capacityReps = repsAtLoad(capacity, anchor.load);
+    const rir = capRir(anchor.rir, settings.hardRir);
+    const jump = Math.max(anchor.load * params.jumpPercent / 100, params.minLoadIncrement);
+    let rawLoad;
+    let status;
+    let decision;
+    if (capacityReps < params.anchorRepMin) {
+      rawLoad = anchor.load - jump;
+      status = "reduce";
+      decision = "anchor_backoff.anchor_below_floor";
+    } else if (anchor.reps >= params.anchorRepMax && rir >= params.anchorTargetRirMin) {
+      rawLoad = anchor.load + jump;
+      status = "advance";
+      decision = "anchor_backoff.anchor_advance";
+    } else {
+      rawLoad = anchor.load;
+      status = "hold";
+      decision = "anchor_backoff.anchor_hold";
+    }
+    const load = Math.max(roundToGrid(rawLoad, settings.minLoadIncrement), settings.minLoadIncrement);
+    return {
+      status,
+      decision,
+      capacity,
+      capacityReps,
+      performedLoad: anchor.load,
+      load,
+      snapped: Math.abs(load - rawLoad) > 1e-9,
+      reps: clamp(Math.floor(repsAtLoad(capacity, load)), params.anchorRepMin, params.anchorRepMax),
+    };
+  }
+
+  function evaluateNextAnchorBackoff(params, settings, summaries, provenance) {
+    const strategy = { id: "anchor_backoff", version: 1 };
+    if (!summaries.length) {
+      return baseResult("recommendation", "new", strategy, ["anchor_backoff.no_history"],
+        [anchorSet(params, null, params.anchorRepMin),
+          ...Array.from({ length: params.backoffSets }, () => backoffSet(params, null, params.backoffRepMin))],
+        { targetLoad: null, backoffPercent: params.backoffPercent }, provenance);
+    }
+    const decision = priorAnchorDecision(params, settings, summaries);
+    const back = derivedBackoff(params, settings, decision.load, decision.capacity);
+    const reasonCodes = ["anchor_backoff.prior_anchor", decision.decision, "anchor_backoff.backoff_percent"];
+    if (decision.snapped || back.snapped) reasonCodes.push("anchor_backoff.grid_rounded");
+    return baseResult("recommendation", decision.status, strategy, reasonCodes,
+      [anchorSet(params, decision.load, decision.reps),
+        ...Array.from({ length: params.backoffSets }, () => backoffSet(params, back.load, back.reps))],
+      {
+        anchorLoad: decision.performedLoad,
+        capacityE1rm: decision.capacity,
+        capacityReps: decision.capacityReps,
+        targetLoad: decision.load,
+        targetReps: decision.reps,
+        backoffPercent: params.backoffPercent,
+        backoffLoad: back.load,
+        backoffReps: back.reps,
+      }, provenance);
+  }
+
+  function evaluateCurrentAnchorBackoff(params, settings, summaries, currentSession, provenance) {
+    const strategy = { id: "anchor_backoff", version: 1 };
+    const index = currentAnchorIndex(currentSession);
+    if (index < 0) {
+      // Today's anchor is absent. Prior anchor evidence carries the
+      // derivation; with none, back-offs are never invented from nothing.
+      if (!summaries.length) {
+        return baseResult("insufficient_evidence", "manual", strategy, ["anchor_backoff.insufficient_anchor"], [],
+          { backoffPercent: params.backoffPercent }, provenance);
+      }
+      const decision = priorAnchorDecision(params, settings, summaries);
+      const back = derivedBackoff(params, settings, decision.load, decision.capacity);
+      const untouchedFromPrior = Math.max(0, params.backoffSets - currentSession.filter((set) => set.role === "backoff").length);
+      const reasonCodes = ["anchor_backoff.prior_anchor", decision.decision, "anchor_backoff.backoff_percent"];
+      if (decision.snapped || back.snapped) reasonCodes.push("anchor_backoff.grid_rounded");
+      return baseResult("recommendation", decision.status, strategy, reasonCodes,
+        untouchedFromPrior ? [backoffSet(params, back.load, back.reps)] : [],
+        {
+          capacityE1rm: decision.capacity,
+          capacityReps: decision.capacityReps,
+          targetLoad: decision.load,
+          backoffPercent: params.backoffPercent,
+          backoffLoad: back.load,
+          backoffReps: back.reps,
+          untouchedBackoffs: untouchedFromPrior,
+        }, provenance);
+    }
+    const anchor = currentSession[index];
+    const capacity = capE1rm(anchor.load, anchor.reps, anchor.rir, settings.hardRir);
+    const capacityReps = repsAtLoad(capacity, anchor.load);
+    // A failed anchor is capacity at the performed load under the authored
+    // floor. It recalibrates; it never schedules a deload or changes structure.
+    const failed = capacityReps < params.anchorRepMin;
+    const untouched = Math.max(0, params.backoffSets - (currentSession.length - index - 1));
+    const status = failed ? "recalibrate" : "hold";
+    const reasonCodes = ["anchor_backoff.current_anchor"];
+    if (failed) reasonCodes.push("anchor_backoff.anchor_below_floor");
+    const facts = {
+      anchorLoad: anchor.load,
+      capacityE1rm: capacity,
+      capacityReps,
+      backoffPercent: params.backoffPercent,
+      untouchedBackoffs: untouched,
+      targetLoad: anchor.load,
+    };
+    if (!untouched) {
+      // Every authored back-off is done: nothing further to prescribe, and
+      // completed sets are never rewritten.
+      return baseResult("recommendation", status, strategy, reasonCodes, [], facts, provenance);
+    }
+    // Only untouched future back-offs are recalculated, and they come from the
+    // anchor actually performed today.
+    const back = derivedBackoff(params, settings, anchor.load, capacity);
+    reasonCodes.push("anchor_backoff.backoff_percent", "anchor_backoff.backoff_recalculated");
+    if (back.snapped) reasonCodes.push("anchor_backoff.grid_rounded");
+    return baseResult("recommendation", status, strategy, reasonCodes,
+      [backoffSet(params, back.load, back.reps)],
+      { ...facts, backoffLoad: back.load, backoffReps: back.reps }, provenance);
+  }
+
   function targetSets(params, load, reps, count) {
     const targetRir = hasOwn(params, "targetRirMax") ? params.targetRirMax : null;
     return Array.from({ length: count }, () => ({
@@ -1204,6 +1432,32 @@
         ? evaluateCurrentRepGoal(params, settings.value, history.value, currentSession.value, provenance)
         : evaluateNextRepGoal(params, settings.value, history.value, provenance);
     }
+    if (strategy.id === "anchor_backoff" && strategy.version === 1) {
+      const prescription = validateAnchorBackoffPrescription(input.prescription);
+      const settings = validateSettings(input.settings);
+      const history = summarizeHistory(input.history, settings.ok ? settings.value.hardRir : 4);
+      const currentSession = normalizeCurrentSession(input.currentSession);
+      const context = validateContext(input.context);
+      const issues = [];
+      for (const checked of [prescription, settings, history, currentSession, context]) {
+        if (!checked.ok) issues.push(...checked.issues);
+      }
+      if (issues.length) return invalidResult(strategy, issues);
+      if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
+      if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
+      const params = prescription.value.strategy.params;
+      if (params.loadMode === "bodyweight") {
+        return incompatibleResult({ id: "anchor_backoff", version: 1 }, "anchor_backoff.bodyweight_incompatible");
+      }
+      const provenance = {
+        evidenceWindow: { sessionCount: history.value.length, currentSetCount: currentSession.value.length },
+        modifierVersions: [],
+        relationVersion: null,
+      };
+      return currentSession.value.length
+        ? evaluateCurrentAnchorBackoff(params, settings.value, history.value, currentSession.value, provenance)
+        : evaluateNextAnchorBackoff(params, settings.value, history.value, provenance);
+    }
     if (strategy.id !== "range" || strategy.version !== 1) return incompatibleResult(strategy, "engine.unsupported_strategy");
     if (input.relation !== null) return incompatibleResult(strategy, "engine.unsupported_relation");
     if (!Array.isArray(input.modifiers) || input.modifiers.length) return incompatibleResult(strategy, "engine.unsupported_modifier");
@@ -1261,6 +1515,7 @@
     validateSettings,
     validateRangePrescription,
     validateRepGoalPrescription,
+    validateAnchorBackoffPrescription,
     balancedFrontload,
     validatePrescription,
     normalizePrescription,

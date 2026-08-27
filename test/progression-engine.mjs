@@ -90,23 +90,35 @@ assert.deepEqual(manualPrescription.value.strategy, {
   params: { authored: { label: "as written" } },
 });
 
-for (const id of ["anchor_backoff"]) {
-  const pending = Engine.validatePrescription({
+// rep_goal@1 and anchor_backoff@1 have owner-approved bounds now, so their
+// envelopes are validated against them rather than preserved as opaque shapes.
+for (const id of ["rep_goal", "anchor_backoff"]) {
+  assert.equal(Engine.validatePrescription({
     schemaVersion: 1,
     strategy: { id, version: 1, params: { pending: true } },
     modifiers: [],
-  });
-  assert.equal(pending.ok, true, `${id} envelope validation must not invent unapproved bounds`);
-  assert.equal(pending.value.strategy.id, id);
+  }).ok, false, `${id}: an approved strategy no longer accepts an arbitrary parameter bag`);
 }
-
-// rep_goal@1 has owner-approved bounds now, so its envelope is validated
-// against them rather than preserved as an opaque shape.
-assert.equal(Engine.validatePrescription({
-  schemaVersion: 1,
-  strategy: { id: "rep_goal", version: 1, params: { pending: true } },
-  modifiers: [],
-}).ok, false, "an approved strategy no longer accepts an arbitrary parameter bag");
+// The authored back-off percentage stays inside the approved band.
+const anchorParams = {
+  anchorRepMin: 3, anchorRepMax: 5, anchorTargetRirMin: 1, anchorTargetRirMax: 3,
+  backoffSets: 3, backoffRepMin: 6, backoffRepMax: 10, backoffPercent: 0.8,
+  minLoadIncrement: 2.5, jumpPercent: 2.5,
+};
+for (const percent of [0.69, 0.96, 0, 1]) {
+  assert.equal(Engine.validateAnchorBackoffPrescription({
+    schemaVersion: 1,
+    strategy: { id: "anchor_backoff", version: 1, params: { ...anchorParams, backoffPercent: percent } },
+    modifiers: [],
+  }).ok, false, `backoffPercent ${percent}: outside the approved 0.70-0.95 band`);
+}
+for (const percent of [0.7, 0.8, 0.95]) {
+  assert.equal(Engine.validateAnchorBackoffPrescription({
+    schemaVersion: 1,
+    strategy: { id: "anchor_backoff", version: 1, params: { ...anchorParams, backoffPercent: percent } },
+    modifiers: [],
+  }).ok, true, `backoffPercent ${percent}: inside the approved band`);
+}
 assert.deepEqual(Engine.balancedFrontload(30, 3, 6, 12), [10, 10, 10]);
 assert.deepEqual(Engine.balancedFrontload(31, 3, 6, 12), [11, 10, 10]);
 assert.deepEqual(Engine.balancedFrontload(32, 3, 6, 12), [11, 11, 10]);
@@ -385,6 +397,18 @@ for (const testCase of repGoalFixtures.cases) {
   }
 }
 
+const anchorFixtures = fixtures.strategies["anchor_backoff@1"];
+const anchorCount = runLockedCases(anchorFixtures, "anchor_backoff");
+
+// Completed and touched sets are never rewritten: with a current session the
+// strategy prescribes at most the single next untouched back-off.
+for (const testCase of anchorFixtures.cases) {
+  if (!testCase.currentSession) continue;
+  assert.ok(testCase.expected.sets.length <= 1, `${testCase.id}: only the next untouched back-off is prescribed`);
+  assert.ok(testCase.expected.sets.every((set) => set.role === "backoff"),
+    `${testCase.id}: a completed anchor is never re-prescribed`);
+}
+
 const manualFixtures = fixtures.strategies["manual@1"];
 const manualCount = runLockedCases(manualFixtures, "manual");
 
@@ -394,7 +418,7 @@ const unsupported = Engine.evaluateProgression({
   history: [],
   prescription: {
     schemaVersion: 1,
-    strategy: { id: "anchor_backoff", version: 1, params: {} },
+    strategy: { id: "range", version: 2, params: {} },
     modifiers: [],
   },
 });
@@ -434,4 +458,4 @@ const polluted = Engine.evaluateProgression({
 assert.equal(polluted.kind, "invalid");
 assert.deepEqual(polluted.reasonCodes, ["engine.invalid_input"]);
 
-console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} range, ${repGoalCount} rep_goal and ${manualCount} manual locked fixtures`);
+console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} range, ${repGoalCount} rep_goal, ${anchorCount} anchor_backoff and ${manualCount} manual locked fixtures`);
