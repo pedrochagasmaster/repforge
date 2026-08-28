@@ -151,6 +151,56 @@ assert.equal(allSlots(homeDumbbells).find((entry) => entry.templateId === "home_
 const noHeavyCapability = Compiler.compile({ ...homeContext(2), familyId: "strength" }, EXERCISE_LIBRARY);
 assert.equal(noHeavyCapability.kind, "conflict", "heavy primary work refuses bodyweight-only loading");
 
+/* Catalogue guardrail: the zero-equipment Home baseline assumes the shipped
+   library carries a genuine bodyweight unilateral-knee movement. Test the
+   semantic capability the compiler needs, not a hard-coded id, so this fails
+   loudly if a future catalogue edit removes every valid candidate. */
+const listIntersects = (left, right) => left.some((value) => right.includes(value));
+const zeroEquipmentHome = homeContext(2); // validateContext adds "bodyweight"; environment stays []
+const normalizedHomeCatalogue = Compiler.normalizeCatalogue(EXERCISE_LIBRARY, zeroEquipmentHome);
+const coversClass = (candidate, classId) => {
+  const [min, max] = Compiler.RULES.prescriptionClasses[classId].repRanges[0];
+  return candidate.practicalRepRange[0] <= min && candidate.practicalRepRange[1] >= max;
+};
+const satisfiesHomeSlot = (candidate, templateId) => {
+  const c = Compiler.SLOT_TEMPLATES[templateId];
+  return candidate.equipment === "bodyweight" &&
+    candidate.environmentRequirements.length === 0 && // no undeclared equipment/environment dependency
+    c.requiredCapabilities.length === 0 &&
+    listIntersects(candidate.patterns, c.patterns) &&
+    listIntersects([...candidate.primaryMuscles, ...candidate.secondaryMuscles], [...c.primaryMuscles, ...c.secondaryMuscles]) &&
+    c.prescriptionClasses.some((classId) => coversClass(candidate, classId));
+};
+const bodyweightUnilateralKnee = normalizedHomeCatalogue.filter((candidate) =>
+  satisfiesHomeSlot(candidate, "unilateral_knee") &&
+  candidate.practicalRepRange[0] >= 1 && candidate.practicalRepRange[1] <= 100);
+assert(bodyweightUnilateralKnee.length >= 1,
+  "the catalogue carries at least one valid bodyweight unilateral-knee candidate the Home baseline requires");
+assert(bodyweightUnilateralKnee.every((candidate) => candidate.equipment === "bodyweight" && candidate.environmentRequirements.length === 0),
+  "the bodyweight unilateral-knee candidate needs no declared equipment or environment");
+
+/* One broader guardrail for the same genuine assumption: every required
+   (non-optional, non-conditional) Home slot resolves to a bodyweight movement
+   at zero equipment, so a Home baseline compile never degrades to a conflict
+   because the shipped catalogue lost a class of movement. */
+const REQUIRED_HOME_TEMPLATES = ["home_knee", "home_push", "home_posterior", "unilateral_knee", "home_trunk", "home_calf", "home_coverage"];
+for (const template of REQUIRED_HOME_TEMPLATES) {
+  const candidates = normalizedHomeCatalogue.filter((candidate) => satisfiesHomeSlot(candidate, template));
+  assert(candidates.length >= 1, `the catalogue carries a bodyweight candidate for the required Home slot ${template}`);
+}
+for (const frequency of Compiler.FREQUENCIES) {
+  const home = Compiler.compile(homeContext(frequency), EXERCISE_LIBRARY);
+  assert.equal(home.kind, "compiled", `zero-equipment Home ${frequency}d compiles without a catalogue conflict`);
+  assert(allSlots(home).every((entry) => entry.exercise.equipment === "bodyweight"),
+    `zero-equipment Home ${frequency}d resolves every slot to a bodyweight movement`);
+  for (const template of ["home_knee", "home_push", "home_posterior", "unilateral_knee"]) {
+    if (Compiler.BLUEPRINTS.find((b) => b.id === `home_${frequency}_v1`).days.some((d) => d.slots.some((s) => s.template === template))) {
+      assert(allSlots(home).some((entry) => entry.templateId === template),
+        `zero-equipment Home ${frequency}d resolves its ${template} slot`);
+    }
+  }
+}
+
 const balanced = Compiler.compile(gymContext("balanced", 3), EXERCISE_LIBRARY);
 assert(balanced.relations.every((relation) => relation.state === "attached"), "approved exact-identity pairs attach");
 const kneeVolume = balanced.days[2].slots[0];
