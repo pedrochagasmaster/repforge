@@ -54,7 +54,7 @@ function validateHistory(testCase) {
     for (const set of session.sets) {
       assert.ok(Number.isFinite(set.load) && set.load > 0, `${testCase.id}: positive finite load required`);
       assert.ok(Number.isInteger(set.reps) && set.reps > 0, `${testCase.id}: positive integer reps required`);
-      assert.ok(Number.isFinite(set.rir), `${testCase.id}: finite RIR required`);
+      assert.ok(set.rir === null || Number.isFinite(set.rir), `${testCase.id}: finite or explicitly missing RIR required`);
     }
   }
 }
@@ -122,10 +122,9 @@ function validateStrategyCases(id, collection, namespace, prefix) {
     assert.ok(allowedKinds.has(expected.kind), `${testCase.id}: invalid kind`);
     assert.ok(allowedStatuses.has(expected.status), `${testCase.id}: invalid status`);
     assert.ok(Array.isArray(expected.reasonCodes) && expected.reasonCodes.length, `${testCase.id}: reason codes required`);
-    assert.ok(
-      expected.reasonCodes.every((code) => code.startsWith(`${namespace}.`)),
-      `${testCase.id}: ${namespace} reason namespace required`,
-    );
+    const allowedReason = (code) => code.startsWith(`${namespace}.`)
+      || (namespace === "effort_target" && ["engine.invalid_input", "paired_exposure.incompatible_strategy_pair"].includes(code));
+    assert.ok(expected.reasonCodes.every(allowedReason), `${testCase.id}: approved reason namespace required`);
     assert.ok(Array.isArray(expected.sets), `${testCase.id}: expected sets must be an array`);
     for (const set of expected.sets) {
       assert.ok(allowedRoles.has(set.role), `${testCase.id}: unknown set role`);
@@ -170,6 +169,34 @@ for (const vector of repGoal.distributionPolicy.vectors) {
   assert.equal(vector.expected.reduce((total, reps) => total + reps, 0), vector.total,
     `distribution ${vector.total}/${vector.sets}: a feasible total is distributed exactly`);
 }
+
+// effort_target@1
+const effortTarget = fixture.strategies["effort_target@1"];
+assert.equal(effortTarget.approval, "locked");
+assert.equal(effortTarget.defaults.prescription.strategy.id, "effort_target");
+assert.equal(effortTarget.defaults.prescription.strategy.params.targetReps, 5);
+assert.deepEqual([
+  effortTarget.defaults.prescription.strategy.params.targetRirMin,
+  effortTarget.defaults.prescription.strategy.params.targetRirMax,
+], [2, 3]);
+validateStrategyCases("effort_target@1", effortTarget, "effort_target", /^effort-target-[a-z0-9-]+$/);
+for (const id of [
+  "effort-target-no-history",
+  "effort-target-too-easy",
+  "effort-target-on-target",
+  "effort-target-too-hard",
+  "effort-target-rep-miss",
+  "effort-target-no-rir-evidence",
+  "effort-target-off-grid",
+  "effort-target-different-machine-excluded",
+  "effort-target-current-advance",
+  "effort-target-current-hold",
+  "effort-target-current-reduce",
+  "effort-target-current-complete",
+  "effort-target-invalid-parameters",
+  "effort-target-bodyweight-incompatible",
+  "effort-target-paired-incompatible",
+]) assert.ok(seenCaseIds.has(id), `${id}: required effort-target case missing`);
 
 // anchor_backoff@1
 const anchorBackoff = fixture.strategies["anchor_backoff@1"];

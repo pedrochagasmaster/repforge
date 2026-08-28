@@ -227,7 +227,9 @@ console.log("progression envelopes and program relations");
   payload.program.exercises[0].movementId = "pr_mc";
   payload.program.exercises[0].progression = {
     schemaVersion: 1,
-    strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 6, repMax: 10 } },
+    strategy: { id: "effort_target", version: 1, params: {
+      workingSets: 3, targetReps: 5, targetRirMin: 2, targetRirMax: 3, minLoadIncrement: 2.5,
+    } },
     modifiers: [],
   };
   payload.program.exercises[1].id = "slot-volume";
@@ -259,7 +261,7 @@ console.log("progression envelopes and program relations");
   }];
   const checked = Setup.validate(payload, PROGRESSION_OPTS);
   assert(checked.ok, "versioned progression payload validates", JSON.stringify(checked));
-  assert(checked.ok && checked.value.program.exercises[0].progression?.strategy.id === "range", "exercise progression survives validation");
+  assert(checked.ok && checked.value.program.exercises[0].progression?.strategy.id === "effort_target", "effort-target progression survives validation");
   assert(checked.ok && checked.value.program.exercises[0].movementId === "pr_mc", "movement identity survives validation");
   assert(checked.ok && checked.value.program.meta.progressionRelations?.[0].members.length === 2, "program relations survive validation");
   assert(checked.ok && checked.value.program.meta.progressionModifiers?.[0].id === "pending-modifier", "program modifiers survive validation");

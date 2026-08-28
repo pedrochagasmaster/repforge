@@ -11,7 +11,7 @@ const require = createRequire(import.meta.url);
 const Engine = require(modulePath);
 
 assert.equal(Engine.ENGINE_VERSION, 1);
-assert.deepEqual(Engine.STRATEGY_IDS, ["range", "rep_goal", "anchor_backoff", "manual"]);
+assert.deepEqual(Engine.STRATEGY_IDS, ["range", "rep_goal", "effort_target", "anchor_backoff", "manual"]);
 assert.ok(Object.isFrozen(Engine));
 assert.ok(Object.isFrozen(Engine.CAPACITY));
 
@@ -92,13 +92,78 @@ assert.deepEqual(manualPrescription.value.strategy, {
 
 // rep_goal@1 and anchor_backoff@1 have owner-approved bounds now, so their
 // envelopes are validated against them rather than preserved as opaque shapes.
-for (const id of ["rep_goal", "anchor_backoff"]) {
+for (const id of ["rep_goal", "effort_target", "anchor_backoff"]) {
   assert.equal(Engine.validatePrescription({
     schemaVersion: 1,
     strategy: { id, version: 1, params: { pending: true } },
     modifiers: [],
   }).ok, false, `${id}: an approved strategy no longer accepts an arbitrary parameter bag`);
 }
+
+const effortTargetInput = {
+  engineVersion: 1,
+  prescription: {
+    schemaVersion: 1,
+    strategy: {
+      id: "effort_target",
+      version: 1,
+      params: {
+        workingSets: 2,
+        targetReps: 5,
+        targetRirMin: 2,
+        targetRirMax: 3,
+        minLoadIncrement: 2.5,
+      },
+    },
+    modifiers: [],
+  },
+  settings: { minLoadIncrement: 2.5, jumpPercent: 2.5, hardRir: 4 },
+  relation: null,
+  modifiers: [],
+  history: [],
+  currentSession: [],
+  context: { weekNumber: 1, blockLength: 6, blockStart: null },
+};
+const effortNew = Engine.evaluateProgression(effortTargetInput);
+assert.equal(effortNew.kind, "recommendation");
+assert.equal(effortNew.status, "new");
+assert.deepEqual(effortNew.reasonCodes, ["effort_target.no_history"]);
+assert.equal(effortNew.target.sets.length, 2);
+assert.ok(effortNew.target.sets.every((set) => set.load === null && set.reps === 5));
+assert.ok(effortNew.target.sets.every((set) => set.targetRirMin === 2 && set.targetRirMax === 3));
+
+const effortAdvance = Engine.evaluateProgression({
+  ...structuredClone(effortTargetInput),
+  history: [{
+    sessionId: "effort-s1",
+    date: "2026-01-01",
+    sets: [{ load: 100, reps: 5, rir: 4 }, { load: 100, reps: 5, rir: 4 }],
+  }],
+});
+assert.equal(effortAdvance.status, "advance");
+assert.deepEqual(effortAdvance.reasonCodes, ["effort_target.too_easy"]);
+assert.ok(effortAdvance.target.sets.every((set) => set.load === 102.5 && set.reps === 5));
+assert.equal(effortAdvance.facts.representativeRir, 4);
+
+const effortMissingRir = Engine.evaluateProgression({
+  ...structuredClone(effortTargetInput),
+  history: [{
+    sessionId: "effort-s1",
+    date: "2026-01-01",
+    sets: [{ load: 100, reps: 5, rir: null }, { load: 100, reps: 5, rir: null }],
+  }],
+});
+assert.equal(effortMissingRir.status, "hold");
+assert.deepEqual(effortMissingRir.reasonCodes, ["effort_target.no_rir_evidence"]);
+assert.ok(effortMissingRir.target.sets.every((set) => set.load === 100 && set.reps === 5));
+
+const effortCurrentReduce = Engine.evaluateProgression({
+  ...structuredClone(effortTargetInput),
+  currentSession: [{ load: 100, reps: 4, rir: 4 }],
+});
+assert.equal(effortCurrentReduce.status, "reduce");
+assert.deepEqual(effortCurrentReduce.reasonCodes, ["effort_target.current_reduce"]);
+assert.deepEqual(effortCurrentReduce.target.sets.map((set) => [set.load, set.reps]), [[97.5, 5]]);
 // The authored back-off percentage stays inside the approved band.
 const anchorParams = {
   anchorRepMin: 3, anchorRepMax: 5, anchorTargetRirMin: 1, anchorTargetRirMax: 3,
@@ -397,6 +462,37 @@ for (const testCase of repGoalFixtures.cases) {
   }
 }
 
+const effortTargetFixtures = fixtures.strategies["effort_target@1"];
+const effortTargetCount = runLockedCases(effortTargetFixtures, "effort_target");
+for (const testCase of effortTargetFixtures.cases) {
+  const input = structuredClone(effortTargetFixtures.defaults);
+  input.engineVersion = 1;
+  input.history = structuredClone(testCase.history);
+  if (testCase.currentSession) input.currentSession = structuredClone(testCase.currentSession);
+  for (const [dottedPath, value] of Object.entries(testCase.overrides || {})) {
+    const parts = dottedPath.split(".");
+    let cursor = input;
+    for (const part of parts.slice(0, -1)) cursor = cursor[part];
+    cursor[parts.at(-1)] = { ...cursor[parts.at(-1)], ...value };
+  }
+  const result = Engine.evaluateProgression(input);
+  if (result.kind !== "recommendation") continue;
+  const params = input.prescription.strategy.params;
+  assert.equal(result.facts.targetReps, params.targetReps, `${testCase.id}: authored reps stay fixed`);
+  assert.equal(result.facts.targetRirMin, params.targetRirMin, `${testCase.id}: authored RIR floor stays fixed`);
+  assert.equal(result.facts.targetRirMax, params.targetRirMax, `${testCase.id}: authored RIR ceiling stays fixed`);
+  for (const set of result.target.sets) {
+    assert.equal(set.reps, params.targetReps, `${testCase.id}: every target keeps fixed reps`);
+    assert.equal(set.targetRirMin, params.targetRirMin, `${testCase.id}: every target keeps the RIR floor`);
+    assert.equal(set.targetRirMax, params.targetRirMax, `${testCase.id}: every target keeps the RIR ceiling`);
+  }
+  if (["advance", "reduce"].includes(result.status) && result.facts.representativeLoad != null) {
+    const snappedEvidence = Engine.roundToGrid(result.facts.representativeLoad, input.settings.minLoadIncrement);
+    assert.ok(Math.abs(result.facts.targetLoad - snappedEvidence) <= input.settings.minLoadIncrement + 1e-9,
+      `${testCase.id}: one evidence step changes at most one grid increment`);
+  }
+}
+
 const anchorFixtures = fixtures.strategies["anchor_backoff@1"];
 const anchorCount = runLockedCases(anchorFixtures, "anchor_backoff");
 
@@ -601,4 +697,4 @@ const polluted = Engine.evaluateProgression({
 assert.equal(polluted.kind, "invalid");
 assert.deepEqual(polluted.reasonCodes, ["engine.invalid_input"]);
 
-console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} range, ${repGoalCount} rep_goal, ${anchorCount} anchor_backoff, ${manualCount} manual, ${pairedFixtures.cases.length} paired and ${fixtures.modifiers.cases.length} modifier locked fixtures`);
+console.log(`PASS: progression primitives plus ${rangeFixtures.cases.length} range, ${repGoalCount} rep_goal, ${effortTargetCount} effort_target, ${anchorCount} anchor_backoff, ${manualCount} manual, ${pairedFixtures.cases.length} paired and ${fixtures.modifiers.cases.length} modifier locked fixtures`);

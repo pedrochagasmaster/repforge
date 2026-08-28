@@ -2980,9 +2980,9 @@ function blockTrendNote(trend){
    engine: the pure module knows nothing about the DOM, storage, i18n, a
    program family, or an entitlement, and nothing here teaches it.
 
-   `range@1` is the only arithmetic strategy. Unsupported imported markers are
-   represented as typed manual results rather than silently falling back, so a
-   proposed strategy cannot become live by accident. */
+   Unsupported imported markers are represented as typed manual results rather
+   than silently falling back, so a proposed strategy cannot become live by
+   accident. */
 /** Raw rows for this lift, grouped and ordered exactly the way sessionsFor
  *  groups and orders them, so the engine's own summaries land on the same
  *  numbers the app used to compute inline. */
@@ -3078,6 +3078,24 @@ function anchorCopy(ex,result,params){
   if(codes.includes("anchor_backoff.anchor_below_floor"))
     return{status:"reduce",heat:.18,label:t("rec.anchor.reduce.label"),text:t("rec.anchor.reduce.text",{min})};
   return{status:"hold",heat:.48,label:t("rec.anchor.hold.label"),text:t("rec.anchor.hold.text",{min,max})}}
+function effortTargetCopy(result){
+  const f=result.facts,codes=result.reasonCodes;
+  if(codes.includes("effort_target.no_history"))
+    return{status:"new",heat:.12,label:t("rec.effort.new.label"),
+      text:t("rec.effort.new.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})};
+  if(codes.includes("effort_target.no_rir_evidence"))
+    return{status:"hold",heat:.42,label:t("rec.effort.no_rir.label"),text:t("rec.effort.no_rir.text")};
+  if(codes.includes("effort_target.too_easy"))
+    return{status:"add",heat:.82,label:t("rec.effort.advance.label"),
+      text:t("rec.effort.advance.text",{reps:f.targetReps,max:fmt(f.targetRirMax)})};
+  if(codes.includes("effort_target.rep_miss"))
+    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
+      text:t("rec.effort.rep_miss.text",{reps:f.targetReps})};
+  if(codes.includes("effort_target.too_hard"))
+    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
+      text:t("rec.effort.too_hard.text",{min:fmt(f.targetRirMin)})};
+  return{status:"hold",heat:.48,label:t("rec.effort.hold.label"),
+    text:t("rec.effort.hold.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}}
 
 /* Legacy progression markers are compatibility data, not a formula switch.
  * This is the complete alias table: the old double-progression marker is the
@@ -3099,16 +3117,18 @@ const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
    gate read their own facts off the same result object. */
 function strategyRecommendation(ex,result,id){
   const params=progressionForExercise(ex)?.strategy?.params||{};
-  const copy=id==="rep_goal"?repGoalCopy(ex,result):anchorCopy(ex,result,params);
+  const copy=id==="rep_goal"?repGoalCopy(ex,result)
+    :id==="effort_target"?effortTargetCopy(result):anchorCopy(ex,result,params);
   const sets=strategySets(result);
   return{...copy,load:sets[0]?.load??result.facts.targetLoad??null,
     stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
     reason:result.reasonCodes[0],strategy:id,engineSets:sets,
-    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,lastLoad:result.facts.latestLoad}}
+    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,
+    lastLoad:result.facts.latestLoad??result.facts.representativeLoad}}
 function recommendation(ex){
   const strategy=strategyIdFor(ex);
   const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
-  if(strategy==="rep_goal"||strategy==="anchor_backoff"){
+  if(strategy==="rep_goal"||strategy==="effort_target"||strategy==="anchor_backoff"){
     if(result.kind==="recommendation"||result.kind==="insufficient_evidence")
       return strategyRecommendation(ex,result,strategy)}
   const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
@@ -3239,12 +3259,13 @@ function baseSuggestion(ex,rec,draft,old){
    order. Shared by every strategy's in-session path. */
 function completedCurrentSets(ex,n,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),sets=[];
+  const preserveMissingRir=strategyIdFor(ex)==="effort_target";
   for(let k=1;k<n;k++){const key=`${ex.id}_${k}`;
     if(!done.has(key)||warm.has(key))continue;
     const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
     if(!(ld>0&&rp>0))continue;
-    let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
-    else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
+    let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??(preserveMissingRir?null:1);
+    else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=preserveMissingRir?null:1}
     sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
   return sets}
 /* The approved strategies have no second arithmetic here: their in-session
@@ -3313,6 +3334,12 @@ function explainStrategy(ex,rec,u){
     if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
       rows.push({text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})});
     if(f.completedReps!=null)rows.push({text:t("why.repgoal.distribution")})}
+  else if(rec.strategy==="effort_target"){
+    if(f.representativeLoad!=null)rows.push({text:t("why.effort.evidence",{
+      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})});
+    rows.push({text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})});
+    if(result.reasonCodes.includes("effort_target.grid_rounded"))
+      rows.push({text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})})}
   else{
     if(f.anchorLoad!=null)rows.push({text:t("why.anchor.top",
       {load:fmtLoad(f.anchorLoad),unit:u,reps:Math.round(f.capacityReps)})});
@@ -6057,7 +6084,7 @@ function dayCard(d){
   `</div>`;
 }
 
-const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","anchor_backoff","manual"]);
+const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","effort_target","anchor_backoff","manual"]);
 const progressionNumber=(name,label,value,{min=0,max=100,step="1"}={})=>
   `<label class="pstrategy__field"><span>${esc(label)}</span><input type="number" inputmode="decimal" name="${name}" value="${esc(value)}" min="${min}" max="${max}" step="${step}" required></label>`;
 function progressionEditorParams(e,strategy){
@@ -6078,6 +6105,12 @@ function progressionEditorParams(e,strategy){
     progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
     progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
     progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
+  if(strategy==="effort_target")return `<div class="pstrategy__grid">`+
+    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
+    progressionNumber("targetReps",t("program.progression.target_reps"),+p.targetReps||e.min,{min:1,max:100})+
+    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:2,{min:0,max:10,step:"0.5"})+
+    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
+    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+`</div>`;
   if(strategy==="anchor_backoff")return `<div class="pstrategy__grid">`+
     progressionNumber("anchorRepMin",t("program.progression.anchor_rep_min"),+p.anchorRepMin||Math.min(e.min,5),{min:1,max:100})+
     progressionNumber("anchorRepMax",t("program.progression.anchor_rep_max"),+p.anchorRepMax||Math.min(Math.max(e.min,5),e.max),{min:1,max:100})+
@@ -6108,7 +6141,7 @@ function progressionEditorCard(e){
 }
 
 function exCard(e,i,n){
-  const progressionOwnsShape=!!e.progression&&["range","rep_goal","anchor_backoff"].includes(e.progression.strategy?.id);
+  const progressionOwnsShape=!!e.progression&&["range","rep_goal","effort_target","anchor_backoff"].includes(e.progression.strategy?.id);
   const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"${progressionOwnsShape?" disabled":""}></label>`;
   // The name stays an editable field — a slot can be renamed to what the plate
   // on the machine says — with the library one tap away beside it.
@@ -6165,6 +6198,10 @@ function authoredProgressionFromForm(strategy,data,e){
     targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
     minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump"),
     distributionPolicy:"balanced_frontload_v1"};
+  else if(strategy==="effort_target")params={
+    workingSets:progressionFormNumber(data,"sets"),targetReps:progressionFormNumber(data,"targetReps"),
+    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
+    minLoadIncrement:progressionFormNumber(data,"increment")};
   else if(strategy==="anchor_backoff")params={
     anchorRepMin:progressionFormNumber(data,"anchorRepMin"),anchorRepMax:progressionFormNumber(data,"anchorRepMax"),
     anchorTargetRirMin:progressionFormNumber(data,"rirMin"),anchorTargetRirMax:progressionFormNumber(data,"rirMax"),
@@ -6177,6 +6214,7 @@ function authoredProgressionFromForm(strategy,data,e){
   return{schemaVersion:1,strategy:{id:strategy,version:1,params},modifiers:[]}}
 function progressionAuthoredShape(strategy,params,e){
   if(strategy==="rep_goal")return{sets:params.workingSets,min:params.repFloor,max:params.repCeiling};
+  if(strategy==="effort_target")return{sets:params.workingSets,min:params.targetReps,max:params.targetReps};
   if(strategy==="anchor_backoff")return{sets:1+params.backoffSets,min:Math.min(params.anchorRepMin,params.backoffRepMin),max:Math.max(params.anchorRepMax,params.backoffRepMax)};
   if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
   return{sets:e.sets,min:e.min,max:e.max}}

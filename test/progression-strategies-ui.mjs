@@ -5,7 +5,7 @@
  *
  * `test/progression-engine.mjs` proves the arithmetic against the locked
  * fixture. This gate proves the other half: that a program slot carrying a
- * `rep_goal@1` or `anchor_backoff@1` prescription actually renders a
+ * `rep_goal@1`, `effort_target@1`, or `anchor_backoff@1` prescription renders a
  * recommendation, per-set targets, and an explanation in the running app — in
  * both English and Portuguese, without ever leaking an internal strategy id or
  * a raw translation key at the lifter.
@@ -66,6 +66,19 @@ const ANCHOR = {
       anchorRepMin: 3, anchorRepMax: 5, anchorTargetRirMin: 1, anchorTargetRirMax: 3,
       backoffSets: 3, backoffRepMin: 6, backoffRepMax: 10, backoffPercent: 0.8,
       minLoadIncrement: 2.5, jumpPercent: 2.5,
+    },
+  },
+  modifiers: [],
+};
+
+const EFFORT_TARGET = {
+  schemaVersion: 1,
+  strategy: {
+    id: "effort_target",
+    version: 1,
+    params: {
+      workingSets: 2, targetReps: 5, targetRirMin: 2, targetRirMax: 3,
+      minLoadIncrement: 2.5,
     },
   },
   modifiers: [],
@@ -221,7 +234,7 @@ async function workoutSurface(page) {
 }
 
 /** Nothing the lifter reads may carry an internal identifier or a raw key. */
-const LEAKS = [/rep_goal/i, /anchor_backoff/i, /@1\b/, /\brange@/i, /^[a-z]+\.[a-z_.]+$/];
+const LEAKS = [/rep_goal/i, /effort_target/i, /anchor_backoff/i, /@1\b/, /\brange@/i, /^[a-z]+\.[a-z_.]+$/];
 function prose(capture) {
   return [capture.rec.label, capture.rec.text, ...capture.explain.flatMap((row) => [row.label, row.text])]
     .filter((value) => typeof value === "string" && value.length);
@@ -238,6 +251,7 @@ try {
   await waitForAppBoot(page, { base: BASE });
 
   const repGoalProgram = slot({ sets: 3, min: 6, max: 12, progression: REP_GOAL });
+  const effortTargetProgram = slot({ sets: 2, min: 5, max: 5, progression: EFFORT_TARGET });
   const anchorProgram = slot({ sets: 4, min: 3, max: 10, progression: ANCHOR });
 
   console.log("rep_goal@1");
@@ -278,6 +292,58 @@ try {
   assert(await page.locator('[data-k="ex0_2_load"]').inputValue() === "77.5" &&
     await page.locator('[data-k="ex0_2_reps"]').inputValue() === "7",
   "logging a completed set preserves a user-touched future set");
+
+  console.log("effort_target@1");
+  const effortAdvance = await capture(page, {
+    lang: "en", program: effortTargetProgram,
+    rows: log([[7, [[100, 5, 4], [100, 5, 4]]]]),
+  });
+  assert(effortAdvance.rec.status === "add" && effortAdvance.rec.load === 102.5,
+    "fixed reps above the effort ceiling advance one load step", JSON.stringify(effortAdvance.rec));
+  assert(effortAdvance.suggestions.every((set) => set.load === 102.5 && set.reps === 5),
+    "fixed reps and authored effort targets stay fixed after the load change", JSON.stringify(effortAdvance.suggestions));
+  assert(leaked(effortAdvance).length === 0, "effort-target copy exposes no internal identifier", leaked(effortAdvance).join(" | "));
+  const effortTargetSurface = await workoutSurface(page);
+  assert(effortTargetSurface.list.loads.every((value) => value === "102.5") && effortTargetSurface.list.reps.every((value) => value === "5"),
+    "List renders the fixed-rep engine target", JSON.stringify(effortTargetSurface.list));
+  assert(effortAdvance.explain.filter((row) => row.text).every((row) => effortTargetSurface.why.includes(row.text)),
+    "Why this weight renders the effort evidence and authored target", effortTargetSurface.why);
+
+  const noRir = await capture(page, {
+    lang: "en", program: effortTargetProgram,
+    rows: log([[7, [[100, 5, null], [100, 5, null]]]]),
+  });
+  assert(noRir.rec.status === "hold" && noRir.rec.load === 100 && noRir.rec.text.includes("no effort entry"),
+    "missing RIR holds actionable load without fabricated effort", JSON.stringify(noRir.rec));
+
+  const differentMachineRows = log([[7, [[100, 5, 4], [100, 5, 4]]]]).map((row) => ({
+    ...row, performedLibraryId: "pr_sm", performedName: "Smith machine bench press",
+  }));
+  const exactMachineProgram = structuredClone(effortTargetProgram);
+  exactMachineProgram[0].libraryId = "pr_bb";
+  const differentMachine = await capture(page, {
+    lang: "en", program: exactMachineProgram, rows: differentMachineRows,
+  });
+  assert(differentMachine.rec.status === "new" && differentMachine.rec.load === null,
+    "a different machine identity contributes no effort-target history", JSON.stringify(differentMachine.rec));
+
+  const currentEffort = await capture(page, {
+    lang: "en", program: effortTargetProgram, rows: [], current: [[100, 4, 4]],
+  });
+  assert(currentEffort.suggestions[1].src === "session-down" && currentEffort.suggestions[1].load === 97.5 && currentEffort.suggestions[1].reps === 5,
+    "a current rep miss reduces only the next untouched set", JSON.stringify(currentEffort.suggestions));
+  await capture(page, {
+    lang: "en", program: effortTargetProgram,
+    rows: log([[7, [[100, 5, 2], [100, 5, 2]]]]),
+  });
+  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.locator('[data-k="ex0_2_load"]').fill("77.5");
+  await page.locator('[data-k="ex0_2_reps"]').fill("7");
+  await page.locator('[data-save="ex0_1"]').click();
+  await page.waitForSelector('[data-save="ex0_1"][aria-pressed="true"]');
+  assert(await page.locator('[data-k="ex0_2_load"]').inputValue() === "77.5" &&
+    await page.locator('[data-k="ex0_2_reps"]').inputValue() === "7",
+  "effort-target refresh preserves a user-touched future set");
 
   console.log("anchor_backoff@1");
   const anchorAdvance = await capture(page, {
@@ -332,6 +398,12 @@ try {
   });
   assert(ptAnchor.rec.label !== anchorAdvance.rec.label, "the anchor label follows the UI language", ptAnchor.rec.label);
   assert(leaked(ptAnchor).length === 0, "Portuguese anchor copy leaks nothing", leaked(ptAnchor).join(" | "));
+  const ptEffortTarget = await capture(page, {
+    lang: "pt", program: effortTargetProgram,
+    rows: log([[7, [[100, 5, 4], [100, 5, 4]]]]),
+  });
+  assert(ptEffortTarget.rec.label !== effortAdvance.rec.label && ptEffortTarget.rec.load === effortAdvance.rec.load,
+    "effort-target copy follows the UI language without changing the target", JSON.stringify(ptEffortTarget.rec));
 
   console.log("units and effort mode");
   const lbGoal = await capture(page, { lang: "en", unit: "lb", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
@@ -402,6 +474,15 @@ try {
   assert(authored.progression.strategy.params.repGoal === 32 && authored.sets === 4,
     "rejected values never replace the last valid prescription");
 
+  await chooseStrategy(page, details, "effort_target");
+  await setFormValues(details, { sets: 3, targetReps: 5, rirMin: 2, rirMax: 3, increment: 2.5 });
+  await saveStrategy(details);
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.[0]?.progression?.strategy?.id === "effort_target", KEY);
+  authored = await storedSlot(page);
+  assert(authored.sets === 3 && authored.min === 5 && authored.max === 5 && authored.progression.strategy.params.targetReps === 5,
+    "fixed-rep authoring keeps set count and reps aligned with the prescription", JSON.stringify(authored));
+
+  details = await openProgressionEditor(page);
   await chooseStrategy(page, details, "anchor_backoff");
   await setFormValues(details, {
     anchorRepMin: 3, anchorRepMax: 5, rirMin: 1, rirMax: 3,

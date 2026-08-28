@@ -340,7 +340,7 @@
       return null;
     }
     for (const key of Object.keys(raw.strategy)) if (!["id", "version", "params"].includes(key)) issues.push(`${path}.strategy.${key}: unknown key`);
-    if (!["range", "rep_goal", "anchor_backoff", "manual"].includes(raw.strategy.id)) issues.push(`${path}.strategy.id: unsupported`);
+    if (!["range", "rep_goal", "effort_target", "anchor_backoff", "manual"].includes(raw.strategy.id)) issues.push(`${path}.strategy.id: unsupported`);
     if (raw.strategy.version !== 1) issues.push(`${path}.strategy.version: unsupported`);
     if (!isPlainObject(raw.strategy.params)) issues.push(`${path}.strategy.params: expected object`);
     const progression = { schemaVersion: 1, strategy: { id: raw.strategy.id, version: 1, params: {} }, modifiers: [] };
