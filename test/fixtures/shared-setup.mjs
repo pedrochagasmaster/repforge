@@ -160,7 +160,7 @@ export const REPRESENTATIVE_PAYLOAD = Object.freeze({
 
 export const INVALID_DECODE_INPUTS = Object.freeze({
   missing: null,
-  "unsupported-version": "v3.e30",
+  "unsupported-version": "v4.e30",
   "encoded-too-large": `v1.${"a".repeat(MAX_ENCODED_CHARS)}`,
   "invalid-base64": "v1.not.base64",
   "invalid-gzip": "v1.e30",

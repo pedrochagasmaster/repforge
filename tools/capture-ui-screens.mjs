@@ -64,6 +64,7 @@ const LABELS = {
   "31-install-banner": "Install banner",
   "32-ios-install-sheet": "iOS install instruction sheet",
   "33-why-this-weight": "Why this weight sheet",
+  "35-program-progression-editor": "Program — progression editor",
 };
 
 function isoDaysAgo(n) {
@@ -74,7 +75,12 @@ function isoDaysAgo(n) {
 
 function catalogState() {
   const program = [
-    { id: "ex-sq", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 4, max: 8, primary: "Quads", secondary: "Glutes,Hamstrings", notes: "", alternates: [], libraryId: "sq_bb" },
+    { id: "ex-sq", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 4, max: 8, primary: "Quads", secondary: "Glutes,Hamstrings", notes: "", alternates: [], libraryId: "sq_bb",
+      progression: { schemaVersion: 1, strategy: { id: "rep_goal", version: 1, params: {
+        workingSets: 3, repGoal: 18, repFloor: 4, repCeiling: 8,
+        targetRirMin: 1, targetRirMax: 3, minLoadIncrement: 2.5,
+        jumpPercent: 2.5, distributionPolicy: "balanced_frontload_v1",
+      } }, modifiers: [] } },
     { id: "ex-curl", day: "Day 1", order: 2, name: "Seated leg curl", sets: 2, min: 6, max: 10, primary: "Hamstrings", secondary: "", notes: "", alternates: [] },
     { id: "ex-bench", day: "Day 1", order: 3, name: "Barbell bench press", sets: 3, min: 4, max: 8, primary: "Chest", secondary: "Triceps,Front delts", notes: "Pause on the chest.", alternates: [], libraryId: "pr_bb" },
     { id: "ex-row", day: "Day 1", order: 4, name: "Chest-supported row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Lats,Rear delts,Biceps", notes: "", alternates: [] },
@@ -487,6 +493,17 @@ async function captureMain(browser, theme) {
     await page.click('nav [data-view="program"]');
     await sleep(page, 500);
     await shot(page, theme, "18-program");
+
+    await tryShot("35-program-progression-editor", async () => {
+      await page.click("#programEditToggle");
+      const editor = page.locator('[data-progression-editor="ex-sq"]');
+      await editor.locator("summary").click();
+      await editor.scrollIntoViewIfNeeded();
+      await sleep(page, 400);
+      await shot(page, theme, "35-program-progression-editor");
+      await page.click("#programEditToggle");
+      await sleep(page, 300);
+    });
 
     await tryShot("19-share-setup", async () => {
       await page.click("#shareProgramSetup");

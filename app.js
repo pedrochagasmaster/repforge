@@ -33,10 +33,35 @@ function isPlainStateObject(value){
   if(!value||typeof value!=="object"||Array.isArray(value))return false;
   const proto=Object.getPrototypeOf(value);
   return proto===Object.prototype||proto===null}
+const PROGRESSION_VALUE_LIMITS=Object.freeze({depth:32,nodes:1000,keys:128,arrayItems:128,stringLength:4000});
+function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
+  if(++state.nodes>PROGRESSION_VALUE_LIMITS.nodes||depth>PROGRESSION_VALUE_LIMITS.depth)return false;
+  if(typeof value==="string")return value.length<=PROGRESSION_VALUE_LIMITS.stringLength;
+  if(value===null||typeof value==="boolean")return true;
+  if(typeof value==="number")return Number.isFinite(value);
+  if(Array.isArray(value))return value.length<=PROGRESSION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedProgressionValue(item,depth+1,state));
+  if(!isPlainStateObject(value)||Object.keys(value).length>PROGRESSION_VALUE_LIMITS.keys)return false;
+  return Object.keys(value).every(key=>isBoundedProgressionValue(value[key],depth+1,state));
+}
+function isSafeProgressionFields(value){
+  if(!isPlainStateObject(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"progressionType")&&
+    (typeof value.progressionType!=="string"||Array.from(value.progressionType.trim()).length>80))return false;
+  for(const key of ["progression","progressionIncompatibility"])
+    if(Object.prototype.hasOwnProperty.call(value,key)&&!isBoundedProgressionValue(value[key]))return false;
+  return true}
+function isSafeProgressionMeta(value){
+  if(value==null)return true;
+  if(!isPlainStateObject(value))return false;
+  for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
+    if(Object.prototype.hasOwnProperty.call(value,key)&&
+      (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
+  return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
-  return Array.isArray(entry.program)&&entry.program.every(isPlainStateObject)}
+  return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
@@ -48,8 +73,9 @@ function isSafeCustomExercise(entry){
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
 function isValidStateShape(s){
   try{
-    if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isPlainStateObject)||
+    if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     // Optional: backups written before custom exercises existed stay importable.
     if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
@@ -1546,6 +1572,30 @@ function exerciseFieldsFromLibrary(entry){
   return{name:libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||"",
     notes:entry.notes||"",libraryId:entry.id,displayName:null}}
 
+function normalizeProgressionEnvelope(value){
+  const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const checked=validator?.validatePrescription?.(value);
+  return checked?.ok?cloneSnapshot(checked.value):null}
+function progressionIncompatibility(kind,value,checked,source){
+  return{version:1,kind,source:source||"state-restore",reason:Array.isArray(checked?.issues)?checked.issues.join("; "):"incompatible",value:cloneSnapshot(value)}
+}
+function normalizeProgressionRelations(value,program=[],options={}){
+  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionRelations: expected array");
+  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionRelations: structure exceeds safety bounds");
+  const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const checked=validator?.validateRelations?.(value,{slots:program});
+  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
+  return checked?.ok?cloneSnapshot(checked.value):[]}
+function normalizeProgressionModifiers(value,options={}){
+  if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
+  if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
+  const validator=typeof window!=="undefined"?window.RepForgeProgression:null;
+  const checked=validator?.validateModifiers?.(value);
+  if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
+    options.incompatibilities.push(progressionIncompatibility("modifiers",value,checked,options.source));
+  return checked?.ok?cloneSnapshot(checked.value):[]}
+
 /* ============================================================
    Program model
    Exercise — one movement: day, sequence, rep range, muscles.
@@ -1574,12 +1624,25 @@ class Exercise{
     // without claiming the slot is a different movement. Identity stays with
     // libraryId; only the label moves.
     if(d.displayName!=null&&String(d.displayName).trim())this.displayName=String(d.displayName).trim();
-    if(d.progressionType!=null)this.progressionType=String(d.progressionType).trim();
+    if(d.progressionType!=null){
+      const progressionType=String(d.progressionType).trim();
+      if(Array.from(progressionType).length>80)throw new TypeError("progressionType: string too long");
+      if(progressionType)this.progressionType=progressionType}
     if(d.targetRirStart!=null&&Number.isFinite(+d.targetRirStart))this.targetRirStart=+d.targetRirStart;
     if(d.targetRirEnd!=null&&Number.isFinite(+d.targetRirEnd))this.targetRirEnd=+d.targetRirEnd;
     if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
     if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
     if(d.priority!=null)this.priority=String(d.priority).trim();
+    if(d.progression!=null){
+      if(!isBoundedProgressionValue(d.progression))throw new TypeError("progression: structure exceeds safety bounds");
+      const progression=normalizeProgressionEnvelope(d.progression);
+      if(progression)this.progression=progression;
+      else this.progressionIncompatibility=progressionIncompatibility("prescription",d.progression,null,"program-json");
+    }
+    if(d.progressionIncompatibility!=null&&!this.progression){
+      if(!isBoundedProgressionValue(d.progressionIncompatibility))throw new TypeError("progressionIncompatibility: structure exceeds safety bounds");
+      this.progressionIncompatibility=cloneSnapshot(d.progressionIncompatibility);
+    }
   }
   static posInt(v,fallback){const n=Math.round(+v);return Number.isFinite(n)&&n>0?n:fallback}
   /* Resolves a linked slot's label and muscles from the library definition, so
@@ -1609,6 +1672,8 @@ class Exercise{
     if(this.minSets!==undefined)o.minSets=this.minSets;
     if(this.maxSets!==undefined)o.maxSets=this.maxSets;
     if(this.priority!==undefined)o.priority=this.priority;
+    if(this.progression!==undefined)o.progression=cloneSnapshot(this.progression);
+    if(this.progressionIncompatibility!==undefined)o.progressionIncompatibility=cloneSnapshot(this.progressionIncompatibility);
     return o}
 }
 
@@ -2069,14 +2134,18 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
   else if(row.performedName===row.name){
     if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
     if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
-  const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
+  const ld=posNum(row.load),rp=posNum(row.reps);
+  const explicitStrategy=ex?.progression?.strategy?.id;
+  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&(row.rir==null||row.rir==="");
+  const rr=preserveMissingRir?null:posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function migrateLog(){return migrateLogSnapshot(state)}
 function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min,r)=>!min||String(r.date)<min?r.date:min,null)}
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
-  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false}}
+  mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
+  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[]}}
 function buildProgramMeta({name, answers}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
@@ -2084,8 +2153,9 @@ function buildProgramMeta({name, answers}={}){
     goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
     equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
     sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
+    progressionRelations:[],progressionModifiers:[],
     blockPromptDismissedId:null}}
-function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=defaultProgramMeta(log);
+function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
@@ -2100,10 +2170,18 @@ function normalizeProgramMeta(m,log=[]){const now=new Date().toISOString(),base=
   const completedAt=typeof m.completedAt==="string"?m.completedAt:m.completedAt===null?null:base.completedAt;
   const onboarded=typeof m.onboarded==="boolean"?m.onboarded:base.onboarded;
   const blockPromptDismissedId=typeof m.blockPromptDismissedId==="string"&&m.blockPromptDismissedId?m.blockPromptDismissedId:null;
+  if(m.progressionIncompatibilities!=null&&!isBoundedProgressionValue(m.progressionIncompatibilities))
+    throw new TypeError("progressionIncompatibilities: structure exceeds safety bounds");
+  if(m.progressionIncompatibilities!=null&&!Array.isArray(m.progressionIncompatibilities))
+    throw new TypeError("progressionIncompatibilities: expected array");
+  const incompatibilities=Array.isArray(m.progressionIncompatibilities)?cloneSnapshot(m.progressionIncompatibilities):[];
+  const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
+  const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
+  const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    blockPromptDismissedId}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId}}
 function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
@@ -2141,23 +2219,24 @@ function normalizeProgramHistory(history,lookup){
     if(Object.prototype.hasOwnProperty.call(normalized,"program"))
       normalized.program=new Program(normalized.program,lookup).toJSON();
     return normalized})}
-function normalizeLoaded(s){
+function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:starterProgram(),log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
-  const out={settings:normalizeSettings(s.settings),programMeta:normalizeProgramMeta(s.programMeta,s.log),
+  const out={settings:normalizeSettings(s.settings),programMeta:null,
     program:[],log:cloneSnapshot(s.log),
     programHistory:normalizeProgramHistory(Object.prototype.hasOwnProperty.call(s,"programHistory")?s.programHistory:[],lookup),
     customExercises:customs};
   // Resolved against this snapshot's own custom definitions: during an import
   // or a boot they are not in live state yet.
   out.program=new Program(s.program,lookup).toJSON();
+  out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,options);
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
 function proposalFromImport(incoming){
   if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
-  return normalizeLoaded(stripStorageMeta(incoming))}
+  return normalizeLoaded(stripStorageMeta(incoming),{preserveInvalidProgression:true,source:"backup-restore"})}
 async function replaceImportedState(incoming,io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"replaceImportedState");
   const transition=programTransitionPrecondition(state);
@@ -2623,26 +2702,29 @@ function sharedSettingsPatch(raw){
     unit:raw?.unit==="lb"?"lb":"kg",
     lang:I18N?.normalizeLang(raw?.lang)||"en",
     rirMode:raw?.rirMode==="effort"?"effort":"numeric"}}
-function buildSharedProgramMeta(raw){
+function buildSharedProgramMeta(raw,program=[]){
   const now=new Date().toISOString();
   return{id:uid(),name:String(raw?.name||"").trim(),started:today(),created:now,updated:now,
     goal:raw?.goal??null,experience:raw?.experience??null,daysPerWeek:raw?.daysPerWeek??null,
     splitType:raw?.splitType??null,equipment:Array.isArray(raw?.equipment)?[...raw.equipment]:[],
     priorityMuscles:Array.isArray(raw?.priorityMuscles)?[...raw.priorityMuscles]:[],
     sessionLength:raw?.sessionLength??null,mesocycleLengthWeeks:raw?.mesocycleLengthWeeks||6,
-    mesocycleStatus:"active",completedAt:null,onboarded:true,blockPromptDismissedId:null}}
+    mesocycleStatus:"active",completedAt:null,onboarded:true,
+    progressionRelations:normalizeProgressionRelations(raw?.progressionRelations,program),
+    progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
+    blockPromptDismissedId:null}}
 function proposalFromSharedSetup(payload,baseState=state){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
   if(!checked.ok)throw new TypeError("Invalid shared setup");
   const clean=checked.value,proposal=cloneSnapshot(baseState);
-  const exercises=clean.program.exercises.map(sharedExercise);
+  const exercises=clean.program.exercises.map(ex=>sharedExercise(ex,true));
   const merged=mergeImportedCustomExercises(clean.program.customExercises,exercises,proposal);
   proposal.customExercises=merged.customExercises;
   const lookup=snapshotLookup(proposal.customExercises);
   if(exercises.some(ex=>!lookup(ex.libraryId)))throw new TypeError("Unresolved shared exercise");
   proposal.program=new Program(exercises,lookup).toJSON();
-  proposal.programMeta=buildSharedProgramMeta(clean.program.meta);
+  proposal.programMeta=buildSharedProgramMeta(clean.program.meta,proposal.program);
   proposal.settings={...normalizeSettings(proposal.settings),...sharedSettingsPatch(clean.settings)};
   proposal.log=[];
   proposal.programHistory=[];
@@ -2898,9 +2980,9 @@ function blockTrendNote(trend){
    engine: the pure module knows nothing about the DOM, storage, i18n, a
    program family, or an entitlement, and nothing here teaches it.
 
-   `range@1` is the only executable strategy. Anything else comes back typed
-   as incompatible rather than silently falling back, so a proposed strategy
-   cannot become live by accident. */
+   `range@1` is the only arithmetic strategy. Unsupported imported markers are
+   represented as typed manual results rather than silently falling back, so a
+   proposed strategy cannot become live by accident. */
 /** Raw rows for this lift, grouped and ordered exactly the way sessionsFor
  *  groups and orders them, so the engine's own summaries land on the same
  *  numbers the app used to compute inline. */
@@ -2919,8 +3001,7 @@ function progressionInput(ex,currentSession,freshnessFactor){
     blockStart:state.programMeta?.started||null};
   if(freshnessFactor!=null&&freshnessFactor<1)context.freshnessFactor=freshnessFactor;
   return{engineVersion:1,
-    prescription:{schemaVersion:1,modifiers:[],
-      strategy:{id:"range",version:1,params:{workingSets:+ex.sets||1,repMin:+ex.min,repMax:+ex.max}}},
+    prescription:progressionForExercise(ex),
     relation:null,modifiers:[],
     settings:{minLoadIncrement:(()=>{const raw=+state.settings.minJump;return Number.isFinite(raw)&&raw>0?raw:2.5})(),
       jumpPercent:+state.settings.jumpPct||0,
@@ -2949,9 +3030,89 @@ function rangeCopy(ex,reason){
   if(reason==="push_reps")return{label:t("rec.push_reps.label"),text:t("rec.push_reps.text")};
   return{label:t("rec.hold_add_reps.label"),
     text:t(isEffortMode()?"rec.hold_add_reps.text_effort":"rec.hold_add_reps.text")}}
+/* The strategies approved in the Plan 046 numeric gate. Their copy is the
+   product's, exactly as range@1's is: the engine hands over a status, a set of
+   codes and its own facts, and this table turns them into plain sentences.
+   A strategy id is never shown to the lifter. */
+function strategySets(result){return result?.target?.sets||[]}
+function repGoalCopy(ex,result){
+  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result);
+  if(codes.includes("rep_goal.no_history"))
+    return{status:"new",heat:.12,label:t("rec.repgoal.new.label"),
+      text:t("rec.repgoal.new.text",{floor:ex.min,ceiling:ex.max,goal:f.repGoal})};
+  if(codes.includes("rep_goal.current_progress")||codes.includes("rep_goal.goal_met")&&f.completedReps!=null){
+    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.repgoal.session.done.label"),
+      text:t("rec.repgoal.session.done.text",{sets:ex.sets,done:f.completedReps,goal:f.repGoal})};
+    return{status:"hold",heat:.6,label:t("rec.repgoal.session.label"),
+      text:t("rec.repgoal.session.text",{done:f.completedReps,goal:f.repGoal,reps:sets[0].reps})}}
+  if(codes.includes("rep_goal.advance"))
+    return codes.includes("rep_goal.rebuild_after_advance")
+      ?{status:"add",heat:.82,label:t("rec.repgoal.rebuild.label"),
+        text:t("rec.repgoal.rebuild.text",{goal:f.repGoal,reps:sets[0]?.reps})}
+      :{status:"add",heat:.82,label:t("rec.repgoal.advance.label"),
+        text:t("rec.repgoal.advance.text",{goal:f.repGoal})};
+  if(codes.includes("rep_goal.effort_too_high"))
+    return{status:"hold",heat:.42,label:t("rec.repgoal.effort.label"),
+      text:t("rec.repgoal.effort.text",{goal:f.repGoal})};
+  if(codes.includes("rep_goal.capacity_below_floor"))
+    return{status:"reduce",heat:.18,label:t("rec.repgoal.reduce.label"),
+      text:t("rec.repgoal.reduce.text",{floor:ex.min})};
+  return{status:"hold",heat:.48,label:t("rec.repgoal.progress.label"),
+    text:t("rec.repgoal.progress.text",{done:f.performedTotal,goal:f.repGoal})}}
+function anchorCopy(ex,result,params){
+  const f=result.facts,codes=result.reasonCodes,sets=strategySets(result),u=unitLabel();
+  const min=params.anchorRepMin,max=params.anchorRepMax;
+  if(result.kind==="insufficient_evidence")
+    return{status:"hold",heat:.3,label:t("rec.anchor.insufficient.label"),text:t("rec.anchor.insufficient.text")};
+  if(codes.includes("anchor_backoff.no_history"))
+    return{status:"new",heat:.12,label:t("rec.anchor.new.label"),
+      text:t("rec.anchor.new.text",{min,max,backoffs:params.backoffSets})};
+  if(codes.includes("anchor_backoff.current_anchor")){
+    if(!sets.length)return{status:"hold",heat:.48,label:t("rec.anchor.session.done.label"),text:t("rec.anchor.session.done.text")};
+    if(result.status==="recalibrate")return{status:"reduce",heat:.3,label:t("rec.anchor.recalibrate.label"),
+      text:t("rec.anchor.recalibrate.text",{min})};
+    return{status:"hold",heat:.6,label:t("rec.anchor.session.label"),
+      text:t("rec.anchor.session.text",{load:fmtLoad(f.backoffLoad),unit:u,reps:f.backoffReps})}}
+  if(codes.includes("anchor_backoff.anchor_advance"))
+    return{status:"add",heat:.82,label:t("rec.anchor.advance.label"),text:t("rec.anchor.advance.text",{max})};
+  if(codes.includes("anchor_backoff.anchor_below_floor"))
+    return{status:"reduce",heat:.18,label:t("rec.anchor.reduce.label"),text:t("rec.anchor.reduce.text",{min})};
+  return{status:"hold",heat:.48,label:t("rec.anchor.hold.label"),text:t("rec.anchor.hold.text",{min,max})}}
+
+/* Legacy progression markers are compatibility data, not a formula switch.
+ * This is the complete alias table: the old double-progression marker is the
+ * released range contract. Everything else remains recoverable but executes
+ * as a manual envelope until an owner-approved rule exists. */
+const LEGACY_PROGRESSION_ALIASES=Object.freeze({double_progression:"range"});
+function rangeProgressionProjection(ex){return{schemaVersion:1,modifiers:[],strategy:{id:"range",version:1,params:{workingSets:+ex.sets||1,repMin:+ex.min,repMax:+ex.max}}}}
+function progressionForExercise(ex){
+  if(ex?.progressionIncompatibility)return{schemaVersion:1,modifiers:[],strategy:{id:"manual",version:1,params:{unsupportedImport:"incompatible_prescription"}}};
+  if(ex?.progression)return cloneSnapshot(ex.progression);
+  const legacy=typeof ex?.progressionType==="string"?ex.progressionType.trim():"";
+  if(legacy&&!Object.prototype.hasOwnProperty.call(LEGACY_PROGRESSION_ALIASES,legacy))
+    return{schemaVersion:1,modifiers:[],strategy:{id:"manual",version:1,params:{unsupportedImport:legacy}}};
+  return rangeProgressionProjection(ex||{});
+}
+const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
+/* One engine call, one rendered recommendation, for every strategy. range@1
+   keeps its released mapping untouched; the strategies approved in the numeric
+   gate read their own facts off the same result object. */
+function strategyRecommendation(ex,result,id){
+  const params=progressionForExercise(ex)?.strategy?.params||{};
+  const copy=id==="rep_goal"?repGoalCopy(ex,result):anchorCopy(ex,result,params);
+  const sets=strategySets(result);
+  return{...copy,load:sets[0]?.load??result.facts.targetLoad??null,
+    stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
+    reason:result.reasonCodes[0],strategy:id,engineSets:sets,
+    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,lastLoad:result.facts.latestLoad}}
 function recommendation(ex){
+  const strategy=strategyIdFor(ex);
   const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
+  if(strategy==="rep_goal"||strategy==="anchor_backoff"){
+    if(result.kind==="recommendation"||result.kind==="insufficient_evidence")
+      return strategyRecommendation(ex,result,strategy)}
   const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
+  if(result.kind==="manual"||result.kind==="incompatible"||result.kind==="invalid")return{status:"manual",heat:0,label:"",text:"",load:null,stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,reason:codes[0]};
   // No history, or evidence the locked strategy will not act on: the same
   // "start here" card the app has always drawn, with no invented number.
   if(!ui||ui.reason==="new")return{status:"new",heat:.12,label:t("rec.new.label"),
@@ -3058,6 +3219,7 @@ function sessionFreshness(ex,draft){
  *  session freshness. Freshness moves reps; it only touches load when the tempered
  *  target would otherwise fall out of the bottom of the range. */
 function baseSuggestion(ex,rec,draft,old){
+  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
   const reps=rec.load!=null?baseSetReps(ex,rec,old):(old&&+old.reps>0?+old.reps:ex.min);
   if(rec.load==null||!(rec.cap>0))return{load:rec.load,reps,src:"base"};
   const factor=sessionFreshness(ex,draft);
@@ -3073,11 +3235,10 @@ function baseSuggestion(ex,rec,draft,old){
 //  3. block trend (folded into rec) — weak
 // In-session prediction is anticipatory: it reads every completed set so far and
 // projects the NEXT one, rather than echoing the last set back at the lifter.
-function setSuggestion(ex,n,rec,draft,old){
-  const minJ=+state.settings.minJump||2.5;
-  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]);
-  // Every completed working set for this lift earlier in THIS session, in order.
-  const sets=[];
+/* Working sets this lift has already completed earlier in THIS session, in
+   order. Shared by every strategy's in-session path. */
+function completedCurrentSets(ex,n,draft){
+  const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),sets=[];
   for(let k=1;k<n;k++){const key=`${ex.id}_${k}`;
     if(!done.has(key)||warm.has(key))continue;
     const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
@@ -3085,6 +3246,26 @@ function setSuggestion(ex,n,rec,draft,old){
     let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
     else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
     sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
+  return sets}
+/* The approved strategies have no second arithmetic here: their in-session
+   target is the engine's own current-session result for the sets logged so
+   far, and their base target is the nth set of the engine's distribution. */
+function strategySuggestion(ex,n,rec,draft){
+  const done=completedCurrentSets(ex,n,draft);
+  if(!done.length){const set=rec.engineSets[n-1]||rec.engineSets.at(-1);
+    return set?{load:set.load,reps:set.reps,src:"base"}:{load:null,reps:null,src:"manual"}}
+  const result=RepForgeProgression.evaluateProgression(
+    progressionInput(ex,done.map(s=>({load:s.load,reps:s.reps,rir:s.rir}))));
+  const set=strategySets(result)[0];
+  if(!set)return{load:null,reps:null,src:"manual"};
+  return{load:set.load,reps:set.reps,src:result.status==="advance"?"session-up"
+    :result.status==="reduce"||result.status==="recalibrate"?"session-down":"session-hold",
+    drop:result.reasonCodes.some(code=>code.endsWith(".current_drop"))}}
+function setSuggestion(ex,n,rec,draft,old){
+  if(rec.status==="manual")return{load:null,reps:null,src:"manual"};
+  if(rec.strategy&&rec.strategy!=="range")return strategySuggestion(ex,n,rec,draft);
+  const minJ=+state.settings.minJump||2.5;
+  const sets=completedCurrentSets(ex,n,draft);
   if(!sets.length)return baseSuggestion(ex,rec,draft,old);
   const typRir=rec.typRir!=null?rec.typRir:typicalRir(ex);
   const lastSet=sets.at(-1),L=lastSet.load;
@@ -3103,6 +3284,7 @@ function setSuggestion(ex,n,rec,draft,old){
 function inSessionNote(ex,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),changed=new Set(draft.__touched||[]);
   const rec=recommendation(ex),u=unitLabel();
+  if(rec.status==="manual")return"";
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
     if(done.has(key)||warm.has(key)||changed.has(key))continue;
     const sg=setSuggestion(ex,n,rec,draft,null);
@@ -3115,6 +3297,33 @@ function inSessionNote(ex,draft){
     if((rec.status==="add"||rec.status==="add2")&&sg.load!=null&&sg.reps>ex.min)
       return t("log.insession.reentry",{load:fmtLoad(sg.load),unit:u,reps:sg.reps})}
   return""}
+/* The same sheet for the strategies approved in the numeric gate. Every number
+   is a fact the engine attached to its own result; nothing is re-derived. */
+function explainStrategy(ex,rec,u){
+  const rows=[],params=progressionForExercise(ex)?.strategy?.params||{};
+  const prev=last(ex).filter(x=>+x.load>0);
+  if(prev.length)rows.push({label:t("why.last"),
+    text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
+  const result=RepForgeProgression.evaluateProgression(progressionInput(ex)),f=result.facts;
+  if(rec.strategy==="rep_goal"){
+    if(f.performedTotal!=null)rows.push({text:t("why.repgoal.total",
+      {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})});
+    if(f.medianTrustedRir!=null)rows.push({text:t("why.repgoal.effort",
+      {rir:fmt(f.medianTrustedRir),min:fmt(params.targetRirMin)})});
+    if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
+      rows.push({text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})});
+    if(f.completedReps!=null)rows.push({text:t("why.repgoal.distribution")})}
+  else{
+    if(f.anchorLoad!=null)rows.push({text:t("why.anchor.top",
+      {load:fmtLoad(f.anchorLoad),unit:u,reps:Math.round(f.capacityReps)})});
+    if(f.backoffLoad!=null)rows.push({text:t("why.anchor.backoff",
+      {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})});
+    if(result.reasonCodes.includes("anchor_backoff.backoff_recalculated"))
+      rows.push({text:t("why.anchor.untouched")})}
+  if(rec.text)rows.push({text:rec.text});
+  const note=inSessionNote(ex,loadDraft());
+  if(note)rows.push({label:t("why.session"),text:note});
+  return rows}
 // On-demand arithmetic behind one recommendation (plan 043). Built at tap time only,
 // never during renderWorkout: the Log tab's render path stays free of this work.
 // One brain — every number here is a field the engine attached to its own result;
@@ -3123,8 +3332,10 @@ function explainRecommendation(ex){
   const rows=[];
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
+  if(rec.status==="manual")return rows;
   // A never-trained lift has no history and no arithmetic; the button is hidden there.
   if(rec.status==="new")return rows;
+  if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push({label:t("why.last"),
     text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
@@ -3919,8 +4130,8 @@ function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
 
 function setFieldVals(ex,n,r,draft,prev){
   const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
-  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(old&&old.load!=null?fmtLoadPlain(old.load):""));
-  const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(old&&old.reps!=null?old.reps:ex.min));
+  const kgVal=draftKg!=null?draftKg:(sg.load!=null?fmtLoadPlain(sg.load):(r.status==="manual"?"":(old&&old.load!=null?fmtLoadPlain(old.load):"")));
+  const repsVal=draft[`${ex.id}_${n}_reps`]??(sg.reps!=null?sg.reps:(r.status==="manual"?"":(old&&old.reps!=null?old.reps:ex.min)));
   const key=`${ex.id}_${n}`,isW=warmups.has(key);
   const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
   const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
@@ -3979,6 +4190,7 @@ function focusRefLoad(ex,n,draft,prev){
 function focusCue(ex,n,r,draft,prev,editing){
   if(editing)return{kind:"edit",label:t("focus.cue.editing"),text:t("focus.cue.editing_set",{n,total:ex.sets})};
   const sg=setSuggestion(ex,n,r,draft,prev.find(x=>x.set===n));
+  if(r.status==="manual")return{kind:"manual",label:"",text:""};
   if(sg.load==null)return{kind:"start",label:t("focus.cue.start"),text:t("focus.cue.pick_load",{min:ex.min,max:ex.max})};
   const ref=focusRefLoad(ex,n,draft,prev);
   const move=ref==null||sameLoad(sg.load,ref)?"hold":sg.load>ref?"up":"down";
@@ -5248,6 +5460,8 @@ function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const
   return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
 window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
+window.__repforgeProgressionForExercise=progressionForExercise;
+window.__repforgeValidateStateShape=isValidStateShape;
 window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir,capacityBaseline,
   sessionsFor,expectedSetDrop,sessionFreshness,baseSetReps,setSuggestion};
 window.__repforgeAttention=attentionGroups;
@@ -5843,8 +6057,59 @@ function dayCard(d){
   `</div>`;
 }
 
+const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","anchor_backoff","manual"]);
+const progressionNumber=(name,label,value,{min=0,max=100,step="1"}={})=>
+  `<label class="pstrategy__field"><span>${esc(label)}</span><input type="number" inputmode="decimal" name="${name}" value="${esc(value)}" min="${min}" max="${max}" step="${step}" required></label>`;
+function progressionEditorParams(e,strategy){
+  const current=progressionForExercise(e),same=current?.strategy?.id===strategy;
+  const p=same?current.strategy.params:{};
+  const increment=+p.minLoadIncrement||+state.settings.minJump||2.5;
+  const jump=Number.isFinite(+p.jumpPercent)?+p.jumpPercent:+state.settings.jumpPct||2.5;
+  if(strategy==="range")return `<div class="pstrategy__grid">`+
+    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
+    progressionNumber("repMin",t("program.progression.rep_min"),+p.repMin||e.min,{min:1,max:100})+
+    progressionNumber("repMax",t("program.progression.rep_max"),+p.repMax||e.max,{min:1,max:100})+`</div>`;
+  if(strategy==="rep_goal")return `<div class="pstrategy__grid">`+
+    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
+    progressionNumber("repGoal",t("program.progression.total_reps"),+p.repGoal||Math.max(e.sets*e.max,e.sets*e.min),{min:1,max:200})+
+    progressionNumber("repMin",t("program.progression.rep_floor"),+p.repFloor||e.min,{min:1,max:100})+
+    progressionNumber("repMax",t("program.progression.rep_ceiling"),+p.repCeiling||e.max,{min:1,max:100})+
+    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:1,{min:0,max:10,step:"0.5"})+
+    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
+    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
+    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
+  if(strategy==="anchor_backoff")return `<div class="pstrategy__grid">`+
+    progressionNumber("anchorRepMin",t("program.progression.anchor_rep_min"),+p.anchorRepMin||Math.min(e.min,5),{min:1,max:100})+
+    progressionNumber("anchorRepMax",t("program.progression.anchor_rep_max"),+p.anchorRepMax||Math.min(Math.max(e.min,5),e.max),{min:1,max:100})+
+    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.anchorTargetRirMin)?+p.anchorTargetRirMin:1,{min:0,max:10,step:"0.5"})+
+    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.anchorTargetRirMax)?+p.anchorTargetRirMax:3,{min:0,max:10,step:"0.5"})+
+    progressionNumber("backoffSets",t("program.progression.backoff_sets"),+p.backoffSets||Math.max(1,e.sets-1),{min:1,max:20})+
+    progressionNumber("backoffRepMin",t("program.progression.backoff_rep_min"),+p.backoffRepMin||Math.max(e.min,6),{min:1,max:100})+
+    progressionNumber("backoffRepMax",t("program.progression.backoff_rep_max"),+p.backoffRepMax||Math.max(e.max,10),{min:1,max:100})+
+    progressionNumber("backoffPercent",t("program.progression.backoff_percent"),Number.isFinite(+p.backoffPercent)?Math.round(+p.backoffPercent*100):80,{min:70,max:95,step:"1"})+
+    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
+    progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
+  return `<p class="pstrategy__manual">${esc(t("program.progression.manual_help"))}</p>`;
+}
+function progressionEditorCard(e){
+  const unsupported=!!e.progressionIncompatibility;
+  const current=unsupported?"unsupported":strategyIdFor(e);
+  const options=(unsupported?[`<option value="unsupported">${esc(t("program.progression.unsupported"))}</option>`]:[])
+    .concat(PROGRESSION_EDITOR_STRATEGIES.map(id=>`<option value="${id}"${id===current?" selected":""}>${esc(t(`program.progression.strategy.${id}`))}</option>`)).join("");
+  return `<details class="pstrategy" data-progression-editor="${esc(e.id)}">`+
+    `<summary>${esc(t("program.progression.summary"))}<span>${esc(t(`program.progression.strategy.${current}`))}</span></summary>`+
+    `<div class="pstrategy__body"><label class="pstrategy__select"><span>${esc(t("program.progression.method"))}</span>`+
+      `<select data-progression-strategy aria-describedby="progression_help_${esc(e.id)}">${options}</select></label>`+
+    `<p class="pstrategy__help" id="progression_help_${esc(e.id)}">${esc(t(unsupported?"program.progression.unsupported_help":"program.progression.help"))}</p>`+
+    `<form data-progression-form data-id="${esc(e.id)}"><div data-progression-fields>${unsupported?"":progressionEditorParams(e,current)}</div>`+
+      `<p class="pstrategy__error" data-progression-error role="alert" aria-live="assertive"></p>`+
+      `<button class="btn btn--steel pstrategy__save" type="submit"${unsupported?" disabled":""}>${esc(t("program.progression.save"))}</button>`+
+    `</form></div></details>`;
+}
+
 function exCard(e,i,n){
-  const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"></label>`;
+  const progressionOwnsShape=!!e.progression&&["range","rep_goal","anchor_backoff"].includes(e.progression.strategy?.id);
+  const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"${progressionOwnsShape?" disabled":""}></label>`;
   // The name stays an editable field — a slot can be renamed to what the plate
   // on the machine says — with the library one tap away beside it.
   const linked=e.libraryId?libraryEntry(e.libraryId):null;
@@ -5872,6 +6137,7 @@ function exCard(e,i,n){
         `${esc((e.alternates||[]).join(", ")||t("program.exercise.alternates_empty"))}`+
       `</button>`+
     `</div>`+
+    progressionEditorCard(e)+
   `</div>`;
 }
 
@@ -5888,6 +6154,71 @@ function commitEditorField(id,field,value,effect){
   const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
   nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
   return commitProposedState(proposal,storageIO,{effect})}
+
+const progressionFormNumber=(data,name)=>Number(data.get(name));
+function authoredProgressionFromForm(strategy,data,e){
+  let params={};
+  if(strategy==="range")params={workingSets:progressionFormNumber(data,"sets"),repMin:progressionFormNumber(data,"repMin"),repMax:progressionFormNumber(data,"repMax")};
+  else if(strategy==="rep_goal")params={
+    workingSets:progressionFormNumber(data,"sets"),repGoal:progressionFormNumber(data,"repGoal"),
+    repFloor:progressionFormNumber(data,"repMin"),repCeiling:progressionFormNumber(data,"repMax"),
+    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
+    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump"),
+    distributionPolicy:"balanced_frontload_v1"};
+  else if(strategy==="anchor_backoff")params={
+    anchorRepMin:progressionFormNumber(data,"anchorRepMin"),anchorRepMax:progressionFormNumber(data,"anchorRepMax"),
+    anchorTargetRirMin:progressionFormNumber(data,"rirMin"),anchorTargetRirMax:progressionFormNumber(data,"rirMax"),
+    backoffSets:progressionFormNumber(data,"backoffSets"),backoffRepMin:progressionFormNumber(data,"backoffRepMin"),
+    backoffRepMax:progressionFormNumber(data,"backoffRepMax"),backoffPercent:progressionFormNumber(data,"backoffPercent")/100,
+    minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump")};
+  else if(strategy==="manual"){
+    const existing=progressionForExercise(e);
+    params=existing?.strategy?.id==="manual"&&!e.progressionIncompatibility?cloneSnapshot(existing.strategy.params):{}}
+  return{schemaVersion:1,strategy:{id:strategy,version:1,params},modifiers:[]}}
+function progressionAuthoredShape(strategy,params,e){
+  if(strategy==="rep_goal")return{sets:params.workingSets,min:params.repFloor,max:params.repCeiling};
+  if(strategy==="anchor_backoff")return{sets:1+params.backoffSets,min:Math.min(params.anchorRepMin,params.backoffRepMin),max:Math.max(params.anchorRepMax,params.backoffRepMax)};
+  if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
+  return{sets:e.sets,min:e.min,max:e.max}}
+function progressionPairCompatible(id,prescription,program){
+  const relations=state.programMeta?.progressionRelations;
+  if(!Array.isArray(relations))return true;
+  const relation=relations.find(item=>Array.isArray(item?.members)&&item.members.some(member=>member.exerciseId===id));
+  if(!relation)return true;
+  const byRole={};
+  for(const member of relation.members||[]){const slot=program.find(member.exerciseId);if(!slot)return false;
+    const selected=member.exerciseId===id?prescription:progressionForExercise(slot);
+    byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
+  return RepForgeProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
+async function saveProgressionEditor(form){
+  const id=form.dataset.id,e=prog.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
+  error.textContent="";
+  if(!form.reportValidity())return;
+  const select=form.closest("[data-progression-editor]")?.querySelector("[data-progression-strategy]");
+  const strategy=select?.value;
+  if(!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)){error.textContent=t("program.progression.error.unsupported");return}
+  const prescription=authoredProgressionFromForm(strategy,new FormData(form),e);
+  const checked=RepForgeProgression.validatePrescription(prescription);
+  if(!checked.ok){error.textContent=t("program.progression.error.invalid");return}
+  const executable=RepForgeProgression.evaluateProgression({
+    ...progressionInput(e),prescription:checked.value,history:[],currentSession:[]});
+  if(executable.kind==="invalid"||executable.kind==="incompatible"){
+    error.textContent=t("program.progression.error.invalid");return}
+  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program),next=nextProgram.find(id);
+  if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
+  const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);
+  let effect=null;
+  if(shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
+    try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
+    if(draftHasProgressInRemovedSets(id,shape.sets,next.sets,draft)){error.textContent=t("program.progression.error.active_sets");return}
+    effect=draftPreservationEffect(draftRaw);
+    if(effect.status!==DRAFT_EFFECT_VALID){error.textContent=t("program.progression.error.active_sets");return}}
+  next.progression=cloneSnapshot(checked.value);delete next.progressionIncompatibility;
+  next.sets=shape.sets;next.min=shape.min;next.max=shape.max;
+  proposal.program=nextProgram.toJSON();
+  const result=await commitProposedState(proposal,storageIO,{effect});
+  if(!(result.localOk||result.idbOk)){error.textContent=t("program.progression.error.save");return}
+  render();toast(t("program.progression.saved"))}
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
@@ -5961,6 +6292,15 @@ function bindEditor(){
       renameCollapsedDay(old,next);
       if(day===old)day=next;
       render();toast(t("toast.day_renamed"))};
+  });
+  $$("#programEditor [data-progression-editor]").forEach(editor=>{
+    const e=prog.find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
+    const form=editor.querySelector("[data-progression-form]"),fields=editor.querySelector("[data-progression-fields]");
+    select.onchange=()=>{const strategy=select.value;
+      fields.innerHTML=PROGRESSION_EDITOR_STRATEGIES.includes(strategy)?progressionEditorParams(e,strategy):"";
+      form.querySelector("[data-progression-error]").textContent="";
+      form.querySelector('button[type="submit"]').disabled=!PROGRESSION_EDITOR_STRATEGIES.includes(strategy)};
+    form.onsubmit=event=>{event.preventDefault();saveProgressionEditor(form)};
   });
   $$("#programEditor button[data-act]").forEach(b=>b.onclick=()=>editorAction(b.dataset.act,b.dataset));
 }
@@ -6291,13 +6631,17 @@ function sharedProgramMeta(meta,program){
     priorityMuscles:[...new Set((Array.isArray(meta?.priorityMuscles)?meta.priorityMuscles:[])
       .map(value=>String(value).trim()).filter(Boolean))],
     sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
-    mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks}}
-function sharedExercise(ex){
+    mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
+    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON()),
+    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)}}
+function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
+  if(preserveIdentity){out.id=ex?.id;out.movementId=ex?.movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
+  if(ex?.progression!==undefined)out.progression=cloneSnapshot(ex.progression);
   return out}
 function sharedCustomExercise(entry){
   return{id:entry.id,name:entry.name,namePt:entry.namePt||entry.name,
@@ -6309,7 +6653,10 @@ function sharedSettings(settings){
     lang:settings.lang||I18N?.getLang?.()||I18N?.detectLang?.()||"en",rirMode:settings.rirMode}}
 function buildSharedSetupPayload(){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
-  const exercises=prog.toJSON().map(sharedExercise);
+  const source=prog.toJSON();
+  const relations=normalizeProgressionRelations(state.programMeta?.progressionRelations,source);
+  const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
+  const exercises=source.map(ex=>sharedExercise(ex,relationSlots.has(ex.id)));
   return{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
     program:{meta:sharedProgramMeta(state.programMeta,prog),exercises,
       customExercises:referencedCustomExercises(exercises).map(sharedCustomExercise)},
@@ -6325,9 +6672,22 @@ function exportProgram(){
  * The program as something a lifter can read or paste into a chat: the name and
  * how many days it runs, then each training day with its muscles and its
  * exercise templates numbered in order, "3× 6 to 10" for sets × rep range.
- * Lossy by design — the text can be imported back, while ids, per-exercise
- * muscles, notes, and alternates require the lossless JSON export. */
+ * The readable body intentionally omits editor-only details; the structured
+ * appendix round-trips progression envelopes and incompatibility provenance.
+ * Per-exercise muscles, notes, and alternates still require the JSON export. */
 const programTextReps=e=>e.min===e.max?`${e.min}`:t("program.export_text.rep_range",{min:e.min,max:e.max});
+const PROGRAM_TEXT_DATA_MARKER="TAURIFER-DATA";
+function programTextData(meta,program){
+  const relations=normalizeProgressionRelations(meta?.progressionRelations,program);
+  const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
+  const exercises=program.filter(ex=>ex?.progression||ex?.progressionIncompatibility||relationSlots.has(ex?.id)).map(ex=>({day:ex.day,order:ex.order,id:ex.id,
+    movementId:ex.movementId,...(ex.progression?{progression:cloneSnapshot(ex.progression)}:{}),
+    ...(ex.progressionIncompatibility?{progressionIncompatibility:cloneSnapshot(ex.progressionIncompatibility)}:{})}));
+  const modifiers=normalizeProgressionModifiers(meta?.progressionModifiers);
+  const incompatibilities=Array.isArray(meta?.progressionIncompatibilities)?cloneSnapshot(meta.progressionIncompatibilities):[];
+  if(!exercises.length&&!relations.length&&!modifiers.length&&!incompatibilities.length)return null;
+  return{version:1,exercises,relations,modifiers,incompatibilities};
+}
 function programText(){
   const meta=state.programMeta||defaultProgramMeta(state.log),ds=prog.days();
   const up=s=>String(s??"").toLocaleUpperCase(locTag());
@@ -6336,6 +6696,8 @@ function programText(){
     const mus=dayMuscles(d).map(muscleLabel);
     lines.push("",`${up(d)}${mus.length?`: ${mus.join(" · ")}`:""}`);
     prog.forDay(d).forEach((e,i)=>lines.push(`${i+1}. ${e.name}: ${e.sets}× ${programTextReps(e)}`))}
+  const data=programTextData(meta,prog.toJSON());
+  if(data)lines.push("",PROGRAM_TEXT_DATA_MARKER,JSON.stringify(data));
   return lines.join("\n")}
 const programTextName=()=>{const slug=fileSlug(state.programMeta?.name);
   return `taurifer_program_${slug?`${slug}_`:""}${today()}.txt`};
@@ -6850,16 +7212,27 @@ function stripProgramTextTitleMeta(label){
   return String(label||"").replace(/\s*(?:\(\s*|,\s*)\d+\s*(?:days?\s*\/\s*week|days?\s+per\s+week|dias?\s*\/\s*semana|dias?\s+por\s+semana)\s*\)?\s*$/iu,"").trim()}
 function parseProgramTextExport(text){
   const lines=String(text||"").split(/\r?\n/);
+  const dataIndex=lines.findIndex(line=>line.trim()===PROGRAM_TEXT_DATA_MARKER);
+  let data=null;
+  if(dataIndex>=0){try{const parsed=JSON.parse(lines[dataIndex+1]||"");if(parsed&&parsed.version===1)data=parsed}catch{}}
+  const content=dataIndex<0?lines:lines.filter((_,index)=>index!==dataIndex&&index!==dataIndex+1);
   const days=[];let current=null,title="";
   const exRe=/^\s*(\d+)\.\s*(.+?)(?:\s*[—-]\s*|\s*:\s*)(\d+)\s*[×x]\s*(\d+)(?:\s*(?:[–-]|to|a)\s*(\d+))?\s*$/iu;
-  for(const raw of lines){
+  for(const raw of content){
     const line=raw.trim();
     if(!line)continue;
     const ex=line.match(exRe);
     if(ex){
       if(!current){current={day:`Day ${days.length+1}`,rows:[]};days.push(current)}
       const min=+ex[4],max=ex[5]?+ex[5]:min;
-      current.rows.push({name:ex[2].trim(),sets:+ex[3],min,max});
+      const legacy=ex[2].trim().match(/^(.*)\s+\[(range|manual|rep_goal|anchor_backoff)@(\d+)\]$/iu);
+      const row={name:(legacy?.[1]||ex[2]).trim(),sets:+ex[3],min,max};
+      // Read the pre-appendix range marker without exposing it in the new
+      // export. Its parameters are the already-authored text targets; other
+      // strategy markers remain structural and cannot invent executable data.
+      if(legacy?.[2].toLowerCase()==="range"&&legacy[3]==="1")row.progression={
+        schemaVersion:1,strategy:{id:"range",version:1,params:{workingSets:row.sets,repMin:row.min,repMax:row.max}},modifiers:[]};
+      current.rows.push(row);
       continue}
     // A non-exercise line starts a day, except the first which is the title.
     if(!title&&!days.length){title=restoreExportCase(stripProgramTextTitleMeta(line));continue}
@@ -6868,9 +7241,17 @@ function parseProgramTextExport(text){
     current={day:restoreExportCase(label),rows:[]};days.push(current)}
   const exercises=[];
   for(const d of days)
-    d.rows.forEach((r,i)=>exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max}));
+    d.rows.forEach((r,i)=>{
+      const carried=data?.exercises?.find(ex=>ex?.day===d.day&&ex?.order===i+1);
+      exercises.push({day:d.day,order:i+1,name:r.name,sets:r.sets,min:r.min,max:r.max,
+        ...(carried?.id?{id:carried.id}:{ }),...(carried?.movementId?{movementId:carried.movementId}:{ }),
+        ...(carried?.progression?{progression:carried.progression}:r.progression?{progression:r.progression}:{}),
+        ...(carried?.progressionIncompatibility?{progressionIncompatibility:carried.progressionIncompatibility}:{} )});
+    });
   if(!exercises.length)return null;
-  return{exercises,meta:title?{name:title}:null,customExercises:[]}}
+  const metaOut=title?{name:title}:null;
+  if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers;if(Array.isArray(data.incompatibilities))metaOut.progressionIncompatibilities=data.incompatibilities}
+  return{exercises,meta:metaOut,customExercises:[]}}
 
 /* Reads whatever the file turns out to be. JSON first, then the text export. */
 function parseProgramSource(text,fileName=""){
@@ -7386,6 +7767,9 @@ async function commitImportReview(io=storageIO){
     if(staged.length){
       const merged=mergeImportedCustomExercises(staged,exercises,proposal);
       proposal.customExercises=merged.customExercises}
+    proposal.programMeta={...proposal.programMeta,
+      progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
+      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[])};
     const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
       origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
       telemetryRoute:"import"});
@@ -7406,6 +7790,8 @@ async function commitImportReview(io=storageIO){
   meta.updated=new Date().toISOString();
   proposal.programMeta=meta;
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  meta.progressionRelations=normalizeProgressionRelations(draft.meta?.progressionRelations,proposal.program);
+  meta.progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,adapter,{effect,...transition});
@@ -7668,8 +8054,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
     archiveCapturedBlock(proposal,blockCap)}
   const meta=buildProgramMeta({name,answers:answers||onbAnswers});
-  proposal.programMeta=meta;
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
+  meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
+  meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
+  proposal.programMeta=meta;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
@@ -8681,7 +9069,7 @@ async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
   prog=new Program(state.program);state.program=prog.toJSON();
-  state.programMeta=normalizeProgramMeta(state.programMeta,state.log);
+  state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";

@@ -1,12 +1,19 @@
 # Progression strategy contract
 
-Status: proposed contract version 1 for owner review. Only the `range@1`
-numbers marked **locked** come from released, owner-approved behavior in
+Status: contract version 1, **owner-approved on 2026-08-27**. The `range@1`
+numbers come from released behavior in
 [Plan 039](../plans/039-capacity-driven-suggestions.md),
 [Plan 043](../plans/043-why-this-weight-inspector.md), and
-[ADR 0003](adr/0003-capacity-as-progression-currency.md). All other numeric
-decisions remain review gates. Code must not implement them until this document
-and the matching fixture mark them approved.
+[ADR 0003](adr/0003-capacity-as-progression-currency.md). `rep_goal@1`,
+`anchor_backoff@1`, `paired_exposure@1`, `manual@1`, and the modifier
+infrastructure decision were approved in the Wave 2 Plan 046 numeric gate and
+are locked in `test/fixtures/progression-strategies-v1.json`.
+
+Two things remain deliberately unapproved and must not be implemented: any
+**target-changing** block profile (step loading, volume emphasis, rep-range
+emphasis, scheduled deload), and any strategy pair other than the single
+approved `paired_exposure@1` combination. Adding either needs a separate owner
+approval recorded here and in the fixture first.
 
 ## Contract boundary
 
@@ -227,96 +234,342 @@ Required facts include the latest median load, median capacity e1RM, capacity
 reps at that load, latest median performed reps, typical RIR, raw and rounded
 load movement, re-entry reps, block trend, expected set drop, and freshness
 factor when each fact applies.
-
 ## `rep_goal@1`
 
-Status: numeric review pending. Do not implement in Wave 1.
+Status: **approved 2026-08-27**. Locked in the fixture under
+`strategies["rep_goal@1"]`.
 
-The strategy owns a total working-rep goal across authored sets. Suitable
-movements need comparable externally loaded working sets. Its closed schema
-will include working-set count, total-rep goal, per-set floor and ceiling,
-target RIR window, load grid and jump rule, and one named distribution policy.
+### Job and fit
 
-Minimum usable evidence is one completed comparable working set for a partial
-current-session result and one completed comparable session for a next-session
-result. Extra sets remain evidence but do not redefine the goal. Different
-loads split comparability rather than being summed blindly. Missing RIR lowers
-confidence under the shared conservative default.
+Rep-goal progression owns a total working-rep goal across a fixed authored set
+count, the distribution of those reps, and the load advance earned once the
+goal is met. It never changes the authored set count and never rewrites the
+authored goal. It suits externally loaded movements whose load snaps to a
+known increment.
 
-The owner must approve exact examples for goal completion at the effort limit,
-goal completion at excessive effort, one missed set, one extra set, load
-advancement redistribution, partial-session remaining reps, expected set drop,
-bodyweight handling, and rounding. Until then, the only safe executable
-alternative is `manual@1`; `range@1` may be offered only after the user chooses
-to change the authored prescription.
+### Parameters
 
-Planned reason families are total goal met, progress toward goal, effort too
-high, insufficient comparable evidence, partial distribution, and invalid
-distribution. Their final IDs and fact fields require the same numeric review.
-A new distribution policy or advancement rule requires a new strategy version.
+| Field | Contract |
+| --- | --- |
+| `workingSets` | Integer from 1 through 20. |
+| `repGoal` | Integer from 1 through 200. |
+| `repFloor` | Integer from 1 through 100. |
+| `repCeiling` | Integer from `repFloor` through 100. |
+| `targetRirMin` | Finite number from 0 through 10. |
+| `targetRirMax` | Finite number from `targetRirMin` through 10. |
+| `minLoadIncrement` | Positive finite kilograms, at most 1,000. |
+| `jumpPercent` | Finite percentage from 0 through 100. |
+| `distributionPolicy` | Exactly `"balanced_frontload_v1"`. |
+| `loadMode` | Optional. `"external"` (default) or `"bodyweight"`. |
+
+A prescription is only satisfiable when
+
+```text
+workingSets * repFloor <= repGoal <= workingSets * repCeiling
+```
+
+A structurally valid prescription that fails this inequality returns
+`kind: "invalid"` with `rep_goal.invalid_distribution`. Malformed shapes and
+types keep the generic `engine.invalid_input`.
+
+`minLoadIncrement` and `jumpPercent` are authored here and size the jump.
+The **load grid** the result snaps to is the device's `settings.minLoadIncrement`,
+exactly as `range@1` uses it. Blueprints may commonly author 3 sets, a goal of
+30, and a 6–12 per-set window, but the engine assumes none of those numbers.
+
+### `balanced_frontload_v1`
+
+For a total `T` across `N` untouched sets: split evenly, give the remainder to
+the earlier sets, then clamp every set to `[repFloor, repCeiling]`.
+
+| Total / sets | Distribution |
+| --- | --- |
+| 30 / 3 | 10, 10, 10 |
+| 31 / 3 | 11, 10, 10 |
+| 32 / 3 | 11, 11, 10 |
+| 25 / 3 | 9, 8, 8 |
+
+The clamp is what keeps a catch-up set from exceeding the ceiling and a small
+remainder from falling under the floor. No other distribution policy exists in
+v1.
+
+### Locked next-session rules
+
+The latest comparable session decides. Only the **first `workingSets` sets** of
+that session are authored evidence: extra sets are recorded evidence that never
+earn the goal and never redefine `workingSets` or `repGoal`. The reference load
+is their median load, capacity is their median capacity e1RM, and effort is
+their median trusted RIR.
+
+Rules run in this order:
+
+1. No history: `status: "new"`, no invented load, the authored distribution.
+2. The goal is earned when the session holds at least `workingSets` sets and
+   their reps total at least `repGoal`. A session with fewer sets cannot earn
+   it.
+   - Earned and median trusted RIR is at least `targetRirMin`: advance one load
+     step. `targetRirMax` describes acceptable room, not a second hurdle.
+     Exceeding the goal never produces a double jump; v1 has exactly one
+     advancement magnitude.
+   - Earned but median trusted RIR is below `targetRirMin`: hold.
+3. Capacity reps at the reference load below `repFloor`: reduce one grid step.
+   This is a conservative capacity-floor condition, not a plateau algorithm.
+4. Otherwise hold and keep pursuing the goal. Missing the total once never
+   reduces load.
+
+A jump is `max(load * jumpPercent / 100, minLoadIncrement)`, then snapped to the
+grid. A reduction never falls below one increment.
+
+**After an advance**, the same authored `repGoal` is redistributed at the new
+load, bounded by capacity: per-set capacity is
+`clamp(floor(repsAtLoad(capacity, newLoad)), repFloor, repCeiling)`. If the goal
+exceeds `workingSets` times that value, the closest bounded feasible total is
+prescribed and `rep_goal.rebuild_after_advance` reports that the target is
+rebuilding toward the goal. The authored `repGoal` itself is never lowered.
+This capacity clamp applies only on the advance path; a hold or a reduction
+prescribes the authored distribution at its load.
+
+### Locked current-session rule
+
+Completed sets in the current slot take precedence. Remaining goal is
+`repGoal` minus the reps of the completed authored sets; it is distributed
+across the untouched authored sets, and the engine returns the next one.
+
+The bounded observed drop is the shared mechanism `range@1` already uses:
+consecutive current sets first, otherwise the recent comparable historical
+median, otherwise zero, clamped to 0–5%. It predicts the next set's capacity
+from the last completed set, which caps the prescribed reps. It shapes
+distribution; it never changes the authored total.
+
+The exact remaining share is raised to `repFloor` when it falls below it and
+lowered to the per-set cap when capacity cannot support it; either adjustment
+reports `rep_goal.partial_distribution`. With every authored set complete the
+strategy prescribes no further set.
+
+### Locked examples
+
+Defaults are 3 sets, goal 30, floor 6, ceiling 12, `targetRirMin` 1,
+2.5 kg increment, 2.5% jump, `hardRir` 4.
+
+| Evidence | Expected decision |
+| --- | --- |
+| No history | New, load `null`, 10/10/10 |
+| 3 × 100 kg × 10, RIR 2 | Advance to 102.5 kg, 10/10/10 |
+| 3 × 100 kg × 10, RIR 0 | Hold, `rep_goal.effort_too_high` |
+| 2 × 100 kg × 10, RIR 2 | Hold; fewer than the authored sets cannot earn |
+| 3 × 100 kg × 10 plus a fourth set | Advance on the first three only |
+| 3 × 101 kg × 10, RIR 2 | Advance and snap to 102.5 kg |
+| 3 × 100 kg × 8, RIR 2 | Hold, `rep_goal.progress` |
+| 3 × 100 kg × 5, RIR 0 | Reduce to 97.5 kg, `rep_goal.capacity_below_floor` |
+| 3 × 100 kg × 10, RIR 1, 10% jump | Advance to 110 kg, rebuild to 7/7/7 |
+| Current 11, 10 | Next set 9 |
+| Current 11, 9 | Next set 8 after the capped drop |
+| Current 12, 12 | Next set 6, the authored floor |
+| Current 12, 13 | Next set 6; the remainder never goes under the floor |
+| Current 10, 10, 10 | No further set |
+| `loadMode: "bodyweight"` | Incompatible; `manual@1` is the alternative |
+| `repGoal` outside the bounds | Invalid distribution |
+
+### Edge behavior
+
+Bodyweight-only prescriptions are incompatible in v1 and return
+`rep_goal.bodyweight_incompatible`; body mass is never treated as hidden
+external load. Rep distributions are integers. All load changes use the
+actionable grid.
+
+Reason codes are `rep_goal.no_history`, `rep_goal.progress`,
+`rep_goal.goal_met`, `rep_goal.effort_too_high`, `rep_goal.advance`,
+`rep_goal.rebuild_after_advance`, `rep_goal.partial_distribution`,
+`rep_goal.capacity_below_floor`, `rep_goal.grid_rounded`,
+`rep_goal.invalid_distribution`, `rep_goal.bodyweight_incompatible`,
+`rep_goal.current_progress`, and `rep_goal.current_drop`.
 
 ## `anchor_backoff@1`
 
-Status: numeric review pending. Do not implement in Wave 1.
+Status: **approved 2026-08-27**. Deliberately narrow. Locked in the fixture
+under `strategies["anchor_backoff@1"]`.
 
-This strategy has one anchor working set followed by authored back-off sets.
-Its schema will include the anchor rep and effort target, back-off count, one
-bounded derivation method, back-off rep target, load grid, and permitted
-adjustment bounds. It suits externally loaded general-strength and hypertrophy
-work. It does not model peaking or attempt selection.
+### Job and fit
 
-Previous anchor evidence is the minimum next-session evidence. A completed
-current anchor may update only untouched future back-offs. Without a valid
-current anchor, the result must name prior evidence or insufficient evidence.
+Exactly one anchor working set followed by one or more authored back-off
+working sets. It suits externally loaded general-strength and hypertrophy work.
+It models no peaking and no attempt selection.
 
-The owner must approve exact anchor advancement, percentage or effort
-derivation, failure recalibration, rounding, missing-anchor, partial back-off,
-and bodyweight examples. Until then, `manual@1` is the compatible execution
-alternative. Planned reason families distinguish prior anchor, current anchor,
-authored back-off rule, grid rounding, failed anchor, and insufficient
-evidence. Changing the derivation math or failure rule requires a new version.
+### Parameters
+
+`anchorRepMin`, `anchorRepMax`, `anchorTargetRirMin`, `anchorTargetRirMax`,
+`backoffSets`, `backoffRepMin`, `backoffRepMax`, `backoffPercent`,
+`minLoadIncrement`, `jumpPercent`, and the optional `loadMode`.
+
+### Derivation: `percentage_of_anchor_load_v1`
+
+Back-off load is `anchorLoad * backoffPercent`, snapped to the actionable grid.
+`backoffPercent` is authored and must fall between 0.70 and 0.95 inclusive. No
+effort-derived percentage exists in v1, and the percentage is never inferred
+from a family, program name, movement, or training goal.
+
+### Locked anchor progression
+
+Using the latest session's anchor set:
+
+1. Capacity reps at the anchor load below `anchorRepMin`: reduce one grid step.
+2. Anchor reps at `anchorRepMax` with trusted RIR at least
+   `anchorTargetRirMin`: advance one grid step.
+3. Otherwise hold.
+
+No double jump, no automatic deload, no peaking, no attempt selection. The jump
+is `max(anchorLoad * jumpPercent / 100, minLoadIncrement)`, then grid-rounded.
+
+The anchor rep target is
+`clamp(floor(repsAtLoad(anchorCapacity, targetAnchorLoad)), anchorRepMin, anchorRepMax)`,
+and the back-off rep target is the same expression at the derived back-off load
+clamped to `[backoffRepMin, backoffRepMax]`. Both use shared Capacity only, and
+`backoffSets` never changes.
+
+### Locked current-session rule
+
+The current session's anchor is its first completed set. Once that anchor is
+complete, back-off targets are derived from the **actual completed anchor
+load and evidence**, and only **untouched future back-off sets** are updated.
+Committed sets, completed sets, and manually touched future sets are never
+replaced. A partial back-off session never redefines `backoffSets`; with every
+authored back-off complete the strategy prescribes no further set.
+
+A **failed anchor** is one whose capacity at the performed load falls below
+`anchorRepMin`. It reports `status: "recalibrate"`, derives untouched back-offs
+from the actual current anchor, schedules no deload, changes no program
+structure, and lets the next session's anchor reduce by one normal grid step.
+No larger emergency reduction exists in v1.
+
+If today's anchor is absent, valid prior anchor evidence is used. With neither,
+the result is `kind: "insufficient_evidence"` with
+`anchor_backoff.insufficient_anchor`. Back-offs are never derived from a
+missing anchor.
+
+### Locked examples
+
+Defaults are an anchor of 3–5 reps at `anchorTargetRirMin` 1, three back-offs
+of 6–10 reps, `backoffPercent` 0.8, 2.5 kg increment, 2.5% jump.
+
+| Evidence | Expected decision |
+| --- | --- |
+| No history | New; authored structure, load `null` |
+| Anchor 100 kg × 5, RIR 2 | Anchor advances to 102.5 kg; back-offs 82.5 kg × 10 |
+| Anchor 100 kg × 4, RIR 2 | Anchor holds at 100 kg; back-offs 80 kg × 10 |
+| Anchor 100 kg × 2, RIR 0 | Anchor reduces to 97.5 kg; back-offs 77.5 kg |
+| `backoffPercent` 0.82 from 100 kg | Back-off snaps to 82.5 kg |
+| Current anchor 100 kg × 5 | Untouched back-offs become 80 kg × 10 |
+| Current anchor plus one back-off | Authored back-off count preserved |
+| Current anchor 100 kg × 2, RIR 0 | Recalibrate; untouched back-offs re-derived |
+| Anchor plus every back-off complete | No further set |
+| Back-off logged with no anchor anywhere | Insufficient anchor evidence |
+| Back-off logged today with a prior anchor | Prior-anchor path |
+| `loadMode: "bodyweight"` | Incompatible; `manual@1` is the alternative |
+
+Reason codes are `anchor_backoff.no_history`, `anchor_backoff.prior_anchor`,
+`anchor_backoff.current_anchor`, `anchor_backoff.anchor_advance`,
+`anchor_backoff.anchor_hold`, `anchor_backoff.anchor_below_floor`,
+`anchor_backoff.backoff_percent`, `anchor_backoff.backoff_recalculated`,
+`anchor_backoff.grid_rounded`, `anchor_backoff.insufficient_anchor`, and
+`anchor_backoff.bodyweight_incompatible`.
+
+Working sets carry an optional `role` of `"working"`, `"anchor"`, or
+`"backoff"`. It is additive and optional: absent roles behave exactly as
+before, and `range@1` ignores it entirely. It is what lets the engine tell a
+logged back-off apart from a missing anchor.
 
 ## `paired_exposure@1`
 
-Status: compatible strategy pair and numeric bounds pending. Do not implement
-in Wave 1.
+Status: **approved 2026-08-27** for one narrow pair. Locked in the fixture
+under `relations["paired_exposure@1"]`.
 
 Paired exposure is a program-level relation, not an exercise strategy. It has
-exactly two distinct live slot IDs for one performed movement identity, with
-one `heavy` and one `volume` role. Each slot retains its own prescription and
-history. The relation may pass a declared Capacity anchor. It cannot copy one
-slot's targets into the other.
+exactly two distinct live slot IDs for one performed movement identity, one
+`heavy` and one `volume`. Each slot keeps its own prescription and history.
 
-The minimum evidence is one comparable set from the declared counterpart.
-Missing or skipped counterpart exposure lowers confidence. It never creates a
-replacement session. Matching display names do not prove identity. Shared
-library identity may prove compatible aliases; distinct machine identities do
-not.
+### The one approved pair
 
-The owner must approve the first allowed heavy and volume strategy pair, the
-evidence window, confidence reduction, and bounding examples. All other pairs
-return `incompatible` with either a supported relation repair or removal. A new
-allowed pair, identity rule, or bounding rule requires a new relation version.
+| Role | Strategy |
+| --- | --- |
+| `heavy` | `anchor_backoff@1` |
+| `volume` | `rep_goal@1` |
+
+Every other combination — including the same two strategies with their roles
+swapped — returns `kind: "incompatible"` with
+`paired_exposure.incompatible_strategy_pair`. The relation never alters either
+strategy's authored prescription.
+
+### Evidence and confidence
+
+At most the three most recent comparable completed sessions of each exposure
+participate. Nothing older enters paired confidence in v1; each slot still
+keeps its full ordinary history for its own strategy.
+
+| Confidence | Condition |
+| --- | --- |
+| `full` | The counterpart completed a comparable exposure at its most recent expected occurrence. |
+| `reduced` | Counterpart evidence exists in the window but the most recent expected exposure was skipped or missing. |
+| `none` | No comparable counterpart evidence in the window. |
+
+The relation exposes the counterpart's Capacity evidence as context. It never
+copies a load target, rep target, set count, or progression status from one
+exposure into the other.
+
+### The bounding rule
+
+Paired evidence is **temper-only**. For every target-changing dimension the
+paired result is no more aggressive than the independent strategy result: no
+larger load increase, no extra sets, no extra reps, no double jump, no
+scheduled session replacement. Materially contradicting evidence may reduce an
+advance to a hold. It may never turn a hold into a reduction — an actual
+reduction still requires the strategy's own evidence — and it never increases
+aggressiveness.
+
+Pairing requires explicit compatible movement identity. Matching display text
+is not enough, and distinct machine identities are never paired.
+
+Reason codes are `paired_exposure.full_confidence`,
+`paired_exposure.reduced_confidence`,
+`paired_exposure.no_counterpart_evidence`, `paired_exposure.tempered`,
+`paired_exposure.incompatible_strategy_pair`, and
+`paired_exposure.incompatible_movement`.
 
 ## Block-profile modifiers
 
-Status: no numeric modifier approved. Do not implement in Wave 1.
+Status: **infrastructure approved 2026-08-27; no periodization approved.**
 
-A modifier declares a stable ID and version, compatible strategy versions,
-week number, the one target field it may adjust, bounded output, reason code,
-and facts. The default block has six weeks. Modifier order is fixed. The engine
-rejects uncovered non-commutative combinations.
+Wave 2 implements the modifier registry, schema validation, persistence,
+compatibility checking, deterministic ordering, typed rejection of unknown or
+incompatible modifiers, reason and provenance handling, and the composition
+machinery — and nothing else.
 
-The owner must approve all six week values for each proposed step-loading,
-volume-emphasis, or rep-range-emphasis modifier. No modifier may add or remove a
-day or slot, change movement identity or strategy, or encode a scheduled
-deload. Manual progression ignores target-changing modifiers. Any table,
-ordering, or compatibility change requires a new modifier version.
+Exactly one modifier is approved, and it is fixture-only:
+
+| Modifier | Week values | Effect |
+| --- | --- | --- |
+| `identity_block@1` | `[1, 1, 1, 1, 1, 1]` | Changes no target field. |
+
+It exists to prove plumbing, versioning, ordering, serialization, and
+determinism without introducing unapproved training periodization. It is not a
+user-facing program feature and must never appear in Browse or in editing UI.
+
+**No step-loading, volume-emphasis, rep-range-emphasis, scheduled-deload, or
+other target-changing modifier is approved.** This is intentional scope
+control, not an implementation omission. Plan 047 may author a target-changing
+modifier only after a separate explicit owner approval. A modifier may never
+add or remove a day or slot, change movement identity or strategy, or encode a
+scheduled deload; manual progression ignores target-changing modifiers.
+
+Modifier application order is the serialized prescription order after
+validation. Because only the identity modifier is approved, no non-commutative
+target-changing combination exists in Wave 2. Unknown modifiers return
+incompatible or invalid under the existing contract; they never silently
+disappear and never fall back.
 
 ## `manual@1`
 
-Status: behavioral contract locked; structured-field bounds remain part of the
-future persistence review. Do not implement persistence in Wave 1.
+Status: **approved 2026-08-27**. Locked in the fixture under
+`strategies["manual@1"]`.
 
 Manual means the program or user owns the target. It is suitable for an
 unsupported imported rule, bodyweight or external prescriptions whose load
@@ -325,10 +578,11 @@ preserves supported structured authored fields and may report comparable prior
 performance.
 
 It always returns `kind: "manual"`, `status: "manual"`, an empty prescribed
-target, and `manual.authored_target` or `manual.unsupported_import` reason. It
-never invents load, reps, RIR, set count, or a ghost suggestion. No history is
-required. Invalid structured data is reported without discarding recoverable
-backup provenance. Changing this no-invention rule requires a new version.
+target, and `manual.authored_target` or `manual.unsupported_import`. It never
+invents load, reps, RIR, set count, or a ghost suggestion, and comparable
+history never turns it into a prescribed target. No history is required.
+Invalid structured data is reported without discarding recoverable backup
+provenance. Changing this no-invention rule requires a new version.
 
 ## Legacy and future persistence policy
 
@@ -338,23 +592,47 @@ unknown non-empty legacy type must later execute as manual with an unsupported
 import reason while full backup preserves the original value. Historical rows
 remain immutable.
 
+The recognized legacy aliases are deliberately closed. The value is trimmed
+before lookup; matching is otherwise case-sensitive, and no value outside this
+table is recognized:
+
+| Legacy `progressionType` | In-memory envelope |
+| --- | --- |
+| `double_progression` | `range@1` |
+
 Future persistence work must round-trip recognized prescriptions, modifiers,
 relations, and provenance through durable state, full backup, program JSON,
 verbose and compact setup links, and human-readable export before any new
-format can be written. Released setup `v1` and `v2` decoders remain permanent.
+format can be written. Released setup `v1` and `v2` decoders remain permanent;
+the v3 compact envelope is the only place for new progression fields.
 
-## Review checklist
+## Review record
 
-- Confirm every locked `range@1` example matches released Plan 039 and Plan 043
-  behavior.
-- Approve or amend the closed parameter bounds for `range@1`.
-- Settle every numeric question listed for `rep_goal@1`.
-- Settle every numeric question listed for `anchor_backoff@1`.
-- Choose the first supported `paired_exposure@1` combination and bounds.
-- Approve complete six-week tables before naming a modifier executable.
-- Confirm manual remains a no-invented-target state.
-- Reject any strategy branch keyed by family, program, public name, or
-  entitlement.
+Settled in the Wave 2 Plan 046 numeric gate, 2026-08-27:
+
+- `range@1` parameter bounds and every locked example stand as released.
+- `rep_goal@1`: parameters, the `balanced_frontload_v1` policy, advancement,
+  rebuild-after-advance, the capacity floor, extra and missing sets, the
+  current-session rule, bodyweight, and rounding.
+- `anchor_backoff@1`: parameters, `percentage_of_anchor_load_v1` with a
+  0.70–0.95 authored band, anchor progression, back-off derivation, the
+  untouched-only recalculation rule, failed and missing anchors, and bodyweight.
+- `paired_exposure@1`: `anchor_backoff@1` heavy with `rep_goal@1` volume as the
+  only pair, a three-session window, categorical confidence, and the temper-only
+  bounding rule.
+- Modifiers: infrastructure plus `identity_block@1` only.
+- `manual@1` remains a no-invented-target state.
+
+Still open, and blocking any code that would depend on them:
+
+- Any **target-changing** block profile — step loading, volume emphasis,
+  rep-range emphasis, or a scheduled deload — with complete six-week tables.
+- Any `paired_exposure@1` combination beyond the one approved pair.
+
+Standing rejections: no strategy branch keyed by family, program, public name,
+or entitlement; no automatic deload; no plateau intervention; no exercise-
+specific formula; no inferred volume tolerance; no randomization or reroll; no
+formula imported from an external template.
 
 ## Extracted engine reference
 
@@ -421,21 +699,23 @@ no fallback: an unsupported prescription never silently becomes `range@1`.
 
 ## Wave 2 contract
 
-- **Commit 5 (blocked).** The `app.js` evidence adapter calls
-  `evaluateProgression` with normalized evidence and renders the pure result
-  back into the current UI strings **without changing any displayed value**.
-  When Plan 045 (PR #195) reaches `main`, run `git merge origin/main` into this
-  branch with an explicit merge commit — never rebase — then land commit 5.
+- **The `app.js` adapter is landed.** It calls `evaluateProgression` with
+  normalized evidence and renders the pure result back into the existing UI
+  strings without changing any displayed value; `test/recommendation-parity.mjs`
+  is the gate.
 - **New strategies and modifiers.** None executes until its numeric contract is
-  owner-approved and captured as executable fixtures. Until then
-  `evaluateProgression` returns `incompatible` for it by design.
+  owner-approved and captured as executable fixtures. `rep_goal@1`,
+  `anchor_backoff@1`, `paired_exposure@1`, `manual@1`, and `identity_block@1`
+  cleared that gate on 2026-08-27. Everything still `pending` —
+  every target-changing block profile, every other strategy pair — keeps
+  returning `incompatible` by design.
 - **Slice order** (Plan 046): versioned model and round-trips → `rep_goal@1`
   plus `manual@1` persistence → `anchor_backoff@1` → `paired_exposure@1` and
   block modifiers → hardening. Do not merge a slice that writes a progression,
   relation, or modifier shape it cannot also read, back up, export to program
   JSON, encode in verbose and compact setup links, and render in text export.
-- **Compatibility.** Released setup `v1` and `v2` decoders remain permanent and
-  logged rows stay immutable. A legacy exercise with no meaningful
+- **Compatibility.** Released setup `v1` and `v2` decoders remain permanent;
+  v3 carries the progression extension. Logged rows stay immutable. A legacy exercise with no meaningful
   `progressionType` gets an in-memory `range@1` projection; an unknown
   non-empty legacy type must execute as `manual@1` with an unsupported-import
   reason while full backup preserves the original value.

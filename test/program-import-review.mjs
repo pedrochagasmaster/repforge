@@ -68,7 +68,7 @@ async function openEditor(page) {
   await page.evaluate(() => {
     if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"))
       document.querySelector("#programEditToggle")?.click();
-    document.querySelector("#advanced")?.setAttribute("open", "");
+    document.querySelector("#program details.advanced")?.setAttribute("open", "");
   });
   await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
 }
@@ -81,12 +81,33 @@ async function importFile(page, name, body) {
   await settle(page, 500);
 }
 
+async function downloadJson(page, selector) {
+  const [download] = await Promise.all([
+    page.waitForEvent("download", { timeout: 10000 }),
+    page.click(selector),
+  ]);
+  const stream = await download.createReadStream();
+  const chunks = [];
+  for await (const chunk of stream) chunks.push(chunk);
+  return JSON.parse(Buffer.concat(chunks).toString("utf8"));
+}
+
 const v3 = JSON.stringify({
   version: 3,
-  meta: { name: "Imported split" },
+  meta: {
+    name: "Imported split",
+    progressionRelations: [{
+      schemaVersion: 1, id: "relation-import", type: "paired_exposure", version: 1,
+      movementId: "movement:import-pair",
+      members: [{ exerciseId: "slot-volume", role: "volume" }, { exerciseId: "slot-heavy", role: "heavy" }],
+    }],
+    progressionModifiers: [{ id: "modifier-import", version: 1, compatibleStrategies: ["range@1"], params: { pending: true } }],
+  },
   exercises: [
-    { day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 },
-    { day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12 },
+    { id: "slot-heavy", movementId: "movement:import-pair", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8,
+      progression: { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 5, repMax: 8 } }, modifiers: [] } },
+    { id: "slot-volume", movementId: "movement:import-pair", day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12,
+      progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] } },
     { day: "Day 1", order: 3, name: "Lat pulldown machine thing", sets: 3, min: 8, max: 12 },
     { day: "Day 2", order: 1, name: "Zerbulator 9000", sets: 3, min: 8, max: 12 },
     { day: "Day 2", order: 2, name: "My gym row", sets: 3, min: 8, max: 12, libraryId: "custom:shared" },
@@ -305,6 +326,19 @@ async function main() {
     await settle(page, 700);
     after = await getState(page);
     assert(after.program.length === 5, "committing writes the reviewed program", `${after.program.length} rows`);
+    assert(
+      after.program.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
+        after.program.find((e) => e.id === "slot-volume")?.progression?.strategy?.id === "manual",
+      "program import persists recognized progression envelopes",
+      JSON.stringify(after.program.filter((e) => ["slot-heavy", "slot-volume"].includes(e.id)))
+    );
+    assert(
+      after.programMeta.progressionRelations?.[0]?.id === "relation-import" &&
+        after.programMeta.progressionRelations[0].members[0].role === "heavy" &&
+        after.programMeta.progressionModifiers?.[0]?.id === "modifier-import",
+      "program import persists contextual relations and non-executable modifiers",
+      JSON.stringify({ relations: after.programMeta.progressionRelations, modifiers: after.programMeta.progressionModifiers })
+    );
     const squat = after.program.find((e) => e.libraryId === "sq_bb");
     const probable = after.program.find((e) => e.libraryId === "pd_mc" && e.day === "Day 1" && e.order === 3);
     const raw = after.program.find((e) => e.name === "Zerbulator 9000");
@@ -333,6 +367,118 @@ async function main() {
       "export carries exactly the definitions the program references",
       JSON.stringify(exported)
     );
+    await openEditor(page);
+    const programJson = await downloadJson(page, "#exportProgram");
+    assert(
+      programJson.version === 3 && programJson.exercises.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
+        programJson.meta?.progressionRelations?.[0]?.id === "relation-import",
+      "program JSON export carries the progression model",
+      JSON.stringify({ version: programJson.version, exercise: programJson.exercises.find((e) => e.id === "slot-heavy"), meta: programJson.meta })
+    );
+    const parsedProgramJson = await page.evaluate((value) => window.__repforgeParseProgramSource(value, "program.json"), JSON.stringify(programJson));
+    assert(
+      parsedProgramJson?.meta?.progressionModifiers?.[0]?.id === "modifier-import" &&
+        parsedProgramJson?.exercises?.[0]?.progression?.strategy?.id === "range",
+      "program JSON import reads the versioned progression model",
+      JSON.stringify(parsedProgramJson)
+    );
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    const reloaded = await getState(page);
+    assert(
+      reloaded.program.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
+        reloaded.programMeta.progressionRelations?.[0]?.id === "relation-import" &&
+        reloaded.programMeta.progressionModifiers?.[0]?.id === "modifier-import",
+      "durable reload preserves the progression model",
+      JSON.stringify({ program: reloaded.program, meta: reloaded.programMeta })
+    );
+    const archived = await page.evaluate(async () => {
+      const oldId = JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.id;
+      const result = await window.__repforgeCommitNextBlock("repeat");
+      const snapshot = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const entry = snapshot.programHistory?.find((item) => item.id === oldId);
+      return { result, entry, oldId };
+    });
+    assert(
+      archived.result?.committed && archived.entry?.program?.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
+        archived.entry?.meta?.progressionRelations?.[0]?.id === "relation-import",
+      "archived program history preserves the progression model",
+      JSON.stringify(archived)
+    );
+
+    // An editor import may carry a future prescription, but it must never make
+    // that unvalidated value executable. The explicit incompatibility marker
+    // keeps the original data recoverable for a later reader.
+    await reset(page);
+    await openEditor(page);
+    await importFile(page, "future-progression.json", JSON.stringify({
+      version: 3, meta: { name: "Future progression" },
+      exercises: [{ day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8,
+        progression: { schemaVersion: 1, strategy: { id: "future_strategy", version: 99, params: { authored: true } }, modifiers: [] } }],
+    }));
+    model = await draftModel(page);
+    assert(model?.counts.total === 1 && model.counts.review === 0,
+      "a future progression file reaches the editor review", JSON.stringify(model?.counts));
+    await page.click("#importCommit");
+    await settle(page, 600);
+    after = await getState(page);
+    assert(after.program[0]?.progression === undefined &&
+      after.program[0]?.progressionIncompatibility?.kind === "prescription" &&
+      after.program[0]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy",
+      "program JSON import preserves unvalidated progression as non-executable provenance",
+      JSON.stringify(after.program?.[0]));
+
+    const legacyProgression = await page.evaluate(() => {
+      const common = { id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", sets: 3, min: 6, max: 10 };
+      const project = (extra) => window.__repforgeProgressionForExercise({ ...common, ...extra });
+      return {
+        empty: project({ progressionType: "   " }),
+        alias: project({ progressionType: "double_progression" }),
+        unknown: project({ progressionType: "old_custom_rule" }),
+        invalid: project({ progressionIncompatibility: { version: 1, kind: "prescription", reason: "future", value: { strategy: { id: "future", version: 9 } } } }),
+      };
+    });
+    assert(legacyProgression.empty.strategy.id === "range" && legacyProgression.alias.strategy.id === "range",
+      "empty and documented legacy progression markers project to range in memory",
+      JSON.stringify(legacyProgression));
+    assert(legacyProgression.unknown.strategy.id === "manual" &&
+      legacyProgression.unknown.strategy.params.unsupportedImport === "old_custom_rule",
+      "unknown legacy progression markers remain manual and preserve their reason",
+      JSON.stringify(legacyProgression.unknown));
+    assert(legacyProgression.invalid.strategy.id === "manual" &&
+      legacyProgression.invalid.strategy.params.unsupportedImport === "incompatible_prescription",
+      "invalid or future progression markers cannot reach the range adapter",
+      JSON.stringify(legacyProgression.invalid));
+    const legacyRecommendation = await page.evaluate(() => window.__repforgeRecommendation({
+      id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", day: "Day 1", sets: 3, min: 6, max: 10,
+      progressionType: "old_custom_rule",
+    }));
+    assert(legacyRecommendation.status === "manual" && legacyRecommendation.load === null && legacyRecommendation.reason === "manual.unsupported_import",
+      "unknown legacy progression produces no range recommendation target",
+      JSON.stringify(legacyRecommendation));
+
+    const manualSuggestions = await page.evaluate(() => {
+      const ex = { id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", day: "Day 1", sets: 3, min: 6, max: 10,
+        progressionType: "old_custom_rule" };
+      const rec = window.__repforgeProgression.recommendation(ex);
+      return {
+        suggestion: window.__repforgeProgression.setSuggestion(ex, 1, rec, {}, null),
+        base: window.__repforgeProgression.baseSuggestion(ex, rec, {}, null),
+        explanation: window.__repforgeProgression.explainRecommendation(ex),
+      };
+    });
+    assert(manualSuggestions.suggestion.load === null && manualSuggestions.suggestion.reps === null,
+      "manual progression does not invent ghost load or reps for a set",
+      JSON.stringify(manualSuggestions.suggestion));
+    assert(manualSuggestions.base.load === null && manualSuggestions.base.reps === null && manualSuggestions.explanation.length === 0,
+      "manual progression has no base target or arithmetic explanation",
+      JSON.stringify(manualSuggestions));
+    const oversizedMeta = await page.evaluate(() => window.__repforgeValidateStateShape({
+      program: [{ id: "ex1", name: "Press", day: "Day 1", order: 1, sets: 3, min: 6, max: 10 }], log: [],
+      programMeta: { progressionIncompatibilities: [{ value: { text: "x".repeat(4001) } }] },
+    }));
+    assert(oversizedMeta === false,
+      "oversized progression incompatibility metadata is rejected before backup normalization");
 
     // ---- an id collision must not overwrite a different local definition ----
     // Seeded through the app so the write goes through the durability layer
@@ -406,7 +552,7 @@ async function main() {
     await reset(page);
     await openEditor(page);
     await importFile(page, "upper-lower.txt",
-      "UPPER / LOWER, 2 days per week\n\nDAY 1: Chest · Back\n1. Barbell bench press: 4× 4 to 8\n2. Barbell row: 3× 6 to 10\n\nDAY 2: Legs\n1. Leg press: 3× 8 to 12\n");
+      "UPPER / LOWER, 2 days per week\n\nDAY 1: Chest · Back\n1. Barbell bench press [range@1]: 4× 4 to 8\n2. Barbell row: 3× 6 to 10\n\nDAY 2: Legs\n1. Leg press: 3× 8 to 12\n");
     model = await draftModel(page);
     assert(
       model && model.format === "text" && model.counts.total === 3,
@@ -425,6 +571,12 @@ async function main() {
       after.program.length === 3 && after.program.filter((e) => e.day === "Day 1").length === 2,
       "the text import lands with its days and rep ranges",
       JSON.stringify(after.program.map((e) => [e.day, e.name, e.sets, e.min, e.max]))
+    );
+    assert(
+      after.program[0]?.progression?.strategy?.id === "range" &&
+        after.program[0]?.progression?.strategy?.params?.repMax === 8,
+      "text import carries the versioned progression envelope",
+      JSON.stringify(after.program)
     );
     assert(
       after.programMeta.name === "Upper / Lower",
@@ -525,10 +677,23 @@ async function main() {
     // a restore that worked until you open History and it is empty.
     const backup = JSON.stringify({
       settings: { unit: "kg", restSec: 180 },
-      programMeta: { id: "backup-meta", name: "Restored split", started: "2026-06-15" },
+      programMeta: {
+        id: "backup-meta", name: "Restored split", started: "2026-06-15",
+        progressionRelations: [{
+          schemaVersion: 1, id: "relation-backup", type: "paired_exposure", version: 1,
+          movementId: "movement:backup-pair",
+          members: [{ exerciseId: "backup-volume", role: "volume" }, { exerciseId: "backup-heavy", role: "heavy" }],
+        }],
+        progressionModifiers: [
+          { id: "modifier-backup", version: 1, compatibleStrategies: ["manual@1"], params: { pending: true } },
+          { id: "modifier-future", version: 1, compatibleStrategies: ["manual@1"], params: { pending: true }, futureField: true },
+        ],
+      },
       program: [
-        { day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8 },
-        { day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12 },
+        { id: "backup-heavy", movementId: "movement:backup-pair", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8,
+          progression: { schemaVersion: 1, strategy: { id: "range", version: 1, params: { workingSets: 3, repMin: 5, repMax: 8 } }, modifiers: [] } },
+        { id: "backup-volume", movementId: "movement:backup-pair", day: "Day 1", order: 2, name: "Puxada frontal", sets: 3, min: 8, max: 12,
+          progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] } },
       ],
       log: [
         { session: "2026-06-15_Day 1_a", date: "2026-06-15", day: "Day 1", name: "Barbell back squat", set: 1, load: 100, reps: 8, rir: 2 },
@@ -563,6 +728,15 @@ async function main() {
       JSON.stringify({ sessions: new Set((restored.log || []).map((r) => r.session)).size, sets: restored.log?.length }));
     assert(restored.program?.length === 2, "restoring brings the program too", JSON.stringify(restored.program?.length));
     assert(restored.settings?.restSec === 180, "restoring brings the settings too", JSON.stringify(restored.settings));
+    assert(
+      restored.program.find((e) => e.id === "backup-heavy")?.progression?.strategy?.id === "range" &&
+        restored.programMeta.progressionRelations?.[0]?.id === "relation-backup" &&
+        restored.programMeta.progressionModifiers?.length === 0 &&
+        restored.programMeta.progressionIncompatibilities?.some((item) => item.kind === "modifiers" &&
+          item.value?.some?.((modifier) => modifier.id === "modifier-future")),
+      "backup restore round-trips valid progression and preserves invalid collections with provenance",
+      JSON.stringify({ program: restored.program, meta: restored.programMeta })
+    );
 
     // Merge takes the sessions without touching anything else.
     await reset(page);
@@ -591,6 +765,12 @@ async function main() {
     assert(restored.program?.length === 2 && (restored.log || []).length === 0,
       "program only imports the exercises and leaves history alone",
       JSON.stringify({ program: restored.program?.length, log: restored.log?.length }));
+    assert(
+      restored.program[0]?.progression?.strategy?.id === "range" &&
+        restored.programMeta.progressionRelations?.[0]?.id === "relation-backup",
+      "program-only import keeps the versioned progression model",
+      JSON.stringify({ program: restored.program, meta: restored.programMeta })
+    );
 
     // ---- a backup with no sessions is still a backup ----
     // It was read as a plain program file, so a lifter restoring onto a fresh
