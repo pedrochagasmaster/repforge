@@ -96,6 +96,10 @@ Foundation preserves family, frequency, required coverage, and protected
 primary intent. It removes optional complexity, prefers stable exercises and
 range progression, and initializes sets conservatively within the slot bounds.
 It has no universal two-set or five-slot cap and no automatic graduation.
+Foundation may also lean to the conservative (higher-RIR) end of an authored
+RIR range — authored `1–3` may start `2–3`, authored `2–3` stays `2–3` — but it
+never invents a target, widens a range, or leaves the authored bounds
+(authored `0–2` never becomes `2–3`). No Foundation-specific RIR formula.
 
 `recent_consistency@1` supports `consistent`, `interrupted`, and `returning`.
 Re-entry is optional and changes only authored set counts for the first one or

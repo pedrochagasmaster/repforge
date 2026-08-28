@@ -182,6 +182,87 @@ assert(allSlots(foundation).filter((entry) => entry.status !== "protected").some
 assert(!owns(Compiler.RULES, "foundationMaxSlotsPerDay"), "Foundation has no universal five-slot cap");
 assert(!allSlots(foundation).some((entry) => entry.status === "optional"), "Foundation removes unnecessary optional complexity");
 
+/* Foundation RIR interpretation (owner-approved 2026-08-29):
+   Foundation may prefer the conservative end of an already-authored RIR range,
+   but must never invent a new target, widen the range, or leave the authored
+   bounds. It is conservative initialization inside the prescription, not a
+   separate Foundation effort system. */
+const authoredRirFor = (classId, efficient) => {
+  const rule = Compiler.RULES.prescriptionClasses[classId];
+  return efficient && rule.efficientRir ? rule.efficientRir.slice() : rule.rir.slice();
+};
+const conservativeClamp = ([lo, hi]) => [Math.min(Math.max(2, lo), hi), hi];
+
+// Structural: for every prescription class, in both efficient and normal form,
+// the Foundation-preferred range stays inside the authored range and never
+// widens it — this also covers a hypothetical fixed (min === max) range.
+for (const classId of Object.keys(Compiler.RULES.prescriptionClasses)) {
+  for (const efficient of [false, true]) {
+    const authored = authoredRirFor(classId, efficient);
+    const [flo, fhi] = conservativeClamp(authored);
+    assert(flo >= authored[0] && fhi <= authored[1] && flo <= fhi,
+      `Foundation RIR for ${classId}${efficient ? " (efficient)" : ""} stays inside the authored range and is not widened`);
+    assert(fhi === authored[1], `Foundation never raises the authored RIR ceiling for ${classId}`);
+  }
+}
+// Synthetic fixed / narrow ranges cannot be widened or inverted by the rule.
+for (const fixed of [[3, 3], [1, 1], [0, 0], [2, 2], [0, 1]]) {
+  const [lo, hi] = conservativeClamp(fixed);
+  assert(lo >= fixed[0] && hi <= fixed[1] && lo <= hi,
+    `Foundation preference keeps an authored ${fixed[0]}-${fixed[1]} RIR inside its own bounds`);
+}
+
+// Behavioural: real Foundation compiles across efficient and non-efficient blueprints.
+const foundationCompiles = [
+  Compiler.compile(gymContext("strength", 3, { profile: "foundation" }), EXERCISE_LIBRARY),
+  Compiler.compile(gymContext("growth", 6, { profile: "foundation" }), EXERCISE_LIBRARY),
+  Compiler.compile(gymContext("balanced", 5, { profile: "foundation" }), EXERCISE_LIBRARY),
+  Compiler.compile(homeContext(4, { profile: "foundation" }), EXERCISE_LIBRARY),
+  Compiler.compile(homeContext(6, { profile: "foundation" }), EXERCISE_LIBRARY),
+];
+let sawAuthored13 = false;
+let sawAuthored23 = false;
+let sawAuthored02 = false;
+for (const instance of foundationCompiles) {
+  assert.equal(instance.kind, "compiled");
+  assert.equal(new Set(instance.days.map((d) => d.dayId)).size, instance.frequency,
+    "Foundation keeps the requested frequency's day structure");
+  for (const resolved of allSlots(instance)) {
+    const p = resolved.prescription;
+    const authored = authoredRirFor(p.classId, p.efficient);
+    const [flo, fhi] = conservativeClamp(authored);
+    assert(p.targetRirMin >= authored[0] && p.targetRirMax <= authored[1] && p.targetRirMin <= p.targetRirMax,
+      `${resolved.slotId} Foundation RIR [${p.targetRirMin},${p.targetRirMax}] stays inside authored [${authored[0]},${authored[1]}]`);
+    assert.deepEqual([p.targetRirMin, p.targetRirMax], [flo, fhi],
+      `${resolved.slotId} Foundation RIR is exactly the conservative clamp of the authored range`);
+    // The RIR preference must not touch sets, reps, or strategy selection.
+    const rule = Compiler.RULES.prescriptionClasses[p.classId];
+    assert.equal(p.sets, p.efficient ? rule.efficientSets : rule.defaultSets, `${resolved.slotId} Foundation sets unchanged by the RIR rule`);
+    assert.deepEqual([p.repMin, p.repMax], rule.repRanges[0], `${resolved.slotId} Foundation reps unchanged by the RIR rule`);
+    assert(["range", "rep_goal"].includes(p.progression.strategy.id), `${resolved.slotId} Foundation keeps a simple strategy`);
+    if (authored[0] === 1 && authored[1] === 3) { sawAuthored13 = true; assert(p.targetRirMin >= 1 && p.targetRirMax <= 3 && p.targetRirMin >= 2, "authored 1-3 -> Foundation prefers the 2-3 portion, still inside 1-3"); }
+    if (authored[0] === 2 && authored[1] === 3) { sawAuthored23 = true; assert.deepEqual([p.targetRirMin, p.targetRirMax], [2, 3], "authored 2-3 -> Foundation stays 2-3"); }
+    if (authored[0] === 0 && authored[1] === 2) { sawAuthored02 = true; assert(p.targetRirMax <= 2 && !(p.targetRirMin === 2 && p.targetRirMax === 3), "authored 0-2 -> Foundation never manufactures 2-3"); }
+  }
+  const recompiledCtx = instance.familyId === "home"
+    ? homeContext(instance.frequency, { profile: "foundation" })
+    : gymContext(instance.familyId, instance.frequency, { profile: "foundation" });
+  assert.deepEqual(Compiler.compile(recompiledCtx, EXERCISE_LIBRARY).program, instance.program, "Foundation compile stays deterministic with the RIR preference");
+}
+assert(sawAuthored13 && sawAuthored23 && sawAuthored02, "Foundation RIR coverage exercised authored 1-3, 2-3, and 0-2 ranges");
+
+// The RIR preference is not what forces the simple strategy: the standard
+// profile still authors non-range strategies for the same family/frequency,
+// and Foundation preserves family and frequency regardless.
+const standardStrength3 = Compiler.compile(gymContext("strength", 3), EXERCISE_LIBRARY);
+const foundationStrength3 = foundationCompiles[0];
+assert(allSlots(standardStrength3).some((entry) => entry.prescription.progression.strategy.id !== "range"), "standard Strength 3d still uses a non-range strategy");
+assert(allSlots(foundationStrength3).every((entry) => entry.prescription.progression.strategy.id === "range"), "Foundation simplifies to range@1");
+assert.equal(foundationStrength3.familyId, standardStrength3.familyId, "Foundation does not change family");
+assert.equal(foundationStrength3.frequency, standardStrength3.frequency, "Foundation does not change frequency");
+assert.equal(foundationStrength3.days.length, standardStrength3.days.length, "Foundation does not change the day count");
+assert.equal(foundationStrength3.relations.length, 0, "Foundation attaches no paired_exposure@1 in v1");
+
 const interrupted = Compiler.compile(gymContext("growth", 3, { recentConsistency: "interrupted", reentryEnabled: true }), EXERCISE_LIBRARY);
 assert(interrupted.weeks[0].days.flatMap((entry) => entry.slots).some((target) => target.sets < allSlots(interrupted).find((entry) => entry.slotId === target.slotId).prescription.sets));
 assert(interrupted.weeks.slice(1).every((entry) => entry.phase === "normal"));

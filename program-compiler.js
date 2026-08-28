@@ -13,6 +13,11 @@
   });
   const FREQUENCIES = Object.freeze([2, 3, 4, 5, 6]);
   const FAMILY_IDS = Object.freeze(["growth", "balanced", "strength", "home"]);
+  // Foundation leans toward the conservative (more-reps-in-reserve) end of an
+  // authored RIR range. This is a preference intersected with the authored
+  // bounds, never an independent Foundation RIR target: it can only raise the
+  // authored floor, never past the authored ceiling, and never widens a range.
+  const FOUNDATION_CONSERVATIVE_RIR = 2;
   const STRATEGIES = Object.freeze([
     "range@1", "rep_goal@1", "effort_target@1", "anchor_backoff@1", "manual@1",
   ]);
@@ -448,9 +453,15 @@
     const rule = RULES.prescriptionClasses[classId];
     const efficient = rawSlot.efficient === true;
     let sets = efficient ? rule.efficientSets : rule.defaultSets;
+    // The RIR range this slot actually authored (its efficient range when the
+    // blueprint marked the slot efficient, otherwise its normal range).
+    const authoredRir = efficient && rule.efficientRir ? rule.efficientRir : rule.rir;
+    // Foundation prefers the conservative portion of that authored range without
+    // inventing a new target, widening the range, or leaving the authored
+    // bounds: clamp a conservative floor into [authoredMin, authoredMax].
     const rir = context.profile === "foundation"
-      ? [Math.max(2, rule.rir[0]), rule.rir[1]]
-      : efficient && rule.efficientRir ? rule.efficientRir : rule.rir;
+      ? [Math.min(Math.max(FOUNDATION_CONSERVATIVE_RIR, authoredRir[0]), authoredRir[1]), authoredRir[1]]
+      : authoredRir;
     const strategy = strategyFor(contractValue, candidate, context);
     if (!strategy) return null;
     return {
