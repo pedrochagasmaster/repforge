@@ -31,7 +31,22 @@ const page = await context.newPage();
 try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
-  await page.evaluate(({ key, value }) => localStorage.setItem(key, JSON.stringify(value)), { key: KEY, value: state });
+  await page.evaluate(async ({ key, value }) => {
+    localStorage.setItem(key, JSON.stringify(value));
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("repforge", 1);
+      request.onupgradeneeded = () => request.result.createObjectStore("kv");
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const transaction = db.transaction("kv", "readwrite");
+      transaction.objectStore("kv").put(value, key);
+      transaction.oncomplete = () => resolve();
+      transaction.onerror = () => reject(transaction.error);
+    });
+    db.close();
+  }, { key: KEY, value: state });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   await page.evaluate(() => window.closeFirstRun?.());

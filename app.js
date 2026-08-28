@@ -2134,7 +2134,10 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
   else if(row.performedName===row.name){
     if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
     if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
-  const ld=posNum(row.load),rp=posNum(row.reps),rr=posNum(row.rir);
+  const ld=posNum(row.load),rp=posNum(row.reps);
+  const explicitStrategy=ex?.progression?.strategy?.id;
+  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&(row.rir==null||row.rir==="");
+  const rr=preserveMissingRir?null:posNum(row.rir);
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function migrateLog(){return migrateLogSnapshot(state)}
@@ -6197,6 +6200,10 @@ async function saveProgressionEditor(form){
   const prescription=authoredProgressionFromForm(strategy,new FormData(form),e);
   const checked=RepForgeProgression.validatePrescription(prescription);
   if(!checked.ok){error.textContent=t("program.progression.error.invalid");return}
+  const executable=RepForgeProgression.evaluateProgression({
+    ...progressionInput(e),prescription:checked.value,history:[],currentSession:[]});
+  if(executable.kind==="invalid"||executable.kind==="incompatible"){
+    error.textContent=t("program.progression.error.invalid");return}
   const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program),next=nextProgram.find(id);
   if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
   const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);

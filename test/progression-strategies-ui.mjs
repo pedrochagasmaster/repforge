@@ -203,6 +203,9 @@ async function workoutSurface(page) {
   await page.waitForSelector('#whySheet.is-open');
   const why = (await page.locator('#whyBody').textContent()).trim();
   await page.click('#whyClose');
+  await page.waitForSelector('#whySheet', { state: 'hidden' });
+  await page.click('#woOverflowBtn');
+  await page.waitForSelector('#woOverflow:not(.hidden)');
   await page.click('#modeFocus');
   await page.waitForSelector('#workout.is-focus article.is-current .curset');
   const focus = await page.evaluate(() => {
