@@ -1,167 +1,214 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 
-const fixtureUrl = new URL("./fixtures/program-families-v1.json", import.meta.url);
-const source = readFileSync(fixtureUrl, "utf8");
-const fixture = JSON.parse(source);
+const require = createRequire(import.meta.url);
+const Compiler = require("../program-compiler.js");
+const Engine = require("../progression-engine.js");
+const { EXERCISE_LIBRARY } = require("../exercises.js");
+const fixture = JSON.parse(readFileSync(new URL("./fixtures/program-families-v1.json", import.meta.url), "utf8"));
 
-function deepFreeze(value) {
-  if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
-  Object.freeze(value);
-  for (const child of Object.values(value)) deepFreeze(child);
-  return value;
+const gymContext = (familyId, frequency, extra = {}) => ({
+  schemaVersion: 1, familyId, frequency, sessionMinutes: 90,
+  equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
+  environment: ["safe_pull", "training_support"],
+  loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
+  ...extra,
+});
+const homeContext = (frequency, extra = {}) => ({
+  schemaVersion: 1, familyId: "home", frequency, sessionMinutes: 90,
+  equipment: [], environment: [], loadIncrements: {}, ...extra,
+});
+const getBlueprint = (id) => Compiler.BLUEPRINTS.find((entry) => entry.id === id);
+const shape = (id) => getBlueprint(id).days.map((entry) => entry.slots.map((slot) => slot.template).join(",")).join("|");
+const allSlots = (instance) => instance.days.flatMap((entry) => entry.slots);
+const owns = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+
+const EXACT = {
+  growth_2_v1: "knee_growth,horizontal_press,horizontal_pull,hamstring_assistance,lateral_delt,optional_arms|hinge_growth,vertical_pull,incline_press,quad_assistance,delt_mixed,optional_arms",
+  growth_3_v1: "knee_growth,horizontal_press,horizontal_pull,hamstring_assistance,lateral_delt,optional_arms|hinge_growth,vertical_pull,vertical_press,quad_assistance,chest,calf|unilateral_knee,incline_press,supported_pull,hip_extension,delt_mixed,optional_arms",
+  growth_4_v1: "horizontal_press,horizontal_pull,vertical_pull,chest,lateral_delt,triceps|knee_growth,hinge_growth,unilateral_knee,hamstring_assistance,calf|incline_press,horizontal_pull,vertical_press,vertical_pull,delt_mixed,biceps|hinge_growth,knee_growth,hip_extension,hamstring_assistance,calf",
+  growth_5_v1: "horizontal_press,vertical_pull,incline_press,horizontal_pull,lateral_delt,triceps|knee_growth,hinge_growth,unilateral_knee,hamstring_assistance,calf|horizontal_pull,vertical_press,vertical_pull,chest,delt_mixed,biceps|hinge_growth,knee_growth,hip_extension,hamstring_assistance,calf|chest,back,quad_assistance,hamstring_assistance,priority,optional_arms",
+  growth_6_v1: "horizontal_press,horizontal_pull,chest,lateral_delt|knee_growth,hamstring_assistance,unilateral_knee,calf|vertical_pull,vertical_press,supported_pull,arms|hinge_growth,quad_assistance,hip_extension,hamstring_assistance|chest,back,delt_mixed,priority|quad_assistance,hamstring_assistance,unilateral_knee,calf",
+  balanced_2_v1: "knee_anchor,horizontal_press,horizontal_pull,hamstring_assistance,optional_arms|press_anchor,hinge_growth,vertical_pull,knee_volume,back",
+  balanced_3_v1: "knee_anchor,press_anchor,horizontal_pull,hamstring_assistance,lateral_delt|hinge_growth,vertical_pull,vertical_press,unilateral_knee,arms|knee_volume,press_volume,horizontal_pull,hip_extension,back",
+  balanced_4_v1: "knee_anchor,hamstring_assistance,unilateral_knee,calf|press_anchor,vertical_pull,horizontal_pull,triceps|hinge_growth,knee_volume,hamstring_assistance,hip_extension|press_volume,horizontal_pull,pull_mixed,delt_mixed",
+  balanced_5_v1: "knee_anchor,hamstring_assistance,unilateral_knee,calf|press_anchor,vertical_pull,supported_pull,triceps|hip_extension,chest,pull_mixed,lateral_delt,rear_delt|hinge_growth,knee_volume,hamstring_assistance,calf|press_volume,vertical_pull,vertical_press,supported_pull,arms",
+  balanced_6_v1: "knee_anchor,hamstring_assistance,unilateral_knee,calf|press_anchor,vertical_pull,supported_pull,triceps|hip_extension,chest,back,lateral_delt|hinge_growth,knee_volume,hamstring_assistance,calf|press_volume,pull_mixed,horizontal_pull,biceps|quad_assistance,chest,back,priority",
+  strength_2_v1: "knee_effort,press_volume,pull_mixed,hip_extension,optional_arms|press_effort,hinge_effort,knee_volume,pull_mixed,optional_arms",
+  strength_3_v1: "knee_effort,press_volume,horizontal_pull,hamstring_assistance,optional_arms|press_effort,hinge_volume,vertical_pull,unilateral_knee,optional_arms|hinge_effort,knee_volume,vertical_press,horizontal_pull,optional_arms",
+  strength_4_v1: "knee_effort,hip_extension,unilateral_knee,hamstring_assistance|press_effort,vertical_pull,horizontal_pull,triceps|hinge_effort,knee_volume,hamstring_assistance,calf|press_volume,vertical_press,pull_mixed,biceps",
+  strength_5_v1: "knee_effort,hip_extension,unilateral_knee,hamstring_assistance|press_effort,vertical_pull,horizontal_pull,triceps|hinge_effort,knee_volume,hamstring_assistance,calf|press_volume,vertical_press,horizontal_pull,biceps|unilateral_knee,hip_extension,chest,back,lateral_delt,optional_arms",
+  strength_6_v1: "knee_effort,hip_extension,unilateral_knee,trunk|press_effort,vertical_pull,supported_pull,triceps|hinge_effort,quad_assistance,hamstring_assistance,calf|knee_volume,hinge_volume,unilateral_knee,trunk|press_volume,vertical_press,horizontal_pull,biceps|quad_assistance,chest,back,lateral_delt,optional_arms",
+  home_2_v1: "home_knee,home_push,unilateral_knee,home_posterior,home_trunk,home_pull|unilateral_knee,home_push,home_posterior,home_calf,home_trunk,home_pull",
+  home_3_v1: "home_knee,home_push,unilateral_knee,home_posterior,home_trunk|unilateral_knee,home_push,home_posterior,home_pull,home_lateral|home_knee,home_push,home_posterior,home_pull,home_calf",
+  home_4_v1: "home_knee,home_push,unilateral_knee,home_trunk|home_posterior,home_pull,unilateral_knee,home_calf|unilateral_knee,home_push,home_posterior,home_trunk|home_coverage,home_pull,home_posterior,home_coverage",
+  home_5_v1: "home_knee,home_push,home_trunk|home_posterior,home_pull|unilateral_knee,home_push|home_posterior,home_pull,home_trunk|home_coverage,home_coverage,home_coverage",
+  home_6_v1: "home_knee,home_push,home_trunk|home_posterior,home_pull,home_coverage|unilateral_knee,home_push,home_trunk|home_posterior,home_pull,home_coverage|home_coverage,home_posterior,home_trunk|home_coverage,home_coverage,home_coverage",
+};
+
+assert.deepEqual(Compiler.validateBlueprints(), { ok: true, count: 20 });
+assert.equal(Compiler.BLUEPRINTS.length, 20);
+assert.deepEqual(Object.keys(EXACT).sort(), Compiler.BLUEPRINTS.map((entry) => entry.id).sort());
+for (const [id, expected] of Object.entries(EXACT)) assert.equal(shape(id), expected, `${id} exact authored structure`);
+assert(Compiler.BLUEPRINTS.every((entry) => entry.kind === "authored_sibling"));
+assert.deepEqual(Compiler.FAMILY_IDS, ["growth", "balanced", "strength", "home"]);
+assert.deepEqual(fixture.publicGoals.map((goal) => goal.en), ["Build Muscle", "Muscle + Strength", "Strength Priority"]);
+assert.equal(fixture.limitedEquipmentPromise.en, "Train Anywhere");
+assert.equal(fixture.families.find((family) => family.id === "home").publicGoal, null);
+assert.deepEqual(fixture.engineContract.strategies, ["range@1", "rep_goal@1", "effort_target@1", "anchor_backoff@1", "manual@1"]);
+assert(!owns(fixture.rules, "allocation"));
+assert.deepEqual(fixture.rules.reductionOrder, ["remove_optional", "efficient_two_set", "trim_reducible_assistance", "conflict"]);
+
+for (const [id, contract] of Object.entries(Compiler.SLOT_TEMPLATES)) {
+  assert(Array.isArray(contract.patterns) && contract.patterns.length, `${id} has movement patterns`);
+  assert(Array.isArray(contract.primaryMuscles) && contract.primaryMuscles.length, `${id} has primary muscle intent`);
+  assert(owns(contract, "requiredCharacteristics"), `${id} separates requirements`);
+  assert(owns(contract, "preferredCharacteristics"), `${id} separates preferences`);
+  assert(!owns(contract, "fatigueScore"), `${id} has no fake fatigue score`);
+  assert(contract.prescriptionClasses.length, `${id} has compatible prescriptions`);
+  assert(contract.strategies.every((strategy) => Compiler.STRATEGIES.includes(strategy)), `${id} uses supported strategies`);
 }
 
-function dayId(blueprint, dayIndex) {
-  return `${blueprint.id.replace(/_v1$/, "")}_d${dayIndex + 1}`;
-}
-
-function slotId(blueprint, dayIndex, slotIndex) {
-  return `${dayId(blueprint, dayIndex)}_s${slotIndex + 1}`;
-}
-
-function validate(input) {
-  assert.equal(input.schemaVersion, 1);
-  assert.equal(input.contractStatus, "proposed_owner_review_required");
-  assert.equal(input.defaultBlockWeeks, 6);
-  assert.equal(input.dayIdDerivation, "<blueprint id without _v1>_d<one-based day index>");
-  assert.equal(input.slotIdDerivation, "<day id>_s<one-based slot index>");
-
-  const familyIds = input.families.map((family) => family.id);
-  assert.deepEqual(familyIds, ["growth", "balanced", "strength", "home"]);
-  assert.equal(new Set(familyIds).size, familyIds.length);
-  assert(input.families.every((family) => family.version === 1));
-  assert(input.families.every((family) => family.browse === false));
-  assert(input.families.every((family) => family.sessionMinuteFit.includes(30)));
-  assert.deepEqual(input.families.find((family) => family.id === "home").equipmentFit, ["limited_home"]);
-
-  const blueprints = new Map(input.blueprints.map((blueprint) => [blueprint.id, blueprint]));
-  assert.equal(blueprints.size, 20);
-
-  const allDayIds = new Set();
-  const allSlotIds = new Set();
-  const allowedStrategies = new Set(input.engineContract.strategies);
-  const allowedRoles = new Set(["primary", "volume_counterpart", "compound_assistance", "isolation_assistance"]);
-
-  for (const family of input.families) {
-    const references = { ...family.blueprints, ...family.generatedRecipes };
-    assert.deepEqual(Object.keys(references).sort(), ["2", "3", "4", "5", "6"]);
-    for (const frequency of [2, 3, 4, 5, 6]) {
-      const blueprint = blueprints.get(references[frequency]);
-      assert(blueprint, `${family.id} ${frequency}-day reference exists`);
-      assert.equal(blueprint.familyId, family.id);
-      assert.equal(blueprint.days.length, frequency);
-      assert.equal(blueprint.kind, frequency === 3 || frequency === 5 ? "sibling" : "recipe");
+const compiled = [];
+for (const familyId of Compiler.FAMILY_IDS) {
+  for (const frequency of Compiler.FREQUENCIES) {
+    const context = familyId === "home" ? homeContext(frequency) : gymContext(familyId, frequency);
+    const first = Compiler.compile(context, EXERCISE_LIBRARY);
+    const second = Compiler.compile(context, EXERCISE_LIBRARY);
+    assert.equal(first.kind, "compiled", `${familyId} ${frequency} compiles`);
+    assert.deepEqual(second, first, `${familyId} ${frequency} deterministic`);
+    assert.equal(first.frequency, frequency, `${familyId} ${frequency} preserves frequency`);
+    assert.equal(first.days.length, frequency, `${familyId} ${frequency} day count`);
+    assert.equal(new Set(first.days.map((entry) => entry.dayId)).size, frequency, `${familyId} ${frequency} stable day ids`);
+    assert.equal(new Set(allSlots(first).map((entry) => entry.slotId)).size, allSlots(first).length, `${familyId} ${frequency} stable slot ids`);
+    assert.equal(first.weeks.length, 6);
+    assert(first.weeks.every((week) => week.days.map((entry) => entry.dayId).join() === first.days.map((entry) => entry.dayId).join()), `${familyId} ${frequency} has no structural drift`);
+    assert(!JSON.stringify(first).toLowerCase().includes("deload"), `${familyId} ${frequency} schedules no deload`);
+    assert(owns(first.directIndirectExposure, "direct") && owns(first.directIndirectExposure, "indirect"));
+    for (const resolved of allSlots(first)) {
+      assert(resolved.prescription.sets >= 1 && resolved.prescription.sets <= 3, `${resolved.slotId} set bound`);
+      if (resolved.role === "heavy_primary") {
+        assert(resolved.prescription.repMin >= 3 && resolved.prescription.repMax <= 6);
+        assert(resolved.prescription.restMinimumSeconds >= 120);
+      }
+      if (resolved.role === "isolation_accessory") assert(resolved.prescription.repMax <= 15, `${resolved.slotId} isolation ceiling`);
+      assert(Engine.validatePrescription(resolved.prescription.progression).ok, `${resolved.slotId} executable progression`);
     }
-
-    const three = blueprints.get(family.blueprints[3]);
-    const five = blueprints.get(family.blueprints[5]);
-    assert.notDeepEqual(three.days, five.days.slice(0, 3), `${family.id} siblings are not prefix copies`);
-    assert.notEqual(JSON.stringify(three.days).repeat(2), JSON.stringify(five.days), `${family.id} siblings are not repetitions`);
+    compiled.push(first);
   }
+}
+assert.equal(compiled.length, 20);
+assert.deepEqual(fixture.reviewCompilations.map((entry) => entry.blueprintId), Compiler.BLUEPRINTS.map((entry) => entry.id));
 
-  for (const blueprint of input.blueprints) {
-    assert.match(blueprint.id, /^(growth|balanced|strength|home)_[2-6]_v1$/);
-    blueprint.days.forEach((day, dayIndex) => {
-      assert(Array.isArray(day) && day.length > 0);
-      const resolvedDayId = dayId(blueprint, dayIndex);
-      assert(!allDayIds.has(resolvedDayId));
-      allDayIds.add(resolvedDayId);
-      day.forEach((templateId, slotIndex) => {
-        const contract = input.slotContracts[templateId];
-        assert(contract, `${blueprint.id} references ${templateId}`);
-        assert(allowedRoles.has(contract.role));
-        assert(allowedStrategies.has(contract.strategy), `${templateId} uses allowed proposed strategy`);
-        const prescriptionKey = `${contract.role}|${contract.strategy}`;
-        assert(input.rules.prescriptions.byRoleAndStrategy[prescriptionKey], `${templateId} resolves ${prescriptionKey}`);
-        assert.equal(contract.requiresLibraryId, true, `${templateId} requires exercise-library provenance`);
-        assert(contract.patterns.length > 0);
-        assert(contract.muscles.length > 0);
-        assert(contract.substitutionClass.length > 0);
-        const resolvedSlotId = slotId(blueprint, dayIndex, slotIndex);
-        assert(!allSlotIds.has(resolvedSlotId));
-        allSlotIds.add(resolvedSlotId);
-      });
-    });
-  }
+const preferred = Compiler.compile(gymContext("growth", 2, { preferences: ["sq_sm"], history: [{ libraryId: "sq_lp" }] }), EXERCISE_LIBRARY);
+assert.equal(preferred.days[0].slots[0].exercise.id, "sq_sm", "explicit preference outranks history");
+const disliked = Compiler.compile(gymContext("growth", 2, { preferences: ["sq_sm"], dislikes: ["sq_sm"], history: [{ libraryId: "sq_lp" }] }), EXERCISE_LIBRARY);
+assert.equal(disliked.days[0].slots[0].exercise.id, "sq_lp", "a dislike excludes the preferred candidate and exact history wins");
+assert.notEqual(disliked.days[0].slots[0].exercise.id, "sqk_mc", "machine history never transfers to another machine");
 
-  const relationIds = new Set();
-  for (const [blueprintId, relations] of Object.entries(input.pairedRelations)) {
-    const blueprint = blueprints.get(blueprintId);
-    assert(blueprint);
-    for (const relation of relations) {
-      assert.equal(relation.version, 1);
-      assert(!relationIds.has(relation.id));
-      relationIds.add(relation.id);
-      const [heavyDay, heavySlot] = relation.heavy;
-      const [volumeDay, volumeSlot] = relation.volume;
-      const heavy = input.slotContracts[blueprint.days[heavyDay]?.[heavySlot]];
-      const volume = input.slotContracts[blueprint.days[volumeDay]?.[volumeSlot]];
-      assert(heavy && volume, `${relation.id} resolves both members`);
-      assert.equal(heavy.role, "primary");
-      assert.equal(heavy.strategy, "anchor_backoff@1");
-      assert.equal(volume.role, "volume_counterpart");
-      assert.equal(volume.strategy, "range@1");
-      assert(heavy.patterns.some((pattern) => volume.patterns.includes(pattern)), `${relation.id} shares a movement pattern`);
-      assert.notEqual(slotId(blueprint, heavyDay, heavySlot), slotId(blueprint, volumeDay, volumeSlot));
-    }
-  }
+const noFiller90 = Compiler.compile(gymContext("growth", 4, { sessionMinutes: 90 }), EXERCISE_LIBRARY);
+const noFiller120 = Compiler.compile(gymContext("growth", 4, { sessionMinutes: 120 }), EXERCISE_LIBRARY);
+assert.deepEqual(noFiller120.program, noFiller90.program, "spare time adds no work");
+const efficientPath = Compiler.compile(gymContext("growth", 6), EXERCISE_LIBRARY);
+assert(allSlots(efficientPath).some((entry) => entry.prescription.sets === 2 && entry.prescription.targetRirMin === 0 && entry.prescription.targetRirMax === 2), "reviewed efficient two-set work may use the authored 0–2 RIR range");
+const ordinaryGrowth = Compiler.compile(gymContext("growth", 5), EXERCISE_LIBRARY);
+const prioritizedGrowth = Compiler.compile(gymContext("growth", 5, { priorityMuscles: ["Biceps"] }), EXERCISE_LIBRARY);
+assert.equal(allSlots(prioritizedGrowth).length, allSlots(ordinaryGrowth).length + 1, "priority uses only an explicitly authored bonus slot");
+assert.equal(allSlots(prioritizedGrowth).find((entry) => entry.templateId === "priority").exercise.primaryMuscles.includes("biceps"), true, "priority resolves the requested muscle inside the valid slot contract");
+assert.equal(allSlots(Compiler.compile(gymContext("strength", 3, { priorityMuscles: ["Biceps"] }), EXERCISE_LIBRARY)).length,
+  allSlots(Compiler.compile(gymContext("strength", 3), EXERCISE_LIBRARY)).length, "priority never invents a slot where the blueprint has none");
+let reduced = null;
+for (let minutes = 20; minutes <= 75 && !reduced; minutes += 5) {
+  const result = Compiler.compile(gymContext("growth", 3, { sessionMinutes: minutes }), EXERCISE_LIBRARY);
+  if (result.kind === "compiled" && result.reductions.length >= 2) reduced = result;
+}
+assert(reduced, "a time-pressure case compiles through reviewed reductions");
+for (const dayId of new Set(reduced.reductions.map((entry) => entry.dayId))) {
+  const reductionRanks = reduced.reductions.filter((entry) => entry.dayId === dayId).map((entry) => Compiler.RULES.reductionOrder.indexOf(entry.step));
+  assert(reductionRanks.every((rank, index) => index === 0 || rank >= reductionRanks[index - 1]), `${dayId} time reductions follow the approved order`);
+}
+const impossible = Compiler.compile(gymContext("strength", 2, { sessionMinutes: 10 }), EXERCISE_LIBRARY);
+assert.equal(impossible.kind, "conflict");
+assert.equal(impossible.frequency, 2, "an impossible Strength 2d request does not reduce frequency");
+assert(impossible.conflicts.some((entry) => entry.code === "time_ceiling_conflict"));
 
-  assert.equal(input.engineContract.status, "proposed_unmerged");
-  assert.deepEqual(input.engineContract.relations, ["paired_exposure@1"]);
-  assert.deepEqual(input.engineContract.modifiers, ["reentry@1"]);
+const homeNoPull = Compiler.compile(homeContext(3), EXERCISE_LIBRARY);
+assert.equal(homeNoPull.kind, "compiled");
+assert(homeNoPull.limitations.some((entry) => entry.code === "home.pull_capability_unavailable"));
+assert(!allSlots(homeNoPull).some((entry) => entry.templateId === "home_pull"), "no-pull Home invents no pulling exercise");
+const homePull = Compiler.compile(homeContext(3, { environment: ["safe_pull"] }), EXERCISE_LIBRARY);
+assert.equal(homePull.kind, "compiled");
+const protectedPulls = allSlots(homePull).filter((entry) => entry.templateId === "home_pull");
+assert(protectedPulls.length > 0 && protectedPulls.every((entry) => entry.protected), "credible Home pulling becomes protected");
+assert(protectedPulls.every((entry) => entry.exercise.environmentRequirements.includes("safe_pull")));
 
-  const allocation = input.rules.allocation;
-  assert.deepEqual(allocation.minuteBands, [30, 45, 60, 75, 90]);
-  assert.deepEqual(allocation.frequencyBands, [2, 3, 4, 5, 6]);
-  assert.deepEqual(Object.keys(allocation.sessionCaps).sort(), ["established", "new", "some"]);
-  assert.deepEqual(Object.keys(allocation.weeklyCaps).sort(), ["established", "new", "some"]);
-  for (const values of Object.values(allocation.sessionCaps)) assert.equal(values.length, 5);
-  for (const values of Object.values(allocation.weeklyCaps)) assert.equal(values.length, 5);
+const bandCandidate = { id: "custom:band-lateral", name: "Band lateral raise", namePt: "Elevação lateral com faixa", equipment: ["band"], primary: "Side delts", secondary: "", patterns: ["lateral_raise"], practicalRepRange: [8, 15], stability: "moderate", beginnerFriendly: true, custom: true };
+const homeBands = Compiler.compile(homeContext(3, { equipment: ["band"] }), [...EXERCISE_LIBRARY, bandCandidate]);
+assert.equal(allSlots(homeBands).find((entry) => entry.templateId === "home_lateral").exercise.id, bandCandidate.id, "declared bands can resolve band work");
+const homeDumbbells = Compiler.compile(homeContext(3, { equipment: ["band", "dumbbell"], loadIncrements: { dumbbell: 2 } }), [...EXERCISE_LIBRARY, bandCandidate]);
+assert.equal(allSlots(homeDumbbells).find((entry) => entry.templateId === "home_lateral").exercise.equipment, "dumbbell", "dumbbells outrank bands when both fit");
+const noHeavyCapability = Compiler.compile({ ...homeContext(2), familyId: "strength" }, EXERCISE_LIBRARY);
+assert.equal(noHeavyCapability.kind, "conflict", "heavy primary work refuses bodyweight-only loading");
 
-  assert.equal(input.rules.prescriptions.version, 1);
-  for (const prescription of Object.values(input.rules.prescriptions.byRoleAndStrategy)) {
-    assert(Object.values(prescription.setsByMaturity).every((sets) => Number.isInteger(sets) && sets > 0));
-    const repBounds = prescription.repRange || prescription.perSetRange;
-    assert(repBounds[0] > 0 && repBounds[1] >= repBounds[0]);
-    assert(prescription.targetRirRange[0] >= 0 && prescription.targetRirRange[1] >= prescription.targetRirRange[0]);
-  }
+const balanced = Compiler.compile(gymContext("balanced", 3), EXERCISE_LIBRARY);
+assert(balanced.relations.every((relation) => relation.state === "attached"), "approved exact-identity pairs attach");
+const kneeVolume = balanced.days[2].slots[0];
+const substituteMachine = EXERCISE_LIBRARY.find((entry) => entry.id === "sq_lp");
+const invalidated = Compiler.substitute(balanced, kneeVolume.slotId, substituteMachine.id, EXERCISE_LIBRARY, gymContext("balanced", 3));
+assert.equal(invalidated.relations.find((entry) => entry.id === "balanced_3_knee").state, "structural_only", "a different machine invalidates the executable pair");
+const originalHeavyMovement = balanced.days[0].slots[0].exercise.id;
+const restored = Compiler.substitute(invalidated, kneeVolume.slotId, originalHeavyMovement, EXERCISE_LIBRARY, gymContext("balanced", 3));
+assert.equal(restored.relations.find((entry) => entry.id === "balanced_3_knee").state, "attached", "an exact compatible substitution restores the pair");
 
-  const time = input.rules.time;
-  assert.equal(time.version, 1);
-  assert(time.workingSetSeconds > 0);
-  assert(time.buffer.minimumSeconds > 0);
-  assert(time.buffer.subtotalPercent > 0);
+const growth = Compiler.compile(gymContext("growth", 2), EXERCISE_LIBRARY);
+const pressSlot = growth.days[0].slots.find((entry) => entry.templateId === "horizontal_press");
+assert.equal(pressSlot.prescription.classId, "compound_4_8");
+const highRepPress = { ...EXERCISE_LIBRARY.find((entry) => entry.id === "pr_mc"), id: "custom:high-rep-press", practicalRepRange: [8, 12], custom: true };
+const changedPrescription = Compiler.substitute(growth, pressSlot.slotId, highRepPress.id, [...EXERCISE_LIBRARY, highRepPress], gymContext("growth", 2));
+assert.equal(changedPrescription.days[0].slots.find((entry) => entry.slotId === pressSlot.slotId).prescription.classId, "compound_8_12", "substitution resolves a compatible new prescription");
+const customized = Compiler.customize(growth, pressSlot.slotId, { name: "My unsupported movement", primary: "Chest" });
+assert.equal(customized.customizedFrom, "growth_2_v1");
+assert.equal(customized.program.find((entry) => entry.slotId === pressSlot.slotId).progression.strategy.id, "manual", "unsupported custom semantics become manual");
 
-  assert.equal(input.rules.profiles.simple_start.maxSetsPerSlot, 2);
-  assert.equal(input.rules.profiles.simple_start.maxSlotsPerDay, 5);
-  assert.deepEqual(input.rules.profiles.simple_start.strategies, ["range@1"]);
-  assert.equal(input.rules.profiles.reentry.interrupted.normalFromWeek, 2);
-  assert.equal(input.rules.profiles.reentry.returning.normalFromWeek, 3);
+const foundation = Compiler.compile(gymContext("strength", 3, { profile: "foundation" }), EXERCISE_LIBRARY);
+assert.equal(foundation.kind, "compiled");
+assert.equal(foundation.frequency, 3);
+assert.equal(foundation.familyId, "strength");
+assert.equal(foundation.relations.length, 0);
+assert(allSlots(foundation).every((entry) => entry.prescription.progression.strategy.id === "range"));
+assert(allSlots(foundation).some((entry) => entry.prescription.sets === 3), "Foundation has no universal two-set cap");
+assert(!owns(Compiler.RULES, "foundationMaxSlotsPerDay"), "Foundation has no universal five-slot cap");
+assert(!allSlots(foundation).some((entry) => entry.status === "optional"), "Foundation removes unnecessary optional complexity");
 
-  const sixWeek = input.syntheticExamples.find((example) => example.weeks === 6);
-  const fiftyTwoWeek = input.syntheticExamples.find((example) => example.weeks === 52);
-  assert(sixWeek.expectedSameStructureEveryWeek);
-  assert.equal(sixWeek.scheduledDeload, false);
-  assert.equal(fiftyTwoWeek.expectedCompleteBlocks, Math.floor(52 / input.defaultBlockWeeks));
-  assert.equal(fiftyTwoWeek.expectedTrailingWeeks, 52 % input.defaultBlockWeeks);
-  assert(fiftyTwoWeek.expectedSameStructureWithinEachPinnedBlock);
-  assert.equal(fiftyTwoWeek.scheduledDeload, false);
-
-  assert(!/(deloadWeek|weekRotation|randomSeed|volumeTolerance|entitlement)/i.test(source));
-  assert(!/(nippard|powerbuilding|boostcamp)/i.test(source));
-
-  return {
-    families: input.families.length,
-    blueprints: blueprints.size,
-    days: allDayIds.size,
-    slots: allSlotIds.size,
-    relations: relationIds.size
-  };
+const interrupted = Compiler.compile(gymContext("growth", 3, { recentConsistency: "interrupted", reentryEnabled: true }), EXERCISE_LIBRARY);
+assert(interrupted.weeks[0].days.flatMap((entry) => entry.slots).some((target) => target.sets < allSlots(interrupted).find((entry) => entry.slotId === target.slotId).prescription.sets));
+assert(interrupted.weeks.slice(1).every((entry) => entry.phase === "normal"));
+const returning = Compiler.compile(gymContext("strength", 3, { recentConsistency: "returning", reentryEnabled: true }), EXERCISE_LIBRARY);
+assert.equal(returning.weeks[0].phase, "returning_week_1");
+assert.equal(returning.weeks[1].phase, "returning_week_2");
+assert(returning.weeks.slice(2).every((entry) => entry.phase === "normal"));
+for (const instance of [interrupted, returning]) {
+  const progression = JSON.stringify(instance.program.map((entry) => entry.progression));
+  assert(instance.weeks.every(() => JSON.stringify(instance.program.map((entry) => entry.progression)) === progression), "re-entry does not change strategies or RIR targets");
 }
 
-deepFreeze(fixture);
-const first = validate(fixture);
-const second = validate(fixture);
-assert.deepEqual(second, first);
-console.log(`PASS program-family fixtures: ${JSON.stringify(first)}`);
+const legacyProgram = [{ id: "a", day: "Day A", order: 1 }, { id: "b", day: "Day B", order: 1 }];
+const migrated = Compiler.migrateLegacyStructure(legacyProgram);
+const renamed = Compiler.migrateLegacyStructure([{ ...migrated.program[0], day: "Lower" }, migrated.program[1]], { ...migrated.structure, days: [{ ...migrated.structure.days[0], label: "Lower" }, migrated.structure.days[1]] });
+assert.equal(renamed.structure.days[0].dayId, migrated.structure.days[0].dayId, "day rename preserves dayId");
+assert.equal(renamed.program[0].slotId, migrated.program[0].slotId, "migration preserves slot identity");
+assert.deepEqual(Compiler.migrateLegacyStructure(legacyProgram), migrated, "legacy migration is deterministic");
+
+const cyclic = gymContext("growth", 3);
+cyclic.history = [cyclic];
+assert.doesNotThrow(() => Compiler.compile(cyclic, EXERCISE_LIBRARY));
+assert.equal(Compiler.compile(cyclic, EXERCISE_LIBRARY).kind, "invalid");
+assert.equal(Compiler.compile({ ...gymContext("growth", 3), surprise: true }, EXERCISE_LIBRARY).kind, "invalid");
+assert.equal(Compiler.compile({ ...gymContext("growth", 3), frequency: 7 }, EXERCISE_LIBRARY).kind, "invalid");
+
+const horizonContext = gymContext("strength", 5);
+const horizonBaseline = Compiler.compile(horizonContext, EXERCISE_LIBRARY);
+for (let week = 1; week <= 52; week++) assert.deepEqual(Compiler.compile({ ...horizonContext, weekNumber: week }, EXERCISE_LIBRARY).program, horizonBaseline.program, `week ${week} has no structural drift`);
+
+console.log(`PASS program compiler: 20 exact blueprints, ${compiled.reduce((sum, entry) => sum + entry.days.length, 0)} days, deterministic resolution, constraints, substitutions, Foundation, re-entry, and 52-week stability`);

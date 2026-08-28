@@ -29,9 +29,8 @@
     "family",
     "blueprint",
     "catalogue",
-    "allocation",
-    "timeModel",
-    "contextSchema",
+    "rules",
+    "context",
     "progression",
   ]);
   const ROUTES = Object.freeze(["recommend", "custom", "browse", "build", "import", "shared"]);

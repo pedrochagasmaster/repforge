@@ -29,8 +29,8 @@
   // v2 is released and immutable. New optional fields belong to v3 only.
   const META_OPTIONAL_BITS = 6;
   const EXERCISE_OPTIONAL_BITS = 9;
-  const V3_META_OPTIONAL_BITS = 8;
-  const V3_EXERCISE_OPTIONAL_BITS = 12;
+  const V3_META_OPTIONAL_BITS = 9;
+  const V3_EXERCISE_OPTIONAL_BITS = 16;
   const CUSTOM_OPTIONAL_BITS = 4;
   const BASE64URL_RE = /^[A-Za-z0-9_-]*$/;
   const VERSION_PREFIX_RE = /^v(\d+)\.(.*)$/;
@@ -264,6 +264,11 @@
     else meta.mesocycleLengthWeeks = raw.mesocycleLengthWeeks;
     if (hasOwn(raw, "progressionRelations")) meta.progressionRelations = pickRelations(raw.progressionRelations, issues);
     if (hasOwn(raw, "progressionModifiers")) meta.progressionModifiers = pickModifiers(raw.progressionModifiers, issues);
+    if (hasOwn(raw, "programStructure")) {
+      const structure = canonicalJsonField(raw.programStructure, "program.meta.programStructure", issues);
+      if (!isPlainObject(structure) || structure.schemaVersion !== 1 || !Array.isArray(structure.days)) issues.push("program.meta.programStructure: invalid");
+      else meta.programStructure = structure;
+    }
     return meta;
   }
 
@@ -495,6 +500,17 @@
       const progression = pickProgression(raw.progression, issues, `${path}.progression`);
       if (progression) exercise.progression = progression;
     }
+    const slotId = requireString(raw, "slotId", issues, path, { max: 200, min: 1, trim: true, required: false });
+    if (slotId) exercise.slotId = slotId;
+    const dayId = requireString(raw, "dayId", issues, path, { max: 200, min: 1, trim: true, required: false });
+    if (dayId) exercise.dayId = dayId;
+    const loadingMode = requireString(raw, "loadingMode", issues, path, { max: 40, min: 1, trim: true, required: false });
+    if (loadingMode) {
+      if (!["known_grid", "bodyweight", "ordinal", "external_unknown"].includes(loadingMode)) issues.push(`${path}.loadingMode: invalid`);
+      else exercise.loadingMode = loadingMode;
+    }
+    const loadIncrement = pickOptionalNumber(raw, "loadIncrement", issues, path, 0.000001, 100000);
+    if (loadIncrement !== undefined) exercise.loadIncrement = loadIncrement;
     return exercise;
   }
 
@@ -882,6 +898,7 @@
     }
     if (includeProgression && hasOwn(meta, "progressionRelations")) mask = pushOptional(mask, values, 6, true, meta.progressionRelations);
     if (includeProgression && hasOwn(meta, "progressionModifiers")) mask = pushOptional(mask, values, 7, true, meta.progressionModifiers);
+    if (includeProgression && hasOwn(meta, "programStructure")) mask = pushOptional(mask, values, 8, true, meta.programStructure);
     return [meta.name, meta.mesocycleLengthWeeks, mask, ...values];
   }
 
@@ -914,6 +931,10 @@
       mask = pushOptional(mask, values, 9, !!(hasOwn(exercise, "id") && exercise.id), exercise.id);
       mask = pushOptional(mask, values, 10, hasOwn(exercise, "progression"), exercise.progression);
       mask = pushOptional(mask, values, 11, !!(hasOwn(exercise, "movementId") && exercise.movementId), exercise.movementId);
+      mask = pushOptional(mask, values, 12, !!(hasOwn(exercise, "slotId") && exercise.slotId), exercise.slotId);
+      mask = pushOptional(mask, values, 13, !!(hasOwn(exercise, "dayId") && exercise.dayId), exercise.dayId);
+      mask = pushOptional(mask, values, 14, !!(hasOwn(exercise, "loadingMode") && exercise.loadingMode), exercise.loadingMode);
+      mask = pushOptional(mask, values, 15, hasOwn(exercise, "loadIncrement"), exercise.loadIncrement);
     }
     const libraryRef = exercise.libraryId.startsWith(CUSTOM_ID_PREFIX)
       ? customIndex.get(exercise.libraryId)
@@ -1054,7 +1075,10 @@
       offset = progressionRelations.offset;
       if (progressionRelations.present) setOwn(meta, "progressionRelations", progressionRelations.value);
       const progressionModifiers = takeOptional(raw, offset, mask, 7);
+      offset = progressionModifiers.offset;
       if (progressionModifiers.present) setOwn(meta, "progressionModifiers", progressionModifiers.value);
+      const programStructure = takeOptional(raw, offset, mask, 8);
+      if (programStructure.present) setOwn(meta, "programStructure", programStructure.value);
     }
     return meta;
   }
@@ -1192,7 +1216,19 @@
       offset = progression.offset;
       if (progression.present) setOwn(exercise, "progression", progression.value);
       const movementId = takeOptional(raw, offset, mask, 11);
+      offset = movementId.offset;
       if (movementId.present) setOwn(exercise, "movementId", movementId.value);
+      const slotId = takeOptional(raw, offset, mask, 12);
+      offset = slotId.offset;
+      if (slotId.present) setOwn(exercise, "slotId", slotId.value);
+      const dayId = takeOptional(raw, offset, mask, 13);
+      offset = dayId.offset;
+      if (dayId.present) setOwn(exercise, "dayId", dayId.value);
+      const loadingMode = takeOptional(raw, offset, mask, 14);
+      offset = loadingMode.offset;
+      if (loadingMode.present) setOwn(exercise, "loadingMode", loadingMode.value);
+      const loadIncrement = takeOptional(raw, offset, mask, 15);
+      if (loadIncrement.present) setOwn(exercise, "loadIncrement", loadIncrement.value);
     }
     return exercise;
   }
@@ -1337,7 +1373,8 @@
     const v1 = await encodeCandidate("v1.", checked.value);
     const needsV3 = hasOwn(checked.value.program.meta, "progressionRelations") ||
       hasOwn(checked.value.program.meta, "progressionModifiers") ||
-      checked.value.program.exercises.some((exercise) => hasOwn(exercise, "id") || hasOwn(exercise, "movementId") || hasOwn(exercise, "progression"));
+      hasOwn(checked.value.program.meta, "programStructure") ||
+      checked.value.program.exercises.some((exercise) => hasOwn(exercise, "id") || hasOwn(exercise, "movementId") || hasOwn(exercise, "progression") || hasOwn(exercise, "slotId") || hasOwn(exercise, "dayId") || hasOwn(exercise, "loadingMode") || hasOwn(exercise, "loadIncrement"));
     const v2 = needsV3 ? { ok: false, code: "incompatible" } : await encodeCandidate("v2.", packV2(checked.value));
     const v3 = await encodeCandidate("v3.", packV3(checked.value));
     const candidates = [v1, v2, v3].filter((candidate) => candidate.ok);

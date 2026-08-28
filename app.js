@@ -1606,6 +1606,8 @@ function normalizeProgressionModifiers(value,options={}){
 class Exercise{
   constructor(d={}){
     this.id=d.id||uid();
+    if(d.slotId!=null&&String(d.slotId).trim())this.slotId=String(d.slotId).trim();
+    if(d.dayId!=null&&String(d.dayId).trim())this.dayId=String(d.dayId).trim();
     this.day=String(d.day??"").trim()||"Day 1";
     this.order=Number.isFinite(+d.order)?+d.order:1;
     this.name=String(d.name??"").trim()||"Exercise";
@@ -1633,6 +1635,8 @@ class Exercise{
     if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
     if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
     if(d.priority!=null)this.priority=String(d.priority).trim();
+    if(["known_grid","bodyweight","ordinal","external_unknown"].includes(d.loadingMode))this.loadingMode=d.loadingMode;
+    if(d.loadIncrement!=null&&Number.isFinite(+d.loadIncrement)&&+d.loadIncrement>0)this.loadIncrement=+d.loadIncrement;
     if(d.progression!=null){
       if(!isBoundedProgressionValue(d.progression))throw new TypeError("progression: structure exceeds safety bounds");
       const progression=normalizeProgressionEnvelope(d.progression);
@@ -1663,6 +1667,8 @@ class Exercise{
     this.secondary=entry.secondary||"";
     return this}
   toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+    if(this.slotId!==undefined)o.slotId=this.slotId;
+    if(this.dayId!==undefined)o.dayId=this.dayId;
     if(this.libraryId!==undefined)o.libraryId=this.libraryId;
     if(this.movementId!==undefined)o.movementId=this.movementId;
     if(this.displayName!==undefined)o.displayName=this.displayName;
@@ -1672,6 +1678,8 @@ class Exercise{
     if(this.minSets!==undefined)o.minSets=this.minSets;
     if(this.maxSets!==undefined)o.maxSets=this.maxSets;
     if(this.priority!==undefined)o.priority=this.priority;
+    if(this.loadingMode!==undefined)o.loadingMode=this.loadingMode;
+    if(this.loadIncrement!==undefined)o.loadIncrement=this.loadIncrement;
     if(this.progression!==undefined)o.progression=cloneSnapshot(this.progression);
     if(this.progressionIncompatibility!==undefined)o.progressionIncompatibility=cloneSnapshot(this.progressionIncompatibility);
     return o}
@@ -1754,6 +1762,7 @@ const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
 const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
 const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
 const SharedSetup=typeof window!=="undefined"?window.RepForgeSharedSetup:null;
+const ProgramCompiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
 
 /* Custom exercises a lifter created. They live in state so they survive across
    programs and show up in every picker beside the built-ins; the "custom:"
@@ -2145,7 +2154,7 @@ function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
-  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[]}}
+  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null}}
 function buildProgramMeta({name, answers}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
@@ -2178,10 +2187,18 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
   const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
   const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
+  if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
+  const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure}}
+
+function withExplicitProgramStructure(program,meta){
+  if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
+  const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
+  return{program:migrated.program,meta:{...meta,programStructure:migrated.structure}}
+}
 function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
@@ -2216,8 +2233,12 @@ function normalizeCustomExercises(list){
 function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{
     const normalized=cloneSnapshot(entry);
-    if(Object.prototype.hasOwnProperty.call(normalized,"program"))
+    if(Object.prototype.hasOwnProperty.call(normalized,"program")){
       normalized.program=new Program(normalized.program,lookup).toJSON();
+      const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{});
+      normalized.program=structured.program;
+      if(normalized.meta)normalized.meta=structured.meta;
+      else normalized.programMeta=structured.meta}
     return normalized})}
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:starterProgram(),log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
@@ -2231,6 +2252,8 @@ function normalizeLoaded(s,options={}){
   // or a boot they are not in live state yet.
   out.program=new Program(s.program,lookup).toJSON();
   out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,options);
+  const structured=withExplicitProgramStructure(out.program,out.programMeta);
+  out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
@@ -2776,6 +2799,8 @@ function save(){return persist()}
 function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
   const base=cloneSnapshot(mutationBase||state);
+  const structured=withExplicitProgramStructure(state.program,state.programMeta||defaultProgramMeta(state.log));
+  state.program=structured.program;state.programMeta=structured.meta;
   const snapshot=cloneSnapshot(state);
   return enqueueStateChange(base,snapshot,storageIO,opts)}
 async function commitProposedState(proposal,io=storageIO,opts={}){
@@ -2783,6 +2808,8 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   const base=cloneSnapshot(mutationBase||state);
   const liveBase=cloneSnapshot(state);
   const snapshot=cloneSnapshot(proposal);
+  const structured=withExplicitProgramStructure(snapshot.program,snapshot.programMeta||defaultProgramMeta(snapshot.log));
+  snapshot.program=structured.program;snapshot.programMeta=structured.meta;
   const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
   if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
@@ -6660,7 +6687,7 @@ const SHARED_EQUIPMENT={machine:"machines",machines:"machines",cable:"cables",ca
 function sharedProgramMeta(meta,program){
   const days=program.days();
   const optional=(value,allowed)=>allowed.includes(value)?value:null;
-  return{name:String(meta?.name||"").trim()||t("untitled_program")||"Untitled program",
+  const out={name:String(meta?.name||"").trim()||t("untitled_program")||"Untitled program",
     goal:optional(meta?.goal,["hypertrophy","strength_hypertrophy","beginner_consistency"]),
     experience:optional(meta?.experience,["beginner","intermediate","advanced"]),daysPerWeek:days.length,
     splitType:optional(meta?.splitType,["full_body","machine_only","ppl","upper_lower","bro"]),
@@ -6671,13 +6698,17 @@ function sharedProgramMeta(meta,program){
     sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
     mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
     progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON()),
-    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)}}
+    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)};
+  if(meta?.programStructure)out.programStructure=cloneSnapshot(meta.programStructure);
+  return out}
 function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
   if(preserveIdentity){out.id=ex?.id;out.movementId=ex?.movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
+    if(ex?.[key]!==undefined)out[key]=ex[key];
+  for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
   if(ex?.progression!==undefined)out.progression=cloneSnapshot(ex.progression);
   return out}

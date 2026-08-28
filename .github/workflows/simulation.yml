@@ -139,6 +139,15 @@ jobs:
           node test/progression-range-simulation.mjs
           node test/progression-strategies-simulation.mjs
 
+      - name: Program-family compiler contracts
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: |
+          node tools/build-program-family-fixtures.mjs --check
+          node test/program-family-fixtures.mjs
+          node test/program-compiler-persistence.mjs
+          node test/program-compiler-runtime.mjs
+
       - name: Persistence artifact helper self-test
         env:
           REPFORGE_URL: http://localhost:8000/
