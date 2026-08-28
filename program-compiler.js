@@ -81,6 +81,7 @@
     supported_pull: contract({ role: "hypertrophy_compound", patterns: ["row"], primaryMuscles: ["back"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"], preferredCharacteristics: { stability: ["high"] } }),
     vertical_pull: contract({ role: "hypertrophy_compound", patterns: ["pulldown"], primaryMuscles: ["lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
     pull_mixed: contract({ role: "hypertrophy_compound", patterns: ["row", "pulldown"], primaryMuscles: ["back", "lats"], secondaryMuscles: ["biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
+    vertical_press_or_pull: contract({ role: "hypertrophy_compound", patterns: ["shoulder_press", "pulldown"], primaryMuscles: ["front_delts", "lats"], secondaryMuscles: ["triceps", "biceps"], prescriptionClasses: ["compound_4_8", "compound_8_12"], strategies: ["range@1"] }),
     unilateral_knee: contract({ role: "hypertrophy_compound", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes", "hamstrings"], prescriptionClasses: ["compound_8_12", "compound_4_8"], strategies: ["range@1"], preferredCharacteristics: { unilateral: [true] } }),
     quad_assistance: contract({ role: "isolation_accessory", patterns: ["leg_extension", "squat"], primaryMuscles: ["quads"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"] }),
     hamstring_assistance: contract({ role: "isolation_accessory", patterns: ["leg_curl", "hinge", "squat"], primaryMuscles: ["hamstrings"], secondaryMuscles: ["glutes"], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"] }),
@@ -149,13 +150,13 @@
       day("Volume", [slot("knee_volume"), slot("press_volume"), slot("horizontal_pull"), slot("hip_extension"), slot("back")]),
     ], [pair("balanced_3_knee", [0, 0], [2, 0]), pair("balanced_3_press", [0, 1], [2, 1])]),
     blueprint("balanced", 4, [
-      day("Lower primary", [slot("knee_anchor"), slot("hamstring_assistance"), slot("unilateral_knee"), slot("calf")]),
+      day("Lower primary", [slot("knee_anchor"), slot("hinge_growth"), slot("unilateral_knee"), slot("calf")]),
       day("Upper primary", [slot("press_anchor"), slot("vertical_pull"), slot("horizontal_pull"), slot("triceps")]),
       day("Lower volume", [slot("hinge_growth"), slot("knee_volume"), slot("hamstring_assistance"), slot("hip_extension", { calfAlternative: true })]),
-      day("Upper volume", [slot("press_volume"), slot("horizontal_pull"), slot("pull_mixed"), slot("delt_mixed")]),
+      day("Upper volume", [slot("press_volume"), slot("horizontal_pull"), slot("vertical_press_or_pull"), slot("delt_mixed")]),
     ], [pair("balanced_4_knee", [0, 0], [2, 1]), pair("balanced_4_press", [1, 0], [3, 0])]),
     blueprint("balanced", 5, [
-      day("Lower primary", [slot("knee_anchor"), slot("hamstring_assistance"), slot("unilateral_knee"), slot("calf")]),
+      day("Lower primary", [slot("knee_anchor"), slot("hinge_growth"), slot("unilateral_knee"), slot("calf")]),
       day("Upper primary", [slot("press_anchor"), slot("vertical_pull"), slot("supported_pull"), slot("triceps")]),
       day("Hypertrophy", [slot("hip_extension"), slot("chest"), slot("pull_mixed"), slot("lateral_delt"), slot("rear_delt", { bicepsAlternative: true })]),
       day("Lower volume", [slot("hinge_growth"), slot("knee_volume"), slot("hamstring_assistance"), slot("calf")]),
@@ -166,7 +167,7 @@
       day("Upper primary", [slot("press_anchor"), slot("vertical_pull", { efficient: true }), slot("supported_pull", { efficient: true }), slot("triceps", { efficient: true })]),
       day("Hypertrophy A", [slot("hip_extension", { efficient: true }), slot("chest", { efficient: true }), slot("back", { efficient: true }), slot("lateral_delt", { efficient: true })]),
       day("Lower volume", [slot("hinge_growth", { efficient: true }), slot("knee_volume", { efficient: true }), slot("hamstring_assistance", { efficient: true }), slot("calf", { efficient: true })]),
-      day("Upper volume", [slot("press_volume", { efficient: true }), slot("pull_mixed", { efficient: true }), slot("horizontal_pull", { efficient: true }), slot("biceps", { efficient: true })]),
+      day("Upper volume", [slot("press_volume", { efficient: true }), slot("vertical_press_or_pull", { efficient: true }), slot("horizontal_pull", { efficient: true }), slot("biceps", { efficient: true })]),
       day("Hypertrophy B / priority", [slot("quad_assistance", { efficient: true, hamstringAlternative: true }), slot("chest", { efficient: true }), slot("back", { efficient: true }), slot("priority", { efficient: true })]),
     ], [pair("balanced_6_knee", [0, 0], [3, 1]), pair("balanced_6_press", [1, 0], [4, 0])]),
     blueprint("strength", 2, [
@@ -447,10 +448,9 @@
     const rule = RULES.prescriptionClasses[classId];
     const efficient = rawSlot.efficient === true;
     let sets = efficient ? rule.efficientSets : rule.defaultSets;
-    if (context.profile === "foundation" && contractValue.status !== "protected") {
-      sets = Math.max(rule.sets[0], Math.min(sets, contractValue.role === "isolation_accessory" ? 1 : 2));
-    }
-    const rir = efficient && rule.efficientRir ? rule.efficientRir : rule.rir;
+    const rir = context.profile === "foundation"
+      ? [Math.max(2, rule.rir[0]), rule.rir[1]]
+      : efficient && rule.efficientRir ? rule.efficientRir : rule.rir;
     const strategy = strategyFor(contractValue, candidate, context);
     if (!strategy) return null;
     return {

@@ -32,9 +32,9 @@ const EXACT = {
   growth_6_v1: "horizontal_press,horizontal_pull,chest,lateral_delt|knee_growth,hamstring_assistance,unilateral_knee,calf|vertical_pull,vertical_press,supported_pull,arms|hinge_growth,quad_assistance,hip_extension,hamstring_assistance|chest,back,delt_mixed,priority|quad_assistance,hamstring_assistance,unilateral_knee,calf",
   balanced_2_v1: "knee_anchor,horizontal_press,horizontal_pull,hamstring_assistance,optional_arms|press_anchor,hinge_growth,vertical_pull,knee_volume,back",
   balanced_3_v1: "knee_anchor,press_anchor,horizontal_pull,hamstring_assistance,lateral_delt|hinge_growth,vertical_pull,vertical_press,unilateral_knee,arms|knee_volume,press_volume,horizontal_pull,hip_extension,back",
-  balanced_4_v1: "knee_anchor,hamstring_assistance,unilateral_knee,calf|press_anchor,vertical_pull,horizontal_pull,triceps|hinge_growth,knee_volume,hamstring_assistance,hip_extension|press_volume,horizontal_pull,pull_mixed,delt_mixed",
-  balanced_5_v1: "knee_anchor,hamstring_assistance,unilateral_knee,calf|press_anchor,vertical_pull,supported_pull,triceps|hip_extension,chest,pull_mixed,lateral_delt,rear_delt|hinge_growth,knee_volume,hamstring_assistance,calf|press_volume,vertical_pull,vertical_press,supported_pull,arms",
-  balanced_6_v1: "knee_anchor,hamstring_assistance,unilateral_knee,calf|press_anchor,vertical_pull,supported_pull,triceps|hip_extension,chest,back,lateral_delt|hinge_growth,knee_volume,hamstring_assistance,calf|press_volume,pull_mixed,horizontal_pull,biceps|quad_assistance,chest,back,priority",
+  balanced_4_v1: "knee_anchor,hinge_growth,unilateral_knee,calf|press_anchor,vertical_pull,horizontal_pull,triceps|hinge_growth,knee_volume,hamstring_assistance,hip_extension|press_volume,horizontal_pull,vertical_press_or_pull,delt_mixed",
+  balanced_5_v1: "knee_anchor,hinge_growth,unilateral_knee,calf|press_anchor,vertical_pull,supported_pull,triceps|hip_extension,chest,pull_mixed,lateral_delt,rear_delt|hinge_growth,knee_volume,hamstring_assistance,calf|press_volume,vertical_pull,vertical_press,supported_pull,arms",
+  balanced_6_v1: "knee_anchor,hamstring_assistance,unilateral_knee,calf|press_anchor,vertical_pull,supported_pull,triceps|hip_extension,chest,back,lateral_delt|hinge_growth,knee_volume,hamstring_assistance,calf|press_volume,vertical_press_or_pull,horizontal_pull,biceps|quad_assistance,chest,back,priority",
   strength_2_v1: "knee_effort,press_volume,pull_mixed,hip_extension,optional_arms|press_effort,hinge_effort,knee_volume,pull_mixed,optional_arms",
   strength_3_v1: "knee_effort,press_volume,horizontal_pull,hamstring_assistance,optional_arms|press_effort,hinge_volume,vertical_pull,unilateral_knee,optional_arms|hinge_effort,knee_volume,vertical_press,horizontal_pull,optional_arms",
   strength_4_v1: "knee_effort,hip_extension,unilateral_knee,hamstring_assistance|press_effort,vertical_pull,horizontal_pull,triceps|hinge_effort,knee_volume,hamstring_assistance,calf|press_volume,vertical_press,pull_mixed,biceps",
@@ -178,6 +178,7 @@ assert.equal(foundation.familyId, "strength");
 assert.equal(foundation.relations.length, 0);
 assert(allSlots(foundation).every((entry) => entry.prescription.progression.strategy.id === "range"));
 assert(allSlots(foundation).some((entry) => entry.prescription.sets === 3), "Foundation has no universal two-set cap");
+assert(allSlots(foundation).filter((entry) => entry.status !== "protected").some((entry) => entry.prescription.sets === 3), "Foundation does not cap every non-protected slot at two sets");
 assert(!owns(Compiler.RULES, "foundationMaxSlotsPerDay"), "Foundation has no universal five-slot cap");
 assert(!allSlots(foundation).some((entry) => entry.status === "optional"), "Foundation removes unnecessary optional complexity");
 

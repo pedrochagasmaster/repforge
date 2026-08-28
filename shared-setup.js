@@ -622,8 +622,6 @@
     }
     if (issues.length) return schemaFail(issues);
 
-    // Slot and movement identities are shared only when a validated relation
-    // needs them. Device-local identifiers otherwise remain history/UI data.
     const relationSlots = new Set((meta?.progressionRelations || [])
       .flatMap((relation) => relation.members.map((member) => member.exerciseId)));
     for (const exercise of exercises) {

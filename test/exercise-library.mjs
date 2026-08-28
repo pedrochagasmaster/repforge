@@ -241,6 +241,10 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   assert(missingCache.length === 0,
     "revisioned shared envelope scripts are precached for offline launch",
     missingCache.join(", "));
+  assert(index.includes('src="program-compiler.js"') && sw.includes('"./program-compiler.js"'),
+    "the program compiler is loaded and precached");
+  assert(/SHELL = new Set\([^\n]+"\/program-compiler\.js"/.test(sw),
+    "the program compiler is part of the offline shell");
   assert(/registration\.scope/.test(sw) && /SCOPE_PATH/.test(sw),
     "service-worker shell matching is relative to its production scope");
 }

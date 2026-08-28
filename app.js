@@ -2735,7 +2735,8 @@ function buildSharedProgramMeta(raw,program=[]){
     mesocycleStatus:"active",completedAt:null,onboarded:true,
     progressionRelations:normalizeProgressionRelations(raw?.progressionRelations,program),
     progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
-    blockPromptDismissedId:null}}
+    blockPromptDismissedId:null,
+    programStructure:raw?.programStructure?cloneSnapshot(raw.programStructure):null}}
 function proposalFromSharedSetup(payload,baseState=state){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
@@ -7838,7 +7839,8 @@ async function commitImportReview(io=storageIO){
       proposal.customExercises=merged.customExercises}
     proposal.programMeta={...proposal.programMeta,
       progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
-      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[])};
+      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[]),
+      programStructure:draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null};
     const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
       origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
       telemetryRoute:"import"});
@@ -7861,6 +7863,7 @@ async function commitImportReview(io=storageIO){
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(draft.meta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers);
+  meta.programStructure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,adapter,{effect,...transition});
@@ -8126,6 +8129,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
+  meta.programStructure=baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null;
   proposal.programMeta=meta;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];

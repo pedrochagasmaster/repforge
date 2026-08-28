@@ -633,6 +633,38 @@
         "range@1"
       ]
     },
+    "vertical_press_or_pull": {
+      "requiredCapabilities": [],
+      "requiredCharacteristics": {},
+      "preferredCharacteristics": {},
+      "status": "reducible",
+      "priorityBehavior": "preserve_coverage",
+      "warmupClass": "compound",
+      "restClass": "compound",
+      "transitionClass": "new_station",
+      "timeClass": "standard",
+      "efficientEligible": true,
+      "role": "hypertrophy_compound",
+      "patterns": [
+        "shoulder_press",
+        "pulldown"
+      ],
+      "primaryMuscles": [
+        "front_delts",
+        "lats"
+      ],
+      "secondaryMuscles": [
+        "triceps",
+        "biceps"
+      ],
+      "prescriptionClasses": [
+        "compound_4_8",
+        "compound_8_12"
+      ],
+      "strategies": [
+        "range@1"
+      ]
+    },
     "unilateral_knee": {
       "requiredCapabilities": [],
       "requiredCharacteristics": {},
@@ -2178,7 +2210,7 @@
             },
             {
               "slotId": "balanced_4_d1_s2",
-              "template": "hamstring_assistance"
+              "template": "hinge_growth"
             },
             {
               "slotId": "balanced_4_d1_s3",
@@ -2249,7 +2281,7 @@
             },
             {
               "slotId": "balanced_4_d4_s3",
-              "template": "pull_mixed"
+              "template": "vertical_press_or_pull"
             },
             {
               "slotId": "balanced_4_d4_s4",
@@ -2300,7 +2332,7 @@
             },
             {
               "slotId": "balanced_5_d1_s2",
-              "template": "hamstring_assistance"
+              "template": "hinge_growth"
             },
             {
               "slotId": "balanced_5_d1_s3",
@@ -2555,7 +2587,7 @@
             },
             {
               "slotId": "balanced_6_d5_s2",
-              "template": "pull_mixed",
+              "template": "vertical_press_or_pull",
               "efficient": true
             },
             {
@@ -6725,15 +6757,15 @@
             },
             {
               "slotId": "balanced_4_d1_s2",
-              "templateId": "hamstring_assistance",
-              "role": "isolation_accessory",
-              "status": "reducible",
+              "templateId": "hinge_growth",
+              "role": "hypertrophy_compound",
+              "status": "protected",
               "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "prescriptionClass": "compound_4_8",
               "sets": 3,
               "reps": [
-                8,
-                12
+                4,
+                8
               ],
               "rir": [
                 1,
@@ -6990,7 +7022,7 @@
             },
             {
               "slotId": "balanced_4_d4_s3",
-              "templateId": "pull_mixed",
+              "templateId": "vertical_press_or_pull",
               "role": "hypertrophy_compound",
               "status": "reducible",
               "libraryId": "pd_bw",
@@ -7117,15 +7149,15 @@
             },
             {
               "slotId": "balanced_5_d1_s2",
-              "templateId": "hamstring_assistance",
-              "role": "isolation_accessory",
-              "status": "reducible",
+              "templateId": "hinge_growth",
+              "role": "hypertrophy_compound",
+              "status": "protected",
               "libraryId": "hg_mc",
-              "prescriptionClass": "compound_8_12",
+              "prescriptionClass": "compound_4_8",
               "sets": 3,
               "reps": [
-                8,
-                12
+                4,
+                8
               ],
               "rir": [
                 1,
@@ -7955,7 +7987,7 @@
             },
             {
               "slotId": "balanced_6_d5_s2",
-              "templateId": "pull_mixed",
+              "templateId": "vertical_press_or_pull",
               "role": "hypertrophy_compound",
               "status": "reducible",
               "libraryId": "pd_bw",
