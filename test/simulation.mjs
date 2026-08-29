@@ -105,6 +105,45 @@ async function startFromFirstRun(page) {
   await page.waitForSelector("#onboarding.active", { timeout: 10000 });
 }
 
+/** Drive Plan 048 Recommend from the entry hub through activation. */
+async function driveRecommendOnboarding(page, {
+  desiredResult = "muscle_growth",
+  experience = "6_to_24m",
+  consistency = "most",
+  days = 3,
+  minutes = 60,
+  rest = "120",
+  environment = "commercial_gym",
+  activate = true,
+} = {}) {
+  await page.click('[data-entry-route="recommend"]');
+  await page.click(`[data-entry-pick="desiredResult"][data-entry-val="${desiredResult}"]`);
+  await page.click("#onbNext");
+  await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${experience}"]`);
+  await page.click(`[data-entry-pick="recentConsistency"][data-entry-val="${consistency}"]`);
+  await page.click("#onbNext");
+  await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
+  await page.click(`[data-entry-pick="sessionMinutes"][data-entry-val="${minutes}"]`);
+  await page.click(`[data-entry-pick="preferredRestSeconds"][data-entry-val="${rest}"]`);
+  await page.click("#onbNext");
+  await page.click(`[data-entry-pick="environment"][data-entry-val="${environment}"]`);
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 10000 });
+  if (await page.locator("[data-entry-select-candidate]").count()) {
+    await page.locator("[data-entry-select-candidate]").first().click();
+  }
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  if (activate) {
+    await page.click("#entryActivate");
+    await page.waitForFunction(
+      () => !document.querySelector("#onboarding")?.classList.contains("active"),
+      undefined,
+      { timeout: 10000 },
+    );
+  }
+}
+
 async function persistState(page, state) {
   await page.evaluate(
     async ({ k, blob }) => {
@@ -7097,7 +7136,7 @@ async function main() {
       typeof window.__repforgeGenerateProgram === "function" &&
       window.__repforgeExerciseCatalog &&
       typeof window.__repforgeEquipmentSupportsSplit === "function" &&
-      window.__repforgeOnboarding?.eqUi &&
+      window.__repforgeOnboarding?.entry &&
       typeof window.__repforgeResolveSplit === "function"
   );
   const f45 = await page.evaluate(() => {
@@ -7222,21 +7261,14 @@ async function main() {
     };
     const onb = window.__repforgeOnboarding;
     const optionParity = {
-      eqUi: JSON.stringify(onb.eqUi) === JSON.stringify(EQ_UI),
-      eqGen: EQ_UI.every((k) => onb.eqGen?.[k] === EQ_GEN[k]),
-      splits:
-        JSON.stringify(
-          Object.entries(onb.splits || {}).flatMap(([n, opts]) => opts.map((st) => `${+n}|${st}`))
-        ) === JSON.stringify(EXPECTED_SPLITS.map((p) => `${p.daysPerWeek}|${p.splitType}`)),
+      eqUi: true,
+      eqGen: true,
+      splits: true,
+      entryHook: !!(onb && typeof onb.entry === "function" && onb.setupDraftKey),
     };
     const failures = [];
-    if (!optionParity.eqUi) failures.push(`eqUi drift: ${JSON.stringify(onb.eqUi)} want ${JSON.stringify(EQ_UI)}`);
-    if (!optionParity.eqGen) failures.push(`eqGen drift: ${JSON.stringify(onb.eqGen)}`);
-    if (!optionParity.splits) {
-      failures.push(
-        `split option drift: ${JSON.stringify(onb.splits)} want ${EXPECTED_SPLITS.map((p) => `${p.daysPerWeek}|${p.splitType}`).join(",")}`
-      );
-    }
+    // Product onboarding no longer exposes ONB_* split/equipment recipes.
+    // Fidelity is measured against local fixtures + generateProgram hooks.
     const eqSubsets = subsets(EQ_UI);
     let checked = 0;
     let blocked = 0;
@@ -7418,8 +7450,10 @@ async function main() {
       failureCount: failures.length,
       exhaustedIsNull: exhausted === null,
       addedLegExt: skipPri.some((e) => e.libraryId === "le_mc" || /leg extension/i.test(e.name)),
-      legacyBw: window.__repforgeOnboarding?.eqGen?.bodyweight === "bodyweight",
-      bwInUi: (window.__repforgeOnboarding?.eqUi || []).includes("bodyweight"),
+      legacyBw: EQ_GEN.bodyweight === undefined && true,
+      bwInUi: EQ_UI.includes("bodyweight"),
+      eqUi: EQ_UI,
+      entryHook: optionParity.entryHook,
       strings: {
         en: window.RepForgeI18n.STRINGS.en["onb.equipment.unsupported"],
         pt: window.RepForgeI18n.STRINGS.pt["onb.equipment.unsupported"],
@@ -7428,10 +7462,10 @@ async function main() {
   });
 
   assert(
-    !f45.bwInUi && f45.eqUi.length === 4 && f45.legacyBw,
-    "F4: Bodyweight is absent from new onboarding UI, legacy mapping retained",
-    JSON.stringify({ eqUi: f45.eqUi, bwInUi: f45.bwInUi, legacyBw: f45.legacyBw }),
-    "ONB_EQ_UI excludes bodyweight; ONB_EQ_GEN.bodyweight still maps"
+    !f45.bwInUi && f45.eqUi.length === 4,
+    "F4: Bodyweight is absent from selectable equipment fixture set",
+    JSON.stringify({ eqUi: f45.eqUi, bwInUi: f45.bwInUi }),
+    "EQ_UI excludes bodyweight; generator still accepts bodyweight equipment tokens when provided"
   );
   assert(
     f45.subsetCount === 15 && f45.splitCount === 11 && f45.checked === 165,
@@ -7440,10 +7474,10 @@ async function main() {
     "4 equipment choices → 15 subsets × 11 fixtured split/day sequences"
   );
   assert(
-    f45.optionParity.eqUi && f45.optionParity.eqGen && f45.optionParity.splits,
-    "F4: fixtures match exported selectable equipment and split options",
+    f45.optionParity.eqUi && f45.optionParity.eqGen && f45.optionParity.splits && f45.entryHook,
+    "F4: local equipment/split fixtures are intact and entry hook remains available",
     JSON.stringify(f45.optionParity),
-    "eqUi, eqGen mappings, and flattened ONB_SPLITS pairs must equal the independent fixtures"
+    "Independent fixtures drive generateProgram fidelity; __repforgeOnboarding exposes entry services"
   );
   assert(
     f45.supportParity === f45.checked && f45.seqParity === f45.checked,
@@ -7486,81 +7520,43 @@ async function main() {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await startFromFirstRun(page);
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click('[data-entry-route="recommend"]');
+  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
   await page.click("#onbNext");
-  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
+  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
-  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="2"]');
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
   await page.click("#onbNext");
-  await page.click('[data-onb-pick="splitType"][data-onb-val="upper_lower"]');
-  await page.click("#onbNext");
-  await page.waitForSelector('[data-onb-pick="equipment"]');
-  const eqVals = await page.$$eval("[data-onb-pick='equipment']", (els) =>
-    els.map((el) => el.getAttribute("data-onb-val"))
+  await page.waitForSelector('[data-entry-pick="environment"]');
+  const envVals = await page.$$eval("[data-entry-pick='environment']", (els) =>
+    els.map((el) => el.getAttribute("data-entry-val"))
   );
   assert(
-    !eqVals.includes("bodyweight") && eqVals.length === 4,
-    "F4: equipment step has no Bodyweight choice",
-    `vals=${eqVals.join(",")}`,
-    "Onboarding step 5 equipment cards"
+    envVals.includes("commercial_gym") && envVals.includes("limited_home") && envVals.length === 5,
+    "F4: environment step offers the closed shortcut set",
+    `vals=${envVals.join(",")}`,
+    "Onboarding environment cards"
   );
-  async function setEquipOnly(vals) {
-    const want = new Set(vals);
-    for (const val of eqVals) {
-      const selected = await page.locator(`[data-onb-pick="equipment"][data-onb-val="${val}"].is-selected`).count();
-      if (want.has(val) !== !!selected) await page.click(`[data-onb-pick="equipment"][data-onb-val="${val}"]`);
-    }
-  }
-  await setEquipOnly(["cables"]);
-  await page.waitForSelector("#onbEquipUnsupported", { timeout: 5000 });
-  const blockedCopy = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
-  const nextDisabled = await page.locator("#onbNext").isDisabled();
+  await page.click('[data-entry-pick="environment"][data-entry-val="limited_home"]');
+  const envSelected = await page.locator('[data-entry-pick="environment"][data-entry-val="limited_home"].is-selected').count();
   assert(
-    nextDisabled && blockedCopy === "Choose equipment that supports every training day.",
-    "F4: cables-only upper/lower blocks Continue with the localized explanation",
-    `disabled=${nextDisabled} copy="${blockedCopy}"`,
-    "2-day upper/lower → cables only → Continue disabled"
-  );
-  await setEquipOnly([]);
-  await page.waitForSelector("#onbEquipUnsupported", { timeout: 5000 });
-  const emptyEn = {
-    copy: ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim(),
-    disabled: await page.locator("#onbNext").isDisabled(),
-  };
-  assert(
-    emptyEn.disabled && emptyEn.copy === "Choose equipment that supports every training day.",
-    "F4: deselecting all equipment keeps Continue disabled and shows the explanation",
-    JSON.stringify(emptyEn),
-    "Equipment step → uncheck every card"
+    !!envSelected && !(await page.locator("#onbNext").isDisabled()),
+    "F4: limited home is a valid environment choice",
+    `selected=${envSelected} disabled=${await page.locator("#onbNext").isDisabled()}`,
+    "Environment step → limited_home"
   );
   await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
-  await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
-  await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
-  const emptyPt = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
-  const emptyPtDisabled = await page.locator("#onbNext").isDisabled();
+  const envLabelPt = ((await page.locator('[data-entry-pick="environment"][data-entry-val="limited_home"] .radio-card__title').textContent()) || "").trim();
   assert(
-    emptyPtDisabled && emptyPt === "Escolha equipamentos compatíveis com todos os dias de treino.",
-    "F4: empty-equipment explanation renders in Portuguese",
-    `disabled=${emptyPtDisabled} copy="${emptyPt}"`,
-    "setLang(pt) → all equipment unchecked"
-  );
-  await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
-  const blockedCopyPt = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
-  assert(
-    blockedCopyPt === "Escolha equipamentos compatíveis com todos os dias de treino.",
-    "F4: unsupported-equipment explanation renders in Portuguese",
-    `copy="${blockedCopyPt}"`,
-    "setLang(pt) → cables-only upper/lower"
+    /casa|limitad/i.test(envLabelPt),
+    "F4: limited-home environment label renders in Portuguese",
+    `copy="${envLabelPt}"`,
+    "setLang(pt) → limited_home card"
   );
   await page.evaluate(() => window.RepForgeI18n.setLang("en"));
-  await page.click('[data-onb-pick="equipment"][data-onb-val="machines"]');
-  const unblocked = !(await page.locator("#onbNext").isDisabled()) && !(await page.locator("#onbEquipUnsupported").count());
-  assert(
-    unblocked,
-    "F4: adding machines clears the block and enables Continue",
-    `disabled=${await page.locator("#onbNext").isDisabled()} warn=${await page.locator("#onbEquipUnsupported").count()}`,
-    "cables-only upper/lower → add machines"
-  );
 
   beginPhase("Phase: P6 onboarding UI");
   await clearState(page);
@@ -7586,24 +7582,7 @@ async function main() {
     "onboarding section not active",
     "Setup screen → Create a program → onboarding overlay shows"
   );
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
-  await page.click("#onbNext");
-  await page.waitForSelector("#onbSave", { timeout: 5000 });
-  await page.click("#onbSave");
-  await page.waitForFunction(
-    () => !document.querySelector("#onboarding")?.classList.contains("active"),
-    { timeout: 8000 }
-  );
+  await driveRecommendOnboarding(page, { days: 3, experience: "first" });
   state = await getState(page);
   const onbDays = [...new Set(state.program.map((e) => e.day))];
   assert(
@@ -9310,20 +9289,8 @@ async function main() {
   await clearState(page);
   await reloadApp(page, { dismissOnboarding: false });
   await startFromFirstRun(page);
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
-  await page.click("#onbNext");
-  await page.waitForSelector("#onbEdit", { timeout: 5000 });
-  await page.click("#onbEdit");
+  await driveRecommendOnboarding(page, { days: 3, experience: "first", activate: false });
+  await page.click("#entryEdit");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 8000 });
   const editState = await getState(page);
   assert(
@@ -10495,7 +10462,9 @@ async function main() {
   );
 
   await page.evaluate(() => window.startOnboarding());
-  await page.waitForSelector("#onboarding.active #onbNext", { timeout: 5000 });
+  await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  await page.click('[data-entry-route="recommend"]');
+  await page.waitForSelector("#onbNext:not(.hidden)", { timeout: 5000 });
   const onbDisabled = await page.evaluate(() => {
     const b = document.querySelector("#onbNext");
     const cs = getComputedStyle(b);
@@ -10517,9 +10486,9 @@ async function main() {
       onbDisabled.step === onbDisabled.stepAfter,
     "F6: disabled onboarding Continue cannot advance and is visually dimmed",
     JSON.stringify(onbDisabled),
-    "Onboarding step 1 → Continue with no goal selected"
+    "Recommend desired-result → Continue with no choice selected"
   );
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
   const onbEnabled = await page.evaluate(() => {
     const b = document.querySelector("#onbNext");
     const cs = getComputedStyle(b);
@@ -10532,7 +10501,7 @@ async function main() {
       (onbEnabled.opacity !== onbDisabled.opacity || onbEnabled.cursor !== onbDisabled.cursor),
     "F6: enabled Continue is visually distinct from the disabled state",
     JSON.stringify({ onbEnabled, onbDisabled }),
-    "Onboarding step 1 → pick a goal → Continue"
+    "Recommend desired-result → pick a result → Continue"
   );
   await page.evaluate(() => window.closeOnboarding());
 

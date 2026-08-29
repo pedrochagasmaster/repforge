@@ -276,7 +276,7 @@ function applyAcceptedSnapshot(base,snapshot){
   const live=rebaseStateChange(base,snapshot,state,{preferProposal:false});
   live[STORAGE_REV]=readRevision(snapshot);
   state=live;
-  prog=new Program(state.program);state.program=prog.toJSON();
+  prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   mutationBase=cloneSnapshot(snapshot);
   dropMemo.clear();baselineMemo.clear()}
 function unversionedSnapshot(snapshot){
@@ -1687,12 +1687,22 @@ class Exercise{
 
 class Program{
   /* lookup lets a caller resolve against a snapshot's own custom definitions —
-     import and normalizeLoaded work on state that is not live yet. */
-  constructor(list=[],lookup=null){const ids=new Set();
+     import and normalizeLoaded work on state that is not live yet.
+     structureDays (optional) keeps empty programStructure containers visible. */
+  constructor(list=[],lookup=null,structureDays=null){const ids=new Set();
     this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);
       return ex.resolveIdentity(lookup)});
+    this._structureDays=Array.isArray(structureDays)&&structureDays.length
+      ?structureDays.map(d=>String(d)).filter(Boolean):null;
     this.renumber()}
-  days(){return [...new Set(this.exercises.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
+  days(){
+    const fromEx=[...new Set(this.exercises.map(e=>e.day))];
+    if(!this._structureDays)return fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const out=[],seen=new Set();
+    for(const d of this._structureDays){if(!d||seen.has(d))continue;seen.add(d);out.push(d)}
+    for(const d of fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
+      if(seen.has(d))continue;seen.add(d);out.push(d)}
+    return out}
   forDay(d){return this.exercises.filter(e=>e.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
   find(id){return this.exercises.find(e=>e.id===id)}
   renumber(){for(const d of this.days())this.forDay(d).forEach((e,i)=>e.order=i+1)}
@@ -1737,12 +1747,22 @@ class Program{
   removeExercise(id){this.exercises=this.exercises.filter(e=>e.id!==id);this.renumber()}
   move(id,dir){const e=this.find(id);if(!e)return;const list=this.forDay(e.day),i=list.indexOf(e),j=i+dir;
     if(j<0||j>=list.length)return;[list[i].order,list[j].order]=[list[j].order,list[i].order]}
-  addDay(){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
-    this.exercises.push(new Exercise({day:name,order:1,name:t("program.default.exercise"),sets:3,min:6,max:10}));return name}
+  addDay({withPlaceholder}={}){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
+    const structured=!!this._structureDays;
+    const placeholder=withPlaceholder!=null?!!withPlaceholder:!structured;
+    if(placeholder)this.exercises.push(new Exercise({day:name,order:1,name:t("program.default.exercise"),sets:3,min:6,max:10}));
+    if(this._structureDays)this._structureDays.push(name);
+    else if(structured)this._structureDays=[name];
+    return name}
   renameDay(oldName,newName){const nv=String(newName).trim();if(!nv||nv===oldName)return false;
     if(this.days().includes(nv))return false;
-    for(const e of this.exercises)if(e.day===oldName)e.day=nv;this.renumber();return true}
-  removeDay(d){this.exercises=this.exercises.filter(e=>e.day!==d)}
+    for(const e of this.exercises)if(e.day===oldName)e.day=nv;
+    if(this._structureDays){
+      const idx=this._structureDays.indexOf(oldName);
+      if(idx>=0)this._structureDays[idx]=nv}
+    this.renumber();return true}
+  removeDay(d){this.exercises=this.exercises.filter(e=>e.day!==d);
+    if(this._structureDays)this._structureDays=this._structureDays.filter(x=>x!==d)}
   volume(){const m=new Map();for(const e of this.exercises){
     for(const x of muscles(e.primary))addVol(m,x,e.sets,0);
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
@@ -2256,6 +2276,12 @@ function normalizeLoaded(s,options={}){
   out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
+  if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
+    const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
+    if(Entry){
+      const normalized=Entry.normalizeProgrammingContext(s.programmingContext);
+      if(normalized.ok)out.programmingContext=normalized.value}
+    else if(s.programmingContext&&typeof s.programmingContext==="object")out.programmingContext=cloneSnapshot(s.programmingContext)}
   return out}
 function proposalFromImport(incoming){
   if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
@@ -2832,7 +2858,35 @@ window.__repforgeStorage={
   rebaseForTest(base,proposal,target,opts){return rebaseStateChange(base,proposal,target,opts)},
   replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
   mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
-function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
+function days(){
+  const fromEx=[...new Set((state.program||[]).map(x=>x.day))];
+  const fromStruct=structureDayLabels(state.programMeta);
+  if(!fromStruct)return fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const out=[],seen=new Set();
+  for(const d of fromStruct){if(!d||seen.has(d))continue;seen.add(d);out.push(d)}
+  for(const d of fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
+    if(seen.has(d))continue;seen.add(d);out.push(d)}
+  return out}
+function structureDayLabels(meta){
+  const days=meta?.programStructure?.days;
+  if(!Array.isArray(days)||!days.length)return null;
+  const labels=days.map(d=>String(d.label||d.dayId||"").trim()).filter(Boolean);
+  return labels.length?labels:null}
+function makeProgram(list,lookup=null,meta=null){
+  return new Program(list,lookup,structureDayLabels(meta))}
+function syncProgramStructureFromProgram(proposal,program){
+  const struct=proposal.programMeta?.programStructure;
+  if(!struct||!Array.isArray(struct.days))return;
+  const labels=program._structureDays&&program._structureDays.length
+    ?program._structureDays.slice():program.days();
+  const byLabel=new Map(struct.days.map(d=>[d.label,d]));
+  const byIndex=struct.days.slice();
+  proposal.programMeta.programStructure={
+    ...cloneSnapshot(struct),
+    days:labels.map((label,i)=>{
+      const prev=byLabel.get(label)||byIndex[i];
+      return{dayId:prev?.dayId||`manual_d${i+1}`,label,order:i+1}})}
+}
 function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
@@ -6212,7 +6266,7 @@ function exCard(e,i,n){
 const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
 const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
 function commitEditorField(id,field,value,effect){
-  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+  const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
   return commitProposedState(proposal,storageIO,{effect})}
 
@@ -6270,7 +6324,7 @@ async function saveProgressionEditor(form){
     ...progressionInput(e),prescription:checked.value,history:[],currentSession:[]});
   if(executable.kind==="invalid"||executable.kind==="incompatible"){
     error.textContent=t("program.progression.error.invalid");return}
-  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program),next=nextProgram.find(id);
+  const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta),next=nextProgram.find(id);
   if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
   const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);
   let effect=null;
@@ -6348,10 +6402,11 @@ function bindEditor(){
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
     inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
-      const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+      const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
       if(!nextProgram.renameDay(old,next)){
         inp.value=dayLabel(old);toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
       proposal.program=nextProgram.toJSON();
+      syncProgramStructureFromProgram(proposal,nextProgram);
       const effect=draftDayReplacementEffect(old,next);
       const result=await commitProposedState(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
       if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
@@ -6385,7 +6440,7 @@ async function editorAction(act,ds){
     openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:dayLabel(ds.day)}),subtitle:"",
       exclude:prog.forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
-        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
         nextProgram.addExercise(ds.day,entry);proposal.program=nextProgram.toJSON();
         const result=await commitProposedState(proposal);
         if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
@@ -6394,7 +6449,7 @@ async function editorAction(act,ds){
     openExercisePicker({title:t("picker.title_change"),subtitle:ex.name,
       exclude:prog.forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
-        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
         if(!nextProgram.replaceExercise(ds.id,entry))return;
         proposal.program=nextProgram.toJSON();
         const result=await commitProposedState(proposal);
@@ -6402,7 +6457,7 @@ async function editorAction(act,ds){
   else if(act==="detachEx"){
     const ex=prog.find(ds.id);if(!ex)return;
     if(!confirm(t("confirm.detach_exercise",{name:ex.name})))return;
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     if(!nextProgram.detachExercise(ds.id))return;
     proposal.program=nextProgram.toJSON();
     const result=await commitProposedState(proposal);
@@ -6426,21 +6481,22 @@ async function editorAction(act,ds){
   else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
     const effect=destructiveDraftClearEffect(discardDraftRaw);
     const result=await commitProposedState(proposal,storageIO,{effect});
     if(result.localOk||result.idbOk){resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
   else if(act==="up"||act==="down"){
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.move(ds.id,act==="up"?-1:1);proposal.program=nextProgram.toJSON();
     const result=await commitProposedState(proposal);
     if(result.localOk||result.idbOk)render()}
   else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
     if(confirm(t(key,{day:dayLabel(ds.day)}))){
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
+    syncProgramStructureFromProgram(proposal,nextProgram);
     const effect=destructiveDraftClearEffect(discardDraftRaw);
     const result=await commitProposedState(proposal,storageIO,{effect});
     if(result.localOk||result.idbOk){resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
@@ -7635,7 +7691,7 @@ async function commitLibrarySelection(){
   if(!libFlow||!libFlow.selected.size)return null;
   if(libFlow.step!=="configure"){libFlow.step="configure";renderLibrary();window.scrollTo({top:0});return null}
   const rows=libraryConfigureRows();
-  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+  const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   for(const r of rows){
     const added=nextProgram.addExercise(libFlow.day,r.entry);
     added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max)}
@@ -7841,7 +7897,7 @@ async function commitImportReview(io=storageIO){
       progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
       progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[]),
       programStructure:draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null};
-    const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
+    const setup=await finalizeProgramSetup({exercises,name,answers:{},destination:"log",
       origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
       telemetryRoute:"import"});
     if(setup&&!(setup.localOk||setup.idbOk)){
@@ -7997,17 +8053,94 @@ async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()
   if(result.localOk||result.idbOk){captureEvent("program_path_selected",{route:"browse"});captureEvent("program_activated",{route:"browse",version_category:"legacy_v1"});resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
   return result}
 
-const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
-  5:["ppl","bro","upper_lower"],6:["ppl"]};
-const ONB_EQ_UI=["machines","cables","dumbbells","barbells"];
-const ONB_EQ_GEN={machines:"machine",cables:"cable",dumbbells:"dumbbell",barbells:"barbell",bodyweight:"bodyweight"};
-const ONB_MUSCLES=["Chest","Back","Quads","Hamstrings","Glutes","Side delts","Arms","Calves"];
-let onbStep=0,onbAnswers={};
-function defaultOnbAnswers(){return{goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:["machines","cables"],
-  priorityMuscles:[],sessionLength:null}}
-function onbGenAnswers(a){const eq=(a.equipment||[]).map(x=>ONB_EQ_GEN[x]||x);
-  const goal=a.goal==="strength_hypertrophy"?"strength":a.goal==="beginner_consistency"?"hypertrophy":a.goal||"hypertrophy";
-  return{...a,goal,equipment:eq}}
+const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
+const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
+const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
+const ENTRY_MUSCLES=["chest","back","quads","hamstrings","glutes","side_delts","biceps","triceps","calves","lats","core"];
+const ENTRY_MOVEMENTS=["squat","hinge","press","row","pulldown"];
+const ENTRY_ENVIRONMENTS=["commercial_gym","basic_gym","limited_home","full_home","other"];
+const ENTRY_EQUIPMENT=ProgramEntryAdapter?.KNOWN_EQUIPMENT||["barbell","dumbbell","machine","cable","smith","bodyweight"];
+const ENTRY_CAPABILITIES=ProgramEntryAdapter?.KNOWN_CAPABILITIES||["safe_pull","training_support"];
+const ENTRY_AVOID_REASONS=["dislike","pain","equipment","other"];
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="";
+function entryServices(){
+  if(!ProgramEntryAdapter)return null;
+  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY})}
+function entryNow(){return new Date().toISOString()}
+function entryVersions(){return entryServices()?.currentVersions?.()||{
+  compiler:"1",family:"1",blueprint:"1",catalogue:"1",rules:"1",context:"1",progression:"range-1"}}
+function liveProgramRevision(){return readRevision(state)}
+function hasActiveProgram(){return !!(state?.programMeta?.onboarded&&((state.program||[]).length||structureDayLabels(state.programMeta)))}
+function readSetupDraftRaw(){try{return localStorage.getItem(SETUP_DRAFT_KEY)}catch{return null}}
+function clearSetupDraft(){try{localStorage.removeItem(SETUP_DRAFT_KEY)}catch{}}
+function persistSetupDraft(next){
+  if(!ProgramEntry||!next)return;
+  const stamped=ProgramEntry.updateTimestamp(next,entryNow());
+  const normalized=ProgramEntry.normalizeSetupDraft(stamped);
+  if(!normalized.ok)return;
+  entryState=normalized.value;
+  try{localStorage.setItem(SETUP_DRAFT_KEY,JSON.stringify(entryState))}catch(e){console.warn("setup draft save failed",e)}}
+function createEntryState(extra={}){
+  return ProgramEntry.createState({
+    draftId:uid(),
+    activeProgramRevisionAtStart:liveProgramRevision(),
+    now:entryNow(),
+    versions:entryVersions(),
+    ...extra})}
+function loadReusableContextIntoAnswers(answers){
+  const context=state?.programmingContext;
+  if(!context||!ProgramEntry)return answers||{};
+  const normalized=ProgramEntry.normalizeProgrammingContext(context);
+  if(!normalized.ok)return answers||{};
+  const value=normalized.value;
+  return{
+    ...answers,
+    desiredResult:answers.desiredResult??value.desiredResult,
+    structuredExperience:answers.structuredExperience??value.structuredExperience,
+    recentConsistency:answers.recentConsistency??value.recentConsistency,
+    daysPerWeek:answers.daysPerWeek??value.availability?.daysPerWeek,
+    sessionMinutes:answers.sessionMinutes??value.availability?.sessionMinutes,
+    preferredRestSeconds:Object.prototype.hasOwnProperty.call(answers,"preferredRestSeconds")
+      ?answers.preferredRestSeconds:value.availability?.preferredRestSeconds,
+    environment:answers.environment??value.environment,
+    primaryMuscles:answers.primaryMuscles??value.primaryMuscles,
+    deEmphasizedMuscles:answers.deEmphasizedMuscles??value.deEmphasizedMuscles,
+    ignoredMuscles:answers.ignoredMuscles??value.ignoredMuscles,
+    priorityMovements:answers.priorityMovements??value.priorityMovements,
+    exerciseConstraints:answers.exerciseConstraints??value.exerciseConstraints}}
+function applyLegacyHints(stateIn){
+  if(!ProgramEntry)return stateIn;
+  const legacy=state?.programMeta;
+  if(!legacy||legacy.onboarded!==true)return stateIn;
+  const migrated=ProgramEntry.migrateLegacyAnswers({
+    goal:legacy.goal,experience:legacy.experience,daysPerWeek:legacy.daysPerWeek,
+    sessionLength:legacy.sessionLength,equipment:legacy.equipment,splitType:legacy.splitType,
+    priorityMuscles:legacy.priorityMuscles},
+    {route:stateIn.route,compatibleSplits:(entryServices()?.splitChoices(stateIn.answers||{})?.choices||[]).map(c=>c.id)});
+  if(!migrated.ok)return stateIn;
+  let next=ProgramEntry.setAnswers(stateIn,migrated.value.answers);
+  next={...next,legacyHints:migrated.value.legacyHints};
+  return next}
+function programmingContextFromAnswers(answers){
+  if(!ProgramEntry||!answers?.desiredResult||!answers?.structuredExperience||!answers?.recentConsistency)return null;
+  if(!answers.daysPerWeek||!answers.sessionMinutes||!answers.environment)return null;
+  if(!Object.prototype.hasOwnProperty.call(answers,"preferredRestSeconds"))return null;
+  return ProgramEntry.normalizeProgrammingContext({
+    schemaVersion:1,
+    desiredResult:answers.desiredResult,
+    structuredExperience:answers.structuredExperience,
+    recentConsistency:answers.recentConsistency,
+    availability:{
+      daysPerWeek:answers.daysPerWeek,
+      sessionMinutes:answers.sessionMinutes,
+      preferredRestSeconds:answers.preferredRestSeconds},
+    environment:answers.environment,
+    primaryMuscles:answers.primaryMuscles||[],
+    deEmphasizedMuscles:answers.deEmphasizedMuscles||[],
+    ignoredMuscles:answers.ignoredMuscles||[],
+    priorityMovements:answers.priorityMovements||[],
+    exerciseConstraints:answers.exerciseConstraints||[],
+    reviewedAt:entryNow()})}
 function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
   $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
 function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding");
@@ -8015,101 +8148,488 @@ function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboa
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
   render()}
-/* Onboarding that opens by itself on first run is not a route anybody chose.
-   Counting it would enter every install into the generator funnel and make
-   the drop-off after it meaningless. So an automatic open stays silent until
-   the first answer, which is the user actually choosing this path; an open
-   the user asked for reports immediately. Either way the flow reports once —
-   Start over inside it continues the same attempt. */
-let onbEngaged=false;
-function reportOnboardingEngagement(){if(onbEngaged)return;
-  onbEngaged=true;
-  captureEvent("program_path_selected",{route:"custom"});captureEvent("generator_started",{mode:"baseline"})}
+function reportEntryRoute(route){
+  if(entryEngaged)return;
+  entryEngaged=true;
+  captureEvent("program_path_selected",{route});
+  if(route==="recommend"||route==="custom")captureEvent("generator_started",{mode:"baseline"})}
 function startOnboarding(origin,opts={}){
+  if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  onbEngaged=false;
-  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding();
-  if(opts.userInitiated!==false)reportOnboardingEngagement()}
+  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryAvoidQuery="";
+  const raw=readSetupDraftRaw();
+  if(opts.forceFresh){
+    clearSetupDraft();
+    entryState=createEntryState();
+  }else if(raw&&opts.resume!==false){
+    const resumed=ProgramEntry.resumeSetupDraft(raw,{
+      currentVersions:entryVersions(),
+      liveActiveProgramRevision:liveProgramRevision(),
+      pinnedVersionsExecutable:false});
+    if(!resumed.ok){
+      clearSetupDraft();
+      entryUiNotice="corrupt";
+      entryState=createEntryState();
+    }else if(resumed.value.status==="activation_conflict"){
+      entryState=resumed.value.state;
+      entryUiNotice="conflict";
+    }else if(resumed.value.status==="rules_changed"){
+      entryState=resumed.value.state;
+      entryUiNotice="rules_changed";
+    }else if(resumed.value.state.route||Object.keys(resumed.value.state.answers||{}).length){
+      entryState=resumed.value.state;
+      entryUiNotice="resume";
+    }else entryState=createEntryState();
+  }else entryState=createEntryState();
+  showOnboardingView();renderOnboarding();
+  if(opts.userInitiated===false)return;
+  // Opening the hub is not choosing a route; telemetry waits for a route pick.
+}
 function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run",{userInitiated:false})}
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
   onboardingOrigin=null;closeOnboarding()}
-function onbEquipmentSupportsDays(a){
-  if(!a?.equipment?.length||a.daysPerWeek==null||!a.splitType)return false;
-  const gen=onbGenAnswers(a);
-  return equipmentSupportsSplit(gen.daysPerWeek,gen.splitType,gen.equipment,gen.experience)}
-function onbCanNext(){const a=onbAnswers;
-  if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
-  if(onbStep===3)return!!a.splitType;if(onbStep===4)return onbEquipmentSupportsDays(a);if(onbStep===6)return!!a.sessionLength;return true}
-function onbPick(key,val,multi){reportOnboardingEngagement();
-  if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
-  if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
-  if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
+function entrySetState(next,{persist=true}={}){
+  entryState=next;
+  if(persist)persistSetupDraft(entryState);
   renderOnboarding()}
-function onbOpt(cls,key,val,label,sub,multi){const sel=multi?(onbAnswers[key]||[]).includes(val):onbAnswers[key]===val;
-  return `<button type="button" class="radio-card${sel?" is-selected":""}" data-onb-pick="${esc(key)}" data-onb-val="${esc(val)}" data-onb-multi="${multi?"1":"0"}">`+
+function entrySelectRoute(route){
+  if(!ProgramEntry||!entryState)return;
+  reportEntryRoute(route);
+  let next=ProgramEntry.selectRoute(entryState,route);
+  next=ProgramEntry.setAnswers(next,loadReusableContextIntoAnswers(next.answers||{}));
+  next=applyLegacyHints(next);
+  if(route==="custom"){
+    const splits=entryServices()?.splitChoices(next.answers)||{choices:[]};
+    if(splits.choices.length===1)next=ProgramEntry.setAnswers(next,{splitPreference:splits.choices[0].id});
+  }
+  entryOwnOpen=false;
+  entrySetState(next)}
+function entryPatchAnswers(patch){
+  if(!ProgramEntry||!entryState)return;
+  entrySetState(ProgramEntry.setAnswers(entryState,patch))}
+function entryProgressSections(route){
+  if(!route)return{n:0,total:1};
+  const steps=ProgramEntry.ROUTE_STEPS[route]||[];
+  const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step));
+  const index=Math.max(0,semantic.indexOf(entryState.step));
+  return{n:Math.min(index+1,semantic.length||1),total:Math.max(semantic.length,1)}}
+function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio"}={}){
+  const current=entryState?.answers||{};
+  const isSelected=selected!=null?selected:multi?(current[key]||[]).includes(val):current[key]===val;
+  const pressed=isSelected?"true":"false";
+  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""} role="${esc(role)}" aria-pressed="${pressed}">`+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
-function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
-  if(!body)return;title.textContent=t(`onb.title.${onbStep}`)||t("onb.title.default");
-  if(step)step.textContent=t("onb.step",{n:onbStep+1,total:8});
-  const seg=$("#onbSegbar");if(seg)seg.innerHTML=Array.from({length:8},(_,i)=>`<span class="segbar__seg${i<=onbStep?" is-current":""}${i<onbStep?" is-done":""}"></span>`).join("");
-  const cancel=$("#onbCancel");if(cancel)cancel.textContent=onbStep===0?t("onb.cancel"):"‹";
-  if(back)back.classList.toggle("hidden",onbStep===0||onbStep===7);
-  if(next){next.classList.toggle("hidden",onbStep===7);next.textContent=t("onb.next")}
-  let html=`<h2 class="onb__q">${esc(t(`onb.title.${onbStep}`)||t("onb.title.default"))}</h2>`;
-  if(onbStep===0)html+=`<p class="onb__explain">${esc(t("onb.goal.lede"))}</p><div class="onb__opts">`+
-    onbOpt("","goal","hypertrophy",t("onb.goal.hypertrophy.label"),t("onb.goal.hypertrophy.sub"),false)+
-    onbOpt("","goal","strength_hypertrophy",t("onb.goal.strength_hypertrophy.label"),t("onb.goal.strength_hypertrophy.sub"),false)+
-    onbOpt("","goal","beginner_consistency",t("onb.goal.beginner_consistency.label"),t("onb.goal.beginner_consistency.sub"),false)+`</div>`+
-    `<div class="onb__changes"><div class="onb__changes-lab">${esc(t("onb.what_changes"))}</div><p class="lede">${esc(t("onb.goal.changes"))}</p></div>`+
-    `<p class="onb__import">${esc(t("onb.have_program"))} · <button type="button" id="onbImportLink">${esc(t("onb.import"))}</button></p>`;
-  else if(onbStep===1)html+=`<p class="onb__explain">${esc(t("onb.experience.lede")||"")}</p><div class="onb__opts">`+
-    onbOpt("","experience","beginner",t("onb.experience.beginner"),"",false)+onbOpt("","experience","intermediate",t("onb.experience.intermediate"),"",false)+
-    onbOpt("","experience","advanced",t("onb.experience.advanced"),"",false)+`</div>`;
-  else if(onbStep===2)html+=`<div class="onb__opts">`+[2,3,4,5,6].map(n=>onbOpt("","daysPerWeek",n,String(n),t("onb.days.sub"),false)).join("")+`</div>`;
-  else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
-    html+=`<p class="onb__explain">${esc(t("onb.split.lede",{n:onbAnswers.daysPerWeek}))}</p><div class="onb__opts">`+
-      opts.map(s=>onbOpt("","splitType",s,t("split."+s),"",false)).join("")+`</div>`}
-  else if(onbStep===4){html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
-    ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e),"",true)).join("")+`</div>`;
-    if(!onbEquipmentSupportsDays(onbAnswers))
-      html+=`<p class="lede" id="onbEquipUnsupported" role="status">${esc(t("onb.equipment.unsupported"))}</p>`}
-  else if(onbStep===5)html+=`<p class="onb__explain">${esc(t("onb.priority.lede"))}</p><div class="onb__opts">`+
-    ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,t("muscle."+m)||m,"",true)).join("")+`</div>`;
-  else if(onbStep===6)html+=`<div class="onb__opts">`+
-    onbOpt("","sessionLength","short",t("onb.session.short.label"),t("onb.session.short.sub"),false)+
-    onbOpt("","sessionLength","normal",t("onb.session.normal.label"),t("onb.session.normal.sub"),false)+
-    onbOpt("","sessionLength","long",t("onb.session.long.label"),t("onb.session.long.sub"),false)+`</div>`;
-  else{const gen=generateProgramFromOnboarding(onbGenAnswers(onbAnswers)),days=[...new Set(gen.map(e=>e.day))];
-    const byDay=days.map(d=>{const exs=gen.filter(e=>e.day===d);
-      return `<div class="onb__day"><div class="onb__dayname">${esc(dayLabel(d))}</div>`+
-        exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(muscleListLabel(e.primary))}</div>`).join("")+`</div>`});
-    html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
-      `<button type="button" id="onbSave" class="btn btn--cta">${esc(t("onb.review.save"))}</button>`+
-      `<button type="button" id="onbEdit" class="btn btn--steel">${esc(t("onb.review.edit"))}</button>`+
-      `<button type="button" id="onbRestart" class="btn btn--steel">${esc(t("onb.review.restart"))}</button></div></div>`}
+function entryHeading(title){
+  return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
+function entryLegacyBanner(){
+  if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
+  return `<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`}
+function renderEntryHub(){
+  return entryHeading(t("entry.hub.title"))+
+    `<p class="onb__explain">${esc(t("entry.hub.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    entryLegacyBanner()+
+    `<div class="entry__hub">`+
+      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></button>`+
+      `<button type="button" class="entry-card" data-entry-route="custom"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></button>`+
+      `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></button>`+
+      `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></button>`+
+      (entryOwnOpen?`<div class="entry__own">`+
+        `<button type="button" class="entry-card" data-entry-route="build"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></button>`+
+        `<button type="button" class="entry-card" data-entry-route="import"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></button>`+
+      `</div>`:"")+
+    `</div>`}
+function renderDesiredResultStep(){
+  return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
+    ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`))).join("")+`</div>`}
+function renderBackgroundStep(){
+  return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
+    `<p class="entry__group-lab" id="entryExpLab">${esc(t("entry.background.experience.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryExpLab">`+
+    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
+    `<p class="entry__group-lab" id="entryConLab">${esc(t("entry.background.consistency.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryConLab">`+
+    ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
+function renderScheduleStep(){
+  const browse=entryState.route==="browse";
+  return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
+    `<p class="entry__group-lab" id="entryDaysLab">${esc(t("entry.schedule.days.label"))}</p><div class="onb__opts onb__grid" role="radiogroup" aria-labelledby="entryDaysLab">`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
+    `<p class="entry__group-lab" id="entryMinLab">${esc(t("entry.schedule.minutes.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryMinLab">`+
+    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,t(`entry.schedule.minutes.${n}`),"")).join("")+`</div>`+
+    (browse?"":`<p class="entry__group-lab" id="entryRestLab">${esc(t("entry.schedule.rest.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryRestLab">`+
+      entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
+      [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
+function entryEnvironmentValue(){
+  const env=entryState?.answers?.environment;
+  if(!env?.kind)return null;
+  if(Array.isArray(env.equipment)||Array.isArray(env.capabilities))return env;
+  return ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||{kind:env.kind,equipment:[],capabilities:[]}}
+function renderEnvironmentStep(){
+  const env=entryEnvironmentValue();
+  const equipment=new Set(env?.equipment||[]);
+  const capabilities=new Set(env?.capabilities||[]);
+  const correction=env?`<div class="entry__correct">`+
+    `<p class="entry__group-lab">${esc(t("entry.env_correct.equipment"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.equipment"))}">`+
+    ENTRY_EQUIPMENT.map(token=>entryOpt("environmentEquipment",token,t(`entry.equip.${token}`)||token,"",{multi:true,selected:equipment.has(token),role:"checkbox"})).join("")+`</div>`+
+    `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
+    ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
+    `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div>`:"";
+  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
+    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v})).join("")+`</div>${correction}`}
+function entryMuscleBlocked(key,muscle){
+  const a=entryState?.answers||{};
+  const primary=new Set(a.primaryMuscles||[]);
+  const deemph=new Set(a.deEmphasizedMuscles||[]);
+  const ignored=new Set(a.ignoredMuscles||[]);
+  if(key==="primaryMuscles")return deemph.has(muscle)||ignored.has(muscle);
+  if(key==="deEmphasizedMuscles")return primary.has(muscle)||ignored.has(muscle);
+  if(key==="ignoredMuscles")return primary.has(muscle)||deemph.has(muscle);
+  return false}
+function entryAvoidMatches(query){
+  const q=foldSearch(query||"");
+  const taken=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
+  const pool=pickableExercises().filter(entry=>!taken.has(entry.id));
+  if(!q)return pool.slice(0,8);
+  return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
+function renderAvoidanceSection(){
+  const constraints=entryState?.answers?.exerciseConstraints||[];
+  const hasPain=constraints.some(item=>item.reason==="pain");
+  const matches=entryAvoidMatches(entryAvoidQuery);
+  return `<p class="entry__group-lab">${esc(t("entry.priorities.avoid"))}</p>`+
+    `<label class="entry__field"><span>${esc(t("entry.priorities.avoid_search"))}</span>`+
+    `<input id="entryAvoidSearch" type="search" autocomplete="off" value="${esc(entryAvoidQuery)}" placeholder="${esc(t("entry.priorities.avoid_search"))}"></label>`+
+    `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.avoid_search"))}">`+
+    matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-avoid-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
+    `</div>`+
+    (constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
+      const entry=libraryEntry(item.exerciseId);
+      return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):item.exerciseId)}</strong>`+
+        `<button type="button" class="btn btn--steel" data-entry-avoid-remove="${esc(item.exerciseId)}">${esc(t("entry.priorities.avoid_remove"))}</button></div>`+
+        `<p class="entry__group-lab">${esc(t("entry.priorities.avoid_reason"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
+        ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+
+        `</div></li>`}).join("")+`</ul>`:"")+
+    (hasPain?`<p class="entry__pain" role="note">${esc(t("entry.priorities.pain_note"))}</p>`:"")}
+function renderPrioritiesStep(){
+  const a=entryState.answers||{},custom=entryState.route==="custom";
+  const primary=a.primaryMuscles||[];
+  return entryHeading(t("entry.priorities.title"))+`<p class="onb__explain">${esc(t("entry.priorities.lede"))} <span class="entry__optional">${esc(t("entry.optional"))}</span></p>`+
+    `<button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="button" aria-pressed="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
+    ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
+    (custom?`<p class="entry__group-lab">${esc(t("entry.priorities.deemph"))}</p><div class="onb__opts onb__grid" role="group">`+
+      ENTRY_MUSCLES.map(m=>entryOpt("deEmphasizedMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("deEmphasizedMuscles",m),role:"checkbox"})).join("")+`</div>`+
+      `<p class="entry__group-lab">${esc(t("entry.priorities.ignore"))}</p><div class="onb__opts onb__grid" role="group">`+
+      ENTRY_MUSCLES.map(m=>entryOpt("ignoredMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("ignoredMuscles",m),role:"checkbox"})).join("")+`</div>`:"")+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+    ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
+    renderAvoidanceSection()}
+function renderCustomShapeStep(){
+  const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
+  if(splits.choices.length===1&&entryState.answers.splitPreference!==splits.choices[0].id){
+    entryState=ProgramEntry.setAnswers(entryState,{splitPreference:splits.choices[0].id});
+    persistSetupDraft(entryState)}
+  return entryHeading(t("entry.custom_shape.title"))+`<p class="onb__explain">${esc(t("entry.custom_shape.lede"))}</p>`+
+    `<p class="entry__group-lab">${esc(t("entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
+    splits.choices.map(choice=>entryOpt("splitPreference",choice.id,choice.blueprintId||choice.id,choice.default?t("entry.result.primary"):"")).join("")+`</div>`}
+function ensureGeneratorResult(){
+  const services=entryServices();
+  if(!services||!entryState)return null;
+  if(entryState.result?.fingerprint&&entryState.result?.preview)return entryState.result;
+  const compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()});
+  if(!compiled.ok){entryCompileError=compiled.code||"compile_failed";return null}
+  entryCompileError=null;
+  const result={
+    fingerprint:compiled.fingerprint,
+    selected:compiled.selected,
+    candidates:compiled.candidates,
+    alternative:null,
+    preview:compiled.preview,
+    telemetry:compiled.telemetry,
+    explanation:compiled.explanation};
+  entryState=ProgramEntry.setResult(entryState,result);
+  persistSetupDraft(entryState);
+  return result}
+function renderResultStep(){
+  const result=ensureGeneratorResult();
+  if(!result){
+    return entryHeading(t("entry.result.title"))+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${entryCompileError?` (${esc(entryCompileError)})`:""}</p>`}
+  const primary=result.selected||(result.candidates||[])[0];
+  const cards=primary?[`<button type="button" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(primary.id)}" aria-pressed="true">`+
+    `<span class="entry-card__title">${esc(t("entry.result.primary"))}</span>`+
+    `<span class="entry-card__cap">${esc(primary.familyId||primary.family||"")} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`]:[];
+  return entryHeading(t("entry.result.title"))+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
+    `<p class="entry__explain">${esc(t("entry.result.explain"))}</p><div class="entry__hub">${cards.join("")}</div>`}
+function renderCatalogueStep(){
+  const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
+  return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p><div class="entry__hub">`+
+    cards.map(card=>`<button type="button" class="entry-card" data-entry-catalogue="${esc(card.id)}">`+
+      `<span class="entry-card__title">${esc(isPt()?card.namePt||card.name:card.name)}</span>`+
+      `<span class="entry-card__cap">${esc(String(card.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))} · ${(card.weeklyStructure||[]).map(esc).join(" / ")}</span>`+
+      (card.mismatch?`<span class="entry-card__warn">${esc(t("entry.catalogue.mismatch"))}</span>`:"")+
+    `</button>`).join("")+`</div>`}
+function renderBuildSetupStep(){
+  const name=entryState.answers.programName||"";
+  return entryHeading(t("entry.build_setup.title"))+`<p class="onb__explain">${esc(t("entry.build_setup.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<label class="entry__field"><span>${esc(t("entry.build_setup.name"))}</span>`+
+    `<input id="entryProgramName" type="text" maxlength="80" value="${esc(name)}"></label>`+
+    `<p class="entry__group-lab">${esc(t("entry.build_setup.days"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`}
+function renderImportSourceStep(){
+  return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
+    `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`}
+function renderPreviewStep(){
+  const preview=entryState.result?.preview;
+  if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
+  const days=(preview.days||[]).map(day=>`<div class="onb__day"><div class="onb__dayname">${esc(day.label||day.dayId)}</div>`+
+    (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
+    (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
+  `</div>`);
+  const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+  return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<div class="onb__review">${days.join("")}<div class="onb__actions">`+
+    `<button type="button" id="entryActivate" class="btn btn--cta">${esc(activateLabel)}</button>`+
+    `<button type="button" id="entryEdit" class="btn btn--steel">${esc(t("entry.preview.edit"))}</button>`+
+    `<button type="button" id="entryRestart" class="btn btn--steel">${esc(t("entry.preview.restart"))}</button></div></div>`}
+function renderEntryNotice(){
+  if(!entryUiNotice)return"";
+  if(entryUiNotice==="resume")return `<div class="entry__notice" role="status"><strong>${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`;
+  if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
+  if(entryUiNotice==="rules_changed")return `<div class="entry__notice" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t("entry.rules_changed.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button></div></div>`;
+  if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
+  return""}
+function renderOnboarding(){
+  const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
+  if(!body||!ProgramEntry||!entryState)return;
+  const route=entryState.route,stepId=entryState.step;
+  title.textContent=t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
+  const progress=entryProgressSections(route);
+  if(step)step.textContent=route?t("entry.step",{n:progress.n,total:progress.total}):t("entry.eyebrow");
+  const seg=$("#onbSegbar");
+  if(seg){const total=route?progress.total:1,current=route?progress.n-1:0;
+    seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("")}
+  const cancel=$("#onbCancel");if(cancel)cancel.textContent=stepId==="entry"||!route?t("entry.cancel"):"‹";
+  const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
+  if(back)back.classList.toggle("hidden",!route||stepId==="entry");
+  if(next){
+    const hideNext=!route||stepId==="entry"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
+    next.classList.toggle("hidden",hideNext);
+    next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):t("entry.next");
+    next.disabled=!!(route&&ProgramEntry.validationIssues(entryState).length)}
+  let html=renderEntryNotice();
+  if(entryUiNotice==="resume"){body.innerHTML=html;wireEntryDom();return}
+  if(stepId==="entry"||!route)html+=renderEntryHub();
+  else if(stepId==="desired_result")html+=renderDesiredResultStep();
+  else if(stepId==="background")html+=renderBackgroundStep();
+  else if(stepId==="schedule")html+=renderScheduleStep();
+  else if(stepId==="environment")html+=renderEnvironmentStep();
+  else if(stepId==="priorities")html+=renderPrioritiesStep();
+  else if(stepId==="custom_shape")html+=renderCustomShapeStep();
+  else if(stepId==="result")html+=renderResultStep();
+  else if(stepId==="catalogue")html+=renderCatalogueStep();
+  else if(stepId==="build_setup")html+=renderBuildSetupStep();
+  else if(stepId==="import_source")html+=renderImportSourceStep();
+  else if(stepId==="preview"||stepId==="activation_conflict")html+=renderPreviewStep();
+  else if(stepId==="editor")html+=`<p class="onb__explain">${esc(t("entry.build_setup.open"))}</p>`;
+  else html+=renderEntryHub();
   body.innerHTML=html;
-  $$("[data-onb-pick]").forEach(b=>b.onclick=()=>{const k=b.dataset.onbPick,v=b.dataset.onbVal;
-    const multi=b.dataset.onbMulti==="1",num=k==="daysPerWeek"?+v:v;onbPick(k,num,multi)});
-  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=()=>saveOnboardingProgram();
-  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=()=>editOnboardingProgram();
-  const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
-  const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
-  if(next)next.disabled=!onbCanNext()}
-/* What the generator actually built, not what the answer was called.
-   "Beginner consistency" is not a third goal: onbGenAnswers compiles it to
-   the same hypertrophy program, given the beginner treatment — which is
-   Foundation. Reporting nothing for it deleted every beginner from the
-   generator funnel, which is the cohort the alpha most needs to see. The
-   legacy generator has no family of its own, so everything else reports
-   legacy until Plan 047 supplies real ones. */
+  wireEntryDom();
+  const heading=$("#entryHeading");if(heading)try{heading.focus()}catch{}}
+function wireEntryDom(){
+  $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
+  const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
+  $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
+    const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
+    if(key==="environment"){
+      const next=ProgramEntryAdapter?.defaultEnvironment?.(raw)||{kind:raw,equipment:[],capabilities:[]};
+      entryPatchAnswers({environment:next});
+      return}
+    if(key==="environmentEquipment"||key==="environmentCapabilities"){
+      const env=entryEnvironmentValue()||{kind:"other",equipment:[],capabilities:[]};
+      const field=key==="environmentEquipment"?"equipment":"capabilities";
+      const current=[...(env[field]||[])];
+      const idx=current.indexOf(raw);
+      if(idx>=0)current.splice(idx,1);else current.push(raw);
+      entryPatchAnswers({environment:{...env,[field]:current}});
+      return}
+    if(key==="avoidReason"){
+      const [exerciseId,reason]=String(raw).split("|");
+      const constraints=(entryState.answers.exerciseConstraints||[]).map(item=>item.exerciseId===exerciseId?{exerciseId,reason}:item);
+      entryPatchAnswers({exerciseConstraints:constraints});
+      return}
+    if(key==="preferredRestSeconds"){entryPatchAnswers({preferredRestSeconds:raw==="auto"?null:+raw});return}
+    if(key==="daysPerWeek"||key==="sessionMinutes"){entryPatchAnswers({[key]:+raw});return}
+    if(multi){
+      const current=[...(entryState.answers[key]||[])];
+      const idx=current.indexOf(raw);
+      if(idx>=0)current.splice(idx,1);
+      else if(key==="primaryMuscles"||key==="priorityMovements"){if(current.length<2&&!entryMuscleBlocked(key,raw))current.push(raw)}
+      else if(key==="deEmphasizedMuscles"||key==="ignoredMuscles"){
+        if(current.length<(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!entryMuscleBlocked(key,raw))current.push(raw)}
+      else current.push(raw);
+      entryPatchAnswers({[key]:current});
+      return}
+    entryPatchAnswers({[key]:raw})});
+  const clear=$("[data-entry-action='clear-priorities']");if(clear)clear.onclick=()=>entryPatchAnswers({primaryMuscles:[]});
+  const avoidSearch=$("#entryAvoidSearch");
+  if(avoidSearch){
+    avoidSearch.oninput=()=>{entryAvoidQuery=avoidSearch.value;renderOnboarding();const el=$("#entryAvoidSearch");if(el){el.focus();el.setSelectionRange?.(entryAvoidQuery.length,entryAvoidQuery.length)}}}
+  $$("[data-entry-avoid-add]").forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryAvoidAdd;
+    const constraints=[...(entryState.answers.exerciseConstraints||[])];
+    if(constraints.some(item=>item.exerciseId===exerciseId))return;
+    if(constraints.length>=32)return;
+    constraints.push({exerciseId,reason:"dislike"});
+    entryAvoidQuery="";
+    entryPatchAnswers({exerciseConstraints:constraints})});
+  $$("[data-entry-avoid-remove]").forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryAvoidRemove;
+    entryPatchAnswers({exerciseConstraints:(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId)})});
+  $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
+    const id=btn.dataset.entrySelectCandidate;
+    const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;
+    if(!selected||!entryState.result)return;
+    const next=ProgramEntry.setResult(entryState,{
+      fingerprint:entryState.result.fingerprint,
+      selected:{...selected},
+      candidates:(entryState.result.candidates||[]).map(c=>({...c})),
+      alternative:null,
+      preview:entryState.result.preview,
+      telemetry:entryState.result.telemetry,
+      explanation:entryState.result.explanation});
+    entrySetState(ProgramEntry.advance(next).state)});
+  $$("[data-entry-catalogue]").forEach(btn=>btn.onclick=()=>{
+    const id=btn.dataset.entryCatalogue;
+    const card=(entryServices()?.browseCatalogue(entryState.answers)||[]).find(item=>item.id===id);
+    if(!card)return;
+    captureEvent("template_selected",{family:card.telemetryFamily});
+    let next=ProgramEntry.setAnswers(entryState,{catalogueSelection:id});
+    next=ProgramEntry.setResult(next,{
+      fingerprint:card.fingerprint,
+      selected:{id:card.id,familyId:card.familyId,daysPerWeek:card.daysPerWeek,blueprintId:card.id},
+      preview:card.preview,
+      telemetry:{family:card.telemetryFamily}});
+    entrySetState(ProgramEntry.advance(next).state)});
+  const importPick=$("#entryImportPick");if(importPick)importPick.onclick=()=>{$("#importProgram")?.click()};
+  const nameInput=$("#entryProgramName");if(nameInput){
+    const sync=()=>entryPatchAnswers({programName:nameInput.value.trim()});
+    nameInput.oninput=sync;nameInput.onchange=sync;nameInput.onblur=sync}
+  const activate=$("#entryActivate");if(activate)activate.onclick=()=>activateEntryPreview();
+  const edit=$("#entryEdit");if(edit)edit.onclick=()=>activateEntryPreview({destination:"program-edit"});
+  const restart=$("#entryRestart");if(restart)restart.onclick=()=>entryStartOver();
+  const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{entryUiNotice=null;renderOnboarding()};
+  const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>entryStartOver();
+  const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>{
+    entryUiNotice=null;
+    if(entryState.result)entrySetState({...entryState,result:null,versions:entryVersions()});
+    else entrySetState({...entryState,versions:entryVersions()});
+    if(entryState.step==="result"||entryState.step==="preview")ensureGeneratorResult();
+    renderOnboarding()};
+  const conflict=$("#entryConflictReview");if(conflict)conflict.onclick=()=>{
+    entryUiNotice=null;
+    entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()})}}
+function entryConfirmReplaceIfNeeded(){
+  if(!hasActiveProgram())return true;
+  return confirm(t("entry.confirm.replace"))}
+function entryStartOver(){
+  const restarted=ProgramEntry.startOver({
+    draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
+  if(restarted.effects?.deleteSetupDraft)clearSetupDraft();
+  entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;
+  entrySetState(restarted.state,{persist:true})}
+function entryAdvance(){
+  if(!ProgramEntry||!entryState)return;
+  if(entryState.step==="build_setup"){
+    const nameInput=$("#entryProgramName");
+    if(nameInput)entryState=ProgramEntry.setAnswers(entryState,{programName:nameInput.value.trim()});
+  }
+  if(entryState.step==="priorities"||entryState.step==="custom_shape"){
+    // optional fields already stored
+  }
+  const issues=ProgramEntry.validationIssues(entryState);
+  if(issues.length){renderOnboarding();return}
+  if(entryState.step==="build_setup"){
+    if(!entryConfirmReplaceIfNeeded())return;
+    const built=entryServices()?.buildEmptyProgram(entryState.answers);
+    if(!built?.ok){entryCompileError=built?.code||"build_failed";renderOnboarding();return}
+    let buildNext=ProgramEntry.setResult(entryState,{
+      fingerprint:built.fingerprint,
+      selected:{id:"manual_build",source:"manual_build"},
+      preview:built.preview,
+      name:built.name});
+    buildNext=ProgramEntry.advance(buildNext).state;
+    entrySetState(buildNext);
+    return activateEntryPreview({destination:"program-edit",manualBuild:true,skipReplaceConfirm:true})}
+  const advanced=ProgramEntry.advance(entryState);
+  if(!advanced.ok){renderOnboarding();return}
+  entrySetState(advanced.state);
+  if(advanced.state.step==="result")ensureGeneratorResult()}
+function entryBack(){
+  if(!ProgramEntry||!entryState)return;
+  if(entryState.step==="entry"||!entryState.route){cancelOnboarding();return}
+  entrySetState(ProgramEntry.back(entryState))}
+async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false}={}){
+  if(!ProgramEntry||!entryState)return;
+  if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
+  const readiness=ProgramEntry.activationReadiness(entryState,{
+    liveActiveProgramRevision:liveProgramRevision(),
+    currentVersions:entryVersions(),
+    pinnedVersionsExecutable:false});
+  if(!readiness.ok){
+    if(readiness.code==="active_program_changed"){
+      entryUiNotice="conflict";
+      entrySetState(readiness.state||{...entryState,step:"activation_conflict"});
+      return}
+    if(readiness.code==="rules_changed_rebuild_required"){entryUiNotice="rules_changed";renderOnboarding();return}
+    renderOnboarding();return}
+  const preview=entryState.result?.preview;
+  const exercises=manualBuild||entryState.route==="build"
+    ?(entryState.result?.preview?.program||[])
+    :(preview?.program||[]);
+  const programStructure=entryState.result?.preview?.programStructure||preview?.programStructure||null;
+  const name=entryState.result?.name||entryState.answers.programName||"";
+  const answersForMeta={
+    goal:entryState.answers.desiredResult==="muscle_growth"?"hypertrophy":
+      entryState.answers.desiredResult==="strength"?"strength_hypertrophy":
+      entryState.answers.desiredResult==="balanced"?"strength_hypertrophy":null,
+    experience:null,
+    daysPerWeek:entryState.answers.daysPerWeek||preview?.frequency||null,
+    splitType:null,
+    equipment:[],
+    priorityMuscles:entryState.answers.primaryMuscles||[],
+    sessionLength:null};
+  const route=entryState.route||"custom";
+  const context=programmingContextFromAnswers(entryState.answers);
+  const baseProposal=cloneSnapshot(state);
+  if(context?.ok)baseProposal.programmingContext=context.value;
+  if(programStructure){
+    baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
+    baseProposal.programMeta.programStructure=cloneSnapshot(programStructure)}
+  const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
+  const result=await finalizeProgramSetup({
+    exercises,
+    name,
+    answers:answersForMeta,
+    destination,
+    origin:onboardingOrigin||"first-run",
+    io:storageIO,
+    baseProposal,
+    telemetryRoute,
+    entryTelemetry:entryState.result?.telemetry||null,
+    programStructure});
+  if(result?.localOk||result?.idbOk){clearSetupDraft();entryState=null}}
 function telemetryGeneratedProgram(goal){
   if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom"}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,programStructure=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -8125,11 +8645,12 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     if(!blockCap)return blockTransitionResult("failed");
     if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
     archiveCapturedBlock(proposal,blockCap)}
-  const meta=buildProgramMeta({name,answers:answers||onbAnswers});
+  const meta=buildProgramMeta({name,answers:answers||{}});
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
-  meta.programStructure=baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null;
+  meta.programStructure=programStructure?cloneSnapshot(programStructure):
+    (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
   proposal.programMeta=meta;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
@@ -8139,12 +8660,20 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
-  const generated=telemetryGeneratedProgram(meta.goal);
-  // A frequency outside the reviewed 2-6 range is rejected by the boundary,
-  // where the rejection is visible, rather than dropped silently here.
-  if(telemetryRoute==="custom"&&generated)captureEvent("generator_completed",
-    {goal:generated.goal,frequency:String(new Set(exercises.map(exercise=>exercise.day)).size),family:generated.family});
-  captureEvent("program_activated",{route:telemetryRoute,version_category:telemetryRoute==="import"?"import_v1":"legacy_v1"});
+  if((telemetryRoute==="custom"||telemetryRoute==="recommend")&&entryTelemetry){
+    captureEvent("generator_completed",{
+      goal:entryTelemetry.goal,
+      frequency:entryTelemetry.frequency,
+      family:entryTelemetry.family})}
+  else if(telemetryRoute==="custom"){
+    const generated=telemetryGeneratedProgram(meta.goal);
+    if(generated)captureEvent("generator_completed",
+      {goal:generated.goal,frequency:String(new Set(exercises.map(exercise=>exercise.day)).size),family:generated.family})}
+  const versionCategory=telemetryRoute==="import"?"import_v1":
+    telemetryRoute==="shared"?"shared_v1":
+    telemetryRoute==="build"?"manual_v1":
+    telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
+  captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
   resetDraftSessionState();
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
@@ -8158,11 +8687,9 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(!maybeStartTour())maybeShowInstallBanner();
   return result}
 function saveOnboardingProgram(io){
-  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
-  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"log",origin:onboardingOrigin||"first-run",io:io||storageIO})}
+  return activateEntryPreview({destination:"log"})}
 function editOnboardingProgram(io){
-  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
-  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"program-edit",origin:onboardingOrigin||"first-run",io:io||storageIO})}
+  return activateEntryPreview({destination:"program-edit"})}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
@@ -8640,7 +9167,10 @@ function resumeProgramEditFollowUp(){
   $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
   return true}
-window.__repforgeOnboarding={eqUi:ONB_EQ_UI,eqGen:ONB_EQ_GEN,splits:ONB_SPLITS,muscles:ONB_MUSCLES};
+window.__repforgeOnboarding={
+  entry:()=>entryState,
+  setupDraftKey:SETUP_DRAFT_KEY,
+  services:entryServices};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -8669,7 +9199,11 @@ function init(){
   $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
-  $("#firstRunImport").onclick=()=>{onbAnswers=defaultOnbAnswers();onboardingOrigin="first-run";$("#importProgram")?.click()};
+  $("#firstRunImport").onclick=()=>{
+    closeFirstRun();
+    startOnboarding("first-run",{userInitiated:true,forceFresh:true});
+    entrySelectRoute("import");
+    $("#importProgram")?.click()};
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
@@ -8856,7 +9390,9 @@ function init(){
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
-  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else cancelOnboarding()};
+  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{
+    if(entryState&&entryState.step!=="entry"&&entryState.route)entryBack();
+    else cancelOnboarding()};
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
@@ -8889,8 +9425,9 @@ function init(){
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=async()=>{
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     const nextDay=nextProgram.addDay();proposal.program=nextProgram.toJSON();
+    syncProgramStructureFromProgram(proposal,nextProgram);
     const result=await commitProposedState(proposal);
     if(result.localOk||result.idbOk){day=nextDay;render();toast(t("toast.day_added"))}};
   $("#endBlock").onclick=promptEndBlock;
@@ -8900,8 +9437,8 @@ function init(){
     const key=draftActive?"confirm.replace_program_discard_draft":"confirm.replace_program_template";
     if(confirm(t(key)))switchToBeginnerProgram(discardDraftRaw)};
   $("#createProgram").onclick=()=>startOnboarding("settings");
-  $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
-  $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
+  $("#onbBack").onclick=()=>entryBack();
+  $("#onbNext").onclick=()=>entryAdvance();
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=commitChangedSettings);
   // Appearance lives in UI prefs, so it never joins a state proposal.
   const themeSel=$("#theme");if(themeSel)themeSel.onchange=()=>setTheme(themeSel.value);
@@ -9141,7 +9678,7 @@ async function resolveBootReplicas(candidate=null){
 async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
-  prog=new Program(state.program);state.program=prog.toJSON();
+  prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   DraftStore.promote(null,draftContextFingerprint(state));

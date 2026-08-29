@@ -243,8 +243,14 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     missingCache.join(", "));
   assert(index.includes('src="program-compiler.js"') && sw.includes('"./program-compiler.js"'),
     "the program compiler is loaded and precached");
+  assert(index.includes('src="program-entry.js"') && sw.includes('"./program-entry.js"'),
+    "the program-entry state machine is loaded and precached");
+  assert(index.includes('src="program-entry-adapter.js"') && sw.includes('"./program-entry-adapter.js"'),
+    "the program-entry adapter is loaded and precached");
   assert(/SHELL = new Set\([^\n]+"\/program-compiler\.js"/.test(sw),
     "the program compiler is part of the offline shell");
+  assert(/SHELL = new Set\([^\n]+"\/program-entry\.js"/.test(sw) && /SHELL = new Set\([^\n]+"\/program-entry-adapter\.js"/.test(sw),
+    "program-entry modules are part of the offline shell");
   assert(/registration\.scope/.test(sw) && /SCOPE_PATH/.test(sw),
     "service-worker shell matching is relative to its production scope");
 }

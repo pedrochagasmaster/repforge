@@ -2700,6 +2700,41 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .blockreview__head-title{font-size:17px;font-weight:600;margin:0}
 .onb__cancel{color:var(--accent-deep)}
 .onb__title{font-size:17px;font-weight:600;text-align:center}
+.entry__hub{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.entry-card{display:flex;flex-direction:column;gap:4px;text-align:left;width:100%;padding:14px 16px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer;font:inherit}
+.entry-card:hover,.entry-card:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px}
+.entry-card--primary{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.entry-card--secondary{background:transparent}
+.entry-card__title{font-weight:700;font-size:15px}
+.entry-card__cap{font-size:13px;color:var(--ink-soft);line-height:1.35}
+.entry-card__warn{font-size:12px;color:var(--accent-deep);margin-top:4px}
+.entry__own{display:flex;flex-direction:column;gap:8px;padding:4px 0 0 8px;border-left:2px solid var(--rule)}
+.entry__active,.entry__legacy,.entry__explain{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--rule);color:var(--ink-soft);font-size:13px;line-height:1.4}
+.entry__notice{margin:0 0 16px;padding:14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface)}
+.entry__notice strong{display:block;margin-bottom:6px}
+.entry__notice p{margin:0 0 12px;color:var(--ink-soft);font-size:13px;line-height:1.4}
+.entry__group-lab{margin:16px 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
+.entry__optional{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.entry__field{display:flex;flex-direction:column;gap:6px;margin:12px 0 16px;font-size:13px;font-weight:600}
+.entry__field input{font:inherit;font-weight:500;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+.radio-card.is-disabled,.radio-card:disabled{
+  opacity:.45;cursor:not-allowed}
+.entry__correct{margin-top:14px;padding-top:4px}
+.entry__hint,.entry__pain{margin:10px 0 0;font-size:13px;line-height:1.4;color:var(--ink-soft)}
+.entry__pain{padding:10px 12px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface)}
+.entry__avoid-results{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;max-height:180px;overflow:auto}
+.entry-card--compact{padding:10px 12px}
+.entry__avoid-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.entry__avoid-item{padding:12px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface)}
+.entry__avoid-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+@media (min-width:720px){
+  .entry__hub{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .entry-card--primary{grid-column:1/-1}
+}
+:root[data-theme="dark"] .entry-card--primary{box-shadow:inset 0 0 0 1px var(--accent)}
+@media (prefers-reduced-motion:reduce){
+  .entry-card{transition:none}
+}
 .exview-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:14px}
 /* The rule named .exview__back, which nothing in the markup uses — every header
    built on .exview-head has been centring its back link inline instead of
