@@ -1689,11 +1689,12 @@ class Program{
   /* lookup lets a caller resolve against a snapshot's own custom definitions —
      import and normalizeLoaded work on state that is not live yet.
      structureDays (optional) keeps empty programStructure containers visible. */
-  constructor(list=[],lookup=null,structureDays=null){const ids=new Set();
+  constructor(list=[],lookup=null,structureDays=null,emptyDayContainers=false){const ids=new Set();
     this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);
       return ex.resolveIdentity(lookup)});
     this._structureDays=Array.isArray(structureDays)&&structureDays.length
       ?structureDays.map(d=>String(d)).filter(Boolean):null;
+    this._emptyDayContainers=emptyDayContainers===true;
     this.renumber()}
   days(){
     const fromEx=[...new Set(this.exercises.map(e=>e.day))];
@@ -1748,11 +1749,9 @@ class Program{
   move(id,dir){const e=this.find(id);if(!e)return;const list=this.forDay(e.day),i=list.indexOf(e),j=i+dir;
     if(j<0||j>=list.length)return;[list[i].order,list[j].order]=[list[j].order,list[i].order]}
   addDay({withPlaceholder}={}){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
-    const structured=!!this._structureDays;
-    const placeholder=withPlaceholder!=null?!!withPlaceholder:!structured;
+    const placeholder=withPlaceholder!=null?!!withPlaceholder:!this._emptyDayContainers;
     if(placeholder)this.exercises.push(new Exercise({day:name,order:1,name:t("program.default.exercise"),sets:3,min:6,max:10}));
     if(this._structureDays)this._structureDays.push(name);
-    else if(structured)this._structureDays=[name];
     return name}
   renameDay(oldName,newName){const nv=String(newName).trim();if(!nv||nv===oldName)return false;
     if(this.days().includes(nv))return false;
@@ -2873,7 +2872,8 @@ function structureDayLabels(meta){
   const labels=days.map(d=>String(d.label||d.dayId||"").trim()).filter(Boolean);
   return labels.length?labels:null}
 function makeProgram(list,lookup=null,meta=null){
-  return new Program(list,lookup,structureDayLabels(meta))}
+  return new Program(list,lookup,structureDayLabels(meta),
+    meta?.programStructure?.provenance?.source==="manual_build")}
 function syncProgramStructureFromProgram(proposal,program){
   const struct=proposal.programMeta?.programStructure;
   if(!struct||!Array.isArray(struct.days))return;

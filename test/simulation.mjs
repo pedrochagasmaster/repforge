@@ -6194,7 +6194,7 @@ async function main() {
       await persistState(f2Page, {
         ...f2State,
         settings: { ...f2State.settings, lang: "en" },
-        programMeta: { ...f2State.programMeta, name: "F2 Split" },
+        programMeta: { ...f2State.programMeta, name: "F2 Split", programStructure: null },
         program,
         log,
       });
