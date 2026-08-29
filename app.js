@@ -2887,7 +2887,11 @@ function syncProgramStructureFromProgram(proposal,program){
       const prev=byLabel.get(label)||byIndex[i];
       return{dayId:prev?.dayId||`manual_d${i+1}`,label,order:i+1}})}
 }
-function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
+function scheduledProgramRows(){
+  const week=mesocycleLifecycle(state.programMeta).current;
+  if(week==null||typeof ProgramCompiler?.projectProgramForWeek!=="function")return state.program;
+  return ProgramCompiler.projectProgramForWeek(state.program,state.programMeta?.programStructure,week)}
+function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
   const entry=ex?.libraryId?libraryEntry(ex.libraryId):null;

@@ -100,6 +100,51 @@ test("first structured experience reports foundation telemetry without changing 
   assert.equal(result.compilerContext.reentryEnabled, true);
 });
 
+test("about_half enables the interrupted one-week treatment", () => {
+  const result = services.compile({
+    mode: "recommend",
+    answers: recommendAnswers({ recentConsistency: "about_half", daysPerWeek: 3 }),
+    versions: services.currentVersions(),
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(result.compilerContext.recentConsistency, "interrupted");
+  assert.equal(result.compilerContext.reentryEnabled, true);
+  assert.equal(result.instance.weeks[0].phase, "interrupted_week_1");
+  assert.ok(result.instance.weeks[0].days.flatMap((day) => day.slots)
+    .some((target) => target.sets < result.instance.program
+      .find((exercise) => exercise.slotId === target.slotId).sets));
+  assert.ok(result.instance.weeks.slice(1).every((week) => week.phase === "normal"));
+});
+
+test("current-week projection executes stored re-entry sets without mutating the authored program", () => {
+  const result = services.compile({
+    mode: "recommend",
+    answers: recommendAnswers({ recentConsistency: "about_half", daysPerWeek: 3 }),
+    versions: services.currentVersions(),
+  });
+  assert.equal(result.ok, true, result.code);
+  const authoredBytes = JSON.stringify(result.preview.program);
+  const weekOne = Compiler.projectProgramForWeek(
+    result.preview.program,
+    result.preview.programStructure,
+    1,
+  );
+  const weekTwo = Compiler.projectProgramForWeek(
+    result.preview.program,
+    result.preview.programStructure,
+    2,
+  );
+  const weekOneTargets = new Map(result.preview.programStructure.weekPrescriptions[0].days
+    .flatMap((day) => day.slots).map((target) => [target.slotId, target.sets]));
+  const expectedWeekOne = result.preview.program.flatMap((exercise) => {
+    const sets = weekOneTargets.get(exercise.slotId);
+    return sets === 0 ? [] : [{ ...exercise, sets }];
+  });
+  assert.deepEqual(weekOne, expectedWeekOne);
+  assert.deepEqual(weekTwo, result.preview.program);
+  assert.equal(JSON.stringify(result.preview.program), authoredBytes);
+});
+
 test("state machine plus production compile reaches activation-ready preview", () => {
   const versions = services.currentVersions();
   let state = Entry.createState({

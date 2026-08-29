@@ -125,7 +125,7 @@
   function resolveRecentConsistency(answers) {
     switch (answers?.recentConsistency) {
       case "most": return { recentConsistency: "consistent", reentryEnabled: false };
-      case "about_half": return { recentConsistency: "interrupted", reentryEnabled: false };
+      case "about_half": return { recentConsistency: "interrupted", reentryEnabled: true };
       case "few":
       case "none":
         return { recentConsistency: "returning", reentryEnabled: true };

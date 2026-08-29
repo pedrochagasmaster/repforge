@@ -4,6 +4,13 @@
  * Run: REPFORGE_URL=http://localhost:8000/ node test/program-entry-browser.mjs
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
+import { createRequire } from "node:module";
+
+const require = createRequire(import.meta.url);
+const Adapter = require("../program-entry-adapter.js");
+const Compiler = require("../program-compiler.js");
+const { EXERCISE_LIBRARY } = require("../exercises.js");
+const entryServices = Adapter.createProductionServices({ Compiler, catalogue: EXERCISE_LIBRARY });
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -303,6 +310,127 @@ try {
     await page.click("#firstRunCreate");
     const notice = await page.locator(".entry__notice").innerText().catch(() => "");
     assert(/could not be opened|não foi possível/i.test(notice), "corrupt draft shows restart notice", notice);
+    await context.close();
+  }
+
+  console.log("\nInterrupted treatment executes reduced week one and restores week two");
+  {
+    const compiled = entryServices.compile({
+      mode: "recommend",
+      answers: {
+        desiredResult: "muscle_growth",
+        structuredExperience: "6_to_24m",
+        recentConsistency: "about_half",
+        daysPerWeek: 3,
+        sessionMinutes: 60,
+        preferredRestSeconds: 120,
+        environment: { kind: "commercial_gym" },
+        primaryMuscles: [],
+        priorityMovements: [],
+        exerciseConstraints: [],
+      },
+      versions: entryServices.currentVersions(),
+    });
+    if (!compiled.ok) throw new Error(`interrupted compile failed: ${compiled.code}`);
+    const weekOnePrescription = compiled.preview.programStructure.weekPrescriptions
+      .find((entry) => entry.week === 1);
+    const byDay = new Map(compiled.preview.programStructure.days.map((entry) => {
+      const targets = weekOnePrescription.days.find((day) => day.dayId === entry.dayId).slots;
+      return [entry.label, {
+        authored: compiled.preview.program.filter((exercise) => exercise.day === entry.label),
+        targets,
+      }];
+    }));
+    const reduced = [...byDay.entries()].find(([, programs]) =>
+      programs.targets.filter((target) => target.sets > 0).length < programs.authored.length ||
+      programs.targets.reduce((sum, target) => sum + target.sets, 0) <
+        programs.authored.reduce((sum, exercise) => sum + exercise.sets, 0));
+    if (!reduced) throw new Error("interrupted compile produced no reduced day");
+    const [reducedDay, programs] = reduced;
+    const expectedWeekOneExercises = programs.targets.filter((target) => target.sets > 0).length;
+    const expectedWeekOneSets = programs.targets.reduce((sum, target) => sum + target.sets, 0);
+    const expectedNormalExercises = programs.authored.length;
+    const expectedNormalSets = programs.authored.reduce((sum, exercise) => sum + exercise.sets, 0);
+    const today = new Date().toISOString().slice(0, 10);
+    const state = {
+      settings: {
+        jumpPct: 2.5, minJump: 2.5, rirHigh: 3, hardRir: 1, restSec: 120, unit: "kg", lang: "en", rirMode: "numeric",
+        voiceInputEnabled: false, notifyEnabled: false, notifyTimer: true, notifySession: true,
+        notifyUnfinished: false, notifyMissed: false,
+      },
+      programMeta: {
+        id: "interrupted-program", name: "Interrupted program", started: today,
+        created: `${today}T00:00:00.000Z`, updated: `${today}T00:00:00.000Z`,
+        goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3, splitType: "full_body",
+        equipment: ["barbell", "dumbbell", "machine", "cable", "smith"], priorityMuscles: [], sessionLength: "60",
+        mesocycleLengthWeeks: 6, mesocycleStatus: "active", onboarded: true,
+        progressionRelations: [], progressionModifiers: [], progressionIncompatibilities: [],
+        programStructure: compiled.preview.programStructure,
+      },
+      program: compiled.preview.program,
+      log: [], programHistory: [], customExercises: [], _storageRevision: 1,
+    };
+    const { context, page } = await openFresh(browser);
+    await page.evaluate(async ({ key, state }) => {
+      await new Promise((resolve) => {
+        const request = indexedDB.deleteDatabase("repforge");
+        request.onsuccess = request.onerror = request.onblocked = () => resolve();
+      });
+      localStorage.setItem(key, JSON.stringify(state));
+      localStorage.setItem("repforge_ui_v1", JSON.stringify({ tourDone: true, installDismissedAt: Date.now() }));
+    }, { key: KEY, state });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const durableBeforeWeekOne = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
+    const weekOneDom = await page.evaluate(() => ({
+      exercises: document.querySelectorAll("#workout > .exercise").length,
+      sets: document.querySelectorAll("#workout .setrow").length,
+      durableBytes: localStorage.getItem("repforge_v1"),
+    }));
+    assert(weekOneDom.exercises === expectedWeekOneExercises,
+      "week one omits only compiler-scheduled zero-set exercises",
+      `${weekOneDom.exercises} !== ${expectedWeekOneExercises}`);
+    assert(weekOneDom.sets === expectedWeekOneSets,
+      "week one renders the compiler-scheduled reduced sets",
+      `${weekOneDom.sets} !== ${expectedWeekOneSets}`);
+    assert(weekOneDom.durableBytes === durableBeforeWeekOne,
+      "week-one execution leaves authored durable program bytes unchanged");
+
+    const weekTwoStart = new Date();
+    weekTwoStart.setUTCDate(weekTwoStart.getUTCDate() - 8);
+    await page.evaluate(async ({ key, started }) => {
+      const next = JSON.parse(localStorage.getItem(key));
+      next.programMeta.started = started;
+      next._storageRevision += 1;
+      localStorage.setItem(key, JSON.stringify(next));
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("repforge", 1);
+        request.onupgradeneeded = () => request.result.createObjectStore("kv");
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise((resolve, reject) => {
+        const transaction = db.transaction("kv", "readwrite");
+        transaction.objectStore("kv").put(next, key);
+        transaction.oncomplete = () => resolve();
+        transaction.onerror = () => reject(transaction.error);
+      });
+      db.close();
+    }, { key: KEY, started: weekTwoStart.toISOString().slice(0, 10) });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
+    const weekTwoDom = await page.evaluate(() => ({
+      exercises: document.querySelectorAll("#workout > .exercise").length,
+      sets: document.querySelectorAll("#workout .setrow").length,
+    }));
+    assert(weekTwoDom.exercises === expectedNormalExercises,
+      "interrupted treatment restores all exercises in week two",
+      `${weekTwoDom.exercises} !== ${expectedNormalExercises}`);
+    assert(weekTwoDom.sets === expectedNormalSets,
+      "interrupted treatment restores authored sets in week two",
+      `${weekTwoDom.sets} !== ${expectedNormalSets}`);
     await context.close();
   }
 } finally {

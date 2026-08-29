@@ -727,6 +727,30 @@
     };
   }
 
+  function projectProgramForWeek(program, structure, weekNumber) {
+    const authored = Array.isArray(program) ? clone(program) : [];
+    if (!Number.isInteger(weekNumber) || weekNumber < 1 ||
+        !isObject(structure) || !Array.isArray(structure.weekPrescriptions)) return authored;
+    const week = structure.weekPrescriptions.find((entry) =>
+      isObject(entry) && entry.week === weekNumber && Array.isArray(entry.days));
+    if (!week) return authored;
+    const targets = new Map();
+    for (const dayRecord of week.days) {
+      if (!isObject(dayRecord) || !Array.isArray(dayRecord.slots)) return authored;
+      for (const target of dayRecord.slots) {
+        if (!isObject(target) || typeof target.slotId !== "string" ||
+            !Number.isInteger(target.sets) || target.sets < 0) return authored;
+        targets.set(target.slotId, target.sets);
+      }
+    }
+    return authored.flatMap((exercise) => {
+      const slotId = typeof exercise?.slotId === "string" ? exercise.slotId : exercise?.id;
+      if (!targets.has(slotId)) return [exercise];
+      const sets = targets.get(slotId);
+      return sets === 0 ? [] : [{ ...exercise, sets }];
+    });
+  }
+
   function compile(rawContext, rawCatalogue) {
     const checked = validateContext(rawContext);
     if (!checked.ok) return { kind: "invalid", ...checked };
@@ -906,7 +930,7 @@
     }];
   }
 
-  const api = Object.freeze({ VERSIONS, FREQUENCIES, FAMILY_IDS, STRATEGIES, FAMILIES, SLOT_TEMPLATES, BLUEPRINTS, RULES, MUSCLE_IDS, MOVEMENT_PATTERN_IDS, PREFERRED_REST_SECONDS, validateBlueprints, validateContext, normalizeCatalogue, getCompatibleSplitChoices, compile, substitute, customize, projectProgram, programStructure, migrateLegacyStructure, estimateDaySeconds });
+  const api = Object.freeze({ VERSIONS, FREQUENCIES, FAMILY_IDS, STRATEGIES, FAMILIES, SLOT_TEMPLATES, BLUEPRINTS, RULES, MUSCLE_IDS, MOVEMENT_PATTERN_IDS, PREFERRED_REST_SECONDS, validateBlueprints, validateContext, normalizeCatalogue, getCompatibleSplitChoices, compile, substitute, customize, projectProgram, projectProgramForWeek, programStructure, migrateLegacyStructure, estimateDaySeconds });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.RepForgeProgramCompiler = api;
 })(typeof window !== "undefined" ? window : globalThis);
