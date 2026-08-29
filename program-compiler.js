@@ -4,10 +4,10 @@
   const VERSIONS = Object.freeze({
     schema: 1,
     blueprint: 1,
-    compiler: 1,
+    compiler: 2,
     catalogue: 1,
     rules: 1,
-    context: 1,
+    context: 2,
     recentConsistency: 1,
     simpleStart: 1,
   });
@@ -112,6 +112,14 @@
     home_trunk: contract({ role: "isolation_accessory", patterns: ["abs", "core"], primaryMuscles: ["core"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "home_change" }),
     home_coverage: contract({ role: "hypertrophy_compound", patterns: ["squat", "hinge", "press", "row", "pulldown", "abs", "calves"], primaryMuscles: ["quads", "hamstrings", "glutes", "chest", "back", "lats", "core", "calves"], secondaryMuscles: [], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "reducible", transitionClass: "home_change" }),
   });
+  const MUSCLE_IDS = Object.freeze(unique(Object.values(SLOT_TEMPLATES)
+    .flatMap((value) => [...value.primaryMuscles, ...value.secondaryMuscles])).sort());
+  const MOVEMENT_PATTERN_IDS = Object.freeze(unique(Object.values(SLOT_TEMPLATES)
+    .flatMap((value) => value.patterns)).sort());
+  const PREFERRED_REST_SECONDS = Object.freeze([60, 90, 120, 180]);
+  const MAX_PRIMARY_MUSCLES = 2;
+  const MAX_MUSCLE_CONTROLS = 10;
+  const MAX_PRIORITY_MOVEMENTS = 2;
 
   const pair = (id, heavy, volume) => Object.freeze({ id, heavy, volume });
   const BLUEPRINTS = Object.freeze([
@@ -315,33 +323,62 @@
     } catch {
       return { ok: false, code: "invalid_context", issues: ["context: unsupported structure"] };
     }
-    const allowed = new Set(["schemaVersion", "familyId", "frequency", "sessionMinutes", "equipment", "environment", "loadIncrements", "preferences", "dislikes", "history", "priorityMuscles", "profile", "recentConsistency", "reentryEnabled", "weekNumber"]);
+    const legacyKeys = ["schemaVersion", "familyId", "frequency", "sessionMinutes", "equipment", "environment", "loadIncrements", "preferences", "dislikes", "history", "priorityMuscles", "profile", "recentConsistency", "reentryEnabled", "weekNumber"];
+    const currentKeys = ["preferredRestSeconds", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements", "splitId"];
+    const allowed = new Set([...legacyKeys, ...(raw.schemaVersion === 2 ? currentKeys : [])]);
     for (const key of Object.keys(raw)) if (!allowed.has(key)) issues.push(`context.${key}: unknown key`);
-    if (raw.schemaVersion !== 1) issues.push("context.schemaVersion: unsupported");
+    if (![1, 2].includes(raw.schemaVersion)) issues.push("context.schemaVersion: unsupported");
     if (!FAMILY_IDS.includes(raw.familyId)) issues.push("context.familyId: invalid");
     if (!FREQUENCIES.includes(raw.frequency)) issues.push("context.frequency: invalid");
     if (!Number.isFinite(raw.sessionMinutes) || raw.sessionMinutes < 10 || raw.sessionMinutes > 180) issues.push("context.sessionMinutes: invalid");
     for (const key of ["equipment", "preferences", "dislikes", "history", "priorityMuscles"]) if (raw[key] != null && !Array.isArray(raw[key])) issues.push(`context.${key}: expected array`);
+    for (const key of ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements"]) if (raw[key] != null && !Array.isArray(raw[key])) issues.push(`context.${key}: expected array`);
     if (raw.environment != null && !Array.isArray(raw.environment)) issues.push("context.environment: expected array");
     if (raw.loadIncrements != null && !isObject(raw.loadIncrements)) issues.push("context.loadIncrements: expected object");
     if (raw.profile != null && !["standard", "foundation"].includes(raw.profile)) issues.push("context.profile: invalid");
     if (raw.recentConsistency != null && !["consistent", "interrupted", "returning"].includes(raw.recentConsistency)) issues.push("context.recentConsistency: invalid");
     if (raw.reentryEnabled != null && typeof raw.reentryEnabled !== "boolean") issues.push("context.reentryEnabled: invalid");
     if (raw.weekNumber != null && (!Number.isInteger(raw.weekNumber) || raw.weekNumber < 1 || raw.weekNumber > 52)) issues.push("context.weekNumber: invalid");
+    if (raw.schemaVersion === 2) {
+      if (raw.priorityMuscles != null) issues.push("context.priorityMuscles: use primaryMuscles in schema 2");
+      if (raw.preferredRestSeconds !== null && !PREFERRED_REST_SECONDS.includes(raw.preferredRestSeconds)) issues.push("context.preferredRestSeconds: invalid");
+      if (raw.splitId != null && raw.splitId !== `${raw.familyId}_${raw.frequency}_v1`) issues.push("context.splitId: incompatible");
+      if ((raw.primaryMuscles || []).length > MAX_PRIMARY_MUSCLES) issues.push("context.primaryMuscles: too many");
+      if ((raw.deEmphasizedMuscles || []).length > MAX_MUSCLE_CONTROLS) issues.push("context.deEmphasizedMuscles: too many");
+      if ((raw.ignoredMuscles || []).length > MAX_MUSCLE_CONTROLS) issues.push("context.ignoredMuscles: too many");
+      if ((raw.priorityMovements || []).length > MAX_PRIORITY_MOVEMENTS) issues.push("context.priorityMovements: too many");
+      for (const key of ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles"]) {
+        for (const value of unique((raw[key] || []).map(token))) if (!MUSCLE_IDS.includes(value)) issues.push(`context.${key}: unknown muscle ${value}`);
+      }
+      for (const value of unique((raw.priorityMovements || []).map(token))) if (!MOVEMENT_PATTERN_IDS.includes(value)) issues.push(`context.priorityMovements: unknown movement ${value}`);
+      const primary = unique((raw.primaryMuscles || []).map(token));
+      const deEmphasized = unique((raw.deEmphasizedMuscles || []).map(token));
+      const ignored = unique((raw.ignoredMuscles || []).map(token));
+      if (intersects(primary, deEmphasized)) issues.push("context.muscles: primary and de-emphasized overlap");
+      if (intersects(primary, ignored)) issues.push("context.muscles: primary and ignored overlap");
+      if (intersects(deEmphasized, ignored)) issues.push("context.muscles: de-emphasized and ignored overlap");
+    }
     if (issues.length) return { ok: false, code: "invalid_context", issues };
     const equipment = unique(["bodyweight", ...(raw.equipment || []).map(token)]);
+    const primaryMuscles = unique((raw.schemaVersion === 2 ? raw.primaryMuscles || [] : raw.priorityMuscles || []).map(token));
     return { ok: true, value: {
-      schemaVersion: 1,
+      schemaVersion: raw.schemaVersion,
       familyId: raw.familyId,
       frequency: raw.frequency,
       sessionMinutes: raw.sessionMinutes,
+      preferredRestSeconds: raw.schemaVersion === 2 ? raw.preferredRestSeconds : null,
       equipment,
       environment: unique((raw.environment || []).map(token)),
       loadIncrements: clone(raw.loadIncrements || {}),
       preferences: unique((raw.preferences || []).map(String)),
       dislikes: unique((raw.dislikes || []).map(String)),
       history: (raw.history || []).filter(isObject).map(clone),
-      priorityMuscles: unique((raw.priorityMuscles || []).map(token)).slice(0, 2),
+      primaryMuscles,
+      priorityMuscles: primaryMuscles,
+      deEmphasizedMuscles: unique((raw.deEmphasizedMuscles || []).map(token)),
+      ignoredMuscles: unique((raw.ignoredMuscles || []).map(token)),
+      priorityMovements: unique((raw.priorityMovements || []).map(token)),
+      splitId: raw.splitId || null,
       profile: raw.profile || "standard",
       recentConsistency: raw.recentConsistency || "consistent",
       reentryEnabled: raw.reentryEnabled === true,
@@ -410,10 +447,12 @@
 
   function candidateOrder(candidate, contractValue, context) {
     const preferred = context.preferences.includes(candidate.id) ? 1 : 0;
+    const movementPreferred = intersects(candidate.patterns, context.priorityMovements) ? 1 : 0;
     const history = context.history.some((entry) => entry.libraryId === candidate.id) ? 1 : 0;
+    const avoidsDeEmphasis = intersects(candidate.primaryMuscles, context.deEmphasizedMuscles) ? 0 : 1;
     const foundation = context.profile === "foundation" ? Number(candidate.beginnerFriendly) + Number(candidate.stability === "high") : 0;
     const homeEquipment = candidate.equipment === "bodyweight" ? 3 : candidate.equipment === "dumbbell" ? 2 : candidate.equipment === "band" ? 1 : 0;
-    return [preferred, history, preferenceMatches(candidate, contractValue, context), foundation, context.familyId === "home" ? homeEquipment : 0, candidate.primarySuitability === "high" ? 1 : 0, candidate.stability === "high" ? 1 : 0, -candidate.rank, candidate.id];
+    return [preferred, movementPreferred, avoidsDeEmphasis, history, preferenceMatches(candidate, contractValue, context), foundation, context.familyId === "home" ? homeEquipment : 0, candidate.primarySuitability === "high" ? 1 : 0, candidate.stability === "high" ? 1 : 0, -candidate.rank, candidate.id];
   }
 
   function compareRank(left, right, contractValue, context) {
@@ -464,6 +503,9 @@
       : authoredRir;
     const strategy = strategyFor(contractValue, candidate, context);
     if (!strategy) return null;
+    const restSeconds = context.preferredRestSeconds == null
+      ? rule.rest[0]
+      : Math.max(rule.rest[0], Math.min(rule.rest[1], context.preferredRestSeconds));
     return {
       classId,
       sets,
@@ -471,7 +513,7 @@
       repMax: rule.repRanges[0][1],
       targetRirMin: rir[0],
       targetRirMax: rir[1],
-      restSeconds: rule.rest[0],
+      restSeconds,
       restMinimumSeconds: rule.rest[0],
       progression: buildProgression(strategy, rule, candidate, sets, rir),
       efficient,
@@ -479,7 +521,11 @@
   }
 
   function resolveSlot(rawSlot, contractValue, catalogue, context, ids) {
-    const candidates = catalogue.filter((candidate) => !context.dislikes.includes(candidate.id) && candidateFits(candidate, contractValue, context)).sort((a, b) => compareRank(a, b, contractValue, context));
+    const candidates = catalogue.filter((candidate) =>
+      !context.dislikes.includes(candidate.id) &&
+      !intersects(candidate.primaryMuscles, context.ignoredMuscles) &&
+      candidateFits(candidate, contractValue, context)
+    ).sort((a, b) => compareRank(a, b, contractValue, context));
     const selected = candidates[0];
     if (!selected) return null;
     const prescription = resolvePrescription(contractValue, rawSlot, selected, context);
@@ -532,18 +578,22 @@
     if (strategy.id === "anchor_backoff") strategy.params.backoffSets = Math.max(1, prescription.sets - 1);
   }
 
-  function fitTime(dayRecord, ceilingSeconds, reductions) {
+  function fitTime(dayRecord, ceilingSeconds, reductions, context) {
     const estimate = () => estimateDaySeconds(dayRecord);
+    const reductionCandidates = (predicate) => dayRecord.slots.filter(predicate).sort((left, right) => {
+      const leftDeEmphasized = intersects(left.exercise.primaryMuscles, context.deEmphasizedMuscles) ? 1 : 0;
+      const rightDeEmphasized = intersects(right.exercise.primaryMuscles, context.deEmphasizedMuscles) ? 1 : 0;
+      if (leftDeEmphasized !== rightDeEmphasized) return rightDeEmphasized - leftDeEmphasized;
+      return dayRecord.slots.indexOf(right) - dayRecord.slots.indexOf(left);
+    });
     if (estimate() <= ceilingSeconds) return true;
-    for (let index = dayRecord.slots.length - 1; index >= 0 && estimate() > ceilingSeconds; index--) {
-      const resolved = dayRecord.slots[index];
-      if (resolved.status !== "optional") continue;
-      dayRecord.slots.splice(index, 1);
+    for (const resolved of reductionCandidates((entry) => entry.status === "optional")) {
+      if (estimate() <= ceilingSeconds) break;
+      dayRecord.slots.splice(dayRecord.slots.indexOf(resolved), 1);
       reductions.push({ step: "remove_optional", dayId: dayRecord.dayId, slotId: resolved.slotId });
     }
-    for (let index = dayRecord.slots.length - 1; index >= 0 && estimate() > ceilingSeconds; index--) {
-      const resolved = dayRecord.slots[index];
-      if (!resolved.efficientEligible || resolved.prescription.sets <= 2) continue;
+    for (const resolved of reductionCandidates((entry) => entry.efficientEligible && entry.prescription.sets > 2)) {
+      if (estimate() <= ceilingSeconds) break;
       resolved.prescription.sets = 2;
       if (RULES.prescriptionClasses[resolved.prescription.classId].efficientRir) {
         resolved.prescription.targetRirMin = 0;
@@ -553,9 +603,8 @@
       updateProgressionShape(resolved);
       reductions.push({ step: "efficient_two_set", dayId: dayRecord.dayId, slotId: resolved.slotId });
     }
-    for (let index = dayRecord.slots.length - 1; index >= 0 && estimate() > ceilingSeconds; index--) {
-      const resolved = dayRecord.slots[index];
-      if (!resolved.reducible || resolved.role === "heavy_primary" || resolved.prescription.sets <= 1) continue;
+    for (const resolved of reductionCandidates((entry) => entry.reducible && entry.role !== "heavy_primary" && entry.prescription.sets > 1)) {
+      if (estimate() <= ceilingSeconds) break;
       resolved.prescription.sets--;
       updateProgressionShape(resolved);
       reductions.push({ step: "trim_reducible_assistance", dayId: dayRecord.dayId, slotId: resolved.slotId });
@@ -700,17 +749,32 @@
         if (contractValue.priorityBehavior === "priority_only" && !context.priorityMuscles.length) continue;
         const slotId = `${dayId}_s${slotIndex + 1}`;
         const resolved = resolveSlot(rawSlot, contractValue, catalogue, context, { dayId, slotId });
-        if (resolved) dayRecord.slots.push(resolved);
-        else if (contractValue.status === "optional") limitations.push({ code: "optional_slot_unresolved", dayId, slotId });
-        else if (contractValue.status === "conditional") limitations.push({ code: rawSlot.template === "home_pull" ? "home.pull_capability_unavailable" : "conditional_slot_unresolved", dayId, slotId });
-        else conflicts.push({ code: "required_slot_unresolved", dayId, slotId, templateId: rawSlot.template });
+        const directDeEmphasizedOptional = resolved && resolved.status === "optional" &&
+          intersects(resolved.exercise.primaryMuscles, context.deEmphasizedMuscles);
+        if (directDeEmphasizedOptional) limitations.push({ code: "deemphasized_optional_omitted", dayId, slotId });
+        else if (resolved) dayRecord.slots.push(resolved);
+        else {
+          const ignoredCandidate = catalogue.some((candidate) =>
+            !context.dislikes.includes(candidate.id) &&
+            intersects(candidate.primaryMuscles, context.ignoredMuscles) &&
+            candidateFits(candidate, contractValue, context));
+          const resolvedStatus = rawSlot.status || contractValue.status;
+          const safelyOmittableIgnored = ignoredCandidate &&
+            (resolvedStatus === "optional" || resolvedStatus === "conditional" ||
+              (resolvedStatus === "reducible" && contractValue.role === "isolation_accessory"));
+          if (safelyOmittableIgnored) limitations.push({ code: "ignored_direct_work_omitted", dayId, slotId });
+          else if (ignoredCandidate) conflicts.push({ code: "ignored_muscle_required", dayId, slotId, templateId: rawSlot.template });
+          else if (contractValue.status === "optional") limitations.push({ code: "optional_slot_unresolved", dayId, slotId });
+          else if (contractValue.status === "conditional") limitations.push({ code: rawSlot.template === "home_pull" ? "home.pull_capability_unavailable" : "conditional_slot_unresolved", dayId, slotId });
+          else conflicts.push({ code: "required_slot_unresolved", dayId, slotId, templateId: rawSlot.template });
+        }
       }
       days.push(dayRecord);
     }
     if (context.profile !== "foundation") alignAuthoredRelations(days, blueprintValue, context);
     const reductions = [];
     const ceilingSeconds = context.sessionMinutes * 60;
-    for (const dayRecord of days) if (!fitTime(dayRecord, ceilingSeconds, reductions)) conflicts.push({ code: "time_ceiling_conflict", dayId: dayRecord.dayId, ceilingMinutes: context.sessionMinutes, estimateMinutes: Math.ceil(estimateDaySeconds(dayRecord) / 60) });
+    for (const dayRecord of days) if (!fitTime(dayRecord, ceilingSeconds, reductions, context)) conflicts.push({ code: "time_ceiling_conflict", dayId: dayRecord.dayId, ceilingMinutes: context.sessionMinutes, estimateMinutes: Math.ceil(estimateDaySeconds(dayRecord) / 60) });
     if (conflicts.length) return { kind: "conflict", code: "compiler_conflict", familyId: context.familyId, frequency: context.frequency, conflicts, limitations, reductions };
     const instance = {
       kind: "compiled",
@@ -792,7 +856,23 @@
     return { program: exercises, structure: { schemaVersion: 1, days, provenance: existing?.provenance || { source: "legacy_migration", compilerVersion: null }, weekPrescriptions: existing?.weekPrescriptions || [], customizedFrom: existing?.customizedFrom || null } };
   }
 
-  const api = Object.freeze({ VERSIONS, FREQUENCIES, FAMILY_IDS, STRATEGIES, FAMILIES, SLOT_TEMPLATES, BLUEPRINTS, RULES, validateBlueprints, validateContext, normalizeCatalogue, compile, substitute, customize, projectProgram, programStructure, migrateLegacyStructure, estimateDaySeconds });
+  function getCompatibleSplitChoices(rawContext) {
+    const checked = validateContext(rawContext);
+    if (!checked.ok) return [];
+    const context = checked.value;
+    const blueprintValue = BLUEPRINT_BY_ID.get(`${context.familyId}_${context.frequency}_v1`);
+    if (!blueprintValue) return [];
+    return [{
+      id: blueprintValue.id,
+      familyId: blueprintValue.familyId,
+      frequency: blueprintValue.frequency,
+      blueprintId: blueprintValue.id,
+      blueprintVersion: blueprintValue.version,
+      default: true,
+    }];
+  }
+
+  const api = Object.freeze({ VERSIONS, FREQUENCIES, FAMILY_IDS, STRATEGIES, FAMILIES, SLOT_TEMPLATES, BLUEPRINTS, RULES, MUSCLE_IDS, MOVEMENT_PATTERN_IDS, PREFERRED_REST_SECONDS, validateBlueprints, validateContext, normalizeCatalogue, getCompatibleSplitChoices, compile, substitute, customize, projectProgram, programStructure, migrateLegacyStructure, estimateDaySeconds });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.RepForgeProgramCompiler = api;
 })(typeof window !== "undefined" ? window : globalThis);
