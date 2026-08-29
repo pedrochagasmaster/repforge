@@ -6551,12 +6551,28 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
   const proposal=cloneSnapshot(state);
-  proposal.program=new Program(parsed).toJSON();
+  // Raw JSON lists exercises only. Drop structure days that previously had
+  // exercises but are gone from the payload; keep already-empty containers
+  // (manual build) so Save JSON does not wipe intentional blank days.
+  const prevExDays=new Set((proposal.program||[]).map(e=>e.day));
+  const nextProgram=makeProgram(parsed,null,proposal.programMeta);
+  if(nextProgram._structureDays){
+    const nextExDays=new Set(nextProgram.exercises.map(e=>e.day));
+    nextProgram._structureDays=nextProgram._structureDays.filter(d=>nextExDays.has(d)||!prevExDays.has(d))}
+  proposal.program=nextProgram.toJSON();
+  syncProgramStructureFromProgram(proposal,nextProgram);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,storageIO,{effect,...transition});
   if(!(result.localOk||result.idbOk))return result;
-  resetDraftSessionState();day=prog.days()[0]||"Day 1";render();
+  resetDraftSessionState();
+  // Land on an exercise-bearing day. Structure order can put a renamed first
+  // slot (e.g. Push Day) ahead of Day 2; sorted exercise days match the pre-
+  // structure default and avoid a day-switch discard wiping a just-set date.
+  const exerciseDays=[...new Set((state.program||[]).map(x=>x.day))]
+    .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  day=exerciseDays.includes(day)?day:(exerciseDays[0]||days()[0]||"Day 1");
+  render();
   // The save consumed the box, so show the normalised result over the draft.
   syncProgramJson({force:true});
   if(!ignoredMuscles.length)toast(t("toast.program_saved"));
