@@ -28,6 +28,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const OPTIONAL_DEPLOYMENT_SHELL_ASSET = "/posthog-config.js";
 const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
 const PROFILE = process.env.REPFORGE_PROFILE === "1";
@@ -338,16 +339,17 @@ async function getProgramExercises(page, day) {
 }
 
 async function clearState(page) {
-  await page.evaluate(async ({ k, d }) => {
+  await page.evaluate(async ({ k, d, setup }) => {
     localStorage.removeItem(k);
     localStorage.removeItem(d);
+    localStorage.removeItem(setup);
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
       req.onsuccess = () => res();
       req.onerror = () => res();
       req.onblocked = () => res();
     });
-  }, { k: KEY, d: DRAFT });
+  }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT });
 }
 
 async function nav(page, view) {
@@ -7548,7 +7550,10 @@ async function main() {
     `selected=${envSelected} disabled=${await page.locator("#onbNext").isDisabled()}`,
     "Environment step → limited_home"
   );
-  await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
+  await page.evaluate(() => {
+    window.RepForgeI18n.setLang("pt");
+    window.__repforgeOnboarding.render();
+  });
   const envLabelPt = ((await page.locator('[data-entry-pick="environment"][data-entry-val="limited_home"] .radio-card__title').textContent()) || "").trim();
   assert(
     /casa|limitad/i.test(envLabelPt),
@@ -7556,7 +7561,10 @@ async function main() {
     `copy="${envLabelPt}"`,
     "setLang(pt) → limited_home card"
   );
-  await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+  await page.evaluate(() => {
+    window.RepForgeI18n.setLang("en");
+    window.__repforgeOnboarding.render();
+  });
 
   beginPhase("Phase: P6 onboarding UI");
   await clearState(page);

@@ -9183,7 +9183,8 @@ function resumeProgramEditFollowUp(){
 window.__repforgeOnboarding={
   entry:()=>entryState,
   setupDraftKey:SETUP_DRAFT_KEY,
-  services:entryServices};
+  services:entryServices,
+  render:renderOnboarding};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
