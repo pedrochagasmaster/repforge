@@ -8654,12 +8654,25 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   proposal.programMeta=meta;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
+  // Clear the setup draft before the durable write so observers never see an
+  // activated program alongside a leftover resumable draft. Restore the exact
+  // prior bytes if the activation transaction is refused.
+  const priorSetupDraft=readSetupDraftRaw();
+  if(priorSetupDraft!=null)clearSetupDraft();
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
-  const persisted=await commitProposedState(proposal,adapter,{...transition,effect});
+  let persisted;
+  try{persisted=await commitProposedState(proposal,adapter,{...transition,effect})}
+  catch(error){
+    if(priorSetupDraft!=null){
+      try{localStorage.setItem(SETUP_DRAFT_KEY,priorSetupDraft)}catch{}}
+    throw error}
   const result=originEff==="block"
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
-  if(!(result.localOk||result.idbOk))return result;
+  if(!(result.localOk||result.idbOk)){
+    if(priorSetupDraft!=null){
+      try{localStorage.setItem(SETUP_DRAFT_KEY,priorSetupDraft)}catch{}}
+    return result}
   if((telemetryRoute==="custom"||telemetryRoute==="recommend")&&entryTelemetry){
     captureEvent("generator_completed",{
       goal:entryTelemetry.goal,
