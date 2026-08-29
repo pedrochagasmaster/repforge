@@ -37,7 +37,7 @@ function validContext() {
       sessionMinutes: 60,
       preferredRestSeconds: 120,
     },
-    environment: { kind: "commercial_gym", capabilities: ["barbell", "cable"] },
+    environment: { kind: "commercial_gym", capabilities: ["safe_pull"], equipment: ["barbell", "cable"] },
     primaryMuscles: ["back"],
     deEmphasizedMuscles: [],
     ignoredMuscles: [],
@@ -408,4 +408,52 @@ test("corrupt saved drafts return typed resume failure", () => {
     code: "invalid-setup-draft",
     issues: ["invalid_json"],
   });
+});
+
+test("muscle overlaps and control caps fail closed before compile", () => {
+  const state = Entry.selectRoute(fresh(), "custom");
+  assert.throws(
+    () => Entry.setAnswers(state, {
+      primaryMuscles: ["chest"],
+      deEmphasizedMuscles: ["chest"],
+    }),
+    /primary_deemphasized_overlap/,
+  );
+  assert.throws(
+    () => Entry.setAnswers(state, {
+      primaryMuscles: ["chest", "back", "quads"],
+    }),
+    /invalid_list|too_many/,
+  );
+  const eleven = Array.from({ length: 11 }, (_, i) => `m${i}`);
+  assert.throws(
+    () => Entry.setAnswers(state, { deEmphasizedMuscles: eleven }),
+    /invalid_list/,
+  );
+  assert.equal(Entry.MAX_MUSCLE_CONTROLS, 10);
+
+  const ok = Entry.setAnswers(state, {
+    primaryMuscles: ["chest"],
+    deEmphasizedMuscles: ["back"],
+    ignoredMuscles: ["calves"],
+  });
+  assert.deepEqual(Entry.validationIssues({ ...ok, step: "priorities" }), []);
+
+  const hostile = Entry.normalizeProgrammingContext({
+    ...validContext(),
+    primaryMuscles: ["chest"],
+    ignoredMuscles: ["chest"],
+  });
+  assert.equal(hostile.ok, false);
+  assert.ok(hostile.issues.some((issue) => issue.includes("overlap")));
+});
+
+test("draft schema rejects nested prototype pollution in result and legacyHints", () => {
+  const base = fresh();
+  const pollutedResult = JSON.parse('{"fingerprint":"x","nested":{"__proto__":{"polluted":true}}}');
+  const pollutedHints = JSON.parse('{"goal":"hypertrophy","meta":{"__proto__":{"polluted":true}}}');
+  assert.equal(Entry.normalizeSetupDraft({ ...base, result: pollutedResult }).ok, false);
+  assert.equal(Entry.normalizeSetupDraft({ ...base, legacyHints: pollutedHints }).ok, false);
+  assert.throws(() => Entry.setResult(base, pollutedResult), /Invalid program-entry result/);
+  assert.equal({}.polluted, undefined);
 });

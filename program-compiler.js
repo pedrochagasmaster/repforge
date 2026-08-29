@@ -839,18 +839,52 @@
     const exercises = Array.isArray(program) ? clone(program) : [];
     const existing = isObject(current) && current.schemaVersion === 1 && Array.isArray(current.days) ? clone(current) : null;
     const labels = unique(exercises.map((entry) => String(entry.day || "").trim()).filter(Boolean));
+    if (!labels.length && existing?.days?.length) {
+      return {
+        program: exercises,
+        structure: {
+          schemaVersion: 1,
+          days: existing.days.map((entry, index) => ({
+            dayId: entry.dayId || `legacy_d${index + 1}`,
+            label: entry.label || `Day ${index + 1}`,
+            order: index + 1,
+          })),
+          provenance: existing.provenance || { source: "legacy_migration", compilerVersion: null },
+          weekPrescriptions: existing.weekPrescriptions || [],
+          customizedFrom: existing.customizedFrom || null,
+        },
+      };
+    }
     const used = new Set();
-    const days = labels.map((label, index) => {
-      const exerciseDayId = exercises.find((entry) => entry.day === label && typeof entry.dayId === "string")?.dayId;
-      const retained = existing?.days.find((entry) => entry.dayId === exerciseDayId) || existing?.days.find((entry) => entry.label === label);
-      let dayId = retained?.dayId || exerciseDayId || `legacy_d${index + 1}`;
-      while (used.has(dayId)) dayId = `${dayId}_${index + 1}`;
-      used.add(dayId);
-      return { dayId, label, order: index + 1 };
-    });
+    let days;
+    if (existing?.days?.length) {
+      // Keep empty structure days when only some days have exercises yet.
+      days = existing.days.map((entry, index) => {
+        let dayId = entry.dayId || `legacy_d${index + 1}`;
+        while (used.has(dayId)) dayId = `${dayId}_${index + 1}`;
+        used.add(dayId);
+        return { dayId, label: entry.label || `Day ${index + 1}`, order: index + 1 };
+      });
+      for (const label of labels) {
+        if (days.some((entry) => entry.label === label)) continue;
+        const exerciseDayId = exercises.find((entry) => entry.day === label && typeof entry.dayId === "string")?.dayId;
+        let dayId = exerciseDayId || `legacy_d${days.length + 1}`;
+        while (used.has(dayId)) dayId = `${dayId}_${days.length + 1}`;
+        used.add(dayId);
+        days.push({ dayId, label, order: days.length + 1 });
+      }
+    } else {
+      days = labels.map((label, index) => {
+        const exerciseDayId = exercises.find((entry) => entry.day === label && typeof entry.dayId === "string")?.dayId;
+        let dayId = exerciseDayId || `legacy_d${index + 1}`;
+        while (used.has(dayId)) dayId = `${dayId}_${index + 1}`;
+        used.add(dayId);
+        return { dayId, label, order: index + 1 };
+      });
+    }
     const byLabel = new Map(days.map((entry) => [entry.label, entry.dayId]));
     exercises.forEach((entry, index) => {
-      entry.dayId = byLabel.get(entry.day) || `legacy_d1`;
+      entry.dayId = byLabel.get(entry.day) || days[0]?.dayId || `legacy_d1`;
       entry.slotId = typeof entry.slotId === "string" && entry.slotId ? entry.slotId : typeof entry.id === "string" && entry.id ? entry.id : `${entry.dayId}_legacy_s${index + 1}`;
     });
     return { program: exercises, structure: { schemaVersion: 1, days, provenance: existing?.provenance || { source: "legacy_migration", compilerVersion: null }, weekPrescriptions: existing?.weekPrescriptions || [], customizedFrom: existing?.customizedFrom || null } };

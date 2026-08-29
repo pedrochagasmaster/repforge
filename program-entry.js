@@ -10,7 +10,10 @@
   const MAX_TOKEN_LENGTH = 96;
   const MAX_PROGRAM_NAME_LENGTH = 80;
   const MAX_LIST_LENGTH = 32;
+  const MAX_MUSCLE_CONTROLS = 10;
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
+  const KNOWN_EQUIPMENT = new Set(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight"]);
+  const KNOWN_CAPABILITIES = new Set(["safe_pull", "training_support"]);
   const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
   const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
@@ -229,13 +232,53 @@
       issues.push(`${path}:required`);
       return {};
     }
-    rejectUnknownKeys(value, new Set(["kind", "capabilities"]), path, issues);
+    rejectUnknownKeys(value, new Set(["kind", "capabilities", "equipment"]), path, issues);
     if (!ENVIRONMENTS.has(value.kind)) issues.push(`${path}.kind:invalid`);
     const output = { kind: value.kind };
     if (hasOwn(value, "capabilities")) {
-      output.capabilities = normalizeTokenList(value.capabilities, `${path}.capabilities`, issues, MAX_LIST_LENGTH);
+      const caps = normalizeTokenList(value.capabilities, `${path}.capabilities`, issues, MAX_LIST_LENGTH);
+      output.capabilities = caps.filter((token) => {
+        if (!KNOWN_CAPABILITIES.has(token)) {
+          issues.push(`${path}.capabilities:unknown_capability`);
+          return false;
+        }
+        return true;
+      });
+    }
+    if (hasOwn(value, "equipment")) {
+      const equipment = normalizeTokenList(value.equipment, `${path}.equipment`, issues, MAX_LIST_LENGTH);
+      output.equipment = equipment.filter((token) => {
+        if (!KNOWN_EQUIPMENT.has(token)) {
+          issues.push(`${path}.equipment:unknown_equipment`);
+          return false;
+        }
+        return true;
+      });
     }
     return output;
+  }
+
+  function musclePartitionIssues(answers, pathPrefix) {
+    const issues = [];
+    const primary = answers.primaryMuscles || [];
+    const deemphasized = answers.deEmphasizedMuscles || [];
+    const ignored = answers.ignoredMuscles || [];
+    const movements = answers.priorityMovements || [];
+    if (primary.length > 2) issues.push(`${pathPrefix}.primaryMuscles:too_many`);
+    if (movements.length > 2) issues.push(`${pathPrefix}.priorityMovements:too_many`);
+    if (deemphasized.length > MAX_MUSCLE_CONTROLS) issues.push(`${pathPrefix}.deEmphasizedMuscles:too_many`);
+    if (ignored.length > MAX_MUSCLE_CONTROLS) issues.push(`${pathPrefix}.ignoredMuscles:too_many`);
+    const primarySet = new Set(primary);
+    const deemphSet = new Set(deemphasized);
+    const ignoredSet = new Set(ignored);
+    for (const muscle of primarySet) {
+      if (deemphSet.has(muscle)) issues.push(`${pathPrefix}.muscles:primary_deemphasized_overlap`);
+      if (ignoredSet.has(muscle)) issues.push(`${pathPrefix}.muscles:primary_ignored_overlap`);
+    }
+    for (const muscle of deemphSet) {
+      if (ignoredSet.has(muscle)) issues.push(`${pathPrefix}.muscles:deemphasized_ignored_overlap`);
+    }
+    return issues;
   }
 
   function normalizeConstraints(value, path, issues) {
@@ -320,13 +363,14 @@
       },
       environment: normalizeEnvironment(raw.environment, "$.environment", issues),
       primaryMuscles: normalizeTokenList(raw.primaryMuscles, "$.primaryMuscles", issues, 2),
-      deEmphasizedMuscles: normalizeTokenList(raw.deEmphasizedMuscles, "$.deEmphasizedMuscles", issues, MAX_LIST_LENGTH),
-      ignoredMuscles: normalizeTokenList(raw.ignoredMuscles, "$.ignoredMuscles", issues, MAX_LIST_LENGTH),
+      deEmphasizedMuscles: normalizeTokenList(raw.deEmphasizedMuscles, "$.deEmphasizedMuscles", issues, MAX_MUSCLE_CONTROLS),
+      ignoredMuscles: normalizeTokenList(raw.ignoredMuscles, "$.ignoredMuscles", issues, MAX_MUSCLE_CONTROLS),
       priorityMovements: normalizeTokenList(raw.priorityMovements, "$.priorityMovements", issues, 2),
       exerciseConstraints: normalizeConstraints(raw.exerciseConstraints, "$.exerciseConstraints", issues),
       reviewedAt: raw.reviewedAt,
     };
     if (!validIsoTimestamp(raw.reviewedAt)) issues.push("$.reviewedAt:invalid");
+    issues.push(...musclePartitionIssues(output, "$"));
     return schemaResult("programming-context", issues, output);
   }
 
@@ -373,8 +417,8 @@
     const listFields = {
       primaryMuscles: 2,
       priorityMovements: 2,
-      deEmphasizedMuscles: MAX_LIST_LENGTH,
-      ignoredMuscles: MAX_LIST_LENGTH,
+      deEmphasizedMuscles: MAX_MUSCLE_CONTROLS,
+      ignoredMuscles: MAX_MUSCLE_CONTROLS,
       mustHaveExercises: MAX_LIST_LENGTH,
     };
     for (const [key, maximum] of Object.entries(listFields)) {
@@ -446,6 +490,7 @@
       issues.push("$.step:invalid_for_route");
     }
     const answers = normalizeAnswers(raw.answers, issues);
+    issues.push(...musclePartitionIssues(answers, "$.answers"));
     if (!isPlainObject(raw.legacyHints)) issues.push("$.legacyHints:not_object");
     if (raw.result !== null && !isPlainObject(raw.result)) issues.push("$.result:not_object");
     const versions = normalizeVersions(raw.versions, issues);
@@ -620,9 +665,12 @@
     const issues = [];
     const normalized = normalizeAnswers(patch, issues);
     if (issues.length) throw new TypeError(`Invalid answer patch: ${issues.join(",")}`);
+    const merged = { ...clone(state.answers), ...normalized };
+    const partition = musclePartitionIssues(merged, "$.answers");
+    if (partition.length) throw new TypeError(`Invalid answer patch: ${partition.join(",")}`);
     return {
       ...clone(state),
-      answers: { ...clone(state.answers), ...normalized },
+      answers: merged,
       result: null,
     };
   }
@@ -657,8 +705,12 @@
         return issues;
       }
       case "environment": return answers.environment ? [] : ["environment_required"];
-      case "priorities": return [];
-      case "custom_shape": return answers.splitPreference ? [] : ["split_preference_required"];
+      case "priorities": return musclePartitionIssues(answers, "$.answers");
+      case "custom_shape": {
+        const issues = answers.splitPreference ? [] : ["split_preference_required"];
+        issues.push(...musclePartitionIssues(answers, "$.answers"));
+        return issues;
+      }
       case "catalogue": {
         const issues = [];
         if (!answers.catalogueSelection) issues.push("catalogue_selection_required");
@@ -766,7 +818,9 @@
     if (config.liveActiveProgramRevision !== state.activeProgramRevisionAtStart) {
       return { ok: false, code: "active_program_changed", state: { ...clone(state), step: "activation_conflict" } };
     }
-    if (state.step !== "preview" || state.result === null) return { ok: false, code: "preview_not_ready" };
+    if ((state.step !== "preview" && state.step !== "editor") || state.result === null) {
+      return { ok: false, code: "preview_not_ready" };
+    }
     const versionChanges = changedVersions(state.versions, config.currentVersions || state.versions);
     if (versionChanges.length && config.pinnedVersionsExecutable !== true) {
       return { ok: false, code: "rules_changed_rebuild_required", versionChanges };
@@ -784,6 +838,9 @@
     CONTEXT_SCHEMA_VERSION,
     MAX_CONTEXT_BYTES,
     MAX_DRAFT_BYTES,
+    MAX_MUSCLE_CONTROLS,
+    KNOWN_EQUIPMENT: [...KNOWN_EQUIPMENT],
+    KNOWN_CAPABILITIES: [...KNOWN_CAPABILITIES],
     ROUTES,
     ROUTE_STEPS,
     createState,
