@@ -19,8 +19,8 @@ There were no inline review comments or submitted GitHub review objects at the b
 
 | ID | Source comment | Finding | Severity | Status | Fix commit | Verification |
 |---|---|---|---|---|---|---|
-| B01 | S6 §2.1; S7 duplicate | `about_half` maps to `interrupted` but disables its one-week re-entry treatment. It must not become `returning`. | blocker | confirmed | — | Adapter/compiler trace; named regression pending |
-| B02 | S3 §8; S5 SHOULD 3 | Stored week prescriptions, including returning/interrupted treatment, are not consumed by the active week-one program sets. | blocker | confirmed | — | Compiler output/runtime projection trace; runtime probe pending |
+| B01 | S6 §2.1; S7 duplicate | `about_half` maps to `interrupted` but disables its one-week re-entry treatment. It must not become `returning`. | blocker | fixed | `801b57e` | Named adapter test proves interrupted + enabled, reduced week 1, normal weeks 2–6 |
+| B02 | S3 §8; S5 SHOULD 3 | Stored week prescriptions, including returning/interrupted treatment, are not consumed by the active week-one program sets. | blocker | fixed | `801b57e` | Pure projection and 44-check browser run prove reduced week 1, restored week 2, unchanged durable bytes |
 | B03 | S1 §3; S3 §1; S5 BLOCKER 1; S6 §2.2 | Build immediately activates empty day containers and replaces the active program. | blocker | confirmed | — | Browser evidence plus `app.js` Build handler; red test pending |
 | B04 | S1 §3; S3 §4; S6 §2.2 | Empty/incomplete Build results are considered activation-ready; validation does not explain missing exercises. | blocker | confirmed | — | `{}`/empty-result readiness trace; red test pending |
 | B05 | S1 §2; S3 §1; S5 BLOCKER 1; S6 §2.3 | “Edit before using” activates, clears the draft, and edits active state instead of the candidate draft. | blocker | confirmed | — | Browser evidence and click-handler trace; byte test pending |
@@ -125,4 +125,3 @@ There were no inline review comments or submitted GitHub review objects at the b
 - Browse can only expose a release catalogue whose facts are declared from the existing closed family/blueprint inventory. This work may not invent a new family, blueprint, or compiler constant (`C21`).
 - The PostHog token finding is valid even though the faulty filter predates this PR: the exact pinned SDK drops an event when `before_send` removes `token`, so Plan 048 telemetry is otherwise nonfunctional (`C33`).
 - Visual mocks guide composition, while brand and accessibility control CTA color, chrome, shadows, type size, and target geometry (`F07`–`F09`).
-
