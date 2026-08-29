@@ -175,6 +175,15 @@ It may be selected for genuinely new structured-program users or by an experienc
 - prefers simpler progression when multiple valid strategies exist;
 - removes optional/redundant cognitive complexity where appropriate;
 - starts conservatively within authored prescription bounds;
+- **RIR (owner-approved 2026-08-29):** Foundation may prefer the more
+  conservative (higher-RIR) end of an *already-authored* RIR range for a gentler
+  start — e.g. an authored `1–3` may initialize as `2–3`, an authored `2–3` stays
+  `2–3`. It must never invent a new RIR target, widen the authored range, or move
+  outside the prescription's existing bounds: an authored `0–2` must not become
+  `2–3`, and an authored fixed target is never replaced with an unrelated
+  Foundation target. This is conservative initialization inside the authored
+  prescription, not a separate Foundation effort system, and adds no new
+  strategy, prescription class, or Foundation-specific RIR formula;
 - predominantly prefers `range@1`;
 - may retain `rep_goal@1` when there is a strong authored reason;
 - normally replaces `anchor_backoff@1` with an appropriate simpler `range@1` primary prescription;

@@ -5,6 +5,17 @@ part of serving the app — Taurifer stays build-free. These scripts produce
 committed files, the same way `i18n.js` is produced from `i18n-en.json` and
 `i18n-pt.json`.
 
+## build-program-family-fixtures.mjs
+
+Generates the reviewed Plan 047 fixture from `program-compiler.js`. The source
+contains twenty separately authored 2–6 day blueprints; this command does not
+derive sibling frequencies from recipes.
+
+```bash
+node tools/build-program-family-fixtures.mjs
+node tools/build-program-family-fixtures.mjs --check
+```
+
 ## build-i18n.mjs
 
 Rewrites the EN and PT dictionaries inside `i18n.js` from `i18n-en.json` and

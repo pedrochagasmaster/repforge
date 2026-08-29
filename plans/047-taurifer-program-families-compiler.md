@@ -1,5 +1,12 @@
 # Plan 047: Taurifer program families and deterministic compiler
 
+> **Superseded where amended.** The implementation authority is
+> `plans/047-owner-approved-amendment.md`, with behavior defined by
+> `docs/plan-047-owner-approved-design.md` and effort progression by
+> `docs/progression-effort-target-v1.md`. In particular, this older plan's
+> allocation matrix, recipe-derived sibling frequencies, Home positioning,
+> Foundation caps, and re-entry RIR modifier are retired.
+
 ## Status
 
 - **State:** READY FOR IMPLEMENTATION after Plan 046's strategy schema is

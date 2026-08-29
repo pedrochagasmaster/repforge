@@ -2,7 +2,7 @@
   "use strict";
 
   const ENGINE_VERSION = 1;
-  const STRATEGY_IDS = Object.freeze(["range", "rep_goal", "anchor_backoff", "manual"]);
+  const STRATEGY_IDS = Object.freeze(["range", "rep_goal", "effort_target", "anchor_backoff", "manual"]);
   const CAPACITY = Object.freeze({
     jumpMargin: 1,
     bigJumpMargin: 3,
@@ -251,6 +251,7 @@
     // rules they have not been given.
     if (strategy.id === "range") return validateRangePrescription(prescription);
     if (strategy.id === "rep_goal") return validateRepGoalPrescription(prescription);
+    if (strategy.id === "effort_target") return validateEffortTargetPrescription(prescription);
     if (strategy.id === "anchor_backoff") return validateAnchorBackoffPrescription(prescription);
 
     const params = canonicalizeChecked(strategy.params, "prescription.strategy.params");
@@ -819,6 +820,54 @@
     return { ok: true, value: { schemaVersion: 1, strategy: { id: "rep_goal", version: 1, params: value }, modifiers: [] } };
   }
 
+  function validateEffortTargetPrescription(prescription) {
+    const issues = [];
+    if (!isPlainObject(prescription)) return validationFailure(["prescription: expected object"]);
+    for (const key of unexpectedKeys(prescription, new Set(["schemaVersion", "strategy", "modifiers"]))) {
+      issues.push(`prescription.${key}: unknown key`);
+    }
+    if (prescription.schemaVersion !== 1) issues.push("prescription.schemaVersion: unsupported");
+    if (!Array.isArray(prescription.modifiers) || prescription.modifiers.length) {
+      issues.push("prescription.modifiers: Wave 2 requires an empty array");
+    }
+    const strategy = prescription.strategy;
+    if (!isPlainObject(strategy)) return validationFailure(issues.concat(["prescription.strategy: expected object"]));
+    for (const key of unexpectedKeys(strategy, new Set(["id", "version", "params"]))) {
+      issues.push(`prescription.strategy.${key}: unknown key`);
+    }
+    if (strategy.id !== "effort_target") issues.push("prescription.strategy.id: unsupported");
+    if (strategy.version !== 1) issues.push("prescription.strategy.version: unsupported");
+    const params = strategy.params;
+    if (!isPlainObject(params)) return validationFailure(issues.concat(["prescription.strategy.params: expected object"]));
+    const allowed = new Set([
+      "workingSets", "targetReps", "targetRirMin", "targetRirMax", "minLoadIncrement", "loadMode",
+    ]);
+    for (const key of unexpectedKeys(params, allowed)) issues.push(`prescription.strategy.params.${key}: unknown key`);
+    if (!integerInRange(params.workingSets, LIMITS.workingSets)) issues.push("params.workingSets: out of range");
+    if (!integerInRange(params.targetReps, LIMITS.reps)) issues.push("params.targetReps: out of range");
+    if (!inRange(params.targetRirMin, LIMITS.targetRir)) issues.push("params.targetRirMin: out of range");
+    if (!inRange(params.targetRirMax, LIMITS.targetRir) || params.targetRirMax < params.targetRirMin) {
+      issues.push("params.targetRirMax: out of range");
+    }
+    if (!inRange(params.minLoadIncrement, LIMITS.minLoadIncrement)) issues.push("params.minLoadIncrement: out of range");
+    if (hasOwn(params, "loadMode") && params.loadMode !== "external" && params.loadMode !== "bodyweight") {
+      issues.push("params.loadMode: unsupported");
+    }
+    if (issues.length) return validationFailure(issues);
+    const value = {
+      workingSets: params.workingSets,
+      targetReps: params.targetReps,
+      targetRirMin: params.targetRirMin,
+      targetRirMax: params.targetRirMax,
+      minLoadIncrement: params.minLoadIncrement,
+    };
+    if (hasOwn(params, "loadMode")) value.loadMode = params.loadMode;
+    return {
+      ok: true,
+      value: { schemaVersion: 1, strategy: { id: "effort_target", version: 1, params: value }, modifiers: [] },
+    };
+  }
+
   // The authored goal has to be reachable inside the authored per-set window.
   // A prescription that fails this is unsatisfiable rather than malformed, so
   // it gets the strategy's own code instead of engine.invalid_input.
@@ -975,6 +1024,143 @@
         targetReps: reps,
       },
       provenance);
+  }
+
+  function effortTargetSets(params, load, count = params.workingSets) {
+    return Array.from({ length: count }, () => ({
+      role: "working",
+      load,
+      reps: params.targetReps,
+      repMin: params.targetReps,
+      repMax: params.targetReps,
+      targetRir: params.targetRirMax,
+      targetRirMin: params.targetRirMin,
+      targetRirMax: params.targetRirMax,
+    }));
+  }
+
+  function effortTargetFacts(params, values = {}) {
+    return {
+      targetReps: params.targetReps,
+      targetRirMin: params.targetRirMin,
+      targetRirMax: params.targetRirMax,
+      ...values,
+    };
+  }
+
+  function evaluateNextEffortTarget(params, settings, summaries, provenance) {
+    const strategy = { id: "effort_target", version: 1 };
+    if (!summaries.length) {
+      return baseResult("recommendation", "new", strategy, ["effort_target.no_history"],
+        effortTargetSets(params, null),
+        effortTargetFacts(params, {
+          representativeLoad: null,
+          representativeReps: null,
+          representativeRir: null,
+          rawRecommendedLoad: null,
+          targetLoad: null,
+          evidenceSetCount: 0,
+          evidenceSessionCount: 0,
+        }), provenance);
+    }
+
+    const increment = settings.minLoadIncrement || params.minLoadIncrement;
+    const latestActionable = summaries.at(-1);
+    const direct = summaries.slice().reverse().find((session) => session.sets.some((set) => isFiniteNumber(set.rir)));
+    if (!direct) {
+      const representativeLoad = median(latestActionable.sets.map((set) => set.load));
+      const targetLoad = Math.max(roundToGrid(representativeLoad, increment), increment);
+      const reasonCodes = ["effort_target.no_rir_evidence"];
+      if (!sameLoad(targetLoad, representativeLoad)) reasonCodes.push("effort_target.grid_rounded");
+      return baseResult("recommendation", "hold", strategy, reasonCodes,
+        effortTargetSets(params, targetLoad),
+        effortTargetFacts(params, {
+          representativeLoad,
+          representativeReps: median(latestActionable.sets.map((set) => set.reps)),
+          representativeRir: null,
+          rawRecommendedLoad: representativeLoad,
+          targetLoad,
+          evidenceSetCount: latestActionable.sets.length,
+          evidenceSessionCount: summaries.length,
+        }), provenance);
+    }
+
+    const representativeLoad = median(direct.sets.map((set) => set.load));
+    const representativeReps = median(direct.sets.map((set) => set.reps));
+    const finiteRirs = direct.sets.filter((set) => isFiniteNumber(set.rir)).map((set) => set.rir);
+    const representativeRir = median(finiteRirs);
+    const actionableLoad = Math.max(roundToGrid(representativeLoad, increment), increment);
+    let status = "hold";
+    let reason = "effort_target.on_target";
+    let movement = 0;
+    if (representativeReps < params.targetReps) {
+      status = "reduce";
+      reason = "effort_target.rep_miss";
+      movement = -increment;
+    } else if (representativeRir < params.targetRirMin) {
+      status = "reduce";
+      reason = "effort_target.too_hard";
+      movement = -increment;
+    } else if (representativeRir > params.targetRirMax) {
+      status = "advance";
+      reason = "effort_target.too_easy";
+      movement = increment;
+    }
+    const rawRecommendedLoad = actionableLoad + movement;
+    const targetLoad = Math.max(roundToGrid(rawRecommendedLoad, increment), increment);
+    const reasonCodes = [reason];
+    if (!sameLoad(actionableLoad, representativeLoad) || !sameLoad(targetLoad, rawRecommendedLoad)) {
+      reasonCodes.push("effort_target.grid_rounded");
+    }
+    return baseResult("recommendation", status, strategy, reasonCodes,
+      effortTargetSets(params, targetLoad),
+      effortTargetFacts(params, {
+        representativeLoad,
+        representativeReps,
+        representativeRir,
+        rawRecommendedLoad,
+        targetLoad,
+        evidenceSetCount: direct.sets.length,
+        evidenceSessionCount: summaries.length,
+      }), provenance);
+  }
+
+  function evaluateCurrentEffortTarget(params, settings, currentSession, provenance) {
+    const strategy = { id: "effort_target", version: 1 };
+    const untouched = Math.max(0, params.workingSets - currentSession.length);
+    const latest = currentSession.at(-1);
+    const increment = settings.minLoadIncrement || params.minLoadIncrement;
+    const actionableLoad = Math.max(roundToGrid(latest.load, increment), increment);
+    let status = "hold";
+    let reason = "effort_target.current_hold";
+    let movement = 0;
+    if (latest.reps < params.targetReps || (isFiniteNumber(latest.rir) && latest.rir < params.targetRirMin)) {
+      status = "reduce";
+      reason = "effort_target.current_reduce";
+      movement = -increment;
+    } else if (isFiniteNumber(latest.rir) && latest.reps >= params.targetReps && latest.rir > params.targetRirMax) {
+      status = "advance";
+      reason = "effort_target.current_advance";
+      movement = increment;
+    }
+    const rawRecommendedLoad = actionableLoad + movement;
+    const targetLoad = Math.max(roundToGrid(rawRecommendedLoad, increment), increment);
+    const reasonCodes = [reason];
+    if (!sameLoad(actionableLoad, latest.load) || !sameLoad(targetLoad, rawRecommendedLoad)) {
+      reasonCodes.push("effort_target.grid_rounded");
+    }
+    return baseResult("recommendation", status, strategy, reasonCodes,
+      untouched ? effortTargetSets(params, targetLoad, 1) : [],
+      effortTargetFacts(params, {
+        representativeLoad: latest.load,
+        representativeReps: latest.reps,
+        representativeRir: isFiniteNumber(latest.rir) ? latest.rir : null,
+        rawRecommendedLoad,
+        targetLoad,
+        evidenceSetCount: currentSession.length,
+        evidenceSessionCount: 0,
+        untouchedSets: untouched,
+      }), provenance);
   }
 
   /* ---- anchor_backoff@1 -------------------------------------------------
@@ -1608,6 +1794,32 @@
         ? evaluateCurrentRepGoal(params, settings.value, history.value, currentSession.value, provenance)
         : evaluateNextRepGoal(params, settings.value, history.value, provenance), gate);
     }
+    if (strategy.id === "effort_target" && strategy.version === 1) {
+      const prescription = validateEffortTargetPrescription(input.prescription);
+      const settings = validateSettings(input.settings);
+      const history = summarizeHistory(input.history, settings.ok ? settings.value.hardRir : 4);
+      const currentSession = normalizeCurrentSession(input.currentSession);
+      const context = validateContext(input.context);
+      const issues = [];
+      for (const checked of [prescription, settings, history, currentSession, context]) {
+        if (!checked.ok) issues.push(...checked.issues);
+      }
+      if (issues.length) return invalidResult(strategy, issues);
+      const gate = pairingGate(input, strategy);
+      if (!gate.ok) return gate.result;
+      const params = prescription.value.strategy.params;
+      if (params.loadMode === "bodyweight") {
+        return incompatibleResult({ id: "effort_target", version: 1 }, "effort_target.bodyweight_incompatible");
+      }
+      const provenance = {
+        evidenceWindow: { sessionCount: history.value.length, currentSetCount: currentSession.value.length },
+        modifierVersions: [],
+        relationVersion: null,
+      };
+      return withPairing(currentSession.value.length
+        ? evaluateCurrentEffortTarget(params, settings.value, currentSession.value, provenance)
+        : evaluateNextEffortTarget(params, settings.value, history.value, provenance), gate);
+    }
     if (strategy.id === "anchor_backoff" && strategy.version === 1) {
       const prescription = validateAnchorBackoffPrescription(input.prescription);
       const settings = validateSettings(input.settings);
@@ -1691,6 +1903,7 @@
     validateSettings,
     validateRangePrescription,
     validateRepGoalPrescription,
+    validateEffortTargetPrescription,
     validateAnchorBackoffPrescription,
     balancedFrontload,
     PAIRED_PAIRS,

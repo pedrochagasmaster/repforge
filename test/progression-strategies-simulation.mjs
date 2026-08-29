@@ -19,6 +19,14 @@ const prescriptions = {
     } },
     modifiers: [],
   },
+  effort_target: {
+    schemaVersion: 1,
+    strategy: { id: "effort_target", version: 1, params: {
+      workingSets: 2, targetReps: 5, targetRirMin: 2, targetRirMax: 3,
+      minLoadIncrement: GRID,
+    } },
+    modifiers: [],
+  },
   anchor_backoff: {
     schemaVersion: 1,
     strategy: { id: "anchor_backoff", version: 1, params: {
@@ -73,16 +81,25 @@ function simulate(name, initialSets, expectedSets) {
       assert.equal(result.target.sets[0].role, "anchor", `anchor week ${week}: first role`);
       assert.ok(result.target.sets.slice(1).every((set) => set.role === "backoff" && set.load <= result.target.sets[0].load), `anchor week ${week}: valid lighter sets`);
     }
+    if (name === "effort_target") {
+      const p = prescriptions.effort_target.strategy.params;
+      assert.ok(result.target.sets.every((set) => set.reps === p.targetReps
+        && set.targetRirMin === p.targetRirMin && set.targetRirMax === p.targetRirMax),
+      `effort_target week ${week}: authored targets drifted`);
+    }
     if (result.status === "advance") advances++;
     maximumPermitted = Engine.roundToGrid(maximumPermitted + Math.max(maximumPermitted * 0.025, GRID), GRID);
     assert.ok(result.target.sets.every((set) => set.load == null || set.load <= maximumPermitted), `${name} week ${week}: runaway load`);
-    history.push(session(`${name}-${SEED}-${week}`, week, performed(result.target.sets)));
+    const nextSets = performed(result.target.sets);
+    if (name === "effort_target") nextSets.forEach((set) => { set.rir = 4; });
+    history.push(session(`${name}-${SEED}-${week}`, week, nextSets));
   }
   assert.ok(advances > 0, `${name}: never advances in a completed 52-week target journey`);
   return { history, advances };
 }
 
 const rep = simulate("rep_goal", Array.from({ length: 3 }, () => ({ role: "working", load: 100, reps: 10, rir: 2 })), 3);
+const effort = simulate("effort_target", Array.from({ length: 2 }, () => ({ role: "working", load: 100, reps: 5, rir: 4 })), 2);
 const anchor = simulate("anchor_backoff", [
   { role: "anchor", load: 100, reps: 5, rir: 2 },
   ...Array.from({ length: 3 }, () => ({ role: "backoff", load: 80, reps: 8, rir: 2 })),
@@ -131,4 +148,4 @@ const offGrid = baseInput(prescriptions.rep_goal, [session("off-grid", 0,
 const snapped = Engine.evaluateProgression(offGrid);
 assert.ok(snapped.target.sets.every((set) => Engine.roundToGrid(set.load, GRID) === set.load), "off-grid evidence produces deterministic on-grid targets");
 
-console.log(`PASS: seed ${SEED}; 52-week rep_goal (${rep.advances} advances), anchor_backoff (${anchor.advances}), manual, paired temper, grid, purity, and slot isolation`);
+console.log(`PASS: seed ${SEED}; 52-week rep_goal (${rep.advances} advances), effort_target (${effort.advances}), anchor_backoff (${anchor.advances}), manual, paired temper, grid, purity, and slot isolation`);

@@ -1606,6 +1606,8 @@ function normalizeProgressionModifiers(value,options={}){
 class Exercise{
   constructor(d={}){
     this.id=d.id||uid();
+    if(d.slotId!=null&&String(d.slotId).trim())this.slotId=String(d.slotId).trim();
+    if(d.dayId!=null&&String(d.dayId).trim())this.dayId=String(d.dayId).trim();
     this.day=String(d.day??"").trim()||"Day 1";
     this.order=Number.isFinite(+d.order)?+d.order:1;
     this.name=String(d.name??"").trim()||"Exercise";
@@ -1633,6 +1635,8 @@ class Exercise{
     if(d.minSets!=null&&Number.isFinite(+d.minSets)&&+d.minSets>0)this.minSets=Math.round(+d.minSets);
     if(d.maxSets!=null&&Number.isFinite(+d.maxSets)&&+d.maxSets>0)this.maxSets=Math.round(+d.maxSets);
     if(d.priority!=null)this.priority=String(d.priority).trim();
+    if(["known_grid","bodyweight","ordinal","external_unknown"].includes(d.loadingMode))this.loadingMode=d.loadingMode;
+    if(d.loadIncrement!=null&&Number.isFinite(+d.loadIncrement)&&+d.loadIncrement>0)this.loadIncrement=+d.loadIncrement;
     if(d.progression!=null){
       if(!isBoundedProgressionValue(d.progression))throw new TypeError("progression: structure exceeds safety bounds");
       const progression=normalizeProgressionEnvelope(d.progression);
@@ -1663,6 +1667,8 @@ class Exercise{
     this.secondary=entry.secondary||"";
     return this}
   toJSON(){const o={id:this.id,day:this.day,order:this.order,name:this.name,sets:this.sets,min:this.min,max:this.max,primary:this.primary,secondary:this.secondary,notes:this.notes,alternates:this.alternates};
+    if(this.slotId!==undefined)o.slotId=this.slotId;
+    if(this.dayId!==undefined)o.dayId=this.dayId;
     if(this.libraryId!==undefined)o.libraryId=this.libraryId;
     if(this.movementId!==undefined)o.movementId=this.movementId;
     if(this.displayName!==undefined)o.displayName=this.displayName;
@@ -1672,6 +1678,8 @@ class Exercise{
     if(this.minSets!==undefined)o.minSets=this.minSets;
     if(this.maxSets!==undefined)o.maxSets=this.maxSets;
     if(this.priority!==undefined)o.priority=this.priority;
+    if(this.loadingMode!==undefined)o.loadingMode=this.loadingMode;
+    if(this.loadIncrement!==undefined)o.loadIncrement=this.loadIncrement;
     if(this.progression!==undefined)o.progression=cloneSnapshot(this.progression);
     if(this.progressionIncompatibility!==undefined)o.progressionIncompatibility=cloneSnapshot(this.progressionIncompatibility);
     return o}
@@ -1754,6 +1762,7 @@ const LEGACY_LIBRARY_IDS=LIBRARY_SOURCE.legacyIds||{};
 const LIBRARY_BY_ID=new Map(EXERCISE_LIBRARY.map(e=>[e.id,e]));
 const SHARED_BUILT_IN_IDS=new Set(EXERCISE_LIBRARY.map(e=>e.id));
 const SharedSetup=typeof window!=="undefined"?window.RepForgeSharedSetup:null;
+const ProgramCompiler=typeof window!=="undefined"?window.RepForgeProgramCompiler:null;
 
 /* Custom exercises a lifter created. They live in state so they survive across
    programs and show up in every picker beside the built-ins; the "custom:"
@@ -2145,7 +2154,7 @@ function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
-  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[]}}
+  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null}}
 function buildProgramMeta({name, answers}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
@@ -2178,10 +2187,18 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const progressionOptions={preserveInvalid:options.preserveInvalidProgression===true,incompatibilities,source:options.source};
   const progressionRelations=normalizeProgressionRelations(m.progressionRelations,program,progressionOptions);
   const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
+  if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
+  const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure}}
+
+function withExplicitProgramStructure(program,meta){
+  if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
+  const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
+  return{program:migrated.program,meta:{...meta,programStructure:migrated.structure}}
+}
 function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
    into the same shape the built-ins have — the pickers and the copy-into-template
@@ -2216,8 +2233,12 @@ function normalizeCustomExercises(list){
 function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{
     const normalized=cloneSnapshot(entry);
-    if(Object.prototype.hasOwnProperty.call(normalized,"program"))
+    if(Object.prototype.hasOwnProperty.call(normalized,"program")){
       normalized.program=new Program(normalized.program,lookup).toJSON();
+      const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{});
+      normalized.program=structured.program;
+      if(normalized.meta)normalized.meta=structured.meta;
+      else normalized.programMeta=structured.meta}
     return normalized})}
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:starterProgram(),log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
@@ -2231,6 +2252,8 @@ function normalizeLoaded(s,options={}){
   // or a boot they are not in live state yet.
   out.program=new Program(s.program,lookup).toJSON();
   out.programMeta=normalizeProgramMeta(s.programMeta,s.log,out.program,options);
+  const structured=withExplicitProgramStructure(out.program,out.programMeta);
+  out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   return out}
@@ -2712,7 +2735,8 @@ function buildSharedProgramMeta(raw,program=[]){
     mesocycleStatus:"active",completedAt:null,onboarded:true,
     progressionRelations:normalizeProgressionRelations(raw?.progressionRelations,program),
     progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
-    blockPromptDismissedId:null}}
+    blockPromptDismissedId:null,
+    programStructure:raw?.programStructure?cloneSnapshot(raw.programStructure):null}}
 function proposalFromSharedSetup(payload,baseState=state){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
@@ -2776,6 +2800,8 @@ function save(){return persist()}
 function persist(opts={}){
   dropMemo.clear();baselineMemo.clear();
   const base=cloneSnapshot(mutationBase||state);
+  const structured=withExplicitProgramStructure(state.program,state.programMeta||defaultProgramMeta(state.log));
+  state.program=structured.program;state.programMeta=structured.meta;
   const snapshot=cloneSnapshot(state);
   return enqueueStateChange(base,snapshot,storageIO,opts)}
 async function commitProposedState(proposal,io=storageIO,opts={}){
@@ -2783,6 +2809,8 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   const base=cloneSnapshot(mutationBase||state);
   const liveBase=cloneSnapshot(state);
   const snapshot=cloneSnapshot(proposal);
+  const structured=withExplicitProgramStructure(snapshot.program,snapshot.programMeta||defaultProgramMeta(snapshot.log));
+  snapshot.program=structured.program;snapshot.programMeta=structured.meta;
   const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
   if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
@@ -2980,9 +3008,9 @@ function blockTrendNote(trend){
    engine: the pure module knows nothing about the DOM, storage, i18n, a
    program family, or an entitlement, and nothing here teaches it.
 
-   `range@1` is the only arithmetic strategy. Unsupported imported markers are
-   represented as typed manual results rather than silently falling back, so a
-   proposed strategy cannot become live by accident. */
+   Unsupported imported markers are represented as typed manual results rather
+   than silently falling back, so a proposed strategy cannot become live by
+   accident. */
 /** Raw rows for this lift, grouped and ordered exactly the way sessionsFor
  *  groups and orders them, so the engine's own summaries land on the same
  *  numbers the app used to compute inline. */
@@ -3078,6 +3106,24 @@ function anchorCopy(ex,result,params){
   if(codes.includes("anchor_backoff.anchor_below_floor"))
     return{status:"reduce",heat:.18,label:t("rec.anchor.reduce.label"),text:t("rec.anchor.reduce.text",{min})};
   return{status:"hold",heat:.48,label:t("rec.anchor.hold.label"),text:t("rec.anchor.hold.text",{min,max})}}
+function effortTargetCopy(result){
+  const f=result.facts,codes=result.reasonCodes;
+  if(codes.includes("effort_target.no_history"))
+    return{status:"new",heat:.12,label:t("rec.effort.new.label"),
+      text:t("rec.effort.new.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})};
+  if(codes.includes("effort_target.no_rir_evidence"))
+    return{status:"hold",heat:.42,label:t("rec.effort.no_rir.label"),text:t("rec.effort.no_rir.text")};
+  if(codes.includes("effort_target.too_easy"))
+    return{status:"add",heat:.82,label:t("rec.effort.advance.label"),
+      text:t("rec.effort.advance.text",{reps:f.targetReps,max:fmt(f.targetRirMax)})};
+  if(codes.includes("effort_target.rep_miss"))
+    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
+      text:t("rec.effort.rep_miss.text",{reps:f.targetReps})};
+  if(codes.includes("effort_target.too_hard"))
+    return{status:"reduce",heat:.18,label:t("rec.effort.reduce.label"),
+      text:t("rec.effort.too_hard.text",{min:fmt(f.targetRirMin)})};
+  return{status:"hold",heat:.48,label:t("rec.effort.hold.label"),
+    text:t("rec.effort.hold.text",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})}}
 
 /* Legacy progression markers are compatibility data, not a formula switch.
  * This is the complete alias table: the old double-progression marker is the
@@ -3099,16 +3145,18 @@ const strategyIdFor=ex=>progressionForExercise(ex)?.strategy?.id||"range";
    gate read their own facts off the same result object. */
 function strategyRecommendation(ex,result,id){
   const params=progressionForExercise(ex)?.strategy?.params||{};
-  const copy=id==="rep_goal"?repGoalCopy(ex,result):anchorCopy(ex,result,params);
+  const copy=id==="rep_goal"?repGoalCopy(ex,result)
+    :id==="effort_target"?effortTargetCopy(result):anchorCopy(ex,result,params);
   const sets=strategySets(result);
   return{...copy,load:sets[0]?.load??result.facts.targetLoad??null,
     stalled:false,block:{dir:null,sessions:0},blockNote:"",pushReps:false,
     reason:result.reasonCodes[0],strategy:id,engineSets:sets,
-    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,lastLoad:result.facts.latestLoad}}
+    cap:result.facts.capacityE1rm,cr:result.facts.capacityReps,
+    lastLoad:result.facts.latestLoad??result.facts.representativeLoad}}
 function recommendation(ex){
   const strategy=strategyIdFor(ex);
   const result=RepForgeProgression.evaluateProgression(progressionInput(ex));
-  if(strategy==="rep_goal"||strategy==="anchor_backoff"){
+  if(strategy==="rep_goal"||strategy==="effort_target"||strategy==="anchor_backoff"){
     if(result.kind==="recommendation"||result.kind==="insufficient_evidence")
       return strategyRecommendation(ex,result,strategy)}
   const codes=result.reasonCodes,facts=result.facts,ui=RANGE_REASON_UI[codes[0]];
@@ -3239,12 +3287,13 @@ function baseSuggestion(ex,rec,draft,old){
    order. Shared by every strategy's in-session path. */
 function completedCurrentSets(ex,n,draft){
   const done=new Set(draft.__done||[]),warm=new Set(draft.__warm||[]),sets=[];
+  const preserveMissingRir=strategyIdFor(ex)==="effort_target";
   for(let k=1;k<n;k++){const key=`${ex.id}_${k}`;
     if(!done.has(key)||warm.has(key))continue;
     const ld=fromDisplay(parseDec(draft[`${key}_load`])||0),rp=parseDec(draft[`${key}_reps`])||0;
     if(!(ld>0&&rp>0))continue;
-    let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??1;
-    else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=1}
+    let rir;if(isEffortMode())rir=EFFORT_RIR[draft[`${key}_effort`]]??(preserveMissingRir?null:1);
+    else{rir=parseDec(draft[`${key}_rir`]);if(!Number.isFinite(rir))rir=preserveMissingRir?null:1}
     sets.push({load:ld,reps:rp,rir,cap:capE1rm(ld,rp,rir)})}
   return sets}
 /* The approved strategies have no second arithmetic here: their in-session
@@ -3313,6 +3362,12 @@ function explainStrategy(ex,rec,u){
     if(result.reasonCodes.includes("rep_goal.rebuild_after_advance"))
       rows.push({text:t("why.repgoal.rebuild",{goal:f.repGoal,reps:strategySets(result)[0]?.reps})});
     if(f.completedReps!=null)rows.push({text:t("why.repgoal.distribution")})}
+  else if(rec.strategy==="effort_target"){
+    if(f.representativeLoad!=null)rows.push({text:t("why.effort.evidence",{
+      load:fmtLoad(f.representativeLoad),unit:u,reps:fmt(f.representativeReps),rir:f.representativeRir==null?t("why.effort.missing"):fmt(f.representativeRir)})});
+    rows.push({text:t("why.effort.target",{reps:f.targetReps,min:fmt(f.targetRirMin),max:fmt(f.targetRirMax)})});
+    if(result.reasonCodes.includes("effort_target.grid_rounded"))
+      rows.push({text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})})}
   else{
     if(f.anchorLoad!=null)rows.push({text:t("why.anchor.top",
       {load:fmtLoad(f.anchorLoad),unit:u,reps:Math.round(f.capacityReps)})});
@@ -6057,7 +6112,7 @@ function dayCard(d){
   `</div>`;
 }
 
-const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","anchor_backoff","manual"]);
+const PROGRESSION_EDITOR_STRATEGIES=Object.freeze(["range","rep_goal","effort_target","anchor_backoff","manual"]);
 const progressionNumber=(name,label,value,{min=0,max=100,step="1"}={})=>
   `<label class="pstrategy__field"><span>${esc(label)}</span><input type="number" inputmode="decimal" name="${name}" value="${esc(value)}" min="${min}" max="${max}" step="${step}" required></label>`;
 function progressionEditorParams(e,strategy){
@@ -6078,6 +6133,12 @@ function progressionEditorParams(e,strategy){
     progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
     progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+
     progressionNumber("jump",t("program.progression.jump"),jump,{min:0,max:100,step:"0.1"})+`</div>`;
+  if(strategy==="effort_target")return `<div class="pstrategy__grid">`+
+    progressionNumber("sets",t("program.progression.sets"),+p.workingSets||e.sets,{min:1,max:20})+
+    progressionNumber("targetReps",t("program.progression.target_reps"),+p.targetReps||e.min,{min:1,max:100})+
+    progressionNumber("rirMin",t("program.progression.rir_min"),Number.isFinite(+p.targetRirMin)?+p.targetRirMin:2,{min:0,max:10,step:"0.5"})+
+    progressionNumber("rirMax",t("program.progression.rir_max"),Number.isFinite(+p.targetRirMax)?+p.targetRirMax:3,{min:0,max:10,step:"0.5"})+
+    progressionNumber("increment",t("program.progression.increment"),increment,{min:0.000001,max:1000,step:"any"})+`</div>`;
   if(strategy==="anchor_backoff")return `<div class="pstrategy__grid">`+
     progressionNumber("anchorRepMin",t("program.progression.anchor_rep_min"),+p.anchorRepMin||Math.min(e.min,5),{min:1,max:100})+
     progressionNumber("anchorRepMax",t("program.progression.anchor_rep_max"),+p.anchorRepMax||Math.min(Math.max(e.min,5),e.max),{min:1,max:100})+
@@ -6108,7 +6169,7 @@ function progressionEditorCard(e){
 }
 
 function exCard(e,i,n){
-  const progressionOwnsShape=!!e.progression&&["range","rep_goal","anchor_backoff"].includes(e.progression.strategy?.id);
+  const progressionOwnsShape=!!e.progression&&["range","rep_goal","effort_target","anchor_backoff"].includes(e.progression.strategy?.id);
   const num=(f,label)=>`<label class="pex__num">${label}<input type="number" inputmode="numeric" min="1" step="1" data-id="${e.id}" data-field="${f}" value="${esc(e[f])}"${progressionOwnsShape?" disabled":""}></label>`;
   // The name stays an editable field — a slot can be renamed to what the plate
   // on the machine says — with the library one tap away beside it.
@@ -6165,6 +6226,10 @@ function authoredProgressionFromForm(strategy,data,e){
     targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
     minLoadIncrement:progressionFormNumber(data,"increment"),jumpPercent:progressionFormNumber(data,"jump"),
     distributionPolicy:"balanced_frontload_v1"};
+  else if(strategy==="effort_target")params={
+    workingSets:progressionFormNumber(data,"sets"),targetReps:progressionFormNumber(data,"targetReps"),
+    targetRirMin:progressionFormNumber(data,"rirMin"),targetRirMax:progressionFormNumber(data,"rirMax"),
+    minLoadIncrement:progressionFormNumber(data,"increment")};
   else if(strategy==="anchor_backoff")params={
     anchorRepMin:progressionFormNumber(data,"anchorRepMin"),anchorRepMax:progressionFormNumber(data,"anchorRepMax"),
     anchorTargetRirMin:progressionFormNumber(data,"rirMin"),anchorTargetRirMax:progressionFormNumber(data,"rirMax"),
@@ -6177,6 +6242,7 @@ function authoredProgressionFromForm(strategy,data,e){
   return{schemaVersion:1,strategy:{id:strategy,version:1,params},modifiers:[]}}
 function progressionAuthoredShape(strategy,params,e){
   if(strategy==="rep_goal")return{sets:params.workingSets,min:params.repFloor,max:params.repCeiling};
+  if(strategy==="effort_target")return{sets:params.workingSets,min:params.targetReps,max:params.targetReps};
   if(strategy==="anchor_backoff")return{sets:1+params.backoffSets,min:Math.min(params.anchorRepMin,params.backoffRepMin),max:Math.max(params.anchorRepMax,params.backoffRepMax)};
   if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
   return{sets:e.sets,min:e.min,max:e.max}}
@@ -6622,7 +6688,7 @@ const SHARED_EQUIPMENT={machine:"machines",machines:"machines",cable:"cables",ca
 function sharedProgramMeta(meta,program){
   const days=program.days();
   const optional=(value,allowed)=>allowed.includes(value)?value:null;
-  return{name:String(meta?.name||"").trim()||t("untitled_program")||"Untitled program",
+  const out={name:String(meta?.name||"").trim()||t("untitled_program")||"Untitled program",
     goal:optional(meta?.goal,["hypertrophy","strength_hypertrophy","beginner_consistency"]),
     experience:optional(meta?.experience,["beginner","intermediate","advanced"]),daysPerWeek:days.length,
     splitType:optional(meta?.splitType,["full_body","machine_only","ppl","upper_lower","bro"]),
@@ -6633,13 +6699,17 @@ function sharedProgramMeta(meta,program){
     sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
     mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
     progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON()),
-    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)}}
+    progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)};
+  if(meta?.programStructure)out.programStructure=cloneSnapshot(meta.programStructure);
+  return out}
 function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
   if(preserveIdentity){out.id=ex?.id;out.movementId=ex?.movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
+    if(ex?.[key]!==undefined)out[key]=ex[key];
+  for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
   if(ex?.progression!==undefined)out.progression=cloneSnapshot(ex.progression);
   return out}
@@ -7769,7 +7839,8 @@ async function commitImportReview(io=storageIO){
       proposal.customExercises=merged.customExercises}
     proposal.programMeta={...proposal.programMeta,
       progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
-      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[])};
+      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[]),
+      programStructure:draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null};
     const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
       origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
       telemetryRoute:"import"});
@@ -7792,6 +7863,7 @@ async function commitImportReview(io=storageIO){
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(draft.meta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers);
+  meta.programStructure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProposedState(proposal,adapter,{effect,...transition});
@@ -8057,6 +8129,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
+  meta.programStructure=baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null;
   proposal.programMeta=meta;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];

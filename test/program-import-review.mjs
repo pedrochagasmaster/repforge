@@ -102,6 +102,12 @@ const v3 = JSON.stringify({
       members: [{ exerciseId: "slot-volume", role: "volume" }, { exerciseId: "slot-heavy", role: "heavy" }],
     }],
     progressionModifiers: [{ id: "modifier-import", version: 1, compatibleStrategies: ["range@1"], params: { pending: true } }],
+    programStructure: {
+      schemaVersion: 1,
+      days: [{ dayId: "import_d1", label: "Day 1", order: 1 }, { dayId: "import_d2", label: "Day 2", order: 2 }],
+      provenance: { familyId: "balanced", blueprintId: "balanced_2_v1", compilerVersion: 1, catalogueVersion: 1, rulesVersion: 1 },
+      weekPrescriptions: [], customizedFrom: null,
+    },
   },
   exercises: [
     { id: "slot-heavy", movementId: "movement:import-pair", day: "Day 1", order: 1, name: "Barbell back squat", sets: 3, min: 5, max: 8,
@@ -335,8 +341,9 @@ async function main() {
     assert(
       after.programMeta.progressionRelations?.[0]?.id === "relation-import" &&
         after.programMeta.progressionRelations[0].members[0].role === "heavy" &&
-        after.programMeta.progressionModifiers?.[0]?.id === "modifier-import",
-      "program import persists contextual relations and non-executable modifiers",
+        after.programMeta.progressionModifiers?.[0]?.id === "modifier-import" &&
+        after.programMeta.programStructure?.provenance?.blueprintId === "balanced_2_v1",
+      "program import persists contextual relations, modifiers, and compiler provenance",
       JSON.stringify({ relations: after.programMeta.progressionRelations, modifiers: after.programMeta.progressionModifiers })
     );
     const squat = after.program.find((e) => e.libraryId === "sq_bb");
@@ -378,7 +385,8 @@ async function main() {
     const parsedProgramJson = await page.evaluate((value) => window.__repforgeParseProgramSource(value, "program.json"), JSON.stringify(programJson));
     assert(
       parsedProgramJson?.meta?.progressionModifiers?.[0]?.id === "modifier-import" &&
-        parsedProgramJson?.exercises?.[0]?.progression?.strategy?.id === "range",
+        parsedProgramJson?.exercises?.[0]?.progression?.strategy?.id === "range" &&
+        parsedProgramJson?.meta?.programStructure?.provenance?.blueprintId === "balanced_2_v1",
       "program JSON import reads the versioned progression model",
       JSON.stringify(parsedProgramJson)
     );
@@ -388,7 +396,8 @@ async function main() {
     assert(
       reloaded.program.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
         reloaded.programMeta.progressionRelations?.[0]?.id === "relation-import" &&
-        reloaded.programMeta.progressionModifiers?.[0]?.id === "modifier-import",
+        reloaded.programMeta.progressionModifiers?.[0]?.id === "modifier-import" &&
+        reloaded.programMeta.programStructure?.provenance?.blueprintId === "balanced_2_v1",
       "durable reload preserves the progression model",
       JSON.stringify({ program: reloaded.program, meta: reloaded.programMeta })
     );
@@ -401,7 +410,8 @@ async function main() {
     });
     assert(
       archived.result?.committed && archived.entry?.program?.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
-        archived.entry?.meta?.progressionRelations?.[0]?.id === "relation-import",
+        archived.entry?.meta?.progressionRelations?.[0]?.id === "relation-import" &&
+        archived.entry?.meta?.programStructure?.provenance?.blueprintId === "balanced_2_v1",
       "archived program history preserves the progression model",
       JSON.stringify(archived)
     );

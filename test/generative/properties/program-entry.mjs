@@ -69,9 +69,8 @@ export function buildSuites() {
               family: "fixture-1",
               blueprint: "fixture-1",
               catalogue: "fixture-1",
-              allocation: "fixture-1",
-              timeModel: "fixture-1",
-              contextSchema: "1",
+              rules: "fixture-1",
+              context: "1",
               progression: "range-1",
             },
           };

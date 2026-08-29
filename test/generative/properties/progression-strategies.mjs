@@ -38,8 +38,19 @@ const anchorArbitrary = fc.record({
   backoffPercent: v.percent / 100, minLoadIncrement: GRID, jumpPercent: 2.5,
 } }, modifiers: [] }));
 
+const effortTargetArbitrary = fc.record({
+  workingSets: fc.integer({ min: 1, max: 6 }),
+  targetReps: fc.integer({ min: 2, max: 10 }),
+  rirMin: fc.integer({ min: 0, max: 8 }),
+  rirSpan: fc.integer({ min: 0, max: 2 }),
+}).map((v) => ({ schemaVersion: 1, strategy: { id: "effort_target", version: 1, params: {
+  workingSets: v.workingSets, targetReps: v.targetReps,
+  targetRirMin: v.rirMin, targetRirMax: Math.min(10, v.rirMin + v.rirSpan),
+  minLoadIncrement: GRID,
+} }, modifiers: [] }));
+
 const manual = { schemaVersion: 1, strategy: { id: "manual", version: 1, params: {} }, modifiers: [] };
-const strategyArbitrary = fc.oneof(repGoalArbitrary, anchorArbitrary, fc.constant(manual));
+const strategyArbitrary = fc.oneof(repGoalArbitrary, effortTargetArbitrary, anchorArbitrary, fc.constant(manual));
 
 const inputFor = (prescription, history, currentSession = []) => ({
   engineVersion: 1, prescription, relation: null, modifiers: [], settings,
@@ -58,6 +69,9 @@ function seedFor(prescription) {
     { role: "anchor", load: 100, reps: p.anchorRepMax, rir: 2 },
     ...Array.from({ length: p.backoffSets }, () => ({ role: "backoff", load: 80, reps: p.backoffRepMin, rir: 2 })),
   ];
+  if (id === "effort_target") return Array.from({ length: p.workingSets }, () => ({
+    role: "working", load: 100, reps: p.targetReps, rir: p.targetRirMax,
+  }));
   return [{ load: 100, reps: 8, rir: null }];
 }
 
@@ -73,6 +87,11 @@ function assertTyped(prescription, result) {
   for (const set of result.target.sets) {
     if (set.load !== null && (!Number.isFinite(set.load) || Progression.roundToGrid(set.load, GRID) !== set.load)) throw new Error(`${id} returned an invalid grid load`);
     if (set.reps !== null && !Number.isInteger(set.reps)) throw new Error(`${id} returned non-integer reps`);
+    if (id === "effort_target" && (set.reps !== prescription.strategy.params.targetReps
+      || set.targetRirMin !== prescription.strategy.params.targetRirMin
+      || set.targetRirMax !== prescription.strategy.params.targetRirMax)) {
+      throw new Error("effort_target changed an authored reps or RIR target");
+    }
   }
 }
 
@@ -114,6 +133,30 @@ export function buildSuites() {
               history = restored.history.concat({ sessionId: `session-${index}`, date: date(index), sets: completed(result.target.sets) });
             } else history = restored.history;
             prescription = restored.prescription;
+          }
+        },
+      ),
+    },
+    {
+      name: "effort target: missing RIR holds actionable history and one evidence step moves at most one grid increment",
+      property: fc.property(
+        effortTargetArbitrary,
+        fc.integer({ min: 1, max: 400 }).map((steps) => steps * GRID),
+        fc.option(fc.integer({ min: 0, max: 10 }), { nil: null }),
+        (prescription, load, rir) => {
+          const p = prescription.strategy.params;
+          const history = [{ sessionId: "effort", date: date(0), sets: Array.from({ length: p.workingSets }, () => ({
+            load, reps: p.targetReps, rir,
+          })) }];
+          const input = inputFor(prescription, history);
+          const before = stableStringify(input);
+          const result = Progression.evaluateProgression(input);
+          assertTyped(prescription, result);
+          if (stableStringify(input) !== before) throw new Error("effort target mutated evidence");
+          const target = result.target.sets[0]?.load;
+          if (target != null && Math.abs(target - load) > GRID + 1e-9) throw new Error("effort target moved more than one grid step");
+          if (rir === null && (result.status !== "hold" || !result.reasonCodes.includes("effort_target.no_rir_evidence"))) {
+            throw new Error("missing RIR did not produce a conservative hold");
           }
         },
       ),

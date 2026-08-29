@@ -34,6 +34,7 @@ const SUITE_FILES = [
   "progression-range",
   "progression-strategies",
   "program-entry",
+  "program-compiler",
 ];
 
 function parseArgs(argv) {

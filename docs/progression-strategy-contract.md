@@ -1,6 +1,6 @@
 # Progression strategy contract
 
-Status: contract version 1, **owner-approved on 2026-08-27**. The `range@1`
+Status: contract version 1, **owner-approved on 2026-08-28**. The `range@1`
 numbers come from released behavior in
 [Plan 039](../plans/039-capacity-driven-suggestions.md),
 [Plan 043](../plans/043-why-this-weight-inspector.md), and
@@ -8,6 +8,8 @@ numbers come from released behavior in
 `anchor_backoff@1`, `paired_exposure@1`, `manual@1`, and the modifier
 infrastructure decision were approved in the Wave 2 Plan 046 numeric gate and
 are locked in `test/fixtures/progression-strategies-v1.json`.
+`effort_target@1` was approved on 2026-08-28 as the Plan 047 prerequisite and
+is locked in the same fixture.
 
 Two things remain deliberately unapproved and must not be implemented: any
 **target-changing** block profile (step loading, volume emphasis, rep-range
@@ -47,7 +49,8 @@ Every result uses this discriminated shape:
         "incompatible" | "invalid",
   engineVersion: 1,
   strategy: { id, version },
-  target: { sets: [{ role, load, reps, repMin, repMax, targetRir }] },
+  target: { sets: [{ role, load, reps, repMin, repMax, targetRir,
+                     targetRirMin, targetRirMax }] },
   status: "new" | "advance" | "hold" | "reduce" | "recalibrate" |
           "manual",
   reasonCodes: [],
@@ -384,6 +387,98 @@ Reason codes are `rep_goal.no_history`, `rep_goal.progress`,
 `rep_goal.invalid_distribution`, `rep_goal.bodyweight_incompatible`,
 `rep_goal.current_progress`, and `rep_goal.current_drop`.
 
+## `effort_target@1`
+
+Status: **approved 2026-08-28**. Locked in the fixture under
+`strategies["effort_target@1"]`.
+
+### Job and fit
+
+Effort-target progression keeps fixed authored reps and changes only the next
+load. It compares completed work with an authored RIR range. This strategy is
+selective and suits externally loaded heavy-primary or general-strength work.
+`range@1` remains the default strategy.
+
+RIR autoregulation has support at the method level. The exact thresholds and
+one-grid-step rule are evidence-informed Taurifer choices. They are not
+physiological boundaries.
+
+### Parameters
+
+| Field | Contract |
+| --- | --- |
+| `workingSets` | Integer from 1 through 20. |
+| `targetReps` | Integer from 1 through 100. |
+| `targetRirMin` | Finite number from 0 through 10. |
+| `targetRirMax` | Finite number from `targetRirMin` through 10. |
+| `minLoadIncrement` | Positive finite kilograms, at most 1,000. |
+| `loadMode` | Optional. `"external"` is the default. `"bodyweight"` is incompatible. |
+
+The device loading grid takes precedence when the caller supplies a more
+specific increment. The authored increment remains the exercise loading
+capability fallback.
+
+### Comparable evidence
+
+The caller supplies completed working sets for one exact performed movement
+identity. Each set has a positive finite load and reps. A finite RIR value is
+direct effort evidence. Missing RIR remains missing.
+
+The strategy uses the latest comparable session with finite RIR evidence. The
+representative load and reps are the medians of the eligible sets. The
+representative RIR is the median of the finite RIR values.
+
+### Next-session rules
+
+1. With no comparable history, return `status: "new"`. Preserve the authored
+   sets, reps, and RIR range, and return a `null` load.
+2. With actionable load history but no finite RIR evidence, hold the latest
+   actionable load. Return `effort_target.no_rir_evidence`.
+3. If representative reps are below `targetReps`, reduce one grid step. Return
+   `effort_target.rep_miss`.
+4. If representative reps reach the target but RIR is below `targetRirMin`,
+   reduce one grid step. Return `effort_target.too_hard`.
+5. If representative reps reach the target and RIR is above `targetRirMax`,
+   advance one grid step. Return `effort_target.too_easy`.
+6. Otherwise hold. Return `effort_target.on_target`.
+
+The strategy first snaps off-grid evidence to the actionable grid. One evidence
+step then changes at most one grid increment. A reduction stops at one positive
+increment. The strategy has no double jump, percentage wave, capacity-derived
+extra jump, or scheduled deload.
+
+Every recommendation preserves `workingSets`, `targetReps`, `targetRirMin`, and
+`targetRirMax`.
+
+### Current-session rules
+
+The latest completed set decides the next untouched set. More reserve than the
+authored ceiling advances one grid step. A rep miss or an RIR value below the
+authored floor reduces one grid step. Every other result holds. Missing RIR
+does not become an invented effort value.
+
+The engine returns at most the next target. After all authored sets are
+complete, it returns no target. The app does not replace touched, committed, or
+completed future sets.
+
+### Incompatible combinations
+
+Bodyweight without an actionable external-load mechanism returns
+`effort_target.bodyweight_incompatible`. `effort_target@1` is not in the
+approved `paired_exposure@1` pair matrix. A paired relation therefore returns
+`paired_exposure.incompatible_strategy_pair`.
+
+Reason codes are `effort_target.no_history`,
+`effort_target.no_rir_evidence`, `effort_target.too_easy`,
+`effort_target.on_target`, `effort_target.rep_miss`,
+`effort_target.too_hard`, `effort_target.grid_rounded`,
+`effort_target.current_advance`, `effort_target.current_hold`, and
+`effort_target.current_reduce`.
+
+Required facts include the representative load, reps, and RIR, the authored
+rep and RIR targets, the raw load movement, the snapped target load, and the
+evidence set and session counts.
+
 ## `anchor_backoff@1`
 
 Status: **approved 2026-08-27**. Deliberately narrow. Locked in the fixture
@@ -614,6 +709,9 @@ Settled in the Wave 2 Plan 046 numeric gate, 2026-08-27:
 - `rep_goal@1`: parameters, the `balanced_frontload_v1` policy, advancement,
   rebuild-after-advance, the capacity floor, extra and missing sets, the
   current-session rule, bodyweight, and rounding.
+- `effort_target@1`: fixed reps, authored RIR ranges, direct effort evidence,
+  conservative missing-RIR holds, one-grid-step changes, current-session
+  behavior, bodyweight incompatibility, and no new paired relation.
 - `anchor_backoff@1`: parameters, `percentage_of_anchor_load_v1` with a
   0.70–0.95 authored band, anchor progression, back-off derivation, the
   untouched-only recalculation rule, failed and missing anchors, and bodyweight.
