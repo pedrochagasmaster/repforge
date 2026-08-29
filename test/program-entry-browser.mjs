@@ -194,8 +194,8 @@ try {
     await page.click("#firstRunCreate");
     await page.click("#entryOwnToggle");
     await page.click('[data-entry-route="build"]');
-    await page.fill("#entryProgramName", "Manual block");
-    await page.locator("#entryProgramName").dispatchEvent("input");
+    await page.locator("#entryProgramName").pressSequentially("Manual block", { delay: 10 });
+    assert(await page.inputValue("#entryProgramName") === "Manual block", "manual program name keeps focus across real keystrokes");
     await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
     await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
     await page.click("#onbNext");

@@ -8534,7 +8534,14 @@ function wireEntryDom(){
     entrySetState(ProgramEntry.advance(next).state)});
   const importPick=$("#entryImportPick");if(importPick)importPick.onclick=()=>{$("#importProgram")?.click()};
   const nameInput=$("#entryProgramName");if(nameInput){
-    const sync=()=>entryPatchAnswers({programName:nameInput.value.trim()});
+    const sync=()=>{
+      const value=nameInput.value.trim();
+      if(value)entryState=ProgramEntry.setAnswers(entryState,{programName:value});
+      else{
+        const answers={...entryState.answers};delete answers.programName;
+        entryState={...entryState,answers,result:null}}
+      persistSetupDraft(entryState);
+      const next=$("#onbNext");if(next)next.disabled=ProgramEntry.validationIssues(entryState).length>0};
     nameInput.oninput=sync;nameInput.onchange=sync;nameInput.onblur=sync}
   const activate=$("#entryActivate");if(activate)activate.onclick=()=>activateEntryPreview();
   const edit=$("#entryEdit");if(edit)edit.onclick=()=>activateEntryPreview({destination:"program-edit"});
