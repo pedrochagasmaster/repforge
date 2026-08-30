@@ -1435,6 +1435,7 @@
   "entry.result.why_goal": "You chose {goal}.",
   "entry.result.why_schedule": "It fits {days} days with sessions capped at {minutes} minutes.",
   "entry.result.why_environment": "It uses your {environment} setup.",
+  "entry.result.why_equipment": "Available equipment includes {equipment}.",
   "entry.result.why_priorities": "It gives attention to {priorities}.",
   "entry.result.why_progression": "Progression: {progression}.",
   "entry.result.progression_default": "supported exercise targets",

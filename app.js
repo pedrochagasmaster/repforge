@@ -8682,6 +8682,11 @@ function entryPreviewFacts(preview){
 function entryEnvironmentLabel(answers=entryState?.answers||{}){
   const kind=answers.environment?.kind;
   return kind?t(`entry.environment.${kind}`):""}
+function entryEquipmentLabel(answers=entryState?.answers||{}){
+  const env=answers.environment;
+  if(!env?.kind)return"";
+  const resolved=Array.isArray(env.equipment)?env:ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||env;
+  return [...new Set(resolved.equipment||[])].map(token=>t(`entry.equip.${token}`)||token).join(", ")}
 function entryPriorityLabel(answers=entryState?.answers||{}){
   const facts=[];
   const muscles=answers.primaryMuscles||[];
@@ -8727,6 +8732,7 @@ function renderResultStep(){
     goal?t("entry.result.why_goal",{goal}):"",
     days&&minutes?t("entry.result.why_schedule",{days,minutes}):"",
     environment?t("entry.result.why_environment",{environment}):"",
+    entryEquipmentLabel()?t("entry.result.why_equipment",{equipment:entryEquipmentLabel()}):"",
     (entryPriorityLabel()!==t("entry.preview.priorities_none"))?t("entry.result.why_priorities",{priorities:entryPriorityLabel()}):"",
     t("entry.result.why_progression",{progression:entryProgressionLabel(preview)}),
     (preview.reductions||[]).length?t("entry.result.why_reductions",{n:preview.reductions.length}):"",
@@ -8804,7 +8810,7 @@ function renderPreviewStep(){
     `</details>`});
   const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
-  const environment=entryEnvironmentLabel();
+  const environment=[entryEnvironmentLabel(),entryEquipmentLabel()].filter(Boolean).join(" · ");
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
   return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+

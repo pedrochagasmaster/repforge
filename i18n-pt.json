@@ -1435,6 +1435,7 @@
   "entry.result.why_goal": "Você escolheu {goal}.",
   "entry.result.why_schedule": "Cabe em {days} dias, com sessões limitadas a {minutes} minutos.",
   "entry.result.why_environment": "Considera sua estrutura de {environment}.",
+  "entry.result.why_equipment": "Os equipamentos disponíveis incluem {equipment}.",
   "entry.result.why_priorities": "Ele dá atenção a {priorities}.",
   "entry.result.why_progression": "Progressão: {progression}.",
   "entry.result.progression_default": "metas compatíveis de cada exercício",
