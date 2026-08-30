@@ -98,7 +98,8 @@ jobs:
 
       - name: Syntax check runtime and test JS
         run: |
-          for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs test/generative/*/*.mjs; do
+          node tools/check-production-syntax.mjs
+          for f in test/*.mjs test/generative/*/*.mjs; do
             node --check "$f" || exit 1
           done
 
@@ -107,6 +108,12 @@ jobs:
 
       - name: Generate analytics-disabled preview config
         run: node scripts/generate-posthog-config.mjs
+
+      - name: Plan 048 pure contracts
+        run: |
+          node test/program-entry.mjs
+          node test/program-entry-production-adapter.mjs
+          node test/program-compiler-plan048-preferences.mjs
 
       - name: Start static server
         run: python3 -m http.server 8000 &
@@ -147,6 +154,11 @@ jobs:
           node test/program-family-fixtures.mjs
           node test/program-compiler-persistence.mjs
           node test/program-compiler-runtime.mjs
+
+      - name: Plan 048 production browser entry
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/program-entry-browser.mjs
 
       - name: Persistence artifact helper self-test
         env:
