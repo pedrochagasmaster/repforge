@@ -62,6 +62,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/telemetry-leakage.mjs
 
+      - name: Isolated telemetry transport rerun
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/telemetry-leakage.mjs
+
       - name: Regenerate UI evidence
         env:
           REPFORGE_URL: http://localhost:8000/
@@ -132,6 +137,26 @@ jobs:
 
       - name: Schedule tests
         run: node test/schedule.mjs
+
+      - name: Production-backed entry properties
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/generative-entry-runtime.mjs
+
+      - name: Two-page active-program conflict UX
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/program-entry-conflict-runtime.mjs
+
+      - name: Installed service-worker upgrade
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/sw-upgrade.mjs
+
+      - name: Resume rules-version drift
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/program-entry-rules-runtime.mjs
 
       - name: i18n parity
         run: node test/i18n.mjs
