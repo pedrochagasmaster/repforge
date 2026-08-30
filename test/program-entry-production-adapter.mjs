@@ -70,6 +70,31 @@ test("compiled preview preserves executable paired-exposure relations", () => {
     "Foundation does not invent a paired relation");
 });
 
+test("production services preserve compatible exact exercise history", () => {
+  const answers = recommendAnswers({ daysPerWeek: 2, sessionMinutes: 90 });
+  const baseline = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+  const familiarServices = Adapter.createProductionServices({
+    Compiler,
+    catalogue: EXERCISE_LIBRARY,
+    history: [{ libraryId: "cd_mc" }],
+  });
+  const familiar = familiarServices.compile({
+    mode: "recommend",
+    answers,
+    versions: familiarServices.currentVersions(),
+  });
+  assert.equal(baseline.ok, true, baseline.code);
+  assert.equal(familiar.ok, true, familiar.code);
+  assert.equal(baseline.preview.program.some((exercise) => exercise.libraryId === "cd_mc"), false);
+  assert.equal(familiar.preview.program.some((exercise) => exercise.libraryId === "cd_mc"), true,
+    "a compatible exact movement is retained as the compiler's continuity tie-breaker");
+  assert.deepEqual(familiar.compilerContext.history, [{ libraryId: "cd_mc" }]);
+  assert.notEqual(familiar.fingerprint, baseline.fingerprint,
+    "history-dependent output receives a history-dependent deterministic fingerprint");
+  assert.equal(JSON.stringify(familiar.telemetry).includes("cd_mc"), false,
+    "exercise identity stays outside telemetry");
+});
+
 test("custom split choices come from getCompatibleSplitChoices and never invent fakes", () => {
   const answers = recommendAnswers({ desiredResult: "balanced" });
   const splits = services.splitChoices(answers);

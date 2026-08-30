@@ -133,6 +133,18 @@
     }
   }
 
+  function normalizeHistory(value) {
+    const seen = new Set();
+    const history = [];
+    for (const entry of Array.isArray(value) ? value : []) {
+      const libraryId = typeof entry?.libraryId === "string" ? entry.libraryId.trim() : "";
+      if (!libraryId || seen.has(libraryId)) continue;
+      seen.add(libraryId);
+      history.push({ libraryId });
+    }
+    return history;
+  }
+
   function answersToCompilerContext(answers, options) {
     const opts = options && typeof options === "object" ? options : {};
     const familyId = opts.familyId || resolveFamilyId(answers);
@@ -156,7 +168,7 @@
       dislikes: Array.isArray(answers.exerciseConstraints)
         ? answers.exerciseConstraints.map((item) => item.exerciseId).filter(Boolean)
         : [],
-      history: [],
+      history: normalizeHistory(opts.history),
       primaryMuscles: Array.isArray(answers.primaryMuscles) ? answers.primaryMuscles.slice(0, 2) : [],
       deEmphasizedMuscles: Array.isArray(answers.deEmphasizedMuscles) ? answers.deEmphasizedMuscles.slice(0, 10) : [],
       ignoredMuscles: Array.isArray(answers.ignoredMuscles) ? answers.ignoredMuscles.slice(0, 10) : [],
@@ -242,7 +254,7 @@
     };
   }
 
-  function compileWithServices({ mode, answers, versions, Compiler, catalogue }) {
+  function compileWithServices({ mode, answers, versions, Compiler, catalogue, history }) {
     const Comp = compilerApi(Compiler);
     const library = catalogueApi(catalogue, Comp);
     const familyId = resolveFamilyId(answers);
@@ -262,6 +274,7 @@
       familyId,
       frequency: answers.daysPerWeek,
       splitId: mode === "custom" ? answers.splitPreference : undefined,
+      history,
     });
     if (!mapped.ok) return mapped;
     const primary = Comp.compile(mapped.value, library);
@@ -287,7 +300,7 @@
     const selected = { ...candidates[0] };
     const source = {
       mode,
-      answers,
+      compilerContext: mapped.value,
       versions: versions || currentVersions(Comp),
       familyId: primary.familyId,
       blueprintId: primary.blueprintId,
@@ -324,14 +337,14 @@
     };
   }
 
-  function splitChoices(answers, Compiler, catalogue) {
+  function splitChoices(answers, Compiler, catalogue, history) {
     const Comp = compilerApi(Compiler);
     const library = catalogueApi(catalogue, Comp);
     const familyId = resolveFamilyId(answers);
     if (!familyId || !Number.isInteger(answers?.daysPerWeek)) {
       return { version: String(Comp.VERSIONS.compiler), choices: [] };
     }
-    const mapped = answersToCompilerContext(answers, { familyId, frequency: answers.daysPerWeek });
+    const mapped = answersToCompilerContext(answers, { familyId, frequency: answers.daysPerWeek, history });
     if (!mapped.ok) return { version: String(Comp.VERSIONS.compiler), choices: [] };
     const family = (Comp.FAMILIES || []).find((item) => item.id === familyId);
     const choices = Comp.getCompatibleSplitChoices(mapped.value).flatMap((choice) => {
@@ -355,7 +368,7 @@
     return { version: String(Comp.VERSIONS.compiler), choices };
   }
 
-  function browseCatalogue(context, Compiler, catalogue) {
+  function browseCatalogue(context, Compiler, catalogue, history) {
     const Comp = compilerApi(Compiler);
     const library = catalogueApi(catalogue, Comp);
     const answers = context && typeof context === "object" ? context : {};
@@ -378,7 +391,7 @@
         };
         if (family.id === "home") familyAnswers.environment = { kind: "limited_home" };
         else if (answers.environment?.kind === "limited_home") continue;
-        const mapped = answersToCompilerContext(familyAnswers, { familyId: family.id, frequency });
+        const mapped = answersToCompilerContext(familyAnswers, { familyId: family.id, frequency, history });
         if (!mapped.ok) continue;
         const compiled = Comp.compile(mapped.value, library);
         if (compiled.kind !== "compiled") continue;
@@ -488,18 +501,20 @@
     const opts = options && typeof options === "object" ? options : {};
     const Comp = compilerApi(opts.Compiler);
     const library = catalogueApi(opts.catalogue, Comp);
+    const history = normalizeHistory(opts.history);
     return Object.freeze({
       version: String(Comp.VERSIONS.compiler),
       currentVersions: () => currentVersions(Comp),
-      splitChoices: (answers) => splitChoices(answers, Comp, library),
+      splitChoices: (answers) => splitChoices(answers, Comp, library, history),
       compile: ({ mode, answers, versions }) => compileWithServices({
         mode,
         answers,
         versions,
         Compiler: Comp,
         catalogue: library,
+        history,
       }),
-      browseCatalogue: (context) => browseCatalogue(context, Comp, library),
+      browseCatalogue: (context) => browseCatalogue(context, Comp, library, history),
       buildEmptyProgram,
       answersToCompilerContext,
       fingerprint,

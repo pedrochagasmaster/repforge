@@ -37,8 +37,8 @@ async function openFresh(browser) {
   return { context, page };
 }
 
-async function seedActiveProgram(page) {
-  await page.evaluate(async (key) => {
+async function seedActiveProgram(page, { libraryId = "row_cable", exerciseName = "Cable Row" } = {}) {
+  await page.evaluate(async ({ key, libraryId, exerciseName }) => {
     localStorage.removeItem("repforge_program_setup_draft_v1");
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
@@ -66,8 +66,8 @@ async function seedActiveProgram(page) {
         programStructure: null,
       },
       program: [{
-        id: "ex1", day: "Day 1", order: 1, name: "Cable Row", sets: 3, min: 8, max: 12,
-        primary: "Back", secondary: "Biceps", notes: "", libraryId: "row_cable",
+        id: "ex1", day: "Day 1", order: 1, name: exerciseName, sets: 3, min: 8, max: 12,
+        primary: "Back", secondary: "Biceps", notes: "", libraryId,
       }],
       log: [],
       programHistory: [],
@@ -79,7 +79,7 @@ async function seedActiveProgram(page) {
     };
     localStorage.setItem(key, JSON.stringify(state));
     localStorage.setItem("repforge_ui_v1", JSON.stringify({ tourDone: true, installDismissedAt: Date.now() }));
-  }, KEY);
+  }, { key: KEY, libraryId, exerciseName });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   await page.evaluate(() => {
@@ -381,6 +381,34 @@ try {
     assert(activated.relations.every((relation) => relation.members.every((member) =>
       activated.program.some((exercise) => exercise.id === member.exerciseId && exercise.movementId === relation.movementId))),
       "every persisted relation member resolves to the activated movement identity");
+    await context.close();
+  }
+
+  console.log("\nRecommend uses compatible active-program exercise identity for continuity");
+  {
+    const { context, page } = await openFresh(browser);
+    await seedActiveProgram(page, { libraryId: "cd_mc", exerciseName: "Assisted chest dip (kneeling)" });
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.evaluate(() => window.startOnboarding("settings"));
+    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="90"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
+    const preview = await page.evaluate(() => window.__repforgeEntryState().result?.preview?.program || []);
+    assert(preview.some((exercise) => exercise.libraryId === "cd_mc"),
+      "the generated candidate retains a compatible exact movement from the active program");
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "history-aware generation leaves the familiar active program byte-identical");
     await context.close();
   }
 

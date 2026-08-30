@@ -8228,7 +8228,8 @@ let setupDraftWriteQueue=Promise.resolve();
 function entryServices(){
   if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
   if(!ProgramEntryAdapter)return null;
-  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY})}
+  const history=[...loggedExerciseRefs().ids].sort().map(libraryId=>({libraryId}));
+  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY,history})}
 function entryCandidateFingerprint(route,name,preview){
   const semanticPreview=cloneSnapshot(preview||{});
   if(Array.isArray(semanticPreview.customExercises)){
