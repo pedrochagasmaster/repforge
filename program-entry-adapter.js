@@ -1,9 +1,6 @@
 (function (root) {
   "use strict";
 
-  const compiler = root?.RepForgeProgramCompiler ||
-    (typeof require === "function" ? (() => { try { return require("./program-compiler.js"); } catch {} })() : null);
-
   const FAMILY_BY_RESULT = Object.freeze({
     muscle_growth: "growth",
     balanced: "balanced",
@@ -17,11 +14,11 @@
     foundation: "foundation",
   });
   const ENV_EQUIPMENT = Object.freeze({
-    commercial_gym: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "band"]),
-    basic_gym: Object.freeze(["dumbbell", "machine", "cable", "smith", "barbell", "band"]),
+    commercial_gym: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith"]),
+    basic_gym: Object.freeze(["dumbbell", "machine", "cable", "smith", "barbell"]),
     limited_home: Object.freeze([]),
-    full_home: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "band"]),
-    other: Object.freeze(["dumbbell", "cable", "band", "bodyweight"]),
+    full_home: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith"]),
+    other: Object.freeze(["dumbbell", "cable", "bodyweight"]),
   });
   const ENV_CAPABILITIES = Object.freeze({
     commercial_gym: Object.freeze(["safe_pull", "training_support"]),
@@ -30,8 +27,12 @@
     full_home: Object.freeze(["safe_pull", "training_support"]),
     other: Object.freeze(["safe_pull"]),
   });
-  const KNOWN_EQUIPMENT = Object.freeze([...(compiler?.EQUIPMENT_IDS || ["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"])]);
-  const KNOWN_CAPABILITIES = Object.freeze([...(compiler?.CAPABILITY_IDS || ["safe_pull", "training_support"])]);
+  // Canonical entry vocabulary. Band is a supported correction choice, but is
+  // deliberately absent from environment defaults until explicitly selected.
+  const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
+  const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
+  const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
+  const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "row", "pulldown"]);
 
   function environmentKind(answers) {
     return answers?.environment?.kind || "commercial_gym";
@@ -533,6 +534,8 @@
     ENV_CAPABILITIES,
     KNOWN_EQUIPMENT,
     KNOWN_CAPABILITIES,
+    ENTRY_MUSCLES,
+    ENTRY_MOVEMENTS,
     defaultEnvironment,
     createProductionServices,
     answersToCompilerContext,

@@ -5462,7 +5462,6 @@ function parseSetCommand(text){
   const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
   return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
-window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeCatalogForSlot=catalogForSlot;
 window.__repforgeChooseExercise=chooseExercise;
 window.__repforgeResolveSplit=resolveSplit;
@@ -5502,7 +5501,6 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
-window.__repforgeApplyProgramTemplate=applyProgramTemplate;
 window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
 window.__repforgePendingBlock=()=>pendingBlockTransition;
 window.__repforgeParseCommand=parseSetCommand;
@@ -6697,7 +6695,7 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   // (manual build) so Save JSON does not wipe intentional blank days.
   const prevExDays=new Set((proposal.program||[]).map(e=>e.day));
   const nextProgram=makeProgram(parsed,null,proposal.programMeta);
-  if(nextProgram._structureDays){
+  if(nextProgram._structureDays&&!setupEditorOpen&&proposal.programMeta?.programStructure?.provenance?.source!=="manual_build"){
     const nextExDays=new Set(nextProgram.exercises.map(e=>e.day));
     nextProgram._structureDays=nextProgram._structureDays.filter(d=>nextExDays.has(d)||!prevExDays.has(d))}
   proposal.program=nextProgram.toJSON();
@@ -7084,7 +7082,7 @@ const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u030
 const MUSCLE_TOKENS=["Chest","Lats","Mid/upper back","Traps","Front delts","Side delts","Rear delts",
   "Biceps","Triceps","Forearms","Quads","Hamstrings","Glutes","Adductors","Abductors","Calves",
   "Spinal erectors","Abs","Obliques"];
-const PICKER_EQUIPMENT=["machine","cable","dumbbell","barbell","smith","bodyweight"];
+const PICKER_EQUIPMENT=(typeof window!=="undefined"?window.RepForgeProgramEntryAdapter?.KNOWN_EQUIPMENT:null)||["barbell","dumbbell","machine","cable","smith","bodyweight","band"];
 /* Muscle filters lifters actually think in, each covering the tokens under it. */
 const PICKER_MUSCLE_GROUPS=[
   ["chest",["Chest"]],["back",["Lats","Mid/upper back","Traps"]],
@@ -7537,14 +7535,37 @@ function parseProgramTextExport(text){
   if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers;if(Array.isArray(data.incompatibilities))metaOut.progressionIncompatibilities=data.incompatibilities}
   return{exercises,meta:metaOut,customExercises:[]}}
 
-/* Reads whatever the file turns out to be. JSON first, then the text export. */
+const IMPORT_MAX_BYTES=1024*1024;
+const IMPORT_MAX_DEPTH=32;
+const IMPORT_MAX_NODES=10000;
+function importUtf8Bytes(value){return new TextEncoder().encode(String(value||"")).byteLength}
+function boundedImportJson(text){
+  if(importUtf8Bytes(text)>IMPORT_MAX_BYTES)return null;
+  let parsed;
+  try{parsed=JSON.parse(String(text||""))}catch{return null}
+  let nodes=0;
+  const visit=(value,depth)=>{
+    if(++nodes>IMPORT_MAX_NODES||depth>IMPORT_MAX_DEPTH)return false;
+    if(value===null||typeof value!=="object")return true;
+    if(Array.isArray(value))return value.every(child=>visit(child,depth+1));
+    return Object.keys(value).every(key=>visit(value[key],depth+1))};
+  return visit(parsed,0)?parsed:null}
+function validImportedExerciseRow(row){
+  if(!row||typeof row!=="object"||Array.isArray(row))return false;
+  const text=v=>typeof v==="string"&&v.trim().length>0;
+  return text(row.day)&&Number.isInteger(row.order)&&row.order>=1&&row.order<=1000&&
+    text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
+    Number.isInteger(row.min)&&row.min>=1&&row.min<=1000&&
+    Number.isInteger(row.max)&&row.max>=row.min&&row.max<=1000&&
+    (row.libraryId===undefined||text(row.libraryId));}
 function parseProgramSource(text,fileName=""){
   const trimmed=String(text||"").trim();
   if(trimmed.startsWith("{")||trimmed.startsWith("[")){
-    let parsed=null;
-    try{parsed=JSON.parse(trimmed)}catch{return null}
+    const parsed=boundedImportJson(trimmed);if(parsed===null)return null;
     const imp=parseProgramImport(parsed);
-    return imp?.exercises?.length?Object.assign({format:"json"},imp):null}
+    if(!imp?.exercises?.length||!imp.exercises.every(validImportedExerciseRow))return null;
+    return Object.assign({format:"json"},imp)}
+  if(importUtf8Bytes(trimmed)>IMPORT_MAX_BYTES)return null;
   const text2=parseProgramTextExport(trimmed);
   return text2?Object.assign({format:"text"},text2):null}
 
@@ -8106,8 +8127,7 @@ async function commitImportReview(){
    read them out of. Recognised here so the program door can offer the restore
    instead of quietly discarding it. */
 function parseBackupFile(text){
-  let parsed=null;
-  try{parsed=JSON.parse(text)}catch{return null}
+  const parsed=boundedImportJson(text);
   return isImportableState(parsed)?parsed:null}
 
 /* Reading a file no longer changes anything: it opens the review screen. The
@@ -8150,7 +8170,7 @@ function importChoiceContext(s,opener,io){
     curSessions:have.size,curSets:state.log.length,
     newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{const s=JSON.parse(await f.text());
+  try{const s=boundedImportJson(await f.text());
     if(!isImportableState(s))throw Error();
     openImportChoice(importChoiceContext(s,e.target))}
   catch{toast(t("toast.import_invalid"))}
@@ -8216,8 +8236,8 @@ async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
 const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
-const ENTRY_MUSCLES=["chest","back","quads","hamstrings","glutes","side_delts","biceps","triceps","calves","lats","core"];
-const ENTRY_MOVEMENTS=["squat","hinge","press","row","pulldown"];
+const ENTRY_MUSCLES=ProgramEntryAdapter?.ENTRY_MUSCLES||["chest","back","quads","hamstrings","glutes","side_delts","biceps","triceps","calves","lats"];
+const ENTRY_MOVEMENTS=ProgramEntryAdapter?.ENTRY_MOVEMENTS||["squat","hinge","press","row","pulldown"];
 const ENTRY_ENVIRONMENTS=["commercial_gym","basic_gym","limited_home","full_home","other"];
 const ENTRY_EQUIPMENT=ProgramEntryAdapter?.KNOWN_EQUIPMENT||["barbell","dumbbell","machine","cable","smith","bodyweight"];
 const ENTRY_CAPABILITIES=ProgramEntryAdapter?.KNOWN_CAPABILITIES||["safe_pull","training_support"];
@@ -8243,7 +8263,8 @@ function entryResultName(result=entryState?.result){
   return String(isPt()?(result.namePt||result.name||""):(result.name||result.namePt||"")).trim()}
 function entryNow(){return new Date().toISOString()}
 function entryVersions(){return entryServices()?.currentVersions?.()||{
-  compiler:"1",family:"1",blueprint:"1",catalogue:"1",rules:"1",context:"1",progression:"range-1"}}
+  compiler:"1",family:"1",blueprint:"1",catalogue:"1",rules:"1",context:"1",progression:"range-1",
+  recentConsistency:"1",simpleStart:"1"}}
 function liveProgramRevision(){return readRevision(state)}
 function hasActiveProgram(){return !!(state?.programMeta?.onboarded&&((state.program||[]).length||structureDayLabels(state.programMeta)))}
 function readSetupDraftRaw(){try{return localStorage.getItem(SETUP_DRAFT_KEY)}catch{return null}}
@@ -9246,6 +9267,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     telemetryRoute==="build"?"manual_v1":
     telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
   captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
+  if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
   resetDraftSessionState();
   setupEditorOpen=false;
   document.body.classList.remove("is-entry-editor");
@@ -9438,31 +9460,40 @@ async function commitSharedSetup(io=storageIO){
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
     return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true}}
-  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
-  if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))
-    return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
+  // The codec/consent gate remains the compatibility boundary. Once accepted,
+  // hand the decoded payload to the same candidate preview and activation state
+  // machine used by every other entry route; no durable program write happens
+  // until the shared preview's explicit activation action.
   setSharedSetupBusy(true);
-  let result;
-  try{
-    const transition=programTransitionPrecondition(state);
+  try {
     const proposal=proposalFromSharedSetup(checked.value,state);
-    const effect=destructiveDraftClearEffect(discardDraftRaw);
-    result=await commitProposedState(proposal,requireAdapter(io,"commitSharedSetup"),
-      {replace:true,expectedFirstRunEmpty:true,effect,...transition})}
-  catch{result={revision:readRevision(state),localOk:false,idbOk:false}}
-  setSharedSetupBusy(false);
-  if(!(result.localOk||result.idbOk)){
+    const payload=checked.value.program;
+    const program=cloneSnapshot(proposal.program||[]);
+    const structure=cloneSnapshot(proposal.programMeta?.programStructure||null);
+    const labels=Array.isArray(structure?.days)?structure.days.map(item=>item.label||item.dayId):[...new Set(program.map(exercise=>exercise.day))];
+    const preview={source:"shared",familyId:null,frequency:payload.meta.daysPerWeek,
+      program,programStructure:structure,
+      days:labels.filter(Boolean).map((label,index)=>({dayId:structure?.days?.[index]?.dayId||label,label,exercises:program.filter(exercise=>exercise.day===label)})),
+      customExercises:cloneSnapshot(proposal.customExercises||[]),
+      progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
+      primaryMuscles:cloneSnapshot(payload.meta.priorityMuscles||[])};
+    startOnboarding("first-run",{userInitiated:true,forceFresh:true});
+    let next=ProgramEntry.selectRoute(entryState,"shared");
+    next=ProgramEntry.setAnswers(next,{sharedReady:true});
+    next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:payload.meta.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:payload.meta.name,preview,telemetry:{family:"shared_v1"}});
+    next={...next,step:"preview"};
+    entryState=next;
+    await persistSetupDraft(next);
+    closeFirstRun();
+    showOnboardingView();
+    renderOnboarding();
+    return{revision:readRevision(state),localOk:false,idbOk:false,staged:true,setupDraft:true};
+  } catch {
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
-    return result}
-  resetDraftSessionState();
-  onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();syncLang();
-  if(isStandalone())SharedSetup?.clearHandoffCookie();
-  sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
-  captureEvent("program_path_selected",{route:"shared"});captureEvent("program_activated",{route:"shared",version_category:"shared_v1"});
-  render();toast(t("toast.onboarding_saved"));
-  if(!maybeStartTour())maybeShowInstallBanner();
-  return result}
+    return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true};
+  } finally { setSharedSetupBusy(false); }
+}
 /** Write the install section from the current reading, or take it away. Rule 5:
  *  a browser with no mechanism gets no section at all, never a dead button. */
 function renderFirstRunInstall(){
@@ -10008,10 +10039,6 @@ function init(){
     if(result.localOk||result.idbOk){if(!setupEditorOpen)day=nextDay;render();toast(t("toast.day_added"))}};
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
-  $("#beginnerProgram").onclick=()=>{
-    const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
-    const key=draftActive?"confirm.replace_program_discard_draft":"confirm.replace_program_template";
-    if(confirm(t(key)))switchToBeginnerProgram(discardDraftRaw)};
   $("#createProgram").onclick=()=>startOnboarding("settings");
   $("#onbBack").onclick=()=>entryBack();
   $("#onbNext").onclick=()=>entryAdvance();

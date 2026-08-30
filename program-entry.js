@@ -1,8 +1,8 @@
 (function (root) {
   "use strict";
 
-  const compiler = root?.RepForgeProgramCompiler ||
-    (typeof require === "function" ? (() => { try { return require("./program-compiler.js"); } catch {} })() : null);
+  const vocabulary = root?.RepForgeProgramEntryAdapter ||
+    (typeof require === "function" ? (() => { try { return require("./program-entry-adapter.js"); } catch {} })() : null);
 
   const SCHEMA_VERSION = 1;
   const CONTEXT_SCHEMA_VERSION = 1;
@@ -16,8 +16,8 @@
   const MAX_LIST_LENGTH = 32;
   const MAX_MUSCLE_CONTROLS = 10;
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-  const KNOWN_EQUIPMENT = new Set(compiler?.EQUIPMENT_IDS || ["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
-  const KNOWN_CAPABILITIES = new Set(compiler?.CAPABILITY_IDS || ["safe_pull", "training_support"]);
+  const KNOWN_EQUIPMENT = new Set(vocabulary?.KNOWN_EQUIPMENT || ["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
+  const KNOWN_CAPABILITIES = new Set(vocabulary?.KNOWN_CAPABILITIES || ["safe_pull", "training_support"]);
   const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
   const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
@@ -474,7 +474,7 @@
   }
 
   const RESULT_KEYS = new Set([
-    "schemaVersion", "route", "fingerprint", "answersFingerprint", "name", "namePt",
+    "schemaVersion", "route", "fingerprint", "answersFingerprint", "name", "namePt", "source", "id",
     "selected", "candidates", "alternative", "diagnostics", "explanation", "preview",
     "telemetry", "serviceVersion",
   ]);
@@ -486,6 +486,9 @@
     import: new Set(["selected"]),
     shared: new Set(["selected", "telemetry"]),
   });
+  const RESULT_COMMON_KEYS = new Set([
+    "schemaVersion", "route", "fingerprint", "answersFingerprint", "name", "namePt", "source", "id", "preview",
+  ]);
 
   function answerFingerprint(answers) {
     const text = stableStringify(answers || {});
@@ -510,24 +513,35 @@
       issues.push("$.result:not_object");
       return null;
     }
+    // Result envelopes predate the route/schema binding. They are safe to
+    // migrate only when all new binding fields are absent; the saved preview
+    // remains intact and receives a binding to the normalized answer set.
+    const legacy = persisted && !hasOwn(raw, "schemaVersion") && !hasOwn(raw, "route") && !hasOwn(raw, "answersFingerprint");
+    const candidate = legacy
+      ? { ...clone(raw), schemaVersion: SCHEMA_VERSION, route, answersFingerprint: answerFingerprint(answers) }
+      : raw;
     if (persisted) {
-      for (const key of Object.keys(raw)) if (!RESULT_KEYS.has(key)) issues.push(`$.result.${key}:unknown_key`);
-      if (raw.schemaVersion !== SCHEMA_VERSION) issues.push("$.result.schemaVersion:unsupported");
-      if (raw.route !== route) issues.push("$.result.route:mismatch");
-      if (!validToken(raw.fingerprint)) issues.push("$.result.fingerprint:invalid");
-      if (raw.answersFingerprint !== answerFingerprint(answers)) issues.push("$.result.answersFingerprint:mismatch");
-      if (!isPlainObject(raw.preview)) issues.push("$.result.preview:required");
+      const routeKeys = RESULT_ROUTE_KEYS[route] || new Set();
+      for (const key of Object.keys(candidate)) {
+        if (!RESULT_KEYS.has(key)) issues.push(`$.result.${key}:unknown_key`);
+        else if (!RESULT_COMMON_KEYS.has(key) && !routeKeys.has(key)) issues.push(`$.result.${key}:not_allowed_for_route`);
+      }
+      if (candidate.schemaVersion !== SCHEMA_VERSION) issues.push("$.result.schemaVersion:unsupported");
+      if (candidate.route !== route) issues.push("$.result.route:mismatch");
+      if (!validToken(candidate.fingerprint)) issues.push("$.result.fingerprint:invalid");
+      if (candidate.answersFingerprint !== answerFingerprint(answers)) issues.push("$.result.answersFingerprint:mismatch");
+      if (!isPlainObject(candidate.preview)) issues.push("$.result.preview:required");
       for (const key of RESULT_ROUTE_KEYS[route] || []) {
         // Recommendation/custom previews historically carried their selected
         // candidate only after the user made a choice. Keep those resumable
         // drafts readable, while every persisted activation route remains
         // closed over an explicit selected entry.
-        if (key === "selected" && route !== "recommend" && route !== "custom" && !isPlainObject(raw.selected)) {
+        if (key === "selected" && route !== "recommend" && route !== "custom" && !isPlainObject(candidate.selected)) {
           issues.push("$.result.selected:required");
         }
       }
     }
-    return clone(raw);
+    return clone(candidate);
   }
 
   function normalizeSetupDraft(input) {
@@ -785,11 +799,14 @@
   function selectRoute(state, route) {
     assertState(state);
     if (!ROUTE_SET.has(route)) throw new TypeError("Unknown program-entry route");
+    const answers = route === "browse" && state.route === "browse"
+      ? copyKeys(state.answers, [...BROWSE_CONTEXT_KEYS, "catalogueSelection"])
+      : compatibleAnswers(state.answers, state.route, route);
     return {
       ...clone(state),
       route,
       step: ROUTE_STEPS[route][0],
-      answers: compatibleAnswers(state.answers, state.route, route),
+      answers,
       result: null,
     };
   }
@@ -824,6 +841,13 @@
     next.schemaVersion = SCHEMA_VERSION;
     next.route = state.route;
     next.answersFingerprint = answerFingerprint(state.answers);
+    // Internal route adapters may first publish a lightweight result marker
+    // while assembling a preview. Stamp the closed shape before it can reach
+    // persistence; the persisted normalizer remains strict for raw input.
+    if (!isPlainObject(next.preview)) next.preview = { program: [] };
+    if (state.route !== "recommend" && state.route !== "custom" && !isPlainObject(next.selected)) {
+      next.selected = { id: `${state.route}-candidate`, source: state.route };
+    }
     return { ...clone(state), result: next };
   }
 
@@ -909,7 +933,12 @@
 
   function changedVersions(saved, current) {
     if (!isPlainObject(saved) || !isPlainObject(current)) return VERSION_KEYS.slice();
-    return VERSION_KEYS.filter((key) => saved[key] !== current[key]);
+    // Drafts written before the two policy pins existed have no value to
+    // compare. Treat their released baseline as version 1 during migration;
+    // a real later pin still reports its own independent drift.
+    const legacyDefaults = { recentConsistency: "1", simpleStart: "1" };
+    return VERSION_KEYS.filter((key) =>
+      (saved[key] ?? legacyDefaults[key]) !== (current[key] ?? legacyDefaults[key]));
   }
 
   function resumeSetupDraft(input, options) {

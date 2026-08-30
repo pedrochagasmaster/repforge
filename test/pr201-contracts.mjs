@@ -5,6 +5,7 @@ import test from "node:test";
 
 const require = createRequire(import.meta.url);
 const Entry = require("../program-entry.js");
+const Adapter = require("../program-entry-adapter.js");
 const Compiler = require("../program-compiler.js");
 const SharedSetup = require("../shared-setup.js");
 const { EXERCISE_LIBRARY } = require("../exercises.js");
@@ -45,6 +46,15 @@ test("persisted result is closed and bound to the normalized answers", () => {
   const wrongRoute = structuredClone(state);
   wrongRoute.result.route = "custom";
   assert.equal(Entry.normalizeSetupDraft(wrongRoute).ok, false);
+
+  const legacy = structuredClone(state);
+  delete legacy.result.schemaVersion;
+  delete legacy.result.route;
+  delete legacy.result.answersFingerprint;
+  const migrated = Entry.normalizeSetupDraft(legacy);
+  assert.equal(migrated.ok, true);
+  assert.equal(migrated.value.result.route, "recommend");
+  assert.equal(typeof migrated.value.result.answersFingerprint, "string");
 });
 
 test("recent-consistency and simple-start pins drift independently", () => {
@@ -59,7 +69,7 @@ test("recent-consistency and simple-start pins drift independently", () => {
   assert.deepEqual(simpleStart.value.versionChanges, ["simpleStart"]);
 });
 
-test("core priority selects an executable core candidate when the blueprint has a priority slot", () => {
+test("core is not offered as a priority control without an approved priority contract", () => {
   const base = {
     schemaVersion: 2, familyId: "growth", frequency: 5, sessionMinutes: 60,
     preferredRestSeconds: null, equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
@@ -73,7 +83,7 @@ test("core priority selects an executable core candidate when the blueprint has 
   assert.equal(without.kind, "compiled");
   assert.equal(withCore.kind, "compiled");
   const core = withCore.days.flatMap((day) => day.slots).find((slot) => slot.templateId === "priority");
-  assert.equal(core.exercise.primaryMuscles.includes("core"), true);
+  assert.equal(core, undefined);
   const old = without.days.flatMap((day) => day.slots).find((slot) => slot.templateId === "priority");
   assert.equal(old, undefined);
 });
@@ -93,7 +103,9 @@ test("shared setup validates executable progression parameters, not only their e
   assert.equal(result.issues.some((issue) => issue.includes("non_executable_parameters")), true);
 });
 
-test("band and capability vocabularies are exported from the compiler authority", () => {
-  assert.equal(Compiler.EQUIPMENT_IDS.includes("band"), true);
-  assert.deepEqual(Compiler.CAPABILITY_IDS, ["safe_pull", "training_support"]);
+test("entry vocabularies have one adapter authority and band is explicit-only", () => {
+  assert.equal(Adapter.KNOWN_EQUIPMENT.includes("band"), true);
+  assert.deepEqual(Adapter.KNOWN_CAPABILITIES, ["safe_pull", "training_support"]);
+  assert.equal(Adapter.ENV_EQUIPMENT.commercial_gym.includes("band"), false);
+  assert.equal(Adapter.ENTRY_MUSCLES.includes("core"), false);
 });
