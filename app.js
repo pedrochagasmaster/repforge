@@ -2194,8 +2194,15 @@ function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
-  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null}}
-function buildProgramMeta({name, answers}={}){
+  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null,entrySource:null}}
+function normalizeProgramEntrySource(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return null;
+  const routes=window.RepForgeProgramEntry?.ROUTES||[];
+  const route=routes.includes(value.route)?value.route:null;
+  const fingerprint=typeof value.fingerprint==="string"&&value.fingerprint.length<=128&&/^[a-zA-Z0-9._:-]+$/.test(value.fingerprint)
+    ?value.fingerprint:null;
+  return route&&fingerprint?{route,fingerprint}:null}
+function buildProgramMeta({name, answers, entrySource}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
   return{id:uid(),name:programName,started:today(),created:now,updated:now,
@@ -2203,7 +2210,7 @@ function buildProgramMeta({name, answers}={}){
     equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
     sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
     progressionRelations:[],progressionModifiers:[],
-    blockPromptDismissedId:null}}
+    blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
 function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
@@ -2229,10 +2236,11 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
   if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
   const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
+  const entrySource=normalizeProgramEntrySource(m.entrySource);
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource}}
 
 function withExplicitProgramStructure(program,meta){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
@@ -6081,7 +6089,7 @@ function programEditorSnapshot(){
   const merged=mergeImportedCustomExercises(preview.customExercises||[],candidateProgram,snapshot);
   snapshot.customExercises=merged.customExercises;
   snapshot.program=candidateProgram;
-  snapshot.programMeta={...defaultProgramMeta([]),name:entryState?.result?.name||entryState?.answers?.programName||"",
+  snapshot.programMeta={...defaultProgramMeta([]),name:entryResultName()||entryState?.answers?.programName||"",
     daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
     programStructure:cloneSnapshot(preview.programStructure||null),
     progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
@@ -6108,7 +6116,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
   const result={...cloneSnapshot(entryState.result),preview};
   const nextName=proposal.programMeta?.name||entryState.result.name;
-  if(nextName)result.name=nextName;else delete result.name;
+  if(nextName){result.name=nextName;delete result.namePt}else delete result.name;
   result.fingerprint=entryCandidateFingerprint(entryState.route,result.name,preview);
   entryState=ProgramEntry.setResult(entryState,result);
   const saved=await persistSetupDraft(entryState);
@@ -8226,6 +8234,9 @@ function entryCandidateFingerprint(route,name,preview){
     semanticPreview.customExercises=semanticPreview.customExercises.map(entry=>{
       const normalized={...entry};delete normalized.created;return normalized})}
   return entryServices()?.fingerprint?.({route:route||null,name:name||"",preview:semanticPreview})||"candidate"}
+function entryResultName(result=entryState?.result){
+  if(!result)return"";
+  return String(isPt()?(result.namePt||result.name||""):(result.name||result.namePt||"")).trim()}
 function entryNow(){return new Date().toISOString()}
 function entryVersions(){return entryServices()?.currentVersions?.()||{
   compiler:"1",family:"1",blueprint:"1",catalogue:"1",rules:"1",context:"1",progression:"range-1"}}
@@ -8593,6 +8604,8 @@ function ensureGeneratorResult(){
   entryCompileError=null;
   const result={
     fingerprint:compiled.fingerprint,
+    name:compiled.name,
+    namePt:compiled.namePt,
     selected:compiled.selected,
     candidates:compiled.candidates,
     alternative:null,
@@ -8609,7 +8622,7 @@ function renderResultStep(){
   const primary=result.selected||(result.candidates||[])[0];
   const cards=primary?[`<button type="button" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(primary.id)}" aria-pressed="true">`+
     `<span class="entry-card__title">${esc(t("entry.result.primary"))}</span>`+
-    `<span class="entry-card__cap">${esc(primary.familyId||primary.family||"")} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`]:[];
+    `<span class="entry-card__cap">${esc(isPt()?primary.namePt||primary.name:primary.name)} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`]:[];
   return entryHeading(t("entry.result.title"))+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
     `<p class="entry__explain">${esc(t("entry.result.explain"))}</p><div class="entry__hub">${cards.join("")}</div>`}
 function renderCatalogueStep(){
@@ -8762,6 +8775,8 @@ function wireEntryDom(){
     if(!selected||!entryState.result)return;
     const next=ProgramEntry.setResult(entryState,{
       fingerprint:entryState.result.fingerprint,
+      name:entryState.result.name,
+      namePt:entryState.result.namePt,
       selected:{...selected},
       candidates:(entryState.result.candidates||[]).map(c=>({...c})),
       alternative:null,
@@ -8777,6 +8792,8 @@ function wireEntryDom(){
     let next=ProgramEntry.setAnswers(entryState,{catalogueSelection:id});
     next=ProgramEntry.setResult(next,{
       fingerprint:card.fingerprint,
+      name:card.name,
+      namePt:card.namePt,
       selected:{id:card.id,familyId:card.familyId,daysPerWeek:card.daysPerWeek,blueprintId:card.id},
       preview:card.preview,
       telemetry:{family:card.telemetryFamily}});
@@ -8879,7 +8896,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     ?(entryState.result?.preview?.program||[])
     :(preview?.program||[]);
   const programStructure=entryState.result?.preview?.programStructure||preview?.programStructure||null;
-  const name=entryState.result?.name||entryState.answers.programName||"";
+  const name=entryResultName()||entryState.answers.programName||"";
   const answersForMeta={
     goal:entryState.answers.desiredResult==="muscle_growth"?"hypertrophy":
       entryState.answers.desiredResult==="strength"?"strength_hypertrophy":
@@ -8914,6 +8931,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     baseProposal,
     telemetryRoute,
     entryTelemetry:entryState.result?.telemetry||null,
+    entrySource:{route,fingerprint:entryState.result?.fingerprint},
     programStructure,
     expectedSetupDraftRaw:activationDraftHandle?.raw??null});
   if(result?.setupDraftConflict){
@@ -8933,7 +8951,7 @@ function telemetryGeneratedProgram(goal){
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,programStructure=null,expectedSetupDraftRaw=undefined}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -8946,7 +8964,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(originEff==="block"){
     if(!blockCap)return blockTransitionResult("failed");
     if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
-  const meta=buildProgramMeta({name,answers:answers||{}});
+  const meta=buildProgramMeta({name,answers:answers||{},entrySource});
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);

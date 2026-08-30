@@ -58,7 +58,11 @@ async function seedActiveProgram(page) {
         goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3, splitType: "full_body",
         equipment: ["machines"], priorityMuscles: [], sessionLength: "normal",
         mesocycleLengthWeeks: 6, mesocycleStatus: "active", onboarded: true,
-        progressionRelations: [], progressionModifiers: [], progressionIncompatibilities: [],
+        progressionRelations: [],
+        progressionModifiers: [{
+          id: "outgoing-only", version: 1, compatibleStrategies: ["range@1"], params: { pending: true },
+        }],
+        progressionIncompatibilities: [],
         programStructure: null,
       },
       program: [{
@@ -231,6 +235,7 @@ try {
     const editedDraft = await page.evaluate(({ draftKey, before }) => ({
       changed: localStorage.getItem(draftKey) !== before,
       note: window.__repforgeEntryState()?.result?.preview?.program?.[0]?.notes,
+      fingerprint: window.__repforgeEntryState()?.result?.fingerprint,
     }), { draftKey: DRAFT, before: draftBeforeEdit });
     assert(editedDraft.changed && editedDraft.note === "Draft-only setup note",
       "candidate edits persist in the setup draft", JSON.stringify(editedDraft));
@@ -257,6 +262,8 @@ try {
         hasContext: !!state.programmingContext,
         constraints: state.programmingContext?.exerciseConstraints || [],
         editedNote: state.program?.[0]?.notes,
+        name: state.programMeta?.name,
+        entrySource: state.programMeta?.entrySource,
         draft: localStorage.getItem("repforge_program_setup_draft_v1"),
       };
     }, KEY);
@@ -265,7 +272,18 @@ try {
     assert(after.hasContext === true, "reusable programmingContext saved with activation");
     assert(after.constraints.some((item) => item.reason === "pain"), "pain constraint persisted in programmingContext");
     assert(after.editedNote === "Draft-only setup note", "explicit activation installs the edited candidate");
+    assert(after.name && after.name !== "Untitled program" && !/_v\d+$/i.test(after.name),
+      "generated activation persists a human-readable program name", after.name);
+    assert(after.entrySource?.route === "recommend" && after.entrySource?.fingerprint === editedDraft.fingerprint,
+      "generated activation persists route provenance and the edited candidate fingerprint",
+      JSON.stringify({ source: after.entrySource, expected: editedDraft.fingerprint }));
     assert(after.draft == null, "setup draft cleared after activation");
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const reloadedIdentity = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta, KEY);
+    assert(reloadedIdentity?.name === after.name && isDeepStrictEqual(reloadedIdentity?.entrySource, after.entrySource),
+      "program identity, route provenance, and fingerprint survive reload",
+      JSON.stringify(reloadedIdentity));
 
     const exportShapes = await page.evaluate(() => {
       const full = window.__repforgeStorage
@@ -669,6 +687,9 @@ try {
       `${route} archive preserves definition, metadata, and progression state`,
       JSON.stringify({ archived: archived[0], beforeMeta: before.programMeta, beforeProgram: before.program })
     );
+    assert(after.programMeta.progressionModifiers.length === 0,
+      `${route} replacement does not inherit outgoing progression modifiers`,
+      JSON.stringify(after.programMeta.progressionModifiers));
     await context.close();
   }
 

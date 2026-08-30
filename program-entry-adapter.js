@@ -215,11 +215,14 @@
     };
   }
 
-  function candidateFromInstance(instance, answers) {
+  function candidateFromInstance(instance, answers, Comp) {
+    const family = (Comp.FAMILIES || []).find((item) => item.id === instance.familyId);
     return {
       id: instance.blueprintId,
       family: instance.familyId,
       familyId: instance.familyId,
+      name: family?.name || "",
+      namePt: family?.namePt || family?.name || "",
       daysPerWeek: instance.frequency,
       blueprintId: instance.blueprintId,
       split: instance.blueprintId,
@@ -248,7 +251,7 @@
         issues: primary.issues || [],
       };
     }
-    const candidates = [candidateFromInstance(primary, answers)];
+    const candidates = [candidateFromInstance(primary, answers, Comp)];
     const selected = { ...candidates[0] };
     const source = {
       mode,
@@ -267,6 +270,8 @@
     return {
       ok: true,
       serviceVersion: String(Comp.VERSIONS.compiler),
+      name: selected.name,
+      namePt: selected.namePt,
       fingerprint: fingerprint(source),
       candidates: candidates.map((candidate) => ({ ...candidate })),
       selected,

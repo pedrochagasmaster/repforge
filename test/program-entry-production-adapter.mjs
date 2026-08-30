@@ -170,6 +170,9 @@ test("state machine plus production compile reaches activation-ready preview", (
   });
   state = Entry.advance(state).state;
   assert.equal(state.step, "preview");
+  assert.equal(typeof compiled.name, "string");
+  assert.equal(typeof compiled.namePt, "string");
+  assert.equal(compiled.name.includes(compiled.selected.blueprintId), false);
   const ready = Entry.activationReadiness(state, {
     liveActiveProgramRevision: 3,
     currentVersions: versions,

@@ -7618,8 +7618,8 @@ async function main() {
     "Complete onboarding → Save program"
   );
   assert(
-    state.programMeta?.name === "Untitled program",
-    "P6: generated programs receive the localized fallback name",
+    state.programMeta?.name === "Build Muscle",
+    "P6: generated programs receive a human-readable family name",
     `name=${state.programMeta?.name}`,
     "Complete onboarding → Save program → inspect program name"
   );
@@ -9053,6 +9053,7 @@ async function main() {
   await page.click("#createProgram");
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
   await page.click("#onbCancel");
+  await page.click("#entryCancelDiscard");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
   const afterCreateCancel = await getState(page);
   assert(
@@ -9084,6 +9085,7 @@ async function main() {
     "commitNextBlock(onboarding) → pending only"
   );
   await page.click("#onbCancel");
+  await page.click("#entryCancelDiscard");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
   assert(
     (await getState(page)).programMeta?.id === idBeforeBlock &&
