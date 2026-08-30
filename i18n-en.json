@@ -1408,6 +1408,7 @@
   "entry.priorities.must_remove": "Remove must-have",
   "entry.priorities.avoid": "Avoid exercises (optional)",
   "entry.priorities.avoid_reason": "Why avoid this exercise?",
+  "entry.priorities.reason_required": "Choose a reason before continuing.",
   "entry.priorities.reason.dislike": "Dislike",
   "entry.priorities.reason.pain": "Pain / discomfort",
   "entry.priorities.reason.equipment": "Unavailable equipment",

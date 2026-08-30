@@ -6224,7 +6224,7 @@ function renderProgramHeader(){
     el.innerHTML=`<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
       `<p class="entry__active" id="entryEditorStatus" role="${saveError?"alert":"status"}" aria-live="${saveError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
-      `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled":""}>${esc(activateLabel)}</button></div>`;
+      `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button></div>`;
     const name=$("#programName");if(name)name.onchange=async()=>{
       const proposal=programEditorSnapshot();proposal.programMeta.name=name.value.trim()||meta.name;
       const result=await commitProgramEditorProposal(proposal);if(result.localOk||result.idbOk)renderProgram()};
@@ -8598,7 +8598,7 @@ function renderAvoidanceSection(){
     `</div>`+
     (entryPendingAvoid?(()=>{const entry=libraryEntry(entryPendingAvoid);return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(t("entry.priorities.avoid_reason"))}"><strong>${esc(entry?libraryName(entry):entryPendingAvoid)}</strong>`+
       `<p class="entry__group-lab">${esc(t("entry.priorities.avoid_reason"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
-      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div></div>`})():"")+
+      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div><p class="entry__hint" id="entryPendingAvoidNote">${esc(t("entry.priorities.reason_required"))}</p></div>`})():"")+
     (constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
       const entry=libraryEntry(item.exerciseId);
       return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):item.exerciseId)}</strong>`+
@@ -8747,7 +8747,7 @@ function renderResultStep(){
   return entryHeading(resultTitle)+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
     `<div class="entry__recommend"><h3>${esc(entryResultName(result))}</h3>`+
     `<p class="entry__group-lab">${esc(t("entry.result.why"))}</p><ul class="entry__reasons">${why.map(fact=>`<li>${esc(fact)}</li>`).join("")}</ul>`+
-    `<div class="entry__hub">${cards.join("")}</div>`+
+    `<div class="entry__hub" role="radiogroup" aria-label="${esc(t("entry.result.title"))}">${cards.join("")}</div>`+
     (entryState.route==="custom"?`<button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_custom"))}</button>`:"")+`</div>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
@@ -8872,25 +8872,23 @@ function restoreEntryFocus(token){
   try{el.focus({preventScroll:true});return true}catch{try{el.focus();return true}catch{return false}}
 }
 function setupEntryRovingFocus(){
-  const groups=$$("#onbBody [role='radiogroup'],#onbBody [role='group']");
+  // Radiogroups are composite widgets: one tab stop and arrow navigation.
+  // Checkbox collections are ordinary independent controls; hiding all but one
+  // from Tab would make keyboard users miss most available choices.
+  const groups=$$("#onbBody [role='radiogroup']");
   for(const group of groups){
-    const options=[...group.querySelectorAll("[role='radio'],[role='checkbox']")].filter(el=>!el.disabled);
+    const options=[...group.querySelectorAll("[role='radio']")].filter(el=>!el.disabled);
     if(!options.length)continue;
     const selected=options.find(el=>el.getAttribute("aria-checked")==="true");
     options.forEach((el,index)=>{el.tabIndex=el===selected||(!selected&&index===0)?0:-1});
     options.forEach((el,index)=>el.onkeydown=(event)=>{
       if(!["ArrowRight","ArrowDown","ArrowLeft","ArrowUp","Home","End"].includes(event.key))return;
       event.preventDefault();
-      const horizontal=event.key==="ArrowLeft"||event.key==="ArrowRight";
-      if(horizontal&&group.classList.contains("onb__grid")===false&&event.key.startsWith("Arrow")){
-        // Vertical option lists still accept horizontal arrows as a harmless
-        // next/previous gesture, which is friendlier on compact keyboards.
-      }
       const delta=event.key==="ArrowLeft"||event.key==="ArrowUp"?-1:1;
       const next=event.key==="Home"?0:event.key==="End"?options.length-1:(index+delta+options.length)%options.length;
       options.forEach(option=>option.tabIndex=-1);
       options[next].tabIndex=0;options[next].focus({preventScroll:true});
-      if(el.getAttribute("role")==="radio")options[next].click();
+      options[next].click();
     });
   }
 }
@@ -8910,14 +8908,16 @@ function renderOnboarding(){
   const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
   const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface);
   const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
-  if(back)back.classList.toggle("hidden",!route||stepId==="entry");
+  if(back){back.classList.toggle("hidden",!route||stepId==="entry");back.setAttribute("aria-label",t("entry.back"))}
   if(next){
     const hideNext=!route||stepId==="entry"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
     next.classList.toggle("hidden",hideNext);
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
-    next.disabled=!!(route&&(ProgramEntry.validationIssues(entryState).length||
-      (stepId==="priorities"&&entryPendingAvoid)))}
+    const pendingReason=stepId==="priorities"&&entryPendingAvoid;
+    next.disabled=!!pendingReason;
+    if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
+    else next.removeAttribute("aria-describedby")}
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
     (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   if(noticeOwnsSurface){
