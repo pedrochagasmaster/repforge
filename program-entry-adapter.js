@@ -195,6 +195,17 @@
       blueprintId: instance.blueprintId,
       program: instance.program,
       programStructure: instance.programStructure,
+      progressionRelations: (instance.relations || []).filter((relation) => relation.state === "attached").map((relation) => ({
+        schemaVersion: 1,
+        id: relation.id,
+        type: "paired_exposure",
+        version: 1,
+        movementId: `library:${relation.movementId}`,
+        members: [
+          { exerciseId: relation.heavySlotId, role: "heavy" },
+          { exerciseId: relation.volumeSlotId, role: "volume" },
+        ],
+      })),
       days: (instance.days || []).map((day) => ({
         dayId: day.dayId,
         label: day.label,

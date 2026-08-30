@@ -340,6 +340,50 @@ try {
     await context.close();
   }
 
+  console.log("\nRecommend preserves compiler paired-exposure relations through activation");
+  {
+    const { context, page } = await openFresh(browser);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
+    await page.click("[data-entry-select-candidate]");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    const staged = await page.evaluate(() => structuredClone(
+      window.__repforgeEntryState().result?.preview?.progressionRelations || []));
+    assert(staged.length === 2 && staged.every((relation) => relation.type === "paired_exposure"),
+      "the review candidate carries both executable compiler relations", JSON.stringify(staged));
+    await page.click("#entryActivate");
+    await page.waitForFunction((key) =>
+      (JSON.parse(localStorage.getItem(key) || "{}").programMeta?.progressionRelations || []).length === 2,
+    KEY, { timeout: 10000 });
+    const activated = await page.evaluate((key) => {
+      const durable = JSON.parse(localStorage.getItem(key) || "{}");
+      return {
+        relations: durable.programMeta?.progressionRelations || [],
+        program: durable.program || [],
+      };
+    }, KEY);
+    assert(isDeepStrictEqual(activated.relations, staged),
+      "activation persists the candidate relations instead of inheriting or dropping them",
+      JSON.stringify({ staged, activated: activated.relations }));
+    assert(activated.relations.every((relation) => relation.members.every((member) =>
+      activated.program.some((exercise) => exercise.id === member.exerciseId && exercise.movementId === relation.movementId))),
+      "every persisted relation member resolves to the activated movement identity");
+    await context.close();
+  }
+
   console.log("\nCustom uses real human split choices and bounded exercise preferences");
   {
     const { context, page } = await openFresh(browser);

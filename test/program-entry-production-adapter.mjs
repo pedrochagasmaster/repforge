@@ -7,6 +7,7 @@ const require = createRequire(import.meta.url);
 const Entry = require("../program-entry.js");
 const Adapter = require("../program-entry-adapter.js");
 const Compiler = require("../program-compiler.js");
+const Progression = require("../progression-engine.js");
 const { EXERCISE_LIBRARY } = require("../exercises.js");
 
 const services = Adapter.createProductionServices({ Compiler, catalogue: EXERCISE_LIBRARY });
@@ -40,6 +41,33 @@ test("production adapter compiles recommend and custom through the real compiler
   const again = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
   assert.equal(again.fingerprint, recommend.fingerprint);
   assert.deepEqual(again.preview.program, recommend.preview.program);
+});
+
+test("compiled preview preserves executable paired-exposure relations", () => {
+  const balanced = services.compile({
+    mode: "recommend",
+    answers: recommendAnswers({ desiredResult: "balanced", daysPerWeek: 3 }),
+    versions: services.currentVersions(),
+  });
+  assert.equal(balanced.ok, true, balanced.code);
+  assert.equal(balanced.preview.progressionRelations.length, 2);
+  assert.deepEqual(
+    Progression.validateRelations(balanced.preview.progressionRelations, { slots: balanced.preview.program }),
+    { ok: true, value: balanced.preview.progressionRelations },
+  );
+  const foundation = services.compile({
+    mode: "recommend",
+    answers: recommendAnswers({
+      desiredResult: "balanced",
+      daysPerWeek: 3,
+      structuredExperience: "first",
+      recentConsistency: "few",
+    }),
+    versions: services.currentVersions(),
+  });
+  assert.equal(foundation.ok, true, foundation.code);
+  assert.deepEqual(foundation.preview.progressionRelations, [],
+    "Foundation does not invent a paired relation");
 });
 
 test("custom split choices come from getCompatibleSplitChoices and never invent fakes", () => {
