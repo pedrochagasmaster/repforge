@@ -428,6 +428,10 @@
     if (hasOwn(raw, "exerciseConstraints")) {
       output.exerciseConstraints = normalizeConstraints(raw.exerciseConstraints, "$.answers.exerciseConstraints", issues);
     }
+    const mustHave = new Set(output.mustHaveExercises || []);
+    for (const constraint of output.exerciseConstraints || []) {
+      if (mustHave.has(constraint.exerciseId)) issues.push(`$.answers:must_have_avoided:${constraint.exerciseId}`);
+    }
     for (const key of ["splitPreference", "catalogueSelection"]) {
       if (!hasOwn(raw, key)) continue;
       if (!validToken(raw[key])) issues.push(`$.answers.${key}:invalid`);

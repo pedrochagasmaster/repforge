@@ -58,6 +58,53 @@ test("custom split choices come from getCompatibleSplitChoices and never invent 
   assert.equal(custom.selected.blueprintId, splits.choices[0].blueprintId);
 });
 
+test("custom split choices carry human facts and are executable for the exact answers", () => {
+  const answers = recommendAnswers({ desiredResult: "balanced", sessionMinutes: 60 });
+  const splits = services.splitChoices(answers);
+  assert.ok(splits.choices.length >= 1 && splits.choices.length <= 2);
+  for (const choice of splits.choices) {
+    assert.ok(choice.name && choice.namePt);
+    assert.ok(Array.isArray(choice.days) && choice.days.length === answers.daysPerWeek);
+    assert.ok(choice.days.every((day) => typeof day.label === "string" && day.label));
+    const compiled = services.compile({
+      mode: "custom",
+      answers: { ...answers, splitPreference: choice.id },
+      versions: services.currentVersions(),
+    });
+    assert.equal(compiled.ok, true, `${choice.id}: ${compiled.code}`);
+  }
+  assert.deepEqual(services.splitChoices({ ...answers, sessionMinutes: 30 }).choices, [],
+    "a structure that conflicts with the exact time ceiling must not be offered");
+});
+
+test("Custom guarantees a compatible must-have and rejects must-have/avoid contradictions", () => {
+  const answers = recommendAnswers({ desiredResult: "balanced", mustHaveExercises: ["pr_bb"] });
+  const splitPreference = services.splitChoices(answers).choices[0].id;
+  const compiled = services.compile({
+    mode: "custom",
+    answers: { ...answers, splitPreference },
+    versions: services.currentVersions(),
+  });
+  assert.equal(compiled.ok, true, compiled.code);
+  assert.ok(compiled.preview.program.some((exercise) => exercise.libraryId === "pr_bb"));
+  assert.equal(Object.hasOwn(compiled.telemetry, "mustHaveExercises"), false);
+  assert.equal(Object.hasOwn(compiled.telemetry, "preferences"), false);
+  assert.equal(JSON.stringify(compiled.telemetry).includes("pr_bb"), false);
+
+  const conflict = services.compile({
+    mode: "custom",
+    answers: {
+      ...answers,
+      splitPreference,
+      exerciseConstraints: [{ exerciseId: "pr_bb", reason: "pain" }],
+    },
+    versions: services.currentVersions(),
+  });
+  assert.equal(conflict.ok, false);
+  assert.equal(conflict.code, "exercise_preference_conflict");
+  assert.deepEqual(conflict.conflicts, [{ code: "must_have_avoided", exerciseId: "pr_bb" }]);
+});
+
 test("limited home selects the home family and browse returns only executable cards", () => {
   const home = services.compile({
     mode: "recommend",

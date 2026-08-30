@@ -236,6 +236,17 @@
     const library = catalogueApi(catalogue, Comp);
     const familyId = resolveFamilyId(answers);
     if (!familyId) return { ok: false, code: "family_unresolved" };
+    const mustHave = Array.isArray(answers?.mustHaveExercises) ? answers.mustHaveExercises : [];
+    const avoided = new Set((answers?.exerciseConstraints || []).map((item) => item?.exerciseId).filter(Boolean));
+    const contradictions = mustHave.filter((exerciseId) => avoided.has(exerciseId));
+    if (contradictions.length) {
+      return {
+        ok: false,
+        code: "exercise_preference_conflict",
+        conflicts: contradictions.map((exerciseId) => ({ code: "must_have_avoided", exerciseId })),
+        issues: [],
+      };
+    }
     const mapped = answersToCompilerContext(answers, {
       familyId,
       frequency: answers.daysPerWeek,
@@ -249,6 +260,16 @@
         code: primary.code || primary.kind,
         conflicts: primary.conflicts || [],
         issues: primary.issues || [],
+      };
+    }
+    const selectedExerciseIds = new Set((primary.program || []).map((exercise) => exercise.libraryId).filter(Boolean));
+    const unavailableMustHaves = mustHave.filter((exerciseId) => !selectedExerciseIds.has(exerciseId));
+    if (unavailableMustHaves.length) {
+      return {
+        ok: false,
+        code: "must_have_unavailable",
+        conflicts: unavailableMustHaves.map((exerciseId) => ({ code: "must_have_unavailable", exerciseId })),
+        issues: [],
       };
     }
     const candidates = [candidateFromInstance(primary, answers, Comp)];
@@ -292,22 +313,34 @@
     };
   }
 
-  function splitChoices(answers, Compiler) {
+  function splitChoices(answers, Compiler, catalogue) {
     const Comp = compilerApi(Compiler);
+    const library = catalogueApi(catalogue, Comp);
     const familyId = resolveFamilyId(answers);
     if (!familyId || !Number.isInteger(answers?.daysPerWeek)) {
       return { version: String(Comp.VERSIONS.compiler), choices: [] };
     }
     const mapped = answersToCompilerContext(answers, { familyId, frequency: answers.daysPerWeek });
     if (!mapped.ok) return { version: String(Comp.VERSIONS.compiler), choices: [] };
-    const choices = Comp.getCompatibleSplitChoices(mapped.value).slice(0, 2).map((choice, index) => ({
-      id: choice.id,
-      familyId: choice.familyId,
-      frequency: choice.frequency,
-      blueprintId: choice.blueprintId,
-      blueprintVersion: choice.blueprintVersion,
-      default: choice.default === true || index === 0,
-    }));
+    const family = (Comp.FAMILIES || []).find((item) => item.id === familyId);
+    const choices = Comp.getCompatibleSplitChoices(mapped.value).flatMap((choice) => {
+      const instance = Comp.compile({ ...mapped.value, splitId: choice.id }, library);
+      if (instance.kind !== "compiled") return [];
+      return [{
+        id: choice.id,
+        familyId: choice.familyId,
+        frequency: choice.frequency,
+        blueprintId: choice.blueprintId,
+        blueprintVersion: choice.blueprintVersion,
+        default: choice.default === true,
+        name: family?.name || "",
+        namePt: family?.namePt || family?.name || "",
+        days: (instance.days || []).map((day) => ({
+          label: day.label,
+          estimateMinutes: Math.ceil(Comp.estimateDaySeconds(day) / 60),
+        })),
+      }];
+    }).slice(0, 2).map((choice, index) => ({ ...choice, default: choice.default || index === 0 }));
     return { version: String(Comp.VERSIONS.compiler), choices };
   }
 
@@ -430,7 +463,7 @@
     return Object.freeze({
       version: String(Comp.VERSIONS.compiler),
       currentVersions: () => currentVersions(Comp),
-      splitChoices: (answers) => splitChoices(answers, Comp),
+      splitChoices: (answers) => splitChoices(answers, Comp, library),
       compile: ({ mode, answers, versions }) => compileWithServices({
         mode,
         answers,

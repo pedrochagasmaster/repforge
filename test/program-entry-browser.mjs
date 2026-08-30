@@ -340,6 +340,63 @@ try {
     await context.close();
   }
 
+  console.log("\nCustom uses real human split choices and bounded exercise preferences");
+  {
+    const { context, page } = await openFresh(browser);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="custom"]');
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    assert(await page.locator("#entryMustSearch").isVisible(), "Custom exposes a must-have exercise search");
+    await page.fill("#entryMustSearch", "barbell bench press");
+    await page.waitForTimeout(50);
+    await page.locator('[data-entry-must-add="pr_bb"]').click();
+    assert(await page.locator('[data-entry-must-remove="pr_bb"]').isVisible(),
+      "selected must-have remains visible and removable");
+    await page.fill("#entryAvoidSearch", "barbell bench press");
+    await page.waitForTimeout(50);
+    assert(await page.locator('[data-entry-avoid-add="pr_bb"]').count() === 0,
+      "a must-have exercise is not offered as an avoidance contradiction");
+    await page.fill("#entryAvoidSearch", "barbell curl");
+    await page.locator('[data-entry-avoid-add="cu_bb"]').click();
+    const beforeReason = await page.evaluate(() => window.__repforgeEntryState().answers.exerciseConstraints || []);
+    assert(beforeReason.length === 0, "selecting an avoided exercise does not invent a dislike reason");
+    assert(await page.locator("#onbNext").isDisabled(), "an avoided exercise requires an explicit reason before Continue");
+    await page.click('[data-entry-pick="avoidReason"][data-entry-val="cu_bb|dislike"]');
+    await page.click("#onbNext");
+    const choices = page.locator('[data-entry-pick="splitPreference"]');
+    const choiceCount = await choices.count();
+    const shapeCopy = await page.locator("#onbBody").innerText();
+    assert(choiceCount >= 1 && choiceCount <= 2, "Custom shows at most two real split choices", String(choiceCount));
+    assert(!/_v\d+|growth_\d|balanced_\d|strength_\d|home_\d/i.test(shapeCopy),
+      "Custom never exposes a family or blueprint identifier", shapeCopy);
+    assert(await choices.first().getAttribute("aria-pressed") === "true" && !(await page.locator("#onbNext").isDisabled()),
+      "Taurifer's compatible default is selected before the shape screen renders");
+    assert((await page.locator("#onbNext").innerText()) === "Generate program",
+      "Custom ends with an explicit Generate program action");
+    await page.click("#onbNext");
+    await page.waitForSelector("[data-entry-select-candidate]");
+    assert(/Your custom program/.test(await page.locator("#onbBody").innerText()) &&
+      await page.locator('[data-entry-action="change-priorities"]').isVisible(),
+      "Custom result names the job and offers a targeted change action");
+    const candidate = await page.evaluate(() => window.__repforgeEntryState().result?.preview?.program || []);
+    assert(candidate.some((exercise) => exercise.libraryId === "pr_bb"),
+      "the generated candidate contains the selected must-have exercise");
+    await page.locator("[data-entry-select-candidate]").click();
+    const reviewCopy = await page.locator("#onbBody").innerText();
+    assert(/Barbell bench press/.test(reviewCopy), "Custom review names the selected must-have exercise", reviewCopy);
+    await context.close();
+  }
+
   console.log("\nBuild remains a durable non-destructive draft until explicit valid activation");
   {
     const { context, page } = await openFresh(browser);

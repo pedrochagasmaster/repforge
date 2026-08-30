@@ -551,6 +551,14 @@ test("muscle overlaps and control caps fail closed before compile", () => {
   );
   assert.equal(Entry.MAX_MUSCLE_CONTROLS, 10);
 
+  assert.throws(
+    () => Entry.setAnswers(state, {
+      mustHaveExercises: ["pr_bb"],
+      exerciseConstraints: [{ exerciseId: "pr_bb", reason: "pain" }],
+    }),
+    /must_have_avoided/,
+  );
+
   const ok = Entry.setAnswers(state, {
     primaryMuscles: ["chest"],
     deEmphasizedMuscles: ["back"],

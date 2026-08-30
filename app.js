@@ -8220,7 +8220,7 @@ const ENTRY_ENVIRONMENTS=["commercial_gym","basic_gym","limited_home","full_home
 const ENTRY_EQUIPMENT=ProgramEntryAdapter?.KNOWN_EQUIPMENT||["barbell","dumbbell","machine","cable","smith","bodyweight"];
 const ENTRY_CAPABILITIES=ProgramEntryAdapter?.KNOWN_CAPABILITIES||["safe_pull","training_support"];
 const ENTRY_AVOID_REASONS=["dislike","pain","equipment","other"];
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="";
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -8399,7 +8399,7 @@ function reportEntryRoute(route){
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryAvoidQuery="";
+  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   if(opts.forceFresh||opts.resume===false){
@@ -8557,9 +8557,30 @@ function entryMuscleBlocked(key,muscle){
 function entryAvoidMatches(query){
   const q=foldSearch(query||"");
   const taken=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
-  const pool=pickableExercises().filter(entry=>!taken.has(entry.id));
+  const mustHave=new Set(entryState?.answers?.mustHaveExercises||[]);
+  const pool=pickableExercises().filter(entry=>!taken.has(entry.id)&&!mustHave.has(entry.id)&&entry.id!==entryPendingAvoid);
   if(!q)return pool.slice(0,8);
   return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
+function entryMustMatches(query){
+  const q=foldSearch(query||"");
+  const taken=new Set(entryState?.answers?.mustHaveExercises||[]);
+  const avoided=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
+  const pool=pickableExercises().filter(entry=>!taken.has(entry.id)&&!avoided.has(entry.id)&&entry.id!==entryPendingAvoid);
+  if(!q)return pool.slice(0,8);
+  return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
+function renderMustHaveSection(){
+  const selected=entryState?.answers?.mustHaveExercises||[];
+  const matches=entryMustMatches(entryMustQuery);
+  return `<p class="entry__group-lab">${esc(t("entry.priorities.must"))}</p>`+
+    `<p class="entry__hint">${esc(t("entry.priorities.must_hint"))}</p>`+
+    `<label class="entry__field"><span>${esc(t("entry.priorities.must_search"))}</span>`+
+    `<input id="entryMustSearch" type="search" autocomplete="off" value="${esc(entryMustQuery)}" placeholder="${esc(t("entry.priorities.must_search"))}"></label>`+
+    `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.must_search"))}">`+
+    matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-must-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
+    `</div>`+(selected.length?`<ul class="entry__avoid-list">`+selected.map(exerciseId=>{
+      const entry=libraryEntry(exerciseId);
+      return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):exerciseId)}</strong>`+
+        `<button type="button" class="btn btn--steel" data-entry-must-remove="${esc(exerciseId)}">${esc(t("entry.priorities.must_remove"))}</button></div></li>`}).join("")+`</ul>`:"")}
 function renderAvoidanceSection(){
   const constraints=entryState?.answers?.exerciseConstraints||[];
   const hasPain=constraints.some(item=>item.reason==="pain");
@@ -8570,6 +8591,9 @@ function renderAvoidanceSection(){
     `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.avoid_search"))}">`+
     matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-avoid-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
     `</div>`+
+    (entryPendingAvoid?(()=>{const entry=libraryEntry(entryPendingAvoid);return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(t("entry.priorities.avoid_reason"))}"><strong>${esc(entry?libraryName(entry):entryPendingAvoid)}</strong>`+
+      `<p class="entry__group-lab">${esc(t("entry.priorities.avoid_reason"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
+      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div></div>`})():"")+
     (constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
       const entry=libraryEntry(item.exerciseId);
       return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):item.exerciseId)}</strong>`+
@@ -8591,21 +8615,27 @@ function renderPrioritiesStep(){
       ENTRY_MUSCLES.map(m=>entryOpt("ignoredMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("ignoredMuscles",m),role:"checkbox"})).join("")+`</div>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
     ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
-    renderAvoidanceSection()}
+    (custom?renderMustHaveSection():"")+renderAvoidanceSection()}
 function renderCustomShapeStep(){
   const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
-  if(splits.choices.length===1&&entryState.answers.splitPreference!==splits.choices[0].id){
-    entryState=ProgramEntry.setAnswers(entryState,{splitPreference:splits.choices[0].id});
-    persistSetupDraft(entryState)}
+  if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
+    `<button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.custom_shape.title"))+`<p class="onb__explain">${esc(t("entry.custom_shape.lede"))}</p>`+
     `<p class="entry__group-lab">${esc(t("entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
-    splits.choices.map(choice=>entryOpt("splitPreference",choice.id,choice.blueprintId||choice.id,choice.default?t("entry.result.primary"):"")).join("")+`</div>`}
+    splits.choices.map(choice=>{
+      const name=isPt()?choice.namePt||choice.name:choice.name;
+      const label=t("entry.custom_shape.choice",{name,days:choice.frequency});
+      const estimates=(choice.days||[]).map(day=>day.estimateMinutes).filter(Number.isFinite);
+      const summary=estimates.length?t("entry.custom_shape.summary",{
+        days:choice.frequency,min:Math.min(...estimates),max:Math.max(...estimates)}):"";
+      const reason=choice.default?t("entry.custom_shape.default_reason"):t("entry.custom_shape.compatible_reason");
+      return entryOpt("splitPreference",choice.id,label,`${reason}${summary?` ${summary}`:""}`)}).join("")+`</div>`}
 function ensureGeneratorResult(){
   const services=entryServices();
   if(!services||!entryState)return null;
   if(entryState.result?.fingerprint&&entryState.result?.preview)return entryState.result;
   const compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()});
-  if(!compiled.ok){entryCompileError=compiled.code||"compile_failed";return null}
+  if(!compiled.ok){entryCompileError=compiled;return null}
   entryCompileError=null;
   const result={
     fingerprint:compiled.fingerprint,
@@ -8632,9 +8662,14 @@ function entryEnvironmentLabel(answers=entryState?.answers||{}){
   const kind=answers.environment?.kind;
   return kind?t(`entry.environment.${kind}`):""}
 function entryPriorityLabel(answers=entryState?.answers||{}){
-  const priorities=answers.primaryMuscles||[];
-  return priorities.length?priorities.map(muscle=>t(`entry.muscle.${muscle}`)||muscle).join(", "):
-    t("entry.preview.priorities_none")}
+  const facts=[];
+  const muscles=answers.primaryMuscles||[];
+  if(muscles.length)facts.push(muscles.map(muscle=>t(`entry.muscle.${muscle}`)||muscle).join(", "));
+  const movements=answers.priorityMovements||[];
+  if(movements.length)facts.push(movements.map(movement=>t(`entry.movement.${movement}`)||movement).join(", "));
+  const mustHave=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
+  if(mustHave.length)facts.push(t("entry.preview.must_have",{exercises:mustHave.map(libraryName).join(", ")}));
+  return facts.join(" · ")||t("entry.preview.priorities_none")}
 function entrySourceLabel(route=entryState?.route){
   const labels={
     recommend:t("entry.preview.source.recommend"),custom:t("entry.preview.source.custom"),
@@ -8646,9 +8681,16 @@ function entryDurationLabel(preview){
   if(!facts.minMinutes)return"";
   return t("entry.result.duration",{min:facts.minMinutes,max:facts.maxMinutes})}
 function renderResultStep(){
+  const resultTitle=entryState?.route==="custom"?t("entry.result.custom_title"):t("entry.result.title");
   const result=ensureGeneratorResult();
   if(!result){
-    return entryHeading(t("entry.result.title"))+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${entryCompileError?` (${esc(entryCompileError)})`:""}</p>`}
+    const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
+    const unavailable=(failure?.conflicts||[]).filter(item=>item.code==="must_have_unavailable").map(item=>libraryEntry(item.exerciseId)).filter(Boolean);
+    if(unavailable.length)return entryHeading(resultTitle)+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.result.must_unavailable_title"))}</strong>`+
+      `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
+      `<button type="button" class="btn btn--cta" data-entry-action="change-priorities">${esc(t("entry.result.change_preferences"))}</button></div>`;
+    const code=failure?.code||entryCompileError;
+    return entryHeading(resultTitle)+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${code?` (${esc(code)})`:""}</p>`}
   const primary=result.selected||(result.candidates||[])[0];
   const explanation=result.explanation||{},preview=result.preview||{};
   const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
@@ -8666,10 +8708,11 @@ function renderResultStep(){
   const cards=primary?[`<button type="button" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(primary.id)}" aria-pressed="true">`+
     `<span class="entry-card__title">${esc(t("entry.result.review"))}</span>`+
     `<span class="entry-card__cap">${esc(entryResultName(result))} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}${duration?` · ${esc(duration)}`:""}</span></button>`]:[];
-  return entryHeading(t("entry.result.title"))+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
+  return entryHeading(resultTitle)+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
     `<div class="entry__recommend"><h3>${esc(entryResultName(result))}</h3>`+
     `<p class="entry__group-lab">${esc(t("entry.result.why"))}</p><ul class="entry__reasons">${why.map(fact=>`<li>${esc(fact)}</li>`).join("")}</ul>`+
-    `<div class="entry__hub">${cards.join("")}</div></div>`}
+    `<div class="entry__hub">${cards.join("")}</div>`+
+    (entryState.route==="custom"?`<button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_custom"))}</button>`:"")+`</div>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p><div class="entry__hub">`+
@@ -8752,8 +8795,10 @@ function renderOnboarding(){
   if(next){
     const hideNext=!route||stepId==="entry"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
     next.classList.toggle("hidden",hideNext);
-    next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):t("entry.next");
-    next.disabled=!!(route&&ProgramEntry.validationIssues(entryState).length)}
+    next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
+      stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
+    next.disabled=!!(route&&(ProgramEntry.validationIssues(entryState).length||
+      (stepId==="priorities"&&entryPendingAvoid)))}
   let html=renderEntryNotice();
   if(noticeOwnsSurface){
     body.innerHTML=html;wireEntryDom();
@@ -8796,7 +8841,10 @@ function wireEntryDom(){
       return}
     if(key==="avoidReason"){
       const [exerciseId,reason]=String(raw).split("|");
-      const constraints=(entryState.answers.exerciseConstraints||[]).map(item=>item.exerciseId===exerciseId?{exerciseId,reason}:item);
+      const constraints=[...(entryState.answers.exerciseConstraints||[])];
+      const index=constraints.findIndex(item=>item.exerciseId===exerciseId);
+      if(index>=0)constraints[index]={exerciseId,reason};else constraints.push({exerciseId,reason});
+      entryPendingAvoid=null;
       entryPatchAnswers({exerciseConstraints:constraints});
       return}
     if(key==="preferredRestSeconds"){entryPatchAnswers({preferredRestSeconds:raw==="auto"?null:+raw});return}
@@ -8816,17 +8864,34 @@ function wireEntryDom(){
   const avoidSearch=$("#entryAvoidSearch");
   if(avoidSearch){
     avoidSearch.oninput=()=>{entryAvoidQuery=avoidSearch.value;renderOnboarding();const el=$("#entryAvoidSearch");if(el){el.focus();el.setSelectionRange?.(entryAvoidQuery.length,entryAvoidQuery.length)}}}
+  const mustSearch=$("#entryMustSearch");
+  if(mustSearch){
+    mustSearch.oninput=()=>{entryMustQuery=mustSearch.value;renderOnboarding();const el=$("#entryMustSearch");if(el){el.focus();el.setSelectionRange?.(entryMustQuery.length,entryMustQuery.length)}}}
+  $$('[data-entry-must-add]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryMustAdd;
+    const selected=[...(entryState.answers.mustHaveExercises||[])];
+    if(!selected.includes(exerciseId)&&selected.length<32)selected.push(exerciseId);
+    entryMustQuery="";
+    entryPatchAnswers({mustHaveExercises:selected})});
+  $$('[data-entry-must-remove]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryMustRemove;
+    entryPatchAnswers({mustHaveExercises:(entryState.answers.mustHaveExercises||[]).filter(id=>id!==exerciseId)})});
   $$("[data-entry-avoid-add]").forEach(btn=>btn.onclick=()=>{
     const exerciseId=btn.dataset.entryAvoidAdd;
     const constraints=[...(entryState.answers.exerciseConstraints||[])];
     if(constraints.some(item=>item.exerciseId===exerciseId))return;
     if(constraints.length>=32)return;
-    constraints.push({exerciseId,reason:"dislike"});
+    entryPendingAvoid=exerciseId;
     entryAvoidQuery="";
-    entryPatchAnswers({exerciseConstraints:constraints})});
+    renderOnboarding()});
   $$("[data-entry-avoid-remove]").forEach(btn=>btn.onclick=()=>{
     const exerciseId=btn.dataset.entryAvoidRemove;
     entryPatchAnswers({exerciseConstraints:(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId)})});
+  const changePriorities=$("[data-entry-action='change-priorities']");if(changePriorities)changePriorities.onclick=()=>{
+    entryCompileError=null;entrySetState({...entryState,step:"priorities",result:null})};
+  const changeSchedule=$("[data-entry-action='change-schedule']");if(changeSchedule)changeSchedule.onclick=()=>{
+    const answers={...entryState.answers};delete answers.splitPreference;
+    entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
   $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
     const id=btn.dataset.entrySelectCandidate;
     const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;
@@ -8919,8 +8984,15 @@ function entryAdvance(){
     return openEntryDraftEditor()}
   const advanced=ProgramEntry.advance(entryState);
   if(!advanced.ok){renderOnboarding();return}
-  entrySetState(advanced.state);
-  if(advanced.state.step==="result")ensureGeneratorResult()}
+  let nextState=advanced.state;
+  if(nextState.step==="custom_shape"){
+    const splits=entryServices()?.splitChoices(nextState.answers)||{choices:[]};
+    const compatible=new Set(splits.choices.map(choice=>choice.id));
+    if(!compatible.has(nextState.answers.splitPreference)){
+      const preferred=splits.choices.find(choice=>choice.default)||splits.choices[0];
+      if(preferred)nextState=ProgramEntry.setAnswers(nextState,{splitPreference:preferred.id})}}
+  entrySetState(nextState);
+  if(nextState.step==="result")ensureGeneratorResult()}
 function entryBack(){
   if(!ProgramEntry||!entryState)return;
   if(entryUiNotice==="cancel"){entryUiNotice=null;renderOnboarding();return}
