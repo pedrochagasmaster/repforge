@@ -8475,8 +8475,13 @@ function entryProgressSections(route){
   if(!route)return{n:0,total:1};
   const steps=ProgramEntry.ROUTE_STEPS[route]||[];
   const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step));
-  const index=Math.max(0,semantic.indexOf(entryState.step));
-  return{n:Math.min(index+1,semantic.length||1),total:Math.max(semantic.length,1)}}
+  const semanticIndex=semantic.indexOf(entryState.step);
+  const n=semanticIndex>=0?semanticIndex+1:semantic.length;
+  return{n:Math.min(n,semantic.length||1),total:Math.max(semantic.length,1)}}
+function entryRouteLabel(route){
+  const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
+    build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
+  return labels[route]||t("entry.eyebrow")}
 function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio"}={}){
   const current=entryState?.answers||{};
   const isSelected=selected!=null?selected:multi?(current[key]||[]).includes(val):current[key]===val;
@@ -8615,16 +8620,56 @@ function ensureGeneratorResult(){
   entryState=ProgramEntry.setResult(entryState,result);
   persistSetupDraft(entryState);
   return result}
+function entryPreviewFacts(preview){
+  const program=Array.isArray(preview?.program)?preview.program:[];
+  const estimates=(preview?.days||[]).map(day=>+day.estimateMinutes||0).filter(Boolean);
+  return{
+    exercises:program.length,
+    sets:sum(program.map(exercise=>+exercise.sets||0)),
+    minMinutes:estimates.length?Math.min(...estimates):null,
+    maxMinutes:estimates.length?Math.max(...estimates):null}}
+function entryEnvironmentLabel(answers=entryState?.answers||{}){
+  const kind=answers.environment?.kind;
+  return kind?t(`entry.environment.${kind}`):""}
+function entryPriorityLabel(answers=entryState?.answers||{}){
+  const priorities=answers.primaryMuscles||[];
+  return priorities.length?priorities.map(muscle=>t(`entry.muscle.${muscle}`)||muscle).join(", "):
+    t("entry.preview.priorities_none")}
+function entrySourceLabel(route=entryState?.route){
+  const labels={
+    recommend:t("entry.preview.source.recommend"),custom:t("entry.preview.source.custom"),
+    browse:t("entry.preview.source.browse"),build:t("entry.preview.source.build"),
+    import:t("entry.preview.source.import"),shared:t("entry.preview.source.shared")};
+  return labels[route]||labels.import}
+function entryDurationLabel(preview){
+  const facts=entryPreviewFacts(preview);
+  if(!facts.minMinutes)return"";
+  return t("entry.result.duration",{min:facts.minMinutes,max:facts.maxMinutes})}
 function renderResultStep(){
   const result=ensureGeneratorResult();
   if(!result){
     return entryHeading(t("entry.result.title"))+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${entryCompileError?` (${esc(entryCompileError)})`:""}</p>`}
   const primary=result.selected||(result.candidates||[])[0];
+  const explanation=result.explanation||{},preview=result.preview||{};
+  const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
+  const days=explanation.daysPerWeek||preview.frequency||"";
+  const minutes=explanation.sessionMinutes||"";
+  const environment=entryEnvironmentLabel({environment:{kind:explanation.mainConstraint}});
+  const why=[
+    goal?t("entry.result.why_goal",{goal}):"",
+    days&&minutes?t("entry.result.why_schedule",{days,minutes}):"",
+    environment?t("entry.result.why_environment",{environment}):"",
+    explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
+      ?t("entry.result.why_interrupted"):"",
+  ].filter(Boolean);
+  const duration=entryDurationLabel(preview);
   const cards=primary?[`<button type="button" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(primary.id)}" aria-pressed="true">`+
-    `<span class="entry-card__title">${esc(t("entry.result.primary"))}</span>`+
-    `<span class="entry-card__cap">${esc(isPt()?primary.namePt||primary.name:primary.name)} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`]:[];
+    `<span class="entry-card__title">${esc(t("entry.result.review"))}</span>`+
+    `<span class="entry-card__cap">${esc(entryResultName(result))} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}${duration?` · ${esc(duration)}`:""}</span></button>`]:[];
   return entryHeading(t("entry.result.title"))+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
-    `<p class="entry__explain">${esc(t("entry.result.explain"))}</p><div class="entry__hub">${cards.join("")}</div>`}
+    `<div class="entry__recommend"><h3>${esc(entryResultName(result))}</h3>`+
+    `<p class="entry__group-lab">${esc(t("entry.result.why"))}</p><ul class="entry__reasons">${why.map(fact=>`<li>${esc(fact)}</li>`).join("")}</ul>`+
+    `<div class="entry__hub">${cards.join("")}</div></div>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p><div class="entry__hub">`+
@@ -8647,14 +8692,26 @@ function renderImportSourceStep(){
 function renderPreviewStep(){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
-  const days=(preview.days||[]).map(day=>`<div class="onb__day"><div class="onb__dayname">${esc(day.label||day.dayId)}</div>`+
+  const days=(preview.days||[]).map(day=>{
+    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
+    return `<details class="onb__day"><summary class="onb__dayname">${esc(day.label||day.dayId)}<span>${esc(t("entry.preview.exercises",{n:exercises.length}))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
     (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
-  `</div>`);
+    `</details>`});
+  const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
+  const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
+  const environment=entryEnvironmentLabel();
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
   return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<div class="onb__review">${days.join("")}<div class="onb__actions">`+
+    `<div class="entry__decision"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
+    `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
+    `<div class="entry__facts"><span>${esc(t("entry.preview.exercises",{n:facts.exercises}))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
+    `<div class="entry__review-grid"><section><h4>${esc(t("entry.preview.priorities"))}</h4><p>${esc(entryPriorityLabel())}</p></section>`+
+    `<section><h4>${esc(t("entry.preview.equipment"))}</h4><p>${esc(environment||t("entry.preview.equipment_unspecified"))}</p></section>`+
+    `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t("entry.preview.progression_body"))}</p></section>`+
+    `<section><h4>${esc(t("entry.preview.compromises"))}</h4><p>${esc(compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none"))}</p></section></div></div>`+
+    `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}<div class="onb__actions">`+
     `<button type="button" id="entryActivate" class="btn btn--cta">${esc(activateLabel)}</button>`+
     `<button type="button" id="entryEdit" class="btn btn--steel">${esc(t("entry.preview.edit"))}</button>`+
     `<button type="button" id="entryRestart" class="btn btn--steel">${esc(t("entry.preview.restart"))}</button></div></div>`}
@@ -8680,6 +8737,7 @@ function renderOnboarding(){
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
   const route=entryState.route,stepId=entryState.step;
+  const eyebrow=$("#onbEyebrow");if(eyebrow)eyebrow.textContent=route?entryRouteLabel(route):t("entry.eyebrow");
   title.textContent=t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
   const progress=entryProgressSections(route);
   if(step)step.textContent=route?t("entry.step",{n:progress.n,total:progress.total}):t("entry.eyebrow");

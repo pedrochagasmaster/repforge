@@ -185,7 +185,7 @@ try {
     assert(pressed === "true", "selected desired-result card sets aria-pressed", pressed);
     await page.click("#onbNext");
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
-    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="about_half"]');
     await page.click("#onbNext");
     await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
     await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
@@ -211,6 +211,21 @@ try {
     }
     await page.click("#onbNext");
     await page.waitForSelector("[data-entry-select-candidate]");
+    const recommendationCopy = await page.locator("#onbBody").innerText();
+    const resultHeader = {
+      eyebrow: await page.locator("#onbEyebrow").innerText(),
+      step: await page.locator("#onbStepLabel").innerText(),
+    };
+    assert(resultHeader.eyebrow === "Recommend" && /5 of 5/i.test(resultHeader.step),
+      "recommendation uses a route-specific header and final-section progress", JSON.stringify(resultHeader));
+    assert(recommendationCopy.includes("Build Muscle"),
+      "recommendation shows a human-readable program identity", recommendationCopy);
+    assert(/Prioritize muscle growth/.test(recommendationCopy) && /3 days/.test(recommendationCopy) && /60 minutes/.test(recommendationCopy),
+      "recommendation rationale cites the chosen goal and schedule", recommendationCopy);
+    assert(/about half/i.test(recommendationCopy) && /first week/i.test(recommendationCopy),
+      "recommendation explains the temporary interrupted return treatment", recommendationCopy);
+    assert(/Full commercial gym/.test(recommendationCopy) && /Review this program/.test(recommendationCopy),
+      "recommendation cites the environment and offers an explicit review action", recommendationCopy);
     const candidateCount = await page.locator("[data-entry-select-candidate]").count();
     assert(candidateCount === 1, "recommend shows only the primary result", String(candidateCount));
     const draftBefore = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
@@ -223,6 +238,17 @@ try {
     );
     await page.locator("[data-entry-select-candidate]").first().click();
     await page.waitForSelector("#entryActivate");
+    const reviewCopy = await page.locator("#onbBody").innerText();
+    assert(/Build Muscle/.test(reviewCopy) && /Taurifer recommendation/.test(reviewCopy),
+      "review names the candidate and its human-readable source", reviewCopy);
+    assert(/exercises/.test(reviewCopy) && /working sets/.test(reviewCopy) && /minutes/.test(reviewCopy),
+      "review shows exercise, set, and approximate-duration facts", reviewCopy);
+    assert(/Priorities/i.test(reviewCopy) && /Equipment assumptions/i.test(reviewCopy) && /Progression/i.test(reviewCopy),
+      "review presents priorities, equipment assumptions, and progression", reviewCopy);
+    assert(await page.locator("#onbBody details").count() === 3,
+      "review uses one collapsible summary per training day");
+    assert(await page.locator("#onboarding .onb__nav").evaluate((node) => getComputedStyle(node).position !== "sticky"),
+      "review navigation stays in document flow instead of obscuring day summaries");
     const activeBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), KEY);
     const draftBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
     await page.click("#entryEdit");
