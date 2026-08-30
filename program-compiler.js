@@ -450,10 +450,11 @@
     const preferred = context.preferences.includes(candidate.id) ? 1 : 0;
     const movementPreferred = intersects(candidate.patterns, context.priorityMovements) ? 1 : 0;
     const history = context.history.some((entry) => entry.libraryId === candidate.id) ? 1 : 0;
+    const preservesPrimaryIntent = intersects(candidate.primaryMuscles, contractValue.primaryMuscles) ? 1 : 0;
     const avoidsDeEmphasis = intersects(candidate.primaryMuscles, context.deEmphasizedMuscles) ? 0 : 1;
     const foundation = context.profile === "foundation" ? Number(candidate.beginnerFriendly) + Number(candidate.stability === "high") : 0;
     const homeEquipment = candidate.equipment === "bodyweight" ? 3 : candidate.equipment === "dumbbell" ? 2 : candidate.equipment === "band" ? 1 : 0;
-    return [preferred, movementPreferred, avoidsDeEmphasis, history, preferenceMatches(candidate, contractValue, context), foundation, context.familyId === "home" ? homeEquipment : 0, candidate.primarySuitability === "high" ? 1 : 0, candidate.stability === "high" ? 1 : 0, -candidate.rank, candidate.id];
+    return [preferred, movementPreferred, preservesPrimaryIntent, avoidsDeEmphasis, history, preferenceMatches(candidate, contractValue, context), foundation, context.familyId === "home" ? homeEquipment : 0, candidate.primarySuitability === "high" ? 1 : 0, candidate.stability === "high" ? 1 : 0, -candidate.rank, candidate.id];
   }
 
   function compareRank(left, right, contractValue, context) {

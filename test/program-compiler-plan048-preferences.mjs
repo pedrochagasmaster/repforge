@@ -21,6 +21,8 @@ const context = (familyId, frequency, extra = {}) => ({
   ...extra,
 });
 const allSlots = (result) => result.days.flatMap((day) => day.slots);
+const preservesPrimaryIntent = (slot) => slot.exercise.primaryMuscles.some((muscle) =>
+  slot.contract.primaryMuscles.includes(muscle));
 const semanticWithoutVersions = (result) => {
   const copy = structuredClone(result);
   if (copy.provenance) {
@@ -151,6 +153,40 @@ assert.deepEqual(Compiler.compile(context("strength", 2, {
   deEmphasizedMuscles: ["back"],
 }), movementCatalogue), deEmphasized,
   "de-emphasis stays deterministic");
+
+const hingeDeEmphasis = Compiler.compile(context("growth", 2, {
+  deEmphasizedMuscles: ["glutes"],
+}), EXERCISE_LIBRARY);
+assert.equal(hingeDeEmphasis.kind, "compiled");
+const hingeGrowth = allSlots(hingeDeEmphasis).find((slot) => slot.templateId === "hinge_growth");
+assert(preservesPrimaryIntent(hingeGrowth),
+  "de-emphasis cannot fill hinge_growth with an exercise that trains its intended muscles only secondarily");
+assert.notEqual(hingeGrowth.exercise.id, "sq_lp",
+  "leg press cannot replace the authored hinge primary intent");
+
+const primaryIntentInversions = [];
+for (const familyId of Compiler.FAMILY_IDS) {
+  for (const frequency of Compiler.FREQUENCIES) {
+    const baseline = Compiler.compile(context(familyId, frequency), EXERCISE_LIBRARY);
+    assert.equal(baseline.kind, "compiled");
+    const baselineBySlot = new Map(allSlots(baseline).map((slot) => [slot.slotId, slot]));
+    for (const muscle of Compiler.MUSCLE_IDS) {
+      const changed = Compiler.compile(context(familyId, frequency, {
+        deEmphasizedMuscles: [muscle],
+      }), EXERCISE_LIBRARY);
+      assert.equal(changed.kind, "compiled");
+      for (const slot of allSlots(changed)) {
+        const before = baselineBySlot.get(slot.slotId);
+        if (before && preservesPrimaryIntent(before) && !preservesPrimaryIntent(slot)) {
+          primaryIntentInversions.push({ familyId, frequency, muscle, slotId: slot.slotId,
+            before: before.exercise.id, after: slot.exercise.id });
+        }
+      }
+    }
+  }
+}
+assert.deepEqual(primaryIntentInversions, [],
+  `de-emphasis introduced ${primaryIntentInversions.length} primary-intent inversions`);
 
 const ignored = Compiler.compile(context("growth", 2, {
   ignoredMuscles: ["biceps", "triceps", "calves", "side_delts", "rear_delts"],
