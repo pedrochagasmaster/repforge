@@ -2,6 +2,7 @@
 /** Focused Playwright checks for modal, disclosure, and live-status semantics. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
+import { runProgramEntryA11y } from "./program-entry-a11y.mjs";
 import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
 import {
   APP_INDEX,
@@ -2676,6 +2677,7 @@ async function main() {
     await runDimmedStateAccessibility(browser);
     await runVisualAccessibility(browser);
     await runSharedSetupAccessibility(browser);
+    await runProgramEntryA11y(browser);
   }
   await browser.close();
   console.log(`\n${results.passed} passed, ${results.failed} failed`);

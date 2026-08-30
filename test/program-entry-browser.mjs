@@ -181,8 +181,8 @@ try {
     const headingTab = await page.locator("#entryHeading").getAttribute("tabindex");
     assert(headingTab === "-1", "entry heading is focusable via tabindex", headingTab);
     await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-    const pressed = await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').getAttribute("aria-pressed");
-    assert(pressed === "true", "selected desired-result card sets aria-pressed", pressed);
+    const checked = await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').getAttribute("aria-checked");
+    assert(checked === "true", "selected desired-result card sets aria-checked", checked);
     await page.click("#onbNext");
     await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
     await page.click('[data-entry-pick="recentConsistency"][data-entry-val="about_half"]');
@@ -451,7 +451,7 @@ try {
     assert(choiceCount >= 1 && choiceCount <= 2, "Custom shows at most two real split choices", String(choiceCount));
     assert(!/_v\d+|growth_\d|balanced_\d|strength_\d|home_\d/i.test(shapeCopy),
       "Custom never exposes a family or blueprint identifier", shapeCopy);
-    assert(await choices.first().getAttribute("aria-pressed") === "true" && !(await page.locator("#onbNext").isDisabled()),
+    assert(await choices.first().getAttribute("aria-checked") === "true" && !(await page.locator("#onbNext").isDisabled()),
       "Taurifer's compatible default is selected before the shape screen renders");
     assert((await page.locator("#onbNext").innerText()) === "Generate program",
       "Custom ends with an explicit Generate program action");

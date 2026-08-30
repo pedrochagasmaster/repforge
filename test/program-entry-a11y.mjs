@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 /** Named Plan 048 entry accessibility regression: semantics, keyboard, focus, and compact geometry. */
+import { pathToFileURL } from "url";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -34,39 +35,39 @@ async function reachPriorities(page) {
   await page.click("#onbNext");
 }
 
-const browser = await launchChromium();
-const page = await browser.newPage({ viewport: { width: 320, height: 568 } });
-try {
+export async function runProgramEntryA11y(browser, check = assert) {
+  const page = await browser.newPage({ viewport: { width: 320, height: 568 } });
+  try {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   await clean(page);
 
-  assert(await page.locator("#onbBack").evaluate((el) => getComputedStyle(el).minHeight === "44px"), "Back has a 44px minimum target");
-  assert((await page.locator("#onbBack").getAttribute("aria-label")) === "Back", "Back has an explicit accessible name");
+  check(await page.locator("#onbBack").evaluate((el) => getComputedStyle(el).minHeight === "44px"), "Back has a 44px minimum target");
+  check((await page.locator("#onbBack").getAttribute("aria-label")) === "Back", "Back has an explicit accessible name");
 
   await page.click('[data-entry-route="custom"]');
-  assert(!(await page.locator("#onbNext").isDisabled()), "required-answer Continue remains operable for validation");
+  check(!(await page.locator("#onbNext").isDisabled()), "required-answer Continue remains operable for validation");
   await page.click("#onbNext");
-  assert(await page.locator("#entryValidation").isVisible(), "missing required answer is announced in an alert");
-  assert(await page.locator("#entryValidation").evaluate((el) => el === document.activeElement), "validation alert receives focus");
+  check(await page.locator("#entryValidation").isVisible(), "missing required answer is announced in an alert");
+  check(await page.locator("#entryValidation").evaluate((el) => el === document.activeElement), "validation alert receives focus");
 
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-  assert(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
-  assert(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
+  check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
+  check(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
   await page.keyboard.press("ArrowDown");
-  assert(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="balanced"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && el === document.activeElement), "radio arrows move selection and focus");
+  check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="balanced"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && el === document.activeElement), "radio arrows move selection and focus");
 
   await clean(page);
   await reachPriorities(page);
   const checkboxInfo = await page.locator('#onbBody [role="checkbox"]').evaluateAll((els) => els.map((el) => ({ tabIndex: el.tabIndex, checked: el.getAttribute("aria-checked"), pressed: el.getAttribute("aria-pressed") })));
-  assert(checkboxInfo.length > 4 && checkboxInfo.every((item) => item.tabIndex >= 0 && item.pressed === null), "checkboxes remain independently tabbable with aria-checked");
-  assert(await page.getByRole("checkbox").count() === checkboxInfo.length, "accessibility tree exposes each checkbox control");
+  check(checkboxInfo.length > 4 && checkboxInfo.every((item) => item.tabIndex >= 0 && item.pressed === null), "checkboxes remain independently tabbable with aria-checked");
+  check(await page.getByRole("checkbox").count() === checkboxInfo.length, "accessibility tree exposes each checkbox control");
 
   await page.locator('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]').focus();
   const before = await page.evaluate(() => document.activeElement?.dataset.entryVal);
   await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]');
   const after = await page.evaluate(() => document.activeElement?.dataset.entryVal);
-  assert(before === "chest" && after === "chest", "selection rerender restores focus to the changed control");
+  check(before === "chest" && after === "chest", "selection rerender restores focus to the changed control");
 
   const geometry = await page.evaluate(() => {
     const root = document.querySelector("#onboarding");
@@ -74,7 +75,7 @@ try {
     const rect = document.querySelector(".onb__nav")?.getBoundingClientRect();
     return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, footerReachable: !!rect && rect.bottom <= window.innerHeight + 1 };
   });
-  assert(geometry.overflow <= 0 && geometry.footerReachable, "320px entry has no horizontal overflow and footer remains reachable", JSON.stringify(geometry));
+  check(geometry.overflow <= 0 && geometry.footerReachable, "320px entry has no horizontal overflow and footer remains reachable", JSON.stringify(geometry));
 
   const large = await page.evaluate(() => {
     document.documentElement.style.fontSize = "200%";
@@ -83,11 +84,11 @@ try {
     const rect = document.querySelector(".onb__nav")?.getBoundingClientRect();
     return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, footerReachable: !!rect && rect.bottom <= window.innerHeight + 1 };
   });
-  assert(large.overflow <= 0 && large.footerReachable, "320px entry remains usable with enlarged text", JSON.stringify(large));
+  check(large.overflow <= 0 && large.footerReachable, "320px entry remains usable with enlarged text", JSON.stringify(large));
 
   await page.setViewportSize({ width: 1280, height: 800 });
   const desktopWidth = await page.locator("#onboarding .onb").evaluate((el) => el.getBoundingClientRect().width);
-  assert(desktopWidth > 700, "desktop entry uses a wider composition", `width=${desktopWidth}`);
+  check(desktopWidth > 700, "desktop entry uses a wider composition", `width=${desktopWidth}`);
 
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.evaluate(() => localStorage.setItem("repforge_ui_v1", JSON.stringify({ theme: "dark" })));
@@ -95,10 +96,21 @@ try {
   await waitForAppBoot(page, { base: BASE });
   await page.evaluate(() => { window.closeFirstRun?.(); window.startOnboarding?.("settings", { resume: true }); });
   if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
-  assert(await page.locator("html").getAttribute("data-theme") === "dark", "dark theme remains tokenized in entry flow");
-  assert(await page.locator(".entry-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
-} finally {
-  await browser.close();
+  check(await page.locator("html").getAttribute("data-theme") === "dark", "dark theme remains tokenized in entry flow");
+  check(await page.locator(".entry-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
+  } finally {
+    await page.close();
+  }
 }
-if (checks.failed) process.exitCode = 1;
-console.log(`\n${checks.passed} passed, ${checks.failed} failed`);
+
+const isMain = process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href;
+if (isMain) {
+  const browser = await launchChromium();
+  try {
+    await runProgramEntryA11y(browser);
+  } finally {
+    await browser.close();
+  }
+  if (checks.failed) process.exitCode = 1;
+  console.log(`\n${checks.passed} passed, ${checks.failed} failed`);
+}
