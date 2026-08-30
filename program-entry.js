@@ -5,6 +5,7 @@
   const CONTEXT_SCHEMA_VERSION = 1;
   const MAX_CONTEXT_BYTES = 16384;
   const MAX_DRAFT_BYTES = 65536;
+  const MAX_DRAFT_ENVELOPE_BYTES = MAX_DRAFT_BYTES + 1024;
   const MAX_STRUCTURE_DEPTH = 12;
   const MAX_STRUCTURE_NODES = 2048;
   const MAX_TOKEN_LENGTH = 96;
@@ -515,6 +516,72 @@
     return schemaResult("setup-draft", issues, output);
   }
 
+  function normalizeSetupDraftEnvelope(input) {
+    const parsed = parseBounded(input, MAX_DRAFT_ENVELOPE_BYTES);
+    if (!parsed.ok) return schemaResult("setup-draft-envelope", parsed.issues);
+    const raw = parsed.value;
+    const structural = inspectJson(raw, MAX_DRAFT_ENVELOPE_BYTES);
+    if (structural.length) return schemaResult("setup-draft-envelope", structural);
+    if (!isPlainObject(raw)) return schemaResult("setup-draft-envelope", ["root:not_object"]);
+    const isEnvelope = hasOwn(raw, "state") || hasOwn(raw, "revision") || hasOwn(raw, "ownerId");
+    if (!isEnvelope) {
+      const legacy = normalizeSetupDraft(raw);
+      if (!legacy.ok) return schemaResult("setup-draft-envelope", legacy.issues);
+      return {
+        ok: true,
+        value: {
+          envelope: {
+            schemaVersion: SCHEMA_VERSION,
+            draftId: legacy.value.draftId,
+            revision: 0,
+            ownerId: null,
+            state: legacy.value,
+          },
+          migrated: true,
+        },
+      };
+    }
+    const issues = [];
+    rejectUnknownKeys(raw, new Set(["schemaVersion", "draftId", "revision", "ownerId", "state"]), "$", issues);
+    if (raw.schemaVersion !== SCHEMA_VERSION) issues.push("$.schemaVersion:unsupported");
+    if (typeof raw.draftId !== "string" || raw.draftId.length < 1 || raw.draftId.length > 64) {
+      issues.push("$.draftId:invalid");
+    }
+    if (!Number.isInteger(raw.revision) || raw.revision < 0) issues.push("$.revision:invalid");
+    if (raw.ownerId !== null && !validToken(raw.ownerId)) issues.push("$.ownerId:invalid");
+    const state = normalizeSetupDraft(raw.state);
+    if (!state.ok) issues.push(...state.issues.map((issue) => `$.state:${issue}`));
+    else if (state.value.draftId !== raw.draftId) issues.push("$.draftId:state_mismatch");
+    return schemaResult("setup-draft-envelope", issues, {
+      envelope: {
+        schemaVersion: SCHEMA_VERSION,
+        draftId: raw.draftId,
+        revision: raw.revision,
+        ownerId: raw.ownerId,
+        state: state.ok ? state.value : null,
+      },
+      migrated: false,
+    });
+  }
+
+  function advanceSetupDraftEnvelope(observed, nextState, ownerId) {
+    const current = normalizeSetupDraftEnvelope(observed);
+    if (!current.ok || current.value.migrated) throw new TypeError("Observed setup draft envelope is invalid");
+    const normalized = normalizeSetupDraft(nextState);
+    if (!normalized.ok) throw new TypeError("Next setup draft state is invalid");
+    if (!validToken(ownerId)) throw new TypeError("Setup draft owner is invalid");
+    if (normalized.value.draftId !== current.value.envelope.draftId) {
+      throw new TypeError("Setup draft identity cannot change during an update");
+    }
+    return {
+      schemaVersion: SCHEMA_VERSION,
+      draftId: normalized.value.draftId,
+      revision: current.value.envelope.revision + 1,
+      ownerId,
+      state: normalized.value,
+    };
+  }
+
   function migrateLegacyAnswers(input, options) {
     const parsed = parseBounded(input, MAX_CONTEXT_BYTES);
     if (!parsed.ok) return schemaResult("legacy-answers", parsed.issues);
@@ -838,6 +905,7 @@
     CONTEXT_SCHEMA_VERSION,
     MAX_CONTEXT_BYTES,
     MAX_DRAFT_BYTES,
+    MAX_DRAFT_ENVELOPE_BYTES,
     MAX_MUSCLE_CONTROLS,
     KNOWN_EQUIPMENT: [...KNOWN_EQUIPMENT],
     KNOWN_CAPABILITIES: [...KNOWN_CAPABILITIES],
@@ -849,6 +917,8 @@
     setResult,
     normalizeProgrammingContext,
     normalizeSetupDraft,
+    normalizeSetupDraftEnvelope,
+    advanceSetupDraftEnvelope,
     migrateLegacyAnswers,
     validationIssues,
     advance,

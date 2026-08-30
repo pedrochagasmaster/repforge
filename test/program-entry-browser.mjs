@@ -142,6 +142,12 @@ try {
     assert(candidateCount === 1, "recommend shows only the primary result", String(candidateCount));
     const draftBefore = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
     assert(!!draftBefore, "setup draft persisted during recommend");
+    const draftEnvelope = JSON.parse(draftBefore);
+    assert(
+      draftEnvelope.schemaVersion === 1 && draftEnvelope.revision > 0 &&
+        typeof draftEnvelope.ownerId === "string" && draftEnvelope.state?.route === "recommend",
+      "setup draft persistence records ownership and revision"
+    );
     await page.locator("[data-entry-select-candidate]").first().click();
     await page.waitForSelector("#entryActivate");
     await page.click("#entryActivate");
@@ -149,6 +155,7 @@ try {
       const state = JSON.parse(localStorage.getItem(key) || "{}");
       return state.programMeta?.onboarded === true && (state.program || []).length > 0;
     }, KEY, { timeout: 10000 });
+    await page.waitForFunction((key) => localStorage.getItem(key) == null, DRAFT, { timeout: 10000 });
     const after = await page.evaluate((key) => {
       const state = JSON.parse(localStorage.getItem(key) || "{}");
       return {
@@ -310,6 +317,155 @@ try {
     await page.click("#firstRunCreate");
     const notice = await page.locator(".entry__notice").innerText().catch(() => "");
     assert(/could not be opened|não foi possível/i.test(notice), "corrupt draft shows restart notice", notice);
+    await context.close();
+  }
+
+  console.log("\nSetup draft write failures are visible and non-destructive");
+  {
+    const { context, page } = await openFresh(browser);
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.click("#firstRunCreate");
+    await page.evaluate((draftKey) => {
+      const original = Storage.prototype.setItem;
+      window.__restoreSetupSetItem = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(key, value) {
+        if (key === draftKey) throw new DOMException("forced quota failure", "QuotaExceededError");
+        return original.call(this, key, value);
+      };
+    }, DRAFT);
+    await page.click('[data-entry-route="recommend"]');
+    await page.waitForFunction(() => document.querySelector("#onbBody")?.textContent.includes("Setup draft was not saved"));
+    const after = await page.evaluate((key) => ({
+      active: localStorage.getItem(key),
+      alert: document.querySelector('#onbBody [role="alert"]')?.textContent || "",
+    }), KEY);
+    assert(after.alert.includes("Setup draft was not saved"), "setup save failure is announced in the UI");
+    assert(after.active === activeBefore, "setup save failure leaves active state byte-identical");
+    await page.evaluate(() => window.__restoreSetupSetItem());
+    await context.close();
+  }
+
+  console.log("\nFailed activation preserves a newer setup draft from another tab");
+  {
+    const context = await browser.newContext();
+    const pageA = await context.newPage();
+    await pageA.goto(BASE);
+    await waitForAppBoot(pageA, { base: BASE });
+    await seedActiveProgram(pageA);
+    const activeBefore = await pageA.evaluate((key) => localStorage.getItem(key), KEY);
+    await pageA.evaluate(({ draftKey }) => {
+      const Entry = window.RepForgeProgramEntry;
+      const versions = window.RepForgeProgramCompiler.VERSIONS;
+      const now = new Date().toISOString();
+      let draft = Entry.createState({
+        draftId: "setup-draft-race",
+        activeProgramRevisionAtStart: JSON.parse(localStorage.getItem("repforge_v1"))._storageRevision,
+        now,
+        versions: {
+          compiler: String(versions.compiler),
+          family: String(versions.schema),
+          blueprint: String(versions.blueprint),
+          catalogue: String(versions.catalogue),
+          rules: String(versions.rules),
+          context: String(versions.context),
+          progression: "range-1",
+        },
+      });
+      draft = Entry.selectRoute(draft, "build");
+      draft = Entry.setAnswers(draft, { daysPerWeek: 2, programName: "Tab A draft" });
+      draft = Entry.setResult(draft, {
+        fingerprint: "setup-race-fingerprint",
+        selected: { id: "manual_build", source: "manual_build" },
+        name: "Tab A draft",
+        preview: {
+          program: [{
+            id: "race-exercise", day: "Day 1", order: 1, name: "Cable Row",
+            sets: 3, min: 8, max: 12, primary: "Back", secondary: "Biceps",
+            notes: "", libraryId: "row_cable",
+          }],
+          programStructure: null,
+        },
+      });
+      draft = { ...draft, step: "editor" };
+      localStorage.setItem(draftKey, JSON.stringify({
+        schemaVersion: 1,
+        draftId: draft.draftId,
+        revision: 1,
+        ownerId: "tab-a",
+        state: draft,
+      }));
+    }, { draftKey: DRAFT });
+    await pageA.evaluate(() => window.startOnboarding("settings"));
+    const pageB = await context.newPage();
+    await pageB.goto(BASE);
+    await waitForAppBoot(pageB, { base: BASE });
+    await pageB.evaluate(() => window.startOnboarding("settings"));
+    await pageA.evaluate(() => {
+      window.__activationGate = new Promise((resolve) => { window.__releaseActivation = resolve; });
+      const io = {
+        async writeLocal() {
+          window.__activationStarted = true;
+          await window.__activationGate;
+          throw new Error("forced local failure");
+        },
+        async writeIdb() {
+          window.__activationStarted = true;
+          await window.__activationGate;
+          throw new Error("forced idb failure");
+        },
+      };
+      const current = JSON.parse(localStorage.getItem("repforge_v1"));
+      window.__activationResult = window.__repforgeFinalizeProgramSetup({
+        exercises: current.program,
+        name: "Rejected setup race",
+        answers: { goal: "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+      }, io);
+      window.__activationResult.then((result) => { window.__activationSettled = result; });
+    });
+    await pageA.waitForFunction(() => window.__activationStarted === true || window.__activationSettled !== undefined);
+    const earlyResult = await pageA.evaluate(() => window.__activationSettled);
+    assert(earlyResult === undefined, "tab A activation reaches the durable write", JSON.stringify(earlyResult));
+    const newerRaw = await pageB.evaluate(async (draftKey) => {
+      const Entry = window.RepForgeProgramEntry;
+      const next = Entry.setAnswers(window.__repforgeEntryState(), { programName: "Tab B newer draft" });
+      const saved = await window.__repforgePersistSetupDraft(next);
+      if (!saved.ok) throw new Error(`tab B setup save failed: ${JSON.stringify(saved)}`);
+      return localStorage.getItem(draftKey);
+    }, DRAFT);
+    const newerEnvelope = JSON.parse(newerRaw);
+    assert(
+      newerEnvelope.revision === 2 && newerEnvelope.ownerId !== "tab-a" &&
+        newerEnvelope.state.answers.programName === "Tab B newer draft",
+      "tab B product save advances revision and ownership"
+    );
+    await pageA.evaluate(() => window.__releaseActivation());
+    const failed = await pageA.evaluate(() => window.__activationResult);
+    const after = await pageA.evaluate(({ stateKey, draftKey }) => ({
+      active: localStorage.getItem(stateKey),
+      draft: localStorage.getItem(draftKey),
+    }), { stateKey: KEY, draftKey: DRAFT });
+    assert(!failed.localOk && !failed.idbOk, "tab A activation fails as forced");
+    assert(after.active === activeBefore, "failed activation leaves active state byte-identical");
+    assert(after.draft === newerRaw, "tab A failure does not overwrite tab B's newer draft");
+    const staleActivation = await pageA.evaluate(() => window.__repforgeActivateEntryPreview({
+      destination: "log",
+      manualBuild: true,
+      skipReplaceConfirm: true,
+    }));
+    const afterStaleAttempt = await pageA.evaluate(({ stateKey, draftKey }) => ({
+      active: localStorage.getItem(stateKey),
+      draft: localStorage.getItem(draftKey),
+      alert: document.querySelector('#onbBody [role="alert"]')?.textContent || "",
+      pending: Object.keys(localStorage).filter((key) => key.startsWith("repforge_pending_v1:")),
+    }), { stateKey: KEY, draftKey: DRAFT });
+    assert(staleActivation.setupDraftConflict === true, "newer setup revision blocks stale activation");
+    assert(afterStaleAttempt.active === activeBefore, "blocked stale activation leaves active state byte-identical");
+    assert(afterStaleAttempt.draft === newerRaw, "blocked stale activation preserves the newer setup draft");
+    assert(afterStaleAttempt.alert.includes("changed in another tab"), "stale activation conflict is announced");
+    assert(afterStaleAttempt.pending.length === 0, "blocked stale activation clears its pending journal");
     await context.close();
   }
 

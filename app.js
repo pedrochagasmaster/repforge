@@ -936,7 +936,8 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   return{kind:"committed",accepted:true,rejected:false,settled:true,
     snapshot,result:settlement.result||result,closed}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,reconcileSessionIds=[],dayRenames=[],effect=null}={}){
+  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,expectedSetupDraftRaw=undefined,
+  reconcileSessionIds=[],dayRenames=[],effect=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
@@ -972,6 +973,11 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}
       head=refreshed.head||head}
     const coordinationId=pendingRecord?.journal.id||null;
+    if(expectedSetupDraftRaw!==undefined&&readSetupDraftRaw()!==expectedSetupDraftRaw){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,
+        conflict:true,setupDraftConflict:true}}
     if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
@@ -5449,6 +5455,9 @@ window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCommitNextBlock=commitNextBlock;
 window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
+window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
+window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
 window.__repforgeApplyProgramTemplate=applyProgramTemplate;
 window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
 window.__repforgePendingBlock=()=>pendingBlockTransition;
@@ -8083,6 +8092,9 @@ const ENTRY_EQUIPMENT=ProgramEntryAdapter?.KNOWN_EQUIPMENT||["barbell","dumbbell
 const ENTRY_CAPABILITIES=ProgramEntryAdapter?.KNOWN_CAPABILITIES||["safe_pull","training_support"];
 const ENTRY_AVOID_REASONS=["dislike","pain","equipment","other"];
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="";
+const setupDraftOwnerId=uid();
+let entryDraftHandle=null;
+let setupDraftWriteQueue=Promise.resolve();
 function entryServices(){
   if(!ProgramEntryAdapter)return null;
   return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY})}
@@ -8092,14 +8104,67 @@ function entryVersions(){return entryServices()?.currentVersions?.()||{
 function liveProgramRevision(){return readRevision(state)}
 function hasActiveProgram(){return !!(state?.programMeta?.onboarded&&((state.program||[]).length||structureDayLabels(state.programMeta)))}
 function readSetupDraftRaw(){try{return localStorage.getItem(SETUP_DRAFT_KEY)}catch{return null}}
-function clearSetupDraft(){try{localStorage.removeItem(SETUP_DRAFT_KEY)}catch{}}
+function readSetupDraftRecord(){
+  const raw=readSetupDraftRaw();
+  if(raw===null)return{raw:null,envelope:null,migrated:false,ok:true};
+  const normalized=ProgramEntry?.normalizeSetupDraftEnvelope(raw);
+  if(!normalized?.ok)return{raw,envelope:null,migrated:false,ok:false,issues:normalized?.issues||[]};
+  return{raw,envelope:normalized.value.envelope,migrated:normalized.value.migrated,ok:true}}
+function freshSetupDraftEnvelope(next){return{
+  schemaVersion:ProgramEntry.SCHEMA_VERSION,
+  draftId:next.draftId,
+  revision:0,
+  ownerId:null,
+  state:next}}
+function queueSetupDraftWrite(operation){
+  const pending=setupDraftWriteQueue.then(operation,operation);
+  setupDraftWriteQueue=pending.catch(()=>{});
+  return pending}
+function reportSetupDraftWriteFailure(kind,error){
+  entryUiNotice=kind;
+  if(error)console.warn("setup draft save failed",error);
+  if(document.body.classList.contains("is-onboarding"))renderOnboarding()}
+function removeObservedSetupDraft(handle){
+  if(!handle)return{ok:true,absent:true};
+  const currentRaw=readSetupDraftRaw();
+  if(currentRaw!==handle.raw)return{ok:false,conflict:true};
+  try{localStorage.removeItem(SETUP_DRAFT_KEY)}catch(error){
+    reportSetupDraftWriteFailure("save_failed",error);
+    return{ok:false,writeFailed:true}}
+  if(entryDraftHandle?.raw===handle.raw)entryDraftHandle=null;
+  return{ok:true}}
+function removeSetupDraftIfCurrent(handle=entryDraftHandle){
+  if(!handle)return Promise.resolve({ok:true,absent:true});
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(handle)))}
+function clearSetupDraft(){
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(entryDraftHandle)))}
 function persistSetupDraft(next){
-  if(!ProgramEntry||!next)return;
+  if(!ProgramEntry||!next)return Promise.resolve({ok:false});
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
   const normalized=ProgramEntry.normalizeSetupDraft(stamped);
-  if(!normalized.ok)return;
-  entryState=normalized.value;
-  try{localStorage.setItem(SETUP_DRAFT_KEY,JSON.stringify(entryState))}catch(e){console.warn("setup draft save failed",e)}}
+  if(!normalized.ok)return Promise.resolve({ok:false,invalid:true});
+  const queuedState=normalized.value;
+  entryState=queuedState;
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,async()=>{
+    const currentRaw=readSetupDraftRaw();
+    const handle=entryDraftHandle||{
+      raw:null,
+      envelope:freshSetupDraftEnvelope(queuedState)};
+    if(currentRaw!==handle.raw){
+      reportSetupDraftWriteFailure("save_conflict");
+      return{ok:false,conflict:true}}
+    let envelope;
+    try{envelope=ProgramEntry.advanceSetupDraftEnvelope(handle.envelope,queuedState,setupDraftOwnerId)}
+    catch(error){
+      reportSetupDraftWriteFailure("save_failed",error);
+      return{ok:false,invalid:true}}
+    const raw=JSON.stringify(envelope);
+    try{localStorage.setItem(SETUP_DRAFT_KEY,raw)}catch(error){
+      reportSetupDraftWriteFailure("save_failed",error);
+      return{ok:false,writeFailed:true}}
+    entryDraftHandle={raw,envelope};
+    if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")entryUiNotice=null;
+    return{ok:true,envelope}}))}
 function createEntryState(extra={}){
   return ProgramEntry.createState({
     draftId:uid(),
@@ -8177,12 +8242,13 @@ function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
   entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryAvoidQuery="";
-  const raw=readSetupDraftRaw();
-  if(opts.forceFresh){
+  const record=readSetupDraftRecord();
+  entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
+  if(opts.forceFresh||opts.resume===false){
     clearSetupDraft();
     entryState=createEntryState();
-  }else if(raw&&opts.resume!==false){
-    const resumed=ProgramEntry.resumeSetupDraft(raw,{
+  }else if(record.raw&&opts.resume!==false&&record.ok){
+    const resumed=ProgramEntry.resumeSetupDraft(record.envelope.state,{
       currentVersions:entryVersions(),
       liveActiveProgramRevision:liveProgramRevision(),
       pinnedVersionsExecutable:false});
@@ -8200,6 +8266,10 @@ function startOnboarding(origin,opts={}){
       entryState=resumed.value.state;
       entryUiNotice="resume";
     }else entryState=createEntryState();
+  }else if(record.raw&&!record.ok){
+    clearSetupDraft();
+    entryUiNotice="corrupt";
+    entryState=createEntryState();
   }else entryState=createEntryState();
   showOnboardingView();renderOnboarding();
   if(opts.userInitiated===false)return;
@@ -8419,6 +8489,8 @@ function renderEntryNotice(){
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
     `<button type="button" class="btn btn--steel" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`;
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
+  if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
+  if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
   if(entryUiNotice==="rules_changed")return `<div class="entry__notice" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t("entry.rules_changed.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button></div></div>`;
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
@@ -8603,6 +8675,7 @@ function entryBack(){
   entrySetState(ProgramEntry.back(entryState))}
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false}={}){
   if(!ProgramEntry||!entryState)return;
+  await setupDraftWriteQueue;
   if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
   const readiness=ProgramEntry.activationReadiness(entryState,{
     liveActiveProgramRevision:liveProgramRevision(),
@@ -8639,6 +8712,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
     baseProposal.programMeta.programStructure=cloneSnapshot(programStructure)}
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
+  const activationDraftHandle=entryDraftHandle;
   const result=await finalizeProgramSetup({
     exercises,
     name,
@@ -8649,14 +8723,22 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     baseProposal,
     telemetryRoute,
     entryTelemetry:entryState.result?.telemetry||null,
-    programStructure});
-  if(result?.localOk||result?.idbOk){clearSetupDraft();entryState=null}}
+    programStructure,
+    expectedSetupDraftRaw:activationDraftHandle?.raw??null});
+  if(result?.setupDraftConflict){
+    entryUiNotice="save_conflict";
+    renderOnboarding();
+    return result}
+  if(result?.localOk||result?.idbOk){
+    const cleanup=await removeSetupDraftIfCurrent(activationDraftHandle);
+    if(cleanup?.writeFailed)toast(t("entry.save_failed.body"));
+    entryState=null}}
 function telemetryGeneratedProgram(goal){
   if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,programStructure=null}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,programStructure=null,expectedSetupDraftRaw=undefined}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -8681,25 +8763,12 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   proposal.programMeta=meta;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
-  // Clear the setup draft before the durable write so observers never see an
-  // activated program alongside a leftover resumable draft. Restore the exact
-  // prior bytes if the activation transaction is refused.
-  const priorSetupDraft=readSetupDraftRaw();
-  if(priorSetupDraft!=null)clearSetupDraft();
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
-  let persisted;
-  try{persisted=await commitProposedState(proposal,adapter,{...transition,effect})}
-  catch(error){
-    if(priorSetupDraft!=null){
-      try{localStorage.setItem(SETUP_DRAFT_KEY,priorSetupDraft)}catch{}}
-    throw error}
+  const persisted=await commitProposedState(proposal,adapter,{...transition,effect,expectedSetupDraftRaw});
   const result=originEff==="block"
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
     :persisted;
-  if(!(result.localOk||result.idbOk)){
-    if(priorSetupDraft!=null){
-      try{localStorage.setItem(SETUP_DRAFT_KEY,priorSetupDraft)}catch{}}
-    return result}
+  if(!(result.localOk||result.idbOk))return result;
   if((telemetryRoute==="custom"||telemetryRoute==="recommend")&&entryTelemetry){
     captureEvent("generator_completed",{
       goal:entryTelemetry.goal,

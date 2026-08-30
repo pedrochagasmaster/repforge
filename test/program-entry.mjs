@@ -193,6 +193,47 @@ test("setup draft round-trips partial progress without normalization drift", () 
   assert.deepEqual(state.answers, { desiredResult: "muscle_growth" });
 });
 
+test("setup draft envelope migrates legacy bytes and advances ownership by revision", () => {
+  const state = Entry.setAnswers(Entry.selectRoute(fresh(), "recommend"), {
+    desiredResult: "muscle_growth",
+  });
+  const migrated = Entry.normalizeSetupDraftEnvelope(JSON.stringify(state));
+  assert.equal(migrated.ok, true, migrated.issues?.join(","));
+  assert.equal(migrated.value.migrated, true);
+  assert.equal(migrated.value.envelope.revision, 0);
+  assert.equal(migrated.value.envelope.ownerId, null);
+  assert.deepEqual(migrated.value.envelope.state, state);
+
+  const tabA = Entry.advanceSetupDraftEnvelope(migrated.value.envelope, state, "tab-a");
+  assert.equal(tabA.revision, 1);
+  assert.equal(tabA.ownerId, "tab-a");
+  const changed = Entry.setAnswers(state, { daysPerWeek: 3 });
+  const tabB = Entry.advanceSetupDraftEnvelope(tabA, changed, "tab-b");
+  assert.equal(tabB.revision, 2);
+  assert.equal(tabB.ownerId, "tab-b");
+  assert.deepEqual(tabB.state.answers, { desiredResult: "muscle_growth", daysPerWeek: 3 });
+  assert.equal(tabA.state.answers.daysPerWeek, undefined);
+
+  const roundTrip = Entry.normalizeSetupDraftEnvelope(JSON.stringify(tabB));
+  assert.equal(roundTrip.ok, true, roundTrip.issues?.join(","));
+  assert.equal(roundTrip.value.migrated, false);
+  assert.deepEqual(roundTrip.value.envelope, tabB);
+});
+
+test("setup draft envelope rejects unknown ownership and revision shapes", () => {
+  const state = fresh();
+  for (const envelope of [
+    { schemaVersion: 1, draftId: state.draftId, revision: -1, ownerId: "tab-a", state },
+    { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "", state },
+    { schemaVersion: 1, draftId: "different", revision: 1, ownerId: "tab-a", state },
+    { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "tab-a", state, extra: true },
+  ]) {
+    const result = Entry.normalizeSetupDraftEnvelope(envelope);
+    assert.equal(result.ok, false, JSON.stringify(envelope));
+    assert.equal(result.code, "invalid-setup-draft-envelope");
+  }
+});
+
 test("draft schema rejects corrupt, oversized, deep, unknown, and polluted input", () => {
   const base = fresh();
   const deep = {};
