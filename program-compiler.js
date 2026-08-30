@@ -13,6 +13,10 @@
   });
   const FREQUENCIES = Object.freeze([2, 3, 4, 5, 6]);
   const FAMILY_IDS = Object.freeze(["growth", "balanced", "strength", "home"]);
+  // Canonical entry vocabulary.  Consumers must project these lists instead
+  // of carrying a second, inevitably drifting allowlist.
+  const EQUIPMENT_IDS = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
+  const CAPABILITY_IDS = Object.freeze(["safe_pull", "training_support"]);
   // Foundation leans toward the conservative (more-reps-in-reserve) end of an
   // authored RIR range. This is a preference intersected with the authored
   // bounds, never an independent Foundation RIR target: it can only raise the
@@ -102,7 +106,7 @@
     arms: contract({ role: "isolation_accessory", patterns: ["curl", "triceps", "arms"], primaryMuscles: ["biceps", "triceps"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
     calf: contract({ role: "isolation_accessory", patterns: ["calves"], primaryMuscles: ["calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["rep_goal@1", "range@1"], transitionClass: "same_station" }),
     trunk: contract({ role: "isolation_accessory", patterns: ["abs", "core"], primaryMuscles: ["core"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1"], transitionClass: "same_station" }),
-    priority: contract({ role: "isolation_accessory", patterns: ["leg_extension", "leg_curl", "chest_iso", "row", "pulldown", "lateral_raise", "rear_delt", "curl", "triceps", "calves"], primaryMuscles: ["quads", "hamstrings", "chest", "back", "lats", "side_delts", "rear_delts", "biceps", "triceps", "calves"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"], status: "optional", priorityBehavior: "priority_only", transitionClass: "same_station" }),
+    priority: contract({ role: "isolation_accessory", patterns: ["leg_extension", "leg_curl", "chest_iso", "row", "pulldown", "lateral_raise", "rear_delt", "curl", "triceps", "calves", "abs", "core"], primaryMuscles: ["quads", "hamstrings", "chest", "back", "lats", "side_delts", "rear_delts", "biceps", "triceps", "calves", "core"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15", "compound_8_12"], strategies: ["range@1", "rep_goal@1"], status: "optional", priorityBehavior: "priority_only", transitionClass: "same_station" }),
     optional_arms: contract({ role: "isolation_accessory", patterns: ["curl", "triceps", "arms", "calves", "lateral_raise"], primaryMuscles: ["biceps", "triceps", "calves", "side_delts"], secondaryMuscles: [], prescriptionClasses: ["isolation_8_15"], strategies: ["range@1", "rep_goal@1"], status: "optional", transitionClass: "same_station" }),
     home_knee: contract({ role: "hypertrophy_compound", patterns: ["squat"], primaryMuscles: ["quads"], secondaryMuscles: ["glutes", "hamstrings"], prescriptionClasses: ["compound_8_12"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change", preferredCharacteristics: { stability: ["high", "moderate"] } }),
     home_push: contract({ role: "hypertrophy_compound", patterns: ["press", "incline_press", "triceps"], primaryMuscles: ["chest", "triceps"], secondaryMuscles: ["front_delts"], prescriptionClasses: ["compound_8_12", "isolation_8_15"], strategies: ["range@1"], status: "protected", warmupClass: "assistance", transitionClass: "home_change" }),
@@ -932,7 +936,7 @@
     }];
   }
 
-  const api = Object.freeze({ VERSIONS, FREQUENCIES, FAMILY_IDS, STRATEGIES, FAMILIES, SLOT_TEMPLATES, BLUEPRINTS, RULES, MUSCLE_IDS, MOVEMENT_PATTERN_IDS, PREFERRED_REST_SECONDS, validateBlueprints, validateContext, normalizeCatalogue, getCompatibleSplitChoices, compile, substitute, customize, projectProgram, projectProgramForWeek, programStructure, migrateLegacyStructure, estimateDaySeconds });
+  const api = Object.freeze({ VERSIONS, FREQUENCIES, FAMILY_IDS, STRATEGIES, FAMILIES, SLOT_TEMPLATES, BLUEPRINTS, RULES, MUSCLE_IDS, MOVEMENT_PATTERN_IDS, EQUIPMENT_IDS, CAPABILITY_IDS, PREFERRED_REST_SECONDS, validateBlueprints, validateContext, normalizeCatalogue, getCompatibleSplitChoices, compile, substitute, customize, projectProgram, projectProgramForWeek, programStructure, migrateLegacyStructure, estimateDaySeconds });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.RepForgeProgramCompiler = api;
 })(typeof window !== "undefined" ? window : globalThis);

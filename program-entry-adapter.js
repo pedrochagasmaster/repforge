@@ -1,6 +1,9 @@
 (function (root) {
   "use strict";
 
+  const compiler = root?.RepForgeProgramCompiler ||
+    (typeof require === "function" ? (() => { try { return require("./program-compiler.js"); } catch {} })() : null);
+
   const FAMILY_BY_RESULT = Object.freeze({
     muscle_growth: "growth",
     balanced: "balanced",
@@ -14,11 +17,11 @@
     foundation: "foundation",
   });
   const ENV_EQUIPMENT = Object.freeze({
-    commercial_gym: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith"]),
-    basic_gym: Object.freeze(["dumbbell", "machine", "cable", "smith", "barbell"]),
+    commercial_gym: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "band"]),
+    basic_gym: Object.freeze(["dumbbell", "machine", "cable", "smith", "barbell", "band"]),
     limited_home: Object.freeze([]),
-    full_home: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith"]),
-    other: Object.freeze(["dumbbell", "cable", "bodyweight"]),
+    full_home: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "band"]),
+    other: Object.freeze(["dumbbell", "cable", "band", "bodyweight"]),
   });
   const ENV_CAPABILITIES = Object.freeze({
     commercial_gym: Object.freeze(["safe_pull", "training_support"]),
@@ -27,8 +30,8 @@
     full_home: Object.freeze(["safe_pull", "training_support"]),
     other: Object.freeze(["safe_pull"]),
   });
-  const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight"]);
-  const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
+  const KNOWN_EQUIPMENT = Object.freeze([...(compiler?.EQUIPMENT_IDS || ["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"])]);
+  const KNOWN_CAPABILITIES = Object.freeze([...(compiler?.CAPABILITY_IDS || ["safe_pull", "training_support"])]);
 
   function environmentKind(answers) {
     return answers?.environment?.kind || "commercial_gym";
@@ -109,6 +112,8 @@
       rules: String(versions.rules ?? "1"),
       context: String(versions.context ?? "1"),
       progression: "range-1",
+      recentConsistency: String(versions.recentConsistency ?? "1"),
+      simpleStart: String(versions.simpleStart ?? "1"),
     };
   }
 

@@ -92,6 +92,14 @@
     return null;
   }
 
+  function progressionApi() {
+    if (root && root.RepForgeProgression) return root.RepForgeProgression;
+    if (typeof require === "function") {
+      try { return require("./progression-engine.js"); } catch {}
+    }
+    return null;
+  }
+
   function hostnameOf(locationLike) {
     if (locationLike && typeof locationLike.hostname === "string" && locationLike.hostname) {
       return locationLike.hostname;
@@ -364,6 +372,19 @@
         seen.add(identity);
         progression.modifiers.push(modifier);
       }
+    }
+    // Shape checks above are necessary for codec safety but not sufficient for
+    // execution. Validate the complete envelope against the progression
+    // engine's strategy contracts before allowing it into a released setup.
+    const validator = progressionApi();
+    if (validator?.validatePrescription) {
+      const checked = validator.validatePrescription({
+        schemaVersion: 1,
+        strategy: progression.strategy,
+        modifiers: progression.modifiers,
+      });
+      if (!checked.ok) issues.push(`${path}: non_executable_parameters`, ...checked.issues.map((issue) => `${path}.${issue}`));
+      else return checked.value;
     }
     return progression;
   }

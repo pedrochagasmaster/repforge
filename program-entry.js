@@ -1,6 +1,9 @@
 (function (root) {
   "use strict";
 
+  const compiler = root?.RepForgeProgramCompiler ||
+    (typeof require === "function" ? (() => { try { return require("./program-compiler.js"); } catch {} })() : null);
+
   const SCHEMA_VERSION = 1;
   const CONTEXT_SCHEMA_VERSION = 1;
   const MAX_CONTEXT_BYTES = 16384;
@@ -13,8 +16,8 @@
   const MAX_LIST_LENGTH = 32;
   const MAX_MUSCLE_CONTROLS = 10;
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-  const KNOWN_EQUIPMENT = new Set(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight"]);
-  const KNOWN_CAPABILITIES = new Set(["safe_pull", "training_support"]);
+  const KNOWN_EQUIPMENT = new Set(compiler?.EQUIPMENT_IDS || ["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
+  const KNOWN_CAPABILITIES = new Set(compiler?.CAPABILITY_IDS || ["safe_pull", "training_support"]);
   const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
   const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
@@ -36,6 +39,8 @@
     "rules",
     "context",
     "progression",
+    "recentConsistency",
+    "simpleStart",
   ]);
   const ROUTES = Object.freeze(["recommend", "custom", "browse", "build", "import", "shared"]);
   const ROUTE_SET = new Set(ROUTES);
@@ -458,10 +463,71 @@
     rejectUnknownKeys(raw, new Set(VERSION_KEYS), "$.versions", issues);
     const output = {};
     for (const key of VERSION_KEYS) {
+      // The two policy pins were added after the original draft shape. Keep
+      // old, unfinished drafts readable, while any current draft carries and
+      // compares both independent policy versions.
+      if (!hasOwn(raw, key) && (key === "recentConsistency" || key === "simpleStart")) continue;
       if (!validToken(raw[key])) issues.push(`$.versions.${key}:invalid`);
       else output[key] = raw[key];
     }
     return output;
+  }
+
+  const RESULT_KEYS = new Set([
+    "schemaVersion", "route", "fingerprint", "answersFingerprint", "name", "namePt",
+    "selected", "candidates", "alternative", "diagnostics", "explanation", "preview",
+    "telemetry", "serviceVersion",
+  ]);
+  const RESULT_ROUTE_KEYS = Object.freeze({
+    recommend: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
+    custom: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
+    browse: new Set(["selected", "telemetry"]),
+    build: new Set(["selected"]),
+    import: new Set(["selected"]),
+    shared: new Set(["selected", "telemetry"]),
+  });
+
+  function answerFingerprint(answers) {
+    const text = stableStringify(answers || {});
+    let hash = 0x811c9dc5;
+    for (let index = 0; index < text.length; index++) {
+      hash ^= text.charCodeAt(index);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    return `ans-${(hash >>> 0).toString(16).padStart(8, "0")}`;
+  }
+
+  function stableStringify(value) {
+    if (Array.isArray(value)) return `[${value.map(stableStringify).join(",")}]`;
+    if (value && typeof value === "object") {
+      return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${stableStringify(value[key])}`).join(",")}}`;
+    }
+    return JSON.stringify(value);
+  }
+
+  function normalizeResult(raw, route, answers, issues, persisted) {
+    if (!isPlainObject(raw)) {
+      issues.push("$.result:not_object");
+      return null;
+    }
+    if (persisted) {
+      for (const key of Object.keys(raw)) if (!RESULT_KEYS.has(key)) issues.push(`$.result.${key}:unknown_key`);
+      if (raw.schemaVersion !== SCHEMA_VERSION) issues.push("$.result.schemaVersion:unsupported");
+      if (raw.route !== route) issues.push("$.result.route:mismatch");
+      if (!validToken(raw.fingerprint)) issues.push("$.result.fingerprint:invalid");
+      if (raw.answersFingerprint !== answerFingerprint(answers)) issues.push("$.result.answersFingerprint:mismatch");
+      if (!isPlainObject(raw.preview)) issues.push("$.result.preview:required");
+      for (const key of RESULT_ROUTE_KEYS[route] || []) {
+        // Recommendation/custom previews historically carried their selected
+        // candidate only after the user made a choice. Keep those resumable
+        // drafts readable, while every persisted activation route remains
+        // closed over an explicit selected entry.
+        if (key === "selected" && route !== "recommend" && route !== "custom" && !isPlainObject(raw.selected)) {
+          issues.push("$.result.selected:required");
+        }
+      }
+    }
+    return clone(raw);
   }
 
   function normalizeSetupDraft(input) {
@@ -497,7 +563,7 @@
     const answers = normalizeAnswers(raw.answers, issues);
     issues.push(...musclePartitionIssues(answers, "$.answers"));
     if (!isPlainObject(raw.legacyHints)) issues.push("$.legacyHints:not_object");
-    if (raw.result !== null && !isPlainObject(raw.result)) issues.push("$.result:not_object");
+    const result = raw.result === null ? null : normalizeResult(raw.result, raw.route, answers, issues, true);
     const versions = normalizeVersions(raw.versions, issues);
     if (!Number.isInteger(raw.activeProgramRevisionAtStart) || raw.activeProgramRevisionAtStart < 0) {
       issues.push("$.activeProgramRevisionAtStart:invalid");
@@ -511,7 +577,7 @@
       step: raw.step,
       answers,
       legacyHints: isPlainObject(raw.legacyHints) ? clone(raw.legacyHints) : {},
-      result: raw.result === null ? null : clone(raw.result),
+      result,
       versions,
       activeProgramRevisionAtStart: raw.activeProgramRevisionAtStart,
       createdAt: raw.createdAt,
@@ -751,7 +817,14 @@
     if (result === null || result === undefined) throw new TypeError("Result is required");
     const structural = inspectJson(result, MAX_DRAFT_BYTES);
     if (structural.length || !isPlainObject(result)) throw new TypeError("Invalid program-entry result");
-    return { ...clone(state), result: clone(result) };
+    const next = clone(result);
+    // Stamp the binding at the pure state boundary. Callers cannot persist a
+    // preview produced for a different answer set, and old callers that only
+    // supplied a fingerprint remain usable until they are persisted.
+    next.schemaVersion = SCHEMA_VERSION;
+    next.route = state.route;
+    next.answersFingerprint = answerFingerprint(state.answers);
+    return { ...clone(state), result: next };
   }
 
   function validationIssues(state) {
