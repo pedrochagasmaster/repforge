@@ -863,9 +863,14 @@ function scenarioRows({ day, ex, sessions }) {
   });
 }
 
-/* Decides every row still awaiting review, then commits. Each decision
-   re-renders the list, so rows are handled one at a time. */
+/* Decides every row still awaiting review, stages the candidate, then uses the
+   same explicit activation transaction as every other entry route. Each
+   decision re-renders the list, so rows are handled one at a time. */
 async function reviewAndCommitImport(page) {
+  await page.evaluate(() => {
+    const tour = document.querySelector("#tour");
+    if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+  });
   for (let guard = 0; guard < 40; guard++) {
     const acted = await page.evaluate(() => {
       const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
@@ -877,7 +882,9 @@ async function reviewAndCommitImport(page) {
     await page.waitForTimeout(60);
   }
   await page.click("#importCommit");
-  await page.waitForTimeout(400);
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  await page.click("#entryActivate");
+  await page.waitForTimeout(500);
 }
 
 async function main() {

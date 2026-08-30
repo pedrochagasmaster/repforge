@@ -270,6 +270,50 @@ try {
     await context.close();
   }
 
+  phase("Import selects its route once and activates only after common review");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await page.click("#entryOwnToggle");
+    await page.click('[data-entry-route="import"]');
+    await page.setInputFiles("#importProgram", {
+      name: "reviewed-program.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({
+        version: 3,
+        meta: { name: "Reviewed import" },
+        exercises: [{
+          id: "import-row", day: "Day 1", order: 1, name: "Assisted pull-up",
+          sets: 3, min: 8, max: 12, libraryId: "pd_bw",
+        }],
+        customExercises: [],
+      })),
+    });
+    await page.waitForSelector("#importCommit:not([disabled])", { timeout: 10000 });
+    let events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1,
+      "opening Import review does not select the route twice", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 0,
+      "mapping review does not activate a program", namesOf(events).join(","));
+    await page.click("#importCommit");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1,
+      "staging the reviewed import keeps one route event", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 0,
+      "staging the reviewed import leaves activation telemetry silent", namesOf(events).join(","));
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__captured.some(([name]) => name === "program_activated"), undefined, {
+      timeout: 10000,
+    });
+    events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1,
+      "the complete Import setup flow emits one route event", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 1 && propsOf(events, "program_activated")?.route === "import",
+      "explicit Import activation emits once with the import route", namesOf(events).join(","));
+    await context.close();
+  }
+
   phase("A logged session reports the session, not its contents");
   {
     const { context, page } = await openApp(browser, { seed: loggableProgram() });

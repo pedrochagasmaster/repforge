@@ -6077,7 +6077,10 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
 function programEditorSnapshot(){
   if(!setupEditorOpen)return cloneSnapshot(state);
   const preview=entryState?.result?.preview||{},snapshot=cloneSnapshot(state);
-  snapshot.program=cloneSnapshot(preview.program||[]);
+  const candidateProgram=cloneSnapshot(preview.program||[]);
+  const merged=mergeImportedCustomExercises(preview.customExercises||[],candidateProgram,snapshot);
+  snapshot.customExercises=merged.customExercises;
+  snapshot.program=candidateProgram;
   snapshot.programMeta={...defaultProgramMeta([]),name:entryState?.result?.name||entryState?.answers?.programName||"",
     daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
     programStructure:cloneSnapshot(preview.programStructure||null),
@@ -6094,12 +6097,19 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   const model=makeProgram(proposal.program,null,proposal.programMeta);
   const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
   const structureDays=structure?.days||[];
-  const preview={...cloneSnapshot(entryState.result.preview),program:model.toJSON(),programStructure:structure,
-    days:structureDays.map(item=>({dayId:item.dayId,label:item.label,
-      exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)}))};
+  const previewDays=structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
+    exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
+    model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)}));
+  const program=model.toJSON();
+  const referencedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
+  const preview={...cloneSnapshot(entryState.result.preview),program,programStructure:structure,
+    days:previewDays,
+    customExercises:(entryState.result.preview?.customExercises||[])
+      .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
   const result={...cloneSnapshot(entryState.result),preview};
   const nextName=proposal.programMeta?.name||entryState.result.name;
   if(nextName)result.name=nextName;else delete result.name;
+  result.fingerprint=entryCandidateFingerprint(entryState.route,result.name,preview);
   entryState=ProgramEntry.setResult(entryState,result);
   const saved=await persistSetupDraft(entryState);
   return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
@@ -7922,7 +7932,7 @@ function renderImportReview(){
   const commit=$("#importCommit");
   if(commit){
     commit.disabled=counts.review>0;
-    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("import.commit")}
+    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("entry.preview.review")}
 }
 
 function importRowHtml(row){
@@ -7988,9 +7998,16 @@ function importRowAction(act,key){
 /** A decided row folds back down: the alternatives have done their job. */
 function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportReview()}
 
+function ensureImportEntryFlow(draft){
+  if(entryState?.route==="import"&&entryState.step==="import_source")return;
+  const origin=draft?.fromFirstRun?"first-run":hasActiveProgram()?"settings":"first-run";
+  startOnboarding(origin,{userInitiated:true});
+  if(entryState?.route!=="import"||entryState.step!=="import_source")entrySelectRoute("import")}
+
 function openImportReview(draft){
+  ensureImportEntryFlow(draft);
+  draft.onboarding=true;
   importDraft=draft;
-  captureEvent("program_path_selected",{route:"import"});
   importReturn=document.activeElement;
   // The review renders inside the app shell, so the first-run gate steps aside
   // for it rather than covering it.
@@ -8018,67 +8035,57 @@ function closeImportReview({toProgram=true}={}){
   if(toProgram)returnToTab("program");
   if(back)try{back.focus({preventScroll:true})}catch{}}
 
-/* The only place an import touches durable state. Custom definitions and the
-   templates that reference them are assembled in one proposal, so neither can
-   become durable without the other. */
-async function commitImportReview(io=storageIO){
+function importCandidate(draft){
+  const exercises=importDraftExercises(draft);
+  const proposal=cloneSnapshot(state);
+  const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
+  const program=new Program(exercises,snapshotLookup(merged.customExercises)).toJSON();
+  const wantedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
+  const candidateCustomExercises=merged.customExercises
+    .filter(entry=>wantedCustomIds.has(entry.id)).map(cloneSnapshot);
+  const structure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;
+  const structureDays=Array.isArray(structure?.days)?structure.days:[];
+  const labels=structureDays.length?structureDays.map(item=>item.label||item.dayId):
+    [...new Set(program.map(exercise=>exercise.day))];
+  const days=labels.filter(Boolean).map((label,index)=>({
+    dayId:structureDays[index]?.dayId||label,label,
+    exercises:program.filter(exercise=>exercise.day===label).map(cloneSnapshot),
+  }));
+  return{
+    program,
+    days,
+    programStructure:structure,
+    progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
+    progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[]),
+    customExercises:candidateCustomExercises,
+    source:"import",
+    format:draft.format,
+  }}
+
+/* Review decisions become an owned setup candidate. Durable active state moves
+   only through the common explicit activation transaction on the next screen. */
+async function commitImportReview(){
   if(!importDraft)return null;
   const counts=importCounts(importDraft);
   if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review}));return null}
   const draft=importDraft;
-  const exercises=importDraftExercises(draft);
-  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
-  const adapter=io||storageIO;
-  if(draft.onboarding){
-    const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
-    const staged=importDraftCustomDefinitions(draft);
-    const proposal=cloneSnapshot(state);
-    if(staged.length){
-      const merged=mergeImportedCustomExercises(staged,exercises,proposal);
-      proposal.customExercises=merged.customExercises}
-    proposal.programMeta={...proposal.programMeta,
-      progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
-      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[]),
-      programStructure:draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null};
-    const setup=await finalizeProgramSetup({exercises,name,answers:{},destination:"log",
-      origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
-      telemetryRoute:"import"});
-    if(setup&&!(setup.localOk||setup.idbOk)){
-      // The write was refused; leave the screen it came from standing so it can
-      // be retried.
-      if(draft.fromFirstRun)openFirstRun();else{showOnboardingView();renderOnboarding()}
-      toast(t("toast.program_import_failed"));return setup}
-    closeImportReview({toProgram:false});
-    toast(t("toast.program_imported",{n:counts.total}));
-    return setup||{localOk:true,idbOk:true}}
-  const replacementCapture=captureProgramReplacement(state);
-  const proposal=cloneSnapshot(state);
-  const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
-  proposal.customExercises=merged.customExercises;
-  const importedName=typeof draft.meta?.name==="string"&&draft.meta.name.trim()
-    ?draft.meta.name.trim():proposal.programMeta?.name;
-  const meta=buildProgramMeta({name:importedName,answers:{...proposal.programMeta,...draft.meta}});
-  proposal.programMeta=meta;
-  proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
-  meta.progressionRelations=normalizeProgressionRelations(draft.meta?.progressionRelations,proposal.program);
-  meta.progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers);
-  meta.programStructure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;
-  migrateLogSnapshot(proposal);
-  const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProgramReplacement(proposal,adapter,{capture:replacementCapture,effect});
-  if(!(result.localOk||result.idbOk)){
-    // Keep the reviewed decisions on screen: the lifter can press Import again
-    // once whatever blocked the write has cleared.
-    toast(t("toast.program_import_failed"));return result}
-  resetDraftSessionState();
-  day=days()[0]||"Day 1";
-  closeImportReview({toProgram:true});
-  render();
-  // An import replaces the program outright — the box shows the new one.
-  syncProgramJson({force:true});
-  captureEvent("program_activated",{route:"import",version_category:"import_v1"});
-  toast(t("toast.program_imported",{n:counts.total}));
-  return result}
+  ensureImportEntryFlow(draft);
+  const preview=importCandidate(draft);
+  const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
+  let next=ProgramEntry.setAnswers(entryState,{importReady:true});
+  next=ProgramEntry.setResult(next,{
+    fingerprint:entryCandidateFingerprint("import",name,preview),
+    selected:{id:"import",source:"import"},
+    name,
+    preview,
+  });
+  next=ProgramEntry.advance(next).state;
+  const saved=await persistSetupDraft(next);
+  if(!saved?.ok){toast(t("toast.program_import_failed"));return saved}
+  closeImportReview({toProgram:false});
+  entryUiNotice=null;
+  showOnboardingView();renderOnboarding();
+  return{localOk:false,idbOk:false,staged:true,setupDraft:true}}
 
 /* A backup is not a program file. It carries the log, the settings and the meta
    as well as the program, so reading only its exercises drops the rest on the
@@ -8212,6 +8219,12 @@ let setupDraftWriteQueue=Promise.resolve();
 function entryServices(){
   if(!ProgramEntryAdapter)return null;
   return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY})}
+function entryCandidateFingerprint(route,name,preview){
+  const semanticPreview=cloneSnapshot(preview||{});
+  if(Array.isArray(semanticPreview.customExercises)){
+    semanticPreview.customExercises=semanticPreview.customExercises.map(entry=>{
+      const normalized={...entry};delete normalized.created;return normalized})}
+  return entryServices()?.fingerprint?.({route:route||null,name:name||"",preview:semanticPreview})||"candidate"}
 function entryNow(){return new Date().toISOString()}
 function entryVersions(){return entryServices()?.currentVersions?.()||{
   compiler:"1",family:"1",blueprint:"1",catalogue:"1",rules:"1",context:"1",progression:"range-1"}}
@@ -8810,7 +8823,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     renderOnboarding();return}
   if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
   const preview=entryState.result?.preview;
-  const exercises=manualBuild||entryState.route==="build"
+  let exercises=manualBuild||entryState.route==="build"
     ?(entryState.result?.preview?.program||[])
     :(preview?.program||[]);
   const programStructure=entryState.result?.preview?.programStructure||preview?.programStructure||null;
@@ -8828,10 +8841,15 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   const route=entryState.route||"custom";
   const context=programmingContextFromAnswers(entryState.answers);
   const baseProposal=cloneSnapshot(state);
+  exercises=cloneSnapshot(exercises);
+  if(Array.isArray(preview?.customExercises)&&preview.customExercises.length){
+    const merged=mergeImportedCustomExercises(preview.customExercises,exercises,baseProposal);
+    baseProposal.customExercises=merged.customExercises}
   if(context?.ok)baseProposal.programmingContext=context.value;
-  if(programStructure){
-    baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
-    baseProposal.programMeta.programStructure=cloneSnapshot(programStructure)}
+  baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
+  baseProposal.programMeta.progressionRelations=cloneSnapshot(preview?.progressionRelations||[]);
+  baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
+  baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
   const activationDraftHandle=entryDraftHandle;
   const result=await finalizeProgramSetup({

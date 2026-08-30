@@ -9,10 +9,10 @@ import {
   inventoryPersistenceArtifacts,
 } from "./persistence-artifacts.mjs";
 
-/* An import is staged for review now, so the durable write happens when Import
-   is pressed rather than when the file is read. Clears the review list, then
-   commits — the write that the lock-holding assertions below are about. */
-async function reviewAndCommitImport(page) {
+/* Clear the mapping review and persist the candidate. Activation remains a
+   separate transaction, which the conflict cases start while holding the
+   storage lock. */
+async function reviewAndStageImport(page) {
   await page.waitForSelector("#importReview.active", { timeout: 5000 });
   for (let guard = 0; guard < 40; guard++) {
     const acted = await page.evaluate(() => {
@@ -25,6 +25,7 @@ async function reviewAndCommitImport(page) {
     await page.waitForTimeout(50);
   }
   await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
 }
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -524,13 +525,14 @@ async function runNormalProgramImportConflict(browser) {
     writer.on("dialog", (dialog) => dialog.accept());
     const imported = fixture().program;
     imported[0].name = "Imported replacement press";
-    await holdStorageLock(locker);
     await writer.setInputFiles("#importProgram", {
       name: "program.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify({ version: 2, meta: { name: "Imported conflict" }, exercises: imported })),
     });
-    await reviewAndCommitImport(writer);
+    await reviewAndStageImport(writer);
+    await holdStorageLock(locker);
+    await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-import-draft", "105"));
@@ -588,13 +590,14 @@ async function runOnboardingProgramImportConflict(browser) {
     writer.on("dialog", (dialog) => dialog.accept());
     const imported = fixture().program;
     imported[0].name = "Onboarding imported press";
-    await holdStorageLock(locker);
     await writer.setInputFiles("#importProgram", {
       name: "onboarding-program.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify({ version: 2, meta: { name: "Onboarding import" }, exercises: imported })),
     });
-    await reviewAndCommitImport(writer);
+    await reviewAndStageImport(writer);
+    await holdStorageLock(locker);
+    await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-onboarding-import-draft", "106.25"));
