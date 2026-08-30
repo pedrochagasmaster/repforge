@@ -8220,7 +8220,7 @@ const ENTRY_ENVIRONMENTS=["commercial_gym","basic_gym","limited_home","full_home
 const ENTRY_EQUIPMENT=ProgramEntryAdapter?.KNOWN_EQUIPMENT||["barbell","dumbbell","machine","cable","smith","bodyweight"];
 const ENTRY_CAPABILITIES=ProgramEntryAdapter?.KNOWN_CAPABILITIES||["safe_pull","training_support"];
 const ENTRY_AVOID_REASONS=["dislike","pain","equipment","other"];
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -8401,7 +8401,7 @@ function reportEntryRoute(route){
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;
+  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   if(opts.forceFresh||opts.resume===false){
@@ -8455,6 +8455,7 @@ async function discardEntryDraftAndCancel(){
   cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   entryState=next;
+  entryValidationNotice=false;
   syncEntryHistory();
   if(persist)persistSetupDraft(entryState);
   renderOnboarding()}
@@ -8487,8 +8488,10 @@ function entryRouteLabel(route){
 function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio"}={}){
   const current=entryState?.answers||{};
   const isSelected=selected!=null?selected:multi?(current[key]||[]).includes(val):current[key]===val;
-  const pressed=isSelected?"true":"false";
-  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""} role="${esc(role)}" aria-pressed="${pressed}">`+
+  const checked=isSelected?"true":"false";
+  const disabledCopy=disabled?` aria-label="${esc(`${label}. ${t("entry.choice.disabled")}`)}" aria-describedby="entryChoiceDisabledNote"`:
+    "";
+  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""}${disabledCopy} role="${esc(role)}" aria-checked="${checked}">`+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
 function entryHeading(title){
@@ -8607,8 +8610,9 @@ function renderAvoidanceSection(){
 function renderPrioritiesStep(){
   const a=entryState.answers||{},custom=entryState.route==="custom";
   const primary=a.primaryMuscles||[];
-  return entryHeading(t("entry.priorities.title"))+`<p class="onb__explain">${esc(t("entry.priorities.lede"))} <span class="entry__optional">${esc(t("entry.optional"))}</span></p>`+
-    `<button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="button" aria-pressed="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button>`+
+  const blocked=custom&&ENTRY_MUSCLES.some(m=>entryMuscleBlocked("primaryMuscles",m)||entryMuscleBlocked("deEmphasizedMuscles",m)||entryMuscleBlocked("ignoredMuscles",m));
+  return entryHeading(t("entry.priorities.title"))+`<p class="onb__explain">${esc(t("entry.priorities.lede"))} <span class="entry__optional">${esc(t("entry.optional"))}</span></p>`+(blocked?`<p class="entry__hint" id="entryBlockedChoices">${esc(t("entry.choice.disabled_group"))}</p>`:"")+
+    `<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
     (custom?`<p class="entry__group-lab">${esc(t("entry.priorities.deemph"))}</p><div class="onb__opts onb__grid" role="group">`+
@@ -8697,6 +8701,11 @@ function entryDurationLabel(preview){
   const facts=entryPreviewFacts(preview);
   if(!facts.minMinutes)return"";
   return t("entry.result.duration",{min:facts.minMinutes,max:facts.maxMinutes})}
+function entryProgressionLabel(preview){
+  const ids=[...new Set((preview?.program||[]).map(exercise=>exercise.progression?.strategy?.id).filter(Boolean))];
+  const labels={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
+  return ids.map(id=>labels[id]||id).filter(Boolean).join(" · ")||t("entry.result.progression_default")}
 function renderResultStep(){
   const resultTitle=entryState?.route==="custom"?t("entry.result.custom_title"):t("entry.result.title");
   const result=ensureGeneratorResult();
@@ -8718,11 +8727,15 @@ function renderResultStep(){
     goal?t("entry.result.why_goal",{goal}):"",
     days&&minutes?t("entry.result.why_schedule",{days,minutes}):"",
     environment?t("entry.result.why_environment",{environment}):"",
+    (entryPriorityLabel()!==t("entry.preview.priorities_none"))?t("entry.result.why_priorities",{priorities:entryPriorityLabel()}):"",
+    t("entry.result.why_progression",{progression:entryProgressionLabel(preview)}),
+    (preview.reductions||[]).length?t("entry.result.why_reductions",{n:preview.reductions.length}):"",
+    (preview.limitations||[]).length?t("entry.result.why_compromises",{n:preview.limitations.length}):"",
     explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
       ?t("entry.result.why_interrupted"):"",
   ].filter(Boolean);
   const duration=entryDurationLabel(preview);
-  const cards=primary?[`<button type="button" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(primary.id)}" aria-pressed="true">`+
+  const cards=primary?[`<button type="button" role="radio" aria-checked="true" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(primary.id)}">`+
     `<span class="entry-card__title">${esc(t("entry.result.review"))}</span>`+
     `<span class="entry-card__cap">${esc(entryResultName(result))} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}${duration?` · ${esc(duration)}`:""}</span></button>`]:[];
   return entryHeading(resultTitle)+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
@@ -8778,6 +8791,7 @@ function renderBuildSetupStep(){
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`}
 function renderImportSourceStep(){
   return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+`<p class="entry__hint">${esc(t("entry.import_source.safety"))}</p>`+
     `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`}
 function renderPreviewStep(){
   const preview=entryState.result?.preview;
@@ -8811,9 +8825,14 @@ function renderEntryNotice(){
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryCancelKeep">${esc(t("entry.cancel_confirm.keep"))}</button>`+
     `<button type="button" class="btn btn--steel" id="entryCancelDiscard">${esc(t("entry.cancel_confirm.discard"))}</button>`+
     `<button type="button" class="btn btn--steel" id="entryCancelContinue">${esc(t("entry.cancel_confirm.continue"))}</button></div></div>`;
-  if(entryUiNotice==="resume")return `<div class="entry__notice" role="status"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
+  if(entryUiNotice==="resume"){
+    const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
+    const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
+    const detail=[entryState?.route?entryRouteLabel(entryState.route):"",entryState?.step?t(`entry.${entryState.step}.title`):"",when].filter(Boolean).join(" · ");
+    return `<div class="entry__notice" role="status"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
+    (detail?`<p class="entry__resume-detail">${esc(detail)}</p>`:"")+`</div>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
-    `<button type="button" class="btn btn--steel" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`;
+    `<button type="button" class="btn btn--steel" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`}
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
@@ -8823,9 +8842,56 @@ function renderEntryNotice(){
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
   return""}
+/* Rerendering a step must not strand keyboard users at the top of the page.
+   Keep a small semantic token for the control that caused the update and restore
+   that control after the HTML is replaced; a step transition intentionally moves
+   focus to its heading instead. */
+function entryFocusToken(){
+  const el=document.activeElement;
+  if(!el||!el.closest("#onbBody"))return null;
+  if(el.id)return{kind:"id",value:el.id};
+  if(el.dataset.entryPick)return{kind:"pick",key:el.dataset.entryPick,val:el.dataset.entryVal};
+  if(el.dataset.entryRoute)return{kind:"route",value:el.dataset.entryRoute};
+  if(el.dataset.entryCatalogue)return{kind:"catalogue",value:el.dataset.entryCatalogue};
+  return null;
+}
+function restoreEntryFocus(token){
+  if(!token)return false;
+  let el=null;
+  if(token.kind==="id")el=$("#"+CSS.escape(token.value));
+  else if(token.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
+  else if(token.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
+  else if(token.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
+  if(!el||el.disabled)return false;
+  try{el.focus({preventScroll:true});return true}catch{try{el.focus();return true}catch{return false}}
+}
+function setupEntryRovingFocus(){
+  const groups=$$("#onbBody [role='radiogroup'],#onbBody [role='group']");
+  for(const group of groups){
+    const options=[...group.querySelectorAll("[role='radio'],[role='checkbox']")].filter(el=>!el.disabled);
+    if(!options.length)continue;
+    const selected=options.find(el=>el.getAttribute("aria-checked")==="true");
+    options.forEach((el,index)=>{el.tabIndex=el===selected||(!selected&&index===0)?0:-1});
+    options.forEach((el,index)=>el.onkeydown=(event)=>{
+      if(!["ArrowRight","ArrowDown","ArrowLeft","ArrowUp","Home","End"].includes(event.key))return;
+      event.preventDefault();
+      const horizontal=event.key==="ArrowLeft"||event.key==="ArrowRight";
+      if(horizontal&&group.classList.contains("onb__grid")===false&&event.key.startsWith("Arrow")){
+        // Vertical option lists still accept horizontal arrows as a harmless
+        // next/previous gesture, which is friendlier on compact keyboards.
+      }
+      const delta=event.key==="ArrowLeft"||event.key==="ArrowUp"?-1:1;
+      const next=event.key==="Home"?0:event.key==="End"?options.length-1:(index+delta+options.length)%options.length;
+      options.forEach(option=>option.tabIndex=-1);
+      options[next].tabIndex=0;options[next].focus({preventScroll:true});
+      if(el.getAttribute("role")==="radio")options[next].click();
+    });
+  }
+}
 function renderOnboarding(){
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
+  const focusToken=entryFocusToken();
   const route=entryState.route,stepId=entryState.step;
   const eyebrow=$("#onbEyebrow");if(eyebrow)eyebrow.textContent=route?entryRouteLabel(route):t("entry.eyebrow");
   title.textContent=t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
@@ -8846,7 +8912,8 @@ function renderOnboarding(){
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     next.disabled=!!(route&&(ProgramEntry.validationIssues(entryState).length||
       (stepId==="priorities"&&entryPendingAvoid)))}
-  let html=renderEntryNotice();
+  let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
+    (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
   if(noticeOwnsSurface){
     body.innerHTML=html;wireEntryDom();
     const noticeTitle=$(entryUiNotice==="cancel"?"#entryCancelTitle":"#entryResumeTitle");
@@ -8868,7 +8935,10 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.innerHTML=html;
   wireEntryDom();
-  const heading=$("#entryHeading");if(heading)try{heading.focus()}catch{}}
+  setupEntryRovingFocus();
+  if(!restoreEntryFocus(focusToken)){
+    const heading=$("#entryHeading");if(heading)try{heading.focus({preventScroll:true})}catch{}}
+  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
 function wireEntryDom(){
   $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
   const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
@@ -9017,7 +9087,7 @@ function entryAdvance(){
     // optional fields already stored
   }
   const issues=ProgramEntry.validationIssues(entryState);
-  if(issues.length){renderOnboarding();return}
+  if(issues.length){entryValidationNotice=true;renderOnboarding();return}
   if(entryState.step==="build_setup"){
     const built=entryServices()?.buildEmptyProgram(entryState.answers);
     if(!built?.ok){entryCompileError=built?.code||"build_failed";renderOnboarding();return}
