@@ -28,7 +28,21 @@
     });
   }
 
-  function createConfig({ host, installationId, enabled, safeLocation, beforeSend }) {
+  function createConfig({ host, installationId, enabled, safeLocation, beforeSend, token }) {
+    const guardedBeforeSend = (envelope) => {
+      const filtered = beforeSend(envelope);
+      if (!filtered || !filtered.properties || typeof filtered.properties !== "object") return filtered;
+      // `token` is a reserved PostHog transport property. The pinned SDK
+      // requires it after before_send; re-assert the configured value while
+      // retaining the boundary's decision to drop or redact everything else.
+      return {
+        ...filtered,
+        properties: {
+          ...filtered.properties,
+          token,
+        },
+      };
+    };
     return {
       advanced_disable_flags: true,
       api_host: host,
@@ -37,7 +51,7 @@
         element_allowlist: ["button"],
         css_selector_allowlist: ["[data-telemetry-action]"],
       },
-      before_send: beforeSend,
+      before_send: guardedBeforeSend,
       bootstrap: { distinctID: installationId, isIdentifiedID: false },
       capture_dead_clicks: false,
       capture_exceptions: false,
@@ -103,6 +117,7 @@
       crypto: browser.crypto,
       location: browser.location,
       navigator: browser.navigator,
+      projectToken: token,
       releaseChannel: config.releaseChannel,
       storage: browser.localStorage,
     });
@@ -114,7 +129,7 @@
     script.onload = function () {
       try {
         const posthog = browser.posthog;
-        posthog.init(token, createConfig({ ...status, host }));
+        posthog.init(token, createConfig({ ...status, host, token }));
         telemetry.boot({ adapter: createAdapter(posthog) });
       } catch {}
     };

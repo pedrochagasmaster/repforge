@@ -225,11 +225,19 @@ try {
     await page.click("#firstRunCreate");
     const drove = await driveOnboarding(page, { route: "recommend", foundation: true });
     assert(drove, "the recommend flow reaches its preview step");
+    let events = await captured(page);
+    assert(
+      countOf(events, "generator_completed") === 1,
+      "generator completion reports when the reviewable result is produced",
+      `saw ${countOf(events, "generator_completed")} before activation: ${namesOf(events).join(",")}`,
+    );
+    assert(countOf(events, "program_activated") === 0,
+      "reviewing a generated result does not imply activation", namesOf(events).join(","));
     await page.click("#entryActivate");
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "program_activated"), undefined, {
       timeout: 10000,
     });
-    const events = await captured(page);
+    events = await captured(page);
     const completed = propsOf(events, "generator_completed");
     assert(
       countOf(events, "generator_completed") === 1,

@@ -8635,7 +8635,7 @@ function renderCustomShapeStep(){
 function ensureGeneratorResult(){
   const services=entryServices();
   if(!services||!entryState)return null;
-  if(entryState.result?.fingerprint&&entryState.result?.preview)return entryState.result;
+  if(entryState.result?.fingerprint&&entryState.result?.preview){reportGeneratorCompleted(entryState.result);return entryState.result}
   const compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()});
   if(!compiled.ok){entryCompileError=compiled;return null}
   entryCompileError=null;
@@ -8651,7 +8651,22 @@ function ensureGeneratorResult(){
     explanation:compiled.explanation};
   entryState=ProgramEntry.setResult(entryState,result);
   persistSetupDraft(entryState);
+  reportGeneratorCompleted(result);
   return result}
+function reportGeneratorCompleted(result){
+  if(!entryState||!result||!(entryState.route==="recommend"||entryState.route==="custom"))return;
+  const telemetry=result.telemetry;
+  if(!telemetry||telemetry.completed===true)return;
+  const sent=captureEvent("generator_completed",{
+    goal:telemetry.goal,frequency:telemetry.frequency,family:telemetry.family});
+  // Persist the marker with the candidate so reload/resume and repeated renders
+  // cannot create a second completion event for this setup flow. If analytics
+  // is opted out, leave it unset so an explicit later opt-in can report it.
+  if(sent){
+    const marked={...result,telemetry:{...telemetry,completed:true}};
+    entryState=ProgramEntry.setResult(entryState,marked);
+    persistSetupDraft(entryState)}
+}
 function entryPreviewFacts(preview){
   const program=Array.isArray(preview?.program)?preview.program:[];
   const estimates=(preview?.days||[]).map(day=>+day.estimateMinutes||0).filter(Boolean);
@@ -9143,15 +9158,6 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
       persisted.duplicate||persisted.staleRevision?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
-  if((telemetryRoute==="custom"||telemetryRoute==="recommend")&&entryTelemetry){
-    captureEvent("generator_completed",{
-      goal:entryTelemetry.goal,
-      frequency:entryTelemetry.frequency,
-      family:entryTelemetry.family})}
-  else if(telemetryRoute==="custom"){
-    const generated=telemetryGeneratedProgram(meta.goal);
-    if(generated)captureEvent("generator_completed",
-      {goal:generated.goal,frequency:String(new Set(exercises.map(exercise=>exercise.day)).size),family:generated.family})}
   const versionCategory=telemetryRoute==="import"?"import_v1":
     telemetryRoute==="shared"?"shared_v1":
     telemetryRoute==="build"?"manual_v1":
