@@ -52,6 +52,7 @@ try {
 
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
   assert(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
+  assert(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
   await page.keyboard.press("ArrowDown");
   assert(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="balanced"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && el === document.activeElement), "radio arrows move selection and focus");
 
@@ -59,6 +60,7 @@ try {
   await reachPriorities(page);
   const checkboxInfo = await page.locator('#onbBody [role="checkbox"]').evaluateAll((els) => els.map((el) => ({ tabIndex: el.tabIndex, checked: el.getAttribute("aria-checked"), pressed: el.getAttribute("aria-pressed") })));
   assert(checkboxInfo.length > 4 && checkboxInfo.every((item) => item.tabIndex >= 0 && item.pressed === null), "checkboxes remain independently tabbable with aria-checked");
+  assert(await page.getByRole("checkbox").count() === checkboxInfo.length, "accessibility tree exposes each checkbox control");
 
   await page.locator('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]').focus();
   const before = await page.evaluate(() => document.activeElement?.dataset.entryVal);
