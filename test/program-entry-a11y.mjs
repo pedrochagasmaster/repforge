@@ -73,6 +73,28 @@ try {
     return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, footerReachable: !!rect && rect.bottom <= window.innerHeight + 1 };
   });
   assert(geometry.overflow <= 0 && geometry.footerReachable, "320px entry has no horizontal overflow and footer remains reachable", JSON.stringify(geometry));
+
+  const large = await page.evaluate(() => {
+    document.documentElement.style.fontSize = "200%";
+    const root = document.querySelector("#onboarding");
+    if (root) root.scrollTop = root.scrollHeight;
+    const rect = document.querySelector(".onb__nav")?.getBoundingClientRect();
+    return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, footerReachable: !!rect && rect.bottom <= window.innerHeight + 1 };
+  });
+  assert(large.overflow <= 0 && large.footerReachable, "320px entry remains usable with enlarged text", JSON.stringify(large));
+
+  await page.setViewportSize({ width: 1280, height: 800 });
+  const desktopWidth = await page.locator("#onboarding .onb").evaluate((el) => el.getBoundingClientRect().width);
+  assert(desktopWidth > 700, "desktop entry uses a wider composition", `width=${desktopWidth}`);
+
+  await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
+  await page.evaluate(() => localStorage.setItem("repforge_ui_v1", JSON.stringify({ theme: "dark" })));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.evaluate(() => { window.closeFirstRun?.(); window.startOnboarding?.("settings", { resume: true }); });
+  if (await page.locator("#entryResumeContinue").count()) await page.click("#entryResumeContinue");
+  assert(await page.locator("html").getAttribute("data-theme") === "dark", "dark theme remains tokenized in entry flow");
+  assert(await page.locator(".entry-card").first().evaluate((el) => getComputedStyle(el).transitionDuration === "0s"), "reduced motion removes entry transitions");
 } finally {
   await browser.close();
 }
