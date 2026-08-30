@@ -270,6 +270,33 @@ try {
     await context.close();
   }
 
+  phase("Browse selection telemetry remains once per setup flow across review changes");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="browse"]');
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.waitForSelector('[data-entry-catalogue="growth_2_v1"]', { timeout: 10000 });
+    await page.click('[data-entry-catalogue="growth_2_v1"]');
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    await page.click("#onbBack");
+    await page.waitForSelector('[data-entry-catalogue="growth_4_v1"]', { timeout: 5000 });
+    await page.click('[data-entry-catalogue="growth_4_v1"]');
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    const events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1 && propsOf(events, "program_path_selected")?.route === "browse",
+      "Browse emits one route-selection event for the setup flow", namesOf(events).join(","));
+    assert(countOf(events, "template_selected") === 1,
+      "changing the reviewed Browse card does not duplicate template selection", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 0,
+      "Browse review remains silent until explicit activation", namesOf(events).join(","));
+    await context.close();
+  }
+
   phase("Import selects its route once and activates only after common review");
   {
     const { context, page } = await openApp(browser);

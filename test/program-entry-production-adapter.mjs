@@ -126,6 +126,47 @@ test("limited home selects the home family and browse returns only executable ca
   assert.ok(!cards.some((card) => card.family === "future"));
 });
 
+test("Browse consumes released blueprint metadata and compiler facts", () => {
+  const context = {
+    daysPerWeek: 4,
+    sessionMinutes: 60,
+    structuredExperience: "6_to_24m",
+    environment: { kind: "commercial_gym" },
+  };
+  const cards = services.browseCatalogue(context);
+  assert.ok(cards.length > 0);
+  assert.equal(new Set(cards.map((card) => card.name)).size, cards.length);
+  for (const card of cards) {
+    const source = Compiler.BLUEPRINTS.find((blueprint) => blueprint.id === card.id);
+    assert.ok(source?.release?.browse && source.release.complete && source.release.executable && source.release.tested);
+    assert.deepEqual(card.release, source.release);
+    const estimates = card.preview.days.map((day) => day.estimateMinutes);
+    assert.deepEqual(card.minutes, [Math.min(...estimates), Math.max(...estimates)]);
+    assert.ok(card.purpose && card.progressionStrategies.length > 0);
+    assert.ok(card.equipmentAssumptions.length > 0);
+    assert.ok(card.equipmentAssumptions.every((equipment) => card.instance.days.some((day) =>
+      day.slots.some((slot) => slot.exercise?.equipment === equipment))));
+    assert.ok(card.structureFacts.length === card.daysPerWeek);
+  }
+  const changedContext = services.browseCatalogue({ ...context, sessionMinutes: 75 });
+  const sameBlueprint = changedContext.find((card) => card.id === cards[0].id);
+  assert.ok(sameBlueprint);
+  assert.notEqual(sameBlueprint.fingerprint, cards[0].fingerprint);
+});
+
+test("Browse omits a blueprint whose declared release metadata is incomplete", () => {
+  const hiddenId = Compiler.BLUEPRINTS[0].id;
+  const guardedCompiler = {
+    ...Compiler,
+    BLUEPRINTS: Compiler.BLUEPRINTS.map((blueprint) => blueprint.id === hiddenId
+      ? { ...blueprint, release: { ...blueprint.release, tested: false } }
+      : blueprint),
+  };
+  const guarded = Adapter.createProductionServices({ Compiler: guardedCompiler, catalogue: EXERCISE_LIBRARY });
+  const cards = guarded.browseCatalogue({ sessionMinutes: 60, environment: { kind: "commercial_gym" } });
+  assert.equal(cards.some((card) => card.id === hiddenId), false);
+});
+
 test("build creates empty day containers without placeholder exercises", () => {
   const built = services.buildEmptyProgram({ programName: "Manual block", daysPerWeek: 4 });
   assert.equal(built.ok, true);

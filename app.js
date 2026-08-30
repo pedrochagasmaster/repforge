@@ -8715,12 +8715,42 @@ function renderResultStep(){
     (entryState.route==="custom"?`<button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_custom"))}</button>`:"")+`</div>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
-  return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p><div class="entry__hub">`+
-    cards.map(card=>`<button type="button" class="entry-card" data-entry-catalogue="${esc(card.id)}">`+
-      `<span class="entry-card__title">${esc(isPt()?card.namePt||card.name:card.name)}</span>`+
-      `<span class="entry-card__cap">${esc(String(card.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))} · ${(card.weeklyStructure||[]).map(esc).join(" / ")}</span>`+
-      (card.mismatch?`<span class="entry-card__warn">${esc(t("entry.catalogue.mismatch"))}</span>`:"")+
-    `</button>`).join("")+`</div>`}
+  const purposeLabels={
+    build_muscle:t("entry.catalogue.purpose.build_muscle"),
+    muscle_strength:t("entry.catalogue.purpose.muscle_strength"),
+    strength_priority:t("entry.catalogue.purpose.strength_priority"),
+    train_anywhere:t("entry.catalogue.purpose.train_anywhere")};
+  const progressionLabels={
+    range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
+  const contextFacts=[
+    entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):"",
+    entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):"",
+    entryEnvironmentLabel()].filter(Boolean);
+  if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
+    `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
+  return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
+    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div><div class="entry__hub">`+
+    cards.map(card=>{
+      const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
+      const name=isPt()?card.namePt||card.name:card.name;
+      const minutes=card.minutes?.length?t("entry.catalogue.minutes",{min:card.minutes[0],max:card.minutes[1]}):"";
+      const counts=card.structureFacts||[],exerciseCounts=counts.map(day=>day.exerciseCount),setCounts=counts.map(day=>day.setCount);
+      const structure=counts.length?t("entry.catalogue.structure",{
+        minExercises:Math.min(...exerciseCounts),maxExercises:Math.max(...exerciseCounts),
+        minSets:Math.min(...setCounts),maxSets:Math.max(...setCounts)}):"";
+      const progression=(card.progressionStrategies||[]).map(id=>progressionLabels[id]).filter(Boolean).join(" · ");
+      const equipment=(card.equipmentAssumptions||[]).map(token=>t(`entry.equip.${token}`)||token).join(", ");
+      const mismatch=card.mismatch==="frequency"?t("entry.catalogue.mismatch_frequency",{
+        requested:entryState.answers.daysPerWeek,actual:card.daysPerWeek}):"";
+      return `<button type="button" class="entry-card" data-entry-catalogue="${esc(card.id)}">`+
+        `<span class="entry-card__title">${esc(name)}</span>`+
+        `<span class="entry-card__cap">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
+        `<span class="entry-card__cap">${esc(minutes)}${structure?` · ${esc(structure)}`:""}</span>`+
+        `<span class="entry-card__cap">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
+        `<span class="entry-card__cap">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
+        (mismatch?`<span class="entry-card__warn">${esc(mismatch)}</span>`:"")+
+        `<span class="entry-card__action">${esc(t("entry.catalogue.review"))}</span></button>`}).join("")+`</div>`}
 function renderBuildSetupStep(){
   const name=entryState.answers.programName||"";
   return entryHeading(t("entry.build_setup.title"))+`<p class="onb__explain">${esc(t("entry.build_setup.lede"))}</p>`+
@@ -8911,7 +8941,7 @@ function wireEntryDom(){
     const id=btn.dataset.entryCatalogue;
     const card=(entryServices()?.browseCatalogue(entryState.answers)||[]).find(item=>item.id===id);
     if(!card)return;
-    captureEvent("template_selected",{family:card.telemetryFamily});
+    if(!entryState.answers.catalogueSelection)captureEvent("template_selected",{family:card.telemetryFamily});
     let next=ProgramEntry.setAnswers(entryState,{catalogueSelection:id});
     next=ProgramEntry.setResult(next,{
       fingerprint:card.fingerprint,
@@ -9032,7 +9062,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
       entryState.answers.desiredResult==="strength"?"strength_hypertrophy":
       entryState.answers.desiredResult==="balanced"?"strength_hypertrophy":null,
     experience:null,
-    daysPerWeek:entryState.answers.daysPerWeek||preview?.frequency||null,
+    daysPerWeek:entryState.route==="browse"?(preview?.frequency||null):(entryState.answers.daysPerWeek||preview?.frequency||null),
     splitType:null,
     equipment:[],
     priorityMuscles:entryState.answers.primaryMuscles||[],

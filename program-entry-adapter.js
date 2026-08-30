@@ -371,35 +371,52 @@
         if (!mapped.ok) continue;
         const compiled = Comp.compile(mapped.value, library);
         if (compiled.kind !== "compiled") continue;
-        const minutes = answers.sessionMinutes || 60;
+        const blueprint = (Comp.BLUEPRINTS || []).find((item) => item.id === compiled.blueprintId);
+        const release = blueprint?.release;
+        if (!(release?.browse && release.complete && release.executable && release.tested)) continue;
+        const preview = previewFromInstance(compiled, Comp);
+        const estimates = preview.days.map((day) => day.estimateMinutes).filter(Number.isFinite);
+        const structureFacts = preview.days.map((day) => ({
+          exerciseCount: day.exercises.length,
+          setCount: day.exercises.reduce((total, exercise) => total + (Number(exercise.sets) || 0), 0),
+          estimateMinutes: day.estimateMinutes,
+        }));
+        const progressionStrategies = [...new Set((compiled.program || []).map((exercise) =>
+          exercise.progression?.strategy?.id).filter(Boolean))];
+        const equipmentAssumptions = [...new Set((compiled.days || []).flatMap((day) =>
+          (day.slots || []).map((slot) => slot.exercise?.equipment).filter(Boolean)))];
         const mismatch = [];
         if (Number.isInteger(answers.daysPerWeek) && answers.daysPerWeek !== frequency) mismatch.push("frequency");
-        if (Number.isInteger(answers.sessionMinutes) && answers.sessionMinutes < 45 && frequency >= 5) mismatch.push("time");
-        if (answers.environment?.kind === "limited_home" && family.id !== "home") mismatch.push("equipment");
         cards.push({
           id: compiled.blueprintId,
           family: family.id,
           familyId: family.id,
           version: String(compiled.provenance?.blueprintVersion || 1),
-          name: family.name,
-          namePt: family.namePt,
-          purpose: family.publicGoal,
+          name: `${family.name} · ${frequency} days`,
+          namePt: `${family.namePt} · ${frequency} dias`,
+          familyName: family.name,
+          familyNamePt: family.namePt,
+          purpose: family.publicGoal || "train_anywhere",
           daysPerWeek: frequency,
-          minutes: [Math.max(30, minutes - 15), Math.min(90, minutes + 15)],
-          maturity: ["first", "under_6m", "6_to_24m", "over_24m"],
-          environments: family.id === "home"
-            ? ["limited_home", "other"]
-            : ["commercial_gym", "basic_gym", "full_home"],
-          browse: true,
-          complete: true,
-          executable: true,
-          tested: true,
+          minutes: estimates.length ? [Math.min(...estimates), Math.max(...estimates)] : [],
+          release: JSON.parse(JSON.stringify(release)),
+          browse: release.browse,
+          complete: release.complete,
+          executable: release.executable,
+          tested: release.tested,
           weeklyStructure: (compiled.days || []).map((day) => day.label),
-          progression: "Supported Taurifer progression",
+          structureFacts,
+          progressionStrategies,
+          equipmentAssumptions: equipmentAssumptions.length ? equipmentAssumptions : ["bodyweight"],
           mismatch: mismatch[0] || null,
           mismatches: mismatch,
-          fingerprint: fingerprint({ blueprintId: compiled.blueprintId, versions: currentVersions(Comp) }),
-          preview: previewFromInstance(compiled, Comp),
+          fingerprint: fingerprint({
+            blueprintId: compiled.blueprintId,
+            blueprintVersion: compiled.provenance?.blueprintVersion || 1,
+            compilerContext: mapped.value,
+            versions: currentVersions(Comp),
+          }),
+          preview,
           instance: compiled,
           compilerContext: mapped.value,
           telemetryFamily: `${family.id}_v1`,

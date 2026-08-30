@@ -48,6 +48,9 @@ const EXACT = {
 };
 
 assert.deepEqual(Compiler.validateBlueprints(), { ok: true, count: 20 });
+assert(Compiler.BLUEPRINTS.every((blueprint) => blueprint.release?.browse === true &&
+  blueprint.release.complete === true && blueprint.release.executable === true && blueprint.release.tested === true),
+"every currently shipped authored blueprint declares its reviewed Browse release state");
 assert.equal(Compiler.BLUEPRINTS.length, 20);
 assert.deepEqual(Object.keys(EXACT).sort(), Compiler.BLUEPRINTS.map((entry) => entry.id).sort());
 for (const [id, expected] of Object.entries(EXACT)) assert.equal(shape(id), expected, `${id} exact authored structure`);

@@ -397,6 +397,69 @@ try {
     await context.close();
   }
 
+  console.log("\nBrowse shows released compiler facts and keeps selection non-destructive until review activation");
+  {
+    const { context, page } = await openFresh(browser);
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="browse"]');
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.waitForSelector('[data-entry-catalogue="growth_4_v1"]', { timeout: 10000 });
+    const catalogueCopy = await page.locator("#onbBody").innerText();
+    const names = await page.locator("[data-entry-catalogue] .entry-card__title").allInnerTexts();
+    assert(names.length > 0 && new Set(names).size === names.length,
+      "Browse gives every released sibling a distinct human name", names.join(" | "));
+    assert(/4 days available/.test(catalogueCopy) && /Up to 60 minutes/.test(catalogueCopy),
+      "Browse preserves the answered context as comparison facts", catalogueCopy);
+    assert(/Prioritizes muscle growth/.test(catalogueCopy) && /exercises and .*sets per day/.test(catalogueCopy) &&
+      /Progression:/.test(catalogueCopy) && /Uses:/.test(catalogueCopy) && /Review program/.test(catalogueCopy),
+      "Browse cards show purpose, weekly structure, progression, equipment, and an explicit review action",
+      catalogueCopy);
+    assert(!/_v\d+|growth_\d|balanced_\d|strength_\d|home_\d|compiler|blueprint/i.test(catalogueCopy),
+      "Browse exposes no internal identifier or implementation jargon", catalogueCopy);
+    assert(/You chose 4 days; this program uses 2\./.test(catalogueCopy),
+      "a non-matching sibling names its exact schedule mismatch", catalogueCopy);
+
+    await page.click('[data-entry-catalogue="growth_2_v1"]');
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    assert(/Build Muscle · 2 days/.test(await page.locator("#onbBody").innerText()),
+      "the review keeps the selected sibling's human identity");
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "opening Browse review leaves active state byte-identical");
+    await page.click("#onbBack");
+    await page.waitForSelector('[data-entry-catalogue="growth_4_v1"]', { timeout: 5000 });
+    await page.click('[data-entry-catalogue="growth_4_v1"]');
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    const staged = await page.evaluate(() => ({
+      name: window.__repforgeEntryState().result?.name,
+      frequency: window.__repforgeEntryState().result?.preview?.frequency,
+      fingerprint: window.__repforgeEntryState().result?.fingerprint,
+    }));
+    assert(staged.name === "Build Muscle · 4 days" && staged.frequency === 4 && !!staged.fingerprint,
+      "Browse review preserves sibling identity, compiled frequency, and deterministic fingerprint",
+      JSON.stringify(staged));
+    await page.click("#entryActivate");
+    await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta?.name === "Build Muscle · 4 days",
+      KEY, { timeout: 10000 });
+    const activated = await page.evaluate((key) => {
+      const durable = JSON.parse(localStorage.getItem(key) || "{}");
+      return {
+        name: durable.programMeta?.name,
+        days: durable.programMeta?.daysPerWeek,
+        source: durable.programMeta?.entrySource,
+      };
+    }, KEY);
+    assert(activated.days === 4 && activated.source?.route === "browse" &&
+      activated.source?.fingerprint === staged.fingerprint,
+      "explicit Browse activation persists the selected frequency, provenance, and fingerprint",
+      JSON.stringify(activated));
+    await context.close();
+  }
+
   console.log("\nBuild remains a durable non-destructive draft until explicit valid activation");
   {
     const { context, page } = await openFresh(browser);

@@ -46,6 +46,7 @@
   const blueprint = (familyId, frequency, days, relations = []) => Object.freeze({
     id: `${familyId}_${frequency}_v1`, familyId, frequency, version: 1, kind: "authored_sibling",
     days: Object.freeze(days), relations: Object.freeze(relations),
+    release: Object.freeze({ browse: true, complete: true, executable: true, tested: true }),
   });
 
   const FAMILIES = Object.freeze([
