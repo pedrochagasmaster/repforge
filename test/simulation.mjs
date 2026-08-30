@@ -9309,49 +9309,57 @@ async function main() {
   await reloadApp(page, { dismissOnboarding: false });
   await startFromFirstRun(page);
   await driveRecommendOnboarding(page, { days: 3, experience: "first", activate: false });
+  const activeBeforeCandidateEdit = await page.evaluate(() => localStorage.getItem("repforge_v1"));
   await page.click("#entryEdit");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 8000 });
-  const editState = await getState(page);
+  await page.waitForSelector("#programEditor .pex", { timeout: 8000 });
+  const candidateNote = page.locator('#programEditor .pex [data-field="notes"]').first();
+  await candidateNote.fill("Simulation candidate edit");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit");
+  const editState = await page.evaluate(() => ({
+    activeRaw: localStorage.getItem("repforge_v1"),
+    draft: JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}"),
+    editorVisible: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+  }));
   assert(
-    editState.programMeta?.onboarded === true &&
-      Object.prototype.hasOwnProperty.call(editState, "_storageFollowUp") &&
-      !(await page.locator("#tour:not(.hidden)").count()),
-    "Onboarding Edit finalizes metadata and stores a one-shot follow-up marker",
-    JSON.stringify({ onboarded: editState.programMeta?.onboarded, follow: editState._storageFollowUp }),
+    editState.activeRaw === activeBeforeCandidateEdit &&
+      editState.draft.state?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit" &&
+      editState.editorVisible,
+    "Onboarding Edit changes only the durable candidate draft",
+    JSON.stringify({ sameActive: editState.activeRaw === activeBeforeCandidateEdit, editorVisible: editState.editorVisible }),
     "First-run onboarding → Edit before saving"
   );
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
+  await startFromFirstRun(page);
+  await page.waitForSelector("#entryResumeContinue", { timeout: 10000 });
+  await page.click("#entryResumeContinue");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
   const resumedEdit = await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const draft = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}");
     return {
-      marker: state._storageFollowUp,
-      programActive: document.querySelector("#program")?.classList.contains("active"),
-      editorVisible: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
-      tourVisible: !document.querySelector("#tour")?.classList.contains("hidden"),
-      installVisible: !document.querySelector("#installBanner")?.classList.contains("hidden"),
+      activeRaw: localStorage.getItem("repforge_v1"),
+      note: draft.state?.result?.preview?.program?.[0]?.notes,
+      reviewVisible: document.querySelector("#onboarding")?.classList.contains("active"),
     };
   });
   assert(
-    resumedEdit.marker?.kind === "onboarding-edit" &&
-      resumedEdit.programActive &&
-      resumedEdit.editorVisible &&
-      !resumedEdit.tourVisible &&
-      !resumedEdit.installVisible,
-    "Reload resumes the pending Program edit without starting follow-up UI",
+    resumedEdit.activeRaw === activeBeforeCandidateEdit &&
+      resumedEdit.note === "Simulation candidate edit" &&
+      resumedEdit.reviewVisible,
+    "Reload resumes the edited candidate for review without activating it",
     JSON.stringify(resumedEdit),
     "First-run onboarding → Edit before saving → reload"
   );
-  const tog = page.locator("#programEditToggle");
-  await tog.click();
-  await page.waitForTimeout(120);
+  await page.click("#entryActivate");
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true);
   const afterDone = await getState(page);
   assert(
-    !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
-    "Program Done clears the onboarding follow-up marker once",
-    JSON.stringify({ follow: afterDone._storageFollowUp }),
-    "Edit onboarding → Program Done"
+    afterDone.program?.[0]?.notes === "Simulation candidate edit" &&
+      !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
+    "Only explicit activation installs the edited candidate",
+    JSON.stringify({ note: afterDone.program?.[0]?.notes, follow: afterDone._storageFollowUp }),
+    "Edit onboarding → resume review → activate"
   );
   await page.evaluate(() => {
     if (typeof window.closeTour === "function") window.closeTour();

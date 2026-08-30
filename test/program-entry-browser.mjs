@@ -67,7 +67,10 @@ async function seedActiveProgram(page) {
       }],
       log: [],
       programHistory: [],
-      customExercises: [],
+      customExercises: [{
+        id: "custom:active-definition", name: "Active custom movement", namePt: "Movimento personalizado ativo",
+        equipment: ["machine"], primary: "Back", secondary: "", notes: "", created: now,
+      }],
       _storageRevision: 3,
     };
     localStorage.setItem(key, JSON.stringify(state));
@@ -151,6 +154,30 @@ try {
     );
     await page.locator("[data-entry-select-candidate]").first().click();
     await page.waitForSelector("#entryActivate");
+    const activeBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    const draftBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
+    await page.click("#entryEdit");
+    await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBeforeEdit,
+      "Edit before using opens the candidate without changing active bytes");
+    const firstNote = page.locator('#programEditor .pex [data-field="notes"]').first();
+    await firstNote.fill("Draft-only setup note");
+    await page.waitForTimeout(500);
+    const editedDraft = await page.evaluate(({ draftKey, before }) => ({
+      changed: localStorage.getItem(draftKey) !== before,
+      note: window.__repforgeEntryState()?.result?.preview?.program?.[0]?.notes,
+    }), { draftKey: DRAFT, before: draftBeforeEdit });
+    assert(editedDraft.changed && editedDraft.note === "Draft-only setup note",
+      "candidate edits persist in the setup draft", JSON.stringify(editedDraft));
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBeforeEdit,
+      "editing the candidate leaves active state byte-identical");
+    await page.click("#programEditToggle");
+    await page.evaluate(() => window.startOnboarding("first-run"));
+    await page.waitForSelector("#entryResumeContinue", { timeout: 5000 });
+    await page.click("#entryResumeContinue");
+    await page.waitForSelector("#entryActivate", { timeout: 5000 });
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBeforeEdit,
+      "returning to review still leaves active state byte-identical");
     await page.click("#entryActivate");
     await page.waitForFunction((key) => {
       const state = JSON.parse(localStorage.getItem(key) || "{}");
@@ -164,6 +191,7 @@ try {
         programLen: (state.program || []).length,
         hasContext: !!state.programmingContext,
         constraints: state.programmingContext?.exerciseConstraints || [],
+        editedNote: state.program?.[0]?.notes,
         draft: localStorage.getItem("repforge_program_setup_draft_v1"),
       };
     }, KEY);
@@ -171,6 +199,7 @@ try {
     assert(after.programLen > 0, "activation wrote exercises", String(after.programLen));
     assert(after.hasContext === true, "reusable programmingContext saved with activation");
     assert(after.constraints.some((item) => item.reason === "pain"), "pain constraint persisted in programmingContext");
+    assert(after.editedNote === "Draft-only setup note", "explicit activation installs the edited candidate");
     assert(after.draft == null, "setup draft cleared after activation");
 
     const exportShapes = await page.evaluate(() => {
@@ -202,10 +231,11 @@ try {
     await context.close();
   }
 
-  console.log("\nBuild creates visible empty day cards and supports add-exercise");
+  console.log("\nBuild remains a durable non-destructive draft until explicit valid activation");
   {
     const { context, page } = await openFresh(browser);
     page.on("dialog", (dialog) => dialog.accept().catch(() => {}));
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.click("#firstRunCreate");
     await page.click("#entryOwnToggle");
     await page.click('[data-entry-route="build"]');
@@ -215,48 +245,85 @@ try {
     await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
     await page.click("#onbNext");
     await page.waitForSelector("#programEditor .pday", { timeout: 10000 });
-    const built = await page.evaluate((key) => {
-      const state = JSON.parse(localStorage.getItem(key) || "{}");
+    const built = await page.evaluate(({ key, draftKey }) => {
+      const activeRaw = localStorage.getItem(key);
+      const envelope = JSON.parse(localStorage.getItem(draftKey) || "{}");
       const cards = [...document.querySelectorAll("#programEditor .pday")].map((card) => ({
         day: card.getAttribute("data-day"),
         empty: !!card.querySelector(".pday__empty"),
         exercises: card.querySelectorAll(".pex").length,
       }));
       return {
-        name: state.programMeta?.name,
-        programLen: (state.program || []).length,
-        days: state.programMeta?.programStructure?.days?.length || 0,
-        onboarded: state.programMeta?.onboarded,
+        activeRaw,
+        draftName: envelope.state?.result?.name,
+        draftProgramLen: envelope.state?.result?.preview?.program?.length || 0,
+        draftDays: envelope.state?.result?.preview?.programStructure?.days?.length || 0,
+        activateDisabled: !!document.querySelector("#entryEditorActivate")?.disabled,
         cards,
       };
-    }, KEY);
-    assert(built.onboarded === true, "build activation onboarded");
-    assert(built.programLen === 0, "build has no placeholder exercises before add", String(built.programLen));
-    assert(built.days === 4, "build created four empty days", String(built.days));
+    }, { key: KEY, draftKey: DRAFT });
+    assert(built.activeRaw === activeBefore, "opening the Build editor leaves active state byte-identical");
+    assert(built.draftProgramLen === 0, "Build draft has no placeholder exercises before add", String(built.draftProgramLen));
+    assert(built.draftDays === 4, "Build draft created four empty days", String(built.draftDays));
     assert(built.cards.length === 4, "editor shows four day cards", String(built.cards.length));
     assert(built.cards.every((card) => card.empty && card.exercises === 0), "all four day cards are empty containers");
-    assert(built.name === "Manual block", "build kept the program name", built.name);
+    assert(built.draftName === "Manual block", "Build draft kept the program name", built.draftName);
+    assert(built.activateDisabled, "empty Build cannot activate");
 
     await page.locator('#programEditor [data-act="addEx"]').first().click();
     await page.waitForSelector("#exPickSheet.is-open, #exPickList .pickrow", { timeout: 5000 });
     await page.locator("#exPickList .pickrow").first().click();
-    await page.waitForFunction(() => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).length > 0, undefined, { timeout: 8000 });
-    const afterAdd = await page.evaluate((key) => {
-      const state = JSON.parse(localStorage.getItem(key) || "{}");
+    await page.waitForFunction((draftKey) => (JSON.parse(localStorage.getItem(draftKey) || "{}").state?.result?.preview?.program || []).length > 0, DRAFT, { timeout: 8000 });
+    const afterAdd = await page.evaluate(({ key, draftKey }) => {
+      const envelope = JSON.parse(localStorage.getItem(draftKey) || "{}");
       return {
-        programLen: (state.program || []).length,
-        structureDays: state.programMeta?.programStructure?.days?.length || 0,
+        activeRaw: localStorage.getItem(key),
+        programLen: envelope.state?.result?.preview?.program?.length || 0,
+        structureDays: envelope.state?.result?.preview?.programStructure?.days?.length || 0,
         cards: document.querySelectorAll("#programEditor .pday").length,
-        placeholdersBeforeAddGone: (state.program || []).every((ex) => ex.name !== "Exercise"),
       };
-    }, KEY);
-    assert(afterAdd.programLen >= 1, "exercise can be added into an empty day", String(afterAdd.programLen));
+    }, { key: KEY, draftKey: DRAFT });
+    assert(afterAdd.activeRaw === activeBefore, "partially editing Build leaves active state byte-identical");
+    assert(afterAdd.programLen === 1, "exercise is added to the setup draft", String(afterAdd.programLen));
     assert(afterAdd.structureDays === 4, "structure days remain four after adding one exercise", String(afterAdd.structureDays));
     assert(afterAdd.cards === 4, "four day cards remain visible after add", String(afterAdd.cards));
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate");
+    await page.waitForSelector("#entryResumeContinue", { timeout: 5000 });
+    await page.click("#entryResumeContinue");
+    await page.waitForSelector("#programEditor .pday", { timeout: 5000 });
+    const resumed = await page.evaluate(({ key, draftKey }) => ({
+      activeRaw: localStorage.getItem(key),
+      draftProgramLen: JSON.parse(localStorage.getItem(draftKey) || "{}").state?.result?.preview?.program?.length || 0,
+    }), { key: KEY, draftKey: DRAFT });
+    assert(resumed.activeRaw === activeBefore, "reload/resume leaves active state byte-identical");
+    assert(resumed.draftProgramLen === 1, "reload/resume restores the partial Build draft");
+
+    for (let index = 1; index < 4; index++) {
+      await page.locator('#programEditor [data-act="addEx"]').nth(index).click();
+      await page.waitForSelector("#exPickList .pickrow", { timeout: 5000 });
+      await page.locator("#exPickList .pickrow").first().click();
+      await page.waitForFunction(({ draftKey, count }) =>
+        (JSON.parse(localStorage.getItem(draftKey) || "{}").state?.result?.preview?.program || []).length === count,
+      { draftKey: DRAFT, count: index + 1 }, { timeout: 8000 });
+    }
+    await page.waitForFunction(() => !document.querySelector("#entryEditorActivate")?.disabled, undefined, { timeout: 5000 });
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore, "activation-ready Build is still only a draft");
+    await page.click("#entryEditorActivate");
+    await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta?.name === "Manual block", KEY, { timeout: 10000 });
+    await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) === null, DRAFT, { timeout: 5000 });
+    const activated = await page.evaluate(({ key, draftKey }) => ({
+      active: JSON.parse(localStorage.getItem(key) || "{}"),
+      draft: localStorage.getItem(draftKey),
+    }), { key: KEY, draftKey: DRAFT });
+    assert(activated.active.program.length === 4, "only explicit valid activation installs the Build program");
+    assert(activated.draft === null, "successful Build activation clears its setup draft");
     await context.close();
   }
 
-  console.log("\nBuild with active program requires replacement confirmation");
+  console.log("\nBuild with an active program defers replacement confirmation until activation");
   {
     const { context, page } = await openFresh(browser);
     await seedActiveProgram(page);
@@ -274,40 +341,66 @@ try {
     await page.locator("#entryProgramName").dispatchEvent("input");
     await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
     await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.click("#onbNext");
-    await page.waitForTimeout(300);
-    assert(dialogs.length >= 1, "cancel path shows replacement confirmation", JSON.stringify(dialogs));
-    assert(/replace|substitu/i.test(dialogs[0] || ""), "confirmation uses replace wording", dialogs[0]);
-    const cancelled = await page.evaluate((key) => {
-      const state = JSON.parse(localStorage.getItem(key) || "{}");
-      return { name: state.programMeta?.name, id: state.programMeta?.id, programLen: (state.program || []).length };
-    }, KEY);
-    assert(cancelled.name === "Active block", "cancel keeps the active program", cancelled.name);
-    assert(cancelled.programLen === 1, "cancel does not wipe exercises", String(cancelled.programLen));
-
-    dialogs = [];
-    page.removeAllListeners("dialog");
-    page.on("dialog", async (dialog) => {
-      dialogs.push(dialog.message());
-      await dialog.accept();
-    });
-    await page.waitForSelector("#onbNext:not([disabled])", { timeout: 5000 });
-    await page.click("#onbNext");
-    await page.waitForFunction((key) => {
-      const state = JSON.parse(localStorage.getItem(key) || "{}");
-      return state.programMeta?.name === "Replacement";
-    }, KEY, { timeout: 10000 });
-    const replaced = await page.evaluate((key) => {
-      const state = JSON.parse(localStorage.getItem(key) || "{}");
-      return {
-        name: state.programMeta?.name,
-        programLen: (state.program || []).length,
-        days: state.programMeta?.programStructure?.days?.length || 0,
+    await page.waitForSelector("#programEditor .pday", { timeout: 5000 });
+    assert(dialogs.length === 0, "opening Build asks for no replacement confirmation");
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore, "opening Build preserves the active program byte-identically");
+    assert(await page.locator("#entryEditorActivate").isDisabled(), "incomplete replacement draft cannot activate");
+    await page.locator('#programEditor [data-act="addEx"]').first().click();
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+    assert(await page.locator("#exPickCustom").isHidden(),
+      "candidate editing does not expose custom creation that would mutate active definitions");
+    await page.click("#exPickFull");
+    await page.waitForSelector("#library.view.active", { timeout: 5000 });
+    assert(await page.locator("#libCustom").isHidden(),
+      "candidate full-library editing keeps custom creation unavailable");
+    await page.click('#libTabs [data-tab="yours"]');
+    assert(await page.locator('#libList [data-lib-row="custom:active-definition"]').count() === 1,
+      "candidate library keeps existing custom exercises selectable");
+    assert(await page.locator("#libList [data-lib-edit]").count() === 0,
+      "candidate library does not expose active custom-definition editing");
+    await page.click('#libTabs [data-tab="browse"]');
+    await page.locator("#libList [data-lib-toggle]").first().click();
+    await page.click("#libPrimary");
+    await page.waitForSelector("#libConfigure:not(.hidden)", { timeout: 5000 });
+    await page.click("#libPrimary");
+    await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+    const fullLibraryEdit = await page.evaluate(({ key, draftKey }) => ({
+      activeRaw: localStorage.getItem(key),
+      candidateLength: JSON.parse(localStorage.getItem(draftKey) || "{}").state?.result?.preview?.program?.length || 0,
+    }), { key: KEY, draftKey: DRAFT });
+    assert(fullLibraryEdit.activeRaw === activeBefore,
+      "full-library candidate selection leaves active state byte-identical");
+    assert(fullLibraryEdit.candidateLength === 1,
+      "full-library candidate selection persists in the setup draft");
+    await page.evaluate((draftKey) => {
+      const original = Storage.prototype.setItem;
+      window.__restoreCandidateSetupSetItem = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(key, value) {
+        if (key === draftKey) throw new DOMException("forced candidate quota failure", "QuotaExceededError");
+        return original.call(this, key, value);
       };
-    }, KEY);
-    assert(dialogs.length >= 1, "confirm path shows replacement confirmation");
-    assert(replaced.name === "Replacement", "accept replaces the active program", replaced.name);
-    assert(replaced.programLen === 0 && replaced.days === 3, "replacement is empty 3-day build", JSON.stringify(replaced));
+    }, DRAFT);
+    await page.click("#entryEditorSave");
+    await page.waitForSelector('#entryEditorStatus[role="alert"]', { timeout: 5000 });
+    const candidateSaveFailure = await page.locator("#entryEditorStatus").innerText();
+    assert(/not changed|não foi alterado/i.test(candidateSaveFailure),
+      "candidate Save draft announces a write failure instead of reporting success", candidateSaveFailure);
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "candidate Save draft failure leaves active state byte-identical");
+    await page.evaluate(() => window.__restoreCandidateSetupSetItem());
+    await page.click("#entryEditorSave");
+    await page.waitForSelector('#entryEditorStatus[role="status"]', { timeout: 5000 });
+    assert(await page.evaluate((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT),
+      "Save draft keeps the incomplete Build candidate durable without activation");
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "Save draft leaves the active program byte-identical");
+    await page.click('nav button[data-view="log"]');
+    assert((await page.locator("#todayProgram").innerText()).includes("Active block"),
+      "Today continues to show the old active program while Build is incomplete");
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "viewing Today while drafting does not change active bytes");
     await context.close();
   }
 
@@ -380,11 +473,24 @@ try {
         name: "Tab A draft",
         preview: {
           program: [{
-            id: "race-exercise", day: "Day 1", order: 1, name: "Cable Row",
+            id: "race-exercise-1", day: "Day 1", order: 1, name: "Cable Row",
             sets: 3, min: 8, max: 12, primary: "Back", secondary: "Biceps",
             notes: "", libraryId: "row_cable",
+          }, {
+            id: "race-exercise-2", day: "Day 2", order: 1, name: "Chest Press",
+            sets: 3, min: 8, max: 12, primary: "Chest", secondary: "Triceps",
+            notes: "", libraryId: "pc_mc",
           }],
-          programStructure: null,
+          programStructure: {
+            schemaVersion: 1,
+            days: [
+              { dayId: "manual_d1", label: "Day 1", order: 1 },
+              { dayId: "manual_d2", label: "Day 2", order: 2 },
+            ],
+            provenance: { source: "manual_build", compilerVersion: null, familyId: null, blueprintId: null },
+            weekPrescriptions: [],
+            customizedFrom: null,
+          },
         },
       });
       draft = { ...draft, step: "editor" };

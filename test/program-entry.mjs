@@ -71,9 +71,9 @@ function driveToTerminal(route) {
   state = Entry.setAnswers(state, validAnswers(route));
   const visited = [state.step];
   while (true) {
-    if (state.step === "result") state = Entry.setResult(state, { fingerprint: `${route}-fixture` });
+    if (state.step === "result") state = Entry.setResult(state, resultFixture(route));
     if (["catalogue", "import_source", "shared_review"].includes(state.step)) {
-      state = Entry.setResult(state, { fingerprint: `${route}-fixture` });
+      state = Entry.setResult(state, resultFixture(route));
     }
     if (["preview", "editor"].includes(state.step)) return { state, visited };
     const transition = Entry.advance(state);
@@ -82,6 +82,16 @@ function driveToTerminal(route) {
     state = transition.state;
     visited.push(state.step);
   }
+}
+
+function resultFixture(route) {
+  return {
+    fingerprint: `${route}-fixture`,
+    preview: {
+      program: [{ id: `${route}-row`, day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
+      programStructure: { schemaVersion: 1, days: [{ dayId: `${route}-d1`, label: "Day 1", order: 1 }] },
+    },
+  };
 }
 
 test("module imports in Node without browser globals", () => {
@@ -418,6 +428,74 @@ test("activation allows unchanged or explicitly executable pinned rules only", (
   });
   assert.equal(pinned.ok, true);
   assert.equal(pinned.pinned, true);
+});
+
+test("Build activation names every incomplete day and requires executable exercises", () => {
+  let draft = Entry.selectRoute(fresh(), "build");
+  draft = Entry.setAnswers(draft, { programName: "Manual block", daysPerWeek: 2 });
+  draft = Entry.setResult(draft, {
+    fingerprint: "manual-empty",
+    preview: {
+      program: [],
+      programStructure: {
+        schemaVersion: 1,
+        days: [
+          { dayId: "manual_d1", label: "Day 1", order: 1 },
+          { dayId: "manual_d2", label: "Day 2", order: 2 },
+        ],
+      },
+    },
+  });
+  draft = Entry.advance(draft).state;
+  const empty = Entry.activationReadiness(draft, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  });
+  assert.equal(empty.ok, false);
+  assert.equal(empty.code, "candidate_incomplete");
+  assert.deepEqual(empty.issues, ["program_exercises_required", "day_empty:manual_d1", "day_empty:manual_d2"]);
+
+  const partial = Entry.setResult(draft, {
+    ...draft.result,
+    preview: {
+      ...draft.result.preview,
+      program: [{ id: "row-1", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
+    },
+  });
+  assert.deepEqual(Entry.activationReadiness(partial, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  }).issues, ["day_empty:manual_d2"]);
+
+  const complete = Entry.setResult(partial, {
+    ...partial.result,
+    preview: {
+      ...partial.result.preview,
+      program: [
+        ...partial.result.preview.program,
+        { id: "row-2", day: "Day 2", order: 1, name: "Press", sets: 3, min: 6, max: 10 },
+      ],
+    },
+  });
+  assert.equal(Entry.activationReadiness(complete, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  }).ok, true);
+
+  const incompatible = Entry.setResult(complete, {
+    ...complete.result,
+    preview: {
+      ...complete.result.preview,
+      program: complete.result.preview.program.map((exercise, index) => index ? exercise : {
+        ...exercise,
+        progressionIncompatibility: { code: "unsupported_strategy" },
+      }),
+    },
+  });
+  assert.deepEqual(Entry.activationReadiness(incompatible, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  }).issues, ["progression_incompatible:row-1"]);
 });
 
 test("start over requests deletion of only the setup draft", () => {

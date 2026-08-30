@@ -2158,7 +2158,7 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",readyExpanded=false;
+let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="",readyExpanded=false;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
@@ -6074,12 +6074,54 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
+function programEditorSnapshot(){
+  if(!setupEditorOpen)return cloneSnapshot(state);
+  const preview=entryState?.result?.preview||{},snapshot=cloneSnapshot(state);
+  snapshot.program=cloneSnapshot(preview.program||[]);
+  snapshot.programMeta={...defaultProgramMeta([]),name:entryState?.result?.name||entryState?.answers?.programName||"",
+    daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
+    programStructure:cloneSnapshot(preview.programStructure||null),
+    progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
+    progressionModifiers:cloneSnapshot(preview.progressionModifiers||[])};
+  return snapshot}
+function programEditorProgram(){
+  if(!setupEditorOpen)return prog;
+  const snapshot=programEditorSnapshot();
+  return makeProgram(snapshot.program,null,snapshot.programMeta)}
+async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
+  if(!setupEditorOpen)return commitProposedState(proposal,io,opts);
+  if(!entryState?.result?.preview)return{localOk:false,idbOk:false,setupDraftInvalid:true};
+  const model=makeProgram(proposal.program,null,proposal.programMeta);
+  const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
+  const structureDays=structure?.days||[];
+  const preview={...cloneSnapshot(entryState.result.preview),program:model.toJSON(),programStructure:structure,
+    days:structureDays.map(item=>({dayId:item.dayId,label:item.label,
+      exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)}))};
+  const result={...cloneSnapshot(entryState.result),preview};
+  const nextName=proposal.programMeta?.name||entryState.result.name;
+  if(nextName)result.name=nextName;else delete result.name;
+  entryState=ProgramEntry.setResult(entryState,result);
+  const saved=await persistSetupDraft(entryState);
+  return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
+    {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict}}
+function openEntryDraftEditor(){
+  if(!entryState?.result?.preview)return;
+  setupEditorOpen=true;programEditMode=true;
+  $("#onboarding")?.classList.remove("active");$("#onboarding")?.classList.add("hidden");
+  document.body.classList.remove("is-onboarding");
+  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
+  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
+  render()}
+function closeEntryDraftEditor(){
+  setupEditorOpen=false;programEditMode=false;onboardingOrigin=null;closeOnboarding()}
 function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
   const ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
-  if(ov)ov.classList.toggle("is-hidden",programEditMode);
-  if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  if(meta)meta.classList.toggle("visually-hidden",!programEditMode);
-  if(tog)tog.textContent=programEditMode?t("program.done_edit"):t("program.edit")}
+  if(ov)ov.classList.toggle("is-hidden",programEditMode||setupEditorOpen);
+  if(ed)ed.classList.toggle("is-hidden",!(programEditMode||setupEditorOpen));
+  if(meta)meta.classList.toggle("visually-hidden",!(programEditMode||setupEditorOpen));
+  if(tog)tog.textContent=setupEditorOpen?t("entry.editor.close"):programEditMode?t("program.done_edit"):t("program.edit");
+  const end=$("#endBlock");if(end)end.classList.toggle("hidden",setupEditorOpen);
+  const exp=$("#exportProgram"),imp=$("#importProgram");if(exp)exp.classList.toggle("hidden",setupEditorOpen);if(imp)imp.closest("label")?.classList.toggle("hidden",setupEditorOpen)}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
@@ -6144,7 +6186,36 @@ function renderProgramChips(){
 
 function renderProgramHeader(){
   const el=$("#programMeta");if(!el)return;
-  if(document.activeElement?.closest("#programMeta"))return;
+  if(!setupEditorOpen&&document.activeElement?.closest("#programMeta"))return;
+  if(setupEditorOpen){
+    const snapshot=programEditorSnapshot(),meta=snapshot.programMeta;
+    const issues=ProgramEntry.candidateActivationIssues(entryState);
+    const saveError=entryUiNotice==="save_conflict"?t("entry.save_conflict.body"):
+      entryUiNotice==="save_failed"?t("entry.save_failed.body"):null;
+    const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"))
+      .map(issue=>entryState.result?.preview?.programStructure?.days
+        ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length));
+    const issueStatus=issues.some(issue=>issue.startsWith("progression_incompatible:"))
+      ?t("entry.editor.progression_invalid")
+      :issues.some(issue=>issue.startsWith("exercise_invalid:"))
+        ?t("entry.editor.exercise_invalid")
+        :emptyDays.length?t("entry.editor.empty_days",{days:emptyDays.join(", ")})
+          :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
+    const status=saveError||issueStatus;
+    const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+    el.innerHTML=`<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
+      `<p class="entry__active" id="entryEditorStatus" role="${saveError?"alert":"status"}" aria-live="${saveError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
+      `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled":""}>${esc(activateLabel)}</button></div>`;
+    const name=$("#programName");if(name)name.onchange=async()=>{
+      const proposal=programEditorSnapshot();proposal.programMeta.name=name.value.trim()||meta.name;
+      const result=await commitProgramEditorProposal(proposal);if(result.localOk||result.idbOk)renderProgram()};
+    const save=$("#entryEditorSave");if(save)save.onclick=async()=>{
+      const result=await persistSetupDraft(entryState);
+      if(result?.ok){renderProgram();toast(t("entry.editor.saved"))}
+      else $("#entryEditorStatus")?.focus?.()};
+    const activate=$("#entryEditorActivate");if(activate)activate.onclick=()=>activateEntryPreview();
+    return}
   const meta=state.programMeta||defaultProgramMeta(state.log);
   el.innerHTML=
     `<div class="pmeta__row">`+
@@ -6168,7 +6239,7 @@ function renderProgramHeader(){
 function collapsedProgramDays(){const v=uiPrefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
 function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
   on?cur.add(d):cur.delete(d);
-  setUiPref("collapsedProgramDays",[...cur].filter(x=>prog.days().includes(x)))}
+  setUiPref("collapsedProgramDays",[...cur].filter(x=>programEditorProgram().days().includes(x)))}
 function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
   if(!cur.includes(oldName))return;
   setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
@@ -6182,14 +6253,14 @@ function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
 let programJsonSynced=null;
 function syncProgramJson({force=false}={}){
   const box=$("#programJson");if(!box)return;
-  const next=JSON.stringify(prog.toJSON(),null,2);
+  const next=JSON.stringify(programEditorProgram().toJSON(),null,2);
   if(!force){
     if(document.activeElement===box)return;
     if(next===programJsonSynced&&box.value!==programJsonSynced)return}
   programJsonSynced=next;box.value=next}
 
 function renderProgramEditor(){
-  const ds=prog.days();
+  const ds=programEditorProgram().days();
   $("#programEditor").innerHTML=ds.length
     ?ds.map(dayCard).join("")
     :`<div class="table"><div class="empty">${esc(t("program.empty.days"))}</div></div>`;
@@ -6198,7 +6269,7 @@ function renderProgramEditor(){
 }
 
 function dayCard(d){
-  const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets));
+  const exs=programEditorProgram().forDay(d),sets=sum(exs.map(e=>e.sets));
   const isCollapsed=collapsedProgramDays().includes(d);
   const body=exs.length
     ?exs.map((e,i)=>exCard(e,i,exs.length)).join("")
@@ -6315,9 +6386,9 @@ function exCard(e,i,n){
 const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
 const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
 function commitEditorField(id,field,value,effect){
-  const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+  const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
-  return commitProposedState(proposal,storageIO,{effect})}
+  return commitProgramEditorProposal(proposal,storageIO,{effect})}
 
 const progressionFormNumber=(data,name)=>Number(data.get(name));
 function authoredProgressionFromForm(strategy,data,e){
@@ -6350,7 +6421,7 @@ function progressionAuthoredShape(strategy,params,e){
   if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
   return{sets:e.sets,min:e.min,max:e.max}}
 function progressionPairCompatible(id,prescription,program){
-  const relations=state.programMeta?.progressionRelations;
+  const relations=programEditorSnapshot().programMeta?.progressionRelations;
   if(!Array.isArray(relations))return true;
   const relation=relations.find(item=>Array.isArray(item?.members)&&item.members.some(member=>member.exerciseId===id));
   if(!relation)return true;
@@ -6360,7 +6431,7 @@ function progressionPairCompatible(id,prescription,program){
     byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
   return RepForgeProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
 async function saveProgressionEditor(form){
-  const id=form.dataset.id,e=prog.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
+  const model=programEditorProgram(),id=form.dataset.id,e=model.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
   error.textContent="";
   if(!form.reportValidity())return;
   const select=form.closest("[data-progression-editor]")?.querySelector("[data-progression-strategy]");
@@ -6373,11 +6444,11 @@ async function saveProgressionEditor(form){
     ...progressionInput(e),prescription:checked.value,history:[],currentSession:[]});
   if(executable.kind==="invalid"||executable.kind==="incompatible"){
     error.textContent=t("program.progression.error.invalid");return}
-  const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta),next=nextProgram.find(id);
+  const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta),next=nextProgram.find(id);
   if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
   const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);
   let effect=null;
-  if(shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
+  if(!setupEditorOpen&&shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
     try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
     if(draftHasProgressInRemovedSets(id,shape.sets,next.sets,draft)){error.textContent=t("program.progression.error.active_sets");return}
     effect=draftPreservationEffect(draftRaw);
@@ -6385,21 +6456,21 @@ async function saveProgressionEditor(form){
   next.progression=cloneSnapshot(checked.value);delete next.progressionIncompatibility;
   next.sets=shape.sets;next.min=shape.min;next.max=shape.max;
   proposal.program=nextProgram.toJSON();
-  const result=await commitProposedState(proposal,storageIO,{effect});
+  const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
   if(!(result.localOk||result.idbOk)){error.textContent=t("program.progression.error.save");return}
   render();toast(t("program.progression.saved"))}
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
     const field=inp.dataset.field,isText=EDITOR_TEXT_FIELDS.has(field);
-    inp.oninput=async()=>{const e=prog.find(inp.dataset.id);if(!e)return;
+    inp.oninput=async()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;
       const captured=inp.value,priorValue=String(e[field]??"");
       // A blank name is a stage of typing, not a rename: hold the committed name
       // until something non-blank arrives, so the Exercise fallback never lands
       // in the box under the cursor. Blur puts a name back if none does.
       if(field==="name"&&!captured.trim())return;
       let effect=null;
-      if(field==="sets"){
+      if(!setupEditorOpen&&field==="sets"){
         const next=Exercise.posInt(captured,e.sets);
         if(next<e.sets){
           const draftRaw=readDraftRaw();
@@ -6413,16 +6484,16 @@ function bindEditor(){
             inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}}
       const result=await commitEditorField(inp.dataset.id,field,captured,effect);
       if(!(result.localOk||result.idbOk)){
-        const cur=prog.find(inp.dataset.id);
+        const cur=programEditorProgram().find(inp.dataset.id);
         if(inp.value===captured)inp.value=cur?(isText?editorFieldText(cur,field):cur[field]):captured;
         if(effect)toast(t("toast.set_count_locked_draft"));
         return}
       if(!isText&&(inp.value===captured||inp.value===priorValue))
-        inp.value=String(prog.find(inp.dataset.id)?.[field]??captured);
+        inp.value=String(programEditorProgram().find(inp.dataset.id)?.[field]??captured);
       renderVolume();updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
-      inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
+      inp.onchange=()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
         (card?card.querySelectorAll('input[type="number"][data-field]'):[inp]).forEach(x=>x.value=e[x.dataset.field])};
     }
     else if(isText){
@@ -6431,7 +6502,7 @@ function bindEditor(){
       // box on focus and put that back — clearing a name and walking away is an
       // abandoned edit, not a rename to a fragment.
       let onFocusText=null;
-      inp.onfocus=()=>{const e=prog.find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
+      inp.onfocus=()=>{const e=programEditorProgram().find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
       // Blur is where the box catches up with the model: stray whitespace goes and
       // alternates regain their ", " spacing.
       inp.onchange=async()=>{
@@ -6440,9 +6511,9 @@ function bindEditor(){
           // a proposal built on a state they have not landed in yet diffs to nothing.
           // Let the queue drain so the restore is a real change against the model.
           await flushStorage();
-          if(prog.find(inp.dataset.id)?.name!==onFocusText)
+          if(programEditorProgram().find(inp.dataset.id)?.name!==onFocusText)
             await commitEditorField(inp.dataset.id,field,onFocusText);}
-        const e=prog.find(inp.dataset.id);if(!e)return;
+        const e=programEditorProgram().find(inp.dataset.id);if(!e)return;
         const shown=editorFieldText(e,field);
         if(inp.value!==shown)inp.value=shown;
         onFocusText=null;
@@ -6451,20 +6522,20 @@ function bindEditor(){
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
     inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
-      const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+      const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
       if(!nextProgram.renameDay(old,next)){
-        inp.value=dayLabel(old);toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
+        inp.value=dayLabel(old);toast(programEditorProgram().days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
       proposal.program=nextProgram.toJSON();
       syncProgramStructureFromProgram(proposal,nextProgram);
       const effect=draftDayReplacementEffect(old,next);
-      const result=await commitProposedState(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
+      const result=await commitProgramEditorProposal(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
       if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
       renameCollapsedDay(old,next);
-      if(day===old)day=next;
+      if(!setupEditorOpen&&day===old)day=next;
       render();toast(t("toast.day_renamed"))};
   });
   $$("#programEditor [data-progression-editor]").forEach(editor=>{
-    const e=prog.find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
+    const e=programEditorProgram().find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
     const form=editor.querySelector("[data-progression-form]"),fields=editor.querySelector("[data-progression-fields]");
     select.onchange=()=>{const strategy=select.value;
       fields.innerHTML=PROGRESSION_EDITOR_STRATEGIES.includes(strategy)?progressionEditorParams(e,strategy):"";
@@ -6487,32 +6558,32 @@ async function editorAction(act,ds){
     // own movements — with the whole library one tap further on. Everything
     // already on the day is excluded; the same movement twice is always a slip.
     openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:dayLabel(ds.day)}),subtitle:"",
-      exclude:prog.forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
+      exclude:programEditorProgram().forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
-        const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+        const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
         nextProgram.addExercise(ds.day,entry);proposal.program=nextProgram.toJSON();
-        const result=await commitProposedState(proposal);
+        const result=await commitProgramEditorProposal(proposal);
         if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
   else if(act==="changeEx"){
-    const ex=prog.find(ds.id);if(!ex)return;
+    const ex=programEditorProgram().find(ds.id);if(!ex)return;
     openExercisePicker({title:t("picker.title_change"),subtitle:ex.name,
-      exclude:prog.forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
+      exclude:programEditorProgram().forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
-        const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+        const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
         if(!nextProgram.replaceExercise(ds.id,entry))return;
         proposal.program=nextProgram.toJSON();
-        const result=await commitProposedState(proposal);
+        const result=await commitProgramEditorProposal(proposal);
         if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
   else if(act==="detachEx"){
-    const ex=prog.find(ds.id);if(!ex)return;
+    const ex=programEditorProgram().find(ds.id);if(!ex)return;
     if(!confirm(t("confirm.detach_exercise",{name:ex.name})))return;
-    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     if(!nextProgram.detachExercise(ds.id))return;
     proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal);
+    const result=await commitProgramEditorProposal(proposal);
     if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
   else if(act==="pickAlternates"){
-    const ex=prog.find(ds.id);if(!ex)return;
+    const ex=programEditorProgram().find(ds.id);if(!ex)return;
     // Alternates were a comma-separated string of whatever got typed. They are
     // still stored as names, so older programs keep working, but they are now
     // chosen from the library — which is what makes a one-tap swap possible.
@@ -6527,32 +6598,32 @@ async function editorAction(act,ds){
       onPick:async entries=>{
         const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
         if(result.localOk||result.idbOk){render();toast(t("toast.alternates_saved"))}}})}
-  else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  else if(act==="delEx"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
-    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
     const effect=destructiveDraftClearEffect(discardDraftRaw);
-    const result=await commitProposedState(proposal,storageIO,{effect});
-    if(result.localOk||result.idbOk){resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
+    const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
   else if(act==="up"||act==="down"){
-    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.move(ds.id,act==="up"?-1:1);proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal);
+    const result=await commitProgramEditorProposal(proposal);
     if(result.localOk||result.idbOk)render()}
-  else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  else if(act==="delDay"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
     if(confirm(t(key,{day:dayLabel(ds.day)}))){
-    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
     syncProgramStructureFromProgram(proposal,nextProgram);
     const effect=destructiveDraftClearEffect(discardDraftRaw);
-    const result=await commitProposedState(proposal,storageIO,{effect});
-    if(result.localOk||result.idbOk){resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
+    const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
 function renderVolume(){
-  const arr=[...prog.volume().entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff);
+  const arr=[...programEditorProgram().volume().entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff);
   const max=Math.max(...arr.map(x=>x.eff),1);
   $("#volume").innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
@@ -6560,9 +6631,9 @@ function renderVolume(){
 }
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
-function persistProgram(nextProgram=prog){
-  const proposal=cloneSnapshot(state);proposal.program=new Program(nextProgram.toJSON()).toJSON();
-  return commitProposedState(proposal)}
+function persistProgram(nextProgram=programEditorProgram()){
+  const proposal=programEditorSnapshot();proposal.program=new Program(nextProgram.toJSON()).toJSON();
+  return commitProgramEditorProposal(proposal)}
 
 /* Hand-edited rows skip Program.update, so they also skip its rule that a
    linked slot's label is an alias (displayName) while its muscles belong to the
@@ -6591,15 +6662,16 @@ function reconcileLinkedProgramRows(rows,byId){
   return{ignoredMuscles:[...ignoredMuscles]}}
 
 async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
-  const transition=programTransitionPrecondition(state);
-  const byId=new Map(prog.exercises.map(e=>[e.id,e]));
+  const currentSnapshot=programEditorSnapshot(),currentProgram=programEditorProgram();
+  const transition=setupEditorOpen?{}:programTransitionPrecondition(state);
+  const byId=new Map(currentProgram.exercises.map(e=>[e.id,e]));
   for(const row of parsed){if(row.id&&byId.has(row.id))continue;
-    const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
+    const match=currentProgram.exercises.find(e=>e.name===row.name&&e.day===row.day)||currentProgram.exercises.find(e=>e.name===row.name);
     if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
   const{ignoredMuscles}=reconcileLinkedProgramRows(parsed,byId);
-  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
-  const proposal=cloneSnapshot(state);
+  const proposal=currentSnapshot;
   // Raw JSON lists exercises only. Drop structure days that previously had
   // exercises but are gone from the payload; keep already-empty containers
   // (manual build) so Save JSON does not wipe intentional blank days.
@@ -6612,15 +6684,15 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
   syncProgramStructureFromProgram(proposal,nextProgram);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,storageIO,{effect,...transition});
+  const result=await commitProgramEditorProposal(proposal,storageIO,{effect,...transition});
   if(!(result.localOk||result.idbOk))return result;
-  resetDraftSessionState();
+  if(!setupEditorOpen)resetDraftSessionState();
   // Land on an exercise-bearing day. Structure order can put a renamed first
   // slot (e.g. Push Day) ahead of Day 2; sorted exercise days match the pre-
   // structure default and avoid a day-switch discard wiping a just-set date.
-  const exerciseDays=[...new Set((state.program||[]).map(x=>x.day))]
+  const exerciseDays=[...new Set((programEditorProgram().exercises||[]).map(x=>x.day))]
     .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
-  day=exerciseDays.includes(day)?day:(exerciseDays[0]||days()[0]||"Day 1");
+  if(!setupEditorOpen)day=exerciseDays.includes(day)?day:(exerciseDays[0]||days()[0]||"Day 1");
   render();
   // The save consumed the box, so show the normalised result over the draft.
   syncProgramJson({force:true});
@@ -7173,6 +7245,7 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
   if(done)done.classList.toggle("hidden",mode!=="multi");
   const tabs=$("#exPickTabs");if(tabs)tabs.classList.toggle("hidden",!quick);
   const full=$("#exPickFull");if(full)full.classList.toggle("hidden",!quick);
+  const custom=$("#exPickCustom");if(custom)custom.classList.toggle("hidden",setupEditorOpen);
   if(quick)renderQuickTabs();
   renderPickerFilters();renderPickerList();
   document.body.classList.add("is-sheet-open");
@@ -7547,7 +7620,7 @@ let libFlow=null,libReturn=null,previewState=null;
    need a third suggested; one with no back work does. Ranked so the staple for
    an uncovered pattern leads. */
 function suggestedForDay(dayName,limit=6){
-  const onDay=prog.forDay(dayName);
+  const onDay=programEditorProgram().forDay(dayName);
   const have=new Set(onDay.map(e=>e.libraryId).filter(Boolean));
   const covered=new Set();
   for(const e of onDay)for(const m of muscles(e.primary))covered.add(m);
@@ -7600,10 +7673,11 @@ function librarySelectionMap(selected){const out=new Map();
 function libraryResumeOptions(){
   if(!libFlow)return null;
   return{day:libFlow.day,tab:libFlow.tab,query:libFlow.query,muscle:libFlow.muscle,
-    equipment:libFlow.equipment,step:libFlow.step,selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
-function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null}={}){
+    equipment:libFlow.equipment,step:libFlow.step,editorScope:libFlow.editorScope,
+    selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
+function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null,editorScope=false}={}){
   libFlow={day:dayName,tab:LIB_PAGE_TABS.includes(tab)?tab:"browse",query:String(query||""),muscle,equipment,step,
-    selected:librarySelectionMap(selected)};
+    editorScope:!!editorScope,selected:librarySelectionMap(selected)};
   libReturn=document.activeElement;
   document.body.classList.add("is-library");
   document.body.classList.remove("is-preview");
@@ -7633,6 +7707,7 @@ function renderLibrary(){
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`+
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`}
   if(configuring)renderLibraryConfigure();else renderLibraryBrowse();
+  $("#libCustom")?.classList.toggle("hidden",!!libFlow.editorScope);
   renderLibraryBar()}
 
 function renderLibraryTabs(){
@@ -7685,7 +7760,7 @@ function libraryRowHtml(e){
     `<div class="librow__text">`+
       `<p class="librow__name">${esc(libraryName(e))}</p>`+
       `<p class="librow__meta">${esc(meta)}</p>`+
-      (isCustomLibraryId(e.id)
+      (isCustomLibraryId(e.id)&&!libFlow?.editorScope
         ?`<button type="button" class="librow__edit" data-lib-edit="${esc(e.id)}">${esc(t("library.edit"))}</button>`:"")+
     `</div>`+
     `<button type="button" class="librow__check${on?" is-on":""}" role="checkbox" aria-checked="${on?"true":"false"}" `+
@@ -7756,12 +7831,15 @@ async function commitLibrarySelection(){
   if(!libFlow||!libFlow.selected.size)return null;
   if(libFlow.step!=="configure"){libFlow.step="configure";renderLibrary();window.scrollTo({top:0});return null}
   const rows=libraryConfigureRows();
-  const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+  const proposal=libFlow.editorScope?programEditorSnapshot():cloneSnapshot(state);
+  const nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   for(const r of rows){
     const added=nextProgram.addExercise(libFlow.day,r.entry);
     added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max)}
   proposal.program=nextProgram.toJSON();
-  const result=await commitProposedState(proposal);
+  const result=libFlow.editorScope
+    ?await commitProgramEditorProposal(proposal)
+    :await commitProposedState(proposal);
   if(!(result.localOk||result.idbOk)){toast(t("toast.program_save_failed"));return result}
   const n=rows.length,target=libFlow.day;
   setDayCollapsed(target,false);
@@ -8159,7 +8237,8 @@ function queueSetupDraftWrite(operation){
 function reportSetupDraftWriteFailure(kind,error){
   entryUiNotice=kind;
   if(error)console.warn("setup draft save failed",error);
-  if(document.body.classList.contains("is-onboarding"))renderOnboarding()}
+  if(setupEditorOpen)renderProgram();
+  else if(document.body.classList.contains("is-onboarding"))renderOnboarding()}
 function removeObservedSetupDraft(handle){
   if(!handle)return{ok:true,absent:true};
   const currentRaw=readSetupDraftRaw();
@@ -8657,9 +8736,11 @@ function wireEntryDom(){
       const next=$("#onbNext");if(next)next.disabled=ProgramEntry.validationIssues(entryState).length>0};
     nameInput.oninput=sync;nameInput.onchange=sync;nameInput.onblur=sync}
   const activate=$("#entryActivate");if(activate)activate.onclick=()=>activateEntryPreview();
-  const edit=$("#entryEdit");if(edit)edit.onclick=()=>activateEntryPreview({destination:"program-edit"});
+  const edit=$("#entryEdit");if(edit)edit.onclick=()=>openEntryDraftEditor();
   const restart=$("#entryRestart");if(restart)restart.onclick=()=>entryStartOver();
-  const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{entryUiNotice=null;renderOnboarding()};
+  const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{
+    entryUiNotice=null;
+    if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()};
   const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>entryStartOver();
   const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>{
     entryUiNotice=null;
@@ -8691,7 +8772,6 @@ function entryAdvance(){
   const issues=ProgramEntry.validationIssues(entryState);
   if(issues.length){renderOnboarding();return}
   if(entryState.step==="build_setup"){
-    if(!entryConfirmReplaceIfNeeded())return;
     const built=entryServices()?.buildEmptyProgram(entryState.answers);
     if(!built?.ok){entryCompileError=built?.code||"build_failed";renderOnboarding();return}
     let buildNext=ProgramEntry.setResult(entryState,{
@@ -8701,7 +8781,7 @@ function entryAdvance(){
       name:built.name});
     buildNext=ProgramEntry.advance(buildNext).state;
     entrySetState(buildNext);
-    return activateEntryPreview({destination:"program-edit",manualBuild:true,skipReplaceConfirm:true})}
+    return openEntryDraftEditor()}
   const advanced=ProgramEntry.advance(entryState);
   if(!advanced.ok){renderOnboarding();return}
   entrySetState(advanced.state);
@@ -8713,7 +8793,6 @@ function entryBack(){
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false}={}){
   if(!ProgramEntry||!entryState)return;
   await setupDraftWriteQueue;
-  if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
   const readiness=ProgramEntry.activationReadiness(entryState,{
     liveActiveProgramRevision:liveProgramRevision(),
     currentVersions:entryVersions(),
@@ -8724,7 +8803,12 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
       entrySetState(readiness.state||{...entryState,step:"activation_conflict"});
       return}
     if(readiness.code==="rules_changed_rebuild_required"){entryUiNotice="rules_changed";renderOnboarding();return}
+    if(readiness.code==="candidate_incomplete"){
+      if(setupEditorOpen){renderProgram();$("#entryEditorStatus")?.focus?.()}
+      else renderOnboarding();
+      return readiness}
     renderOnboarding();return}
+  if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
   const preview=entryState.result?.preview;
   const exercises=manualBuild||entryState.route==="build"
     ?(entryState.result?.preview?.program||[])
@@ -8824,6 +8908,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
   captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
   resetDraftSessionState();
+  setupEditorOpen=false;
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
   if(destination==="program-edit"){
@@ -9449,7 +9534,8 @@ function init(){
   const pkFull=$("#exPickFull");
   if(pkFull)pkFull.onclick=()=>{
     const resume=pickerResumeOptions(),target=pickerState?.day||day;
-    closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,equipment:resume?.equipment||null}))};
+    closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,
+      equipment:resume?.equipment||null,editorScope:setupEditorOpen}))};
   const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
   const impCancel=$("#importReviewCancel");
   if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
@@ -9511,6 +9597,7 @@ function init(){
   const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",()=>{contextTouched.sessionNotes=true;saveDraft()});
   const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",()=>{contextTouched.bodyweight=true;saveDraft()});
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
+    if(setupEditorOpen){closeEntryDraftEditor();return}
     if(programEditMode&&state[STORAGE_FOLLOWUP]?.kind==="onboarding-edit"){
       const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
       const result=await commitProposedState(proposal,storageIO);
@@ -9575,11 +9662,11 @@ function init(){
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=async()=>{
-    const proposal=cloneSnapshot(state),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     const nextDay=nextProgram.addDay();proposal.program=nextProgram.toJSON();
     syncProgramStructureFromProgram(proposal,nextProgram);
-    const result=await commitProposedState(proposal);
-    if(result.localOk||result.idbOk){day=nextDay;render();toast(t("toast.day_added"))}};
+    const result=await commitProgramEditorProposal(proposal);
+    if(result.localOk||result.idbOk){if(!setupEditorOpen)day=nextDay;render();toast(t("toast.day_added"))}};
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
   $("#beginnerProgram").onclick=()=>{

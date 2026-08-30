@@ -876,6 +876,37 @@
     };
   }
 
+  function candidateActivationIssues(state) {
+    assertState(state);
+    const preview = state.result?.preview;
+    const program = Array.isArray(preview?.program) ? preview.program : [];
+    const issues = [];
+    if (!program.length) issues.push("program_exercises_required");
+    for (const exercise of program) {
+      if (!exercise || typeof exercise !== "object" || !String(exercise.name || "").trim() ||
+        !Number.isInteger(exercise.sets) || exercise.sets < 1 ||
+        !Number.isInteger(exercise.min) || exercise.min < 1 ||
+        !Number.isInteger(exercise.max) || exercise.max < exercise.min) {
+        issues.push(`exercise_invalid:${String(exercise?.id || "unknown")}`);
+      }
+      if (exercise?.progressionIncompatibility) {
+        issues.push(`progression_incompatible:${String(exercise?.id || "unknown")}`);
+      }
+    }
+    if (state.route !== "build") return issues;
+    const structureDays = Array.isArray(preview?.programStructure?.days)
+      ? preview.programStructure.days
+      : [];
+    if (!structureDays.length) return ["program_days_required"];
+    for (const day of structureDays) {
+      const dayId = String(day?.dayId || "");
+      const label = String(day?.label || dayId);
+      const rows = program.filter((exercise) => exercise?.day === label || exercise?.day === dayId);
+      if (!rows.length) issues.push(`day_empty:${dayId || label}`);
+    }
+    return issues;
+  }
+
   function activationReadiness(state, options) {
     assertState(state);
     const config = isPlainObject(options) ? options : {};
@@ -888,6 +919,8 @@
     if ((state.step !== "preview" && state.step !== "editor") || state.result === null) {
       return { ok: false, code: "preview_not_ready" };
     }
+    const candidateIssues = candidateActivationIssues(state);
+    if (candidateIssues.length) return { ok: false, code: "candidate_incomplete", issues: candidateIssues };
     const versionChanges = changedVersions(state.versions, config.currentVersions || state.versions);
     if (versionChanges.length && config.pinnedVersionsExecutable !== true) {
       return { ok: false, code: "rules_changed_rebuild_required", versionChanges };
@@ -926,6 +959,7 @@
     resumeSetupDraft,
     updateTimestamp,
     startOver,
+    candidateActivationIssues,
     activationReadiness,
   });
 
