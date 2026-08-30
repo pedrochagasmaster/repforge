@@ -288,8 +288,11 @@ export function pollutedPayloadArbitrary() {
               name: "Pollution carrier",
               equipment: ["machine"],
             });
+            const carrier = structuredClone(target.program.exercises[0]);
+            delete carrier.id;
+            delete carrier.movementId;
             target.program.exercises.push({
-              ...structuredClone(target.program.exercises[0]),
+              ...carrier,
               day: target.program.exercises[0].day,
               order: 900 + nth,
               libraryId: "custom:pollution-carrier",
