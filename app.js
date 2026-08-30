@@ -8226,6 +8226,7 @@ const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
 function entryServices(){
+  if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
   if(!ProgramEntryAdapter)return null;
   return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY})}
 function entryCandidateFingerprint(route,name,preview){

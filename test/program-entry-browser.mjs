@@ -460,6 +460,33 @@ try {
     await context.close();
   }
 
+  console.log("\nBrowse empty catalogue fails closed with an explicit recovery path");
+  {
+    const { context, page } = await openFresh(browser);
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="browse"]');
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.evaluate(() => {
+      window.__repforgeProgramEntryServicesOverride = { browseCatalogue: () => [] };
+    });
+    await page.click("#onbNext");
+    const emptyCopy = await page.locator('#onbBody [role="alert"]').innerText();
+    assert(/No released program fits these answers/.test(emptyCopy),
+      "an empty released catalogue is announced without fabricating a fallback", emptyCopy);
+    assert(await page.locator('[data-entry-action="change-schedule"]').isVisible(),
+      "empty Browse offers an explicit schedule recovery action");
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "empty Browse leaves active state byte-identical");
+    await page.click('[data-entry-action="change-schedule"]');
+    assert((await page.evaluate(() => window.__repforgeEntryState().step)) === "schedule",
+      "the empty-state recovery returns to schedule answers");
+    await context.close();
+  }
+
   console.log("\nBuild remains a durable non-destructive draft until explicit valid activation");
   {
     const { context, page } = await openFresh(browser);
