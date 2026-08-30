@@ -101,6 +101,71 @@ async function seedActiveProgram(page) {
 
 const browser = await launchChromium();
 try {
+  console.log("\nBrowser Back and explicit setup cancellation preserve draft safety");
+  {
+    const { context, page } = await openFresh(browser);
+    await seedActiveProgram(page);
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.evaluate(() => window.startOnboarding("settings"));
+    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    const draftBeforeBack = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
+
+    await page.goBack();
+    await page.waitForTimeout(100);
+    const afterBrowserBack = await page.evaluate(({ base, stateKey }) => ({
+      sameApp: location.href.startsWith(base),
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active") === true,
+      step: window.__repforgeEntryState?.()?.step,
+      desiredResult: window.__repforgeEntryState?.()?.answers?.desiredResult,
+      active: localStorage.getItem(stateKey),
+    }), { base: BASE, stateKey: KEY });
+    assert(afterBrowserBack.sameApp && afterBrowserBack.onboarding,
+      "browser Back remains inside program entry", JSON.stringify(afterBrowserBack));
+    assert(afterBrowserBack.step === "desired_result" && afterBrowserBack.desiredResult === "muscle_growth",
+      "browser Back uses semantic entry Back and preserves answers", JSON.stringify(afterBrowserBack));
+    assert(afterBrowserBack.active === activeBefore, "browser Back leaves active state byte-identical");
+
+    await page.goBack();
+    await page.waitForFunction(() => window.__repforgeEntryState?.()?.step === "entry");
+    assert(await page.locator('[data-entry-route="recommend"]').isVisible(),
+      "browser Back from the first route step returns to the entry hub");
+    await page.goBack();
+    await page.waitForSelector("#entryCancelKeep");
+    assert(page.url().startsWith(BASE), "browser Back at the hub asks before leaving Taurifer", page.url());
+    assert(await page.evaluate(() => document.activeElement?.id === "entryCancelTitle"),
+      "cancel decision receives focus when it opens");
+    assert(await page.locator("#onboarding .onb__nav").isHidden(),
+      "cancel decision owns the surface without a competing footer");
+    await page.click("#entryCancelContinue");
+    assert(await page.locator("#entryHeading").isVisible(), "continue setup dismisses the cancel decision");
+    await page.click("#onbCancel");
+    await page.click("#entryCancelKeep");
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"));
+    assert(await page.evaluate((key) => localStorage.getItem(key), DRAFT) !== null,
+      "keep draft and leave preserves the resumable setup draft");
+
+    await page.evaluate(() => window.startOnboarding("settings"));
+    await page.waitForSelector("#entryResumeContinue");
+    assert(await page.evaluate(() => document.activeElement?.id === "entryResumeTitle"),
+      "resume notice receives focus when it opens");
+    assert(await page.locator("#onboarding .onb__nav").isHidden(),
+      "resume notice owns the surface without a competing footer");
+    await page.click("#entryResumeContinue");
+    await page.click("#onbCancel");
+    await page.click("#entryCancelDiscard");
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"));
+    assert(await page.evaluate((key) => localStorage.getItem(key), DRAFT) === null,
+      "discard draft and leave removes the observed setup draft");
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "keep/discard cancellation never changes active state");
+    assert(draftBeforeBack !== null, "navigation fixture persisted a setup draft");
+    await context.close();
+  }
+
   console.log("\nEntry hub and recommend activation");
   {
     const { context, page } = await openFresh(browser);

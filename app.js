@@ -8213,6 +8213,7 @@ const ENTRY_EQUIPMENT=ProgramEntryAdapter?.KNOWN_EQUIPMENT||["barbell","dumbbell
 const ENTRY_CAPABILITIES=ProgramEntryAdapter?.KNOWN_CAPABILITIES||["safe_pull","training_support"];
 const ENTRY_AVOID_REASONS=["dislike","pain","equipment","other"];
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="";
+const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
@@ -8356,7 +8357,25 @@ function programmingContextFromAnswers(answers){
     reviewedAt:entryNow()})}
 function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
   $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
+function entryHistoryState(active=true){
+  const current=history.state&&typeof history.state==="object"?history.state:{};
+  return{...current,[ENTRY_HISTORY_STATE_KEY]:{
+    active,draftId:entryState?.draftId||null}}}
+function armEntryHistory(){
+  try{
+    const existing=history.state?.[ENTRY_HISTORY_STATE_KEY];
+    const method=existing?"replaceState":"pushState";
+    history[method](entryHistoryState(true),"",location.href)}catch{}}
+function syncEntryHistory(){
+  try{
+    if(history.state?.[ENTRY_HISTORY_STATE_KEY]?.active)
+      history.replaceState(entryHistoryState(true),"",location.href)}catch{}}
+function disarmEntryHistory(){
+  try{
+    if(history.state?.[ENTRY_HISTORY_STATE_KEY])
+      history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
 function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding");
+  disarmEntryHistory();
   const log=$("#log");if(log&&!log.classList.contains("active")){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
@@ -8399,7 +8418,7 @@ function startOnboarding(origin,opts={}){
     entryUiNotice="corrupt";
     entryState=createEntryState();
   }else entryState=createEntryState();
-  showOnboardingView();renderOnboarding();
+  showOnboardingView();armEntryHistory();renderOnboarding();
   if(opts.userInitiated===false)return;
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
 }
@@ -8407,8 +8426,23 @@ function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.lengt
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
   onboardingOrigin=null;closeOnboarding()}
+function requestEntryCancel(){
+  if(!entryState)return cancelOnboarding();
+  entryUiNotice="cancel";
+  persistSetupDraft(entryState);
+  renderOnboarding()}
+async function keepEntryDraftAndCancel(){
+  await setupDraftWriteQueue;
+  if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")return renderOnboarding();
+  cancelOnboarding()}
+async function discardEntryDraftAndCancel(){
+  await setupDraftWriteQueue;
+  const removed=await clearSetupDraft();
+  if(!removed.ok)return renderOnboarding();
+  cancelOnboarding()}
 function entrySetState(next,{persist=true}={}){
   entryState=next;
+  syncEntryHistory();
   if(persist)persistSetupDraft(entryState);
   renderOnboarding()}
 function entrySelectRoute(route){
@@ -8613,7 +8647,11 @@ function renderPreviewStep(){
     `<button type="button" id="entryRestart" class="btn btn--steel">${esc(t("entry.preview.restart"))}</button></div></div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
-  if(entryUiNotice==="resume")return `<div class="entry__notice" role="status"><strong>${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
+  if(entryUiNotice==="cancel")return `<div class="entry__notice" role="region" aria-labelledby="entryCancelTitle"><strong id="entryCancelTitle" tabindex="-1">${esc(t("entry.cancel_confirm.title"))}</strong><p>${esc(t("entry.cancel_confirm.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryCancelKeep">${esc(t("entry.cancel_confirm.keep"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryCancelDiscard">${esc(t("entry.cancel_confirm.discard"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryCancelContinue">${esc(t("entry.cancel_confirm.continue"))}</button></div></div>`;
+  if(entryUiNotice==="resume")return `<div class="entry__notice" role="status"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
     `<button type="button" class="btn btn--steel" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`;
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
@@ -8635,7 +8673,9 @@ function renderOnboarding(){
   const seg=$("#onbSegbar");
   if(seg){const total=route?progress.total:1,current=route?progress.n-1:0;
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("")}
-  const cancel=$("#onbCancel");if(cancel)cancel.textContent=stepId==="entry"||!route?t("entry.cancel"):"‹";
+  const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
+  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
+  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface);
   const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
   if(back)back.classList.toggle("hidden",!route||stepId==="entry");
   if(next){
@@ -8644,7 +8684,11 @@ function renderOnboarding(){
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):t("entry.next");
     next.disabled=!!(route&&ProgramEntry.validationIssues(entryState).length)}
   let html=renderEntryNotice();
-  if(entryUiNotice==="resume"){body.innerHTML=html;wireEntryDom();return}
+  if(noticeOwnsSurface){
+    body.innerHTML=html;wireEntryDom();
+    const noticeTitle=$(entryUiNotice==="cancel"?"#entryCancelTitle":"#entryResumeTitle");
+    if(noticeTitle)try{noticeTitle.focus()}catch{}
+    return}
   if(stepId==="entry"||!route)html+=renderEntryHub();
   else if(stepId==="desired_result")html+=renderDesiredResultStep();
   else if(stepId==="background")html+=renderBackgroundStep();
@@ -8755,6 +8799,9 @@ function wireEntryDom(){
     entryUiNotice=null;
     if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()};
   const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>entryStartOver();
+  const cancelContinue=$("#entryCancelContinue");if(cancelContinue)cancelContinue.onclick=()=>{entryUiNotice=null;renderOnboarding()};
+  const cancelKeep=$("#entryCancelKeep");if(cancelKeep)cancelKeep.onclick=()=>keepEntryDraftAndCancel();
+  const cancelDiscard=$("#entryCancelDiscard");if(cancelDiscard)cancelDiscard.onclick=()=>discardEntryDraftAndCancel();
   const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>{
     entryUiNotice=null;
     if(entryState.result)entrySetState({...entryState,result:null,versions:entryVersions()});
@@ -8801,8 +8848,13 @@ function entryAdvance(){
   if(advanced.state.step==="result")ensureGeneratorResult()}
 function entryBack(){
   if(!ProgramEntry||!entryState)return;
-  if(entryState.step==="entry"||!entryState.route){cancelOnboarding();return}
+  if(entryUiNotice==="cancel"){entryUiNotice=null;renderOnboarding();return}
+  if(entryUiNotice==="resume"||entryState.step==="entry"||!entryState.route){requestEntryCancel();return}
   entrySetState(ProgramEntry.back(entryState))}
+function onEntryPopState(){
+  if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
+  try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
+  entryBack()}
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false}={}){
   if(!ProgramEntry||!entryState)return;
   await setupDraftWriteQueue;
@@ -9645,9 +9697,8 @@ function init(){
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
-  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{
-    if(entryState&&entryState.step!=="entry"&&entryState.route)entryBack();
-    else cancelOnboarding()};
+  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>requestEntryCancel();
+  window.addEventListener("popstate",onEntryPopState);
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
