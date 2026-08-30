@@ -5,6 +5,7 @@
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { createRequire } from "node:module";
+import { isDeepStrictEqual } from "node:util";
 
 const require = createRequire(import.meta.url);
 const Adapter = require("../program-entry-adapter.js");
@@ -466,6 +467,167 @@ try {
     assert(afterStaleAttempt.draft === newerRaw, "blocked stale activation preserves the newer setup draft");
     assert(afterStaleAttempt.alert.includes("changed in another tab"), "stale activation conflict is announced");
     assert(afterStaleAttempt.pending.length === 0, "blocked stale activation clears its pending journal");
+    await context.close();
+  }
+
+  console.log("\nThe common entry replacement transaction is archive-safe for every route label");
+  for (const route of ["recommend", "custom", "browse", "build", "import"]) {
+    const { context, page } = await openFresh(browser);
+    await seedActiveProgram(page);
+    const before = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
+    const result = await page.evaluate(async ({ route, exercises }) => {
+      const committed = await window.__repforgeFinalizeProgramSetup({
+        exercises,
+        name: `${route} replacement`,
+        answers: { goal: "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+        telemetryRoute: route,
+      });
+      await window.__repforgeStorage.flush();
+      return committed;
+    }, { route, exercises: before.program });
+    const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
+    const archived = after.programHistory.filter((entry) => entry.id === before.programMeta.id);
+    assert(result.localOk || result.idbOk, `${route} replacement commits`);
+    assert(archived.length === 1, `${route} archives the outgoing program exactly once`, JSON.stringify(archived));
+    assert(
+      isDeepStrictEqual(archived[0]?.meta, before.programMeta) &&
+        isDeepStrictEqual(archived[0]?.program, before.program),
+      `${route} archive preserves definition, metadata, and progression state`,
+      JSON.stringify({ archived: archived[0], beforeMeta: before.programMeta, beforeProgram: before.program })
+    );
+    await context.close();
+  }
+
+  console.log("\nFirst-program activation creates no meaningless archive");
+  {
+    const { context, page } = await openFresh(browser);
+    const result = await page.evaluate(async () => {
+      const committed = await window.__repforgeFinalizeProgramSetup({
+        exercises: [{
+          id: "first-program-row", day: "Day 1", order: 1, name: "Cable Row",
+          sets: 3, min: 8, max: 12, primary: "Back", secondary: "Biceps",
+          notes: "", libraryId: "row_cable",
+        }],
+        name: "First program",
+        answers: { goal: "hypertrophy" },
+        destination: "log",
+        origin: "first-run",
+        draftConfirmed: true,
+        telemetryRoute: "recommend",
+      });
+      await window.__repforgeStorage.flush();
+      return committed;
+    });
+    const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
+    assert(result.localOk || result.idbOk, "first-program activation commits");
+    assert(after.programHistory.length === 0, "first-program activation does not archive starter state");
+    await context.close();
+  }
+
+  console.log("\nLegacy programs with durable usage evidence remain archiveable");
+  {
+    const { context, page } = await openFresh(browser);
+    await seedActiveProgram(page);
+    const before = await page.evaluate(async (key) => {
+      const proposal = JSON.parse(localStorage.getItem(key));
+      proposal.programMeta.onboarded = false;
+      proposal.programHistory = [{ id: "older-program", name: "Older program", endedAt: "2026-07-01" }];
+      const saved = await window.__repforgeCommitProposedState(proposal);
+      if (!(saved.localOk || saved.idbOk)) throw new Error(`legacy fixture save failed: ${JSON.stringify(saved)}`);
+      await window.__repforgeStorage.flush();
+      return JSON.parse(localStorage.getItem(key));
+    }, KEY);
+    const result = await page.evaluate((exercises) => window.__repforgeFinalizeProgramSetup({
+      exercises,
+      name: "Legacy successor",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "settings",
+      draftConfirmed: true,
+      telemetryRoute: "recommend",
+    }), before.program);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
+    const archived = after.programHistory.filter((entry) => entry.id === before.programMeta.id);
+    assert(result.localOk || result.idbOk, "legacy used-program replacement commits");
+    assert(archived.length === 1, "legacy used program archives exactly once", JSON.stringify(archived));
+    assert(
+      isDeepStrictEqual(archived[0]?.meta, before.programMeta) &&
+        isDeepStrictEqual(archived[0]?.program, before.program),
+      "legacy used-program archive preserves definition and metadata"
+    );
+    await context.close();
+  }
+
+  console.log("\nPartially populated first-run state is not archiveable");
+  {
+    const { context, page } = await openFresh(browser);
+    const result = await page.evaluate(async (key) => {
+      const proposal = JSON.parse(localStorage.getItem(key));
+      proposal.programMeta.name = "Unfinished first-run name";
+      proposal.programMeta.started = "2026-08-30";
+      proposal.programMeta.onboarded = false;
+      proposal.log = [];
+      proposal.programHistory = [];
+      const saved = await window.__repforgeCommitProposedState(proposal);
+      if (!(saved.localOk || saved.idbOk)) throw new Error(`first-run fixture save failed: ${JSON.stringify(saved)}`);
+      const committed = await window.__repforgeFinalizeProgramSetup({
+        exercises: proposal.program,
+        name: "Completed first program",
+        answers: { goal: "hypertrophy" },
+        destination: "log",
+        origin: "first-run",
+        draftConfirmed: true,
+        telemetryRoute: "recommend",
+      });
+      await window.__repforgeStorage.flush();
+      return committed;
+    }, KEY);
+    const after = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), KEY);
+    assert(result.localOk || result.idbOk, "partially populated first-run activation commits");
+    assert(after.programHistory.length === 0, "partial first-run metadata creates no meaningless archive");
+    await context.close();
+  }
+
+  console.log("\nReplacement rejects a newer durable revision even when the program is unchanged");
+  {
+    const context = await browser.newContext();
+    const pageA = await context.newPage();
+    await pageA.goto(BASE);
+    await waitForAppBoot(pageA, { base: BASE });
+    await seedActiveProgram(pageA);
+    const staleProgram = await pageA.evaluate((key) => JSON.parse(localStorage.getItem(key)).program, KEY);
+    const pageB = await context.newPage();
+    await pageB.goto(BASE);
+    await waitForAppBoot(pageB, { base: BASE });
+    const newerRaw = await pageB.evaluate(async (key) => {
+      const proposal = JSON.parse(localStorage.getItem(key));
+      proposal.settings.restSec = 180;
+      const result = await window.__repforgeCommitProposedState(proposal);
+      if (!(result.localOk || result.idbOk)) throw new Error(`tab B commit failed: ${JSON.stringify(result)}`);
+      await window.__repforgeStorage.flush();
+      return localStorage.getItem(key);
+    }, KEY);
+    const staleResult = await pageA.evaluate(({ exercises }) => window.__repforgeFinalizeProgramSetup({
+      exercises,
+      name: "Stale replacement",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "settings",
+      draftConfirmed: true,
+      telemetryRoute: "recommend",
+    }), { exercises: staleProgram });
+    await pageA.evaluate(() => window.__repforgeStorage.flush());
+    const after = await pageA.evaluate((key) => ({
+      raw: localStorage.getItem(key),
+      pending: Object.keys(localStorage).filter((item) => item.startsWith("repforge_pending_v1:")),
+    }), KEY);
+    assert(staleResult.staleRevision === true, "exact durable revision blocks the stale replacement");
+    assert(after.raw === newerRaw, "stale replacement preserves the newer durable state byte-identically");
+    assert(after.pending.length === 0, "stale revision rejection clears its pending journal");
     await context.close();
   }
 

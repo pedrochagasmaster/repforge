@@ -453,7 +453,8 @@ function draftContextFingerprint(snapshot){
     unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"}))}
 function programTransitionPrecondition(snapshot=state){
   return{expectedProgramId:snapshot?.programMeta?.id||null,
-    expectedProgramFingerprint:draftProgramFingerprint(snapshot)}}
+    expectedProgramFingerprint:draftProgramFingerprint(snapshot),
+    expectedStorageRevision:readRevision(snapshot)}}
 const DraftStore={
   readCanonicalRaw(){
     try{return localStorage.getItem(DRAFT)}
@@ -630,6 +631,9 @@ function decodePendingJournal(key,raw){
     const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
       journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
     if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
+    const expectedStorageRevision=Object.prototype.hasOwnProperty.call(journal,"expectedStorageRevision")
+      ?journal.expectedStorageRevision:null;
+    if(expectedStorageRevision!==null&&(!Number.isInteger(expectedStorageRevision)||expectedStorageRevision<0))return null;
     const reconcileSessionIds=normalizeJournalSessionIds(journal.reconcileSessionIds);
     const dayRenames=normalizeJournalDayRenames(journal.dayRenames);
     if(reconcileSessionIds==null||dayRenames==null)return null;
@@ -646,7 +650,8 @@ function decodePendingJournal(key,raw){
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
-      expectedProgramFingerprint,expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
+      expectedProgramFingerprint,expectedStorageRevision,
+      expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
       effectOutcome,effect:effectOutcome.effect,rollback}}}
   catch{return null}}
 function readPendingJournal(){
@@ -681,11 +686,14 @@ function normalizeJournalDayRenames(value){
     renames.push({from:entry.from,to:entry.to})}
   return renames}
 function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
+  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
   if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
+  if(Number.isInteger(expectedStorageRevision)&&expectedStorageRevision>=0)
+    journal.expectedStorageRevision=expectedStorageRevision;
   if(expectedFirstRunEmpty)journal.expectedFirstRunEmpty=true;
   if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
   if(dayRenames.length)journal.dayRenames=dayRenames;
@@ -936,7 +944,8 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   return{kind:"committed",accepted:true,rejected:false,settled:true,
     snapshot,result:settlement.result||result,closed}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,expectedSetupDraftRaw=undefined,
+  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  expectedSetupDraftRaw=undefined,
   reconcileSessionIds=[],dayRenames=[],effect=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
@@ -953,6 +962,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   let pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
       {replace,expectedProgramId,expectedProgramFingerprint,
+        expectedStorageRevision,
         expectedFirstRunEmpty,
         reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
         effectOutcome:frozenEffectOutcome})
@@ -978,6 +988,11 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,
         conflict:true,setupDraftConflict:true}}
+    if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,
+        conflict:true,staleRevision:true}}
     if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
@@ -2572,15 +2587,36 @@ function successorProgramList(strategy,list){
   if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
   return src}
 function capturePendingBlock(strategy,review){
-  return{oldProgramId:state.programMeta?.id,oldMeta:cloneSnapshot(state.programMeta),oldProgram:cloneSnapshot(prog.toJSON()),
-    programFingerprint:draftProgramFingerprint(state),review:cloneSnapshot(review||blockReviewCurrent),strategy}}
-function archiveCapturedBlock(proposal,cap){
+  return{...captureProgramReplacement(state,review||blockReviewCurrent),strategy}}
+function hasArchivableProgram(snapshot){
+  const meta=snapshot?.programMeta;
+  const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
+  if(!meta||!hasDefinition)return false;
+  return meta.onboarded===true||Array.isArray(snapshot?.log)&&snapshot.log.length>0||
+    Array.isArray(snapshot?.programHistory)&&snapshot.programHistory.length>0}
+function captureProgramReplacement(snapshot=state,review=null){
+  const meta=snapshot?.programMeta;
+  const program=Array.isArray(snapshot?.program)?snapshot.program:[];
+  if(!hasArchivableProgram(snapshot))return null;
+  return{oldProgramId:meta.id,oldMeta:cloneSnapshot(meta),oldProgram:cloneSnapshot(program),
+    programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),
+    review:review?cloneSnapshot(review):null}}
+function archiveCapturedProgram(proposal,cap){
   if(!cap?.oldProgramId)return proposal;
   const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
   if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
   history.push({id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
     completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)});
   proposal.programHistory=history;return proposal}
+async function commitProgramReplacement(proposal,io=storageIO,{capture=captureProgramReplacement(state),
+  effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
+  requireAdapter(io,"commitProgramReplacement");
+  if(capture)archiveCapturedProgram(proposal,capture);
+  const transition=capture
+    ?{expectedProgramId:capture.oldProgramId,expectedProgramFingerprint:capture.programFingerprint,
+      expectedStorageRevision:capture.storageRevision}
+    :programTransitionPrecondition(state);
+  return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty})}
 function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
@@ -2624,13 +2660,12 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
         toast(t("toast.set_count_locked_draft"));
         return blockTransitionResult("failed",{draftConflict:true})}}
     const proposal=cloneSnapshot(state);
-    archiveCapturedBlock(proposal,cap);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
     proposal.programMeta=nextMeta;
     proposal.program=nextProgram;
-    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId,
-      expectedProgramFingerprint:cap.programFingerprint,effect});
-    const kind=persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed";
+    const persisted=await commitProgramReplacement(proposal,io,{capture:cap,effect});
+    const kind=persisted.localOk||persisted.idbOk?"committed":
+      persisted.duplicate||persisted.staleRevision?"duplicate":"failed";
     const result=blockTransitionResult(kind,persisted);
     if(result.committed){
       pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
@@ -5455,6 +5490,7 @@ window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCommitNextBlock=commitNextBlock;
 window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
+window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,storageIO);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
@@ -7937,13 +7973,13 @@ async function commitImportReview(io=storageIO){
     closeImportReview({toProgram:false});
     toast(t("toast.program_imported",{n:counts.total}));
     return setup||{localOk:true,idbOk:true}}
-  const transition=programTransitionPrecondition(state);
+  const replacementCapture=captureProgramReplacement(state);
   const proposal=cloneSnapshot(state);
   const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
   proposal.customExercises=merged.customExercises;
-  const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
-  if(typeof draft.meta?.name==="string"&&draft.meta.name.trim())meta.name=draft.meta.name.trim();
-  meta.updated=new Date().toISOString();
+  const importedName=typeof draft.meta?.name==="string"&&draft.meta.name.trim()
+    ?draft.meta.name.trim():proposal.programMeta?.name;
+  const meta=buildProgramMeta({name:importedName,answers:{...proposal.programMeta,...draft.meta}});
   proposal.programMeta=meta;
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(draft.meta?.progressionRelations,proposal.program);
@@ -7951,7 +7987,7 @@ async function commitImportReview(io=storageIO){
   meta.programStructure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,adapter,{effect,...transition});
+  const result=await commitProgramReplacement(proposal,adapter,{capture:replacementCapture,effect});
   if(!(result.localOk||result.idbOk)){
     // Keep the reviewed decisions on screen: the lifter can press Import again
     // once whatever blocked the write has cleared.
@@ -8073,12 +8109,12 @@ function mergeLog(s){return mergeImportedLog(s)}
 function switchToBeginnerProgram(discardDraftRaw){return applyProgramTemplate(storageIO,{discardDraftRaw})}
 async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   requireAdapter(io,"applyProgramTemplate");
-  const transition=programTransitionPrecondition(state);
+  const replacementCapture=captureProgramReplacement(state);
   const proposal=cloneSnapshot(state);
   proposal.program=new Program(beginnerProgram()).toJSON();
   proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
   const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,io,{effect,...transition});
+  const result=await commitProgramReplacement(proposal,io,{capture:replacementCapture,effect});
   if(result.localOk||result.idbOk){captureEvent("program_path_selected",{route:"browse"});captureEvent("program_activated",{route:"browse",version_category:"legacy_v1"});resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
   return result}
 
@@ -8491,6 +8527,7 @@ function renderEntryNotice(){
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
+  if(entryUiNotice==="durable_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.durable_conflict.title"))}</strong><p>${esc(t("entry.durable_conflict.body"))}</p></div>`;
   if(entryUiNotice==="rules_changed")return `<div class="entry__notice" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t("entry.rules_changed.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button></div></div>`;
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
@@ -8729,6 +8766,10 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryUiNotice="save_conflict";
     renderOnboarding();
     return result}
+  if(result?.staleRevision){
+    entryUiNotice="durable_conflict";
+    renderOnboarding();
+    return result}
   if(result?.localOk||result?.idbOk){
     const cleanup=await removeSetupDraftIfCurrent(activationDraftHandle);
     if(cleanup?.writeFailed)toast(t("entry.save_failed.body"));
@@ -8742,9 +8783,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
-  const transition=blockCap
-    ?{expectedProgramId:blockCap.oldProgramId,expectedProgramFingerprint:blockCap.programFingerprint}
-    :programTransitionPrecondition(state);
+  const replacementCapture=blockCap||captureProgramReplacement(state);
   const draftActive=draftHasProgress();
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
@@ -8752,8 +8791,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const proposal=cloneSnapshot(baseProposal||state);
   if(originEff==="block"){
     if(!blockCap)return blockTransitionResult("failed");
-    if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
-    archiveCapturedBlock(proposal,blockCap)}
+    if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
   const meta=buildProgramMeta({name,answers:answers||{}});
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
@@ -8764,9 +8802,11 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
-  const persisted=await commitProposedState(proposal,adapter,{...transition,effect,expectedSetupDraftRaw});
+  const persisted=await commitProgramReplacement(proposal,adapter,
+    {capture:replacementCapture,effect,expectedSetupDraftRaw});
   const result=originEff==="block"
-    ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
+    ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":
+      persisted.duplicate||persisted.staleRevision?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
   if((telemetryRoute==="custom"||telemetryRoute==="recommend")&&entryTelemetry){
@@ -9749,6 +9789,13 @@ async function resolveBootReplicas(candidate=null){
         continue}
       if(journal.expectedProgramFingerprint&&
         draftProgramFingerprint(head)!==journal.expectedProgramFingerprint){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      if(journal.expectedStorageRevision!==null&&
+        readRevision(head)!==journal.expectedStorageRevision){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)

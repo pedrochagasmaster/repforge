@@ -2330,7 +2330,9 @@ async function main() {
   progFile.exercises = progExercises;
   progFile.meta = { ...progFile.meta, name: "Imported Template", started: "2020-01-01", id: "foreign-id" };
   writeFileSync(progPath, JSON.stringify(progFile));
-  const metaBeforeImport = (await getState(page)).programMeta;
+  const stateBeforeImport = await getState(page);
+  const metaBeforeImport = stateBeforeImport.programMeta;
+  const programBeforeImport = stateBeforeImport.program;
   const importDraft = await page.evaluate((k) => {
     const raw = JSON.stringify({
       __sessionNotes: "unfinished before program import",
@@ -2368,11 +2370,20 @@ async function main() {
     "Export v2 program → edit meta.name → Import program JSON"
   );
   assert(
-    stAfter.programMeta.started === metaBeforeImport.started &&
-      stAfter.programMeta.id === metaBeforeImport.id,
-    "Program import keeps the recipient's start date and id",
-    `started ${metaBeforeImport.started} → ${stAfter.programMeta?.started}; id ${metaBeforeImport.id} → ${stAfter.programMeta?.id}`,
+    stAfter.programMeta.id !== metaBeforeImport.id && stAfter.programMeta.id !== "foreign-id" &&
+      stAfter.programMeta.started !== "2020-01-01",
+    "Program import creates a fresh local active-program identity",
+    `started=${stAfter.programMeta?.started}; old id=${metaBeforeImport.id}; active id=${stAfter.programMeta?.id}`,
     "Export v2 → edit meta.started/id in file → Import program JSON"
+  );
+  const importedArchive = stAfter.programHistory.filter((entry) => entry.id === metaBeforeImport.id);
+  assert(
+    importedArchive.length === 1 &&
+      JSON.stringify(importedArchive[0].program) === JSON.stringify(programBeforeImport) &&
+      importedArchive[0].meta?.id === metaBeforeImport.id,
+    "Program import archives the outgoing program exactly once",
+    JSON.stringify(importedArchive),
+    "Import program JSON → activate → inspect programHistory"
   );
   assert(
     stAfter.log.length === logBefore,

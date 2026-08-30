@@ -1318,6 +1318,8 @@
   "entry.save_failed.body": "Seu programa ativo não foi alterado. Mantenha esta página aberta e tente novamente.",
   "entry.save_conflict.title": "Esta configuração mudou em outra aba",
   "entry.save_conflict.body": "Seu programa ativo não foi alterado. Recarregue para continuar com o rascunho mais recente.",
+  "entry.durable_conflict.title": "Seus dados de treino mudaram em outra aba",
+  "entry.durable_conflict.body": "Este programa não foi ativado. Recarregue para revisar o estado salvo mais recente antes de tentar novamente.",
   "entry.rules_changed.title": "As regras do programa mudaram",
   "entry.rules_changed.body": "Uma prévia salva ainda está aqui. Recompile com as regras atuais antes de ativar uma versão atual, ou mantenha a prévia fixa se ela continuar executável.",
   "entry.rules_changed.rebuild": "Recompilar com regras atuais",
