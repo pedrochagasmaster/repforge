@@ -1,0 +1,29 @@
+{
+  "schemaVersion": 1,
+  "contract": "taurifer-program-family-contract",
+  "source": "docs/plan-047-owner-approved-design.md",
+  "status": "owner_approved",
+  "families": ["growth", "balanced", "strength", "home"],
+  "blueprints": [
+    { "blueprintId": "growth_2_v1", "familyId": "growth", "frequency": 2, "dayLabels": ["Knee / horizontal", "Hip / mixed"] },
+    { "blueprintId": "growth_3_v1", "familyId": "growth", "frequency": 3, "dayLabels": ["Knee / horizontal", "Hip / vertical", "Mixed"] },
+    { "blueprintId": "growth_4_v1", "familyId": "growth", "frequency": 4, "dayLabels": ["Upper A", "Lower A", "Upper B", "Lower B"] },
+    { "blueprintId": "growth_5_v1", "familyId": "growth", "frequency": 5, "dayLabels": ["Upper A", "Lower A", "Upper B", "Lower B", "Mixed / priority"] },
+    { "blueprintId": "growth_6_v1", "familyId": "growth", "frequency": 6, "dayLabels": ["Upper horizontal", "Lower knee", "Upper vertical", "Lower hip", "Upper mixed / priority", "Lower mixed / priority"] },
+    { "blueprintId": "balanced_2_v1", "familyId": "balanced", "frequency": 2, "dayLabels": ["Knee", "Press / hip"] },
+    { "blueprintId": "balanced_3_v1", "familyId": "balanced", "frequency": 3, "dayLabels": ["Knee / press primary", "Hip", "Volume"] },
+    { "blueprintId": "balanced_4_v1", "familyId": "balanced", "frequency": 4, "dayLabels": ["Lower primary", "Upper primary", "Lower volume", "Upper volume"] },
+    { "blueprintId": "balanced_5_v1", "familyId": "balanced", "frequency": 5, "dayLabels": ["Lower primary", "Upper primary", "Hypertrophy", "Lower volume", "Upper volume"] },
+    { "blueprintId": "balanced_6_v1", "familyId": "balanced", "frequency": 6, "dayLabels": ["Knee primary", "Upper primary", "Hypertrophy A", "Lower volume", "Upper volume", "Hypertrophy B / priority"] },
+    { "blueprintId": "strength_2_v1", "familyId": "strength", "frequency": 2, "dayLabels": ["Knee focus", "Press + hinge"] },
+    { "blueprintId": "strength_3_v1", "familyId": "strength", "frequency": 3, "dayLabels": ["Knee", "Press", "Hinge"] },
+    { "blueprintId": "strength_4_v1", "familyId": "strength", "frequency": 4, "dayLabels": ["Lower heavy", "Upper heavy", "Lower practice", "Upper practice"] },
+    { "blueprintId": "strength_5_v1", "familyId": "strength", "frequency": 5, "dayLabels": ["Knee primary", "Press primary", "Hinge primary", "Upper practice", "Hypertrophy base"] },
+    { "blueprintId": "strength_6_v1", "familyId": "strength", "frequency": 6, "dayLabels": ["Knee primary", "Press primary", "Hinge primary", "Lower practice", "Upper practice", "Hypertrophy base"] },
+    { "blueprintId": "home_2_v1", "familyId": "home", "frequency": 2, "dayLabels": ["Full body A", "Full body B"] },
+    { "blueprintId": "home_3_v1", "familyId": "home", "frequency": 3, "dayLabels": ["Knee / push", "Unilateral / alternate push", "Mixed"] },
+    { "blueprintId": "home_4_v1", "familyId": "home", "frequency": 4, "dayLabels": ["Knee + push", "Hip + pull-capable", "Unilateral + push", "Mixed"] },
+    { "blueprintId": "home_5_v1", "familyId": "home", "frequency": 5, "dayLabels": ["Knee + push + trunk", "Hip + available pull", "Unilateral + push", "Posterior + available pull + trunk", "Mixed coverage"] },
+    { "blueprintId": "home_6_v1", "familyId": "home", "frequency": 6, "dayLabels": ["Knee + push + trunk", "Hip + pull-capability", "Unilateral + push", "Posterior + pull-capability", "Knee / hip + trunk", "Mixed coverage"] }
+  ]
+}

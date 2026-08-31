@@ -7,6 +7,7 @@ const Compiler = require("../program-compiler.js");
 const Engine = require("../progression-engine.js");
 const { EXERCISE_LIBRARY } = require("../exercises.js");
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/program-families-v1.json", import.meta.url), "utf8"));
+const contract = JSON.parse(readFileSync(new URL("./fixtures/program-family-contract-v1.json", import.meta.url), "utf8"));
 
 const gymContext = (familyId, frequency, extra = {}) => ({
   schemaVersion: 1, familyId, frequency, sessionMinutes: 90,
@@ -58,6 +59,15 @@ const EXACT = {
 };
 
 assert.deepEqual(Compiler.validateBlueprints(), { ok: true, count: 20 });
+assert.equal(contract.contract, "taurifer-program-family-contract");
+assert.equal(contract.status, "owner_approved");
+assert.equal(fixture.contract, "test/fixtures/program-family-contract-v1.json");
+assert.deepEqual(Compiler.FAMILY_IDS, contract.families);
+assert.deepEqual(
+  fixture.blueprints.map((entry) => ({ blueprintId: entry.id, familyId: entry.familyId, frequency: entry.frequency, dayLabels: entry.days.map((day) => day.label) })),
+  contract.blueprints,
+  "generated fixture identity matches the independently authored Plan 047 contract",
+);
 assert(Compiler.BLUEPRINTS.every((blueprint) => blueprint.release?.browse === true &&
   blueprint.release.complete === true && blueprint.release.executable === true && blueprint.release.tested === true),
 "every currently shipped authored blueprint declares its reviewed Browse release state");

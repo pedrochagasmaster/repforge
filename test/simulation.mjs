@@ -7174,8 +7174,8 @@ async function main() {
   );
   const f45 = await page.evaluate(async () => {
     const services = window.__repforgeOnboarding.services();
-    const fixtureResponse = await fetch("./test/fixtures/program-families-v1.json", { cache: "no-store" });
-    const fixture = fixtureResponse.ok ? await fixtureResponse.json() : null;
+    const contractResponse = await fetch("./test/fixtures/program-family-contract-v1.json", { cache: "no-store" });
+    const contract = contractResponse.ok ? await contractResponse.json() : null;
     const catalog = window.__repforgeExerciseCatalog;
     const catalogById = new Map(catalog.map((e) => [e.id, e]));
     const visible = (rows) =>
@@ -7219,20 +7219,21 @@ async function main() {
       entryHook: !!(onb && typeof onb.entry === "function" && onb.setupDraftKey),
     };
     const failures = [];
-    const fixtureBlueprints = Array.isArray(fixture?.blueprints) ? fixture.blueprints : [];
-    const fixtureFamilies = new Map((fixture?.families || []).map((family) => [family.id, family]));
-    let checked = fixtureBlueprints.length;
+    const contractBlueprints = Array.isArray(contract?.blueprints) ? contract.blueprints : [];
+    const contractFamilies = new Set(Array.isArray(contract?.families) ? contract.families : []);
+    let checked = contractBlueprints.length;
     let blocked = 0;
     let generated = 0;
     let splitParity = 0;
     let structureOk = 0;
     let stable = 0;
     let equipmentInvalid = 0;
-    for (const blueprint of fixtureBlueprints) {
-      const family = fixtureFamilies.get(blueprint.familyId);
-      const goal = (fixture.publicGoals || []).find((entry) => entry.familyId === blueprint.familyId);
+    for (const blueprint of contractBlueprints) {
+      const family = contractFamilies.has(blueprint.familyId);
+      const familyResult = Object.entries(adapter.FAMILY_BY_RESULT || {})
+        .find(([, familyId]) => familyId === blueprint.familyId)?.[0];
       const answers = {
-        desiredResult: goal?.id === "strength_priority" ? "strength" : goal?.id === "muscle_strength" ? "balanced" : "muscle_growth",
+        desiredResult: familyResult || "balanced",
         structuredExperience: "6_to_24m",
         recentConsistency: "most",
         daysPerWeek: blueprint.frequency,
@@ -7251,10 +7252,10 @@ async function main() {
         continue;
       }
       const choices = services.splitChoices(answers).choices || [];
-      const choice = choices.find((candidate) => candidate?.id === blueprint.id);
-      const expectedLabels = blueprint.days.map((day) => day.label);
+      const choice = choices.find((candidate) => candidate?.id === blueprint.blueprintId);
+      const expectedLabels = Array.isArray(blueprint.dayLabels) ? blueprint.dayLabels : [];
       if (choices.length < 1 || !choice || choice.familyId !== blueprint.familyId ||
-        choice.frequency !== blueprint.frequency || choice.blueprintId !== blueprint.id ||
+        choice.frequency !== blueprint.frequency || choice.blueprintId !== blueprint.blueprintId ||
         JSON.stringify((choice.days || []).map((day) => day.label)) !== JSON.stringify(expectedLabels)) {
         failures.push(`${label}: split choice diverges from reviewed fixture`);
       } else splitParity++;
@@ -7292,8 +7293,8 @@ async function main() {
     optionParity.eqGen = generated === checked && equipmentInvalid === 0;
     optionParity.splits = splitParity === checked;
     return {
-      familyCount: fixtureFamilies.size,
-      blueprintCount: fixtureBlueprints.length,
+      familyCount: contractFamilies.size,
+      blueprintCount: contractBlueprints.length,
       checked,
       blocked,
       generated,
@@ -7323,7 +7324,7 @@ async function main() {
     f45.familyCount === 4 && f45.blueprintCount === 20 && f45.checked === 20,
     "F4: reviewed Plan 047 fixture covers every released family/frequency blueprint",
     JSON.stringify({ families: f45.familyCount, blueprints: f45.blueprintCount, checked: f45.checked }),
-    "test/fixtures/program-families-v1.json is the independent family and frequency catalogue"
+    "test/fixtures/program-family-contract-v1.json is the independently authored family and frequency catalogue"
   );
   assert(
     f45.optionParity.eqUi && f45.optionParity.eqGen && f45.optionParity.splits && f45.entryHook,

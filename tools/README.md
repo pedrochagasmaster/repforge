@@ -7,9 +7,13 @@ committed files, the same way `i18n.js` is produced from `i18n-en.json` and
 
 ## build-program-family-fixtures.mjs
 
-Generates the reviewed Plan 047 fixture from `program-compiler.js`. The source
-contains twenty separately authored 2–6 day blueprints; this command does not
-derive sibling frequencies from recipes.
+Generates the reviewed Plan 047 resolution fixture from `program-compiler.js`.
+The independent identity contract in
+`test/fixtures/program-family-contract-v1.json` pins the released families,
+frequencies, blueprint IDs, and day labels first; `--check` rejects compiler
+drift against that contract before checking the generated resolution snapshot.
+The source contains twenty separately authored 2–6 day blueprints; this command
+does not derive sibling frequencies from recipes.
 
 ```bash
 node tools/build-program-family-fixtures.mjs

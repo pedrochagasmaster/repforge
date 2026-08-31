@@ -10,7 +10,27 @@ const require = createRequire(import.meta.url);
 const Compiler = require(path.join(root, "program-compiler.js"));
 const { EXERCISE_LIBRARY } = require(path.join(root, "exercises.js"));
 const fixturePath = path.join(root, "test/fixtures/program-families-v1.json");
+const contractPath = path.join(root, "test/fixtures/program-family-contract-v1.json");
 const checking = process.argv.includes("--check");
+
+/* The generated fixture is an executable resolution snapshot. Its family and
+   day identity must come from the separately authored Plan 047 contract, so a
+   compiler/fixture generator change cannot move both the implementation and
+   its oracle together. */
+const contract = JSON.parse(fs.readFileSync(contractPath, "utf8"));
+assert.equal(contract.contract, "taurifer-program-family-contract");
+assert.equal(contract.status, "owner_approved");
+assert.deepEqual(Compiler.FAMILY_IDS, contract.families);
+const contractById = new Map(contract.blueprints.map((blueprint) => [blueprint.blueprintId, blueprint]));
+assert.equal(contractById.size, contract.blueprints.length);
+assert.equal(contractById.size, Compiler.BLUEPRINTS.length);
+for (const blueprint of Compiler.BLUEPRINTS) {
+  const expected = contractById.get(blueprint.id);
+  assert.ok(expected, `${blueprint.id} is present in the independent Plan 047 contract`);
+  assert.equal(expected.familyId, blueprint.familyId, `${blueprint.id} family contract`);
+  assert.equal(expected.frequency, blueprint.frequency, `${blueprint.id} frequency contract`);
+  assert.deepEqual(expected.dayLabels, blueprint.days.map((day) => day.label), `${blueprint.id} day-label contract`);
+}
 
 assert.deepEqual(Compiler.validateBlueprints(), { ok: true, count: 20 });
 
@@ -67,6 +87,7 @@ const compiled = Compiler.BLUEPRINTS.map((blueprint) => {
 const fixture = {
   schemaVersion: 1,
   contractStatus: "owner_approved_executable",
+  contract: "test/fixtures/program-family-contract-v1.json",
   source: ["docs/plan-047-owner-approved-design.md", "docs/progression-effort-target-v1.md"],
   versions: Compiler.VERSIONS,
   defaultBlockWeeks: 6,
