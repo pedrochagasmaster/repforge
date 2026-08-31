@@ -33,7 +33,10 @@
   const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
   const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
   const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "row", "pulldown"]);
-  const ENTRY_ENVIRONMENTS = Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]);
+  // ENV_EQUIPMENT is the source of truth for the closed environment-key
+  // vocabulary. The entry state machine consumes this exported view rather
+  // than maintaining a second list.
+  const ENTRY_ENVIRONMENTS = Object.freeze(Object.keys(ENV_EQUIPMENT));
   const CONSTRAINT_REASONS = Object.freeze(["dislike", "pain", "equipment", "other"]);
   const MUSCLE_TOKENS = Object.freeze(["Chest", "Lats", "Mid/upper back", "Traps", "Front delts", "Side delts", "Rear delts",
     "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors", "Abductors", "Calves",

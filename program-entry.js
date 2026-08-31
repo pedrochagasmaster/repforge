@@ -26,14 +26,10 @@
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
   const SESSION_MINUTES = new Set([30, 45, 60, 75, 90]);
   const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
-  const ENVIRONMENTS = new Set([
-    "commercial_gym",
-    "basic_gym",
-    "limited_home",
-    "full_home",
-    "other",
-  ]);
-  const CONSTRAINT_REASONS = new Set(["dislike", "pain", "equipment", "other"]);
+  // These closed vocabularies are owned by the adapter. Keep the pure module
+  // on the same frozen source so accepted state cannot drift from the UI.
+  const ENVIRONMENTS = vocabulary.ENTRY_ENVIRONMENTS;
+  const CONSTRAINT_REASONS = vocabulary.CONSTRAINT_REASONS;
   const VERSION_KEYS = Object.freeze([
     "compiler",
     "family",
@@ -275,7 +271,7 @@
       return {};
     }
     rejectUnknownKeys(value, new Set(["kind", "capabilities", "equipment"]), path, issues);
-    if (!ENVIRONMENTS.has(value.kind)) issues.push(`${path}.kind:invalid`);
+    if (!ENVIRONMENTS.includes(value.kind)) issues.push(`${path}.kind:invalid`);
     const output = { kind: value.kind };
     if (hasOwn(value, "capabilities")) {
       const caps = normalizeTokenList(value.capabilities, `${path}.capabilities`, issues, MAX_LIST_LENGTH);
@@ -336,7 +332,7 @@
         continue;
       }
       rejectUnknownKeys(item, new Set(["exerciseId", "reason"]), path, issues);
-      if (!validToken(item.exerciseId) || !CONSTRAINT_REASONS.has(item.reason)) {
+      if (!validToken(item.exerciseId) || !CONSTRAINT_REASONS.includes(item.reason)) {
         issues.push(`${path}:invalid_item`);
         continue;
       }
@@ -1075,7 +1071,7 @@
 
     if (hasOwn(raw, "equipment")) {
       hint("equipment", raw.equipment);
-      if (typeof raw.equipment === "string" && ENVIRONMENTS.has(raw.equipment)) {
+      if (typeof raw.equipment === "string" && ENVIRONMENTS.includes(raw.equipment)) {
         answers.environment = { kind: raw.equipment };
       }
       reviewRequired.push("environment");
@@ -1402,6 +1398,8 @@
     MAX_MUSCLE_CONTROLS,
     KNOWN_EQUIPMENT: [...KNOWN_EQUIPMENT],
     KNOWN_CAPABILITIES: [...KNOWN_CAPABILITIES],
+    ENTRY_ENVIRONMENTS: vocabulary.ENTRY_ENVIRONMENTS,
+    CONSTRAINT_REASONS: vocabulary.CONSTRAINT_REASONS,
     ROUTES,
     ROUTE_STEPS,
     createState,
