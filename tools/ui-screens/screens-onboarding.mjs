@@ -51,10 +51,14 @@ async function openHub(page, { existing = false } = {}) {
       { timeout: 20000 }
     );
     await page.evaluate(() => window.startOnboarding("settings"));
-  } else {
-    await page.evaluate(() => window.openFirstRun());
-    await page.click("#firstRunCreate");
+    await page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 });
+    // The replacement notice renders after the hub itself. It is the whole
+    // point of this variant, so do not photograph the hub without it.
+    await page.waitForSelector(".entry__active", { timeout: 20000 });
+    return;
   }
+  await page.evaluate(() => window.openFirstRun());
+  await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 });
 }
 

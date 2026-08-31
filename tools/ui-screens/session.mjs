@@ -103,21 +103,52 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
 }
 
 /**
- * A catalog frame has to show a surface at rest. Entrances that are still
- * running paint half-opacity controls over the copy behind them, which a
- * designer reads as a colour decision rather than a frame taken early.
- * Looping animations (the rest bar's breathing ring) never finish and are
- * left alone. This deliberately does not reset scroll: several scenarios
- * (the Settings anchors, the Progress chart) scroll to their subject on
- * purpose, and resetting here would photograph the wrong part of the screen.
+ * A catalog frame has to show a surface at rest.
+ *
+ * Fonts first. A frame taken while Plex is still loading renders in the
+ * fallback face, which shifts text metrics across the whole screen — broad
+ * colour and edge deltas on arbitrary frames, with nothing wrong in the app.
+ * That is invisible in a two-screen run and appears in a two-hundred-frame one,
+ * so it reads as flake rather than as the reproducibility bug it is.
+ *
+ * Then illustrations, so an exercise tile is not photographed empty, then
+ * animations: entrances that are still running paint half-opacity controls
+ * over the copy behind them, which a designer reads as a colour decision
+ * rather than a frame taken early. Looping animations (the rest bar's
+ * breathing ring) never finish and are left alone.
+ *
+ * This deliberately does not reset scroll: several scenarios (the Settings
+ * anchors, the Progress chart) scroll to their subject on purpose.
  */
 export async function settle(page) {
-  await page.evaluate(() => {
+  // Wait for the DOM to stop changing first. Several surfaces finish rendering
+  // after their readiness selector appears — the hub's "current program stays
+  // active" notice is one — and a frame taken in that window is missing real
+  // content while looking perfectly plausible.
+  await page.evaluate(() => new Promise((resolve) => {
+    let quiet;
+    const finish = () => { observer.disconnect(); clearTimeout(cap); resolve(); };
+    const observer = new MutationObserver(() => {
+      clearTimeout(quiet);
+      quiet = setTimeout(finish, 400);
+    });
+    observer.observe(document.body, { subtree: true, childList: true, attributes: true, characterData: true });
+    quiet = setTimeout(finish, 400);
+    // Looping animations mutate attributes forever; never wait on them.
+    const cap = setTimeout(finish, 5000);
+  }));
+  await page.evaluate(async () => {
+    try { await document.fonts.ready; } catch {}
+    await Promise.all([...document.images]
+      .filter((image) => !image.complete)
+      .map((image) => image.decode().catch(() => {})));
     for (const animation of document.getAnimations()) {
       if (animation.effect?.getComputedTiming().iterations === Infinity) continue;
       try { animation.finish(); } catch {}
     }
   });
+  // One frame for the finished fonts and animations to actually paint.
+  await sleep(page, 150);
 }
 
 export async function dismissChrome(page) {
