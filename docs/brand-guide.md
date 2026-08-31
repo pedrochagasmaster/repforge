@@ -127,8 +127,12 @@ program. Ledes stay `setup.lede` / `setup.lede_installed`.
 **Shared** — a valid setup proposal on a first run with no archived
 program history. The install section, hero, and lockup are unchanged. Create
 and Import are hidden. One Start this program row identifies the proposal
-by name and day count. The gate itself is the confirmation; there is no
-second preview or exercise-mapping review. Ledes and the row:
+by name and day count. The first-run gate remains the consent boundary: Start
+this program accepts the handoff into the owned editable preview, while the
+active program stays untouched. The preview's explicit Use this program action
+is still required for activation. There is no exercise-mapping review because
+the shared payload already carries current built-in or custom identities.
+Ledes and the row:
 
 | Key | English | Portuguese |
 | --- | --- | --- |

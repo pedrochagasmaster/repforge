@@ -14,35 +14,40 @@ becomes durable until that tap.
 This ADR records the locked trade-offs. The implementing contract is
 `docs/superpowers/plans/2026-08-17-shared-setup-links.md`.
 
-## The gate is the confirmation
+## The gate is consent; preview is activation review
 
 Import review exists because a program file can name movements the library
 does not recognize. A shared setup is a different object: every slot must
 already resolve to a current built-in library id or to a custom definition
 carried in the same payload. That is what makes it safe to skip file
-pickers, fuzzy name matching, exercise-mapping review, and a second preview.
-The first-run gate is already the threshold before any program exists, so it
-is the confirmation surface. The row identifies the proposal by program name
-and number of training days; it does not dump every exercise or setting.
-The recipient inspects and edits afterwards on Program and Settings.
+pickers, fuzzy name matching, and exercise-mapping review. The first-run gate
+remains the consent boundary, and the row identifies the proposal by program
+name and number of training days; it does not dump every exercise or setting.
+After Start this program, the validated handoff enters Plan 048's common
+editable preview. That preview is still a draft: the recipient must choose
+its explicit Use this program action before the active program changes.
 
-We rejected routing shared links through import review (it would invent
-mapping work the payload already made unnecessary), auto-accepting on open
-(a URL is not consent), and adding a dedicated preview screen (a second
-threshold on a gate that already asks the recipient to start). Existing
-configured state — onboarded metadata, any log rows, or any archived
-program history — never opens the gate and never mutates. Replacing an
-in-use program from a link is a later product, not this one.
+The original shared-link decision rejected routing through import review (it
+would invent mapping work the payload already made unnecessary), auto-accepting
+on open (a URL is not consent), and a dedicated shared-only preview (a second
+threshold on a gate that already asked the recipient to start). Plan 048 later
+made one editable preview and one archive-safe activation transaction the
+shared contract for every program-entry route. This is a convergence of the
+handoff after consent, not a change to the shared payload, codec, or eligibility
+rules. Existing configured state — onboarded metadata, any log rows, or any
+archived program history — never opens the gate and never mutates. Replacing an
+in-use program from a link remains a later product, not this one.
 
 ## Known ids, or no acceptance
 
-Automatic acceptance is allowed only when every linked exercise resolves.
-No fuzzy matching is permitted on this path. Detached or raw slots are out
-of scope for v1: the coach creates a custom exercise first so its
-definition travels with the program. Outbound links may translate a
-`LEGACY_LIBRARY_IDS` alias to its current built-in id; a received v1
-payload must already contain current ids, so retired aliases never become
-new long-lived references.
+Handoff staging is allowed only when every linked exercise resolves. No fuzzy
+matching is permitted on this path. Detached or raw slots are out of scope for
+v1: the coach creates a custom exercise first so its definition travels with
+the program. Outbound links may translate a `LEGACY_LIBRARY_IDS` alias to its
+current built-in id; a received v1 payload must already contain current ids, so
+retired aliases never become new long-lived references. Staging writes only
+the owned setup draft. Final activation is explicit and uses the common
+archive-safe transaction.
 
 The cost is that a program with an unlinked slot cannot be shared until
 the coach saves it as a custom exercise. The gain is that the recipient
@@ -55,11 +60,11 @@ cannot smuggle an unknown movement into durable state.
 display hint. A valid first-run proposal changes the gate's runtime
 language before the hero renders, so a Portuguese program is offered in
 Portuguese. Opening the link does not persist that language, or any other
-payload field. Acceptance writes `lang` in the same state proposal as the
-program. Invalid sources, and links opened against already-configured
-state, leave the recovered language alone. If a future cancel action
-returns to standard first run, it restores the language recorded before
-the proposal took the runtime.
+payload field. Invalid sources, and links opened against already-configured
+state, leave the recovered language alone. Start this program persists only
+the owned setup draft; final activation writes `lang` in the same state proposal
+as the program. If a future cancel action returns to standard first run, it
+restores the language recorded before the proposal took the runtime.
 
 We rejected detecting the recipient's browser language for the shared gate
 (the coach chose the language with the program) and persisting `lang` on
@@ -71,9 +76,10 @@ A setup link is a program template, not a backup. Generated payloads omit
 workout logs, completed sessions, prior blocks, drafts, notification
 permission and every nested notification switch, voice-input preference,
 device UI preferences, storage revisions, and source program or slot
-identities. Acceptance mints a fresh local program id, timestamps, started
-date, and slot ids. The decoder ignores those keys if a hand-authored link
-contains them; they must not reach the proposal.
+identities. Final activation mints a fresh local program id, timestamps,
+started date, and slot ids. The decoder ignores those keys if a hand-authored
+link contains them; they must not reach the staged proposal or final active
+state.
 
 Notification permission is a device prompt, not a coach setting. UI chrome
 belongs to the recipient's browser. History is the recipient's training

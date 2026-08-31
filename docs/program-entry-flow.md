@@ -17,7 +17,7 @@ on who writes the executable prescription.
 | Browse | The user chooses a complete, executable Taurifer program. | Compatibility context | Injected catalogue preview |
 | Build | The user writes days, exercises, sets, targets, and a supported progression method. | Program name and day count | Empty-day editor handoff |
 | Import | The user brings an external prescription. | Import source and review handoff | Import preview handoff |
-| Shared | Another Taurifer user supplied a released setup payload. | Existing shared-program review | Existing first-run confirmation handoff |
+| Shared | Another Taurifer user supplied a released setup payload. | Existing shared-program review | Common editable preview handoff |
 
 Recommend is the default inside the primary **Create a program** group. Custom
 is its deliberate alternative. Browse is a lower-emphasis choice. Build and
