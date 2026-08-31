@@ -24,6 +24,10 @@ assert.match(workflow, /cp -a docs\/ui-screens\/program-entry "\$baseline\/"/,
   "CI copies committed program-entry evidence into the immutable baseline");
 assert.match(workflow, /chmod -R a-w "\$baseline"/,
   "CI makes the copied baseline read-only before regeneration");
+assert.match(workflow, /cleanup\(\)\s*\{[\s\S]*chmod -R u\+w -- "\$baseline"[\s\S]*rm -rf -- "\$baseline"[\s\S]*\}/,
+  "CI restores baseline permissions before cleanup");
+assert.match(workflow, /trap cleanup EXIT/,
+  "CI uses the permission-safe baseline cleanup trap");
 assert.match(workflow, /node tools\/compare-ui-screen-catalogue\.mjs --baseline "\$baseline\/program-entry"/,
   "CI compares every regenerated capture with the immutable baseline");
 assert.doesNotMatch(workflow, /git diff --exit-code -- docs\/ui-screens\/program-entry\//,
@@ -88,6 +92,28 @@ assert.equal(report.missing.length, 0);
 assert.equal(report.invalid.length, 0);
 assert.equal(report.extra.length, 0);
 
+// The CI baseline is intentionally read-only while captures run. Prove the
+// exact shell cleanup still succeeds and removes that protected tree.
+{
+  const root = mkdtempSync(join(tmpdir(), "repforge-catalogue-cleanup-test-"));
+  const baseline = join(root, "baseline");
+  const cleanupProbe = spawnSync("/bin/bash", ["-euo", "pipefail", "-c", `
+    baseline="$1"
+    mkdir "$baseline"
+    touch "$baseline/capture.png"
+    chmod -R a-w "$baseline"
+    cleanup() {
+      chmod -R u+w -- "$baseline" 2>/dev/null || true
+      rm -rf -- "$baseline"
+    }
+    trap cleanup EXIT
+    test -f "$baseline/capture.png"
+  `, "catalogue-cleanup", baseline], { encoding: "utf8" });
+  assert.equal(cleanupProbe.status, 0, `read-only baseline cleanup succeeds: ${cleanupProbe.stderr}`);
+  assert.equal(existsSync(baseline), false, "read-only baseline cleanup removes the protected tree");
+  rmSync(root, { recursive: true, force: true });
+}
+
 // The committed catalogue is itself a valid baseline. This exercises the
 // manifest walk and dimension checks without allowing a test to rewrite it.
 const baselineComparison = compareCatalogue({
@@ -148,11 +174,18 @@ function scenePixel(x, y, { noisy = false, material = false } = {}) {
 const syntheticBaseline = rgbPng(192, 256, (x, y) => scenePixel(x, y));
 const syntheticNoise = rgbPng(192, 256, (x, y) => scenePixel(x, y, { noisy: true }));
 const syntheticMaterialChange = rgbPng(192, 256, (x, y) => scenePixel(x, y, { material: true }));
+const syntheticLocalizedLabelDrift = rgbPng(192, 256, (x, y) => {
+  if (x >= 40 && x < 60 && y >= 40 && y < 44) return [25, 25, 25];
+  return scenePixel(x, y);
+});
 const noiseComparison = comparePngBuffers(syntheticBaseline, syntheticNoise);
 assert.equal(noiseComparison.ok, true, `small raster noise should pass: ${noiseComparison.reasons?.join("; ")}`);
 const materialComparison = comparePngBuffers(syntheticBaseline, syntheticMaterialChange);
 assert.equal(materialComparison.ok, false, "a broad panel/content change must fail the evidence gate");
 assert.ok(materialComparison.reasons.length > 0, "material changes report actionable comparator reasons");
+const localizedLabelComparison = comparePngBuffers(syntheticBaseline, syntheticLocalizedLabelDrift);
+assert.equal(localizedLabelComparison.ok, false, `a localized dark label drift must fail the evidence gate: ${JSON.stringify(localizedLabelComparison)}`);
+assert.ok(localizedLabelComparison.reasons.length > 0, "localized label drift reports actionable comparator reasons");
 const dimensionComparison = comparePngBuffers(syntheticBaseline, rgbPng(193, 256, (x, y) => scenePixel(x, y)));
 assert.equal(dimensionComparison.ok, false, "dimension drift must fail the evidence gate");
 assert.match(dimensionComparison.reasons[0], /dimensions changed/);

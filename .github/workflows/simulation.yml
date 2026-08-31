@@ -69,7 +69,11 @@ jobs:
           baseline="$(mktemp -d)"
           cp -a docs/ui-screens/program-entry "$baseline/"
           chmod -R a-w "$baseline"
-          trap 'rm -rf -- "$baseline"' EXIT
+          cleanup() {
+            chmod -R u+w -- "$baseline" 2>/dev/null || true
+            rm -rf -- "$baseline"
+          }
+          trap cleanup EXIT
           node tools/capture-ui-screens.mjs
           node tools/capture-program-entry-catalogue.mjs
           node tools/check-ui-screen-catalogue.mjs
