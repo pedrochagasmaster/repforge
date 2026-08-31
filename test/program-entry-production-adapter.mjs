@@ -12,6 +12,25 @@ const { EXERCISE_LIBRARY } = require("../exercises.js");
 
 const services = Adapter.createProductionServices({ Compiler, catalogue: EXERCISE_LIBRARY });
 
+test("shared movement identities canonicalize exact compiler library references only", () => {
+  assert.equal(
+    Adapter.sharedMovementId({ libraryId: "pr_mc", movementId: "library:pr_mc" }),
+    "pr_mc",
+  );
+  assert.equal(
+    Adapter.sharedMovementId({ libraryId: "legacy_press", movementId: "library:legacy_press" }, { legacy_press: "pr_mc" }),
+    "pr_mc",
+  );
+  assert.equal(
+    Adapter.sharedMovementId({ libraryId: "pr_mc", movementId: "coach:press" }),
+    "coach:press",
+  );
+  assert.equal(
+    Adapter.sharedMovementId({ libraryId: "pr_mc", movementId: "library:other" }),
+    "library:other",
+  );
+});
+
 function recommendAnswers(extra = {}) {
   return {
     desiredResult: "muscle_growth",

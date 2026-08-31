@@ -918,6 +918,148 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
+  await runCase("Shared preview renders released metadata and factual per-day duration", async () => {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const encoded = await encodeSharedPayload(page, cloneFixture(REPRESENTATIVE_PAYLOAD));
+    assert(encoded.ok, "released representative payload encodes for the preview regression", JSON.stringify(encoded));
+    if (!encoded.ok) {
+      await context.close();
+      return;
+    }
+    await page.goto(setupUrl(encoded.value, "preview-released-facts"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    await clickSharedStart(page, { activate: false });
+    const rendered = await page.evaluate(() => ({
+      preview: window.__repforgeEntryState?.()?.result?.preview || null,
+      review: document.querySelector(".entry__review-grid")?.textContent || "",
+      days: [...document.querySelectorAll(".onb__day")].map((day) => day.textContent || ""),
+    }));
+    const estimates = rendered.preview?.days?.map((day) => day.estimateMinutes) || [];
+    assert(
+      estimates.length === 4 && estimates.every((minutes) => Number.isInteger(minutes) && minutes > 0),
+      "shared preview carries a duration estimate for every released-payload day",
+      JSON.stringify(estimates),
+    );
+    assert(
+      ["Peito", "Costas", "Quadríceps"].every((priority) => rendered.review.includes(priority)),
+      "shared preview renders released priority metadata",
+      rendered.review,
+    );
+    assert(
+      ["Máquina", "Cabo", "Halteres", "Barra"].every((equipment) => rendered.review.includes(equipment)),
+      "shared preview renders released equipment assumptions",
+      rendered.review,
+    );
+    assert(
+      rendered.days.every((day) => /about \d+ minutes|cerca de \d+ minutos/.test(day)),
+      "shared preview renders each factual duration beside its day",
+      JSON.stringify(rendered.days),
+    );
+    await context.close();
+  });
+
+  await runCase("Compiler-generated paired programs round-trip through shared build and validation", async () => {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    const generated = await page.evaluate(() => {
+      const compiler = window.RepForgeProgramCompiler;
+      const library = window.RepForgeExercises?.library || window.EXERCISE_LIBRARY || [];
+      const result = compiler?.compile({
+        schemaVersion: 2,
+        familyId: "balanced",
+        frequency: 3,
+        sessionMinutes: 90,
+        preferredRestSeconds: 120,
+        equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
+        environment: ["safe_pull", "training_support"],
+        loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
+        preferences: [],
+        dislikes: [],
+        history: [],
+        primaryMuscles: [],
+        deEmphasizedMuscles: [],
+        ignoredMuscles: [],
+        priorityMovements: [],
+        profile: "standard",
+        recentConsistency: "consistent",
+        reentryEnabled: false,
+        weekNumber: 1,
+      }, library);
+      if (!result || result.kind !== "compiled") return { kind: result?.kind || null };
+      return {
+        kind: result.kind,
+        program: result.program,
+        programStructure: result.programStructure,
+        relations: (result.relations || []).filter((relation) => relation.state === "attached").map((relation) => ({
+          schemaVersion: 1,
+          id: relation.id,
+          type: "paired_exposure",
+          version: 1,
+          movementId: `library:${relation.movementId}`,
+          members: [
+            { exerciseId: relation.heavySlotId, role: "heavy" },
+            { exerciseId: relation.volumeSlotId, role: "volume" },
+          ],
+        })),
+      };
+    });
+    assert(generated.kind === "compiled", "compiler produces a paired-program fixture", JSON.stringify(generated));
+    if (generated.kind !== "compiled") {
+      await context.close();
+      return;
+    }
+    await persistState(page, configuredState({
+      name: "Generated paired program",
+      onboarded: true,
+      program: generated.program,
+      log: [],
+      programHistory: [],
+      programMeta: {
+        daysPerWeek: 3,
+        programStructure: generated.programStructure,
+        progressionRelations: generated.relations,
+      },
+    }));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await dismissGates(page);
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#program.view.active");
+    const roundTrip = await page.evaluate(() => {
+      try {
+        const payload = window.__repforgeSharedSetup?.build?.();
+        const checked = payload
+          ? window.RepForgeSharedSetup?.validate?.(payload, {
+              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
+            })
+          : null;
+        return {
+          payload,
+          checked,
+          relationMovementIds: (payload?.program?.meta?.progressionRelations || []).map((relation) => relation.movementId),
+          pairedSlots: (payload?.program?.exercises || []).filter((exercise) => exercise.movementId).map((exercise) => exercise.movementId),
+        };
+      } catch (error) {
+        return { error: String(error) };
+      }
+    });
+    assert(!roundTrip.error && roundTrip.payload, "shared builder emits the generated paired program", JSON.stringify(roundTrip));
+    assert(roundTrip.checked?.ok === true, "generated paired payload passes strict shared validation", JSON.stringify(roundTrip.checked));
+    assert(
+      roundTrip.relationMovementIds.length > 0 && roundTrip.relationMovementIds.every((id) => !String(id).startsWith("library:")),
+      "shared paired relation identities use bare canonical library IDs",
+      JSON.stringify(roundTrip.relationMovementIds),
+    );
+    assert(
+      roundTrip.pairedSlots.length > 0 && roundTrip.pairedSlots.every((id) => !String(id).startsWith("library:")),
+      "shared paired slot identities use bare canonical library IDs",
+      JSON.stringify(roundTrip.pairedSlots),
+    );
+    await context.close();
+  });
+
   await runCase("Valid v2 fragment stages cookie bytes, drops the hash, and accepts", async () => {
     const { context, page } = await openAppPage(browser, {
       ua: ANDROID_UA,
