@@ -155,7 +155,6 @@ async function waitForApp(page) {
   await page.waitForFunction(
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
-      typeof window.__repforgeApplyProgramTemplate === "function" &&
       typeof window.__repforgeFinalizeProgramSetup === "function",
     { timeout: 15000 }
   );
@@ -166,6 +165,17 @@ async function waitForApp(page) {
     if (onboarding?.classList.contains("active")) window.closeOnboarding?.();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+    window.__testFinalizeCurrentProgram = (io) => {
+      const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+      return window.__repforgeFinalizeProgramSetup({
+        exercises: current.program,
+        name: "Beginner program",
+        answers: { goal: current.programMeta?.goal || "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+      }, io);
+    };
   });
 }
 
@@ -320,7 +330,7 @@ async function runTemplateConflict(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__draftConflictResult = window.__repforgeApplyProgramTemplate();
+      window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
@@ -910,7 +920,7 @@ async function runIndependentlyRemovedDraft(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__draftConflictResult = window.__repforgeApplyProgramTemplate();
+      window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     await locker.evaluate((draftKey) => localStorage.removeItem(draftKey), DRAFT);
@@ -959,7 +969,7 @@ async function runBootDestructiveConflict(browser) {
     const before = await readRuntime(page);
     await holdStorageLock(locker);
     await page.evaluate(() => {
-      window.__bootDestructivePending = window.__repforgeApplyProgramTemplate();
+      window.__bootDestructivePending = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
@@ -1019,7 +1029,7 @@ async function runDraftCreatedAfterConfirmation(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__draftConflictResult = window.__repforgeApplyProgramTemplate();
+      window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
@@ -1089,7 +1099,7 @@ async function runLocalReplicaWriteRace(browser) {
           return written;
         };
         try {
-          return await window.__repforgeApplyProgramTemplate();
+          return await window.__testFinalizeCurrentProgram();
         } finally {
           Storage.prototype.setItem = originalSetItem;
         }
@@ -1142,7 +1152,7 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
     const before = await readRuntime(page);
     await holdStorageLock(locker);
     await page.evaluate(() => {
-      window.__bootWriteRacePending = window.__repforgeApplyProgramTemplate();
+      window.__bootWriteRacePending = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
@@ -1245,7 +1255,7 @@ async function runOneStoreReplicaWriteRaces(browser) {
             return request;
           };
           try {
-            return await window.__repforgeApplyProgramTemplate();
+            return await window.__testFinalizeCurrentProgram();
           } finally {
             Storage.prototype.setItem = originalSetItem;
             IDBObjectStore.prototype.put = originalPut;
@@ -1371,7 +1381,7 @@ async function runCrossStoreCompensationRecovery(browser) {
             return request;
           };
           try {
-            const value = await window.__repforgeApplyProgramTemplate();
+            const value = await window.__testFinalizeCurrentProgram();
             return { value, localWrites, idbWrites };
           } finally {
             Storage.prototype.setItem = originalSetItem;
@@ -1470,7 +1480,7 @@ async function runEffectApplicationRace(browser) {
           return originalGetItem.apply(this, arguments);
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, draftReads };
         } finally {
           Storage.prototype.getItem = originalGetItem;
@@ -1528,7 +1538,7 @@ async function runPreparedTransactionUnloadRecovery(browser) {
             await new Promise(() => {});
           },
         };
-        window.__interruptedDraftTransaction = window.__repforgeApplyProgramTemplate(io);
+        window.__interruptedDraftTransaction = window.__testFinalizeCurrentProgram(io);
       },
       { key: KEY, draftKey: DRAFT, newerDraftRaw }
     );
@@ -1613,7 +1623,7 @@ async function runSuccessfulClearPublicationRace(browser) {
           return removed;
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, injected, markerPresent, draftRawAfterRemoval };
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
@@ -1710,7 +1720,7 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
           return removed;
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, saveDispatched, markerPresent, draftRawAfterSave, queuedWriteCount };
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
@@ -1811,7 +1821,7 @@ async function runQueuedStaleTabUnloadRecovery(browser) {
           return originalPut.apply(this, arguments);
         };
         try {
-          return await window.__repforgeApplyProgramTemplate();
+          return await window.__testFinalizeCurrentProgram();
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
           Storage.prototype.setItem = originalSetItem;

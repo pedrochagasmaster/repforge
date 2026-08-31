@@ -89,7 +89,8 @@ async function waitForApp(page) {
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
       typeof window.__repforgeSaveWorkout === "function" &&
-      typeof window.__repforgeCommitNextBlock === "function",
+      typeof window.__repforgeCommitNextBlock === "function" &&
+      typeof window.__repforgeFinalizeProgramSetup === "function",
     { timeout: 15000 }
   );
   await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
@@ -99,6 +100,25 @@ async function waitForApp(page) {
     if (onboarding?.classList.contains("active")) window.closeOnboarding?.();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+    window.__testFinalizeCurrentProgram = (io) => {
+      const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+      const source = current.program[0];
+      const exercises = Array.from({ length: 18 }, (_, index) => ({
+        ...source,
+        id: `beginner-exercise-${index + 1}`,
+        day: `Day ${Math.floor(index / 6) + 1}`,
+        order: (index % 6) + 1,
+        name: `Beginner exercise ${index + 1}`,
+      }));
+      return window.__repforgeFinalizeProgramSetup({
+        exercises,
+        name: "Beginner program",
+        answers: { goal: current.programMeta?.goal || "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+      }, io);
+    };
   });
 }
 
@@ -1456,11 +1476,11 @@ async function scenarioConcurrentWholeProgramReplacements(browser) {
 
     await holdStorageLock(locker);
     await first.evaluate(() => {
-      window.__auditFirstReplacement = window.__repforgeApplyProgramTemplate();
+      window.__auditFirstReplacement = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLocks(locker, 1);
     await second.evaluate(() => {
-      window.__auditSecondReplacement = window.__repforgeApplyProgramTemplate();
+      window.__auditSecondReplacement = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);

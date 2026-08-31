@@ -5325,8 +5325,28 @@ async function main() {
   beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
   const metaBeforeBeginner = (await getState(page)).programMeta;
-  await page.click("#beginnerProgram");
-  await page.waitForTimeout(200);
+  await page.evaluate(async () => {
+    const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+    const source = current.program[0];
+    const exercises = Array.from({ length: 18 }, (_, index) => ({
+      ...source,
+      id: `beginner-exercise-${index + 1}`,
+      day: `Day ${Math.floor(index / 6) + 1}`,
+      order: (index % 6) + 1,
+      name: index === 0 ? "Leg press" : `Beginner exercise ${index + 1}`,
+      notes: "Use a stable machine setup and controlled range.",
+    }));
+    await window.__repforgeFinalizeProgramSetup({
+      exercises,
+      name: "Beginner program",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "settings",
+      draftConfirmed: true,
+      telemetryRoute: "browse",
+    });
+    await window.__repforgeStorage.flush();
+  });
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const begName = await page.locator("#workout .exercise .ex__name").first().textContent();
@@ -9229,7 +9249,15 @@ async function main() {
           db.close();
         },
       };
-      return window.__repforgeApplyProgramTemplate(io);
+      const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+      return window.__repforgeFinalizeProgramSetup({
+        exercises: current.program,
+        name: "Beginner program",
+        answers: { goal: current.programMeta?.goal || "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+      }, io);
     }, { localOk, idbOk });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
     if (localOk || idbOk) {

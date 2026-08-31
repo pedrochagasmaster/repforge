@@ -234,7 +234,7 @@ async function waitForApp(page) {
   await page.waitForFunction(
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
-      typeof window.__repforgeApplyProgramTemplate === "function" &&
+      typeof window.__repforgeFinalizeProgramSetup === "function" &&
       typeof window.__repforgeCommitNextBlock === "function" &&
       typeof window.__repforgeEnterWorkout === "function" &&
       typeof window.__repforgeSaveWorkout === "function",
@@ -247,6 +247,17 @@ async function waitForApp(page) {
     if (onboarding?.classList.contains("active")) window.closeOnboarding?.();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+    window.__testFinalizeCurrentProgram = (io) => {
+      const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+      return window.__repforgeFinalizeProgramSetup({
+        exercises: current.program,
+        name: "Beginner program",
+        answers: { goal: current.programMeta?.goal || "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+      }, io);
+    };
   });
 }
 
@@ -482,7 +493,7 @@ async function runFinalCheckOrphan(browser) {
           return originalRemoveItem.apply(this, arguments);
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return {
             result,
             injected,
@@ -618,7 +629,7 @@ async function runPostGuardReleaseDraft(browser) {
           return current;
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, injected, guardAbsent, stateFinalized, publishedRaw, stagedRaw };
         } finally {
           Storage.prototype.getItem = originalGetItem;
@@ -789,7 +800,7 @@ async function runSameRawDraftWalAcceptance(browser) {
       }
     );
     const before = await readRuntime(page);
-    const result = await page.evaluate(() => window.__repforgeApplyProgramTemplate());
+    const result = await page.evaluate(() => window.__testFinalizeCurrentProgram());
     await page.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(page);
 
@@ -946,7 +957,7 @@ async function runFinalMarkerFailure(browser) {
           return originalPut.apply(this, arguments);
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, localStateWrites, idbStateWrites };
         } finally {
           Storage.prototype.setItem = originalSetItem;
@@ -1087,7 +1098,7 @@ async function runLateSidecarFailedCompensation(browser) {
           return originalRemoveItem.apply(this, arguments);
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return {
             result,
             localStateWrites,
@@ -1303,7 +1314,7 @@ async function runOversizedRequiredEffects(browser) {
       }
     );
 
-    const replaceResult = await page.evaluate(() => window.__repforgeApplyProgramTemplate());
+    const replaceResult = await page.evaluate(() => window.__testFinalizeCurrentProgram());
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterReplace = await readRuntime(page);
     const draftExerciseStillInProgram = afterReplace.local?.program?.some(
@@ -1429,7 +1440,7 @@ async function runDirectDraftOwnerRace(browser) {
     const locker = await openApp(context);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__adversarialOwnerResult = window.__repforgeApplyProgramTemplate();
+      window.__adversarialOwnerResult = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
 
