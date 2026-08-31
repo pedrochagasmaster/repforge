@@ -90,6 +90,52 @@ export async function runProgramEntryA11y(browser, check = assert) {
   const desktopWidth = await page.locator("#onboarding .onb").evaluate((el) => el.getBoundingClientRect().width);
   check(desktopWidth > 700, "desktop entry uses a wider composition", `width=${desktopWidth}`);
 
+  await clean(page);
+  await page.click("#entryOwnToggle");
+  await page.click('[data-entry-route="import"]');
+  await page.setInputFiles("#importProgram", {
+    name: "future-strategy-a11y.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      version: 3,
+      meta: { name: "Future strategy" },
+      exercises: [{
+        day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8,
+        progression: { schemaVersion: 1, strategy: { id: "future_strategy", version: 99, params: { authored: true } }, modifiers: [] },
+      }],
+    })),
+  });
+  await page.waitForSelector("#importReview.active", { timeout: 10000 });
+  await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  check(await page.locator("#entryActivationStatus").isVisible(), "future strategy preview exposes an activation alert");
+  check(await page.locator("#entryActivationStatus").evaluate((el) => el === document.activeElement),
+    "future strategy preview focuses the activation alert on initial render");
+  check(await page.locator("#entryActivate").isDisabled() &&
+    (await page.locator("#entryActivate").getAttribute("aria-describedby")) === "entryActivationStatus",
+  "future strategy preview keeps activation disabled with describedby guidance");
+
+  await clean(page);
+  await page.click("#entryOwnToggle");
+  await page.click('[data-entry-route="import"]');
+  await page.setInputFiles("#importProgram", {
+    name: "valid-preview-a11y.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({
+      version: 3,
+      meta: { name: "Valid program" },
+      exercises: [{ day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8 }],
+    })),
+  });
+  await page.waitForSelector("#importReview.active", { timeout: 10000 });
+  await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  check(await page.locator("#entryHeading").evaluate((el) => el === document.activeElement),
+    "valid preview focuses the heading on initial render");
+  check(await page.locator("#entryActivationStatus").count() === 0 && !(await page.locator("#entryActivate").isDisabled()),
+    "valid preview has no activation alert and remains activatable");
+
+  await clean(page);
   await page.emulateMedia({ colorScheme: "dark", reducedMotion: "reduce" });
   await page.evaluate(() => localStorage.setItem("repforge_ui_v1", JSON.stringify({ theme: "dark" })));
   await page.reload({ waitUntil: "domcontentloaded" });

@@ -366,6 +366,8 @@ async function main() {
 
     const activeBeforeReview = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await stageReviewedImport(page);
+    assert(await page.evaluate(() => document.activeElement?.id === "entryHeading"),
+      "valid imported preview focuses its heading on initial render");
     const stagedImport = await page.evaluate(({ activeKey, draftKey }) => ({
       active: localStorage.getItem(activeKey),
       draft: JSON.parse(localStorage.getItem(draftKey) || "null"),
@@ -484,6 +486,8 @@ async function main() {
       "a future progression file reaches the editor review", JSON.stringify(model?.counts));
     const activeBeforeFuture = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await stageReviewedImport(page);
+    assert(await page.evaluate(() => document.activeElement?.id === "entryActivationStatus"),
+      "future-strategy import preview focuses its activation status on initial render");
     const futureCandidate = await page.evaluate(() => window.__repforgeOnboarding.entry());
     assert(futureCandidate.result?.preview?.program?.[0]?.progression === undefined &&
       futureCandidate.result.preview.program[0]?.progressionIncompatibility?.kind === "prescription" &&

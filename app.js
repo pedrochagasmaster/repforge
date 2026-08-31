@@ -8927,6 +8927,9 @@ function renderImportSourceStep(){
   return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+`<p class="entry__hint">${esc(t("entry.import_source.safety"))}</p>`+
     `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`}
+function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
+  return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
+    (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
 function renderPreviewStep(){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
@@ -8938,8 +8941,7 @@ function renderPreviewStep(){
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`});
   const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
-  const progressionIssue=(Array.isArray(preview.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
-    (preview.program||[]).some(exercise=>exercise?.progressionIncompatibility);
+  const progressionIssue=entryPreviewHasProgressionIssue(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
@@ -9077,7 +9079,9 @@ function renderOnboarding(){
   wireEntryDom();
   setupEntryRovingFocus();
   if(!restoreEntryFocus(focusToken)){
-    const heading=$("#entryHeading");if(heading)try{heading.focus({preventScroll:true})}catch{}}
+    const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
+    const target=initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
+    if(target)try{target.focus({preventScroll:true})}catch{}}
   if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
 function wireEntryDom(){
   $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
