@@ -70,7 +70,14 @@ export function collectProgramEntrySemantics() {
     const rect = element.getBoundingClientRect();
     return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0;
   };
-  const root = [document.querySelector("#onboarding"), document.querySelector("#program")].find(isVisible);
+  // #firstRun is the setup gate that precedes every entry route, and the
+  // surface a shared setup link lands on. It was absent while this collector
+  // only served the Plan 048 entry states; both are registered screens now.
+  const root = [
+    document.querySelector("#onboarding"),
+    document.querySelector("#firstRun"),
+    document.querySelector("#program"),
+  ].find(isVisible);
   if (!root) return [];
   const text = (element) => normalise(element.textContent);
   const referencedText = (element, attribute) => normalise((element.getAttribute(attribute) || "").split(/\s+/)
