@@ -698,7 +698,7 @@
         "text": "Keep the load and aim for one more rep than last time, inside 6-10."
       },
       {
-        "text": "Strength rose across 12 sessions. Keep the current plan."
+        "text": "Strength rose across 12 sessions. Keep the current program."
       }
     ],
     "rec": {
@@ -707,7 +707,7 @@
         "ratio": 1.372881,
         "sessions": 12
       },
-      "blockNote": "Strength rose across 12 sessions. Keep the current plan.",
+      "blockNote": "Strength rose across 12 sessions. Keep the current program.",
       "cap": 116.666667,
       "cr": 10,
       "heat": 0.6,
@@ -1617,7 +1617,7 @@
         "text": "Keep the load and aim for one more rep than last time, inside 6-10."
       },
       {
-        "text": "Strength rose across 4 sessions. Keep the current plan."
+        "text": "Strength rose across 4 sessions. Keep the current program."
       }
     ],
     "rec": {
@@ -1626,7 +1626,7 @@
         "ratio": 1.222222,
         "sessions": 4
       },
-      "blockNote": "Strength rose across 4 sessions. Keep the current plan.",
+      "blockNote": "Strength rose across 4 sessions. Keep the current program.",
       "cap": 100,
       "cr": 10,
       "heat": 0.6,
