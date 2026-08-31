@@ -115,7 +115,11 @@ async function browseTo(page, step) {
   await pick(page, "environment", "commercial_gym"); await next(page);
   await page.waitForSelector("[data-entry-catalogue]", { timeout: 25000 });
   if (step === "catalogue") return;
-  await page.locator("[data-entry-catalogue] [data-entry-select-candidate]").first().click();
+  // Browse rows are the catalogue buttons themselves; there is no separate
+  // select-candidate control on this step the way the generator routes have.
+  const choice = page.locator("[data-entry-catalogue]").first();
+  await choice.scrollIntoViewIfNeeded();
+  await choice.click();
   await page.waitForSelector("#entryActivate", { timeout: 25000 });
 }
 

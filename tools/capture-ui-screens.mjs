@@ -39,6 +39,7 @@ const SEMANTIC_PATH = join(ROOT, "docs", "ui-screens", "entry-semantics.json");
 const README_PATH = join(ROOT, "docs", "ui-screens", "README.md");
 
 const SCENARIOS = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
+const BROWSER_RECYCLE_EVERY = Number(process.env.CAPTURE_RECYCLE_EVERY || 40);
 
 function parseArgs(argv) {
   const options = { flows: [], screens: [], canonical: false, keepGoing: false };
@@ -185,6 +186,20 @@ async function main() {
     if (filtered && existsSync(ARTIFACT_ROOT)) cpSync(ARTIFACT_ROOT, stagingRoot, { recursive: true });
     browser = await launchChromium();
     let done = 0;
+    let sinceRestart = 0;
+
+    /**
+     * One Chromium instance does not stay healthy across a couple of hundred
+     * contexts: later captures start losing actionability races on elements
+     * that are demonstrably present. Recycle the browser periodically so the
+     * two-hundredth frame runs under the same conditions as the first.
+     */
+    async function recycleIfNeeded() {
+      if (sinceRestart < BROWSER_RECYCLE_EVERY) return;
+      await browser.close();
+      browser = await launchChromium();
+      sinceRestart = 0;
+    }
 
     /**
      * Take one frame. Returns null on success or the failure reason, so the
@@ -226,6 +241,8 @@ async function main() {
         failures.push({ key, error: "no capture scenario is registered for this screen" });
         continue;
       }
+      await recycleIfNeeded();
+      sinceRestart += 1;
       const reason = await capture1(capture, key, out);
       if (reason) {
         pending.push({ capture, key, out, reason });
@@ -238,6 +255,8 @@ async function main() {
 
     // One retry pass, run after the first sweep so the machine is quiet again.
     for (const item of pending) {
+      await recycleIfNeeded();
+      sinceRestart += 1;
       const reason = await capture1(item.capture, item.key, item.out);
       if (reason) {
         failures.push({ key: item.key, variant: variantSlug(item.capture), error: reason });

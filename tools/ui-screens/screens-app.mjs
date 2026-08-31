@@ -200,8 +200,10 @@ export const APP_SCENARIOS = {
     await openProgram(page);
     await page.click("#programEditToggle");
     const editor = page.locator('[data-progression-editor="ex-sq"]');
-    await editor.locator("summary").click();
+    // Scroll before clicking, not after: the row sits below the fold and the
+    // sticky header can otherwise intercept the click on a loaded machine.
     await editor.scrollIntoViewIfNeeded();
+    await editor.locator("summary").click();
     await sleep(page, 400);
   },
   "program/exercise-picker": async (page) => {
