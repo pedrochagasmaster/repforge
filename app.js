@@ -7561,6 +7561,16 @@ function validImportedExerciseRow(row){
 function validRawImportedExerciseRow(row){
   if(!row||typeof row!=="object"||Array.isArray(row))return false;
   const text=v=>typeof v==="string"&&v.trim().length>0;
+  // A legacy alias is accepted only when it is itself well-formed. Do not let
+  // a valid repLow/repHigh silently mask a malformed canonical min/max field.
+  if(Object.prototype.hasOwnProperty.call(row,"min")&&
+    (!Number.isInteger(row.min)||row.min<1||row.min>1000))return false;
+  if(Object.prototype.hasOwnProperty.call(row,"max")&&
+    (!Number.isInteger(row.max)||row.max<1||row.max>1000))return false;
+  if(Object.prototype.hasOwnProperty.call(row,"repLow")&&
+    (!Number.isInteger(row.repLow)||row.repLow<1||row.repLow>1000))return false;
+  if(Object.prototype.hasOwnProperty.call(row,"repHigh")&&
+    (!Number.isInteger(row.repHigh)||row.repHigh<1||row.repHigh>1000))return false;
   const min=Number.isInteger(row.min)?row.min:row.repLow;
   const max=Number.isInteger(row.max)?row.max:row.repHigh;
   return text(row.day)&&text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&

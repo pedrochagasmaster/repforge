@@ -754,6 +754,11 @@ async function main() {
     const prose = await page.evaluate(() =>
       window.__repforgeParseProgramSource("Do some squats and then maybe a few curls, whatever feels good", "notes.txt"));
     assert(prose === null, "arbitrary prose is refused rather than invented into a program", JSON.stringify(prose));
+    const malformedRow = await page.evaluate(() =>
+      window.__repforgeParseProgramSource(JSON.stringify({
+        exercises: [{ day: "Day 1", order: 1, name: "Press", sets: 3, min: "bad", repLow: 6, max: 10 }],
+      }), "malformed.json"));
+    assert(malformedRow === null, "malformed canonical bounds are rejected instead of defaulted", JSON.stringify(malformedRow));
 
     // ---- a full backup is not a program file ----
     // The sessions in the file are the whole point of a backup. Reading only
