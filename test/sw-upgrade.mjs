@@ -7,14 +7,18 @@
  */
 import assert from "node:assert/strict";
 import { createServer } from "node:http";
-import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFileSync, statSync, createReadStream } from "node:fs";
 import { dirname, extname, join, normalize, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const oldWorker = execFileSync("git", ["show", "origin/main:sw.js"], { cwd: ROOT, encoding: "utf8" });
+// Exact bytes from released starting-main e7b6d162 (the v120 worker). Keeping
+// this fixture immutable makes the regression independent of shallow checkouts
+// and mutable remote refs.
+const oldWorker = readFileSync(join(ROOT, "test/fixtures/sw-v120.js"), "utf8");
+assert.equal(createHash("sha256").update(oldWorker).digest("hex"), "02639be4f2c4ae0a25cc969eb2986c5fcf85d7f64f3018404737bf502b769a81", "v120 fixture provenance hash");
 const currentWorker = readFileSync(join(ROOT, "sw.js"), "utf8");
 const cacheName = (worker) => worker.match(/const CACHE = ["']([^"']+)["']/)?.[1];
 const oldCache = cacheName(oldWorker);
