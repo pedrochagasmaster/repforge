@@ -185,15 +185,13 @@ async function main() {
     if (filtered && existsSync(ARTIFACT_ROOT)) cpSync(ARTIFACT_ROOT, stagingRoot, { recursive: true });
     browser = await launchChromium();
     let done = 0;
-    for (const capture of captures) {
-      const key = screenKey(capture);
-      const scenario = SCENARIOS[key];
-      const out = capturePath(MANIFEST, capture, stagingRoot);
-      mkdirSync(dirname(out), { recursive: true });
-      if (!scenario) {
-        failures.push({ key, error: "no capture scenario is registered for this screen" });
-        continue;
-      }
+
+    /**
+     * Take one frame. Returns null on success or the failure reason, so the
+     * caller can retry a capture that lost a race rather than failing the run
+     * on contention. A scenario that is genuinely broken fails both attempts.
+     */
+    async function capture1(capture, key, out) {
       let context;
       try {
         const opened = await openPage(browser, MANIFEST, capture, stateFor(capture), {
@@ -203,7 +201,7 @@ async function main() {
         // The tour and the install banner are drawn over the app and swallow
         // clicks. Onboarding scenarios open their own gate and must keep it.
         if (!isOnboarding(capture)) await dismissChrome(opened.page);
-        await scenario(opened.page);
+        await SCENARIOS[key](opened.page);
         await settle(opened.page);
         if (isOnboarding(capture)) {
           await focusOnboardingSubject(opened.page, key);
@@ -211,13 +209,42 @@ async function main() {
           semanticByKey.set(captureKey(capture), normalizeSemanticRecords(semantic));
         }
         await opened.page.screenshot({ path: out, fullPage: false });
-        done += 1;
-        console.log(`✓ ${key} ${variantSlug(capture)}  (${done}/${captures.length})`);
+        return null;
       } catch (error) {
-        failures.push({ key, variant: variantSlug(capture), error: error.message.split("\n")[0] });
-        console.warn(`✗ ${key} ${variantSlug(capture)}: ${error.message.split("\n")[0]}`);
+        return error.message.split("\n")[0];
       } finally {
         await context?.close();
+      }
+    }
+
+    const pending = [];
+    for (const capture of captures) {
+      const key = screenKey(capture);
+      const out = capturePath(MANIFEST, capture, stagingRoot);
+      mkdirSync(dirname(out), { recursive: true });
+      if (!SCENARIOS[key]) {
+        failures.push({ key, error: "no capture scenario is registered for this screen" });
+        continue;
+      }
+      const reason = await capture1(capture, key, out);
+      if (reason) {
+        pending.push({ capture, key, out, reason });
+        console.warn(`… ${key} ${variantSlug(capture)}: ${reason} (will retry)`);
+      } else {
+        done += 1;
+        console.log(`✓ ${key} ${variantSlug(capture)}  (${done}/${captures.length})`);
+      }
+    }
+
+    // One retry pass, run after the first sweep so the machine is quiet again.
+    for (const item of pending) {
+      const reason = await capture1(item.capture, item.key, item.out);
+      if (reason) {
+        failures.push({ key: item.key, variant: variantSlug(item.capture), error: reason });
+        console.warn(`✗ ${item.key} ${variantSlug(item.capture)}: ${reason}`);
+      } else {
+        done += 1;
+        console.log(`✓ ${item.key} ${variantSlug(item.capture)}  (retry, ${done}/${captures.length})`);
       }
     }
 

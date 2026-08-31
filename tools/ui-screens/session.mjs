@@ -71,6 +71,11 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
     serviceWorkers: "block",
     ...(options.userAgent ? { userAgent: options.userAgent } : {}),
   });
+  // A full run opens a couple of hundred contexts back to back. Playwright's
+  // 30s default is comfortable for one capture and marginal for the last of
+  // 200, so give every action real headroom rather than reading contention as
+  // a broken scenario.
+  context.setDefaultTimeout(45000);
   const page = await context.newPage();
   await page.addInitScript((fixedNow) => {
     const RealDate = Date;
