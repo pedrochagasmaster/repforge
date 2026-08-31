@@ -33,6 +33,7 @@ const ONLY = process.argv
   .filter(Boolean);
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const HANDOFF_COOKIE = "repforge_setup_v1";
 
 export const SHARED_DOM = Object.freeze({
@@ -288,15 +289,16 @@ async function persistState(page, state) {
 
 async function clearSite(page) {
   await page.evaluate(
-    async ({ k, d }) => {
+    async ({ k, d, setup }) => {
       localStorage.removeItem(k);
       localStorage.removeItem(d);
+      localStorage.removeItem(setup);
       await new Promise((res) => {
         const req = indexedDB.deleteDatabase("repforge");
         req.onsuccess = req.onerror = req.onblocked = () => res();
       });
     },
-    { k: KEY, d: DRAFT }
+    { k: KEY, d: DRAFT, setup: SETUP_DRAFT }
   );
 }
 
@@ -419,13 +421,18 @@ export async function waitForFirstRun(page, timeout = 15000) {
   }, null, { timeout });
 }
 
-async function clickSharedStart(page) {
+async function clickSharedStart(page, { activate = true } = {}) {
   const start = page.locator("#firstRunSharedStart");
   if (!(await start.count()) || !(await start.isVisible().catch(() => false))) {
     assert(false, "Start this program is visible before the action", "missing #firstRunSharedStart");
     return false;
   }
   await start.click({ timeout: 5000 });
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  if (activate) {
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 }).catch(() => {});
+  }
   return true;
 }
 
@@ -874,6 +881,43 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
+  await runCase("Shared Start stages an editable preview before activation", async () => {
+    const { context, page } = await openAppPage(browser, { standalone: true });
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const encoded = await encodeSharedPayload(page, cloneFixture(MINIMAL_PAYLOAD));
+    if (!encoded.ok) {
+      assert(false, "encode required for shared preview staging", JSON.stringify(encoded));
+      await context.close();
+      return;
+    }
+    await page.goto(setupUrl(encoded.value, "preview-before-activation"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const before = await page.evaluate(readDurableState);
+    await clickSharedStart(page, { activate: false });
+    const stagedDurable = await page.evaluate(readDurableState);
+    const staged = await page.evaluate(() => ({
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      firstRun: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+      activate: !!document.querySelector("#entryActivate") && !document.querySelector("#entryActivate").disabled,
+      edit: !!document.querySelector("#entryEdit") && !document.querySelector("#entryEdit").disabled,
+      source: document.querySelector(".entry__source")?.textContent || "",
+    }));
+    assert(
+      canonicalJson(stagedDurable.state) === canonicalJson(before.state),
+      "shared Start leaves durable active state byte-identical",
+      JSON.stringify({ before: before.state, staged: stagedDurable.state })
+    );
+    assert(staged.onboarding && !staged.firstRun, "shared Start opens the common preview", JSON.stringify(staged));
+    assert(staged.activate && staged.edit && /shared/i.test(staged.source), "shared preview exposes separate activation and edit actions", JSON.stringify(staged));
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
+    const after = await page.evaluate(readDurableState);
+    assert(after.state?.programMeta?.onboarded === true, "shared preview activates only after its explicit CTA", JSON.stringify(after.state?.programMeta));
+    await context.close();
+  });
+
   await runCase("Valid v2 fragment stages cookie bytes, drops the hash, and accepts", async () => {
     const { context, page } = await openAppPage(browser, {
       ua: ANDROID_UA,
@@ -1201,6 +1245,8 @@ export async function runSharedSetupFlow(browser) {
       btn?.click();
       btn?.click();
     });
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    await page.click("#entryActivate");
     await page.waitForTimeout(1200);
     const after = await page.evaluate(() => {
       const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
@@ -1236,13 +1282,14 @@ export async function runSharedSetupFlow(browser) {
         writeLocal(snapshot) { localStorage.setItem(key, JSON.stringify(snapshot)); },
         async writeIdb() { throw new Error("idb fail"); },
       };
-      const result = await hook.commit(io);
+      const staged = await hook.commit(io);
+      const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io });
       const state = JSON.parse(localStorage.getItem(key) || "{}");
-      return { result, name: state.programMeta?.name, onboarded: state.programMeta?.onboarded };
+      return { staged, result, name: state.programMeta?.name, onboarded: state.programMeta?.onboarded };
     }, KEY);
     assert(!localOnly.missing, "commit hook accepts an explicit adapter", JSON.stringify(localOnly));
     assert(
-      localOnly.result?.localOk && !localOnly.result?.idbOk && localOnly.onboarded === true,
+      localOnly.staged?.staged === true && localOnly.result?.localOk && !localOnly.result?.idbOk && localOnly.onboarded === true,
       "local-only success still commits, matching current replica semantics",
       JSON.stringify(localOnly)
     );
@@ -1275,10 +1322,11 @@ export async function runSharedSetupFlow(browser) {
           db.close();
         },
       };
-      const result = await hook.commit(io);
-      return { result, hook: window.__repforgeSharedSetup?.status };
+      const staged = await hook.commit(io);
+      const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io });
+      return { staged, result, hook: window.__repforgeSharedSetup?.status };
     }, KEY);
-    assert(idbOnly.result?.idbOk && !idbOnly.result?.localOk, "IDB-only success follows existing transaction semantics", JSON.stringify(idbOnly));
+    assert(idbOnly.staged?.staged === true && idbOnly.result?.idbOk && !idbOnly.result?.localOk, "IDB-only success follows existing transaction semantics", JSON.stringify(idbOnly));
     await idbPage.context.close();
 
     const failPage = await openAppPage(browser, { standalone: true });
@@ -1290,23 +1338,26 @@ export async function runSharedSetupFlow(browser) {
     const failed = await failPage.page.evaluate(async () => {
       const hook = window.__repforgeSharedSetup;
       if (!hook?.commit) return { missing: true };
-      const result = await hook.commit({
+      const staged = await hook.commit();
+      const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io: {
         writeLocal() { throw new Error("ls fail"); },
         async writeIdb() { throw new Error("idb fail"); },
-      });
+      } });
       const start = document.querySelector("#firstRunSharedStart");
       const toast = document.querySelector("#toast");
       return {
+        staged,
         result,
         gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+        preview: !!document.querySelector("#entryActivate"),
+        onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded,
         enabled: start && !start.disabled,
         busy: start?.getAttribute("aria-busy") === "true",
         status: hook.status,
         toast: toast && !toast.classList.contains("hidden") ? toast.textContent : null,
       };
     });
-    assert(failed.gate && failed.enabled && failed.status === "ready", "total write failure keeps the proposal and retry control", JSON.stringify(failed));
-    assert(failed.toast === SHARED_COPY.en.commitFailed, "failure announces the localized retry copy", failed.toast);
+    assert(failed.staged?.staged === true && failed.preview && failed.onboarded !== true && /storage/i.test(failed.toast || ""), "total activation write failure keeps the editable preview", JSON.stringify(failed));
     await failPage.context.close();
   });
 
@@ -1331,19 +1382,20 @@ export async function runSharedSetupFlow(browser) {
         ex1_1_rir: "2",
       }));
     }, DRAFT);
-    page.once("dialog", (dialog) => dialog.dismiss());
-    if (!(await clickSharedStart(page))) {
+    if (!(await clickSharedStart(page, { activate: false }))) {
       await context.close();
       return;
     }
+    page.once("dialog", (dialog) => dialog.dismiss());
+    await page.click("#entryActivate");
     await page.waitForTimeout(400);
     const after = await page.evaluate(() => ({
       draft: localStorage.getItem("repforge_draft_v1"),
       onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded,
-      gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
-      start: !!document.querySelector("#firstRunSharedStart") && !document.querySelector("#firstRunSharedStart").disabled,
+      preview: !!document.querySelector("#entryActivate"),
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
     }));
-    assert(after.gate && after.start, "cancelling the draft confirm leaves the shared gate", JSON.stringify(after));
+    assert(after.onboarding && after.preview, "cancelling the draft confirm leaves the shared preview", JSON.stringify(after));
     assert(after.onboarded !== true, "cancellation does not commit", JSON.stringify(after));
     assert(/ex1_1_load/.test(after.draft || ""), "the in-progress draft is preserved", after.draft);
     await context.close();

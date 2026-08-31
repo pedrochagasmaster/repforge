@@ -805,15 +805,22 @@
         rejectUnknownKeys(value.sharedSettings, SHARED_SETTINGS_KEYS, `${path}.sharedSettings`, issues);
         if (value.sharedSettings.lang !== undefined && !["en", "pt"].includes(value.sharedSettings.lang)) issues.push(`${path}.sharedSettings.lang:invalid`);
         if (value.sharedSettings.unit !== undefined && !["kg", "lb"].includes(value.sharedSettings.unit)) issues.push(`${path}.sharedSettings.unit:invalid`);
-        if (value.sharedSettings.rirMode !== undefined && !["numeric", "text"].includes(value.sharedSettings.rirMode)) issues.push(`${path}.sharedSettings.rirMode:invalid`);
+        if (value.sharedSettings.rirMode !== undefined && !["numeric", "effort"].includes(value.sharedSettings.rirMode)) issues.push(`${path}.sharedSettings.rirMode:invalid`);
         for (const key of ["jumpPct", "minJump", "rirHigh", "hardRir", "restSec"]) if (value.sharedSettings[key] !== undefined && (typeof value.sharedSettings[key] !== "number" || !Number.isFinite(value.sharedSettings[key]))) issues.push(`${path}.sharedSettings.${key}:invalid`);
       }
     }
     if (hasOwn(value, "sharedImport")) {
       if (value.sharedImport !== null && !isPlainObject(value.sharedImport)) issues.push(`${path}.sharedImport:invalid`);
       else if (isPlainObject(value.sharedImport)) {
-        rejectUnknownKeys(value.sharedImport, new Set(["definitions"]), `${path}.sharedImport`, issues);
+        rejectUnknownKeys(value.sharedImport, new Set(["definitions", "remap"]), `${path}.sharedImport`, issues);
         if (value.sharedImport.definitions !== undefined) validateCustomExercises(value.sharedImport.definitions, `${path}.sharedImport.definitions`, issues);
+        if (value.sharedImport.remap !== undefined) {
+          const remapPath = `${path}.sharedImport.remap`;
+          if (!isPlainObject(value.sharedImport.remap) || Object.keys(value.sharedImport.remap).length > MAX_LIST_LENGTH) issues.push(`${remapPath}:invalid`);
+          else for (const [from, to] of Object.entries(value.sharedImport.remap)) {
+            if (!validToken(from) || !validToken(to)) issues.push(`${remapPath}:invalid_token`);
+          }
+        }
       }
     }
   }

@@ -9504,7 +9504,10 @@ async function commitSharedSetup(io=storageIO){
       days:labels.filter(Boolean).map((label,index)=>({dayId:structure?.days?.[index]?.dayId||label,label,exercises:program.filter(exercise=>exercise.day===label).map(cloneSnapshot)})),
       customExercises:cloneSnapshot(proposal.customExercises||[]),
       progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
-      primaryMuscles:cloneSnapshot(payload.meta.priorityMuscles||[]),
+      // Shared metadata keeps its released display labels in sharedMeta. The
+      // common draft schema's primaryMuscles field is the generator's closed
+      // token vocabulary, so do not copy human-labelled payload values into it.
+      primaryMuscles:[],
       sharedMeta:cloneSnapshot(payload.meta),
       sharedSettings:cloneSnapshot(checked.value.settings),
       sharedImport:cloneSnapshot(proposal[SHARED_IMPORT]||null)};
@@ -9514,17 +9517,19 @@ async function commitSharedSetup(io=storageIO){
     next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:payload.meta.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:payload.meta.name,preview,telemetry:{family:"shared_v1"}});
     next={...next,step:"preview"};
     entryState=next;
-    await persistSetupDraft(next);
-    // Shared setup uses the same explicit candidate activation transaction as
-    // every other entry route.  The shared Start control is that explicit
-    // acceptance, so wait for activation to finish before reporting success;
-    // this also keeps first-run UI and durable state from racing each other.
-    const result=await activateEntryPreview({destination:"log",skipReplaceConfirm:true,io});
-    if(result?.localOk||result?.idbOk)return result;
-    if(!result?.cancelled)toast(t("setup.shared.commit_failed"),{assertive:true});
+    const saved=await persistSetupDraft(next);
+    if(!saved?.ok){
+      toast(t("setup.shared.commit_failed"),{assertive:true});
+      return{revision:readRevision(state),localOk:false,idbOk:false,writeFailed:true};
+    }
+    // The first-run Start control accepts the handoff into the same editable
+    // preview used by every other entry route. It is not the activation action:
+    // no durable program write, cookie clear, or history transition happens
+    // until the preview's explicit Use this program button is pressed.
+    suspendFirstRun();
     showOnboardingView();
     renderOnboarding();
-    return result||{revision:readRevision(state),localOk:false,idbOk:false,staged:true,setupDraft:true};
+    return{revision:readRevision(state),localOk:false,idbOk:false,staged:true,setupDraft:true};
   } catch {
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
@@ -10406,7 +10411,10 @@ async function handleSharedSetupHash(){
   if(sharedSetupDraft.status==="existing"){
     closeFirstRun();toast(t("setup.shared.existing"),{assertive:true});return}
   applyI18n();
-  if(firstRunPending())openFirstRun()}
+  // A shared fragment can finish its asynchronous hash handoff after the
+  // Start action has already entered the common preview. Do not reopen the
+  // first-run gate over that preview.
+  if(firstRunPending()&&!entryState)openFirstRun()}
 async function boot(){
   // The starter program is minted while the first-run state is built, so the
   // language has to be settled before that — not after the state exists.
