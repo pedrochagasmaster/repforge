@@ -171,9 +171,38 @@ function scenePixel(x, y, { noisy = false, material = false } = {}) {
   }
   return pixel;
 }
+const LABEL_GLYPHS = [
+  ["1111", "1001", "1111", "1001", "1001"],
+  ["1110", "1001", "1110", "1001", "1110"],
+  ["1111", "1000", "1000", "1000", "1111"],
+  ["1110", "1001", "1001", "1001", "1110"],
+  ["1111", "1000", "1110", "1000", "1111"],
+  ["1000", "1000", "1110", "1000", "1111"],
+  ["1111", "1000", "1011", "1001", "1111"],
+  ["1001", "1001", "1111", "1001", "1001"],
+];
+function labelPixel(x, y, variant = false) {
+  const labelX = 40;
+  const labelY = 40;
+  const glyphWidth = 4;
+  const glyphGap = 1;
+  const localX = x - labelX;
+  const localY = y - labelY;
+  if (localY < 0 || localY >= 5 || localX < 0 || localX >= LABEL_GLYPHS.length * (glyphWidth + glyphGap)) return null;
+  const glyphIndex = Math.floor(localX / (glyphWidth + glyphGap));
+  const glyphX = localX % (glyphWidth + glyphGap);
+  if (glyphX >= glyphWidth) return null;
+  const row = LABEL_GLYPHS[glyphIndex][localY];
+  if (row[glyphX] !== "1") return null;
+  if (!variant) return [25, 25, 25];
+  const edge = glyphX === 0 || glyphX === glyphWidth - 1 || localY === 0 || localY === 4;
+  return edge ? [72, 72, 72] : [25, 25, 25];
+}
 const syntheticBaseline = rgbPng(192, 256, (x, y) => scenePixel(x, y));
 const syntheticNoise = rgbPng(192, 256, (x, y) => scenePixel(x, y, { noisy: true }));
 const syntheticMaterialChange = rgbPng(192, 256, (x, y) => scenePixel(x, y, { material: true }));
+const syntheticFontRasterVariation = rgbPng(192, 256, (x, y) => labelPixel(x - 1, y, true) || scenePixel(x, y));
+const syntheticFontRasterBaseline = rgbPng(192, 256, (x, y) => labelPixel(x, y) || scenePixel(x, y));
 const syntheticLocalizedLabelDrift = rgbPng(192, 256, (x, y) => {
   if (x >= 40 && x < 60 && y >= 40 && y < 44) return [25, 25, 25];
   return scenePixel(x, y);
@@ -183,9 +212,14 @@ assert.equal(noiseComparison.ok, true, `small raster noise should pass: ${noiseC
 const materialComparison = comparePngBuffers(syntheticBaseline, syntheticMaterialChange);
 assert.equal(materialComparison.ok, false, "a broad panel/content change must fail the evidence gate");
 assert.ok(materialComparison.reasons.length > 0, "material changes report actionable comparator reasons");
+const fontRasterComparison = comparePngBuffers(syntheticFontRasterBaseline, syntheticFontRasterVariation);
+assert.equal(fontRasterComparison.ok, true,
+  `ordinary font raster variation should pass the evidence gate: ${JSON.stringify(fontRasterComparison)}`);
 const localizedLabelComparison = comparePngBuffers(syntheticBaseline, syntheticLocalizedLabelDrift);
 assert.equal(localizedLabelComparison.ok, false, `a localized dark label drift must fail the evidence gate: ${JSON.stringify(localizedLabelComparison)}`);
 assert.ok(localizedLabelComparison.reasons.length > 0, "localized label drift reports actionable comparator reasons");
+assert.match(localizedLabelComparison.reasons.join("; "), /localized region luminance/,
+  "localized label drift is caught by the local structural signal");
 const dimensionComparison = comparePngBuffers(syntheticBaseline, rgbPng(193, 256, (x, y) => scenePixel(x, y)));
 assert.equal(dimensionComparison.ok, false, "dimension drift must fail the evidence gate");
 assert.match(dimensionComparison.reasons[0], /dimensions changed/);

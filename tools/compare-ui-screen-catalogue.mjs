@@ -33,10 +33,13 @@ export const DEFAULT_THRESHOLDS = Object.freeze({
   maxHistogramDelta: 0.08,
   materialMeanCellDelta: 0.035,
   materialHistogramDelta: 0.16,
-  localizedInkWindowWidth: 32,
-  localizedInkWindowHeight: 16,
-  localizedInkThreshold: 0.08,
-  localizedInkMinPixels: 24,
+  localizedRegionBlockSize: 8,
+  localizedRegionWindowWidth: 32,
+  localizedRegionWindowHeight: 16,
+  localizedRegionThreshold: 0.12,
+  localizedRegionBlockThreshold: 0.18,
+  localizedRegionMinBlocks: 2,
+  localizedRegionMinRatio: 0.25,
 });
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -243,51 +246,79 @@ function compareFeatures(first, second, thresholds = DEFAULT_THRESHOLDS) {
 }
 
 // A short, dense text change can occupy too little of the low-resolution grid
-// to move the global colour/edge thresholds. Compare a tolerant ink mask in a
-// small sliding window as well: this is area-aware, so one coherent label-like
-// mark is material while isolated anti-aliasing changes remain noise.
-function localizedInkSignal(first, second, thresholds = DEFAULT_THRESHOLDS) {
-  const width = first.width;
-  const height = first.height;
-  const windowWidth = Math.min(width, Math.max(1, Math.round(thresholds.localizedInkWindowWidth)));
-  const windowHeight = Math.min(height, Math.max(1, Math.round(thresholds.localizedInkWindowHeight)));
-  const minPixels = Math.max(1, Math.round(thresholds.localizedInkMinPixels));
-  const prefixWidth = width + 1;
-  const prefix = new Uint32Array((height + 1) * prefixWidth);
-  for (let y = 0; y < height; y++) {
-    let rowTotal = 0;
-    const rowStart = y * width * 3;
-    const previousRow = y * prefixWidth;
-    const currentRow = (y + 1) * prefixWidth;
-    for (let x = 0; x < width; x++) {
-      const pixel = rowStart + x * 3;
-      const firstInk = luma(first.rgb[pixel], first.rgb[pixel + 1], first.rgb[pixel + 2]) < 0.42;
-      const secondInk = luma(second.rgb[pixel], second.rgb[pixel + 1], second.rgb[pixel + 2]) < 0.42;
-      if (firstInk !== secondInk) rowTotal++;
-      prefix[currentRow + x + 1] = prefix[previousRow + x + 1] + rowTotal;
+// to move the global colour/edge thresholds. Compare pooled luminance blocks
+// in a small sliding region as well. Pooling over several native pixels makes
+// the signal insensitive to font anti-aliasing and one-pixel glyph movement,
+// while the block support requirement still catches a coherent label-sized
+// content change.
+function localizedRegionSignal(first, second, thresholds = DEFAULT_THRESHOLDS) {
+  const blockSize = Math.max(1, Math.round(thresholds.localizedRegionBlockSize));
+  const blockWidth = Math.ceil(first.width / blockSize);
+  const blockHeight = Math.ceil(first.height / blockSize);
+  const firstBlocks = new Float32Array(blockWidth * blockHeight);
+  const secondBlocks = new Float32Array(blockWidth * blockHeight);
+  for (let by = 0; by < blockHeight; by++) {
+    const y0 = by * blockSize;
+    const y1 = Math.min(first.height, y0 + blockSize);
+    for (let bx = 0; bx < blockWidth; bx++) {
+      const x0 = bx * blockSize;
+      const x1 = Math.min(first.width, x0 + blockSize);
+      let firstTotal = 0;
+      let secondTotal = 0;
+      let count = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const pixel = (y * first.width + x) * 3;
+          firstTotal += luma(first.rgb[pixel], first.rgb[pixel + 1], first.rgb[pixel + 2]);
+          secondTotal += luma(second.rgb[pixel], second.rgb[pixel + 1], second.rgb[pixel + 2]);
+          count++;
+        }
+      }
+      const index = by * blockWidth + bx;
+      firstBlocks[index] = firstTotal / count;
+      secondBlocks[index] = secondTotal / count;
     }
   }
-  const area = windowWidth * windowHeight;
-  let maxPixels = 0;
-  let maxRatio = 0;
-  const stepX = Math.max(1, Math.floor(windowWidth / 4));
-  const stepY = Math.max(1, Math.floor(windowHeight / 4));
-  for (let y = 0; y <= height - windowHeight; y += stepY) {
-    const bottom = y + windowHeight;
-    for (let x = 0; x <= width - windowWidth; x += stepX) {
-      const right = x + windowWidth;
-      const pixels = prefix[bottom * prefixWidth + right] - prefix[y * prefixWidth + right] -
-        prefix[bottom * prefixWidth + x] + prefix[y * prefixWidth + x];
-      if (pixels > maxPixels) maxPixels = pixels;
-      if (pixels / area > maxRatio) maxRatio = pixels / area;
+
+  const windowWidth = Math.max(1, Math.min(blockWidth,
+    Math.ceil(Math.max(1, Math.round(thresholds.localizedRegionWindowWidth)) / blockSize)));
+  const windowHeight = Math.max(1, Math.min(blockHeight,
+    Math.ceil(Math.max(1, Math.round(thresholds.localizedRegionWindowHeight)) / blockSize)));
+  const blockThreshold = Number.isFinite(thresholds.localizedRegionBlockThreshold)
+    ? thresholds.localizedRegionBlockThreshold : DEFAULT_THRESHOLDS.localizedRegionBlockThreshold;
+  let maxMeanDelta = 0;
+  let maxChangedBlocks = 0;
+  let maxChangedRatio = 0;
+  for (let by = 0; by <= blockHeight - windowHeight; by++) {
+    for (let bx = 0; bx <= blockWidth - windowWidth; bx++) {
+      let totalDelta = 0;
+      let changedBlocks = 0;
+      for (let y = by; y < by + windowHeight; y++) {
+        for (let x = bx; x < bx + windowWidth; x++) {
+          const delta = Math.abs(firstBlocks[y * blockWidth + x] - secondBlocks[y * blockWidth + x]);
+          totalDelta += delta;
+          if (delta >= blockThreshold) changedBlocks++;
+        }
+      }
+      const area = windowWidth * windowHeight;
+      const meanDelta = totalDelta / area;
+      const changedRatio = changedBlocks / area;
+      if (meanDelta > maxMeanDelta) maxMeanDelta = meanDelta;
+      if (changedBlocks > maxChangedBlocks) maxChangedBlocks = changedBlocks;
+      if (changedRatio > maxChangedRatio) maxChangedRatio = changedRatio;
     }
   }
-  const ok = maxPixels < minPixels || maxRatio < thresholds.localizedInkThreshold;
+  const meaningful = maxMeanDelta >= thresholds.localizedRegionThreshold &&
+    maxChangedBlocks >= Math.max(1, Math.round(thresholds.localizedRegionMinBlocks)) &&
+    maxChangedRatio >= thresholds.localizedRegionMinRatio;
   return {
-    ok,
-    maxPixels,
-    maxRatio,
-    reason: ok ? null : `localized text-ink change covers ${(maxRatio * 100).toFixed(2)}% of a ${windowWidth}×${windowHeight} region`,
+    ok: !meaningful,
+    maxMeanDelta,
+    maxChangedBlocks,
+    maxChangedRatio,
+    reason: meaningful
+      ? `localized region luminance changed ${(maxMeanDelta * 100).toFixed(2)}% across ${maxChangedBlocks} of ${windowWidth * windowHeight} pooled blocks`
+      : null,
   };
 }
 
@@ -312,12 +343,19 @@ export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DE
   }
   const effectiveThresholds = { ...DEFAULT_THRESHOLDS, ...(thresholds || {}) };
   const features = compareFeatures(sample(baseline), sample(current), effectiveThresholds);
-  const ink = localizedInkSignal(baseline, current, effectiveThresholds);
-  if (!ink.ok) {
+  const region = localizedRegionSignal(baseline, current, effectiveThresholds);
+  if (!region.ok) {
     features.ok = false;
-    features.reasons.push(ink.reason);
+    features.reasons.push(region.reason);
   }
-  return { width: current.width, height: current.height, ...features, localizedInkPixels: ink.maxPixels, localizedInkRatio: ink.maxRatio };
+  return {
+    width: current.width,
+    height: current.height,
+    ...features,
+    localizedRegionMeanDelta: region.maxMeanDelta,
+    localizedRegionBlocks: region.maxChangedBlocks,
+    localizedRegionRatio: region.maxChangedRatio,
+  };
 }
 
 export function comparePngFiles(baselinePath, currentPath, thresholds = DEFAULT_THRESHOLDS) {
