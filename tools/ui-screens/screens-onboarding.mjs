@@ -72,7 +72,9 @@ async function selectCandidate(page) {
   if (await page.locator("[data-entry-select-candidate]").count()) {
     await page.locator("[data-entry-select-candidate]").first().click();
   }
-  await page.waitForSelector("#entryActivate", { timeout: 25000 });
+  // Activation appears once the candidate is compiled and its preview built,
+  // which is the slowest step in the generator routes.
+  await page.waitForSelector("#entryActivate", { timeout: 40000 });
 }
 
 /**

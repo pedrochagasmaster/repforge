@@ -40,6 +40,7 @@ const README_PATH = join(ROOT, "docs", "ui-screens", "README.md");
 
 const SCENARIOS = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
 const BROWSER_RECYCLE_EVERY = Number(process.env.CAPTURE_RECYCLE_EVERY || 40);
+const CAPTURE_ATTEMPTS = Number(process.env.CAPTURE_ATTEMPTS || 3);
 
 function parseArgs(argv) {
   const options = { flows: [], screens: [], canonical: false, keepGoing: false };
@@ -253,17 +254,25 @@ async function main() {
       }
     }
 
-    // One retry pass, run after the first sweep so the machine is quiet again.
-    for (const item of pending) {
-      await recycleIfNeeded();
-      sinceRestart += 1;
-      const reason = await capture1(item.capture, item.key, item.out);
-      if (reason) {
-        failures.push({ key: item.key, variant: variantSlug(item.capture), error: reason });
-        console.warn(`✗ ${item.key} ${variantSlug(item.capture)}: ${reason}`);
-      } else {
-        done += 1;
-        console.log(`✓ ${item.key} ${variantSlug(item.capture)}  (retry, ${done}/${captures.length})`);
+    // Retry passes run after the first sweep so the machine is quiet again.
+    for (let attempt = 1; attempt <= CAPTURE_ATTEMPTS - 1 && pending.length; attempt++) {
+      const retrying = pending.splice(0, pending.length);
+      for (const item of retrying) {
+        await recycleIfNeeded();
+        sinceRestart += 1;
+        const reason = await capture1(item.capture, item.key, item.out);
+        if (reason) {
+          if (attempt === CAPTURE_ATTEMPTS - 1) {
+            failures.push({ key: item.key, variant: variantSlug(item.capture), error: reason });
+            console.warn(`✗ ${item.key} ${variantSlug(item.capture)}: ${reason}`);
+          } else {
+            pending.push({ ...item, reason });
+            console.warn(`… ${item.key} ${variantSlug(item.capture)}: ${reason} (will retry)`);
+          }
+        } else {
+          done += 1;
+          console.log(`✓ ${item.key} ${variantSlug(item.capture)}  (retry ${attempt}, ${done}/${captures.length})`);
+        }
       }
     }
 

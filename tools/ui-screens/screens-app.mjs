@@ -170,9 +170,12 @@ export const APP_SCENARIOS = {
   "history/list": (page) => view(page, "history"),
   "history/session": async (page) => {
     await view(page, "history");
-    const session = page.locator("#sessions .session__open").first();
-    await session.scrollIntoViewIfNeeded({ timeout: 20000 });
-    await session.click({ timeout: 20000 });
+    // One auto-waiting click, not a scroll followed by a click: the session
+    // list re-renders after its first paint, and a separate scroll step gives
+    // that re-render a second chance to detach the element mid-operation.
+    await page.waitForSelector("#sessions .session__open", { timeout: 20000 });
+    await sleep(page, 500);
+    await page.locator("#sessions .session__open").first().click({ timeout: 30000 });
     await page.waitForSelector(".session--edit", { timeout: 20000 });
     await sleep(page, 400);
   },
