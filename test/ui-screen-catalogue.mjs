@@ -204,11 +204,51 @@ function labelPixel(x, y, variant = false) {
   if (variant === "antialias") return edge ? [130, 130, 130] : [25, 25, 25];
   return edge ? [72, 72, 72] : [25, 25, 25];
 }
+const DENSE_LABEL_GLYPHS = [
+  ["1111", "1001", "1111", "1001", "1001"],
+  ["1110", "1001", "1110", "1001", "1110"],
+  ["1111", "1000", "1000", "1000", "1111"],
+  ["1110", "1001", "1001", "1001", "1110"],
+  ["1111", "1000", "1110", "1000", "1111"],
+  ["1000", "1000", "1110", "1000", "1111"],
+  ["1111", "1000", "1011", "1001", "1111"],
+  ["1001", "1001", "1111", "1001", "1001"],
+];
+function denseLabelPixel(x, y, variant = false) {
+  const labelX = 24;
+  const labelY = 40;
+  const scale = 2;
+  const glyphWidth = 4;
+  const glyphGap = 1;
+  const localX = x - labelX;
+  const localY = y - labelY;
+  const glyphHeight = 5 * scale;
+  const rowIndex = Math.floor(localY / glyphHeight);
+  const rowY = localY % glyphHeight;
+  const rowOffset = rowIndex * 5;
+  if (rowIndex < 0 || rowIndex >= 2 || rowY < 0 || rowY >= glyphHeight || localX < 0 || localX >= DENSE_LABEL_GLYPHS.length * (glyphWidth + glyphGap) * scale) return null;
+  const glyphShift = variant === "raster" ? ((Math.floor(localX / (scale * (glyphWidth + glyphGap))) + rowIndex) % 3) - 1 : 0;
+  const shiftedX = localX - glyphShift;
+  const scaledX = Math.floor(shiftedX / scale);
+  const glyphIndex = Math.floor(scaledX / (glyphWidth + glyphGap));
+  const glyphX = scaledX % (glyphWidth + glyphGap);
+  if (glyphX >= glyphWidth || glyphIndex >= DENSE_LABEL_GLYPHS.length) return null;
+  const glyphY = Math.floor(rowY / scale);
+  if (variant === "content" && rowIndex === 0 && (glyphIndex === 1 || glyphIndex === 2)) return null;
+  const row = DENSE_LABEL_GLYPHS[(glyphIndex + rowOffset) % DENSE_LABEL_GLYPHS.length][glyphY];
+  if (row[glyphX] !== "1") return null;
+  if (variant !== "raster") return [25, 25, 25];
+  const edge = glyphX === 0 || glyphX === glyphWidth - 1 || glyphY === 0 || glyphY === 4 || localX % scale === 0 || rowY % scale === 0;
+  return edge ? [132, 132, 132] : [25, 25, 25];
+}
 const syntheticBaseline = rgbPng(192, 256, (x, y) => scenePixel(x, y));
 const syntheticNoise = rgbPng(192, 256, (x, y) => scenePixel(x, y, { noisy: true }));
 const syntheticMaterialChange = rgbPng(192, 256, (x, y) => scenePixel(x, y, { material: true }));
 const syntheticFontRasterVariation = rgbPng(192, 256, (x, y) => labelPixel(x, y, "antialias") || scenePixel(x, y));
 const syntheticFontRasterBaseline = rgbPng(192, 256, (x, y) => labelPixel(x, y) || scenePixel(x, y));
+const syntheticDenseFontRasterBaseline = rgbPng(192, 256, (x, y) => denseLabelPixel(x, y) || scenePixel(x, y));
+const syntheticDenseFontRasterVariation = rgbPng(192, 256, (x, y) => denseLabelPixel(x, y, "raster") || scenePixel(x, y));
+const syntheticDenseLabelContentDrift = rgbPng(192, 256, (x, y) => denseLabelPixel(x, y, "content") || scenePixel(x, y));
 const syntheticLocalizedLabelDrift = rgbPng(192, 256, (x, y) => {
   if (x >= 40 && x < 60 && y >= 40 && y < 44) return [25, 25, 25];
   return scenePixel(x, y);
@@ -221,6 +261,14 @@ assert.ok(materialComparison.reasons.length > 0, "material changes report action
 const fontRasterComparison = comparePngBuffers(syntheticFontRasterBaseline, syntheticFontRasterVariation);
 assert.equal(fontRasterComparison.ok, true,
   `ordinary font raster variation should pass the evidence gate: ${JSON.stringify(fontRasterComparison)}`);
+const denseFontRasterComparison = comparePngBuffers(syntheticDenseFontRasterBaseline, syntheticDenseFontRasterVariation);
+assert.ok(denseFontRasterComparison.localizedRegionBlocks >= 6 && denseFontRasterComparison.localizedRegionRatio >= 0.75,
+  `dense raster variation exercises most pooled blocks: ${JSON.stringify(denseFontRasterComparison)}`);
+assert.equal(denseFontRasterComparison.ok, true,
+  `dense multi-block font raster variation should pass the evidence gate: ${JSON.stringify(denseFontRasterComparison)}`);
+const denseLabelContentComparison = comparePngBuffers(syntheticDenseFontRasterBaseline, syntheticDenseLabelContentDrift);
+assert.equal(denseLabelContentComparison.ok, false,
+  `coherent dense label content drift must fail the evidence gate: ${JSON.stringify(denseLabelContentComparison)}`);
 const localizedLabelComparison = comparePngBuffers(syntheticBaseline, syntheticLocalizedLabelDrift);
 assert.equal(localizedLabelComparison.ok, false, `a localized dark label drift must fail the evidence gate: ${JSON.stringify(localizedLabelComparison)}`);
 assert.ok(localizedLabelComparison.reasons.length > 0, "localized label drift reports actionable comparator reasons");

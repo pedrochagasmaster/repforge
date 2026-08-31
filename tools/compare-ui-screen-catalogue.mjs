@@ -40,6 +40,8 @@ export const DEFAULT_THRESHOLDS = Object.freeze({
   localizedRegionBlockThreshold: 0.18,
   localizedRegionMinBlocks: 2,
   localizedRegionMinRatio: 0.25,
+  localizedStructureBlockSize: 4,
+  localizedStructureMismatch: 0.22,
 });
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -186,6 +188,90 @@ function cellColourDelta(first, second, index) {
   return Math.sqrt(0.299 * red * red + 0.587 * green * green + 0.114 * blue * blue);
 }
 
+function pooledLuminance(image, blockSize) {
+  const width = Math.ceil(image.width / blockSize);
+  const height = Math.ceil(image.height / blockSize);
+  const values = new Float32Array(width * height);
+  for (let by = 0; by < height; by++) {
+    const y0 = by * blockSize;
+    const y1 = Math.min(image.height, y0 + blockSize);
+    for (let bx = 0; bx < width; bx++) {
+      const x0 = bx * blockSize;
+      const x1 = Math.min(image.width, x0 + blockSize);
+      let total = 0;
+      let count = 0;
+      for (let y = y0; y < y1; y++) {
+        for (let x = x0; x < x1; x++) {
+          const pixel = (y * image.width + x) * 3;
+          total += luma(image.rgb[pixel], image.rgb[pixel + 1], image.rgb[pixel + 2]);
+          count++;
+        }
+      }
+      values[by * width + bx] = total / count;
+    }
+  }
+  return { width, height, values };
+}
+
+function edgeTopology(pooled) {
+  const values = new Float32Array(pooled.width * pooled.height);
+  for (let y = 0; y < pooled.height; y++) {
+    for (let x = 0; x < pooled.width; x++) {
+      const center = pooled.values[y * pooled.width + x];
+      const left = pooled.values[y * pooled.width + Math.max(0, x - 1)];
+      const right = pooled.values[y * pooled.width + Math.min(pooled.width - 1, x + 1)];
+      const above = pooled.values[Math.max(0, y - 1) * pooled.width + x];
+      const below = pooled.values[Math.min(pooled.height - 1, y + 1) * pooled.width + x];
+      values[y * pooled.width + x] = (Math.abs(center - left) + Math.abs(center - right) +
+        Math.abs(center - above) + Math.abs(center - below)) / 4;
+    }
+  }
+  return values;
+}
+
+function structuralRegionEquivalent(x, y, width, height, thresholds, structure) {
+  const { blockSize, firstPooled, secondPooled, firstEdges, secondEdges } = structure;
+  const x0 = Math.max(0, Math.floor(x / blockSize));
+  const y0 = Math.max(0, Math.floor(y / blockSize));
+  const x1 = Math.min(firstPooled.width, Math.ceil((x + width) / blockSize));
+  const y1 = Math.min(firstPooled.height, Math.ceil((y + height) / blockSize));
+  const regionWidth = x1 - x0;
+  const regionHeight = y1 - y0;
+  if (regionWidth < 2 || regionHeight < 2) return false;
+
+  let firstPeak = 0;
+  let secondPeak = 0;
+  for (let row = y0; row < y1; row++) {
+    for (let column = x0; column < x1; column++) {
+      firstPeak = Math.max(firstPeak, firstEdges[row * firstPooled.width + column]);
+      secondPeak = Math.max(secondPeak, secondEdges[row * secondPooled.width + column]);
+    }
+  }
+  if (firstPeak < 0.01 || secondPeak < 0.01) return false;
+
+  const normalised = (value, peak) => Math.min(1, value / peak);
+  let bestMismatch = Infinity;
+  for (let offsetY = -1; offsetY <= 1; offsetY++) {
+    for (let offsetX = -1; offsetX <= 1; offsetX++) {
+      let mismatch = 0;
+      let cells = 0;
+      for (let row = 0; row < regionHeight; row++) {
+        for (let column = 0; column < regionWidth; column++) {
+          const firstValue = normalised(firstEdges[(y0 + row) * firstPooled.width + x0 + column], firstPeak);
+          const secondX = x0 + column + offsetX;
+          const secondY = y0 + row + offsetY;
+          const secondValue = secondX < 0 || secondX >= secondPooled.width || secondY < 0 || secondY >= secondPooled.height
+            ? 0 : normalised(secondEdges[secondY * secondPooled.width + secondX], secondPeak);
+          mismatch += Math.abs(firstValue - secondValue);
+          cells++;
+        }
+      }
+      bestMismatch = Math.min(bestMismatch, mismatch / cells);
+    }
+  }
+  return bestMismatch < thresholds.localizedStructureMismatch;
+}
+
 function compareFeatures(first, second, thresholds = DEFAULT_THRESHOLDS) {
   const cells = GRID_WIDTH * GRID_HEIGHT;
   let changedCells = 0;
@@ -248,15 +334,24 @@ function compareFeatures(first, second, thresholds = DEFAULT_THRESHOLDS) {
 // A short, dense text change can occupy too little of the low-resolution grid
 // to move the global colour/edge thresholds. Compare pooled luminance blocks
 // in a small sliding region as well. Pooling over several native pixels makes
-// the signal insensitive to font anti-aliasing and one-pixel glyph movement,
-// while the block support requirement still catches a coherent label-sized
-// content change.
+// the signal insensitive to font anti-aliasing and one-pixel glyph movement.
+// When that absolute signal is high, normalized low-resolution edge topology
+// distinguishes raster variation from a coherent label/content change while
+// the block support requirement still catches a label-sized material change.
 function localizedRegionSignal(first, second, thresholds = DEFAULT_THRESHOLDS) {
   const blockSize = Math.max(1, Math.round(thresholds.localizedRegionBlockSize));
   const blockWidth = Math.ceil(first.width / blockSize);
   const blockHeight = Math.ceil(first.height / blockSize);
   const firstBlocks = new Float32Array(blockWidth * blockHeight);
   const secondBlocks = new Float32Array(blockWidth * blockHeight);
+  const structureBlockSize = Math.max(1, Math.round(thresholds.localizedStructureBlockSize));
+  const structure = {
+    blockSize: structureBlockSize,
+    firstPooled: pooledLuminance(first, structureBlockSize),
+    secondPooled: pooledLuminance(second, structureBlockSize),
+  };
+  structure.firstEdges = edgeTopology(structure.firstPooled);
+  structure.secondEdges = edgeTopology(structure.secondPooled);
   for (let by = 0; by < blockHeight; by++) {
     const y0 = by * blockSize;
     const y1 = Math.min(first.height, y0 + blockSize);
@@ -289,6 +384,8 @@ function localizedRegionSignal(first, second, thresholds = DEFAULT_THRESHOLDS) {
   let maxMeanDelta = 0;
   let maxChangedBlocks = 0;
   let maxChangedRatio = 0;
+  let structuralRasterWindows = 0;
+  let meaningfulWindows = 0;
   for (let by = 0; by <= blockHeight - windowHeight; by++) {
     for (let bx = 0; bx <= blockWidth - windowWidth; bx++) {
       let totalDelta = 0;
@@ -303,6 +400,14 @@ function localizedRegionSignal(first, second, thresholds = DEFAULT_THRESHOLDS) {
       const area = windowWidth * windowHeight;
       const meanDelta = totalDelta / area;
       const changedRatio = changedBlocks / area;
+      const meaningfulWindow = meanDelta >= thresholds.localizedRegionThreshold &&
+        changedBlocks >= Math.max(1, Math.round(thresholds.localizedRegionMinBlocks)) &&
+        changedRatio >= thresholds.localizedRegionMinRatio;
+      if (meaningfulWindow) {
+        meaningfulWindows++;
+        if (structuralRegionEquivalent(bx * blockSize, by * blockSize, windowWidth * blockSize,
+          windowHeight * blockSize, thresholds, structure)) structuralRasterWindows++;
+      }
       if (meanDelta > maxMeanDelta) maxMeanDelta = meanDelta;
       if (changedBlocks > maxChangedBlocks) maxChangedBlocks = changedBlocks;
       if (changedRatio > maxChangedRatio) maxChangedRatio = changedRatio;
@@ -310,12 +415,15 @@ function localizedRegionSignal(first, second, thresholds = DEFAULT_THRESHOLDS) {
   }
   const meaningful = maxMeanDelta >= thresholds.localizedRegionThreshold &&
     maxChangedBlocks >= Math.max(1, Math.round(thresholds.localizedRegionMinBlocks)) &&
-    maxChangedRatio >= thresholds.localizedRegionMinRatio;
+    maxChangedRatio >= thresholds.localizedRegionMinRatio &&
+    structuralRasterWindows < meaningfulWindows;
   return {
     ok: !meaningful,
     maxMeanDelta,
     maxChangedBlocks,
     maxChangedRatio,
+    structuralRasterWindows,
+    meaningfulWindows,
     reason: meaningful
       ? `localized region luminance changed ${(maxMeanDelta * 100).toFixed(2)}% across ${maxChangedBlocks} of ${windowWidth * windowHeight} pooled blocks`
       : null,
