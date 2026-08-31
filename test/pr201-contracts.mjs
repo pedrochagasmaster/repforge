@@ -9,6 +9,7 @@ const Entry = require("../program-entry.js");
 const Adapter = require("../program-entry-adapter.js");
 const Compiler = require("../program-compiler.js");
 const SharedSetup = require("../shared-setup.js");
+const I18N = require("../i18n.js");
 const { EXERCISE_LIBRARY } = require("../exercises.js");
 
 const VERSIONS = {
@@ -76,6 +77,18 @@ test("persisted result is closed and bound to the normalized answers", () => {
   const nestedDay = structuredClone(state);
   nestedDay.result.preview.days = [{ id: "day-1", exercises: [], extra: true }];
   assert.equal(Entry.normalizeSetupDraft(nestedDay).ok, false);
+
+  const nestedProgression = structuredClone(state);
+  nestedProgression.result.preview.program = [{ progression: { schemaVersion: 1, strategy: { id: "range", version: 1, params: {}, extra: true }, modifiers: [] } }];
+  assert.equal(Entry.normalizeSetupDraft(nestedProgression).ok, false);
+
+  const nestedRelation = structuredClone(state);
+  nestedRelation.result.preview.progressionRelations = [{ id: "r", movementId: "library:rw_mc", members: [], extra: true }];
+  assert.equal(Entry.normalizeSetupDraft(nestedRelation).ok, false);
+
+  const nestedStructure = structuredClone(state);
+  nestedStructure.result.preview.programStructure = { schemaVersion: 1, days: [], extra: true };
+  assert.equal(Entry.normalizeSetupDraft(nestedStructure).ok, false);
 });
 
 test("persisted entry muscle controls use the authoritative adapter vocabulary", () => {
@@ -149,4 +162,42 @@ test("app day merge and entry controls consume adapter-owned vocabularies", asyn
   assert.match(app, /ENTRY_MUSCLES=ProgramEntryAdapter\.ENTRY_MUSCLES/);
   assert.match(app, /ENTRY_MOVEMENTS=ProgramEntryAdapter\.ENTRY_MOVEMENTS/);
   assert.doesNotMatch(app, /const DAY_TYPES\s*=\s*\{/);
+});
+
+test("production-shaped results round-trip through each route's closed schema", () => {
+  const services = Adapter.createProductionServices({ Compiler, catalogue: EXERCISE_LIBRARY });
+  const common = {
+    desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most",
+    daysPerWeek: 2, sessionMinutes: 60, preferredRestSeconds: 120,
+    environment: { kind: "commercial_gym" }, primaryMuscles: ["back"], priorityMovements: [], exerciseConstraints: [],
+  };
+  const row = { id: "row-1", day: "Day 1", order: 1, name: "A movement", sets: 3, min: 6, max: 10, notes: "A deliberately long coaching note that must remain intact when the setup draft is resumed; it exceeds eighty characters.", libraryId: "rw_mc" };
+  const cases = {
+    recommend: { answers: common, result: services.compile({ mode: "recommend", answers: common }) },
+    custom: (() => { const answers = { ...common, splitPreference: services.splitChoices(common).choices[0].id }; return { answers, result: services.compile({ mode: "custom", answers }) }; })(),
+    browse: (() => { const card = services.browseCatalogue(common)[0]; return { answers: { daysPerWeek: 2, sessionMinutes: 60, environment: { kind: "commercial_gym" }, catalogueSelection: card.id }, result: { fingerprint: card.fingerprint, selected: { id: card.id, familyId: card.familyId, daysPerWeek: card.daysPerWeek, blueprintId: card.id }, preview: card.preview } }; })(),
+    build: { answers: { programName: "Manual", daysPerWeek: 2 }, result: services.buildEmptyProgram({ programName: "Manual", daysPerWeek: 2 }) },
+    import: { answers: { importReady: true }, result: { fingerprint: "import-fixture", selected: { id: "import", source: "import" }, preview: { source: "import", format: "json", program: [row], days: [{ id: "Day 1", exercises: [{ ...row }] }], programStructure: null, progressionRelations: [], progressionModifiers: [], customExercises: [{ id: "custom:local", name: "Local", namePt: "Local", equipment: ["machine"], primary: "Back", secondary: "", notes: "", archived: false, patterns: [], beginnerFriendly: true, custom: true, created: "2026-08-31T00:00:00.000Z" }] } } },
+    shared: { answers: { sharedReady: true }, result: { fingerprint: "shared-fixture", selected: { id: "shared", source: "shared" }, preview: { source: "shared", frequency: 2, program: [row], days: [{ id: "Day 1", exercises: [{ ...row }] }], programStructure: null, progressionRelations: [], customExercises: [], primaryMuscles: [], sharedMeta: { name: "Shared", daysPerWeek: 2, equipment: ["machines"], priorityMuscles: ["Chest"] }, sharedSettings: { jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120, unit: "kg", lang: "pt", rirMode: "numeric" }, sharedImport: null } } },
+  };
+  for (const [route, fixture] of Object.entries(cases)) {
+    let state = Entry.selectRoute(Entry.createState({ draftId: `roundtrip-${route}`, now: "2026-08-31T00:00:00.000Z", versions: VERSIONS }), route);
+    state = Entry.setAnswers(state, fixture.answers);
+    const source = fixture.result;
+    const result = route === "recommend" || route === "custom"
+      ? { fingerprint: source.fingerprint, name: source.name, namePt: source.namePt, selected: source.selected, candidates: source.candidates, alternative: null, preview: source.preview, telemetry: source.telemetry, explanation: source.explanation }
+      : route === "build" ? { fingerprint: source.fingerprint, selected: { id: "manual_build", source: "manual_build" }, preview: source.preview, name: source.name }
+      : source;
+    try { state = Entry.setResult(state, result); } catch (error) { throw new Error(`${route}: ${error.message}`); }
+    const checked = Entry.normalizeSetupDraft(state);
+    assert.equal(checked.ok, true, `${route}: ${checked.issues?.join(", ")}`);
+    assert.deepEqual(checked.value, state, route);
+  }
+});
+
+test("import exercise copy uses the locale's singular form", () => {
+  I18N.setLang("pt");
+  assert.equal(I18N.t("import.file", { name: "x.json", n: 1, exercise: I18N.tp(1, "lift") }), "x.json · 1 exercício");
+  assert.equal(I18N.t("import.file", { name: "x.json", n: 2, exercise: I18N.tp(2, "lift") }), "x.json · 2 exercícios");
+  I18N.setLang("en");
 });

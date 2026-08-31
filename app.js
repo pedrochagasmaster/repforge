@@ -7980,7 +7980,7 @@ function renderImportReview(){
   if(!importDraft)return;
   const counts=importCounts(importDraft);
   const file=$("#importFile");
-  if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total});
+  if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total,exercise:tp(counts.total,"lift")});
   const countsEl=$("#importCounts");
   if(countsEl)countsEl.innerHTML=
     `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
@@ -8132,7 +8132,7 @@ function importCandidate(draft){
 async function commitImportReview(){
   if(!importDraft)return null;
   const counts=importCounts(importDraft);
-  if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review}));return null}
+  if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review,exercise:tp(counts.review,"lift")}));return null}
   const draft=importDraft;
   ensureImportEntryFlow(draft);
   const preview=importCandidate(draft);

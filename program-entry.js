@@ -548,7 +548,7 @@
   const MODIFIER_KEYS = new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]);
   const RELATION_KEYS = new Set(["schemaVersion", "id", "type", "version", "movementId", "members"]);
   const MEMBER_KEYS = new Set(["exerciseId", "role"]);
-  const CUSTOM_EXERCISE_KEYS = new Set(["id", "name", "namePt", "equipment", "primary", "secondary", "notes"]);
+  const CUSTOM_EXERCISE_KEYS = new Set(["id", "name", "namePt", "equipment", "primary", "secondary", "notes", "archived", "patterns", "beginnerFriendly", "custom", "created"]);
   const SHARED_SETTINGS_KEYS = new Set(["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"]);
   const SHARED_META_KEYS = new Set(["name", "goal", "experience", "daysPerWeek", "splitType", "equipment", "priorityMuscles", "sessionLength", "mesocycleLengthWeeks"]);
 
@@ -595,6 +595,8 @@
       if (!validToken(modifier.id)) issues.push(`${modifierPath}.id:invalid`);
       if (modifier.version !== undefined && (!Number.isInteger(modifier.version) || modifier.version < 1)) issues.push(`${modifierPath}.version:invalid`);
       if (modifier.compatibleStrategies !== undefined) normalizeTokenList(modifier.compatibleStrategies, `${modifierPath}.compatibleStrategies`, issues, MAX_LIST_LENGTH);
+      if (modifier.weekNumber !== undefined && (!Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1)) issues.push(`${modifierPath}.weekNumber:invalid`);
+      if (modifier.target !== undefined && !validToken(modifier.target)) issues.push(`${modifierPath}.target:invalid`);
       if (modifier.params !== undefined && !isPlainObject(modifier.params)) issues.push(`${modifierPath}.params:invalid`);
     });
   }
@@ -617,7 +619,32 @@
       if (!isPlainObject(value.provenance)) issues.push(`${path}.provenance:invalid`);
       else rejectUnknownKeys(value.provenance, PROVENANCE_KEYS, `${path}.provenance`, issues);
     }
-    if (value.weekPrescriptions !== undefined && !Array.isArray(value.weekPrescriptions)) issues.push(`${path}.weekPrescriptions:invalid`);
+    if (value.weekPrescriptions !== undefined) {
+      if (!Array.isArray(value.weekPrescriptions)) issues.push(`${path}.weekPrescriptions:invalid`);
+      else value.weekPrescriptions.forEach((prescription, index) => {
+        const prescriptionPath = `${path}.weekPrescriptions[${index}]`;
+        if (!isPlainObject(prescription)) { issues.push(`${prescriptionPath}:not_object`); return; }
+        rejectUnknownKeys(prescription, new Set(["week", "days", "phase"]), prescriptionPath, issues);
+        if (prescription.week !== undefined && (!Number.isInteger(prescription.week) || prescription.week < 1)) issues.push(`${prescriptionPath}.week:invalid`);
+        if (prescription.phase !== undefined && !validToken(prescription.phase)) issues.push(`${prescriptionPath}.phase:invalid`);
+        if (prescription.days !== undefined) {
+          if (!Array.isArray(prescription.days)) issues.push(`${prescriptionPath}.days:invalid`);
+          else prescription.days.forEach((day, dayIndex) => {
+            const dayPath = `${prescriptionPath}.days[${dayIndex}]`;
+            if (!isPlainObject(day)) { issues.push(`${dayPath}:not_object`); return; }
+            rejectUnknownKeys(day, new Set(["dayId", "slots"]), dayPath, issues);
+            if (!validToken(day.dayId)) issues.push(`${dayPath}.dayId:invalid`);
+            if (!Array.isArray(day.slots)) issues.push(`${dayPath}.slots:invalid`);
+            else day.slots.forEach((slot, slotIndex) => {
+              const slotPath = `${dayPath}.slots[${slotIndex}]`;
+              if (!isPlainObject(slot)) { issues.push(`${slotPath}:not_object`); return; }
+              rejectUnknownKeys(slot, new Set(["slotId", "sets"]), slotPath, issues);
+              if (!validToken(slot.slotId) || !Number.isInteger(slot.sets)) issues.push(`${slotPath}:invalid`);
+            });
+          });
+        }
+      });
+    }
   }
 
   function validateCustomExercises(value, path, issues) {
@@ -629,6 +656,11 @@
       if (!validToken(item.id)) issues.push(`${itemPath}.id:invalid`);
       for (const key of ["name", "namePt", "primary", "secondary", "notes"]) if (item[key] !== undefined) optionalString(item[key], `${itemPath}.${key}`, issues, key === "notes" ? MAX_DRAFT_BYTES : 256);
       if (item.equipment !== undefined) normalizeTokenList(item.equipment, `${itemPath}.equipment`, issues, MAX_LIST_LENGTH);
+      if (item.archived !== undefined && typeof item.archived !== "boolean") issues.push(`${itemPath}.archived:invalid`);
+      if (item.beginnerFriendly !== undefined && typeof item.beginnerFriendly !== "boolean") issues.push(`${itemPath}.beginnerFriendly:invalid`);
+      if (item.custom !== undefined && typeof item.custom !== "boolean") issues.push(`${itemPath}.custom:invalid`);
+      if (item.created !== undefined) optionalString(item.created, `${itemPath}.created`, issues, 64);
+      if (item.patterns !== undefined && !Array.isArray(item.patterns)) issues.push(`${itemPath}.patterns:invalid`);
     });
   }
 
@@ -724,11 +756,23 @@
     }
     if (hasOwn(value, "sharedMeta")) {
       if (!isPlainObject(value.sharedMeta)) issues.push(`${path}.sharedMeta:invalid`);
-      else rejectUnknownKeys(value.sharedMeta, SHARED_META_KEYS, `${path}.sharedMeta`, issues);
+      else {
+        rejectUnknownKeys(value.sharedMeta, SHARED_META_KEYS, `${path}.sharedMeta`, issues);
+        if (value.sharedMeta.name !== undefined) optionalString(value.sharedMeta.name, `${path}.sharedMeta.name`, issues, 100);
+        if (value.sharedMeta.daysPerWeek !== undefined && (!Number.isInteger(value.sharedMeta.daysPerWeek) || value.sharedMeta.daysPerWeek < 1 || value.sharedMeta.daysPerWeek > 7)) issues.push(`${path}.sharedMeta.daysPerWeek:invalid`);
+        if (value.sharedMeta.equipment !== undefined) normalizeTokenList(value.sharedMeta.equipment, `${path}.sharedMeta.equipment`, issues, MAX_LIST_LENGTH);
+        if (value.sharedMeta.priorityMuscles !== undefined && !Array.isArray(value.sharedMeta.priorityMuscles)) issues.push(`${path}.sharedMeta.priorityMuscles:invalid`);
+      }
     }
     if (hasOwn(value, "sharedSettings")) {
       if (!isPlainObject(value.sharedSettings)) issues.push(`${path}.sharedSettings:invalid`);
-      else rejectUnknownKeys(value.sharedSettings, SHARED_SETTINGS_KEYS, `${path}.sharedSettings`, issues);
+      else {
+        rejectUnknownKeys(value.sharedSettings, SHARED_SETTINGS_KEYS, `${path}.sharedSettings`, issues);
+        if (value.sharedSettings.lang !== undefined && !["en", "pt"].includes(value.sharedSettings.lang)) issues.push(`${path}.sharedSettings.lang:invalid`);
+        if (value.sharedSettings.unit !== undefined && !["kg", "lb"].includes(value.sharedSettings.unit)) issues.push(`${path}.sharedSettings.unit:invalid`);
+        if (value.sharedSettings.rirMode !== undefined && !["numeric", "text"].includes(value.sharedSettings.rirMode)) issues.push(`${path}.sharedSettings.rirMode:invalid`);
+        for (const key of ["jumpPct", "minJump", "rirHigh", "hardRir", "restSec"]) if (value.sharedSettings[key] !== undefined && (typeof value.sharedSettings[key] !== "number" || !Number.isFinite(value.sharedSettings[key]))) issues.push(`${path}.sharedSettings.${key}:invalid`);
+      }
     }
     if (hasOwn(value, "sharedImport")) {
       if (value.sharedImport !== null && !isPlainObject(value.sharedImport)) issues.push(`${path}.sharedImport:invalid`);
