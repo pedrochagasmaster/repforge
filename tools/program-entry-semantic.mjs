@@ -17,49 +17,48 @@ function normalizeWhitespace(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
 }
 
-function normalizeProgramIds(value) {
-  if (Array.isArray(value)) return value.map(normalizeProgramIds);
-  if (!value || typeof value !== "object") return value;
-  return Object.fromEntries(Object.entries(value).map(([key, child]) => [
-    key,
-    key === "id" && typeof child === "string" ? GENERATED_ID : normalizeProgramIds(child),
-  ]));
+function normalizeGeneratedExerciseRowIds(value) {
+  if (!Array.isArray(value)) return value;
+  return value.map((row) => {
+    if (!row || typeof row !== "object" || Array.isArray(row) || typeof row.id !== "string") return row;
+    return { ...row, id: GENERATED_ID };
+  });
 }
 
 /**
  * Normalize technical IDs in the visible raw-program editor value. The
- * editor's IDs identify local exercise rows; names, library provenance, and
- * every other user-visible program field remain part of the evidence.
+ * editor's top-level array entries are local exercise rows; names, library
+ * provenance, progression vocabulary, and every nested domain ID remain part
+ * of the evidence.
  */
 export function normalizeSemanticValue(value) {
   const text = normalizeWhitespace(value);
   try {
-    return normalizeWhitespace(JSON.stringify(normalizeProgramIds(JSON.parse(text))));
+    return normalizeWhitespace(JSON.stringify(normalizeGeneratedExerciseRowIds(JSON.parse(text))));
   } catch {
     return text;
   }
 }
 
+/**
+ * Normalize the visible raw-program editor record after page collection. The
+ * collector stays a browser-only DOM walk; keeping this transformation here
+ * prevents a second, potentially divergent JSON normalizer in page code.
+ */
+export function normalizeSemanticRecords(records) {
+  if (!Array.isArray(records)) return records;
+  return records.map((record) => {
+    if (!record?.__programJson) return record;
+    const { __programJson, ...visible } = record;
+    return typeof visible.value === "string"
+      ? { ...visible, value: normalizeSemanticValue(visible.value) }
+      : visible;
+  });
+}
+
 export function collectProgramEntrySemantics() {
   const excluded = new Set(["toast", "restAnnounce", "announcementHost"]);
-  const generatedId = "<generated-id>";
   const normalise = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
-  const normalizeProgramIdsInPage = (value) => {
-    if (Array.isArray(value)) return value.map(normalizeProgramIdsInPage);
-    if (!value || typeof value !== "object") return value;
-    return Object.fromEntries(Object.entries(value).map(([key, child]) => [
-      key,
-      key === "id" && typeof child === "string" ? generatedId : normalizeProgramIdsInPage(child),
-    ]));
-  };
-  const normalizeProgramJsonInPage = (value) => {
-    const text = normalise(value);
-    try {
-      return normalise(JSON.stringify(normalizeProgramIdsInPage(JSON.parse(text))));
-    } catch {
-      return text;
-    }
-  };
   const isVisible = (element) => {
     if (!(element instanceof Element) || element.hidden) return false;
     if (excluded.has(element.id) || element.closest("#toast, #restAnnounce, #announcementHost, .visually-hidden, [aria-hidden=\"true\"]")) return false;
@@ -107,7 +106,8 @@ export function collectProgramEntrySemantics() {
     if ("checked" in element && element.checked) record.checked = true;
     if ("selected" in element && element.selected) record.selected = true;
     if (/^(input|option|select|textarea)$/.test(tag) && "value" in element && normalise(element.value)) {
-      record.value = element.id === "programJson" ? normalizeProgramJsonInPage(element.value) : normalise(element.value);
+      record.value = normalise(element.value);
+      if (element.id === "programJson") record.__programJson = true;
     }
     if (element.hasAttribute("type")) record.type = normalise(element.getAttribute("type"));
     if (Object.keys(record).length > 1) rows.push(record);

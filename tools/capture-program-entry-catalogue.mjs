@@ -11,7 +11,7 @@ import { basename, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "../test/browser.mjs";
-import { buildSemanticArtifact, collectProgramEntrySemantics, semanticCaptureKey, validateSemanticArtifact } from "./program-entry-semantic.mjs";
+import { buildSemanticArtifact, collectProgramEntrySemantics, normalizeSemanticRecords, semanticCaptureKey, validateSemanticArtifact } from "./program-entry-semantic.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = JSON.parse(readFileSync(join(ROOT, "docs", "ui-screens", "program-entry-manifest.json"), "utf8"));
@@ -345,7 +345,8 @@ async function main() {
           target?.scrollIntoView({ block: "center", inline: "nearest" });
         }, capture.state);
         await opened.page.waitForTimeout(capture.state.startsWith("build-") ? 2200 : 220);
-        semanticByKey.set(semanticCaptureKey(capture), await opened.page.evaluate(collectProgramEntrySemantics));
+        const semantic = await opened.page.evaluate(collectProgramEntrySemantics);
+        semanticByKey.set(semanticCaptureKey(capture), normalizeSemanticRecords(semantic));
         await opened.page.screenshot({ path: out, fullPage: false });
         console.log(`✓ ${capture.state} ${capture.locale}/${capture.theme}/${capture.viewport}/${capture.text}/${capture.motion}`);
       } catch (error) {

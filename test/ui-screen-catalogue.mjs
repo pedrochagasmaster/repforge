@@ -8,12 +8,13 @@ import { spawnSync } from "node:child_process";
 import { deflateSync } from "node:zlib";
 import { replaceCatalogue, replaceEvidence } from "../tools/capture-program-entry-catalogue.mjs";
 import { compareCatalogue, comparePngBuffers } from "../tools/compare-ui-screen-catalogue.mjs";
-import { compareSemanticArtifacts, normalizeSemanticValue, validateSemanticArtifact } from "../tools/program-entry-semantic.mjs";
+import { compareSemanticArtifacts, normalizeSemanticRecords, normalizeSemanticValue, validateSemanticArtifact } from "../tools/program-entry-semantic.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-entry-manifest.json"), "utf8"));
 const workflow = readFileSync(resolve(root, ".github/workflows/simulation.yml"), "utf8");
 const capture = readFileSync(resolve(root, "tools/capture-program-entry-catalogue.mjs"), "utf8");
+const semanticTool = readFileSync(resolve(root, "tools/program-entry-semantic.mjs"), "utf8");
 const stateIds = new Set(manifest.states.map((state) => state.id));
 assert.equal(manifest.states.length, 23, "the required Plan 048 state list stays complete");
 assert.equal(manifest.captures.length, 59, "the reviewed capture list stays deliberately non-Cartesian");
@@ -50,6 +51,10 @@ assert.match(capture, /localStorage\.getItem\("repforge_program_setup_draft_v1"\
   "the Resume fixture waits for the final persisted setup step before reload");
 assert.match(capture, /collectProgramEntrySemantics/,
   "the capture records semantics from the production page");
+assert.match(capture, /normalizeSemanticRecords/,
+  "the capture normalizes collected Program JSON through the shared Node seam");
+assert.match(semanticTool, /element\.id === "programJson"/,
+  "the page collector marks only the raw Program JSON field for normalization");
 assert.match(capture, /replaceEvidence\(/,
   "PNG and semantic evidence install through one transaction");
 const baselineIndex = workflow.indexOf('cp -a docs/ui-screens/program-entry "$baseline/"');
@@ -116,6 +121,32 @@ assert.equal(normalizeSemanticValue(generatedProgramA), normalizeSemanticValue(g
   "semantic normalization ignores generated program row IDs between captures");
 assert.notEqual(normalizeSemanticValue(generatedProgramA), normalizeSemanticValue(generatedProgramA.replace("Assisted pull-up", "Barbell row")),
   "semantic normalization keeps meaningful program content changes");
+const rangeProgression = '[{"id":"4c79f129-740b-4295-97d8-1c4112314ab2","name":"Assisted pull-up","libraryId":"pd_bw","progression":{"schemaVersion":1,"strategy":{"id":"range","version":1,"params":{}},"modifiers":[]}}]';
+const manualProgression = '[{"id":"7fbad21b-1cb9-4109-9157-c968dc67bf38","name":"Assisted pull-up","libraryId":"pd_bw","progression":{"schemaVersion":1,"strategy":{"id":"manual","version":1,"params":{}},"modifiers":[]}}]';
+assert.notEqual(normalizeSemanticValue(rangeProgression), normalizeSemanticValue(manualProgression),
+  "semantic normalization keeps meaningful progression strategy IDs");
+const modifierA = '[{"id":"4c79f129-740b-4295-97d8-1c4112314ab2","name":"Assisted pull-up","libraryId":"pd_bw","progression":{"schemaVersion":1,"strategy":{"id":"range","version":1,"params":{}},"modifiers":[{"id":"modifier-a","version":1,"compatibleStrategies":["range@1"],"params":{}}]}}]';
+const modifierB = '[{"id":"7fbad21b-1cb9-4109-9157-c968dc67bf38","name":"Assisted pull-up","libraryId":"pd_bw","progression":{"schemaVersion":1,"strategy":{"id":"range","version":1,"params":{}},"modifiers":[{"id":"modifier-b","version":1,"compatibleStrategies":["range@1"],"params":{}}]}}]';
+assert.notEqual(normalizeSemanticValue(modifierA), normalizeSemanticValue(modifierB),
+  "semantic normalization keeps meaningful progression modifier IDs");
+const relationA = '{"program":[{"id":"row-id","name":"Assisted pull-up","libraryId":"pd_bw"}],"progressionRelations":[{"id":"relation-a","type":"paired_exposure"}]}';
+const relationB = '{"program":[{"id":"row-id","name":"Assisted pull-up","libraryId":"pd_bw"}],"progressionRelations":[{"id":"relation-b","type":"paired_exposure"}]}';
+assert.notEqual(normalizeSemanticValue(relationA), normalizeSemanticValue(relationB),
+  "semantic normalization keeps relation IDs outside exercise rows");
+const libraryA = '[{"id":"4c79f129-740b-4295-97d8-1c4112314ab2","name":"Assisted pull-up","libraryId":"pd_bw"}]';
+const libraryB = '[{"id":"7fbad21b-1cb9-4109-9157-c968dc67bf38","name":"Assisted pull-up","libraryId":"row_cable"}]';
+assert.notEqual(normalizeSemanticValue(libraryA), normalizeSemanticValue(libraryB),
+  "semantic normalization keeps library provenance IDs");
+const normalizedRecords = normalizeSemanticRecords([
+  { tag: "textarea", value: rangeProgression, __programJson: true },
+  { tag: "textarea", value: rangeProgression },
+]);
+assert.notEqual(normalizedRecords[0].value, rangeProgression,
+  "the shared record normalizer handles the visible Program JSON textarea");
+assert.equal(Object.hasOwn(normalizedRecords[0], "__programJson"), false,
+  "the collector's internal Program JSON marker never enters semantic evidence");
+assert.equal(normalizedRecords[1].value, rangeProgression,
+  "the shared record normalizer leaves other textareas untouched");
 for (const state of ["build-partial", "build-ready"]) {
   const capture = semanticArtifact.captures.find((item) => item.state === state && item.canonical);
   const programJson = capture?.semantic.find((entry) => entry.name === "Program JSON")?.value;
