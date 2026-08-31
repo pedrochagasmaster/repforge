@@ -532,8 +532,8 @@
     "complexity", "reentry", "source",
   ]);
   const PREVIEW_KEYS = Object.freeze({
-    recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles"]),
-    custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles"]),
+    recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
+    custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     browse: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
     build: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "days", "primaryMuscles", "customExercises"]),
     import: new Set(["source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "days", "customExercises", "primaryMuscles"]),
@@ -543,6 +543,14 @@
   const DAY_KEYS = new Set(["id", "dayId", "label", "order", "estimateMinutes", "exercises"]);
   const STRUCTURE_KEYS = new Set(["schemaVersion", "days", "provenance", "weekPrescriptions", "customizedFrom"]);
   const PROVENANCE_KEYS = new Set(["source", "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"]);
+  const PROGRESSION_KEYS = new Set(["schemaVersion", "strategy", "modifiers"]);
+  const STRATEGY_KEYS = new Set(["id", "version", "params"]);
+  const MODIFIER_KEYS = new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]);
+  const RELATION_KEYS = new Set(["schemaVersion", "id", "type", "version", "movementId", "members"]);
+  const MEMBER_KEYS = new Set(["exerciseId", "role"]);
+  const CUSTOM_EXERCISE_KEYS = new Set(["id", "name", "namePt", "equipment", "primary", "secondary", "notes"]);
+  const SHARED_SETTINGS_KEYS = new Set(["jumpPct", "minJump", "rirHigh", "hardRir", "restSec", "unit", "lang", "rirMode"]);
+  const SHARED_META_KEYS = new Set(["name", "goal", "experience", "daysPerWeek", "splitType", "equipment", "priorityMuscles", "sessionLength", "mesocycleLengthWeeks"]);
 
   function optionalString(value, path, issues, maxLength = MAX_PROGRAM_NAME_LENGTH) {
     if (value !== undefined && value !== null && (typeof value !== "string" || value.length > maxLength)) {
@@ -566,6 +574,95 @@
     }
   }
 
+  function validateProgression(value, path, issues) {
+    if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
+    rejectUnknownKeys(value, PROGRESSION_KEYS, path, issues);
+    if (value.schemaVersion !== undefined && value.schemaVersion !== 1) issues.push(`${path}.schemaVersion:unsupported`);
+    if (!isPlainObject(value.strategy)) issues.push(`${path}.strategy:required`);
+    else {
+      rejectUnknownKeys(value.strategy, STRATEGY_KEYS, `${path}.strategy`, issues);
+      if (!validToken(value.strategy.id)) issues.push(`${path}.strategy.id:invalid`);
+      if (!Number.isInteger(value.strategy.version) || value.strategy.version < 1) issues.push(`${path}.strategy.version:invalid`);
+      if (!isPlainObject(value.strategy.params)) issues.push(`${path}.strategy.params:invalid`);
+      else if (inspectJson(value.strategy.params, MAX_CONTEXT_BYTES).length) issues.push(`${path}.strategy.params:invalid`);
+    }
+    if (!Array.isArray(value.modifiers)) issues.push(`${path}.modifiers:required`);
+    else if (value.modifiers.length > MAX_LIST_LENGTH) issues.push(`${path}.modifiers:too_many`);
+    else value.modifiers.forEach((modifier, index) => {
+      const modifierPath = `${path}.modifiers[${index}]`;
+      if (!isPlainObject(modifier)) { issues.push(`${modifierPath}:not_object`); return; }
+      rejectUnknownKeys(modifier, MODIFIER_KEYS, modifierPath, issues);
+      if (!validToken(modifier.id)) issues.push(`${modifierPath}.id:invalid`);
+      if (modifier.version !== undefined && (!Number.isInteger(modifier.version) || modifier.version < 1)) issues.push(`${modifierPath}.version:invalid`);
+      if (modifier.compatibleStrategies !== undefined) normalizeTokenList(modifier.compatibleStrategies, `${modifierPath}.compatibleStrategies`, issues, MAX_LIST_LENGTH);
+      if (modifier.params !== undefined && !isPlainObject(modifier.params)) issues.push(`${modifierPath}.params:invalid`);
+    });
+  }
+
+  function validateStructure(value, path, issues) {
+    if (value === null) return;
+    if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
+    rejectUnknownKeys(value, STRUCTURE_KEYS, path, issues);
+    if (value.schemaVersion !== undefined && value.schemaVersion !== 1) issues.push(`${path}.schemaVersion:unsupported`);
+    if (!Array.isArray(value.days)) issues.push(`${path}.days:required`);
+    else value.days.forEach((day, index) => {
+      const dayPath = `${path}.days[${index}]`;
+      if (!isPlainObject(day)) { issues.push(`${dayPath}:not_object`); return; }
+      rejectUnknownKeys(day, new Set(["dayId", "label", "order"]), dayPath, issues);
+      if (!validToken(day.dayId)) issues.push(`${dayPath}.dayId:invalid`);
+      if (typeof day.label !== "string") issues.push(`${dayPath}.label:invalid`);
+      if (!Number.isInteger(day.order)) issues.push(`${dayPath}.order:invalid`);
+    });
+    if (value.provenance !== undefined) {
+      if (!isPlainObject(value.provenance)) issues.push(`${path}.provenance:invalid`);
+      else rejectUnknownKeys(value.provenance, PROVENANCE_KEYS, `${path}.provenance`, issues);
+    }
+    if (value.weekPrescriptions !== undefined && !Array.isArray(value.weekPrescriptions)) issues.push(`${path}.weekPrescriptions:invalid`);
+  }
+
+  function validateCustomExercises(value, path, issues) {
+    if (!Array.isArray(value) || value.length > MAX_LIST_LENGTH) { issues.push(`${path}:invalid`); return; }
+    value.forEach((item, index) => {
+      const itemPath = `${path}[${index}]`;
+      if (!isPlainObject(item)) { issues.push(`${itemPath}:not_object`); return; }
+      rejectUnknownKeys(item, CUSTOM_EXERCISE_KEYS, itemPath, issues);
+      if (!validToken(item.id)) issues.push(`${itemPath}.id:invalid`);
+      for (const key of ["name", "namePt", "primary", "secondary", "notes"]) if (item[key] !== undefined) optionalString(item[key], `${itemPath}.${key}`, issues, key === "notes" ? MAX_DRAFT_BYTES : 256);
+      if (item.equipment !== undefined) normalizeTokenList(item.equipment, `${itemPath}.equipment`, issues, MAX_LIST_LENGTH);
+    });
+  }
+
+  function validateRelations(value, path, issues) {
+    if (!Array.isArray(value) || value.length > MAX_LIST_LENGTH) { issues.push(`${path}:invalid`); return; }
+    value.forEach((relation, index) => {
+      const relationPath = `${path}[${index}]`;
+      if (!isPlainObject(relation)) { issues.push(`${relationPath}:not_object`); return; }
+      rejectUnknownKeys(relation, RELATION_KEYS, relationPath, issues);
+      for (const key of ["id", "type", "movementId"]) if (relation[key] !== undefined && !validToken(relation[key])) issues.push(`${relationPath}.${key}:invalid`);
+      if (!Array.isArray(relation.members)) issues.push(`${relationPath}.members:required`);
+      else relation.members.forEach((member, memberIndex) => {
+        const memberPath = `${relationPath}.members[${memberIndex}]`;
+        if (!isPlainObject(member)) { issues.push(`${memberPath}:not_object`); return; }
+        rejectUnknownKeys(member, MEMBER_KEYS, memberPath, issues);
+        if (!validToken(member.exerciseId) || !validToken(member.role)) issues.push(`${memberPath}:invalid`);
+      });
+    });
+  }
+
+  function validateFacts(value, path, issues) {
+    if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
+    rejectUnknownKeys(value, new Set(["desiredResult", "structuredExperience", "recentConsistency", "daysPerWeek", "sessionMinutes", "mainConstraint", "familyId", "diagnostics"]), path, issues);
+    for (const key of ["desiredResult", "structuredExperience", "recentConsistency", "mainConstraint", "familyId"]) if (value[key] !== undefined && value[key] !== null && !validToken(value[key])) issues.push(`${path}.${key}:invalid`);
+    for (const key of ["daysPerWeek", "sessionMinutes"]) if (value[key] !== undefined && value[key] !== null && !Number.isInteger(value[key])) issues.push(`${path}.${key}:invalid`);
+    if (value.diagnostics !== undefined && value.diagnostics !== null) {
+      if (!isPlainObject(value.diagnostics)) issues.push(`${path}.diagnostics:invalid`);
+      else {
+        rejectUnknownKeys(value.diagnostics, new Set(["limitations", "reductions"]), `${path}.diagnostics`, issues);
+        for (const key of ["limitations", "reductions"]) if (value.diagnostics[key] !== undefined && !Array.isArray(value.diagnostics[key])) issues.push(`${path}.diagnostics.${key}:invalid`);
+      }
+    }
+  }
+
   function validateProgramRow(value, path, issues) {
     if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
     rejectUnknownKeys(value, PROGRAM_ROW_KEYS, path, issues);
@@ -581,7 +678,7 @@
       if (hasOwn(value, key) && (typeof value[key] !== "number" || !Number.isFinite(value[key]))) issues.push(`${path}.${key}:invalid`);
     }
     if (hasOwn(value, "alternates") && !Array.isArray(value.alternates)) issues.push(`${path}.alternates:invalid`);
-    if (hasOwn(value, "progression") && !isPlainObject(value.progression)) issues.push(`${path}.progression:invalid`);
+    if (hasOwn(value, "progression")) validateProgression(value.progression, `${path}.progression`, issues);
   }
 
   function validatePreview(value, route, path, issues) {
@@ -612,18 +709,34 @@
       if (hasOwn(value, key)) normalizeMuscleList(value[key], `${path}.${key}`, issues, MAX_MUSCLE_CONTROLS);
     }
     for (const key of ["limitations", "reductions"]) if (hasOwn(value, key) && !Array.isArray(value[key])) issues.push(`${path}.${key}:invalid`);
-    if (hasOwn(value, "customExercises") && (!Array.isArray(value.customExercises) || value.customExercises.length > MAX_LIST_LENGTH)) issues.push(`${path}.customExercises:invalid`);
-    if (hasOwn(value, "progressionRelations") && !Array.isArray(value.progressionRelations)) issues.push(`${path}.progressionRelations:invalid`);
-    if (hasOwn(value, "progressionModifiers") && !Array.isArray(value.progressionModifiers)) issues.push(`${path}.progressionModifiers:invalid`);
+    if (hasOwn(value, "customExercises")) validateCustomExercises(value.customExercises, `${path}.customExercises`, issues);
+    if (hasOwn(value, "progressionRelations")) validateRelations(value.progressionRelations, `${path}.progressionRelations`, issues);
+    if (hasOwn(value, "progressionModifiers")) {
+      if (!Array.isArray(value.progressionModifiers) || value.progressionModifiers.length > MAX_LIST_LENGTH) issues.push(`${path}.progressionModifiers:invalid`);
+      else value.progressionModifiers.forEach((modifier, index) => validateProgression({ schemaVersion: 1, strategy: { id: "preview", version: 1, params: {} }, modifiers: [modifier] }, `${path}.progressionModifiers[${index}]`, issues));
+    }
     if (hasOwn(value, "programStructure")) {
-      if (!isPlainObject(value.programStructure)) issues.push(`${path}.programStructure:invalid`);
-      else rejectUnknownKeys(value.programStructure, STRUCTURE_KEYS, `${path}.programStructure`, issues);
+      validateStructure(value.programStructure, `${path}.programStructure`, issues);
     }
     if (hasOwn(value, "provenance")) {
       if (!isPlainObject(value.provenance)) issues.push(`${path}.provenance:invalid`);
       else rejectUnknownKeys(value.provenance, PROVENANCE_KEYS, `${path}.provenance`, issues);
     }
-    for (const key of ["sharedMeta", "sharedSettings", "sharedImport"]) if (hasOwn(value, key) && !isPlainObject(value[key]) && value[key] !== null) issues.push(`${path}.${key}:invalid`);
+    if (hasOwn(value, "sharedMeta")) {
+      if (!isPlainObject(value.sharedMeta)) issues.push(`${path}.sharedMeta:invalid`);
+      else rejectUnknownKeys(value.sharedMeta, SHARED_META_KEYS, `${path}.sharedMeta`, issues);
+    }
+    if (hasOwn(value, "sharedSettings")) {
+      if (!isPlainObject(value.sharedSettings)) issues.push(`${path}.sharedSettings:invalid`);
+      else rejectUnknownKeys(value.sharedSettings, SHARED_SETTINGS_KEYS, `${path}.sharedSettings`, issues);
+    }
+    if (hasOwn(value, "sharedImport")) {
+      if (value.sharedImport !== null && !isPlainObject(value.sharedImport)) issues.push(`${path}.sharedImport:invalid`);
+      else if (isPlainObject(value.sharedImport)) {
+        rejectUnknownKeys(value.sharedImport, new Set(["definitions"]), `${path}.sharedImport`, issues);
+        if (value.sharedImport.definitions !== undefined) validateCustomExercises(value.sharedImport.definitions, `${path}.sharedImport.definitions`, issues);
+      }
+    }
   }
 
   function answerFingerprint(answers) {
@@ -691,6 +804,8 @@
           if (hasOwn(candidate.telemetry, "completed") && typeof candidate.telemetry.completed !== "boolean") issues.push("$.result.telemetry.completed:invalid");
         }
       }
+      if (hasOwn(candidate, "diagnostics")) validateFacts(candidate.diagnostics, "$.result.diagnostics", issues);
+      if (hasOwn(candidate, "explanation")) validateFacts(candidate.explanation, "$.result.explanation", issues);
       for (const key of RESULT_ROUTE_KEYS[route] || []) {
         // Recommendation/custom previews historically carried their selected
         // candidate only after the user made a choice. Keep those resumable
