@@ -38,8 +38,8 @@ const result = spawnSync(process.execPath, ["tools/check-ui-screen-catalogue.mjs
 assert.equal(result.status, 0, "report mode is non-blocking while captures are pending");
 const report = JSON.parse(result.stdout);
 assert.equal(report.expected, 60);
-assert.equal(report.present, 0);
-assert.equal(report.missing.length, 60);
+assert.equal(report.present, 60);
+assert.equal(report.missing.length, 0);
 assert.equal(report.invalid.length, 0);
 assert.equal(report.extra.length, 0);
 console.log("UI screen catalogue manifest: 24 states, 60 explicit captures, all matrix dimensions covered");

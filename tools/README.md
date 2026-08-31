@@ -164,6 +164,23 @@ The manifest self-test runs with:
 node test/ui-screen-catalogue.mjs
 ```
 
+## capture-program-entry-catalogue.mjs
+
+Drives the production program-entry UI through the explicit captures in the
+Plan 048 manifest and writes their PNGs under
+`docs/ui-screens/program-entry/`. It blocks service workers so an old cached
+script cannot affect the evidence, and seeds only the supported production
+state shape. Serve this worktree before running it:
+
+```bash
+python3 -m http.server 8000
+node tools/capture-program-entry-catalogue.mjs
+```
+
+Set `CAPTURE_FILTER=<state-id>` to rerun one state while preserving the other
+captures. The script is a capture tool, not a fixture renderer: every image is
+produced by Chromium rendering the real application.
+
 ## build-brand-mark.mjs
 
 Renders `assets/brand/mark.png`: the Taurifer yoke with no paper under it, at
