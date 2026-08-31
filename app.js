@@ -8294,7 +8294,7 @@ function removeSetupDraftIfCurrent(handle=entryDraftHandle){
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(handle)))}
 function clearSetupDraft(){
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(entryDraftHandle)))}
-function persistSetupDraft(next){
+function persistSetupDraft(next,io=storageIO){
   if(!ProgramEntry||!next)return Promise.resolve({ok:false});
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
   const normalized=ProgramEntry.normalizeSetupDraft(stamped);
@@ -8315,7 +8315,13 @@ function persistSetupDraft(next){
       reportSetupDraftWriteFailure("save_failed",error);
       return{ok:false,invalid:true}}
     const raw=JSON.stringify(envelope);
-    try{localStorage.setItem(SETUP_DRAFT_KEY,raw)}catch(error){
+    // The optional adapter controls only this setup-draft write. Lock ownership
+    // remains on the production storageIO path so tests cannot change the
+    // concurrency contract around the draft record.
+    const writeSetupDraft=typeof io?.writeSetupDraft==="function"
+      ?io.writeSetupDraft.bind(io)
+      :value=>localStorage.setItem(SETUP_DRAFT_KEY,value);
+    try{await writeSetupDraft(raw)}catch(error){
       reportSetupDraftWriteFailure("save_failed",error);
       return{ok:false,writeFailed:true}}
     entryDraftHandle={raw,envelope};
@@ -9506,7 +9512,7 @@ async function commitSharedSetup(io=storageIO){
     next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:payload.meta.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:payload.meta.name,preview,telemetry:{family:"shared_v1"}});
     next={...next,step:"preview"};
     entryState=next;
-    const saved=await persistSetupDraft(next);
+    const saved=await persistSetupDraft(next,io);
     if(!saved?.ok){
       toast(t("setup.shared.commit_failed"),{assertive:true});
       return{revision:readRevision(state),localOk:false,idbOk:false,writeFailed:true};

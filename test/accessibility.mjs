@@ -2635,8 +2635,7 @@ console.log("\nShared setup gate accessibility");
       const start = document.querySelector("#firstRunSharedStart");
       if (!hook?.commit || !start) return { missing: true, hasStart: !!start };
       hook.commit({
-        writeLocal() { return new Promise(() => {}); },
-        writeIdb() { return new Promise(() => {}); },
+        writeSetupDraft() { return new Promise(() => {}); },
       });
       await new Promise((res) => setTimeout(res, 50));
       return {
