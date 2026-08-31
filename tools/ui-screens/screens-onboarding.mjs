@@ -42,24 +42,36 @@ const next = (page) => page.click("#onbNext");
  * sized, invisible. Waiting for the gate to actually be gone is the difference
  * between a real surface and a blank frame.
  */
+/** Name the step that timed out; "waitForSelector timed out" names nothing. */
+async function step(label, action) {
+  try {
+    return await action();
+  } catch (error) {
+    throw new Error(`${label}: ${error.message.split("\n")[0]}`);
+  }
+}
+
 async function openHub(page, { existing = false } = {}) {
   if (existing) {
     await page.evaluate(() => window.closeFirstRun?.());
-    await page.waitForFunction(
+    await step("first-run gate did not clear", () => page.waitForFunction(
       () => !document.body.classList.contains("is-firstrun"),
       undefined,
       { timeout: 20000 }
-    );
+    ));
     await page.evaluate(() => window.startOnboarding("settings"));
-    await page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 });
+    await step("hub did not open from Settings", () =>
+      page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 }));
     // The replacement notice renders after the hub itself. It is the whole
     // point of this variant, so do not photograph the hub without it.
-    await page.waitForSelector(".entry__active", { timeout: 20000 });
+    await step("active-program notice never rendered", () =>
+      page.waitForSelector(".entry__active", { timeout: 20000 }));
     return;
   }
   await page.evaluate(() => window.openFirstRun());
   await page.click("#firstRunCreate");
-  await page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 });
+  await step("hub did not open from first run", () =>
+    page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 }));
 }
 
 async function route(page, name, { existing = false } = {}) {
