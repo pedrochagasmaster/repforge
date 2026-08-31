@@ -75,6 +75,8 @@ async function openPage(browser, capture, state) {
   const context = await browser.newContext({
     viewport: { width: viewport.width, height: viewport.height },
     deviceScaleFactor: MANIFEST.deviceScaleFactor,
+    locale: capture.locale === "pt-BR" ? "pt-BR" : "en-US",
+    timezoneId: "UTC",
     colorScheme: capture.theme === "dark" ? "dark" : "light",
     reducedMotion: capture.motion === "reduced" ? "reduce" : "no-preference",
     serviceWorkers: "block",
@@ -225,7 +227,18 @@ async function captureState(page, state) {
   if (state.startsWith("build-")) return build(page, state.slice(6));
   if (state === "import-source") return importSource(page);
   if (state === "import-review") return importSource(page, true);
-  if (state === "resume") { await recommendTo(page); await page.reload({ waitUntil: "domcontentloaded" }); await waitForEntryApp(page); if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate"); else await page.evaluate(() => window.startOnboarding("settings")); return page.waitForSelector("#entryResumeContinue"); }
+  if (state === "resume") {
+    await recommendTo(page);
+    // The final answer transition persists asynchronously. Do not reload until
+    // the production draft record itself contains the intended terminal step;
+    // otherwise a slow runner can capture the previous question as Resume.
+    await page.waitForFunction(() => {
+      try { return JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}").state?.step === "priorities"; }
+      catch { return false; }
+    });
+    await page.reload({ waitUntil: "domcontentloaded" }); await waitForEntryApp(page);
+    if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate"); else await page.evaluate(() => window.startOnboarding("settings")); return page.waitForSelector("#entryResumeContinue");
+  }
   if (state === "rules-drift") return rulesDrift(page);
   if (state === "activation-conflict") return conflict(page);
   if (state === "validation-failure") {

@@ -6,6 +6,12 @@
 
 export const SEMANTIC_SCHEMA_VERSION = 1;
 const GENERATED_ID = "<generated-id>";
+const SEMANTIC_FIELDS = [
+  "tag", "role", "text", "name", "label", "labelledBy", "describedBy",
+  "aria-checked", "aria-current", "aria-expanded", "aria-live", "aria-selected",
+  "aria-atomic", "aria-disabled", "tabindex", "disabled", "checked", "selected",
+  "value", "type",
+];
 
 function normalizeWhitespace(value) {
   return String(value ?? "").replace(/\s+/g, " ").trim();
@@ -148,7 +154,30 @@ export function compareSemanticArtifacts(first, second) {
   for (const key of new Set([...firstCaptures.keys(), ...secondCaptures.keys()])) {
     if (!firstCaptures.has(key)) reasons.push(`semantic capture added: ${key}`);
     else if (!secondCaptures.has(key)) reasons.push(`semantic capture removed: ${key}`);
-    else if (JSON.stringify(firstCaptures.get(key)) !== JSON.stringify(secondCaptures.get(key))) reasons.push(`semantic text/state changed: ${key}`);
+    else if (JSON.stringify(firstCaptures.get(key)) !== JSON.stringify(secondCaptures.get(key))) {
+      const firstSemantic = firstCaptures.get(key)?.semantic || [];
+      const secondSemantic = secondCaptures.get(key)?.semantic || [];
+      const details = [];
+      if (firstSemantic.length !== secondSemantic.length) {
+        details.push(`semantic entry count expected ${firstSemantic.length} actual ${secondSemantic.length}`);
+      }
+      for (let index = 0; index < Math.max(firstSemantic.length, secondSemantic.length) && details.length < 3; index++) {
+        const firstRecord = firstSemantic[index] || {};
+        const secondRecord = secondSemantic[index] || {};
+        for (const field of SEMANTIC_FIELDS) {
+          if (Object.is(firstRecord[field], secondRecord[field])) continue;
+          const format = (value) => {
+            if (value === undefined) return "<missing>";
+            const raw = typeof value === "string" ? value : JSON.stringify(value);
+            const clipped = raw.length > 120 ? `${raw.slice(0, 117)}…` : raw;
+            return JSON.stringify(clipped);
+          };
+          details.push(`semantic[${index}].${field} expected ${format(firstRecord[field])} actual ${format(secondRecord[field])}`);
+          if (details.length >= 3) break;
+        }
+      }
+      reasons.push(`semantic text/state changed: ${key}${details.length ? `; ${details.join("; ")}` : ""}`);
+    }
   }
   return { ok: false, reasons: reasons.length ? reasons : ["semantic evidence changed"] };
 }

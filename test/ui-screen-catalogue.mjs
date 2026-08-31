@@ -42,6 +42,12 @@ assert.match(capture, /const CAPTURE_NOW = process\.env\.CAPTURE_NOW \|\| "2026-
   "the production catalogue capture uses a stable fixture clock for date-bearing states");
 assert.match(capture, /page\.addInitScript\(/,
   "the fixture clock is installed before the production page boots");
+assert.match(capture, /locale: capture\.locale === "pt-BR" \? "pt-BR" : "en-US"/,
+  "the production catalogue capture pins the browser locale");
+assert.match(capture, /timezoneId: "UTC"/,
+  "the production catalogue capture pins the browser timezone");
+assert.match(capture, /localStorage\.getItem\("repforge_program_setup_draft_v1"\)/,
+  "the Resume fixture waits for the final persisted setup step before reload");
 assert.match(capture, /collectProgramEntrySemantics/,
   "the capture records semantics from the production page");
 assert.match(capture, /replaceEvidence\(/,
@@ -113,6 +119,24 @@ semanticTextEntry.text = "Changed visible copy";
 const semanticCopyComparison = compareSemanticArtifacts(semanticArtifact, semanticCopyDrift);
 assert.equal(semanticCopyComparison.ok, false, "localized copy changes fail semantic evidence comparison");
 assert.match(semanticCopyComparison.reasons.join("; "), /semantic text\/state changed/);
+assert.match(semanticCopyComparison.reasons.join("; "), /semantic\[1\]\.text expected "Cancel" actual "Changed visible copy"/,
+  "semantic comparison reports bounded expected/actual field evidence");
+assert.ok(semanticCopyComparison.reasons.every((reason) => reason.length < 500),
+  "semantic comparison details remain bounded");
+
+const resumeDateDrift = JSON.parse(JSON.stringify(semanticArtifact));
+const resumeSemantic = resumeDateDrift.captures.find((capture) => capture.state === "resume" && capture.canonical).semantic;
+const resumeDetail = resumeSemantic.find((entry) => entry.text?.includes("Aug 31"));
+assert.ok(resumeDetail, "Resume evidence includes its user-visible recency detail");
+resumeDetail.text = resumeDetail.text.replace("Aug 31", "Sep 1");
+const resumeComparison = compareSemanticArtifacts(semanticArtifact, resumeDateDrift);
+assert.match(resumeComparison.reasons.join("; "), /resume\|en\|light\|phone-390\|normal\|normal.*semantic\[7\]\.text expected/,
+  "Resume semantic drift reports the exact bounded field");
+const resumeCanonical = semanticArtifact.captures.find((capture) => capture.state === "resume" && capture.canonical);
+assert.deepEqual(resumeCanonical.semantic.find((entry) => entry.role === "status"), {
+  tag: "div", role: "status",
+  name: "Resume setup?You have an unfinished program setup on this device.Recommend · Priorities and constraints · Aug 31",
+}, "Resume keeps the intended user-visible status text and role");
 
 // A failed swap must roll back the old catalogue. This exercises the
 // filesystem transaction without launching Chromium or touching the committed
