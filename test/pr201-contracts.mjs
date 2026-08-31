@@ -149,6 +149,48 @@ test("shared setup validates executable progression parameters, not only their e
   assert.equal(result.issues.some((issue) => issue.includes("non_executable_parameters")), true);
 });
 
+test("future modifier data is opaque incompatibility provenance, never executable", () => {
+  const executable = previewState();
+  executable.result.preview.program[0].progression = {
+    schemaVersion: 1,
+    strategy: { id: "range", version: 1, params: {} },
+    modifiers: [{
+      id: "future-modifier", version: 1, compatibleStrategies: ["range@1"], params: {},
+      futureField: { authoredBy: "newer-writer" },
+    }],
+  };
+  assert.equal(Entry.normalizeSetupDraft(executable).ok, false);
+
+  const opaqueObject = previewState();
+  opaqueObject.result.preview.program[0].progressionIncompatibility = {
+    version: 1,
+    kind: "modifiers",
+    source: "program-json",
+    reason: "unknown_modifier",
+    value: { futureField: { authoredBy: "newer-writer", enabled: true } },
+  };
+  const objectResult = Entry.normalizeSetupDraft(opaqueObject);
+  assert.equal(objectResult.ok, true);
+  assert.deepEqual(objectResult.value.result.preview.program[0].progressionIncompatibility.value,
+    opaqueObject.result.preview.program[0].progressionIncompatibility.value);
+
+  const opaqueArray = previewState();
+  opaqueArray.result.preview.program[0].progressionIncompatibility = {
+    version: 1,
+    kind: "modifiers",
+    source: "program-json",
+    reason: "unknown_modifier",
+    value: [{ id: "future-modifier", futureField: { authoredBy: "newer-writer" } }],
+  };
+  assert.equal(Entry.normalizeSetupDraft(opaqueArray).ok, true);
+
+  const scalar = previewState();
+  scalar.result.preview.program[0].progressionIncompatibility = {
+    version: 1, kind: "modifiers", value: "future-modifier",
+  };
+  assert.equal(Entry.normalizeSetupDraft(scalar).ok, false);
+});
+
 test("entry vocabularies have one adapter authority and band is explicit-only", () => {
   assert.equal(Adapter.KNOWN_EQUIPMENT.includes("band"), true);
   assert.deepEqual(Adapter.KNOWN_CAPABILITIES, ["safe_pull", "training_support"]);

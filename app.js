@@ -6099,7 +6099,8 @@ function programEditorSnapshot(){
     daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
     programStructure:cloneSnapshot(preview.programStructure||null),
     progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
-    progressionModifiers:cloneSnapshot(preview.progressionModifiers||[])};
+    progressionModifiers:cloneSnapshot(preview.progressionModifiers||[]),
+    progressionIncompatibilities:cloneSnapshot(preview.progressionIncompatibilities||[])};
   return snapshot}
 function programEditorProgram(){
   if(!setupEditorOpen)return prog;
@@ -8116,12 +8117,17 @@ function importCandidate(draft){
     dayId:structureDays[index]?.dayId||label,label,
     exercises:program.filter(exercise=>exercise.day===label).map(cloneSnapshot),
   }));
+  const progressionIncompatibilities=Array.isArray(draft.meta?.progressionIncompatibilities)
+    ?cloneSnapshot(draft.meta.progressionIncompatibilities):[];
+  const progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers,{
+    preserveInvalid:true,incompatibilities:progressionIncompatibilities,source:"program-json"});
   return{
     program,
     days,
     programStructure:structure,
     progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
-    progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[]),
+    progressionModifiers,
+    progressionIncompatibilities,
     customExercises:candidateCustomExercises,
     source:"import",
     format:draft.format,
@@ -9270,6 +9276,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
   baseProposal.programMeta.progressionRelations=cloneSnapshot(preview?.progressionRelations||[]);
   baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
+  baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
   baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
   const activationDraftHandle=entryDraftHandle;
@@ -9323,6 +9330,8 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
+  meta.progressionIncompatibilities=Array.isArray(baseProposal?.programMeta?.progressionIncompatibilities)
+    ?cloneSnapshot(baseProposal.programMeta.progressionIncompatibilities):[];
   meta.programStructure=programStructure?cloneSnapshot(programStructure):
     (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
   proposal.programMeta=meta;
