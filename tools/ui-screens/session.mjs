@@ -138,10 +138,19 @@ export async function settle(page) {
     const cap = setTimeout(finish, 5000);
   }));
   await page.evaluate(async () => {
-    try { await document.fonts.ready; } catch {}
-    await Promise.all([...document.images]
+    // Every wait here is raced against a deadline. An image that never loads
+    // never settles decode(), and page.evaluate has no timeout of its own, so
+    // an unbounded wait hangs the whole run rather than failing one frame.
+    // The library deliberately ships 174 movements with no artwork, so this is
+    // the normal case, not a pathological one.
+    const deadline = (promise, ms) => Promise.race([
+      promise,
+      new Promise((resolve) => setTimeout(resolve, ms)),
+    ]);
+    await deadline(document.fonts.ready.catch(() => {}), 5000);
+    await deadline(Promise.all([...document.images]
       .filter((image) => !image.complete)
-      .map((image) => image.decode().catch(() => {})));
+      .map((image) => image.decode().catch(() => {}))), 3000);
     for (const animation of document.getAnimations()) {
       if (animation.effect?.getComputedTiming().iterations === Infinity) continue;
       try { animation.finish(); } catch {}
