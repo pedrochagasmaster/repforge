@@ -109,6 +109,26 @@ try {
   {
     const { context, page } = await openFresh(browser);
     await seedActiveProgram(page);
+    const obsoleteGlobals = await page.evaluate(() => ({
+      generateProgram: typeof window.generateProgramFromOnboarding,
+      switchBeginner: typeof window.switchToBeginnerProgram,
+      applyTemplate: typeof window.applyProgramTemplate,
+    }));
+    assert(Object.values(obsoleteGlobals).every((value) => value === "undefined"),
+      "obsolete program setup APIs are not public globals", JSON.stringify(obsoleteGlobals));
+    const existingProgram = await page.evaluate((key) => {
+      try {
+        const state = JSON.parse(localStorage.getItem(key) || "{}");
+        return { id: state.programMeta?.id, name: state.programMeta?.name, exercises: state.program?.length || 0 };
+      } catch {
+        return { id: null, name: null, exercises: 0 };
+      }
+    }, KEY);
+    await page.click("#startWorkout");
+    const existingWorkoutVisible = await page.locator("#workout .exercise").count() > 0;
+    assert(existingProgram.id === "active-prog" && existingProgram.exercises > 0 && existingWorkoutVisible,
+      "existing program remains usable without obsolete setup APIs", JSON.stringify({ existingProgram, existingWorkoutVisible }));
+    await page.click("#leaveWorkout");
     const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.evaluate(() => window.startOnboarding("settings"));
     await page.click('[data-entry-route="recommend"]');

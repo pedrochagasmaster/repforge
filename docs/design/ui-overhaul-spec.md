@@ -391,7 +391,7 @@ Restyle the existing 8-step wizard: top bar "Cancelar" (orange, exits to previou
 radio); "O QUE ISSO MUDA" label + one-liner under the options where the step has one;
 footer line "Já tenho um programa · Importar" (underlined "Importar" → program JSON
 import) on step 1; sticky bottom "Continuar" CTA (last step: existing finish label).
-Keep all steps, answers, and `generateProgramFromOnboarding` behavior. Back = "Cancelar"
+Keep all steps, answers, and Plan 048 compiler/activation behavior. Back = "Cancelar"
 on step 1, and a back affordance ("‹") on later steps.
 
 ### 3.8 Block review — mock `09-block-review.png`

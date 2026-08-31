@@ -1539,7 +1539,6 @@ const rowMuscles=row=>{
    switch leaves an existing program exactly as the lifter left it. Rows carry
    the seed key rather than a literal so the alternates keep keying off it. */
 const seedName=k=>t("seed.ex."+k);
-const seedNote=k=>t("seed.note."+k);
 const defaultAlternates={
   hack_or_pendulum_squat:["leg_press","pendulum_squat"],
   leg_press_45_quad:["hack_squat","belt_squat"],
@@ -1554,35 +1553,6 @@ const STARTER_ROWS=[
 const starterProgram=()=>STARTER_ROWS.map(x=>{
   const ex={id:uid(),day:x[0],order:x[1],name:seedName(x[2]),sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]};
   if(defaultAlternates[x[2]])ex.alternates=defaultAlternates[x[2]].map(seedName);
-  return ex});
-
-const BEGINNER_ROWS=[
-["Day 1",1,"leg_press_quad_focus",2,4,8,"Quads","Glutes,Adductors"],
-["Day 1",2,"seated_leg_curl",2,4,8,"Hamstrings",""],
-["Day 1",3,"chest_press_machine",2,4,8,"Chest","Front delts,Triceps"],
-["Day 1",4,"seated_row_machine",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],
-["Day 1",5,"lateral_raise_machine",2,6,8,"Side delts",""],
-["Day 1",6,"hip_adduction_machine",2,6,8,"Adductors",""],
-["Day 2",1,"leg_press_glute_focus",2,4,8,"Quads","Glutes,Adductors"],
-["Day 2",2,"romanian_deadlift_machine",2,4,8,"Hamstrings,Glutes","Spinal erectors"],
-["Day 2",3,"shoulder_press_machine",2,4,8,"Front delts","Side delts,Triceps"],
-["Day 2",4,"lat_pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],
-["Day 2",5,"chest_fly_machine",2,6,8,"Chest",""],
-["Day 2",6,"preacher_curl_machine",2,6,8,"Biceps",""],
-["Day 3",1,"leg_extension",2,6,8,"Quads",""],
-["Day 3",2,"leg_curl_machine",2,6,8,"Hamstrings",""],
-["Day 3",3,"chest_press_flat",2,4,8,"Chest","Front delts,Triceps"],
-["Day 3",4,"high_row_machine",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],
-["Day 3",5,"reverse_fly_machine",2,6,8,"Rear delts","Mid/upper back"],
-["Day 3",6,"triceps_pushdown",2,6,8,"Triceps",""]
-];
-const BEGINNER_ALTERNATES={
-  leg_press_quad_focus:["hack_squat_machine","pendulum_squat"],
-  lat_pulldown:["assisted_pull_up","neutral_grip_pulldown"]
-};
-const beginnerProgram=()=>BEGINNER_ROWS.map(x=>{
-  const ex={id:uid(),day:x[0],order:x[1],name:seedName(x[2]),sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7],notes:seedNote(x[2])};
-  if(BEGINNER_ALTERNATES[x[2]])ex.alternates=BEGINNER_ALTERNATES[x[2]].map(seedName);
   return ex});
 
 /* The single crossing from library entry to program template. Muscles and
@@ -1906,23 +1876,6 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
-function generateProgramFromOnboarding(answers){
-  const a=answers||{},equipment=a.equipment||[],experience=a.experience||"intermediate",goal=a.goal||"hypertrophy";
-  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[],dayOcc={},seen={};
-  dayTypes.forEach((dayType,di)=>{
-    const occ=seen[dayType]|0;seen[dayType]=occ+1;
-    const dayName=`Day ${di+1}`;dayOcc[dayName]=occ;
-    const slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
-    for(const slot of slots){
-      const entry=chooseExercise(slot,equipment,experience,usedIds,occ);if(!entry)continue;
-      usedIds.add(entry.id);order++;
-      const rs=repScheme(experience,goal,slot);
-      program.push({id:uid(),day:dayName,order,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-        primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
-  applyPriorityMuscles(program,a.priorityMuscles||[],equipment,experience);
-  applySessionLength(program,a.sessionLength||"normal",equipment,experience,dayOcc);
-  return program}
-
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
@@ -8281,18 +8234,6 @@ function openImportChoice(ctx){const d=$("#importChoice");
       if(result.localOk||result.idbOk){close();leaveSetupGates();render();toast(t("toast.merged_sessions",{n:result.added,sessions:tp(result.added,"session")}))}}
     finally{importBusy=false}}}
 function mergeLog(s){return mergeImportedLog(s)}
-
-function switchToBeginnerProgram(discardDraftRaw){return applyProgramTemplate(storageIO,{discardDraftRaw})}
-async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
-  requireAdapter(io,"applyProgramTemplate");
-  const replacementCapture=captureProgramReplacement(state);
-  const proposal=cloneSnapshot(state);
-  proposal.program=new Program(beginnerProgram()).toJSON();
-  proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
-  const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProgramReplacement(proposal,io,{capture:replacementCapture,effect});
-  if(result.localOk||result.idbOk){captureEvent("program_path_selected",{route:"browse"});captureEvent("program_activated",{route:"browse",version_category:"legacy_v1"});resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
-  return result}
 
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;

@@ -32,8 +32,8 @@ const MUSCLES = new Set([
 ]);
 const EQUIPMENT = new Set(["barbell", "dumbbell", "cable", "machine", "smith", "bodyweight"]);
 
-/* Every slot the program generator can ask a day for. A slot with no
-   candidates makes generateProgramFromOnboarding silently skip an exercise. */
+/* Every slot the Plan 048 compiler can ask a day for. A slot with no
+   candidates must be reported rather than silently skipping an exercise. */
 const GENERATOR_SLOTS = [
   "squat", "hinge", "press", "incline_press", "shoulder_press", "row", "pulldown",
   "pull", "delts", "lateral_raise", "rear_delt", "chest_iso", "arms", "curl",

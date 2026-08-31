@@ -227,8 +227,8 @@ partially built next slice.
    steps against `ROUTE_STEPS`, `validationIssues`, `advance`, and `back`. Own
    the `repforge_program_setup_draft_v1` key and call `normalizeSetupDraft`,
    `resumeSetupDraft`, `startOver`, and `updateTimestamp` for durable state.
-   Prefill from `migrateLegacyAnswers`; keep the legacy generator behind a
-   temporary compatibility flag only until the real compiler path passes.
+   Prefill from `migrateLegacyAnswers`; use the Plan 048 compiler path for
+   every supported setup route.
 2. **Recommend and common preview (Slice 3).** Swap the fixture `compile` for
    the real Plan 047 + Plan 046 path. Feed `setResult` with the compiled
    snapshot. Activate through the existing transition journal after
@@ -246,8 +246,9 @@ partially built next slice.
    structure; the manual editor offers only Plan 046 strategies. Route Import
    and shared setup through the same `preview` and activation path without
    changing released payload handling.
-6. **Legacy removal and hardening (Slice 7).** Remove `onbStep`, `onbAnswers`,
-   and the embedded legacy generator only after every gate below is green.
+6. **Legacy removal and hardening (Slice 7).** The obsolete `onbStep`,
+   `onbAnswers`, and embedded generator APIs are removed; retain only the
+   migration and import compatibility needed for existing data.
 
 ### Gates before legacy DOM removal
 
