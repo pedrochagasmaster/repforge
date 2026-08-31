@@ -761,6 +761,11 @@ function writeReadme(captured) {
     "and do not capture against an unseeded or partial install — designers need a stable,",
     "comparable pair. Appearance (System/Light/Dark) must be present in the running app.",
     "",
+    "Plan 048 entry evidence has a separate exact matrix. Read",
+    "[`program-entry-manifest.json`](program-entry-manifest.json) for the required states",
+    "and variants, then run `node tools/check-ui-screen-catalogue.mjs --report` to list",
+    "missing captures. The release gate is the same command without `--report`.",
+    "",
     `Captured ${new Date().toISOString().slice(0, 10)} · ${captured.size} screens × 2 themes.`,
     ""
   );

@@ -74,4 +74,10 @@ The script is the only supported way to refresh these images. Do not hand-edit t
 and do not capture against an unseeded or partial install — designers need a stable,
 comparable pair. Appearance (System/Light/Dark) must be present in the running app.
 
+Plan 048 entry evidence has a separate exact matrix. Read
+[`program-entry-manifest.json`](program-entry-manifest.json) for the required
+states and variants, then run
+`node tools/check-ui-screen-catalogue.mjs --report` to list missing captures.
+The release gate is the same command without `--report`.
+
 Captured 2026-08-30 · 35 screens × 2 themes.

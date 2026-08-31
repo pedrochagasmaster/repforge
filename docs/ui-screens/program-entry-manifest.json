@@ -1,0 +1,49 @@
+{
+  "schemaVersion": 1,
+  "name": "Plan 048 program-entry visual evidence",
+  "description": "The required light and dark, English and Brazilian Portuguese evidence set for every program-entry decision state.",
+  "artifactRoot": "docs/ui-screens/program-entry",
+  "artifactTemplate": "{state}/{locale}/{theme}/{viewport}--{text}--{motion}.png",
+  "deviceScaleFactor": 2,
+  "locales": ["en", "pt-BR"],
+  "themes": ["light", "dark"],
+  "viewports": {
+    "phone-320": { "width": 320, "height": 568, "kind": "phone", "label": "320 px phone" },
+    "phone-390": { "width": 390, "height": 844, "kind": "phone", "label": "normal phone" },
+    "desktop-1280": { "width": 1280, "height": 800, "kind": "desktop", "label": "desktop" }
+  },
+  "textScales": {
+    "normal": { "label": "normal text", "rootFontScale": 1 },
+    "large-200": { "label": "large text", "rootFontScale": 2 }
+  },
+  "motion": {
+    "normal": { "label": "motion enabled", "prefersReducedMotion": false },
+    "reduced": { "label": "reduced motion", "prefersReducedMotion": true }
+  },
+  "states": [
+    { "id": "hub", "label": "Entry hub", "route": "entry", "scenario": "First run or Program → Create a program. Show Recommend and Custom as primary choices, Browse as the lower-emphasis choice, and Bring or build my own with its collapsed disclosure.", "findings": ["U01", "U04"] },
+    { "id": "recommend-desired-result", "label": "Recommend 1 — desired result", "route": "recommend", "step": "desired_result", "scenario": "Recommend is selected. Show the route-specific header, Cancel, progress 1 of 5, and the three desired-result choices.", "findings": ["U02", "U04"] },
+    { "id": "recommend-background", "label": "Recommend 2 — training background", "route": "recommend", "step": "background", "scenario": "Show structured-program experience and recent six-week consistency. Do not show beginner, intermediate, or advanced self-ratings.", "findings": ["U02", "U04"] },
+    { "id": "recommend-schedule", "label": "Recommend 3 — real week", "route": "recommend", "step": "schedule", "scenario": "Show days per week, session-minute ceiling, and preferred rest in compact grouped rows.", "findings": ["U03", "U04"] },
+    { "id": "recommend-environment", "label": "Recommend 4 — environment", "route": "recommend", "step": "environment", "scenario": "Show environment shortcut choices with the capability correction disclosure closed.", "findings": ["U03", "U04"] },
+    { "id": "recommend-environment-correction", "label": "Recommend 4 — equipment correction", "route": "recommend", "step": "environment", "scenario": "Show the compact capability correction disclosure open. The selected shortcut and material capabilities are visible without a long inventory.", "findings": ["U03", "U04"] },
+    { "id": "recommend-priorities", "label": "Recommend 5 — priorities", "route": "recommend", "step": "priorities", "scenario": "Show zero, one, or two primary priorities and the optional movement and exercise-avoidance controls in compact grouped rows.", "findings": ["U03", "U04"] },
+    { "id": "recommend-avoidance-pain", "label": "Recommend 5 — avoidance and pain safety", "route": "recommend", "step": "priorities", "scenario": "Show one avoided exercise with the pain/discomfort reason selected, the required reason control, and conservative safety and substitution copy.", "findings": ["U03", "U04"] },
+    { "id": "recommend-result", "label": "Recommend — recommendation", "route": "recommend", "step": "result", "scenario": "Show one named primary recommendation, its factual Why it fits explanation, duration, priorities, progression, equipment assumptions, and a distinct See recommendation action.", "findings": ["U05", "U08"] },
+    { "id": "recommend-alternative", "label": "Recommend — genuine alternative", "route": "recommend", "step": "result", "scenario": "Show the primary recommendation and one materially different, valid close alternative. Do not show a score, reroll, or internal family identifier.", "findings": ["U05", "U08"] },
+    { "id": "custom-split", "label": "Custom — compatible split", "route": "custom", "step": "custom_shape", "scenario": "Show no more than two compiler-approved human split choices, the selected Taurifer default and rationale, and an explicit Generate program action.", "findings": ["U06"] },
+    { "id": "browse-catalogue", "label": "Browse — catalogue", "route": "browse", "step": "catalogue", "scenario": "Show only released, complete, executable, tested programs with purpose, frequency, duration, weekly structure, progression, equipment assumptions, and a specific mismatch where relevant.", "findings": ["U07", "U12"] },
+    { "id": "review-first-run", "label": "Review — first program", "route": "recommend", "step": "preview", "scenario": "Show the common review surface before first activation, including identity, source, day summaries, counts, assumptions, compromises, Edit before using, and Use this program.", "findings": ["U08"] },
+    { "id": "review-existing", "label": "Review — existing program", "route": "recommend", "step": "preview", "scenario": "Show the common review surface while an active program remains untouched, with the explicit Archive current program and use this one consequence.", "findings": ["U08"] },
+    { "id": "build-empty", "label": "Build — empty days", "route": "build", "step": "editor", "scenario": "Show a saved Build draft with real empty day containers, Add exercise controls, Save draft, and activation disabled with adjacent missing-exercise guidance.", "findings": ["U09"] },
+    { "id": "build-partial", "label": "Build — partial draft", "route": "build", "step": "editor", "scenario": "Show a Build draft with at least one populated day and at least one incomplete day. The current program remains active and activation stays disabled.", "findings": ["U09"] },
+    { "id": "build-ready", "label": "Build — activation-ready", "route": "build", "step": "editor", "scenario": "Show a complete manual Build draft with supported progression and the explicit activation action enabled.", "findings": ["U09", "U08"] },
+    { "id": "resume", "label": "Resume setup", "route": "entry", "scenario": "Open the resumable setup notice after reload. Show the route, semantic step, recency, Resume, and Start over in one coherent composition without the underlying route footer.", "findings": ["U10"] },
+    { "id": "rules-drift", "label": "Rules changed", "route": "entry", "scenario": "Resume a draft whose compiler or blueprint rules are stale. Keep the old preview readable and require explicit Rebuild with current rules before current-rule activation.", "findings": ["U10"] },
+    { "id": "replacement-confirm", "label": "Confirm program replacement", "route": "recommend", "step": "preview", "scenario": "Show the explicit confirmation that archives the current program without changing workout history. The candidate remains a draft until confirmation.", "findings": ["U08"] },
+    { "id": "import-source", "label": "Import — source", "route": "import", "step": "import_source", "scenario": "Show the bounded supported-file and setup-source entry surface before mutation. The active program and source remain untouched.", "findings": ["U11"] },
+    { "id": "import-review", "label": "Import — review", "route": "import", "step": "preview", "scenario": "Show mapped exercises, supported and manual progression states, provenance, and the common review and activation actions without implying replacement already happened.", "findings": ["U08", "U11"] },
+    { "id": "activation-conflict", "label": "Activation conflict", "route": "recommend", "step": "activation_conflict", "scenario": "Show the stale-draft conflict after another tab changed the active program. Explain that the newer program remains active and preserve the resumable candidate.", "findings": ["U08"] },
+    { "id": "validation-failure", "label": "Validation failure", "route": "build", "step": "editor", "scenario": "Show an invalid or incomplete Build candidate with adjacent, actionable validation errors and no activation path that falsely appears ready.", "findings": ["U09"] }
+  ]
+}

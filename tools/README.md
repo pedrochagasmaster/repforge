@@ -138,6 +138,26 @@ Seeds a stable three-day program with history, walks every primary surface in
 Light and Dark, and refreshes the folder README. Appearance must be present in
 the running app. Do not hand-edit the PNGs.
 
+## check-ui-screen-catalogue.mjs
+
+Checks the Plan 048 program-entry screenshot matrix declared in
+`docs/ui-screens/program-entry-manifest.json`. The manifest covers every
+required entry decision state in English and Brazilian Portuguese, both
+Appearance themes, 320 px and normal phone widths, desktop, large text, and
+reduced motion. Paths use the generated-art convention under
+`docs/ui-screens/program-entry/`.
+
+```bash
+node tools/check-ui-screen-catalogue.mjs --report  # list capture gaps
+node tools/check-ui-screen-catalogue.mjs          # release gate
+node tools/check-ui-screen-catalogue.mjs --json   # machine-readable report
+```
+
+The checker validates PNG dimensions against the manifest's 2× capture scale,
+paired locale/theme coverage, and unexpected files. `--report` is for an
+in-progress capture and keeps the process successful; the default fails on any
+gap.
+
 ## build-brand-mark.mjs
 
 Renders `assets/brand/mark.png`: the Taurifer yoke with no paper under it, at
