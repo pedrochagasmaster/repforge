@@ -23,6 +23,16 @@ const getBlueprint = (id) => Compiler.BLUEPRINTS.find((entry) => entry.id === id
 const shape = (id) => getBlueprint(id).days.map((entry) => entry.slots.map((slot) => slot.template).join(",")).join("|");
 const allSlots = (instance) => instance.days.flatMap((entry) => entry.slots);
 const owns = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
+const resolvedSlotContractIssues = (resolved, equipment) => {
+  const exercise = resolved.exercise;
+  const contract = resolved.contract;
+  return [
+    exercise.patterns.some((pattern) => contract.patterns.includes(pattern)) ? null : "movement pattern",
+    [...exercise.primaryMuscles, ...exercise.secondaryMuscles].some((muscle) =>
+      [...contract.primaryMuscles, ...contract.secondaryMuscles].includes(muscle)) ? null : "authored muscle intent",
+    equipment.includes(exercise.equipment) ? null : "equipment",
+  ].filter(Boolean);
+};
 
 const EXACT = {
   growth_2_v1: "knee_growth,horizontal_press,horizontal_pull,hamstring_assistance,lateral_delt,optional_arms|hinge_growth,vertical_pull,incline_press,quad_assistance,delt_mixed,optional_arms",
@@ -85,6 +95,21 @@ for (const familyId of Compiler.FAMILY_IDS) {
     assert.equal(first.days.length, frequency, `${familyId} ${frequency} day count`);
     assert.equal(new Set(first.days.map((entry) => entry.dayId)).size, frequency, `${familyId} ${frequency} stable day ids`);
     assert.equal(new Set(allSlots(first).map((entry) => entry.slotId)).size, allSlots(first).length, `${familyId} ${frequency} stable slot ids`);
+    const normalizedContext = Compiler.validateContext(context).value;
+    for (const resolved of allSlots(first)) {
+      assert.deepEqual(
+        resolvedSlotContractIssues(resolved, normalizedContext.equipment),
+        [],
+        `${resolved.slotId} resolves a movement, authored primary intent, and compatible equipment`,
+      );
+    }
+    for (const day of first.days) {
+      assert(
+        Compiler.estimateDaySeconds(day) <= normalizedContext.sessionMinutes * 60,
+        `${day.dayId} estimate stays within the session ceiling`,
+        `estimate=${Compiler.estimateDaySeconds(day)} ceiling=${normalizedContext.sessionMinutes * 60}`,
+      );
+    }
     assert.equal(first.weeks.length, 6);
     assert(first.weeks.every((week) => week.days.map((entry) => entry.dayId).join() === first.days.map((entry) => entry.dayId).join()), `${familyId} ${frequency} has no structural drift`);
     assert(!JSON.stringify(first).toLowerCase().includes("deload"), `${familyId} ${frequency} schedules no deload`);

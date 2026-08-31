@@ -7163,7 +7163,7 @@ async function main() {
     "production adapter compile with daysPerWeek=4"
   );
 
-  beginPhase("Phase: F4/F5 equipment fidelity and day-type rotation");
+  beginPhase("Phase: F4 compiler equipment and split support");
   await page.waitForFunction(
     () =>
       typeof window.__repforgeOnboarding?.services === "function" &&
@@ -7174,16 +7174,16 @@ async function main() {
   );
   const f45 = await page.evaluate(() => {
     const services = window.__repforgeOnboarding.services();
-    const generate = (legacyAnswers) => {
+    const compileMatrixCase = (matrixAnswers) => {
       const answers = {
-        desiredResult: legacyAnswers.goal === "strength" ? "strength" : "muscle_growth",
-        structuredExperience: legacyAnswers.experience === "beginner" ? "first" : "6_to_24m",
+        desiredResult: matrixAnswers.goal === "strength" ? "strength" : "muscle_growth",
+        structuredExperience: matrixAnswers.experience === "beginner" ? "first" : "6_to_24m",
         recentConsistency: "most",
-        daysPerWeek: legacyAnswers.daysPerWeek,
+        daysPerWeek: matrixAnswers.daysPerWeek,
         sessionMinutes: 60,
         preferredRestSeconds: 120,
-        environment: { kind: "commercial_gym", equipment: legacyAnswers.equipment, capabilities: ["safe_pull", "training_support"] },
-        primaryMuscles: (legacyAnswers.priorityMuscles || []).map((value) => String(value).toLowerCase()),
+        environment: { kind: "commercial_gym", equipment: matrixAnswers.equipment, capabilities: ["safe_pull", "training_support"] },
+        primaryMuscles: (matrixAnswers.priorityMuscles || []).map((value) => String(value).toLowerCase()),
         priorityMovements: [],
         exerciseConstraints: [],
       };
@@ -7215,8 +7215,6 @@ async function main() {
       { daysPerWeek: 5, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower", "upper"] },
       { daysPerWeek: 6, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull", "legs"] },
     ];
-    const FILLER_SLOTS = ["curl", "triceps", "lateral_raise", "chest_iso", "calves", "leg_curl"];
-    const SESSION_BOUNDS = { short: [4, 5], normal: [5, 7], long: [7, 9] };
     const MUSCLES = ["Chest", "Back", "Quads", "Hamstrings", "Glutes", "Side delts", "Arms", "Calves"];
     const visible = (rows) =>
       rows.map((e) => ({
@@ -7247,14 +7245,6 @@ async function main() {
             e.equipment.some((x) => equipment.includes(String(x).toLowerCase()))
         )
         .sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50) || a.id.localeCompare(b.id));
-    const pickFromSlot = (slot, equipment, used, occ) => {
-      const pool = slotPool(slot, equipment);
-      if (!pool.length) return null;
-      const n = pool.length;
-      const i = ((occ % n) + n) % n;
-      const rotated = pool.slice(i).concat(pool.slice(0, i)).filter((e) => !used.has(e.id));
-      return rotated[0] || null;
-    };
     // Mirrors dayTypeHasPrimary: a day type counts as supported only when at
     // least half its slots have candidates, not merely one.
     const dayHasPrimary = (dayType, equipment) => {
@@ -7265,37 +7255,6 @@ async function main() {
     };
     const splitSupported = (dayTypes, equipment) =>
       dayTypes.every((dt) => dayHasPrimary(dt, equipment));
-    const expectedFullDay = (dayType, equipment, occ, sessionLength) => {
-      const picks = [];
-      const used = new Set();
-      for (const slot of DAY_SLOTS[dayType] || []) {
-        const entry = pickFromSlot(slot, equipment, used, occ);
-        if (!entry) continue;
-        used.add(entry.id);
-        picks.push({ slot, id: entry.id, phase: "primary" });
-      }
-      let ids = picks.map((p) => p.id);
-      const [lo, hi] = SESSION_BOUNDS[sessionLength] || SESSION_BOUNDS.normal;
-      if (ids.length > hi) {
-        ids = ids.slice(0, hi);
-        picks.length = ids.length;
-      }
-      const have = new Set(ids);
-      while (ids.length < lo) {
-        let extra = null;
-        for (const slot of FILLER_SLOTS) {
-          const entry = pickFromSlot(slot, equipment, have, occ);
-          if (!entry) continue;
-          extra = { slot, id: entry.id, phase: "filler" };
-          break;
-        }
-        if (!extra) break;
-        have.add(extra.id);
-        ids.push(extra.id);
-        picks.push(extra);
-      }
-      return { ids, picks };
-    };
     const matchesEq = (ex, equipment) => {
       const entry = catalogById.get(ex.libraryId);
       if (!entry) return false;
@@ -7316,17 +7275,15 @@ async function main() {
       entryHook: !!(onb && typeof onb.entry === "function" && onb.setupDraftKey),
     };
     const failures = [];
-    // Product onboarding no longer exposes the retired generator. Fidelity is
-    // measured through the Plan 048 compiler service and stable browser seams.
+    // The equipment/split matrix remains a compatibility fixture; generated
+    // output is checked through the Plan 048 compiler service.
     const eqSubsets = subsets(EQ_UI);
     let checked = 0;
     let blocked = 0;
     let generated = 0;
     let supportParity = 0;
     let seqParity = 0;
-    let completeOk = 0;
-    let rotated = 0;
-    let reused = 0;
+    let structureOk = 0;
     let stable = 0;
     let priorityOk = 0;
     const prodSupports = window.__repforgeEquipmentSupportsSplit;
@@ -7354,15 +7311,14 @@ async function main() {
           priorityMuscles: [],
           sessionLength: "normal",
         };
-        const raw = generate(answers);
+        const raw = compileMatrixCase(answers);
         const days = byDay(raw);
         if (!ok) {
           blocked++;
-          // Blocking is the wizard's job — Continue stays disabled — not the
-          // generator's. Back when a day type was unsupported only if no slot
-          // at all could be filled, a blocked combo necessarily produced an
-          // empty day; now it produces a thin one. What has to hold is that
-          // the combo really is thin: some day type cannot fill half its slots.
+          // Unsupported combinations are rejected by the entry validation
+          // layer. Keep this matrix check focused on the compatibility oracle:
+          // every blocked combination must genuinely lack enough candidates for
+          // at least one authored day type.
           const thin = dayTypes.some((dt) => {
             const slots = DAY_SLOTS[dt] || [];
             const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
@@ -7377,24 +7333,19 @@ async function main() {
           continue;
         }
         if (days.some((d) => !d.length)) failures.push(`${label}: empty day`);
+        if (raw.every((exercise) => exercise.day && Number.isInteger(exercise.order) && exercise.order > 0)) structureOk++;
         for (const ex of raw) {
           if (!ex.libraryId || !matchesEq(ex, equipment)) {
             failures.push(`${label}: equipment-invalid ${ex.name} (${ex.libraryId})`);
             break;
           }
         }
-        let daysMatch = true;
-        days.forEach((day) => {
-          if (day.some((exercise) => !exercise.libraryId)) daysMatch = false;
-        });
-        if (daysMatch) completeOk++;
         const vis1 = JSON.stringify(visible(raw));
-        const vis2 = JSON.stringify(visible(generate(answers)));
+        const vis2 = JSON.stringify(visible(compileMatrixCase(answers)));
         if (vis1 !== vis2) failures.push(`${label}: unstable visible/library fields`);
         else stable++;
-        const withPri = generate({ ...answers, priorityMuscles: MUSCLES });
+        const withPri = compileMatrixCase({ ...answers, priorityMuscles: MUSCLES });
         const priDays = byDay(withPri);
-        const priNames = priDays.map((d) => d[0]?.day);
         if (priDays.length !== daysPerWeek) failures.push(`${label}: priority dropped a day`);
         let priBad = priDays.some((d) => !d.length);
         for (const ex of withPri) {
@@ -7410,7 +7361,7 @@ async function main() {
     const squatPool = slotPool("squat", ["machine"]);
     const usedAll = new Set(squatPool.map((e) => e.id));
     const exhausted = window.__repforgeChooseExercise("squat", ["machine"], "intermediate", usedAll, 0);
-    const skipPri = generate({
+    const skipPri = compileMatrixCase({
       goal: "hypertrophy",
       experience: "intermediate",
       daysPerWeek: 3,
@@ -7428,17 +7379,14 @@ async function main() {
       generated,
       supportParity,
       seqParity,
-      completeOk,
+      structureOk,
       optionParity,
-      rotated,
-      reused,
       stable,
       priorityOk,
       failures: failures.slice(0, 24),
       failureCount: failures.length,
       exhaustedIsNull: exhausted === null,
       addedLegExt: skipPri.some((e) => e.libraryId === "le_mc" || /leg extension/i.test(e.name)),
-      legacyBw: EQ_GEN.bodyweight === undefined && true,
       bwInUi: EQ_UI.includes("bodyweight"),
       eqUi: EQ_UI,
       entryHook: optionParity.entryHook,
@@ -7457,7 +7405,7 @@ async function main() {
   );
   assert(
     f45.subsetCount === 15 && f45.splitCount === 11 && f45.checked === 165,
-    "F4/F5: matrix covers every non-empty equipment subset and reachable split",
+    "F4: matrix covers every non-empty equipment subset and reachable split",
     JSON.stringify({ subsets: f45.subsetCount, splits: f45.splitCount, checked: f45.checked }),
     "4 equipment choices → 15 subsets × 11 fixtured split/day sequences"
   );
@@ -7475,25 +7423,25 @@ async function main() {
   );
   assert(
     f45.failureCount === 0 && f45.generated + f45.blocked === f45.checked && f45.generated > 0 && f45.blocked > 0,
-    "F4: every combo generates the fixtured day sequence or is independently unsupported",
+    "F4: every supported combo compiles non-empty days or is independently unsupported",
     `generated=${f45.generated} blocked=${f45.blocked} failures=${f45.failureCount} ${f45.failures.join(" | ")}`,
-    "Compiler-supported cases keep one non-empty day per requested frequency with equipment-valid libraryIds"
-  );
-  assert(
-    f45.completeOk === f45.generated,
-    "F5: every generated day's complete ordered libraryId sequence matches independent primary+filler filling",
-    `completeOk=${f45.completeOk} generated=${f45.generated} ${f45.failures.join(" | ")}`,
-    "Each compiler day has unique, catalogue-backed movement identities"
+    "Compiler-supported cases keep one non-empty day per requested frequency with equipment-compatible libraryIds"
   );
   assert(
     f45.stable === f45.generated && f45.priorityOk === f45.generated,
-    "F4/F5: supported combos are deterministic (excluding row ids) and keep equipment-valid priority additions",
+    "F4: supported compiler outputs are deterministic and keep equipment-valid priority additions",
     `stable=${f45.stable} priorityOk=${f45.priorityOk} generated=${f45.generated} ${f45.failures.join(" | ")}`,
-    "Two generations match visible/library fields; generated ids are unique"
+    "Two adapter compiles match visible/library fields; priority outputs remain equipment-valid"
+  );
+  assert(
+    f45.structureOk === f45.generated,
+    "F4: supported compiler outputs retain explicit day and order structure",
+    `structureOk=${f45.structureOk} generated=${f45.generated}`,
+    "Every projected exercise carries a non-empty day and positive authored order"
   );
   assert(
     f45.exhaustedIsNull && !f45.addedLegExt,
-    "F5: exhausted catalogue pools stay empty and unavailable priorities are skipped",
+    "F4: exhausted catalogue pools stay empty and unavailable priorities are skipped",
     `exhaustedIsNull=${f45.exhaustedIsNull} addedLegExt=${f45.addedLegExt} ${f45.failures.join(" | ")}`,
     "chooseExercise returns null when the within-day pool is empty; compiler priority stays equipment-valid"
   );
