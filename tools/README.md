@@ -127,10 +127,9 @@ is that drawing's paper.
 
 ## capture-ui-screens.mjs
 
-Rewrites `docs/ui-screens/{light,dark}/` — the exhaustive phone-frame catalog
-UI and Brand Designers use as the visual source of truth for both Appearance
-themes. Agents must re-run it whenever a user-visible surface changes (see
-`AGENTS.md` and `docs/ui-screens/README.md`).
+Rewrites `docs/ui-screens/screens/` — the phone-frame catalog UI and Brand
+Designers use as the visual source of truth. Agents must re-run it whenever a
+user-visible surface changes (see `AGENTS.md` and `docs/ui-screens/README.md`).
 
 ```bash
 python3 -m http.server 8000
@@ -138,94 +137,85 @@ python3 -m http.server 8000
 node tools/capture-ui-screens.mjs
 ```
 
-Seeds a stable three-day program with history, walks every primary surface in
-Light and Dark, and refreshes the folder README. Appearance must be present in
-the running app. Do not hand-edit the PNGs.
+The screen list, the variant matrix and every output path come from
+`docs/ui-screens/manifest.json`. Each screen names a scenario in
+`tools/ui-screens/screens-app.mjs` or `tools/ui-screens/screens-onboarding.mjs`
+that drives the real controls; nothing renders a fixture. Every capture gets an
+isolated context with service workers blocked, a pinned clock, locale and
+timezone, so a previously installed shell can never serve stale code into the
+evidence.
 
-## check-ui-screen-catalogue.mjs
+The catalog is **mobile only** — the manifest rejects a non-phone viewport.
+Onboarding is covered state by state across every route in `ROUTE_STEPS`, not
+just each route's entrance, and onboarding frames also record a normalized
+semantic snapshot (`docs/ui-screens/entry-semantics.json`) so a copy or role
+change is caught without depending on glyph pixels.
 
-Checks the Plan 048 program-entry screenshot matrix declared in
-`docs/ui-screens/program-entry-manifest.json`. The manifest covers every
-required entry decision state in English and Brazilian Portuguese, both
-Appearance themes, 320 px and normal phone widths, desktop, large text, and
-reduced motion. Paths use the generated-art convention under
-`docs/ui-screens/program-entry/`.
-
-```bash
-node tools/check-ui-screen-catalogue.mjs --report  # list capture gaps
-node tools/check-ui-screen-catalogue.mjs          # release gate
-node tools/check-ui-screen-catalogue.mjs --json   # machine-readable report
-```
-
-The checker validates PNG dimensions against the manifest's 2× capture scale,
-paired locale/theme coverage, unexpected files, and the committed semantic
-snapshot `docs/ui-screens/program-entry-semantic.json`. The snapshot must have
-one non-empty normalized record for every manifest capture. `--report` is for
-an in-progress capture and keeps the process successful; the default fails on
-any gap.
-
-The manifest self-test runs with:
+Options:
 
 ```bash
-node test/ui-screen-catalogue.mjs
+node tools/capture-ui-screens.mjs --flow onboarding-build   # one flow
+node tools/capture-ui-screens.mjs --screen today/day-picker # one screen
+node tools/capture-ui-screens.mjs --canonical               # one frame each
+node tools/capture-ui-screens.mjs --keep-going              # report, don't abort
 ```
 
-## compare-ui-screen-catalogue.mjs
+A filtered run merges into a copy of the committed catalog, so the folder on
+disk stays complete. Nothing replaces committed evidence until every requested
+capture succeeds. Do not hand-edit the PNGs.
 
-Compares regenerated Plan 048 program-entry evidence with an immutable copy of
-the committed catalogue. CI makes that copy before the one canonical capture
-invocation, then runs the structural checker and this comparator. The
-comparator walks every manifest-declared PNG, requires the baseline and
-regenerated dimensions to match the manifest exactly, and compares a fixed
-96×128 sample grid using colour, luminance-edge, and luminance-histogram
-features. It also compares the normalized semantic snapshots exactly, so
-visible copy, roles, labels, and control state changes are caught without
-depending on native glyph pixels.
+## check-ui-screens.mjs
+
+The registration gate. Fails when a registered frame is missing, an
+unregistered PNG is sitting in the tree, a screen has no capture scenario, a
+scenario is not in the manifest, or a frame was captured at the wrong pixel
+size.
+
+```bash
+node tools/check-ui-screens.mjs           # release gate
+node tools/check-ui-screens.mjs --report  # list gaps, exit 0
+```
+
+## compare-ui-screens.mjs
+
+Compares a regenerated catalog with an immutable copy of the committed one. CI
+makes that copy, captures, runs the registration gate, then runs this. The
+comparator walks **every** manifest-declared PNG — not one favoured subtree —
+requires dimensions to match the manifest exactly, and compares a fixed 96×128
+sample grid using colour, luminance-edge, and luminance-histogram features. It
+also compares the normalized semantic snapshots exactly.
 
 PNG bytes are intentionally not compared: Chromium font rasterisation and
 anti-aliasing can differ between hosted runners while the rendered UI remains
 the same. A cell counts as changed only above an 8% colour delta; the default
 gate rejects broad changes (more than 4.5% of cells or a 3.5% mean colour
 delta), coordinated edge changes, and a 16% luminance-histogram delta. The
-thresholds are covered by the catalogue self-test, which proves small
-deterministic pixel noise passes while a broad panel/content change and any
+thresholds are covered by the self-test, which proves small deterministic pixel
+noise passes while a broad panel/content change, a layout shift and any
 dimension drift fail.
 
 ```bash
 baseline="$(mktemp -d)"
-cp -a docs/ui-screens/program-entry "$baseline/"
-cp -a docs/ui-screens/program-entry-semantic.json "$baseline/"
+cp -a docs/ui-screens/screens "$baseline/"
+cp -a docs/ui-screens/entry-semantics.json "$baseline/"
 chmod -R a-w "$baseline"
 cleanup() {
   chmod -R u+w -- "$baseline" 2>/dev/null || true
   rm -rf -- "$baseline"
 }
 trap cleanup EXIT
-node tools/capture-program-entry-catalogue.mjs
-node tools/check-ui-screen-catalogue.mjs
-node tools/compare-ui-screen-catalogue.mjs \
-  --baseline "$baseline/program-entry" \
-  --baseline-semantic "$baseline/program-entry-semantic.json"
+node tools/capture-ui-screens.mjs
+node tools/check-ui-screens.mjs
+node tools/compare-ui-screens.mjs \
+  --baseline "$baseline/screens" \
+  --baseline-semantic "$baseline/entry-semantics.json"
 ```
 
-## capture-program-entry-catalogue.mjs
-
-Drives the production program-entry UI through the explicit captures in the
-Plan 048 manifest and writes their PNGs under
-`docs/ui-screens/program-entry/` plus the normalized semantic snapshot
-`docs/ui-screens/program-entry-semantic.json`. Those evidence artifacts are
-replaced together after every capture succeeds. It blocks service workers so
-an old cached script cannot affect the evidence, and seeds only the supported
-production state shape. Serve this worktree before running it:
+The manifest, gate and comparator self-test runs with:
 
 ```bash
-python3 -m http.server 8000
-node tools/capture-program-entry-catalogue.mjs
+node test/ui-screens.mjs
 ```
-
-Set `CAPTURE_FILTER=<state-id>` to rerun one state while preserving the other
-captures. The script is a capture tool, not a fixture renderer: every image is
-produced by Chromium rendering the real application.
 
 ## build-brand-mark.mjs
 

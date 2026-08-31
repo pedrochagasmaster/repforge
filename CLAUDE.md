@@ -71,7 +71,7 @@ depend on them. Full inventory in `AGENTS.md` and `docs/brand-guide.md`.
 | --- | --- |
 | `docs/backlog.md` | The single canonical ordered queue (Now / Next / Gated / Later / Evidence only) |
 | `docs/adr/` | Architecture decision records |
-| `docs/ui-screens/{light,dark}/` | Exhaustive phone-frame catalog — the visual source of truth, regenerated on every user-visible change |
+| `docs/ui-screens/screens/` | Mobile phone-frame catalog (66 screens incl. every onboarding state) — the visual source of truth, regenerated on every user-visible change; declared in `docs/ui-screens/manifest.json` |
 | `docs/agents/` | Issue tracker = GitHub issues in `pedrochagasmaster/repforge` via `gh`; triage label map; domain-doc layout |
 | `docs/design/`, `docs/brand-guide.md` | Design specs and brand voice/visual rules |
 | `plans/NNN-*.md` | Bounded implementation/audit plans — **not a roadmap**. Most are already implemented and kept as design/regression history; their file/line anchors describe the commit they were written at. Check drift and current governing decisions before executing an old one. State table in `plans/README.md`; Plan 044 is the active contract. |
@@ -141,8 +141,9 @@ test/generative/*/*.mjs`.
   lockstep.
 - **UI screen catalog** — any change to a user-visible surface (layout, palette, on-screen copy,
   sheets, first-run, install UI, new view) must be followed by
-  `node tools/capture-ui-screens.mjs` (app served on `REPFORGE_URL`), committing both
-  `light/` and `dark/` PNGs with the change. Never hand-edit the PNGs.
+  `node tools/capture-ui-screens.mjs` (app served on `REPFORGE_URL`), committing the refreshed
+  PNGs with the change. Screens and variants are declared in `docs/ui-screens/manifest.json`;
+  the catalog is mobile-only, and CI fails on drift across the whole tree. Never hand-edit the PNGs.
 - **Exercise illustrations** — the 96 `.webp` set is closed. The other 174 movements render a
   deliberately empty tile; do not fill it with icons/initials/silhouettes. `MEDIA_IDS` in
   `tools/build-exercises.mjs` is the allowlist; a file without a listing (or vice versa) fails

@@ -66,9 +66,13 @@ jobs:
         env:
           REPFORGE_URL: http://localhost:8000/
         run: |
+          # Copy the committed catalog somewhere immutable, regenerate it from
+          # the app, then diff the two. The whole catalog is compared, not one
+          # subtree: a screen that drifts must fail the build, not sit stale in
+          # docs/ while CI stays green.
           baseline="$(mktemp -d)"
-          cp -a docs/ui-screens/program-entry "$baseline/"
-          cp -a docs/ui-screens/program-entry-semantic.json "$baseline/"
+          cp -a docs/ui-screens/screens "$baseline/"
+          cp -a docs/ui-screens/entry-semantics.json "$baseline/"
           chmod -R a-w "$baseline"
           cleanup() {
             chmod -R u+w -- "$baseline" 2>/dev/null || true
@@ -76,9 +80,8 @@ jobs:
           }
           trap cleanup EXIT
           node tools/capture-ui-screens.mjs
-          node tools/capture-program-entry-catalogue.mjs
-          node tools/check-ui-screen-catalogue.mjs
-          node tools/compare-ui-screen-catalogue.mjs --baseline "$baseline/program-entry" --baseline-semantic "$baseline/program-entry-semantic.json"
+          node tools/check-ui-screens.mjs
+          node tools/compare-ui-screens.mjs --baseline "$baseline/screens" --baseline-semantic "$baseline/entry-semantics.json"
 
       - name: Upload UI evidence
         uses: actions/upload-artifact@v4
@@ -112,7 +115,7 @@ jobs:
       - name: Syntax check runtime and test JS
         run: |
           node tools/check-production-syntax.mjs
-          for f in test/*.mjs test/generative/*/*.mjs; do
+          for f in test/*.mjs test/generative/*/*.mjs tools/*.mjs tools/ui-screens/*.mjs; do
             node --check "$f" || exit 1
           done
 
@@ -128,7 +131,7 @@ jobs:
           node test/program-entry-production-adapter.mjs
           node test/program-compiler-plan048-preferences.mjs
           node test/pr201-contracts.mjs
-          node test/ui-screen-catalogue.mjs
+          node test/ui-screens.mjs
 
       - name: Start static server
         run: python3 -m http.server 8000 &
