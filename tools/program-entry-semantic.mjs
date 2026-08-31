@@ -5,10 +5,55 @@
  */
 
 export const SEMANTIC_SCHEMA_VERSION = 1;
+const GENERATED_ID = "<generated-id>";
+
+function normalizeWhitespace(value) {
+  return String(value ?? "").replace(/\s+/g, " ").trim();
+}
+
+function normalizeProgramIds(value) {
+  if (Array.isArray(value)) return value.map(normalizeProgramIds);
+  if (!value || typeof value !== "object") return value;
+  return Object.fromEntries(Object.entries(value).map(([key, child]) => [
+    key,
+    key === "id" && typeof child === "string" ? GENERATED_ID : normalizeProgramIds(child),
+  ]));
+}
+
+/**
+ * Normalize technical IDs in the visible raw-program editor value. The
+ * editor's IDs identify local exercise rows; names, library provenance, and
+ * every other user-visible program field remain part of the evidence.
+ */
+export function normalizeSemanticValue(value) {
+  const text = normalizeWhitespace(value);
+  try {
+    return normalizeWhitespace(JSON.stringify(normalizeProgramIds(JSON.parse(text))));
+  } catch {
+    return text;
+  }
+}
 
 export function collectProgramEntrySemantics() {
   const excluded = new Set(["toast", "restAnnounce", "announcementHost"]);
-  const normalise = (value) => String(value || "").replace(/\s+/g, " ").trim();
+  const generatedId = "<generated-id>";
+  const normalise = (value) => String(value ?? "").replace(/\s+/g, " ").trim();
+  const normalizeProgramIdsInPage = (value) => {
+    if (Array.isArray(value)) return value.map(normalizeProgramIdsInPage);
+    if (!value || typeof value !== "object") return value;
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [
+      key,
+      key === "id" && typeof child === "string" ? generatedId : normalizeProgramIdsInPage(child),
+    ]));
+  };
+  const normalizeProgramJsonInPage = (value) => {
+    const text = normalise(value);
+    try {
+      return normalise(JSON.stringify(normalizeProgramIdsInPage(JSON.parse(text))));
+    } catch {
+      return text;
+    }
+  };
   const isVisible = (element) => {
     if (!(element instanceof Element) || element.hidden) return false;
     if (excluded.has(element.id) || element.closest("#toast, #restAnnounce, #announcementHost, .visually-hidden, [aria-hidden=\"true\"]")) return false;
@@ -55,7 +100,9 @@ export function collectProgramEntrySemantics() {
     if ("disabled" in element && element.disabled) record.disabled = true;
     if ("checked" in element && element.checked) record.checked = true;
     if ("selected" in element && element.selected) record.selected = true;
-    if ("value" in element && normalise(element.value)) record.value = normalise(element.value);
+    if (/^(input|option|select|textarea)$/.test(tag) && "value" in element && normalise(element.value)) {
+      record.value = element.id === "programJson" ? normalizeProgramJsonInPage(element.value) : normalise(element.value);
+    }
     if (element.hasAttribute("type")) record.type = normalise(element.getAttribute("type"));
     if (Object.keys(record).length > 1) rows.push(record);
   }

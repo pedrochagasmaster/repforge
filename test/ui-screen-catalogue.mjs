@@ -2,13 +2,13 @@
 /** Self-test for the explicit Plan 048 screenshot manifest and evidence gate. */
 import assert from "node:assert/strict";
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
-import { join, resolve } from "node:path";
+import { basename, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { deflateSync } from "node:zlib";
 import { replaceCatalogue, replaceEvidence } from "../tools/capture-program-entry-catalogue.mjs";
 import { compareCatalogue, comparePngBuffers } from "../tools/compare-ui-screen-catalogue.mjs";
-import { compareSemanticArtifacts, validateSemanticArtifact } from "../tools/program-entry-semantic.mjs";
+import { compareSemanticArtifacts, normalizeSemanticValue, validateSemanticArtifact } from "../tools/program-entry-semantic.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-entry-manifest.json"), "utf8"));
@@ -89,6 +89,22 @@ assert.equal(semanticValidation.ok, true, `all 60 captures have semantic evidenc
 assert.equal(semanticArtifact.captures.length, 60, "the semantic baseline has one entry for each capture");
 assert.equal(semanticArtifact.captures.some((capture) => capture.semantic.some((entry) => entry.text === "Unavailable with your current choices")), false,
   "semantic evidence excludes visually hidden helper copy");
+assert.equal(semanticArtifact.captures.some((capture) => capture.semantic.some((entry) => entry.tag === "li" && "value" in entry)), false,
+  "semantic evidence excludes default technical values from non-form elements");
+
+const generatedProgramA = '[{"id":"4c79f129-740b-4295-97d8-1c4112314ab2","name":"Assisted pull-up","libraryId":"pd_bw"}]';
+const generatedProgramB = '[{"id":"7fbad21b-1cb9-4109-9157-c968dc67bf38","name":"Assisted pull-up","libraryId":"pd_bw"}]';
+assert.equal(normalizeSemanticValue(generatedProgramA), normalizeSemanticValue(generatedProgramB),
+  "semantic normalization ignores generated program row IDs between captures");
+assert.notEqual(normalizeSemanticValue(generatedProgramA), normalizeSemanticValue(generatedProgramA.replace("Assisted pull-up", "Barbell row")),
+  "semantic normalization keeps meaningful program content changes");
+for (const state of ["build-partial", "build-ready"]) {
+  const capture = semanticArtifact.captures.find((item) => item.state === state && item.canonical);
+  const programJson = capture?.semantic.find((entry) => entry.name === "Program JSON")?.value;
+  assert.ok(programJson, `${state} captures the visible Program JSON value`);
+  assert.doesNotMatch(programJson, /[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}/i,
+    `${state} semantic evidence excludes generated row IDs`);
+}
 
 const semanticCopyDrift = JSON.parse(JSON.stringify(semanticArtifact));
 const semanticTextEntry = semanticCopyDrift.captures[0].semantic.find((entry) => entry.text);
@@ -143,6 +159,33 @@ assert.match(semanticCopyComparison.reasons.join("; "), /semantic text\/state ch
   assert.equal(readFileSync(semanticTarget, "utf8"), "old-semantic");
   assert.equal(existsSync(semanticStaging), true);
   assert.equal(readFileSync(semanticStaging, "utf8"), "new-semantic");
+  rmSync(root, { recursive: true, force: true });
+}
+
+// Cleanup failures after both evidence renames must not roll back asymmetrically.
+// The new pair is already committed; the failed backup removal may be retried
+// later, but it must not discard either newly installed artifact.
+{
+  const root = mkdtempSync(join(tmpdir(), "repforge-semantic-cleanup-test-"));
+  const target = join(root, "program-entry");
+  const staging = join(root, "staging");
+  const semanticTarget = join(root, "program-entry-semantic.json");
+  const semanticStaging = join(root, "semantic-staging.json");
+  const backupSemantic = `${semanticTarget}.backup-${basename(staging)}`;
+  mkdirSync(target); mkdirSync(staging);
+  writeFileSync(join(target, "old.png"), "old");
+  writeFileSync(join(staging, "new.png"), "new");
+  writeFileSync(semanticTarget, "old-semantic");
+  writeFileSync(semanticStaging, "new-semantic");
+  assert.doesNotThrow(() => replaceEvidence(staging, target, semanticStaging, semanticTarget, {
+    remove(path, options) {
+      if (path === backupSemantic) throw new Error("injected semantic-backup cleanup failure");
+      rmSync(path, options);
+    },
+  }));
+  assert.equal(readFileSync(join(target, "new.png"), "utf8"), "new");
+  assert.equal(readFileSync(semanticTarget, "utf8"), "new-semantic");
+  assert.equal(readFileSync(backupSemantic, "utf8"), "old-semantic");
   rmSync(root, { recursive: true, force: true });
 }
 assert.equal(report.present, 60);

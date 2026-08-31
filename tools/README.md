@@ -194,6 +194,7 @@ dimension drift fail.
 ```bash
 baseline="$(mktemp -d)"
 cp -a docs/ui-screens/program-entry "$baseline/"
+cp -a docs/ui-screens/program-entry-semantic.json "$baseline/"
 chmod -R a-w "$baseline"
 node tools/capture-program-entry-catalogue.mjs
 node tools/check-ui-screen-catalogue.mjs

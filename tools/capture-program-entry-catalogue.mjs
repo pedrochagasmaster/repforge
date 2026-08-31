@@ -280,14 +280,21 @@ function replaceEvidence(stagingRoot, targetRoot, semanticStaging, semanticTarge
     if (exists(semanticTarget)) { rename(semanticTarget, backupSemantic); movedSemantic = true; }
     rename(stagingRoot, targetRoot); installed = true;
     rename(semanticStaging, semanticTarget); installedSemantic = true;
-    if (movedExisting) remove(backupRoot, { recursive: true, force: true });
-    if (movedSemantic) remove(backupSemantic, { force: true });
   } catch (error) {
     if (installedSemantic && exists(semanticTarget)) remove(semanticTarget, { force: true });
     if (installed && exists(targetRoot)) remove(targetRoot, { recursive: true, force: true });
     if (movedSemantic && exists(backupSemantic)) rename(backupSemantic, semanticTarget);
     if (movedExisting && exists(backupRoot)) rename(backupRoot, targetRoot);
     throw error;
+  }
+  // The new pair is committed once both renames succeed. Cleanup is best
+  // effort so a failure here cannot enter rollback after one backup was
+  // removed and leave the old PNG and semantic artifacts asymmetric.
+  if (movedExisting) {
+    try { remove(backupRoot, { recursive: true, force: true }); } catch {}
+  }
+  if (movedSemantic) {
+    try { remove(backupSemantic, { force: true }); } catch {}
   }
 }
 

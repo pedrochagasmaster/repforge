@@ -4065,7 +4065,7 @@
         {
           "tag": "textarea",
           "name": "Program JSON",
-          "value": "[ { \"id\": \"1a630ac3-62a9-4891-b63b-6027dc94bb1b\", \"day\": \"Day 1\", \"order\": 1, \"name\": \"Assisted pull-up\", \"sets\": 3, \"min\": 6, \"max\": 10, \"primary\": \"Lats\", \"secondary\": \"Biceps,Forearms\", \"notes\": \"\", \"alternates\": [], \"libraryId\": \"pd_bw\" } ]"
+          "value": "[{\"id\":\"<generated-id>\",\"day\":\"Day 1\",\"order\":1,\"name\":\"Assisted pull-up\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Lats\",\"secondary\":\"Biceps,Forearms\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"pd_bw\"}]"
         },
         {
           "tag": "button",
@@ -4819,7 +4819,7 @@
         {
           "tag": "textarea",
           "name": "Program JSON",
-          "value": "[ { \"id\": \"5ef88c97-0100-492c-ba3b-7af34946051d\", \"day\": \"Day 1\", \"order\": 1, \"name\": \"Assisted pull-up\", \"sets\": 3, \"min\": 6, \"max\": 10, \"primary\": \"Lats\", \"secondary\": \"Biceps,Forearms\", \"notes\": \"\", \"alternates\": [], \"libraryId\": \"pd_bw\" }, { \"id\": \"f9c62f7e-d01e-4fed-963f-8065cbbf0366\", \"day\": \"Day 2\", \"order\": 1, \"name\": \"Barbell back squat\", \"sets\": 3, \"min\": 6, \"max\": 10, \"primary\": \"Quads\", \"secondary\": \"Glutes,Hamstrings,Calves\", \"notes\": \"\", \"alternates\": [], \"libraryId\": \"sq_bb\" }, { \"id\": \"e0f0653a-97c6-4c26-9a3f-862ff304803b\", \"day\": \"Day 3\", \"order\": 1, \"name\": \"Barbell back squat\", \"sets\": 3, \"min\": 6, \"max\": 10, \"primary\": \"Quads\", \"secondary\": \"Glutes,Hamstrings,Calves\", \"notes\": \"\", \"alternates\": [], \"libraryId\": \"sq_bb\" } ]"
+          "value": "[{\"id\":\"<generated-id>\",\"day\":\"Day 1\",\"order\":1,\"name\":\"Assisted pull-up\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Lats\",\"secondary\":\"Biceps,Forearms\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"pd_bw\"},{\"id\":\"<generated-id>\",\"day\":\"Day 2\",\"order\":1,\"name\":\"Barbell back squat\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_bb\"},{\"id\":\"<generated-id>\",\"day\":\"Day 3\",\"order\":1,\"name\":\"Barbell back squat\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_bb\"}]"
         },
         {
           "tag": "button",
@@ -10597,87 +10597,87 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Criar programa"
         },
         {
           "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
           "tag": "div",
-          "text": "Recommend"
+          "text": "Recomendação"
         },
         {
           "tag": "p",
-          "text": "Section 5 of 5",
+          "text": "Seção 5 de 5",
           "aria-live": "polite"
         },
         {
           "tag": "h2",
-          "text": "Recommended program",
+          "text": "Programa recomendado",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "As mesmas respostas e regras sempre produzem o mesmo resultado."
         },
         {
           "tag": "h3",
-          "text": "Muscle + Strength"
+          "text": "Massa + força"
         },
         {
           "tag": "p",
-          "text": "Why it fits"
+          "text": "Por que combina com você"
         },
         {
           "tag": "li",
-          "text": "You chose Balance muscle and strength."
+          "text": "Você escolheu Equilibrar massa e força."
         },
         {
           "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
+          "text": "Cabe em 3 dias, com sessões limitadas a 60 minutos."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Considera sua estrutura de Academia comercial completa."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Os equipamentos disponíveis incluem Barra, Halteres, Máquina, Cabo, Smith."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progressão: Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Recommended program",
-          "label": "Recommended program"
+          "name": "Programa recomendado",
+          "label": "Programa recomendado"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Review this programMuscle + Strength · 3 days · about 49–55 minutes",
+          "name": "Revisar este programaMassa + força · 3 dias · cerca de 49–55 minutos",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Review this program"
+          "text": "Revisar este programa"
         },
         {
           "tag": "span",
-          "text": "Muscle + Strength · 3 days · about 49–55 minutes"
+          "text": "Massa + força · 3 dias · cerca de 49–55 minutos"
         },
         {
           "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
           "type": "button"
         }
       ]
