@@ -1,9 +1,6 @@
 (function (root) {
   "use strict";
 
-  const vocabulary = root?.RepForgeProgramEntryAdapter ||
-    (typeof require === "function" ? (() => { try { return require("./program-entry-adapter.js"); } catch {} })() : null);
-
   const SCHEMA_VERSION = 1;
   const CONTEXT_SCHEMA_VERSION = 1;
   const MAX_CONTEXT_BYTES = 16384;
@@ -16,20 +13,25 @@
   const MAX_LIST_LENGTH = 32;
   const MAX_MUSCLE_CONTROLS = 10;
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-  if (!vocabulary) throw new Error("Program-entry vocabulary unavailable");
-  const KNOWN_EQUIPMENT = new Set(vocabulary.KNOWN_EQUIPMENT);
-  const KNOWN_CAPABILITIES = new Set(vocabulary.KNOWN_CAPABILITIES);
-  const ENTRY_MUSCLES = new Set(vocabulary.ENTRY_MUSCLES);
-  const ENTRY_MOVEMENTS = new Set(vocabulary.ENTRY_MOVEMENTS);
+  // These closed entry-domain vocabularies belong to the pure contract. The
+  // production adapter consumes them; keeping ownership here preserves the
+  // dependency-free direction of this module.
+  const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
+  const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
+  const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
+  const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "row", "pulldown"]);
+  const KNOWN_EQUIPMENT_SET = new Set(KNOWN_EQUIPMENT);
+  const KNOWN_CAPABILITIES_SET = new Set(KNOWN_CAPABILITIES);
+  const ENTRY_MUSCLES_SET = new Set(ENTRY_MUSCLES);
+  const ENTRY_MOVEMENTS_SET = new Set(ENTRY_MOVEMENTS);
   const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
   const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
   const SESSION_MINUTES = new Set([30, 45, 60, 75, 90]);
   const PREFERRED_REST_SECONDS = new Set([null, 60, 90, 120, 180]);
-  // These closed vocabularies are owned by the adapter. Keep the pure module
-  // on the same frozen source so accepted state cannot drift from the UI.
-  const ENVIRONMENTS = vocabulary.ENTRY_ENVIRONMENTS;
-  const CONSTRAINT_REASONS = vocabulary.CONSTRAINT_REASONS;
+  const ENTRY_ENVIRONMENTS = Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]);
+  const ENVIRONMENTS = new Set(ENTRY_ENVIRONMENTS);
+  const CONSTRAINT_REASONS = Object.freeze(["dislike", "pain", "equipment", "other"]);
   const VERSION_KEYS = Object.freeze([
     "compiler",
     "family",
@@ -244,11 +246,11 @@
   }
 
   function normalizeMuscleList(value, path, issues, maxLength) {
-    return normalizeVocabularyList(value, path, issues, maxLength, ENTRY_MUSCLES, "muscle");
+    return normalizeVocabularyList(value, path, issues, maxLength, ENTRY_MUSCLES_SET, "muscle");
   }
 
   function normalizeMovementList(value, path, issues, maxLength) {
-    return normalizeVocabularyList(value, path, issues, maxLength, ENTRY_MOVEMENTS, "movement");
+    return normalizeVocabularyList(value, path, issues, maxLength, ENTRY_MOVEMENTS_SET, "movement");
   }
 
   function normalizeStrategyList(value, path, issues, maxLength) {
@@ -271,12 +273,12 @@
       return {};
     }
     rejectUnknownKeys(value, new Set(["kind", "capabilities", "equipment"]), path, issues);
-    if (!ENVIRONMENTS.includes(value.kind)) issues.push(`${path}.kind:invalid`);
+    if (!ENVIRONMENTS.has(value.kind)) issues.push(`${path}.kind:invalid`);
     const output = { kind: value.kind };
     if (hasOwn(value, "capabilities")) {
       const caps = normalizeTokenList(value.capabilities, `${path}.capabilities`, issues, MAX_LIST_LENGTH);
       output.capabilities = caps.filter((token) => {
-        if (!KNOWN_CAPABILITIES.has(token)) {
+        if (!KNOWN_CAPABILITIES_SET.has(token)) {
           issues.push(`${path}.capabilities:unknown_capability`);
           return false;
         }
@@ -286,7 +288,7 @@
     if (hasOwn(value, "equipment")) {
       const equipment = normalizeTokenList(value.equipment, `${path}.equipment`, issues, MAX_LIST_LENGTH);
       output.equipment = equipment.filter((token) => {
-        if (!KNOWN_EQUIPMENT.has(token)) {
+        if (!KNOWN_EQUIPMENT_SET.has(token)) {
           issues.push(`${path}.equipment:unknown_equipment`);
           return false;
         }
@@ -405,7 +407,7 @@
       ignoredMuscles: normalizeMuscleList(raw.ignoredMuscles, "$.ignoredMuscles", issues, MAX_MUSCLE_CONTROLS),
       // Programming contexts also accept the compiler's historical movement
       // pattern ids (for example bench_press); the entry answer surface is
-      // closed separately below to the adapter vocabulary.
+      // closed separately below to the pure contract vocabulary.
       priorityMovements: normalizeTokenList(raw.priorityMovements, "$.priorityMovements", issues, 2),
       exerciseConstraints: normalizeConstraints(raw.exerciseConstraints, "$.exerciseConstraints", issues),
       reviewedAt: raw.reviewedAt,
@@ -465,7 +467,7 @@
     for (const [key, maximum] of Object.entries(listFields)) {
       if (hasOwn(raw, key)) {
         const vocabularySet = ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles"].includes(key)
-          ? ENTRY_MUSCLES : key === "priorityMovements" ? ENTRY_MOVEMENTS : null;
+          ? ENTRY_MUSCLES_SET : key === "priorityMovements" ? ENTRY_MOVEMENTS_SET : null;
         output[key] = vocabularySet
           ? normalizeVocabularyList(raw[key], `$.answers.${key}`, issues, maximum, vocabularySet,
             key === "priorityMovements" ? "movement" : "muscle")
@@ -1071,7 +1073,7 @@
 
     if (hasOwn(raw, "equipment")) {
       hint("equipment", raw.equipment);
-      if (typeof raw.equipment === "string" && ENVIRONMENTS.includes(raw.equipment)) {
+      if (typeof raw.equipment === "string" && ENVIRONMENTS.has(raw.equipment)) {
         answers.environment = { kind: raw.equipment };
       }
       reviewRequired.push("environment");
@@ -1399,10 +1401,12 @@
     MAX_DRAFT_BYTES,
     MAX_DRAFT_ENVELOPE_BYTES,
     MAX_MUSCLE_CONTROLS,
-    KNOWN_EQUIPMENT: [...KNOWN_EQUIPMENT],
-    KNOWN_CAPABILITIES: [...KNOWN_CAPABILITIES],
-    ENTRY_ENVIRONMENTS: vocabulary.ENTRY_ENVIRONMENTS,
-    CONSTRAINT_REASONS: vocabulary.CONSTRAINT_REASONS,
+    KNOWN_EQUIPMENT,
+    KNOWN_CAPABILITIES,
+    ENTRY_MUSCLES,
+    ENTRY_MOVEMENTS,
+    ENTRY_ENVIRONMENTS,
+    CONSTRAINT_REASONS,
     ROUTES,
     ROUTE_STEPS,
     createState,

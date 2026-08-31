@@ -1,10 +1,26 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import vm from "node:vm";
 
 const require = createRequire(import.meta.url);
 const Entry = require("../program-entry.js");
+
+test("pure module has no adapter or runtime dependency boundary", () => {
+  const source = readFileSync(new URL("../program-entry.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /program-entry-adapter/);
+  assert.doesNotMatch(source, /\brequire\s*\(/);
+  assert.doesNotMatch(source, /\b(?:document|localStorage|sessionStorage)\b/);
+  assert.doesNotMatch(source, /RepForgeProgramCompiler/);
+
+  const sandbox = {};
+  vm.runInNewContext(source, sandbox, { filename: "program-entry.js" });
+  assert.equal(typeof sandbox.RepForgeProgramEntry?.createState, "function");
+  assert.equal(JSON.stringify(sandbox.RepForgeProgramEntry.KNOWN_EQUIPMENT), JSON.stringify(Entry.KNOWN_EQUIPMENT));
+  assert.equal(JSON.stringify(sandbox.RepForgeProgramEntry.ENTRY_ENVIRONMENTS), JSON.stringify(Entry.ENTRY_ENVIRONMENTS));
+});
 
 const NOW = "2026-08-27T12:00:00.000Z";
 const VERSIONS = {

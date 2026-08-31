@@ -1,6 +1,12 @@
 (function (root) {
   "use strict";
 
+  // The pure state machine owns the closed entry-domain vocabulary. This
+  // production adapter depends on that contract, never the reverse.
+  const vocabulary = root?.RepForgeProgramEntry ||
+    (typeof require === "function" ? require("./program-entry.js") : null);
+  if (!vocabulary) throw new Error("RepForgeProgramEntry unavailable");
+
   const FAMILY_BY_RESULT = Object.freeze({
     muscle_growth: "growth",
     balanced: "balanced",
@@ -27,17 +33,14 @@
     full_home: Object.freeze(["safe_pull", "training_support"]),
     other: Object.freeze(["safe_pull"]),
   });
-  // Canonical entry vocabulary. Band is a supported correction choice, but is
-  // deliberately absent from environment defaults until explicitly selected.
-  const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
-  const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
-  const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
-  const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "row", "pulldown"]);
-  // ENV_EQUIPMENT is the source of truth for the closed environment-key
-  // vocabulary. The entry state machine consumes this exported view rather
-  // than maintaining a second list.
-  const ENTRY_ENVIRONMENTS = Object.freeze(Object.keys(ENV_EQUIPMENT));
-  const CONSTRAINT_REASONS = Object.freeze(["dislike", "pain", "equipment", "other"]);
+  // Band is a supported correction choice, but is deliberately absent from
+  // environment defaults until explicitly selected.
+  const KNOWN_EQUIPMENT = vocabulary.KNOWN_EQUIPMENT;
+  const KNOWN_CAPABILITIES = vocabulary.KNOWN_CAPABILITIES;
+  const ENTRY_MUSCLES = vocabulary.ENTRY_MUSCLES;
+  const ENTRY_MOVEMENTS = vocabulary.ENTRY_MOVEMENTS;
+  const ENTRY_ENVIRONMENTS = vocabulary.ENTRY_ENVIRONMENTS;
+  const CONSTRAINT_REASONS = vocabulary.CONSTRAINT_REASONS;
   const MUSCLE_TOKENS = Object.freeze(["Chest", "Lats", "Mid/upper back", "Traps", "Front delts", "Side delts", "Rear delts",
     "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors", "Abductors", "Calves",
     "Spinal erectors", "Abs", "Obliques"]);

@@ -247,6 +247,8 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "the program-entry state machine is loaded and precached");
   assert(index.includes('src="program-entry-adapter.js"') && sw.includes('"./program-entry-adapter.js"'),
     "the program-entry adapter is loaded and precached");
+  assert(index.indexOf('src="program-entry.js"') < index.indexOf('src="program-entry-adapter.js"'),
+    "the dependency-free state machine loads before its production adapter");
   assert(/SHELL = new Set\([^\n]+"\/program-compiler\.js"/.test(sw),
     "the program compiler is part of the offline shell");
   assert(/SHELL = new Set\([^\n]+"\/program-entry\.js"/.test(sw) && /SHELL = new Set\([^\n]+"\/program-entry-adapter\.js"/.test(sw),

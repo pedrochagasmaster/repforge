@@ -191,15 +191,15 @@ test("future modifier data is opaque incompatibility provenance, never executabl
   assert.equal(Entry.normalizeSetupDraft(scalar).ok, false);
 });
 
-test("entry vocabularies share the adapter source and band is explicit-only", () => {
+test("pure entry vocabulary is the adapter's dependency and band is explicit-only", () => {
   assert.equal(Adapter.KNOWN_EQUIPMENT.includes("band"), true);
   assert.deepEqual(Adapter.KNOWN_CAPABILITIES, ["safe_pull", "training_support"]);
   assert.equal(Adapter.ENV_EQUIPMENT.commercial_gym.includes("band"), false);
   assert.equal(Adapter.ENTRY_MUSCLES.includes("core"), false);
   assert.strictEqual(Entry.ENTRY_ENVIRONMENTS, Adapter.ENTRY_ENVIRONMENTS,
-    "pure state machine uses the adapter's environment array by identity");
+    "adapter consumes the pure contract's environment array by identity");
   assert.strictEqual(Entry.CONSTRAINT_REASONS, Adapter.CONSTRAINT_REASONS,
-    "pure state machine uses the adapter's constraint array by identity");
+    "adapter consumes the pure contract's constraint array by identity");
   assert.deepEqual(Adapter.ENTRY_ENVIRONMENTS, Object.keys(Adapter.ENV_EQUIPMENT),
     "adapter environment keys are derived from its environment defaults");
   assert.equal(Object.isFrozen(Adapter.ENTRY_ENVIRONMENTS), true);
