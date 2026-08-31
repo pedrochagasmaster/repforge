@@ -647,7 +647,11 @@ try {
     await page.locator("#exPickList .pickrow").first().click();
     await page.waitForFunction(() => {
       const preview = window.__repforgeEntryState?.()?.result?.preview;
-      return (preview?.progressionIncompatibilities || []).some((item) => item.kind === "relations");
+      const status = document.querySelector("#entryEditorStatus");
+      const activate = document.querySelector("#entryEditorActivate");
+      return (preview?.progressionIncompatibilities || []).some((item) => item.kind === "relations") &&
+        status?.getAttribute("role") === "alert" && activate?.disabled &&
+        document.activeElement?.id === "entryEditorStatus";
     }, { timeout: 10000 });
     const edited = await page.evaluate(() => ({
       active: localStorage.getItem("repforge_v1"),
@@ -655,11 +659,16 @@ try {
       incompatibilities: window.__repforgeEntryState().result.preview.progressionIncompatibilities || [],
       disabled: !!document.querySelector("#entryEditorActivate")?.disabled,
       status: document.querySelector("#entryEditorStatus")?.textContent || "",
+      statusRole: document.querySelector("#entryEditorStatus")?.getAttribute("role") || "",
+      statusLive: document.querySelector("#entryEditorStatus")?.getAttribute("aria-live") || "",
+      describedBy: document.querySelector("#entryEditorActivate")?.getAttribute("aria-describedby") || "",
+      focused: document.activeElement?.id || "",
     }));
     assert(edited.active === activeBefore, "candidate movement replacement leaves active state byte-identical", JSON.stringify(edited));
     assert(edited.relations.length === 0 && edited.incompatibilities.some((item) => item.kind === "relations"),
       "candidate movement replacement removes the stale relation with an explicit incompatibility", JSON.stringify(edited));
-    assert(edited.disabled && /progression/i.test(edited.status),
+    assert(edited.disabled && /progression/i.test(edited.status) && edited.statusRole === "alert" &&
+      edited.statusLive === "assertive" && edited.describedBy === "entryEditorStatus" && edited.focused === "entryEditorStatus",
       "candidate activation stays blocked after a paired movement change", edited.status);
     await context.close();
   }

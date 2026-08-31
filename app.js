@@ -6090,6 +6090,9 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   result.fingerprint=entryCandidateFingerprint(entryState.route,result.name,preview);
   entryState=ProgramEntry.setResult(entryState,result);
   const saved=await persistSetupDraft(entryState);
+  if(saved?.ok&&progressionData.incompatibilities.length){
+    entryEditorStatusFocusPending=true;
+    setTimeout(()=>focusEntryEditorStatus(),reducedMotion()?0:320)}
   return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
     {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict}}
 function openEntryDraftEditor(){
@@ -6111,6 +6114,13 @@ function renderProgram(){renderProgramOverview();renderProgramHeader();renderPro
   if(tog)tog.textContent=setupEditorOpen?t("entry.editor.close"):programEditMode?t("program.done_edit"):t("program.edit");
   const end=$("#endBlock");if(end)end.classList.toggle("hidden",setupEditorOpen);
   const exp=$("#exportProgram"),imp=$("#importProgram");if(exp)exp.classList.toggle("hidden",setupEditorOpen);if(imp)imp.closest("label")?.classList.toggle("hidden",setupEditorOpen)}
+function focusEntryEditorStatus(){
+  if(!entryEditorStatusFocusPending)return false;
+  const status=$("#entryEditorStatus");
+  if(!status||status.offsetParent===null)return false;
+  entryEditorStatusFocusPending=false;
+  try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
+  return true}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
@@ -6181,6 +6191,7 @@ function renderProgramHeader(){
     const issues=ProgramEntry.candidateActivationIssues(entryState);
     const saveError=entryUiNotice==="save_conflict"?t("entry.save_conflict.body"):
       entryUiNotice==="save_failed"?t("entry.save_failed.body"):null;
+    const progressionError=issues.some(issue=>issue.startsWith("progression_incompatible:"));
     const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"))
       .map(issue=>entryState.result?.preview?.programStructure?.days
         ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length));
@@ -6194,7 +6205,7 @@ function renderProgramHeader(){
     const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
     el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
       `<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
-      `<p class="entry__active" id="entryEditorStatus" role="${saveError?"alert":"status"}" aria-live="${saveError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
+      `<p class="entry__active" id="entryEditorStatus" role="${saveError||progressionError?"alert":"status"}" aria-live="${saveError||progressionError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
       `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button></div>`;
     const name=$("#programName");if(name)name.onchange=async()=>{
@@ -7206,7 +7217,7 @@ async function choosePicked(id){
   const active=pickerState,handler=active.onPick;
   active.choosing=true;
   const sheet=$("#exPickSheet");if(sheet)sheet.setAttribute("aria-busy","true");
-  try{if(handler)await handler(entry);await closeExercisePicker()}
+  try{if(handler)await handler(entry);await closeExercisePicker();focusEntryEditorStatus()}
   finally{if(pickerState===active)active.choosing=false;if(sheet)sheet.removeAttribute("aria-busy")}}
 
 /* mode "single" fires onPick with one entry and closes; "multi" collects and
@@ -8256,7 +8267,7 @@ const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
 const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
