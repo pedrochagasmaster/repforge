@@ -174,10 +174,75 @@ try {
   {
     const { context, page } = await openFresh(browser);
     await page.click("#firstRunCreate");
+    const hubComposition = await page.evaluate(() => {
+      const visible = (selector) => [...document.querySelectorAll(selector)].filter((el) => {
+        const style = getComputedStyle(el);
+        return style.display !== "none" && style.visibility !== "hidden";
+      });
+      const routes = [...document.querySelectorAll("[data-entry-route]")];
+      return {
+        visibleTitles: visible("#onbEyebrow, #entryHeading").map((el) => el.textContent.trim()),
+        progressSegments: document.querySelectorAll("#onbSegbar .segbar__seg").length,
+        progressLabel: document.querySelector("#onbStepLabel")?.textContent.trim() || "",
+        primary: routes.filter((el) => el.classList.contains("entry-card--primary")).map((el) => el.dataset.entryRoute),
+        secondary: routes.filter((el) => el.classList.contains("entry-card--secondary")).map((el) => el.dataset.entryRoute),
+        routeChrome: routes.map((el) => ({ route: el.dataset.entryRoute, icon: !!el.querySelector(".entry-card__icon"), chevron: !!el.querySelector(".entry-card__go") })),
+      };
+    });
+    assert(hubComposition.visibleTitles.length === 1 && hubComposition.visibleTitles[0] === "Create a program",
+      "hub presents one visible title", JSON.stringify(hubComposition.visibleTitles));
+    assert(hubComposition.progressSegments === 0 && hubComposition.progressLabel === "",
+      "hub has no progress segments or progress label", JSON.stringify(hubComposition));
+    assert(JSON.stringify(hubComposition.primary) === JSON.stringify(["recommend", "custom"]),
+      "Recommend and Custom are both primary routes", JSON.stringify(hubComposition.primary));
+    assert(JSON.stringify(hubComposition.secondary) === JSON.stringify(["browse"]),
+      "Browse is a secondary route", JSON.stringify(hubComposition.secondary));
+    assert(hubComposition.routeChrome.every((route) => route.icon && route.chevron),
+      "hub routes use Taurifer icon and chevron language", JSON.stringify(hubComposition.routeChrome));
+    await page.click("#entryOwnToggle");
+    const ownComposition = await page.evaluate(() => ({
+      secondary: [...document.querySelectorAll("[data-entry-route]")].filter((el) => el.classList.contains("entry-card--secondary")).map((el) => el.dataset.entryRoute),
+      chrome: [...document.querySelectorAll('[data-entry-route="build"], [data-entry-route="import"]')].every((el) => !!el.querySelector(".entry-card__go")),
+    }));
+    assert(ownComposition.secondary.includes("build") && ownComposition.secondary.includes("import"),
+      "Build and Import remain secondary under the own path", JSON.stringify(ownComposition));
+    assert(ownComposition.chrome, "Build and Import retain chevrons", JSON.stringify(ownComposition));
+    await page.click("#entryOwnToggle");
     assert(await page.locator('[data-entry-route="recommend"]').isVisible(), "hub shows recommend");
     assert(await page.locator('[data-entry-route="custom"]').isVisible(), "hub shows custom");
     assert(await page.locator("#entryOwnToggle").isVisible(), "hub shows bring/build");
     await page.click('[data-entry-route="recommend"]');
+    const firstRouteHeader = {
+      eyebrow: await page.locator("#onbEyebrow").innerText(),
+      cancel: await page.locator("#onbCancel").innerText(),
+      step: await page.locator("#onbStepLabel").innerText(),
+    };
+    assert(firstRouteHeader.eyebrow === "Recommend" && firstRouteHeader.cancel === "Cancel" && /1 of 5/i.test(firstRouteHeader.step),
+      "Recommend has a route-specific first-step header and Cancel", JSON.stringify(firstRouteHeader));
+    const inspectEntryGeometry = () => page.evaluate(() => {
+      const visible = [...document.querySelectorAll("#onbBody > *, #onboarding .onb__nav")].filter((el) => {
+        const style = getComputedStyle(el); return style.display !== "none" && style.visibility !== "hidden";
+      });
+      const rects = visible.map((el) => el.getBoundingClientRect());
+      const noOverlap = rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
+        rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
+        rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1));
+      return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, noOverlap };
+    });
+    await page.setViewportSize({ width: 320, height: 568 });
+    const compactEntryGeometry = await inspectEntryGeometry();
+    assert(compactEntryGeometry.overflow <= 0 && compactEntryGeometry.noOverlap,
+      "Recommend composition has no overlap at 320px", JSON.stringify(compactEntryGeometry));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    const largeEntryGeometry = await inspectEntryGeometry();
+    assert(largeEntryGeometry.overflow <= 0 && largeEntryGeometry.noOverlap,
+      "Recommend composition has no overlap at 200% text", JSON.stringify(largeEntryGeometry));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "100%"; });
+    await page.setViewportSize({ width: 1280, height: 800 });
+    const desktopEntryGeometry = await inspectEntryGeometry();
+    assert(desktopEntryGeometry.overflow <= 0 && desktopEntryGeometry.noOverlap,
+      "Recommend composition has no overlap on desktop", JSON.stringify(desktopEntryGeometry));
+    await page.setViewportSize({ width: 390, height: 844 });
     const headingTab = await page.locator("#entryHeading").getAttribute("tabindex");
     assert(headingTab === "-1", "entry heading is focusable via tabindex", headingTab);
     await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
@@ -190,14 +255,53 @@ try {
     await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
     await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
     await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
+    const scheduleComposition = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll(".entry-body--schedule .radio-card")];
+      const first = rows[0];
+      const style = first ? getComputedStyle(first) : null;
+      const rects = rows.map((el) => el.getBoundingClientRect());
+      return {
+        radius: style?.borderRadius || "",
+        hairline: style?.borderBottomStyle || "",
+        columns: getComputedStyle(document.querySelector(".entry-body--schedule .onb__opts"))?.gridTemplateColumns || "",
+        noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
+          rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
+          rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
+      };
+    });
+    assert(scheduleComposition.radius === "0px" && scheduleComposition.hairline === "solid",
+      "schedule choices use compact hairline rows", JSON.stringify(scheduleComposition));
+    assert(scheduleComposition.columns.includes(" ") && scheduleComposition.noOverlap,
+      "schedule groups stay compact without overlap", JSON.stringify(scheduleComposition));
     await page.click("#onbNext");
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-    assert(await page.locator(".entry__correct").isVisible(), "environment correction UI appears after shortcut");
-    assert(await page.locator('[data-entry-pick="environmentEquipment"][data-entry-val="barbell"]').isVisible(), "equipment correction includes barbell");
+    assert(await page.locator(".entry__correct").isVisible() && !(await page.locator(".entry__correct").getAttribute("open")),
+      "environment inventory starts behind a closed disclosure");
+    assert(!(await page.locator('[data-entry-pick="environmentEquipment"][data-entry-val="barbell"]').isVisible()),
+      "closed environment disclosure hides equipment inventory");
+    await page.locator(".entry__correct > summary").focus();
+    await page.keyboard.press("Enter");
+    assert(await page.locator('[data-entry-pick="environmentEquipment"][data-entry-val="barbell"]').isVisible(),
+      "environment disclosure opens by keyboard");
+    assert(await page.getByRole("checkbox").count() >= 2,
+      "opened environment inventory retains accessible checkbox controls");
     assert(await page.locator('[data-entry-pick="environmentCapabilities"][data-entry-val="safe_pull"]').isVisible(), "capability correction includes safe_pull");
     assert(await page.locator('[data-entry-pick="environmentCapabilities"][data-entry-val="external_resistance"]').count() === 0, "hard external_resistance is not a user toggle");
     await page.click("#onbNext");
     assert(await page.locator("#entryAvoidSearch").isVisible(), "avoidance search is present on priorities");
+    const priorityComposition = await page.evaluate(() => {
+      const rows = [...document.querySelectorAll(".entry-body--priorities .radio-card")];
+      const rects = rows.map((el) => el.getBoundingClientRect());
+      return {
+        radius: rows[0] ? getComputedStyle(rows[0]).borderRadius : "",
+        hairline: rows[0] ? getComputedStyle(rows[0]).borderBottomStyle : "",
+        noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
+          rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
+          rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
+      };
+    });
+    assert(priorityComposition.radius === "0px" && priorityComposition.hairline === "solid" && priorityComposition.noOverlap,
+      "priorities and constraints use readable compact grouped rows", JSON.stringify(priorityComposition));
     await page.fill("#entryAvoidSearch", "bench");
     await page.waitForTimeout(50);
     const avoidAdd = page.locator("[data-entry-avoid-add]").first();
@@ -580,13 +684,23 @@ try {
         day: card.getAttribute("data-day"),
         empty: !!card.querySelector(".pday__empty"),
         exercises: card.querySelectorAll(".pex").length,
+        addExercise: !!card.querySelector(".pday__add"),
       }));
+      const draftMarker = document.querySelector(".pmeta__draft");
+      const status = document.querySelector("#entryEditorStatus");
+      const activate = document.querySelector("#entryEditorActivate");
+      const statusRect = status?.getBoundingClientRect();
+      const activateRect = activate?.getBoundingClientRect();
       return {
         activeRaw,
         draftName: envelope.state?.result?.name,
         draftProgramLen: envelope.state?.result?.preview?.program?.length || 0,
         draftDays: envelope.state?.result?.preview?.programStructure?.days?.length || 0,
         activateDisabled: !!document.querySelector("#entryEditorActivate")?.disabled,
+        draftMarker: !!draftMarker && /draft/i.test(draftMarker.textContent),
+        saveVisible: !!document.querySelector("#entryEditorSave") && getComputedStyle(document.querySelector("#entryEditorSave")).display !== "none",
+        statusText: status?.textContent || "",
+        statusAdjacent: !!statusRect && !!activateRect && statusRect.bottom <= activateRect.top + 1,
         cards,
       };
     }, { key: KEY, draftKey: DRAFT });
@@ -595,8 +709,22 @@ try {
     assert(built.draftDays === 4, "Build draft created four empty days", String(built.draftDays));
     assert(built.cards.length === 4, "editor shows four day cards", String(built.cards.length));
     assert(built.cards.every((card) => card.empty && card.exercises === 0), "all four day cards are empty containers");
+    assert(built.cards.every((card) => card.addExercise), "every empty Build day exposes Add exercise", JSON.stringify(built.cards));
     assert(built.draftName === "Manual block", "Build draft kept the program name", built.draftName);
-    assert(built.activateDisabled, "empty Build cannot activate");
+    assert(built.draftMarker && built.saveVisible, "Build visibly identifies the editable draft and Save draft action", JSON.stringify(built));
+    assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && built.statusAdjacent,
+      "Build names incompleteness adjacent to its disabled activation", JSON.stringify(built));
+    const buildGeometry = await page.evaluate(() => {
+      const action = document.querySelector("#entryEditorActivate");
+      const marker = document.querySelector(".pmeta__draft");
+      const rects = [action?.getBoundingClientRect(), marker?.getBoundingClientRect()].filter(Boolean);
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
+          rect.right <= other.left + 1 || other.right <= rect.left + 1 || rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
+      };
+    });
+    assert(buildGeometry.overflow <= 0 && buildGeometry.noOverlap, "Build draft has no viewport overflow or action overlap", JSON.stringify(buildGeometry));
 
     await page.locator('#programEditor [data-act="addEx"]').first().click();
     await page.waitForSelector("#exPickSheet.is-open, #exPickList .pickrow", { timeout: 5000 });

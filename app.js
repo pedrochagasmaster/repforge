@@ -8514,8 +8514,8 @@ function renderEntryHub(){
       `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__icon icon-mask icon-mask--search" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
       `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own">`+
-        `<button type="button" class="entry-card entry-card--nested" data-entry-route="build"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-        `<button type="button" class="entry-card entry-card--nested" data-entry-route="import"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
       `</div>`:"")+
     `</div>`}
 function renderDesiredResultStep(){
@@ -8546,7 +8546,7 @@ function renderEnvironmentStep(){
   const env=entryEnvironmentValue();
   const equipment=new Set(env?.equipment||[]);
   const capabilities=new Set(env?.capabilities||[]);
-  const correction=env?`<details class="entry__disclosure entry__correct" open>`+
+  const correction=env?`<details class="entry__disclosure entry__correct">`+
     `<summary><span>${esc(t("entry.env_correct.equipment"))} &amp; ${esc(t("entry.env_correct.capabilities"))}</span><span class="chevron" aria-hidden="true"></span></summary><div class="entry__disclosure-body">`+
     `<p class="entry__group-lab">${esc(t("entry.env_correct.equipment"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.equipment"))}">`+
     ENTRY_EQUIPMENT.map(token=>entryOpt("environmentEquipment",token,t(`entry.equip.${token}`)||token,"",{multi:true,selected:equipment.has(token),role:"checkbox"})).join("")+`</div>`+
