@@ -6065,9 +6065,11 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   const model=makeProgram(proposal.program,null,proposal.programMeta);
   const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
   const structureDays=structure?.days||[];
-  const previewDays=structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
-    exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
-    model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)}));
+  const previewDays=entryState.route==="shared"
+    ?sharedPreviewDays(model.toJSON(),structure,entryState.result.preview.sharedSettings)
+    :(structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
+      exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
+      model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)})));
   const program=model.toJSON();
   const referencedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
   const preview={...cloneSnapshot(entryState.result.preview),program,programStructure:structure,
@@ -6857,6 +6859,16 @@ function referencedCustomExercises(list){
   const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
 const SHARED_EQUIPMENT=window.RepForgeProgramEntryAdapter.SHARED_EQUIPMENT;
+function sharedRelationForPayload(relation,program){
+  const members=Array.isArray(relation?.members)?relation.members:[];
+  const rows=members.map(member=>program.find(ex=>ex?.id===member?.exerciseId));
+  const current=String(relation?.movementId||"").trim();
+  if(rows.length!==2||rows.some(row=>!row)||!current)return relation;
+  const identities=rows.map(row=>ProgramEntryAdapter.sharedMovementId(row,LEGACY_LIBRARY_IDS));
+  const internalIds=rows.map(row=>String(row.movementId||"").trim());
+  if(!identities[0]||identities.some(id=>id!==identities[0])||internalIds.some(id=>id!==current))return relation;
+  return{...relation,movementId:identities[0]};
+}
 function sharedProgramMeta(meta,program){
   const days=program.days();
   const optional=(value,allowed)=>allowed.includes(value)?value:null;
@@ -6870,7 +6882,8 @@ function sharedProgramMeta(meta,program){
       .map(value=>String(value).trim()).filter(Boolean))],
     sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
     mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
-    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON()),
+    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON())
+      .map(relation=>sharedRelationForPayload(relation,program.toJSON())),
     progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)};
   if(meta?.programStructure)out.programStructure=cloneSnapshot(meta.programStructure);
   return out}
@@ -6878,7 +6891,7 @@ function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
-  if(preserveIdentity){out.id=ex?.id;out.movementId=ex?.movementId}
+  if(preserveIdentity){out.id=ex?.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
   for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
@@ -8694,6 +8707,35 @@ function reportGeneratorCompleted(result){
     entryState=ProgramEntry.setResult(entryState,marked);
     persistSetupDraft(entryState)}
 }
+/* Shared links carry working sets and the released rest setting, but not the
+   compiler's exercise-class warmups or station transitions. Estimate only the
+   time represented by those payload facts; the UI labels it "about" and leaves
+   the value absent when the inputs cannot support even that bounded estimate.
+   This keeps Import and older shared drafts on their existing paths. */
+function sharedPreviewDayMinutes(exercises,settings){
+  const rows=Array.isArray(exercises)?exercises:[],time=ProgramCompiler?.RULES?.time;
+  const rest=Number(settings?.restSec),working=Number(time?.workingSetSeconds),minimum=Number(time?.bufferMinimumSeconds),percent=Number(time?.bufferPercent);
+  if(!rows.length||!Number.isFinite(rest)||rest<0||![working,minimum,percent].every(Number.isFinite))return null;
+  let subtotal=0;
+  for(const exercise of rows){
+    const sets=Number(exercise?.sets);
+    if(!Number.isInteger(sets)||sets<1)return null;
+    subtotal+=sets*working+Math.max(0,sets-1)*rest;
+  }
+  return Math.ceil((subtotal+Math.max(minimum,Math.ceil(subtotal*percent/100)))/60);
+}
+function sharedPreviewDays(program,structure,settings){
+  const rows=Array.isArray(program)?program:[],sourceDays=Array.isArray(structure?.days)&&structure.days.length
+    ?structure.days.map(item=>({dayId:item.dayId,label:item.label||item.dayId}))
+    :[...new Set(rows.map(exercise=>exercise?.day).filter(Boolean))].map(label=>({dayId:label,label}));
+  return sourceDays.filter(day=>day.dayId||day.label).map(day=>{
+    const exercises=rows.filter(exercise=>exercise?.dayId?exercise.dayId===day.dayId:exercise.day===day.label).map(cloneSnapshot);
+    const estimateMinutes=sharedPreviewDayMinutes(exercises,settings);
+    const out={dayId:day.dayId||day.label,label:day.label||day.dayId,exercises};
+    if(estimateMinutes!==null)out.estimateMinutes=estimateMinutes;
+    return out;
+  });
+}
 function entryPreviewFacts(preview){
   const program=Array.isArray(preview?.program)?preview.program:[];
   const estimates=(preview?.days||[]).map(day=>+day.estimateMinutes||0).filter(Boolean);
@@ -8707,13 +8749,36 @@ function entryEnvironmentLabel(answers=entryState?.answers||{}){
   return kind?t(`entry.environment.${kind}`):""}
 function entryEquipmentLabel(answers=entryState?.answers||{}){
   const env=answers.environment;
-  if(!env?.kind)return"";
+  if(!env?.kind&&!Array.isArray(env?.equipment))return"";
   const resolved=Array.isArray(env.equipment)?env:ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||env;
-  return [...new Set(resolved.equipment||[])].map(token=>t(`entry.equip.${token}`)||token).join(", ")}
+  return [...new Set(resolved.equipment||[])].map(token=>{
+    const key=String(token).trim();
+    const label=t(`entry.equip.${key}`);
+    return label===`entry.equip.${key}`?key:label;
+  }).filter(Boolean).join(", ")}
+function entryPreviewAnswers(preview){
+  const answers=entryState?.answers||{},meta=preview?.sharedMeta;
+  if(entryState?.route!=="shared"||!meta||typeof meta!=="object")return answers;
+  const environment={...(answers.environment||{})};
+  if(Array.isArray(meta.equipment))environment.equipment=meta.equipment.map(value=>{
+    const raw=String(value).trim().toLowerCase();
+    const match=Object.entries(ProgramEntryAdapter?.SHARED_EQUIPMENT||{}).find(([,shared])=>shared===raw);
+    return match?.[0]||raw;
+  }).filter(Boolean);
+  const primaryMuscles=Array.isArray(meta.priorityMuscles)?meta.priorityMuscles.map(value=>{
+    const raw=String(value).trim();
+    const normalized=raw.toLowerCase().replace(/[^a-z]+/g,"_").replace(/^_+|_+$/g,"");
+    return (ProgramEntryAdapter?.ENTRY_MUSCLES||[]).includes(normalized)?normalized:raw;
+  }).filter(Boolean):answers.primaryMuscles;
+  return{...answers,environment,primaryMuscles};
+}
 function entryPriorityLabel(answers=entryState?.answers||{}){
   const facts=[];
   const muscles=answers.primaryMuscles||[];
-  if(muscles.length)facts.push(muscles.map(muscle=>t(`entry.muscle.${muscle}`)||muscle).join(", "));
+  if(muscles.length)facts.push(muscles.map(muscle=>{
+    const key=String(muscle).trim(),label=t(`entry.muscle.${key}`);
+    return label===`entry.muscle.${key}`?key:label;
+  }).join(", "));
   const movements=answers.priorityMovements||[];
   if(movements.length)facts.push(movements.map(movement=>t(`entry.movement.${movement}`)||movement).join(", "));
   const mustHave=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
@@ -8827,6 +8892,7 @@ function renderImportSourceStep(){
 function renderPreviewStep(){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
+  const previewAnswers=entryPreviewAnswers(preview);
   const days=(preview.days||[]).map(day=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
     return `<details class="onb__day"><summary class="onb__dayname">${esc(day.label||day.dayId)}<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
@@ -8835,14 +8901,14 @@ function renderPreviewStep(){
     `</details>`});
   const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
-  const environment=[entryEnvironmentLabel(),entryEquipmentLabel()].filter(Boolean).join(" · ");
+  const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
   return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<div class="entry__decision"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
     `<div class="entry__facts"><span>${esc(entryExerciseCountLabel(facts.exercises))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
-    `<div class="entry__review-grid"><section><h4>${esc(t("entry.preview.priorities"))}</h4><p>${esc(entryPriorityLabel())}</p></section>`+
+    `<div class="entry__review-grid"><section><h4>${esc(t("entry.preview.priorities"))}</h4><p>${esc(entryPriorityLabel(previewAnswers))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.equipment"))}</h4><p>${esc(environment||t("entry.preview.equipment_unspecified"))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t("entry.preview.progression_body"))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.compromises"))}</h4><p>${esc(compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none"))}</p></section></div></div>`+
@@ -9490,13 +9556,12 @@ async function commitSharedSetup(io=storageIO){
     const payload=checked.value.program;
     const program=cloneSnapshot(proposal.program||[]);
     const structure=cloneSnapshot(proposal.programMeta?.programStructure||null);
-    const labels=Array.isArray(structure?.days)?structure.days.map(item=>item.label||item.dayId):[...new Set(program.map(exercise=>exercise.day))];
     const preview={source:"shared",familyId:null,frequency:payload.meta.daysPerWeek,
       program,programStructure:structure,
       // Keep each preview branch detached. The persisted result schema walks
       // object identity as well as values, so sharing the program row objects
       // into day summaries would look like a cycle to its bounded validator.
-      days:labels.filter(Boolean).map((label,index)=>({dayId:structure?.days?.[index]?.dayId||label,label,exercises:program.filter(exercise=>exercise.day===label).map(cloneSnapshot)})),
+      days:sharedPreviewDays(program,structure,checked.value.settings),
       customExercises:cloneSnapshot(proposal.customExercises||[]),
       progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
       // Shared metadata keeps its released display labels in sharedMeta. The

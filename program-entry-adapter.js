@@ -119,6 +119,20 @@
     return JSON.stringify(value);
   }
 
+  // Compiler rows carry an internal `library:<id>` movement reference so the
+  // progression engine can distinguish library movements from slot identities.
+  // Shared setup uses the released payload's bare library IDs. Translate only
+  // that exact compiler form; arbitrary received identities must remain intact
+  // so the shared validator can reject them rather than fuzzy-matching them.
+  function sharedMovementId(exercise, legacyIds = {}) {
+    const libraryId = typeof exercise?.libraryId === "string" ? exercise.libraryId.trim() : "";
+    const canonicalId = String(legacyIds?.[libraryId] || libraryId).trim();
+    const movementId = typeof exercise?.movementId === "string" ? exercise.movementId.trim() : "";
+    if (!movementId) return undefined;
+    if (movementId === `library:${libraryId}` || movementId === `library:${canonicalId}`) return canonicalId;
+    return movementId;
+  }
+
   function fingerprint(value) {
     const text = stableStringify(value);
     let hash = 0x811c9dc5;
@@ -549,6 +563,7 @@
       browseCatalogue: (context) => browseCatalogue(context, Comp, library, history),
       buildEmptyProgram,
       answersToCompilerContext,
+      sharedMovementId,
       fingerprint,
       resolveFamilyId,
     });
@@ -577,6 +592,7 @@
     compileWithServices,
     browseCatalogue,
     buildEmptyProgram,
+    sharedMovementId,
     resolveFamilyId,
   });
 
