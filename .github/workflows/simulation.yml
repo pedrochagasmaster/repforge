@@ -12,7 +12,7 @@ concurrency:
 jobs:
   telemetry-privacy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -65,7 +65,10 @@ jobs:
       - name: Regenerate UI evidence
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: node tools/capture-ui-screens.mjs
+        run: |
+          node tools/capture-ui-screens.mjs
+          node tools/capture-program-entry-catalogue.mjs
+          node tools/check-ui-screen-catalogue.mjs
 
       - name: Upload UI evidence
         uses: actions/upload-artifact@v4
@@ -114,6 +117,8 @@ jobs:
           node test/program-entry.mjs
           node test/program-entry-production-adapter.mjs
           node test/program-compiler-plan048-preferences.mjs
+          node test/pr201-contracts.mjs
+          node test/ui-screen-catalogue.mjs
 
       - name: Start static server
         run: python3 -m http.server 8000 &
