@@ -62,11 +62,6 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/telemetry-leakage.mjs
 
-      - name: Isolated telemetry transport rerun
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/telemetry-leakage.mjs
-
       - name: Regenerate UI evidence
         env:
           REPFORGE_URL: http://localhost:8000/
