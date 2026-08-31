@@ -562,6 +562,32 @@ function canonicalJson(value) {
   return JSON.stringify(walk(value));
 }
 
+// Keep the expected value independent from the app's preview helper. The
+// compiler's public timing contract supplies the released constants; the
+// arithmetic here is the shared-link contract's intentionally smaller model
+// (working sets plus between-set rest, then the released buffer).
+function expectedSharedPreviewMinutes(payload, timing) {
+  const restSec = Number(payload?.settings?.restSec);
+  const workingSetSeconds = Number(timing?.workingSetSeconds);
+  const bufferMinimumSeconds = Number(timing?.bufferMinimumSeconds);
+  const bufferPercent = Number(timing?.bufferPercent);
+  if (![restSec, workingSetSeconds, bufferMinimumSeconds, bufferPercent].every(Number.isFinite)) return [];
+  const days = [...new Set((payload?.program?.exercises || []).map((exercise) => exercise.day))];
+  return days.map((dayId) => {
+    const exercises = (payload.program.exercises || []).filter((exercise) => exercise.day === dayId);
+    const subtotal = exercises.reduce((total, exercise) => {
+      const sets = Number(exercise.sets);
+      return total + sets * workingSetSeconds + Math.max(0, sets - 1) * restSec;
+    }, 0);
+    return {
+      dayId,
+      estimateMinutes: Math.ceil(
+        (subtotal + Math.max(bufferMinimumSeconds, Math.ceil(subtotal * bufferPercent / 100))) / 60,
+      ),
+    };
+  });
+}
+
 function customById(state, id) {
   return (state?.customExercises || []).filter((row) => row.id === id);
 }
@@ -918,12 +944,13 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
-  await runCase("Shared preview renders released metadata and factual per-day duration", async () => {
+  await runCase("Shared preview renders released metadata and exact, input-sensitive per-day duration", async () => {
     const { context, page } = await openAppPage(browser);
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
-    const encoded = await encodeSharedPayload(page, cloneFixture(REPRESENTATIVE_PAYLOAD));
+    const payload = cloneFixture(REPRESENTATIVE_PAYLOAD);
+    const encoded = await encodeSharedPayload(page, payload);
     assert(encoded.ok, "released representative payload encodes for the preview regression", JSON.stringify(encoded));
     if (!encoded.ok) {
       await context.close();
@@ -934,14 +961,16 @@ export async function runSharedSetupFlow(browser) {
     await clickSharedStart(page, { activate: false });
     const rendered = await page.evaluate(() => ({
       preview: window.__repforgeEntryState?.()?.result?.preview || null,
+      timing: window.RepForgeProgramCompiler?.RULES?.time || null,
       review: document.querySelector(".entry__review-grid")?.textContent || "",
       days: [...document.querySelectorAll(".onb__day")].map((day) => day.textContent || ""),
     }));
-    const estimates = rendered.preview?.days?.map((day) => day.estimateMinutes) || [];
+    const estimates = rendered.preview?.days?.map((day) => ({ dayId: day.dayId, estimateMinutes: day.estimateMinutes })) || [];
+    const expected = expectedSharedPreviewMinutes(payload, rendered.timing);
     assert(
-      estimates.length === 4 && estimates.every((minutes) => Number.isInteger(minutes) && minutes > 0),
-      "shared preview carries a duration estimate for every released-payload day",
-      JSON.stringify(estimates),
+      JSON.stringify(estimates) === JSON.stringify(expected),
+      "shared preview estimates match released set counts, rest, and compiler timing contract",
+      JSON.stringify({ expected, actual: estimates, timing: rendered.timing }),
     );
     assert(
       ["Peito", "Costas", "Quadríceps"].every((priority) => rendered.review.includes(priority)),
@@ -958,6 +987,34 @@ export async function runSharedSetupFlow(browser) {
       "shared preview renders each factual duration beside its day",
       JSON.stringify(rendered.days),
     );
+
+    const perturbed = cloneFixture(payload);
+    perturbed.settings.restSec = 60;
+    perturbed.program.exercises[0].sets += 1;
+    const perturbedEncoded = await encodeSharedPayload(page, perturbed);
+    assert(perturbedEncoded.ok, "perturbed timing payload encodes for the sensitivity regression", JSON.stringify(perturbedEncoded));
+    if (perturbedEncoded.ok) {
+      await clearSite(page);
+      await page.goto(setupUrl(perturbedEncoded.value, "preview-released-facts-perturbed"), { waitUntil: "domcontentloaded" });
+      await waitForFirstRun(page);
+      await clickSharedStart(page, { activate: false });
+      const perturbedRendered = await page.evaluate(() => ({
+        preview: window.__repforgeEntryState?.()?.result?.preview || null,
+        timing: window.RepForgeProgramCompiler?.RULES?.time || null,
+      }));
+      const perturbedEstimates = perturbedRendered.preview?.days?.map((day) => ({ dayId: day.dayId, estimateMinutes: day.estimateMinutes })) || [];
+      const perturbedExpected = expectedSharedPreviewMinutes(perturbed, perturbedRendered.timing);
+      assert(
+        JSON.stringify(perturbedEstimates) === JSON.stringify(perturbedExpected),
+        "shared preview recomputes exact estimates after rest and set-count changes",
+        JSON.stringify({ expected: perturbedExpected, actual: perturbedEstimates, timing: perturbedRendered.timing }),
+      );
+      assert(
+        perturbedEstimates.some((day, index) => day.estimateMinutes !== estimates[index]?.estimateMinutes),
+        "shared preview duration responds to changed timing inputs",
+        JSON.stringify({ before: estimates, after: perturbedEstimates }),
+      );
+    }
     await context.close();
   });
 
