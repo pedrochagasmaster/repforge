@@ -3,7 +3,7 @@
  * Check the Plan 048 program-entry screenshot matrix.
  *
  * The checker validates the manifest, then checks every required PNG path,
- * locale/theme pair, and device-scale dimensions. It reports all gaps at once
+ * the explicit capture list, locale/theme pair, and device-scale dimensions. It reports all gaps at once
  * so visual work can be captured in batches:
  *
  *   node tools/check-ui-screen-catalogue.mjs --report
@@ -39,6 +39,7 @@ function loadManifest() {
   if (!manifest.textScales || !Object.keys(manifest.textScales).length) fail("manifest textScales must be non-empty");
   if (!manifest.motion || !Object.keys(manifest.motion).length) fail("manifest motion must be non-empty");
   if (!Array.isArray(manifest.states) || !manifest.states.length) fail("manifest states must be non-empty");
+  if (!Array.isArray(manifest.captures) || !manifest.captures.length) fail("manifest captures must be non-empty");
   const ids = new Set();
   for (const state of manifest.states) {
     if (!state || typeof state !== "object" || !/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(state.id || "")) {
@@ -55,6 +56,37 @@ function loadManifest() {
   }
   if (manifest.deviceScaleFactor !== 2) fail("manifest deviceScaleFactor must be 2");
   if (!manifest.artifactRoot || !manifest.artifactTemplate) fail("manifest needs artifactRoot and artifactTemplate");
+  const stateIds = new Set(manifest.states.map((state) => state.id));
+  const dimensionsByName = {
+    locale: new Set(manifest.locales),
+    theme: new Set(manifest.themes),
+    viewport: new Set(Object.keys(manifest.viewports)),
+    text: new Set(Object.keys(manifest.textScales)),
+    motion: new Set(Object.keys(manifest.motion)),
+  };
+  const captureKeys = new Set();
+  for (const capture of manifest.captures) {
+    if (!capture || typeof capture !== "object") fail("every capture must be an object");
+    for (const dimension of Object.keys(dimensionsByName)) {
+      if (!dimensionsByName[dimension].has(capture[dimension])) fail(`capture has unknown ${dimension}: ${capture[dimension]}`);
+    }
+    if (!stateIds.has(capture.state)) fail(`capture has unknown state: ${capture.state}`);
+    const key = [capture.state, capture.locale, capture.theme, capture.viewport, capture.text, capture.motion].join("|");
+    if (captureKeys.has(key)) fail(`duplicate capture: ${key}`);
+    captureKeys.add(key);
+    if (capture.canonical && (capture.locale !== "en" || capture.theme !== "light" || capture.viewport !== "phone-390" || capture.text !== "normal" || capture.motion !== "normal")) {
+      fail(`canonical capture must be EN/light/normal-phone/normal-text/normal-motion: ${key}`);
+    }
+  }
+  for (const state of manifest.states) {
+    const canonical = manifest.captures.filter((capture) => capture.state === state.id && capture.canonical === true);
+    if (canonical.length !== 1) fail(`state ${state.id} needs exactly one canonical capture`);
+  }
+  for (const [dimension, values] of Object.entries(dimensionsByName)) {
+    for (const value of values) {
+      if (!manifest.captures.some((capture) => capture[dimension] === value)) fail(`matrix value has no reviewed capture: ${dimension}=${value}`);
+    }
+  }
   return manifest;
 }
 
@@ -87,31 +119,19 @@ function check(manifest) {
   const missing = [];
   const invalid = [];
   const expected = new Set();
-  const viewportEntries = Object.entries(manifest.viewports);
-  const textEntries = Object.entries(manifest.textScales);
-  const motionEntries = Object.entries(manifest.motion);
-  for (const state of manifest.states) {
-    for (const locale of manifest.locales) {
-      for (const theme of manifest.themes) {
-        for (const [viewport, dimensions] of viewportEntries) {
-          for (const [text] of textEntries) {
-            for (const [motion] of motionEntries) {
-              const path = renderPath(manifest, { state: state.id, locale, theme, viewport, text, motion });
-              expected.add(path);
-              if (!existsSync(path)) {
-                missing.push(relative(ROOT, path));
-                continue;
-              }
-              const actual = pngDimensions(path);
-              const wanted = { width: dimensions.width * manifest.deviceScaleFactor, height: dimensions.height * manifest.deviceScaleFactor };
-              if (!actual) invalid.push(`${relative(ROOT, path)} (not a PNG)`);
-              else if (actual.width !== wanted.width || actual.height !== wanted.height) {
-                invalid.push(`${relative(ROOT, path)} (${actual.width}×${actual.height}, expected ${wanted.width}×${wanted.height})`);
-              }
-            }
-          }
-        }
-      }
+  for (const capture of manifest.captures) {
+    const path = renderPath(manifest, capture);
+    expected.add(path);
+    if (!existsSync(path)) {
+      missing.push(relative(ROOT, path));
+      continue;
+    }
+    const actual = pngDimensions(path);
+    const viewport = manifest.viewports[capture.viewport];
+    const wanted = { width: viewport.width * manifest.deviceScaleFactor, height: viewport.height * manifest.deviceScaleFactor };
+    if (!actual) invalid.push(`${relative(ROOT, path)} (not a PNG)`);
+    else if (actual.width !== wanted.width || actual.height !== wanted.height) {
+      invalid.push(`${relative(ROOT, path)} (${actual.width}×${actual.height}, expected ${wanted.width}×${wanted.height})`);
     }
   }
   const root = join(ROOT, manifest.artifactRoot);

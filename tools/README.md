@@ -158,6 +158,12 @@ paired locale/theme coverage, and unexpected files. `--report` is for an
 in-progress capture and keeps the process successful; the default fails on any
 gap.
 
+The manifest self-test runs with:
+
+```bash
+node test/ui-screen-catalogue.mjs
+```
+
 ## build-brand-mark.mjs
 
 Renders `assets/brand/mark.png`: the Taurifer yoke with no paper under it, at
