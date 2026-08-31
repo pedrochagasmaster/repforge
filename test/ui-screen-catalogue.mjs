@@ -15,8 +15,8 @@ const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-
 const workflow = readFileSync(resolve(root, ".github/workflows/simulation.yml"), "utf8");
 const capture = readFileSync(resolve(root, "tools/capture-program-entry-catalogue.mjs"), "utf8");
 const stateIds = new Set(manifest.states.map((state) => state.id));
-assert.equal(manifest.states.length, 24, "the required Plan 048 state list stays complete");
-assert.equal(manifest.captures.length, 60, "the reviewed capture list stays deliberately non-Cartesian");
+assert.equal(manifest.states.length, 23, "the required Plan 048 state list stays complete");
+assert.equal(manifest.captures.length, 59, "the reviewed capture list stays deliberately non-Cartesian");
 assert.equal(manifest.captures.length, manifest.states.length + 6 * 6, "each representative adds six distinct variants");
 assert.equal((workflow.match(/node tools\/capture-program-entry-catalogue\.mjs/g) || []).length, 1,
   "CI uses one canonical program-entry capture invocation");
@@ -84,15 +84,27 @@ const result = spawnSync(process.execPath, ["tools/check-ui-screen-catalogue.mjs
 });
 assert.equal(result.status, 0, "report mode is non-blocking while captures are pending");
 const report = JSON.parse(result.stdout);
-assert.equal(report.expected, 60);
+assert.equal(report.expected, 59);
 assert.equal(report.semantic.ok, true, "the catalogue report includes valid semantic evidence");
 
 const semanticPath = resolve(root, "docs/ui-screens/program-entry-semantic.json");
 assert.equal(existsSync(semanticPath), true, "the committed catalogue has semantic evidence");
 const semanticArtifact = JSON.parse(readFileSync(semanticPath, "utf8"));
 const semanticValidation = validateSemanticArtifact(semanticArtifact, manifest.captures);
-assert.equal(semanticValidation.ok, true, `all 60 captures have semantic evidence: ${semanticValidation.reasons.join("; ")}`);
-assert.equal(semanticArtifact.captures.length, 60, "the semantic baseline has one entry for each capture");
+assert.equal(semanticValidation.ok, true, `all 59 captures have semantic evidence: ${semanticValidation.reasons.join("; ")}`);
+assert.equal(semanticArtifact.captures.length, 59, "the semantic baseline has one entry for each capture");
+for (const [locale, expectedCopy] of [[
+  "en", "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions.",
+], [
+  "pt-BR", "O programa ou você define a meta de cada exercício. O Taurifer não inventa carga nem repetições.",
+]]) {
+  const importReview = semanticArtifact.captures.find((capture) => capture.state === "import-review" && capture.locale === locale && capture.theme === "light" && capture.viewport === "phone-390" && capture.text === "normal" && capture.motion === "normal");
+  assert.ok(importReview, `${locale} import-review semantic evidence exists`);
+  assert.ok(importReview.semantic.some((entry) => entry.tag === "p" && entry.text === expectedCopy),
+    `${locale} import-review proves manual progression ownership copy`);
+  assert.ok(importReview.semantic.some((entry) => entry.tag === "button" && entry.name === (locale === "en" ? "Use this program" : "Usar este programa") && !entry.disabled),
+    `${locale} import-review proves activation is ready`);
+}
 assert.equal(semanticArtifact.captures.some((capture) => capture.semantic.some((entry) => entry.text === "Unavailable with your current choices")), false,
   "semantic evidence excludes visually hidden helper copy");
 assert.equal(semanticArtifact.captures.some((capture) => capture.semantic.some((entry) => entry.tag === "li" && "value" in entry)), false,
@@ -212,7 +224,7 @@ assert.deepEqual(resumeCanonical.semantic.find((entry) => entry.role === "status
   assert.equal(readFileSync(backupSemantic, "utf8"), "old-semantic");
   rmSync(root, { recursive: true, force: true });
 }
-assert.equal(report.present, 60);
+assert.equal(report.present, 59);
 assert.equal(report.missing.length, 0);
 assert.equal(report.invalid.length, 0);
 assert.equal(report.extra.length, 0);
@@ -245,8 +257,8 @@ const baselineComparison = compareCatalogue({
   baselineRoot: resolve(root, "docs/ui-screens/program-entry"),
   currentRoot: resolve(root, "docs/ui-screens/program-entry"),
 });
-assert.equal(baselineComparison.expected, 60);
-assert.equal(baselineComparison.compared, 60);
+assert.equal(baselineComparison.expected, 59);
+assert.equal(baselineComparison.compared, 59);
 assert.equal(baselineComparison.failures.length, 0);
 assert.equal(baselineComparison.semantic.ok, true);
 
@@ -348,4 +360,4 @@ const dimensionComparison = comparePngBuffers(syntheticBaseline, rgbPng(193, 256
 assert.equal(dimensionComparison.ok, false, "dimension drift must fail the evidence gate");
 assert.match(dimensionComparison.reasons[0], /dimensions changed/);
 
-console.log("UI screen catalogue evidence gate: 24 states, 60 captures, structural and perceptual checks covered");
+console.log("UI screen catalogue evidence gate: 23 states, 59 captures, structural and perceptual checks covered");

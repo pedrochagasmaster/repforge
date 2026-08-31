@@ -46,7 +46,7 @@ display indexes.
 | `build_setup` | Build | Non-empty bounded name and 2-6 days | The editor receives real empty day containers, never placeholder exercises. |
 | `import_source` | Import | A validated import handoff | This module never reads files or decodes payloads. |
 | `shared_review` | Shared | A validated released setup handoff | Preserve [ADR 0007](adr/0007-shared-setup-links.md) first-run precedence and consent. |
-| `result` | Recommend, Custom | A deterministic selected candidate and snapshot | Recommend has one primary result and at most one close alternative. Custom has one result and no reroll. |
+| `result` | Recommend, Custom | A deterministic selected candidate and snapshot | Recommend has one primary result; a close alternative is shown only when the compiler supplies a genuinely valid one. Custom has one result and no reroll. |
 | `preview` | Recommend, Custom, Browse, Import, Shared | A complete preview snapshot | Edits affect the draft only. The active program remains untouched. |
 | `editor` | Build | Empty-day draft created | Activation stays blocked until the later production editor validates it. |
 | `activation_conflict` | Preview routes | Fresh review after a revision mismatch | A stale setup can never overwrite a newer active program. |

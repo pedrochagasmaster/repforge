@@ -162,7 +162,7 @@ async function importSource(page, review = false) {
   await create(page, "import");
   if (!review) return;
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
-  await page.setInputFiles("#importProgram", { name: "catalog-program.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" }, exercises: [{ id: "bench", day: portuguese ? "Dia 1" : "Day 1", name: portuguese ? "Supino reto com barra" : "Barbell bench press", sets: 3, repLow: 6, repHigh: 10, muscles: [portuguese ? "Peito" : "Chest"] }] })) });
+  await page.setInputFiles("#importProgram", { name: "catalog-program.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify({ meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" }, exercises: [{ id: "bench", day: portuguese ? "Dia 1" : "Day 1", name: portuguese ? "Supino reto com barra" : "Barbell bench press", sets: 3, repLow: 6, repHigh: 10, muscles: [portuguese ? "Peito" : "Chest"], progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] } }] })) });
   await page.waitForSelector("#importReview.active", { timeout: 10000 });
   if (await page.locator("#importCommit").isDisabled()) {
     const raw = page.locator('[data-imp-act="raw"]').first();
@@ -219,7 +219,7 @@ async function captureState(page, state) {
   if (state === "recommend-schedule") { await create(page, "recommend"); await pick(page, "desiredResult", "muscle_growth"); await next(page); await pick(page, "structuredExperience", "6_to_24m"); await pick(page, "recentConsistency", "most"); return next(page); }
   if (state === "recommend-environment" || state === "recommend-environment-correction") { await create(page, "recommend"); await pick(page, "desiredResult", "muscle_growth"); await next(page); await pick(page, "structuredExperience", "6_to_24m"); await pick(page, "recentConsistency", "most"); await next(page); await pick(page, "daysPerWeek", "3"); await pick(page, "sessionMinutes", "60"); await pick(page, "preferredRestSeconds", "120"); await next(page); await pick(page, "environment", "commercial_gym"); if (state.endsWith("correction")) return page.locator(".entry__correct > summary").click(); return; }
   if (state === "recommend-priorities" || state === "recommend-avoidance-pain") { await recommendTo(page); if (state.endsWith("pain")) { const search = page.locator("#entryAvoidSearch"); await search.fill("bench"); await page.waitForTimeout(100); if (!(await page.locator("[data-entry-avoid-add]").count())) { await search.fill("supino"); await page.waitForTimeout(100); } await page.locator("[data-entry-avoid-add]").first().click(); await page.click('[data-entry-pick="avoidReason"][data-entry-val$="|pain"]'); } return; }
-  if (state === "recommend-result" || state === "recommend-alternative") return recommendTo(page, { result: true, desired: "balanced" });
+  if (state === "recommend-result") return recommendTo(page, { result: true, desired: "balanced" });
   if (state === "custom-split") return customToSplit(page);
   if (state === "browse-catalogue") return browse(page);
   if (state === "review-first-run") { await recommendTo(page, { result: true }); if (await page.locator("[data-entry-select-candidate]").count()) await page.locator("[data-entry-select-candidate]").first().click(); return page.waitForSelector("#entryActivate"); }

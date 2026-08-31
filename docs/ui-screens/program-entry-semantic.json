@@ -2019,102 +2019,6 @@
       ]
     },
     {
-      "state": "recommend-alternative",
-      "locale": "en",
-      "theme": "light",
-      "viewport": "phone-390",
-      "text": "normal",
-      "motion": "normal",
-      "canonical": true,
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "p",
-          "text": "Section 5 of 5",
-          "aria-live": "polite"
-        },
-        {
-          "tag": "h2",
-          "text": "Recommended program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Same answers and rules always produce the same result."
-        },
-        {
-          "tag": "h3",
-          "text": "Muscle + Strength"
-        },
-        {
-          "tag": "p",
-          "text": "Why it fits"
-        },
-        {
-          "tag": "li",
-          "text": "You chose Balance muscle and strength."
-        },
-        {
-          "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
-        },
-        {
-          "tag": "li",
-          "text": "It uses your Full commercial gym setup."
-        },
-        {
-          "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
-        },
-        {
-          "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
-        },
-        {
-          "tag": "div",
-          "role": "radiogroup",
-          "name": "Recommended program",
-          "label": "Recommended program"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Review this programMuscle + Strength · 3 days · about 49–55 minutes",
-          "aria-checked": "true",
-          "tabindex": "0",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Review this program"
-        },
-        {
-          "tag": "span",
-          "text": "Muscle + Strength · 3 days · about 49–55 minutes"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
       "state": "custom-split",
       "locale": "en",
       "theme": "light",
@@ -5546,7 +5450,7 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
@@ -12513,7 +12417,7 @@
         },
         {
           "tag": "p",
-          "text": "As metas avançam a partir dos treinos concluídos, usando a progressão compatível de cada exercício no Taurifer."
+          "text": "O programa ou você define a meta de cada exercício. O Taurifer não inventa carga nem repetições."
         },
         {
           "tag": "h4",
@@ -12649,7 +12553,7 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
@@ -12785,7 +12689,7 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
@@ -12921,7 +12825,7 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
@@ -13057,7 +12961,7 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
@@ -13193,7 +13097,7 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
