@@ -17,6 +17,9 @@ const MANIFEST = JSON.parse(readFileSync(join(ROOT, "docs", "ui-screens", "progr
 const ARTIFACT_ROOT = join(ROOT, MANIFEST.artifactRoot);
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CAPTURE_FILTER = process.env.CAPTURE_FILTER || "";
+// Resume renders the draft's updatedAt as a calendar date. Keep that fixture
+// stable across capture days while allowing a diagnostic override.
+const CAPTURE_NOW = process.env.CAPTURE_NOW || "2026-08-31T12:00:00.000Z";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_program_setup_draft_v1";
 const waitForEntryApp = (page) => page.waitForFunction(
@@ -75,6 +78,15 @@ async function openPage(browser, capture, state) {
     serviceWorkers: "block",
   });
   const page = await context.newPage();
+  await page.addInitScript((fixedNow) => {
+    const RealDate = Date;
+    const fixedTime = RealDate.parse(fixedNow);
+    class CaptureDate extends RealDate {
+      constructor(...args) { super(...(args.length ? args : [fixedTime])); }
+      static now() { return fixedTime; }
+    }
+    globalThis.Date = CaptureDate;
+  }, CAPTURE_NOW);
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForEntryApp(page);
   await seed(page, state);

@@ -12,6 +12,7 @@ import { compareCatalogue, comparePngBuffers } from "../tools/compare-ui-screen-
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-entry-manifest.json"), "utf8"));
 const workflow = readFileSync(resolve(root, ".github/workflows/simulation.yml"), "utf8");
+const capture = readFileSync(resolve(root, "tools/capture-program-entry-catalogue.mjs"), "utf8");
 const stateIds = new Set(manifest.states.map((state) => state.id));
 assert.equal(manifest.states.length, 24, "the required Plan 048 state list stays complete");
 assert.equal(manifest.captures.length, 60, "the reviewed capture list stays deliberately non-Cartesian");
@@ -32,6 +33,10 @@ assert.match(workflow, /node tools\/compare-ui-screen-catalogue\.mjs --baseline 
   "CI compares every regenerated capture with the immutable baseline");
 assert.doesNotMatch(workflow, /git diff --exit-code -- docs\/ui-screens\/program-entry\//,
   "CI does not use byte equality for rasterised evidence");
+assert.match(capture, /const CAPTURE_NOW = process\.env\.CAPTURE_NOW \|\| "2026-08-31T12:00:00\.000Z"/,
+  "the production catalogue capture uses a stable fixture clock for date-bearing states");
+assert.match(capture, /page\.addInitScript\(/,
+  "the fixture clock is installed before the production page boots");
 const baselineIndex = workflow.indexOf('cp -a docs/ui-screens/program-entry "$baseline/"');
 const captureIndex = workflow.indexOf("node tools/capture-program-entry-catalogue.mjs");
 const catalogueCheckIndex = workflow.indexOf("node tools/check-ui-screen-catalogue.mjs");
@@ -196,12 +201,13 @@ function labelPixel(x, y, variant = false) {
   if (row[glyphX] !== "1") return null;
   if (!variant) return [25, 25, 25];
   const edge = glyphX === 0 || glyphX === glyphWidth - 1 || localY === 0 || localY === 4;
+  if (variant === "antialias") return edge ? [130, 130, 130] : [25, 25, 25];
   return edge ? [72, 72, 72] : [25, 25, 25];
 }
 const syntheticBaseline = rgbPng(192, 256, (x, y) => scenePixel(x, y));
 const syntheticNoise = rgbPng(192, 256, (x, y) => scenePixel(x, y, { noisy: true }));
 const syntheticMaterialChange = rgbPng(192, 256, (x, y) => scenePixel(x, y, { material: true }));
-const syntheticFontRasterVariation = rgbPng(192, 256, (x, y) => labelPixel(x - 1, y, true) || scenePixel(x, y));
+const syntheticFontRasterVariation = rgbPng(192, 256, (x, y) => labelPixel(x, y, "antialias") || scenePixel(x, y));
 const syntheticFontRasterBaseline = rgbPng(192, 256, (x, y) => labelPixel(x, y) || scenePixel(x, y));
 const syntheticLocalizedLabelDrift = rgbPng(192, 256, (x, y) => {
   if (x >= 40 && x < 60 && y >= 40 && y < 44) return [25, 25, 25];
