@@ -375,6 +375,13 @@ async function main() {
     assert(stagedImport.draft?.state?.route === "import" && stagedImport.draft.state.step === "preview" &&
       stagedImport.draft.state.result?.preview?.program?.length === 5,
     "the reviewed import persists as an owned setup candidate", JSON.stringify(stagedImport.draft));
+    const manualProgressionCopy = await page.locator("#onbBody").innerText();
+    assert(/program or you set each exercise's target/i.test(manualProgressionCopy) &&
+      !/supported Taurifer progression/i.test(manualProgressionCopy),
+    "common import preview explains that authored manual targets belong to the program or user",
+    manualProgressionCopy);
+    assert(!(await page.locator("#entryActivate").isDisabled()),
+      "an authored manual progression remains activation-ready after review");
     await activateStagedImport(page);
     after = await getState(page);
     assert(after.program.length === 5, "explicit activation writes the reviewed program", `${after.program.length} rows`);

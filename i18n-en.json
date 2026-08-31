@@ -1505,6 +1505,8 @@
   "entry.preview.equipment_unspecified": "No equipment assumption was supplied.",
   "entry.preview.progression": "Progression",
   "entry.preview.progression_body": "Targets progress from completed training through each exercise's supported Taurifer progression.",
+  "entry.preview.progression_manual": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions.",
+  "entry.preview.progression_manual_unsupported": "This imported exercise keeps its authored target. Taurifer cannot verify its progression rule.",
   "entry.preview.progression_incompatible": "This candidate includes progression links Taurifer cannot verify yet.",
   "entry.preview.activation_blocked": "Activation is paused. Review or remove the unsupported progression details before using this program.",
   "entry.preview.compromises": "Compromises",

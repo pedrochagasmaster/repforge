@@ -477,6 +477,8 @@ try {
       "review shows exercise, set, and approximate-duration facts", reviewCopy);
     assert(/Priorities/i.test(reviewCopy) && /Equipment assumptions/i.test(reviewCopy) && /Progression/i.test(reviewCopy),
       "review presents priorities, equipment assumptions, and progression", reviewCopy);
+    assert(/supported Taurifer progression/i.test(reviewCopy),
+      "common preview keeps factual copy for supported Taurifer strategies", reviewCopy);
     assert(await page.locator("#onbBody details").count() === 3,
       "review uses one collapsible summary per training day");
     assert(await page.locator("#onboarding .onb__nav").evaluate((node) => getComputedStyle(node).position !== "sticky"),

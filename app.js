@@ -8820,6 +8820,23 @@ function entryProgressionLabel(preview){
   const labels={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
     effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
   return ids.map(id=>labels[id]||id).filter(Boolean).join(" · ")||t("entry.result.progression_default")}
+function entryPreviewProgressionCopy(preview, progressionIssue){
+  if(progressionIssue)return"entry.preview.progression_incompatible";
+  const rows=Array.isArray(preview?.program)?preview.program:[];
+  let manual=false,unsupported=false;
+  for(const exercise of rows){
+    const strategy=exercise?.progression?.strategy;
+    if(strategy?.id==="manual"){
+      manual=true;
+      if(strategy.params?.unsupportedImport)unsupported=true;
+      continue;
+    }
+    const legacy=typeof exercise?.progressionType==="string"?exercise.progressionType.trim():"";
+    if(legacy&&legacy!=="double_progression")unsupported=true;
+  }
+  if(unsupported)return"entry.preview.progression_manual_unsupported";
+  if(manual)return"entry.preview.progression_manual";
+  return"entry.preview.progression_body"}
 function entryExerciseCountLabel(n){return t("entry.preview.exercises",{n,exercise:tp(n,"exercise")})}
 window.__repforgeEntryExerciseCountLabel=entryExerciseCountLabel;
 function renderResultStep(){
@@ -8933,7 +8950,7 @@ function renderPreviewStep(){
     `<div class="entry__facts"><span>${esc(entryExerciseCountLabel(facts.exercises))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
     `<div class="entry__review-grid"><section><h4>${esc(t("entry.preview.priorities"))}</h4><p>${esc(entryPriorityLabel(previewAnswers))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.equipment"))}</h4><p>${esc(environment||t("entry.preview.equipment_unspecified"))}</p></section>`+
-    `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t(progressionIssue?"entry.preview.progression_incompatible":"entry.preview.progression_body"))}</p></section>`+
+    `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t(entryPreviewProgressionCopy(preview,progressionIssue)))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.compromises"))}</h4><p>${esc(compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none"))}</p></section></div></div>`+
     (progressionIssue?`<p id="entryActivationStatus" class="entry__notice" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}<div class="onb__actions">`+
