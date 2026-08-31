@@ -2757,6 +2757,100 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 @media (prefers-reduced-motion:reduce){
   .entry-card{transition:none}
 }
+
+/* Program entry composition. Route choices are a quiet list: the two authored
+   ways to get started carry the accent rail, while secondary paths recede into
+   the same hairline grammar used elsewhere in Taurifer. */
+.entry-body--entry .entry-hub__lede{margin-top:4px;margin-bottom:18px}
+.entry-hub-active .onb__title{visibility:hidden}
+.entry-body .entry__hub{gap:0;margin-top:4px}
+.entry-body .entry-card{
+  flex-direction:row;align-items:center;gap:12px;min-height:58px;padding:12px 0;
+  border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent;
+}
+.entry-body .entry-card:hover,.entry-body .entry-card:focus-visible{
+  border-color:var(--rule);outline:2px solid var(--accent);outline-offset:2px
+}
+.entry-body .entry-card--primary{
+  border-left:3px solid var(--accent);padding-left:12px;box-shadow:none
+}
+.entry-body .entry-card--secondary{color:var(--ink-soft)}
+.entry-body .entry-card--secondary .entry-card__title{color:var(--ink)}
+.entry-body .entry-card--nested{min-height:48px;padding:10px 0 10px 12px;border-bottom:0}
+.entry-body .entry-card__icon{width:20px;height:20px;flex:none;background:currentColor;color:var(--ink-soft)}
+.entry-body .entry-card--primary .entry-card__icon{color:var(--accent-deep)}
+.entry-body .entry-card__body{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;text-align:left}
+.entry-body .entry-card__title{font-size:16px;line-height:1.25}
+.entry-body .entry-card__cap{font-size:13px;line-height:1.35}
+.entry-body .entry-card__go{flex:none;color:var(--ink-faint)}
+.entry-body .entry-card__go.is-down{transform:rotate(90deg)}
+.entry-body .entry__own{gap:0;padding:4px 0 4px 18px;border-left:1px solid var(--rule)}
+@media (min-width:720px){
+  .entry-body .entry__hub--routes{display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+  .entry-body .entry__hub--routes .entry-card--secondary{grid-column:auto}
+  .entry-body .entry__hub--routes .entry__own{grid-column:1/-1}
+}
+
+/* Questionnaire choices are grouped rows, not a stack of mini panels. */
+.entry-body .radio-card{
+  min-height:44px;padding:11px 0;background:transparent;border:0;border-bottom:1px solid var(--rule);
+  border-radius:0;transition:background-color .15s ease,padding-left .15s ease
+}
+.entry-body .radio-card.is-selected{padding:11px 0;border:0;border-bottom:1px solid var(--rule);background:rgba(var(--accent-rgb),.055)}
+.entry-body .radio-card:hover,.entry-body .radio-card:focus-visible{border-color:var(--rule);outline:2px solid var(--accent);outline-offset:2px}
+.entry-body .radio-card__title{font-size:15px;font-weight:500}
+.entry-body .radio-card__cap{font-size:13px}
+.entry-body .radio-card__mark{width:20px;height:20px}
+.entry-body .onb__opts{gap:0}
+.entry-body .onb__opts.onb__grid{gap:0 16px}
+.entry-body--schedule .onb__opts.onb__grid,
+.entry-body--schedule .onb__opts:not(.onb__grid){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.entry-body--schedule .onb__opts.onb__grid .radio-card{border-bottom:1px solid var(--rule)}
+.entry-body--schedule .radio-card{min-height:46px}
+.entry-body--schedule .radio-card__body{align-items:flex-start}
+.entry-body--schedule .radio-card__cap{font-size:12px;color:var(--ink-faint)}
+@media (max-width:380px){
+  .entry-body--schedule .onb__opts.onb__grid,
+  .entry-body--schedule .onb__opts:not(.onb__grid){grid-template-columns:1fr 1fr;gap:0 10px}
+}
+
+/* Equipment is a correction, so its long inventory sits under one native
+   disclosure while remaining keyboard and screen-reader discoverable. */
+.entry__disclosure{margin-top:14px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.entry__disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:10px 0;cursor:pointer;font-size:15px;font-weight:600;list-style:none}
+.entry__disclosure>summary::-webkit-details-marker{display:none}
+.entry__disclosure>summary .chevron{transform:rotate(90deg);transition:transform .15s ease}
+.entry__disclosure[open]>summary .chevron{transform:rotate(270deg)}
+.entry__disclosure-body{padding:0 0 10px}
+.entry__disclosure-body .entry__group-lab{margin-top:12px}
+.entry__disclosure-body .onb__opts.onb__grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
+.entry__disclosure-body .radio-card{min-height:42px;padding:9px 0}
+
+/* Priorities and avoidance remain readable when their optional controls are
+   numerous: short labels get two compact columns, long exercise rows stay flat. */
+.entry-body--priorities .entry__group-lab{margin-top:18px}
+.entry-body--priorities .radio-card__title{font-size:14px}
+.entry-body--priorities .entry__avoid-list{gap:0}
+.entry-body--priorities .entry__avoid-item{padding:12px 0;border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent}
+.entry-body--priorities .entry-card--compact{min-height:44px;padding:9px 0}
+
+/* Manual Build is an editable draft, not an activated Program view. Empty days
+   stay explicit, with the next action attached to each day. */
+.is-entry-editor .pmeta{margin-top:4px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+body.is-entry-editor{padding-bottom:env(safe-area-inset-bottom)}
+body.is-entry-editor nav{display:none}
+.is-entry-editor .pmeta__draft{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:14px;line-height:1.35;color:var(--ink-soft)}
+.is-entry-editor .pmeta__draft-mark{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.is-entry-editor .entry__active{margin:12px 0;padding:10px 0;border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent}
+.is-entry-editor .peditor{gap:0}
+.is-entry-editor .pday{padding:16px 0 14px;background:transparent;border:0;border-bottom:1px solid var(--rule);border-radius:0}
+.is-entry-editor .pday__head{margin-bottom:10px}
+.is-entry-editor .pday__empty{margin:4px 0 10px;padding:10px 0;border-top:1px dashed var(--rule-strong);color:var(--ink-soft);font-style:normal}
+.is-entry-editor .pday__add{width:auto;padding:8px 0;border:0;background:transparent;color:var(--accent-deep);text-align:left}
+.is-entry-editor .peditor__addday{margin-top:18px}
+@media (prefers-reduced-motion:reduce){
+  .entry-body .radio-card,.entry__disclosure>summary{transition:none}
+}
 .exview-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:14px}
 /* The rule named .exview__back, which nothing in the markup uses — every header
    built on .exview-head has been centring its back link inline instead of

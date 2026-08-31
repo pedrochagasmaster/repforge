@@ -6127,11 +6127,12 @@ function openEntryDraftEditor(){
   setupEditorOpen=true;programEditMode=true;
   $("#onboarding")?.classList.remove("active");$("#onboarding")?.classList.add("hidden");
   document.body.classList.remove("is-onboarding");
+  document.body.classList.add("is-entry-editor");
   $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
   render()}
 function closeEntryDraftEditor(){
-  setupEditorOpen=false;programEditMode=false;onboardingOrigin=null;closeOnboarding()}
+  setupEditorOpen=false;programEditMode=false;onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
 function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
   const ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
   if(ov)ov.classList.toggle("is-hidden",programEditMode||setupEditorOpen);
@@ -6221,7 +6222,8 @@ function renderProgramHeader(){
           :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
     const status=saveError||issueStatus;
     const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
-    el.innerHTML=`<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
+    el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
+      `<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
       `<p class="entry__active" id="entryEditorStatus" role="${saveError?"alert":"status"}" aria-live="${saveError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
       `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button></div>`;
@@ -8500,18 +8502,20 @@ function entryLegacyBanner(){
   if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
   return `<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`}
 function renderEntryHub(){
+  // Keep the semantic body heading for focus and assistive technology. The
+  // shell title is visually suppressed on this hub so it is not repeated.
   return entryHeading(t("entry.hub.title"))+
-    `<p class="onb__explain">${esc(t("entry.hub.lede"))}</p>`+
+    `<p class="onb__explain entry-hub__lede">${esc(t("entry.hub.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     entryLegacyBanner()+
-    `<div class="entry__hub">`+
-      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></button>`+
-      `<button type="button" class="entry-card" data-entry-route="custom"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></button>`+
-      `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></button>`+
-      `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></button>`+
+    `<div class="entry__hub entry__hub--routes">`+
+      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__icon icon-mask icon-mask--play" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<button type="button" class="entry-card entry-card--primary" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--plus" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__icon icon-mask icon-mask--search" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own">`+
-        `<button type="button" class="entry-card" data-entry-route="build"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></button>`+
-        `<button type="button" class="entry-card" data-entry-route="import"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></button>`+
+        `<button type="button" class="entry-card entry-card--nested" data-entry-route="build"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        `<button type="button" class="entry-card entry-card--nested" data-entry-route="import"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
       `</div>`:"")+
     `</div>`}
 function renderDesiredResultStep(){
@@ -8542,12 +8546,13 @@ function renderEnvironmentStep(){
   const env=entryEnvironmentValue();
   const equipment=new Set(env?.equipment||[]);
   const capabilities=new Set(env?.capabilities||[]);
-  const correction=env?`<div class="entry__correct">`+
+  const correction=env?`<details class="entry__disclosure entry__correct" open>`+
+    `<summary><span>${esc(t("entry.env_correct.equipment"))} &amp; ${esc(t("entry.env_correct.capabilities"))}</span><span class="chevron" aria-hidden="true"></span></summary><div class="entry__disclosure-body">`+
     `<p class="entry__group-lab">${esc(t("entry.env_correct.equipment"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.equipment"))}">`+
     ENTRY_EQUIPMENT.map(token=>entryOpt("environmentEquipment",token,t(`entry.equip.${token}`)||token,"",{multi:true,selected:equipment.has(token),role:"checkbox"})).join("")+`</div>`+
     `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
     ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
-    `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div>`:"";
+    `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div></details>`:"";
   return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
     ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v})).join("")+`</div>${correction}`}
 function entryMuscleBlocked(key,muscle){
@@ -8897,12 +8902,13 @@ function renderOnboarding(){
   if(!body||!ProgramEntry||!entryState)return;
   const focusToken=entryFocusToken();
   const route=entryState.route,stepId=entryState.step;
+  $("#onboarding")?.classList.toggle("entry-hub-active",!route||stepId==="entry");
   const eyebrow=$("#onbEyebrow");if(eyebrow)eyebrow.textContent=route?entryRouteLabel(route):t("entry.eyebrow");
   title.textContent=t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
   const progress=entryProgressSections(route);
-  if(step)step.textContent=route?t("entry.step",{n:progress.n,total:progress.total}):t("entry.eyebrow");
+  if(step)step.textContent=route?t("entry.step",{n:progress.n,total:progress.total}):"";
   const seg=$("#onbSegbar");
-  if(seg){const total=route?progress.total:1,current=route?progress.n-1:0;
+  if(seg){const total=route?progress.total:0,current=route?progress.n-1:0;
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("")}
   const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
   const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
@@ -8939,6 +8945,7 @@ function renderOnboarding(){
   else if(stepId==="preview"||stepId==="activation_conflict")html+=renderPreviewStep();
   else if(stepId==="editor")html+=`<p class="onb__explain">${esc(t("entry.build_setup.open"))}</p>`;
   else html+=renderEntryHub();
+  body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
   wireEntryDom();
   setupEntryRovingFocus();
@@ -9241,6 +9248,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
   resetDraftSessionState();
   setupEditorOpen=false;
+  document.body.classList.remove("is-entry-editor");
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
   if(destination==="program-edit"){
