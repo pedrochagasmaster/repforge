@@ -1788,9 +1788,7 @@ class Program{
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
-const DAY_TYPES={full_body:["squat","hinge","press","pull","delts","arms"],upper:["press","row","pulldown","delts","chest_iso","arms"],
-  lower:["squat","hinge","leg_curl","leg_extension","calves"],push:["press","incline_press","shoulder_press","lateral_raise","triceps"],
-  pull:["row","pulldown","rear_delt","curl"],legs:["squat","hinge","leg_curl","leg_extension","adduction","calves"]};
+const DAY_TYPES=window.RepForgeProgramEntryAdapter.DAY_MERGE_VOCABULARY;
 const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
 const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
 /* The exercise library. exercises.js is generated (see tools/README.md) and
@@ -2208,7 +2206,9 @@ function buildProgramMeta({name, answers, entrySource}={}){
   return{id:uid(),name:programName,started:today(),created:now,updated:now,
     goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
     equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
-    sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
+    sessionLength:a.sessionLength??null,
+    mesocycleLengthWeeks:Number.isFinite(+a.mesocycleLengthWeeks)&&+a.mesocycleLengthWeeks>0?Math.round(+a.mesocycleLengthWeeks):6,
+    mesocycleStatus:"active",completedAt:null,onboarded:true,
     progressionRelations:[],progressionModifiers:[],
     blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
 function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
@@ -2620,7 +2620,15 @@ async function commitProgramReplacement(proposal,io=storageIO,{capture=capturePr
   effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
   requireAdapter(io,"commitProgramReplacement");
   if(capture)archiveCapturedProgram(proposal,capture);
-  const transition=capture
+  // A first-run shared proposal is deliberately rebased onto the newest
+  // eligible head. Its eligibility guard replaces the ordinary active-program
+  // precondition; retaining the stale starter revision would reject exactly
+  // the concurrent custom/settings cases the shared transaction is designed to
+  // converge.
+  const transition=replace&&expectedFirstRunEmpty
+    ?{expectedProgramId:state?.programMeta?.id||null,
+      expectedProgramFingerprint:draftProgramFingerprint(state)}
+    :capture
     ?{expectedProgramId:capture.oldProgramId,expectedProgramFingerprint:capture.programFingerprint,
       expectedStorageRevision:capture.storageRevision}
     :programTransitionPrecondition(state);
@@ -6894,8 +6902,7 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function referencedCustomExercises(list){
   const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
-const SHARED_EQUIPMENT={machine:"machines",machines:"machines",cable:"cables",cables:"cables",
-  dumbbell:"dumbbells",dumbbells:"dumbbells",barbell:"barbells",barbells:"barbells",bodyweight:"bodyweight"};
+const SHARED_EQUIPMENT=window.RepForgeProgramEntryAdapter.SHARED_EQUIPMENT;
 function sharedProgramMeta(meta,program){
   const days=program.days();
   const optional=(value,allowed)=>allowed.includes(value)?value:null;
@@ -7079,17 +7086,10 @@ async function shareSetupLinkNow(){
    Portuguese lifter still types "bench press" for a machine whose plate says
    so, and an English one still finds "supino". */
 const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const MUSCLE_TOKENS=["Chest","Lats","Mid/upper back","Traps","Front delts","Side delts","Rear delts",
-  "Biceps","Triceps","Forearms","Quads","Hamstrings","Glutes","Adductors","Abductors","Calves",
-  "Spinal erectors","Abs","Obliques"];
-const PICKER_EQUIPMENT=(typeof window!=="undefined"?window.RepForgeProgramEntryAdapter?.KNOWN_EQUIPMENT:null)||["barbell","dumbbell","machine","cable","smith","bodyweight","band"];
+const MUSCLE_TOKENS=window.RepForgeProgramEntryAdapter.MUSCLE_TOKENS;
+const PICKER_EQUIPMENT=window.RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT;
 /* Muscle filters lifters actually think in, each covering the tokens under it. */
-const PICKER_MUSCLE_GROUPS=[
-  ["chest",["Chest"]],["back",["Lats","Mid/upper back","Traps"]],
-  ["shoulders",["Front delts","Side delts","Rear delts"]],
-  ["arms",["Biceps","Triceps","Forearms"]],
-  ["legs",["Quads","Hamstrings","Glutes","Adductors","Abductors","Calves"]],
-  ["core",["Abs","Obliques","Spinal erectors"]]];
+const PICKER_MUSCLE_GROUPS=window.RepForgeProgramEntryAdapter.PICKER_MUSCLE_GROUPS;
 
 let pickerState=null,pickerReturn=null,customState=null,customReturn=null;
 
@@ -7558,13 +7558,36 @@ function validImportedExerciseRow(row){
     Number.isInteger(row.min)&&row.min>=1&&row.min<=1000&&
     Number.isInteger(row.max)&&row.max>=row.min&&row.max<=1000&&
     (row.libraryId===undefined||text(row.libraryId));}
+function validRawImportedExerciseRow(row){
+  if(!row||typeof row!=="object"||Array.isArray(row))return false;
+  const text=v=>typeof v==="string"&&v.trim().length>0;
+  const min=Number.isInteger(row.min)?row.min:row.repLow;
+  const max=Number.isInteger(row.max)?row.max:row.repHigh;
+  return text(row.day)&&text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
+    Number.isInteger(min)&&min>=1&&min<=1000&&Number.isInteger(max)&&max>=min&&max<=1000&&
+    (row.order===undefined||(Number.isInteger(row.order)&&row.order>=1&&row.order<=1000))&&
+    (row.libraryId===undefined||text(row.libraryId));}
+function normalizeImportedRows(rows){
+  const orders=new Map();
+  return rows.map(row=>{
+    const out={...row};
+    // Older program-only exports carried repLow/repHigh and omitted order.
+    // These are lossless aliases: order is the row's position within its day,
+    // and bounds are copied only when the source supplied valid integers.
+    if(out.order===undefined&&typeof out.day==="string"){
+      const next=(orders.get(out.day)||0)+1;orders.set(out.day,next);out.order=next}
+    if(out.min===undefined&&Number.isInteger(out.repLow))out.min=out.repLow;
+    if(out.max===undefined&&Number.isInteger(out.repHigh))out.max=out.repHigh;
+    return out})}
 function parseProgramSource(text,fileName=""){
   const trimmed=String(text||"").trim();
   if(trimmed.startsWith("{")||trimmed.startsWith("[")){
     const parsed=boundedImportJson(trimmed);if(parsed===null)return null;
     const imp=parseProgramImport(parsed);
-    if(!imp?.exercises?.length||!imp.exercises.every(validImportedExerciseRow))return null;
-    return Object.assign({format:"json"},imp)}
+    if(!imp?.exercises?.length||!imp.exercises.every(validRawImportedExerciseRow))return null;
+    imp.exercises=normalizeImportedRows(imp.exercises);
+    if(!imp.exercises.every(validImportedExerciseRow))return null;
+    return Object.assign({format:"json",legacy:parsed?.version===undefined},imp)}
   if(importUtf8Bytes(trimmed)>IMPORT_MAX_BYTES)return null;
   const text2=parseProgramTextExport(trimmed);
   return text2?Object.assign({format:"text"},text2):null}
@@ -7614,6 +7637,7 @@ function buildImportDraft(source,fileName){
       decision:status===IMPORT_EXACT||status===IMPORT_ALIAS?"link":"raw",
       reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
   return{fileName:String(fileName||""),format:source.format||"json",
+    legacy:source.legacy===true,
     meta:source.meta||null,customExercises:source.customExercises||[],rows}}
 
 const importCounts=draft=>{
@@ -8111,11 +8135,29 @@ async function commitImportReview(){
     preview,
   });
   next=ProgramEntry.advance(next).state;
+  // Keep the in-memory state in lockstep with the staged draft.  First-run
+  // legacy imports activate immediately below; passing the pre-review state
+  // to the shared activation gate makes it report an incomplete candidate and
+  // leaves the first-run screen open even though the draft was saved.
+  entryState=next;
   const saved=await persistSetupDraft(next);
   if(!saved?.ok){toast(t("toast.program_import_failed"));return saved}
+  // A legacy file selected from the first-run gate is the one import path that
+  // still activates immediately. Keep the review open until that transaction
+  // completes; otherwise closing it hides the gate before the asynchronous
+  // activation has committed, allowing callers to observe a false first-run
+  // state and the wrong tab.
+  if(draft.fromFirstRun&&draft.legacy){
+    const result=await activateEntryPreview({destination:"log",skipReplaceConfirm:true});
+    closeImportReview({toProgram:false});
+    entryUiNotice=null;
+    return result}
   closeImportReview({toProgram:false});
   entryUiNotice=null;
   showOnboardingView();renderOnboarding();
+  // The original unversioned program-file door predates the staged setup
+  // candidate. Preserve its first-run behavior through the same activation
+  // transaction, while versioned onboarding imports remain explicit previews.
   return{localOk:false,idbOk:false,staged:true,setupDraft:true}}
 
 /* A backup is not a program file. It carries the log, the settings and the meta
@@ -8135,6 +8177,7 @@ function parseBackupFile(text){
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{
+    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
     const text=await f.text();
     const backup=parseBackupFile(text);
     const source=parseProgramSource(text,f.name);
@@ -8170,7 +8213,9 @@ function importChoiceContext(s,opener,io){
     curSessions:have.size,curSets:state.log.length,
     newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{const s=boundedImportJson(await f.text());
+  try{
+    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
+    const s=boundedImportJson(await f.text());
     if(!isImportableState(s))throw Error();
     openImportChoice(importChoiceContext(s,e.target))}
   catch{toast(t("toast.import_invalid"))}
@@ -8236,13 +8281,13 @@ async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()
 const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
 const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
 const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
-const ENTRY_MUSCLES=ProgramEntryAdapter?.ENTRY_MUSCLES||["chest","back","quads","hamstrings","glutes","side_delts","biceps","triceps","calves","lats"];
-const ENTRY_MOVEMENTS=ProgramEntryAdapter?.ENTRY_MOVEMENTS||["squat","hinge","press","row","pulldown"];
-const ENTRY_ENVIRONMENTS=["commercial_gym","basic_gym","limited_home","full_home","other"];
-const ENTRY_EQUIPMENT=ProgramEntryAdapter?.KNOWN_EQUIPMENT||["barbell","dumbbell","machine","cable","smith","bodyweight"];
-const ENTRY_CAPABILITIES=ProgramEntryAdapter?.KNOWN_CAPABILITIES||["safe_pull","training_support"];
-const ENTRY_AVOID_REASONS=["dislike","pain","equipment","other"];
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false;
+const ENTRY_MUSCLES=ProgramEntryAdapter.ENTRY_MUSCLES;
+const ENTRY_MOVEMENTS=ProgramEntryAdapter.ENTRY_MOVEMENTS;
+const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
+const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
+const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
+const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -9153,7 +9198,7 @@ function onEntryPopState(){
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
   entryBack()}
-async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false}={}){
+async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState)return;
   await setupDraftWriteQueue;
   const readiness=ProgramEntry.activationReadiness(entryState,{
@@ -9178,6 +9223,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     :(preview?.program||[]);
   const programStructure=entryState.result?.preview?.programStructure||preview?.programStructure||null;
   const name=entryResultName()||entryState.answers.programName||"";
+  const route=entryState.route||"custom";
   const answersForMeta={
     goal:entryState.answers.desiredResult==="muscle_growth"?"hypertrophy":
       entryState.answers.desiredResult==="strength"?"strength_hypertrophy":
@@ -9188,9 +9234,22 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     equipment:[],
     priorityMuscles:entryState.answers.primaryMuscles||[],
     sessionLength:null};
-  const route=entryState.route||"custom";
   const context=programmingContextFromAnswers(entryState.answers);
   const baseProposal=cloneSnapshot(state);
+  if(route==="shared"){
+    const sharedMeta=preview?.sharedMeta||{};
+    Object.assign(answersForMeta,{
+      goal:sharedMeta.goal??answersForMeta.goal,
+      experience:sharedMeta.experience??answersForMeta.experience,
+      daysPerWeek:sharedMeta.daysPerWeek??answersForMeta.daysPerWeek,
+      splitType:sharedMeta.splitType??null,
+      equipment:Array.isArray(sharedMeta.equipment)?sharedMeta.equipment.slice():answersForMeta.equipment,
+      priorityMuscles:Array.isArray(sharedMeta.priorityMuscles)?sharedMeta.priorityMuscles.slice():answersForMeta.priorityMuscles,
+      sessionLength:sharedMeta.sessionLength??null,
+      mesocycleLengthWeeks:sharedMeta.mesocycleLengthWeeks??null});
+    if(preview?.sharedSettings)baseProposal.settings={...normalizeSettings(baseProposal.settings),...sharedSettingsPatch(preview.sharedSettings)};
+    if(preview?.sharedImport)baseProposal[SHARED_IMPORT]=cloneSnapshot(preview.sharedImport);
+  }
   exercises=cloneSnapshot(exercises);
   if(Array.isArray(preview?.customExercises)&&preview.customExercises.length){
     const merged=mergeImportedCustomExercises(preview.customExercises,exercises,baseProposal);
@@ -9208,13 +9267,15 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     answers:answersForMeta,
     destination,
     origin:onboardingOrigin||"first-run",
-    io:storageIO,
+    io,
     baseProposal,
     telemetryRoute,
     entryTelemetry:entryState.result?.telemetry||null,
     entrySource:{route,fingerprint:entryState.result?.fingerprint},
     programStructure,
-    expectedSetupDraftRaw:activationDraftHandle?.raw??null});
+    expectedSetupDraftRaw:activationDraftHandle?.raw??null,
+    replace:route==="shared",
+    expectedFirstRunEmpty:route==="shared"});
   if(result?.setupDraftConflict){
     entryUiNotice="save_conflict";
     renderOnboarding();
@@ -9226,13 +9287,14 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   if(result?.localOk||result?.idbOk){
     const cleanup=await removeSetupDraftIfCurrent(activationDraftHandle);
     if(cleanup?.writeFailed)toast(t("entry.save_failed.body"));
-    entryState=null}}
+    entryState=null;
+    return result}}
 function telemetryGeneratedProgram(goal){
   if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -9256,7 +9318,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
   const persisted=await commitProgramReplacement(proposal,adapter,
-    {capture:replacementCapture,effect,expectedSetupDraftRaw});
+    {capture:replacementCapture,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty});
   const result=originEff==="block"
     ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":
       persisted.duplicate||persisted.staleRevision?"duplicate":"failed",persisted)
@@ -9268,6 +9330,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
   captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
   if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
+  if(telemetryRoute==="shared")syncLang();
   resetDraftSessionState();
   setupEditorOpen=false;
   document.body.classList.remove("is-entry-editor");
@@ -9473,10 +9536,16 @@ async function commitSharedSetup(io=storageIO){
     const labels=Array.isArray(structure?.days)?structure.days.map(item=>item.label||item.dayId):[...new Set(program.map(exercise=>exercise.day))];
     const preview={source:"shared",familyId:null,frequency:payload.meta.daysPerWeek,
       program,programStructure:structure,
-      days:labels.filter(Boolean).map((label,index)=>({dayId:structure?.days?.[index]?.dayId||label,label,exercises:program.filter(exercise=>exercise.day===label)})),
+      // Keep each preview branch detached. The persisted result schema walks
+      // object identity as well as values, so sharing the program row objects
+      // into day summaries would look like a cycle to its bounded validator.
+      days:labels.filter(Boolean).map((label,index)=>({dayId:structure?.days?.[index]?.dayId||label,label,exercises:program.filter(exercise=>exercise.day===label).map(cloneSnapshot)})),
       customExercises:cloneSnapshot(proposal.customExercises||[]),
       progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
-      primaryMuscles:cloneSnapshot(payload.meta.priorityMuscles||[])};
+      primaryMuscles:cloneSnapshot(payload.meta.priorityMuscles||[]),
+      sharedMeta:cloneSnapshot(payload.meta),
+      sharedSettings:cloneSnapshot(checked.value.settings),
+      sharedImport:cloneSnapshot(proposal[SHARED_IMPORT]||null)};
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
     let next=ProgramEntry.selectRoute(entryState,"shared");
     next=ProgramEntry.setAnswers(next,{sharedReady:true});
@@ -9484,10 +9553,16 @@ async function commitSharedSetup(io=storageIO){
     next={...next,step:"preview"};
     entryState=next;
     await persistSetupDraft(next);
-    closeFirstRun();
+    // Shared setup uses the same explicit candidate activation transaction as
+    // every other entry route.  The shared Start control is that explicit
+    // acceptance, so wait for activation to finish before reporting success;
+    // this also keeps first-run UI and durable state from racing each other.
+    const result=await activateEntryPreview({destination:"log",skipReplaceConfirm:true,io});
+    if(result?.localOk||result?.idbOk)return result;
+    if(!result?.cancelled)toast(t("setup.shared.commit_failed"),{assertive:true});
     showOnboardingView();
     renderOnboarding();
-    return{revision:readRevision(state),localOk:false,idbOk:false,staged:true,setupDraft:true};
+    return result||{revision:readRevision(state),localOk:false,idbOk:false,staged:true,setupDraft:true};
   } catch {
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();

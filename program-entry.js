@@ -16,8 +16,9 @@
   const MAX_LIST_LENGTH = 32;
   const MAX_MUSCLE_CONTROLS = 10;
   const FORBIDDEN_KEYS = new Set(["__proto__", "prototype", "constructor"]);
-  const KNOWN_EQUIPMENT = new Set(vocabulary?.KNOWN_EQUIPMENT || ["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
-  const KNOWN_CAPABILITIES = new Set(vocabulary?.KNOWN_CAPABILITIES || ["safe_pull", "training_support"]);
+  if (!vocabulary) throw new Error("Program-entry vocabulary unavailable");
+  const KNOWN_EQUIPMENT = new Set(vocabulary.KNOWN_EQUIPMENT);
+  const KNOWN_CAPABILITIES = new Set(vocabulary.KNOWN_CAPABILITIES);
   const DESIRED_RESULTS = new Set(["muscle_growth", "balanced", "strength"]);
   const STRUCTURED_EXPERIENCE = new Set(["first", "under_6m", "6_to_24m", "over_24m"]);
   const RECENT_CONSISTENCY = new Set(["most", "about_half", "few", "none"]);
@@ -841,13 +842,6 @@
     next.schemaVersion = SCHEMA_VERSION;
     next.route = state.route;
     next.answersFingerprint = answerFingerprint(state.answers);
-    // Internal route adapters may first publish a lightweight result marker
-    // while assembling a preview. Stamp the closed shape before it can reach
-    // persistence; the persisted normalizer remains strict for raw input.
-    if (!isPlainObject(next.preview)) next.preview = { program: [] };
-    if (state.route !== "recommend" && state.route !== "custom" && !isPlainObject(next.selected)) {
-      next.selected = { id: `${state.route}-candidate`, source: state.route };
-    }
     return { ...clone(state), result: next };
   }
 

@@ -33,6 +33,29 @@
   const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
   const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
   const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "row", "pulldown"]);
+  const ENTRY_ENVIRONMENTS = Object.freeze(["commercial_gym", "basic_gym", "limited_home", "full_home", "other"]);
+  const CONSTRAINT_REASONS = Object.freeze(["dislike", "pain", "equipment", "other"]);
+  const MUSCLE_TOKENS = Object.freeze(["Chest", "Lats", "Mid/upper back", "Traps", "Front delts", "Side delts", "Rear delts",
+    "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors", "Abductors", "Calves",
+    "Spinal erectors", "Abs", "Obliques"]);
+  const PICKER_MUSCLE_GROUPS = Object.freeze([
+    Object.freeze(["chest", Object.freeze(["Chest"])]),
+    Object.freeze(["back", Object.freeze(["Lats", "Mid/upper back", "Traps"])]),
+    Object.freeze(["shoulders", Object.freeze(["Front delts", "Side delts", "Rear delts"])]),
+    Object.freeze(["arms", Object.freeze(["Biceps", "Triceps", "Forearms"])]),
+    Object.freeze(["legs", Object.freeze(["Quads", "Hamstrings", "Glutes", "Adductors", "Abductors", "Calves"])]),
+    Object.freeze(["core", Object.freeze(["Abs", "Obliques", "Spinal erectors"])]),
+  ]);
+  const SHARED_EQUIPMENT = Object.freeze({ machine: "machines", machines: "machines", cable: "cables", cables: "cables",
+    dumbbell: "dumbbells", dumbbells: "dumbbells", barbell: "barbells", barbells: "barbells", bodyweight: "bodyweight" });
+  const DAY_MERGE_VOCABULARY = Object.freeze({
+    full_body: Object.freeze(["squat", "hinge", "press", "pull", "delts", "arms"]),
+    upper: Object.freeze(["press", "row", "pulldown", "delts", "chest_iso", "arms"]),
+    lower: Object.freeze(["squat", "hinge", "leg_curl", "leg_extension", "calves"]),
+    push: Object.freeze(["press", "incline_press", "shoulder_press", "lateral_raise", "triceps"]),
+    pull: Object.freeze(["row", "pulldown", "rear_delt", "curl"]),
+    legs: Object.freeze(["squat", "hinge", "leg_curl", "leg_extension", "adduction", "calves"]),
+  });
 
   function environmentKind(answers) {
     return answers?.environment?.kind || "commercial_gym";
@@ -536,6 +559,12 @@
     KNOWN_CAPABILITIES,
     ENTRY_MUSCLES,
     ENTRY_MOVEMENTS,
+    ENTRY_ENVIRONMENTS,
+    CONSTRAINT_REASONS,
+    MUSCLE_TOKENS,
+    PICKER_MUSCLE_GROUPS,
+    SHARED_EQUIPMENT,
+    DAY_MERGE_VOCABULARY,
     defaultEnvironment,
     createProductionServices,
     answersToCompilerContext,
