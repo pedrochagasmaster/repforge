@@ -6,15 +6,17 @@
  * writes only the declared PNG paths. Service workers are blocked in each
  * isolated context so a previous shell cannot serve stale application code.
  */
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
 import { basename, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "../test/browser.mjs";
+import { buildSemanticArtifact, collectProgramEntrySemantics, semanticCaptureKey, validateSemanticArtifact } from "./program-entry-semantic.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = JSON.parse(readFileSync(join(ROOT, "docs", "ui-screens", "program-entry-manifest.json"), "utf8"));
 const ARTIFACT_ROOT = join(ROOT, MANIFEST.artifactRoot);
+const SEMANTIC_PATH = join(ROOT, "docs", "ui-screens", "program-entry-semantic.json");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CAPTURE_FILTER = process.env.CAPTURE_FILTER || "";
 // Resume renders the draft's updatedAt as a calendar date. Keep that fixture
@@ -262,9 +264,43 @@ function replaceCatalogue(stagingRoot, targetRoot, operations = {}) {
   }
 }
 
+function replaceEvidence(stagingRoot, targetRoot, semanticStaging, semanticTarget, operations = {}) {
+  const exists = operations.exists || existsSync;
+  const rename = operations.rename || renameSync;
+  const remove = operations.remove || rmSync;
+  const suffix = basename(stagingRoot);
+  const backupRoot = `${targetRoot}.backup-${suffix}`;
+  const backupSemantic = `${semanticTarget}.backup-${suffix}`;
+  let movedExisting = false;
+  let movedSemantic = false;
+  let installed = false;
+  let installedSemantic = false;
+  try {
+    if (exists(targetRoot)) { rename(targetRoot, backupRoot); movedExisting = true; }
+    if (exists(semanticTarget)) { rename(semanticTarget, backupSemantic); movedSemantic = true; }
+    rename(stagingRoot, targetRoot); installed = true;
+    rename(semanticStaging, semanticTarget); installedSemantic = true;
+    if (movedExisting) remove(backupRoot, { recursive: true, force: true });
+    if (movedSemantic) remove(backupSemantic, { force: true });
+  } catch (error) {
+    if (installedSemantic && exists(semanticTarget)) remove(semanticTarget, { force: true });
+    if (installed && exists(targetRoot)) remove(targetRoot, { recursive: true, force: true });
+    if (movedSemantic && exists(backupSemantic)) rename(backupSemantic, semanticTarget);
+    if (movedExisting && exists(backupRoot)) rename(backupRoot, targetRoot);
+    throw error;
+  }
+}
+
 async function main() {
   const stagingRoot = mkdtempSync(join(tmpdir(), "repforge-program-entry-capture-"));
+  const semanticStagingRoot = mkdtempSync(join(tmpdir(), "repforge-program-entry-semantic-"));
+  const semanticStaging = join(semanticStagingRoot, "program-entry-semantic.json");
   const captures = MANIFEST.captures.filter((item) => !CAPTURE_FILTER || item.state === CAPTURE_FILTER);
+  const semanticByKey = new Map();
+  if (CAPTURE_FILTER && existsSync(SEMANTIC_PATH)) {
+    const existing = JSON.parse(readFileSync(SEMANTIC_PATH, "utf8"));
+    for (const capture of existing.captures || []) semanticByKey.set(semanticCaptureKey(capture), capture.semantic);
+  }
   let browser;
   const failures = [];
   try {
@@ -289,6 +325,7 @@ async function main() {
           target?.scrollIntoView({ block: "center", inline: "nearest" });
         }, capture.state);
         await opened.page.waitForTimeout(capture.state.startsWith("build-") ? 2200 : 220);
+        semanticByKey.set(semanticCaptureKey(capture), await opened.page.evaluate(collectProgramEntrySemantics));
         await opened.page.screenshot({ path: out, fullPage: false });
         console.log(`✓ ${capture.state} ${capture.locale}/${capture.theme}/${capture.viewport}/${capture.text}/${capture.motion}`);
       } catch (error) {
@@ -304,15 +341,27 @@ async function main() {
       for (const failure of failures) console.warn(`  - ${failure.state}: ${failure.error}`);
       return 1;
     }
-    replaceCatalogue(stagingRoot, ARTIFACT_ROOT);
+    const semanticCaptureEntries = MANIFEST.captures.map((capture) => ({
+      capture,
+      semantic: semanticByKey.get(semanticCaptureKey(capture)),
+    }));
+    const semanticArtifact = buildSemanticArtifact(semanticCaptureEntries);
+    const semanticValidation = validateSemanticArtifact(semanticArtifact, MANIFEST.captures);
+    if (!semanticValidation.ok) {
+      console.warn(`\nSemantic evidence failed validation: ${semanticValidation.reasons.join("; ")}`);
+      return 1;
+    }
+    writeFileSync(semanticStaging, `${JSON.stringify(semanticArtifact, null, 2)}\n`);
+    replaceEvidence(stagingRoot, ARTIFACT_ROOT, semanticStaging, SEMANTIC_PATH);
     console.log(`Committed ${MANIFEST.captures.length} program-entry captures atomically.`);
     return 0;
   } finally {
     await browser?.close();
     if (existsSync(stagingRoot)) rmSync(stagingRoot, { recursive: true, force: true });
+    if (existsSync(semanticStagingRoot)) rmSync(semanticStagingRoot, { recursive: true, force: true });
   }
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) process.exitCode = await main();
 
-export { replaceCatalogue };
+export { replaceCatalogue, replaceEvidence };

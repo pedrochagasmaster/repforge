@@ -13,10 +13,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { inflateSync } from "node:zlib";
+import { compareSemanticBuffers } from "./program-entry-semantic.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "docs", "ui-screens", "program-entry-manifest.json");
 const CURRENT_ROOT = join(ROOT, "docs", "ui-screens", "program-entry");
+const CURRENT_SEMANTIC_PATH = join(ROOT, "docs", "ui-screens", "program-entry-semantic.json");
 const GRID_WIDTH = 96;
 const GRID_HEIGHT = 128;
 const SAMPLE_OFFSETS = [0.25, 0.75];
@@ -33,15 +35,6 @@ export const DEFAULT_THRESHOLDS = Object.freeze({
   maxHistogramDelta: 0.08,
   materialMeanCellDelta: 0.035,
   materialHistogramDelta: 0.16,
-  localizedRegionBlockSize: 8,
-  localizedRegionWindowWidth: 32,
-  localizedRegionWindowHeight: 16,
-  localizedRegionThreshold: 0.12,
-  localizedRegionBlockThreshold: 0.18,
-  localizedRegionMinBlocks: 2,
-  localizedRegionMinRatio: 0.25,
-  localizedStructureBlockSize: 4,
-  localizedStructureMismatch: 0.22,
 });
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
@@ -188,90 +181,6 @@ function cellColourDelta(first, second, index) {
   return Math.sqrt(0.299 * red * red + 0.587 * green * green + 0.114 * blue * blue);
 }
 
-function pooledLuminance(image, blockSize) {
-  const width = Math.ceil(image.width / blockSize);
-  const height = Math.ceil(image.height / blockSize);
-  const values = new Float32Array(width * height);
-  for (let by = 0; by < height; by++) {
-    const y0 = by * blockSize;
-    const y1 = Math.min(image.height, y0 + blockSize);
-    for (let bx = 0; bx < width; bx++) {
-      const x0 = bx * blockSize;
-      const x1 = Math.min(image.width, x0 + blockSize);
-      let total = 0;
-      let count = 0;
-      for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-          const pixel = (y * image.width + x) * 3;
-          total += luma(image.rgb[pixel], image.rgb[pixel + 1], image.rgb[pixel + 2]);
-          count++;
-        }
-      }
-      values[by * width + bx] = total / count;
-    }
-  }
-  return { width, height, values };
-}
-
-function edgeTopology(pooled) {
-  const values = new Float32Array(pooled.width * pooled.height);
-  for (let y = 0; y < pooled.height; y++) {
-    for (let x = 0; x < pooled.width; x++) {
-      const center = pooled.values[y * pooled.width + x];
-      const left = pooled.values[y * pooled.width + Math.max(0, x - 1)];
-      const right = pooled.values[y * pooled.width + Math.min(pooled.width - 1, x + 1)];
-      const above = pooled.values[Math.max(0, y - 1) * pooled.width + x];
-      const below = pooled.values[Math.min(pooled.height - 1, y + 1) * pooled.width + x];
-      values[y * pooled.width + x] = (Math.abs(center - left) + Math.abs(center - right) +
-        Math.abs(center - above) + Math.abs(center - below)) / 4;
-    }
-  }
-  return values;
-}
-
-function structuralRegionEquivalent(x, y, width, height, thresholds, structure) {
-  const { blockSize, firstPooled, secondPooled, firstEdges, secondEdges } = structure;
-  const x0 = Math.max(0, Math.floor(x / blockSize));
-  const y0 = Math.max(0, Math.floor(y / blockSize));
-  const x1 = Math.min(firstPooled.width, Math.ceil((x + width) / blockSize));
-  const y1 = Math.min(firstPooled.height, Math.ceil((y + height) / blockSize));
-  const regionWidth = x1 - x0;
-  const regionHeight = y1 - y0;
-  if (regionWidth < 2 || regionHeight < 2) return false;
-
-  let firstPeak = 0;
-  let secondPeak = 0;
-  for (let row = y0; row < y1; row++) {
-    for (let column = x0; column < x1; column++) {
-      firstPeak = Math.max(firstPeak, firstEdges[row * firstPooled.width + column]);
-      secondPeak = Math.max(secondPeak, secondEdges[row * secondPooled.width + column]);
-    }
-  }
-  if (firstPeak < 0.01 || secondPeak < 0.01) return false;
-
-  const normalised = (value, peak) => Math.min(1, value / peak);
-  let bestMismatch = Infinity;
-  for (let offsetY = -1; offsetY <= 1; offsetY++) {
-    for (let offsetX = -1; offsetX <= 1; offsetX++) {
-      let mismatch = 0;
-      let cells = 0;
-      for (let row = 0; row < regionHeight; row++) {
-        for (let column = 0; column < regionWidth; column++) {
-          const firstValue = normalised(firstEdges[(y0 + row) * firstPooled.width + x0 + column], firstPeak);
-          const secondX = x0 + column + offsetX;
-          const secondY = y0 + row + offsetY;
-          const secondValue = secondX < 0 || secondX >= secondPooled.width || secondY < 0 || secondY >= secondPooled.height
-            ? 0 : normalised(secondEdges[secondY * secondPooled.width + secondX], secondPeak);
-          mismatch += Math.abs(firstValue - secondValue);
-          cells++;
-        }
-      }
-      bestMismatch = Math.min(bestMismatch, mismatch / cells);
-    }
-  }
-  return bestMismatch < thresholds.localizedStructureMismatch;
-}
-
 function compareFeatures(first, second, thresholds = DEFAULT_THRESHOLDS) {
   const cells = GRID_WIDTH * GRID_HEIGHT;
   let changedCells = 0;
@@ -331,105 +240,6 @@ function compareFeatures(first, second, thresholds = DEFAULT_THRESHOLDS) {
   };
 }
 
-// A short, dense text change can occupy too little of the low-resolution grid
-// to move the global colour/edge thresholds. Compare pooled luminance blocks
-// in a small sliding region as well. Pooling over several native pixels makes
-// the signal insensitive to font anti-aliasing and one-pixel glyph movement.
-// When that absolute signal is high, normalized low-resolution edge topology
-// distinguishes raster variation from a coherent label/content change while
-// the block support requirement still catches a label-sized material change.
-function localizedRegionSignal(first, second, thresholds = DEFAULT_THRESHOLDS) {
-  const blockSize = Math.max(1, Math.round(thresholds.localizedRegionBlockSize));
-  const blockWidth = Math.ceil(first.width / blockSize);
-  const blockHeight = Math.ceil(first.height / blockSize);
-  const firstBlocks = new Float32Array(blockWidth * blockHeight);
-  const secondBlocks = new Float32Array(blockWidth * blockHeight);
-  const structureBlockSize = Math.max(1, Math.round(thresholds.localizedStructureBlockSize));
-  const structure = {
-    blockSize: structureBlockSize,
-    firstPooled: pooledLuminance(first, structureBlockSize),
-    secondPooled: pooledLuminance(second, structureBlockSize),
-  };
-  structure.firstEdges = edgeTopology(structure.firstPooled);
-  structure.secondEdges = edgeTopology(structure.secondPooled);
-  for (let by = 0; by < blockHeight; by++) {
-    const y0 = by * blockSize;
-    const y1 = Math.min(first.height, y0 + blockSize);
-    for (let bx = 0; bx < blockWidth; bx++) {
-      const x0 = bx * blockSize;
-      const x1 = Math.min(first.width, x0 + blockSize);
-      let firstTotal = 0;
-      let secondTotal = 0;
-      let count = 0;
-      for (let y = y0; y < y1; y++) {
-        for (let x = x0; x < x1; x++) {
-          const pixel = (y * first.width + x) * 3;
-          firstTotal += luma(first.rgb[pixel], first.rgb[pixel + 1], first.rgb[pixel + 2]);
-          secondTotal += luma(second.rgb[pixel], second.rgb[pixel + 1], second.rgb[pixel + 2]);
-          count++;
-        }
-      }
-      const index = by * blockWidth + bx;
-      firstBlocks[index] = firstTotal / count;
-      secondBlocks[index] = secondTotal / count;
-    }
-  }
-
-  const windowWidth = Math.max(1, Math.min(blockWidth,
-    Math.ceil(Math.max(1, Math.round(thresholds.localizedRegionWindowWidth)) / blockSize)));
-  const windowHeight = Math.max(1, Math.min(blockHeight,
-    Math.ceil(Math.max(1, Math.round(thresholds.localizedRegionWindowHeight)) / blockSize)));
-  const blockThreshold = Number.isFinite(thresholds.localizedRegionBlockThreshold)
-    ? thresholds.localizedRegionBlockThreshold : DEFAULT_THRESHOLDS.localizedRegionBlockThreshold;
-  let maxMeanDelta = 0;
-  let maxChangedBlocks = 0;
-  let maxChangedRatio = 0;
-  let structuralRasterWindows = 0;
-  let meaningfulWindows = 0;
-  for (let by = 0; by <= blockHeight - windowHeight; by++) {
-    for (let bx = 0; bx <= blockWidth - windowWidth; bx++) {
-      let totalDelta = 0;
-      let changedBlocks = 0;
-      for (let y = by; y < by + windowHeight; y++) {
-        for (let x = bx; x < bx + windowWidth; x++) {
-          const delta = Math.abs(firstBlocks[y * blockWidth + x] - secondBlocks[y * blockWidth + x]);
-          totalDelta += delta;
-          if (delta >= blockThreshold) changedBlocks++;
-        }
-      }
-      const area = windowWidth * windowHeight;
-      const meanDelta = totalDelta / area;
-      const changedRatio = changedBlocks / area;
-      const meaningfulWindow = meanDelta >= thresholds.localizedRegionThreshold &&
-        changedBlocks >= Math.max(1, Math.round(thresholds.localizedRegionMinBlocks)) &&
-        changedRatio >= thresholds.localizedRegionMinRatio;
-      if (meaningfulWindow) {
-        meaningfulWindows++;
-        if (structuralRegionEquivalent(bx * blockSize, by * blockSize, windowWidth * blockSize,
-          windowHeight * blockSize, thresholds, structure)) structuralRasterWindows++;
-      }
-      if (meanDelta > maxMeanDelta) maxMeanDelta = meanDelta;
-      if (changedBlocks > maxChangedBlocks) maxChangedBlocks = changedBlocks;
-      if (changedRatio > maxChangedRatio) maxChangedRatio = changedRatio;
-    }
-  }
-  const meaningful = maxMeanDelta >= thresholds.localizedRegionThreshold &&
-    maxChangedBlocks >= Math.max(1, Math.round(thresholds.localizedRegionMinBlocks)) &&
-    maxChangedRatio >= thresholds.localizedRegionMinRatio &&
-    structuralRasterWindows < meaningfulWindows;
-  return {
-    ok: !meaningful,
-    maxMeanDelta,
-    maxChangedBlocks,
-    maxChangedRatio,
-    structuralRasterWindows,
-    meaningfulWindows,
-    reason: meaningful
-      ? `localized region luminance changed ${(maxMeanDelta * 100).toFixed(2)}% across ${maxChangedBlocks} of ${windowWidth * windowHeight} pooled blocks`
-      : null,
-  };
-}
-
 export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DEFAULT_THRESHOLDS) {
   let baseline;
   let current;
@@ -451,18 +261,10 @@ export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DE
   }
   const effectiveThresholds = { ...DEFAULT_THRESHOLDS, ...(thresholds || {}) };
   const features = compareFeatures(sample(baseline), sample(current), effectiveThresholds);
-  const region = localizedRegionSignal(baseline, current, effectiveThresholds);
-  if (!region.ok) {
-    features.ok = false;
-    features.reasons.push(region.reason);
-  }
   return {
     width: current.width,
     height: current.height,
     ...features,
-    localizedRegionMeanDelta: region.maxMeanDelta,
-    localizedRegionBlocks: region.maxChangedBlocks,
-    localizedRegionRatio: region.maxChangedRatio,
   };
 }
 
@@ -470,6 +272,12 @@ export function comparePngFiles(baselinePath, currentPath, thresholds = DEFAULT_
   if (!existsSync(baselinePath)) return { ok: false, reasons: [`missing baseline ${baselinePath}`] };
   if (!existsSync(currentPath)) return { ok: false, reasons: [`missing regenerated capture ${currentPath}`] };
   return comparePngBuffers(readFileSync(baselinePath), readFileSync(currentPath), thresholds);
+}
+
+export function compareSemanticFiles(baselinePath, currentPath) {
+  if (!existsSync(baselinePath)) return { ok: false, reasons: [`missing semantic baseline ${baselinePath}`] };
+  if (!existsSync(currentPath)) return { ok: false, reasons: [`missing semantic evidence ${currentPath}`] };
+  return compareSemanticBuffers(readFileSync(baselinePath), readFileSync(currentPath));
 }
 
 function readManifest() {
@@ -482,7 +290,11 @@ function relativePath(manifest, capture) {
   return value;
 }
 
-export function compareCatalogue({ baselineRoot, currentRoot = CURRENT_ROOT, manifest = readManifest(), thresholds = DEFAULT_THRESHOLDS }) {
+export function compareCatalogue({ baselineRoot, currentRoot = CURRENT_ROOT, baselineSemanticPath, currentSemanticPath = CURRENT_SEMANTIC_PATH, manifest = readManifest(), thresholds = DEFAULT_THRESHOLDS }) {
+  const semantic = compareSemanticFiles(
+    baselineSemanticPath || join(dirname(baselineRoot), "program-entry-semantic.json"),
+    currentSemanticPath,
+  );
   const failures = [];
   let compared = 0;
   for (const capture of manifest.captures) {
@@ -500,13 +312,18 @@ export function compareCatalogue({ baselineRoot, currentRoot = CURRENT_ROOT, man
     if (!result.ok) failures.push({ path, reasons: result.reasons });
     else compared++;
   }
-  return { ok: failures.length === 0, expected: manifest.captures.length, compared, failures };
+  return { ok: failures.length === 0 && semantic.ok, expected: manifest.captures.length, compared, failures, semantic };
 }
 
 function parseArgs(args) {
   const baselineIndex = args.indexOf("--baseline");
   if (baselineIndex < 0 || !args[baselineIndex + 1]) throw new Error("usage: node tools/compare-ui-screen-catalogue.mjs --baseline <immutable-baseline-root>");
-  return { baselineRoot: resolve(args[baselineIndex + 1]), json: args.includes("--json") };
+  const semanticIndex = args.indexOf("--baseline-semantic");
+  return {
+    baselineRoot: resolve(args[baselineIndex + 1]),
+    baselineSemanticPath: semanticIndex >= 0 && args[semanticIndex + 1] ? resolve(args[semanticIndex + 1]) : undefined,
+    json: args.includes("--json"),
+  };
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
@@ -518,6 +335,8 @@ if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1
       console.log(`Program-entry perceptual comparison: ${report.compared}/${report.expected} captures match the committed baseline`);
       for (const failure of report.failures.slice(0, 24)) console.log(`  - ${failure.path}: ${failure.reasons.join("; ")}`);
       if (report.failures.length > 24) console.log(`  ... ${report.failures.length - 24} more failure(s)`);
+      console.log(`Program-entry semantic comparison: ${report.semantic.ok ? "exact match" : "failed"}`);
+      for (const reason of report.semantic.reasons || []) console.log(`  - ${reason}`);
     }
     process.exitCode = report.ok ? 0 : 1;
   } catch (error) {

@@ -15,9 +15,11 @@
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateSemanticArtifact } from "./program-entry-semantic.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST_PATH = join(ROOT, "docs", "ui-screens", "program-entry-manifest.json");
+const SEMANTIC_PATH = join(ROOT, "docs", "ui-screens", "program-entry-semantic.json");
 const REPORT_ONLY = process.argv.includes("--report");
 const JSON_OUTPUT = process.argv.includes("--json");
 
@@ -136,7 +138,16 @@ function check(manifest) {
   }
   const root = join(ROOT, manifest.artifactRoot);
   const extra = allFiles(root).filter((path) => path.endsWith(".png") && !expected.has(path)).map((path) => relative(ROOT, path));
-  return { expected: expected.size, present: expected.size - missing.length, missing, invalid, extra };
+  let semantic;
+  if (!existsSync(SEMANTIC_PATH)) semantic = { ok: false, reasons: ["missing semantic evidence"] };
+  else {
+    try {
+      semantic = validateSemanticArtifact(JSON.parse(readFileSync(SEMANTIC_PATH, "utf8")), manifest.captures);
+    } catch (error) {
+      semantic = { ok: false, reasons: [`invalid semantic evidence: ${error.message}`] };
+    }
+  }
+  return { expected: expected.size, present: expected.size - missing.length, missing, invalid, extra, semantic };
 }
 
 let manifest;
@@ -151,7 +162,7 @@ try {
 }
 
 if (report) {
-  const ok = report.missing.length === 0 && report.invalid.length === 0 && report.extra.length === 0;
+  const ok = report.missing.length === 0 && report.invalid.length === 0 && report.extra.length === 0 && report.semantic.ok;
   if (JSON_OUTPUT) {
     console.log(JSON.stringify({ ok, ...report }, null, 2));
   } else {
@@ -162,6 +173,8 @@ if (report) {
         for (const value of values) console.log(`  - ${value}`);
       }
     }
+    console.log(`Program-entry semantic evidence: ${report.semantic.ok ? `${report.expected}/${report.expected}` : "invalid"}`);
+    for (const reason of report.semantic.reasons || []) console.log(`  - ${reason}`);
   }
   if (!ok && !REPORT_ONLY) process.exitCode = 1;
 }

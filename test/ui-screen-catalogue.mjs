@@ -6,8 +6,9 @@ import { join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
 import { deflateSync } from "node:zlib";
-import { replaceCatalogue } from "../tools/capture-program-entry-catalogue.mjs";
+import { replaceCatalogue, replaceEvidence } from "../tools/capture-program-entry-catalogue.mjs";
 import { compareCatalogue, comparePngBuffers } from "../tools/compare-ui-screen-catalogue.mjs";
+import { compareSemanticArtifacts, validateSemanticArtifact } from "../tools/program-entry-semantic.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-entry-manifest.json"), "utf8"));
@@ -23,6 +24,8 @@ assert.match(workflow, /baseline="\$\(mktemp -d\)"/,
   "CI creates a private screenshot baseline before regeneration");
 assert.match(workflow, /cp -a docs\/ui-screens\/program-entry "\$baseline\/"/,
   "CI copies committed program-entry evidence into the immutable baseline");
+assert.match(workflow, /cp -a docs\/ui-screens\/program-entry-semantic\.json "\$baseline\/"/,
+  "CI copies committed semantic evidence into the immutable baseline");
 assert.match(workflow, /chmod -R a-w "\$baseline"/,
   "CI makes the copied baseline read-only before regeneration");
 assert.match(workflow, /cleanup\(\)\s*\{[\s\S]*chmod -R u\+w -- "\$baseline"[\s\S]*rm -rf -- "\$baseline"[\s\S]*\}/,
@@ -31,12 +34,18 @@ assert.match(workflow, /trap cleanup EXIT/,
   "CI uses the permission-safe baseline cleanup trap");
 assert.match(workflow, /node tools\/compare-ui-screen-catalogue\.mjs --baseline "\$baseline\/program-entry"/,
   "CI compares every regenerated capture with the immutable baseline");
+assert.match(workflow, /--baseline-semantic "\$baseline\/program-entry-semantic\.json"/,
+  "CI compares regenerated semantic evidence with the immutable baseline");
 assert.doesNotMatch(workflow, /git diff --exit-code -- docs\/ui-screens\/program-entry\//,
   "CI does not use byte equality for rasterised evidence");
 assert.match(capture, /const CAPTURE_NOW = process\.env\.CAPTURE_NOW \|\| "2026-08-31T12:00:00\.000Z"/,
   "the production catalogue capture uses a stable fixture clock for date-bearing states");
 assert.match(capture, /page\.addInitScript\(/,
   "the fixture clock is installed before the production page boots");
+assert.match(capture, /collectProgramEntrySemantics/,
+  "the capture records semantics from the production page");
+assert.match(capture, /replaceEvidence\(/,
+  "PNG and semantic evidence install through one transaction");
 const baselineIndex = workflow.indexOf('cp -a docs/ui-screens/program-entry "$baseline/"');
 const captureIndex = workflow.indexOf("node tools/capture-program-entry-catalogue.mjs");
 const catalogueCheckIndex = workflow.indexOf("node tools/check-ui-screen-catalogue.mjs");
@@ -70,6 +79,24 @@ const result = spawnSync(process.execPath, ["tools/check-ui-screen-catalogue.mjs
 assert.equal(result.status, 0, "report mode is non-blocking while captures are pending");
 const report = JSON.parse(result.stdout);
 assert.equal(report.expected, 60);
+assert.equal(report.semantic.ok, true, "the catalogue report includes valid semantic evidence");
+
+const semanticPath = resolve(root, "docs/ui-screens/program-entry-semantic.json");
+assert.equal(existsSync(semanticPath), true, "the committed catalogue has semantic evidence");
+const semanticArtifact = JSON.parse(readFileSync(semanticPath, "utf8"));
+const semanticValidation = validateSemanticArtifact(semanticArtifact, manifest.captures);
+assert.equal(semanticValidation.ok, true, `all 60 captures have semantic evidence: ${semanticValidation.reasons.join("; ")}`);
+assert.equal(semanticArtifact.captures.length, 60, "the semantic baseline has one entry for each capture");
+assert.equal(semanticArtifact.captures.some((capture) => capture.semantic.some((entry) => entry.text === "Unavailable with your current choices")), false,
+  "semantic evidence excludes visually hidden helper copy");
+
+const semanticCopyDrift = JSON.parse(JSON.stringify(semanticArtifact));
+const semanticTextEntry = semanticCopyDrift.captures[0].semantic.find((entry) => entry.text);
+assert.ok(semanticTextEntry, "semantic baseline contains visible text");
+semanticTextEntry.text = "Changed visible copy";
+const semanticCopyComparison = compareSemanticArtifacts(semanticArtifact, semanticCopyDrift);
+assert.equal(semanticCopyComparison.ok, false, "localized copy changes fail semantic evidence comparison");
+assert.match(semanticCopyComparison.reasons.join("; "), /semantic text\/state changed/);
 
 // A failed swap must roll back the old catalogue. This exercises the
 // filesystem transaction without launching Chromium or touching the committed
@@ -90,6 +117,32 @@ assert.equal(report.expected, 60);
   assert.equal(readFileSync(join(target, "old.png"), "utf8"), "old");
   assert.equal(existsSync(join(target, "new.png")), false);
   assert.equal(existsSync(join(staging, "new.png")), true);
+  rmSync(root, { recursive: true, force: true });
+}
+
+// A semantic swap failure must restore both the PNG directory and semantic file.
+{
+  const root = mkdtempSync(join(tmpdir(), "repforge-semantic-rollback-test-"));
+  const target = join(root, "program-entry");
+  const staging = join(root, "staging");
+  const semanticTarget = join(root, "program-entry-semantic.json");
+  const semanticStaging = join(root, "semantic-staging.json");
+  mkdirSync(target); mkdirSync(staging);
+  writeFileSync(join(target, "old.png"), "old");
+  writeFileSync(join(staging, "new.png"), "new");
+  writeFileSync(semanticTarget, "old-semantic");
+  writeFileSync(semanticStaging, "new-semantic");
+  assert.throws(() => replaceEvidence(staging, target, semanticStaging, semanticTarget, {
+    rename(source, destination) {
+      if (source === semanticStaging) throw new Error("injected semantic swap failure");
+      renameSync(source, destination);
+    },
+  }), /injected semantic swap failure/);
+  assert.equal(readFileSync(join(target, "old.png"), "utf8"), "old");
+  assert.equal(existsSync(join(target, "new.png")), false);
+  assert.equal(readFileSync(semanticTarget, "utf8"), "old-semantic");
+  assert.equal(existsSync(semanticStaging), true);
+  assert.equal(readFileSync(semanticStaging, "utf8"), "new-semantic");
   rmSync(root, { recursive: true, force: true });
 }
 assert.equal(report.present, 60);
@@ -128,6 +181,7 @@ const baselineComparison = compareCatalogue({
 assert.equal(baselineComparison.expected, 60);
 assert.equal(baselineComparison.compared, 60);
 assert.equal(baselineComparison.failures.length, 0);
+assert.equal(baselineComparison.semantic.ok, true);
 
 const PNG_SIGNATURE = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
 function crc32(buffer) {
@@ -164,12 +218,14 @@ function rgbPng(width, height, pixelAt) {
   header[8] = 8; header[9] = 2;
   return Buffer.concat([PNG_SIGNATURE, pngChunk("IHDR", header), pngChunk("IDAT", deflateSync(raw)), pngChunk("IEND", Buffer.alloc(0))]);
 }
-function scenePixel(x, y, { noisy = false, material = false } = {}) {
+function scenePixel(x, y, { noisy = false, material = false, layout = false } = {}) {
   let pixel = [255, 255, 255];
   if (y < 32) pixel = [25, 25, 25];
-  if (x >= 16 && x < 176 && y >= 64 && y < 176) pixel = material ? [191, 220, 248] : [245, 242, 238];
-  if (x >= 32 && x < 160 && y >= 196 && y < 236) pixel = [231, 70, 20];
-  if (x >= 44 && x < 132 && y >= 210 && y < 216) pixel = [255, 255, 255];
+  const panelStart = layout ? 40 : 16;
+  if (x >= panelStart && x < panelStart + 160 && y >= 64 && y < 176) pixel = material ? [191, 220, 248] : [245, 242, 238];
+  const buttonStart = layout ? 64 : 32;
+  if (x >= buttonStart && x < buttonStart + 128 && y >= 196 && y < 236) pixel = [231, 70, 20];
+  if (x >= buttonStart + 12 && x < buttonStart + 100 && y >= 210 && y < 216) pixel = [255, 255, 255];
   if (noisy && (x * 17 + y * 23) % 11 === 0) {
     const delta = ((x + y) % 7) - 3;
     pixel = pixel.map((value) => Math.max(0, Math.min(255, value + delta)));
@@ -204,55 +260,12 @@ function labelPixel(x, y, variant = false) {
   if (variant === "antialias") return edge ? [130, 130, 130] : [25, 25, 25];
   return edge ? [72, 72, 72] : [25, 25, 25];
 }
-const DENSE_LABEL_GLYPHS = [
-  ["1111", "1001", "1111", "1001", "1001"],
-  ["1110", "1001", "1110", "1001", "1110"],
-  ["1111", "1000", "1000", "1000", "1111"],
-  ["1110", "1001", "1001", "1001", "1110"],
-  ["1111", "1000", "1110", "1000", "1111"],
-  ["1000", "1000", "1110", "1000", "1111"],
-  ["1111", "1000", "1011", "1001", "1111"],
-  ["1001", "1001", "1111", "1001", "1001"],
-];
-function denseLabelPixel(x, y, variant = false) {
-  const labelX = 24;
-  const labelY = 40;
-  const scale = 2;
-  const glyphWidth = 4;
-  const glyphGap = 1;
-  const localX = x - labelX;
-  const localY = y - labelY;
-  const glyphHeight = 5 * scale;
-  const rowIndex = Math.floor(localY / glyphHeight);
-  const rowY = localY % glyphHeight;
-  const rowOffset = rowIndex * 5;
-  if (rowIndex < 0 || rowIndex >= 2 || rowY < 0 || rowY >= glyphHeight || localX < 0 || localX >= DENSE_LABEL_GLYPHS.length * (glyphWidth + glyphGap) * scale) return null;
-  const glyphShift = variant === "raster" ? ((Math.floor(localX / (scale * (glyphWidth + glyphGap))) + rowIndex) % 3) - 1 : 0;
-  const shiftedX = localX - glyphShift;
-  const scaledX = Math.floor(shiftedX / scale);
-  const glyphIndex = Math.floor(scaledX / (glyphWidth + glyphGap));
-  const glyphX = scaledX % (glyphWidth + glyphGap);
-  if (glyphX >= glyphWidth || glyphIndex >= DENSE_LABEL_GLYPHS.length) return null;
-  const glyphY = Math.floor(rowY / scale);
-  if (variant === "content" && rowIndex === 0 && (glyphIndex === 1 || glyphIndex === 2)) return null;
-  const row = DENSE_LABEL_GLYPHS[(glyphIndex + rowOffset) % DENSE_LABEL_GLYPHS.length][glyphY];
-  if (row[glyphX] !== "1") return null;
-  if (variant !== "raster") return [25, 25, 25];
-  const edge = glyphX === 0 || glyphX === glyphWidth - 1 || glyphY === 0 || glyphY === 4 || localX % scale === 0 || rowY % scale === 0;
-  return edge ? [132, 132, 132] : [25, 25, 25];
-}
 const syntheticBaseline = rgbPng(192, 256, (x, y) => scenePixel(x, y));
 const syntheticNoise = rgbPng(192, 256, (x, y) => scenePixel(x, y, { noisy: true }));
 const syntheticMaterialChange = rgbPng(192, 256, (x, y) => scenePixel(x, y, { material: true }));
 const syntheticFontRasterVariation = rgbPng(192, 256, (x, y) => labelPixel(x, y, "antialias") || scenePixel(x, y));
 const syntheticFontRasterBaseline = rgbPng(192, 256, (x, y) => labelPixel(x, y) || scenePixel(x, y));
-const syntheticDenseFontRasterBaseline = rgbPng(192, 256, (x, y) => denseLabelPixel(x, y) || scenePixel(x, y));
-const syntheticDenseFontRasterVariation = rgbPng(192, 256, (x, y) => denseLabelPixel(x, y, "raster") || scenePixel(x, y));
-const syntheticDenseLabelContentDrift = rgbPng(192, 256, (x, y) => denseLabelPixel(x, y, "content") || scenePixel(x, y));
-const syntheticLocalizedLabelDrift = rgbPng(192, 256, (x, y) => {
-  if (x >= 40 && x < 60 && y >= 40 && y < 44) return [25, 25, 25];
-  return scenePixel(x, y);
-});
+const syntheticLayoutChange = rgbPng(192, 256, (x, y) => scenePixel(x, y, { layout: true }));
 const noiseComparison = comparePngBuffers(syntheticBaseline, syntheticNoise);
 assert.equal(noiseComparison.ok, true, `small raster noise should pass: ${noiseComparison.reasons?.join("; ")}`);
 const materialComparison = comparePngBuffers(syntheticBaseline, syntheticMaterialChange);
@@ -261,19 +274,9 @@ assert.ok(materialComparison.reasons.length > 0, "material changes report action
 const fontRasterComparison = comparePngBuffers(syntheticFontRasterBaseline, syntheticFontRasterVariation);
 assert.equal(fontRasterComparison.ok, true,
   `ordinary font raster variation should pass the evidence gate: ${JSON.stringify(fontRasterComparison)}`);
-const denseFontRasterComparison = comparePngBuffers(syntheticDenseFontRasterBaseline, syntheticDenseFontRasterVariation);
-assert.ok(denseFontRasterComparison.localizedRegionBlocks >= 6 && denseFontRasterComparison.localizedRegionRatio >= 0.75,
-  `dense raster variation exercises most pooled blocks: ${JSON.stringify(denseFontRasterComparison)}`);
-assert.equal(denseFontRasterComparison.ok, true,
-  `dense multi-block font raster variation should pass the evidence gate: ${JSON.stringify(denseFontRasterComparison)}`);
-const denseLabelContentComparison = comparePngBuffers(syntheticDenseFontRasterBaseline, syntheticDenseLabelContentDrift);
-assert.equal(denseLabelContentComparison.ok, false,
-  `coherent dense label content drift must fail the evidence gate: ${JSON.stringify(denseLabelContentComparison)}`);
-const localizedLabelComparison = comparePngBuffers(syntheticBaseline, syntheticLocalizedLabelDrift);
-assert.equal(localizedLabelComparison.ok, false, `a localized dark label drift must fail the evidence gate: ${JSON.stringify(localizedLabelComparison)}`);
-assert.ok(localizedLabelComparison.reasons.length > 0, "localized label drift reports actionable comparator reasons");
-assert.match(localizedLabelComparison.reasons.join("; "), /localized region luminance/,
-  "localized label drift is caught by the local structural signal");
+const layoutComparison = comparePngBuffers(syntheticBaseline, syntheticLayoutChange);
+assert.equal(layoutComparison.ok, false, `a layout shift must fail the PNG evidence gate: ${JSON.stringify(layoutComparison)}`);
+assert.ok(layoutComparison.reasons.length > 0, "layout changes report actionable PNG comparator reasons");
 const dimensionComparison = comparePngBuffers(syntheticBaseline, rgbPng(193, 256, (x, y) => scenePixel(x, y)));
 assert.equal(dimensionComparison.ok, false, "dimension drift must fail the evidence gate");
 assert.match(dimensionComparison.reasons[0], /dimensions changed/);

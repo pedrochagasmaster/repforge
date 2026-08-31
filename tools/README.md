@@ -158,9 +158,11 @@ node tools/check-ui-screen-catalogue.mjs --json   # machine-readable report
 ```
 
 The checker validates PNG dimensions against the manifest's 2× capture scale,
-paired locale/theme coverage, and unexpected files. `--report` is for an
-in-progress capture and keeps the process successful; the default fails on any
-gap.
+paired locale/theme coverage, unexpected files, and the committed semantic
+snapshot `docs/ui-screens/program-entry-semantic.json`. The snapshot must have
+one non-empty normalized record for every manifest capture. `--report` is for
+an in-progress capture and keeps the process successful; the default fails on
+any gap.
 
 The manifest self-test runs with:
 
@@ -176,7 +178,9 @@ invocation, then runs the structural checker and this comparator. The
 comparator walks every manifest-declared PNG, requires the baseline and
 regenerated dimensions to match the manifest exactly, and compares a fixed
 96×128 sample grid using colour, luminance-edge, and luminance-histogram
-features.
+features. It also compares the normalized semantic snapshots exactly, so
+visible copy, roles, labels, and control state changes are caught without
+depending on native glyph pixels.
 
 PNG bytes are intentionally not compared: Chromium font rasterisation and
 anti-aliasing can differ between hosted runners while the rendered UI remains
@@ -193,7 +197,9 @@ cp -a docs/ui-screens/program-entry "$baseline/"
 chmod -R a-w "$baseline"
 node tools/capture-program-entry-catalogue.mjs
 node tools/check-ui-screen-catalogue.mjs
-node tools/compare-ui-screen-catalogue.mjs --baseline "$baseline/program-entry"
+node tools/compare-ui-screen-catalogue.mjs \
+  --baseline "$baseline/program-entry" \
+  --baseline-semantic "$baseline/program-entry-semantic.json"
 rm -rf -- "$baseline"
 ```
 
@@ -201,9 +207,11 @@ rm -rf -- "$baseline"
 
 Drives the production program-entry UI through the explicit captures in the
 Plan 048 manifest and writes their PNGs under
-`docs/ui-screens/program-entry/`. It blocks service workers so an old cached
-script cannot affect the evidence, and seeds only the supported production
-state shape. Serve this worktree before running it:
+`docs/ui-screens/program-entry/` plus the normalized semantic snapshot
+`docs/ui-screens/program-entry-semantic.json`. Those evidence artifacts are
+replaced together after every capture succeeds. It blocks service workers so
+an old cached script cannot affect the evidence, and seeds only the supported
+production state shape. Serve this worktree before running it:
 
 ```bash
 python3 -m http.server 8000
