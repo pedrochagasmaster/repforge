@@ -535,7 +535,7 @@
     recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles"]),
     custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles"]),
     browse: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
-    build: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "days", "primaryMuscles"]),
+    build: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "days", "primaryMuscles", "customExercises"]),
     import: new Set(["source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "days", "customExercises", "primaryMuscles"]),
     shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
@@ -544,8 +544,8 @@
   const STRUCTURE_KEYS = new Set(["schemaVersion", "days", "provenance", "weekPrescriptions", "customizedFrom"]);
   const PROVENANCE_KEYS = new Set(["source", "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"]);
 
-  function optionalString(value, path, issues) {
-    if (value !== undefined && value !== null && (typeof value !== "string" || value.length > MAX_PROGRAM_NAME_LENGTH)) {
+  function optionalString(value, path, issues, maxLength = MAX_PROGRAM_NAME_LENGTH) {
+    if (value !== undefined && value !== null && (typeof value !== "string" || value.length > maxLength)) {
       issues.push(`${path}:invalid`);
     }
   }
@@ -569,9 +569,14 @@
   function validateProgramRow(value, path, issues) {
     if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
     rejectUnknownKeys(value, PROGRAM_ROW_KEYS, path, issues);
-    for (const key of ["id", "slotId", "dayId", "libraryId", "movementId", "day", "name", "displayName", "primary", "secondary", "notes", "priority", "loadingMode", "rest", "rir", "tempo", "progressionType"]) {
-      if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues);
+    for (const key of ["id", "slotId", "dayId", "libraryId", "movementId", "priority", "loadingMode", "progressionType"]) {
+      if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues, MAX_TOKEN_LENGTH);
     }
+    for (const key of ["day", "primary", "secondary", "rest", "rir", "tempo"]) {
+      if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues, 512);
+    }
+    for (const key of ["name", "displayName"]) if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues, 256);
+    if (hasOwn(value, "notes")) optionalString(value.notes, `${path}.notes`, issues, MAX_DRAFT_BYTES);
     for (const key of ["order", "sets", "min", "max", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "loadIncrement"]) {
       if (hasOwn(value, key) && (typeof value[key] !== "number" || !Number.isFinite(value[key]))) issues.push(`${path}.${key}:invalid`);
     }
