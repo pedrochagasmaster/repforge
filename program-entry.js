@@ -255,6 +255,20 @@
     return normalizeVocabularyList(value, path, issues, maxLength, ENTRY_MOVEMENTS, "movement");
   }
 
+  function normalizeStrategyList(value, path, issues, maxLength) {
+    if (!Array.isArray(value) || value.length > maxLength) { issues.push(`${path}:invalid_list`); return []; }
+    const output = [];
+    const seen = new Set();
+    for (const token of value) {
+      if (typeof token !== "string" || token.length < 1 || token.length > MAX_TOKEN_LENGTH || !/^[a-z0-9][a-z0-9_.:@-]*$/.test(token)) {
+        issues.push(`${path}:invalid_token`); continue;
+      }
+      if (seen.has(token)) { issues.push(`${path}:duplicate`); continue; }
+      seen.add(token); output.push(token);
+    }
+    return output;
+  }
+
   function normalizeEnvironment(value, path, issues) {
     if (!isPlainObject(value)) {
       issues.push(`${path}:required`);
@@ -539,13 +553,16 @@
     import: new Set(["source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "days", "customExercises", "primaryMuscles"]),
     shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
-  const PROGRAM_ROW_KEYS = new Set(["id", "slotId", "dayId", "day", "order", "name", "displayName", "libraryId", "movementId", "sets", "min", "max", "primary", "secondary", "notes", "alternates", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "priority", "loadingMode", "loadIncrement", "progression", "rest", "rir", "tempo", "progressionType"]);
+  const PROGRAM_ROW_KEYS = new Set(["id", "slotId", "dayId", "day", "order", "name", "displayName", "libraryId", "movementId", "sets", "min", "max", "primary", "secondary", "notes", "alternates", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "priority", "loadingMode", "loadIncrement", "progression", "progressionIncompatibility", "rest", "rir", "tempo", "progressionType"]);
   const DAY_KEYS = new Set(["id", "dayId", "label", "order", "estimateMinutes", "exercises"]);
   const STRUCTURE_KEYS = new Set(["schemaVersion", "days", "provenance", "weekPrescriptions", "customizedFrom"]);
   const PROVENANCE_KEYS = new Set(["source", "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"]);
   const PROGRESSION_KEYS = new Set(["schemaVersion", "strategy", "modifiers"]);
   const STRATEGY_KEYS = new Set(["id", "version", "params"]);
-  const MODIFIER_KEYS = new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params"]);
+  // `futureField` is the explicit forward-compatibility slot used when an
+  // imported modifier comes from a newer writer. It remains non-executable
+  // provenance; arbitrary extension keys are still rejected.
+  const MODIFIER_KEYS = new Set(["id", "version", "compatibleStrategies", "weekNumber", "target", "params", "futureField"]);
   const RELATION_KEYS = new Set(["schemaVersion", "id", "type", "version", "movementId", "members"]);
   const MEMBER_KEYS = new Set(["exerciseId", "role"]);
   const CUSTOM_EXERCISE_KEYS = new Set(["id", "name", "namePt", "equipment", "primary", "secondary", "notes", "archived", "patterns", "beginnerFriendly", "custom", "created"]);
@@ -594,10 +611,11 @@
       rejectUnknownKeys(modifier, MODIFIER_KEYS, modifierPath, issues);
       if (!validToken(modifier.id)) issues.push(`${modifierPath}.id:invalid`);
       if (modifier.version !== undefined && (!Number.isInteger(modifier.version) || modifier.version < 1)) issues.push(`${modifierPath}.version:invalid`);
-      if (modifier.compatibleStrategies !== undefined) normalizeTokenList(modifier.compatibleStrategies, `${modifierPath}.compatibleStrategies`, issues, MAX_LIST_LENGTH);
+      if (modifier.compatibleStrategies !== undefined) normalizeStrategyList(modifier.compatibleStrategies, `${modifierPath}.compatibleStrategies`, issues, MAX_LIST_LENGTH);
       if (modifier.weekNumber !== undefined && (!Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1)) issues.push(`${modifierPath}.weekNumber:invalid`);
       if (modifier.target !== undefined && !validToken(modifier.target)) issues.push(`${modifierPath}.target:invalid`);
       if (modifier.params !== undefined && !isPlainObject(modifier.params)) issues.push(`${modifierPath}.params:invalid`);
+      if (modifier.futureField !== undefined && inspectJson(modifier.futureField, MAX_CONTEXT_BYTES).length) issues.push(`${modifierPath}.futureField:invalid`);
     });
   }
 
@@ -711,6 +729,16 @@
     }
     if (hasOwn(value, "alternates") && !Array.isArray(value.alternates)) issues.push(`${path}.alternates:invalid`);
     if (hasOwn(value, "progression")) validateProgression(value.progression, `${path}.progression`, issues);
+    if (hasOwn(value, "progressionIncompatibility")) {
+      if (!isPlainObject(value.progressionIncompatibility)) issues.push(`${path}.progressionIncompatibility:invalid`);
+      else {
+        rejectUnknownKeys(value.progressionIncompatibility, new Set(["kind", "value", "version", "source", "reason"]), `${path}.progressionIncompatibility`, issues);
+        if (value.progressionIncompatibility.kind !== undefined && !validToken(value.progressionIncompatibility.kind)) issues.push(`${path}.progressionIncompatibility.kind:invalid`);
+        if (value.progressionIncompatibility.version !== undefined && !validToken(String(value.progressionIncompatibility.version))) issues.push(`${path}.progressionIncompatibility.version:invalid`);
+        for (const key of ["source", "reason"]) if (value.progressionIncompatibility[key] !== undefined && !validToken(value.progressionIncompatibility[key])) issues.push(`${path}.progressionIncompatibility.${key}:invalid`);
+        if (value.progressionIncompatibility.value !== undefined && !isPlainObject(value.progressionIncompatibility.value)) issues.push(`${path}.progressionIncompatibility.value:invalid`);
+      }
+    }
   }
 
   function validatePreview(value, route, path, issues) {

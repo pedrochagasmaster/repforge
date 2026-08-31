@@ -8792,6 +8792,8 @@ function entryProgressionLabel(preview){
   const labels={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
     effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
   return ids.map(id=>labels[id]||id).filter(Boolean).join(" · ")||t("entry.result.progression_default")}
+function entryExerciseCountLabel(n){return t("entry.preview.exercises",{n,exercise:tp(n,"exercise")})}
+window.__repforgeEntryExerciseCountLabel=entryExerciseCountLabel;
 function renderResultStep(){
   const resultTitle=entryState?.route==="custom"?t("entry.result.custom_title"):t("entry.result.title");
   const result=ensureGeneratorResult();
@@ -8885,7 +8887,7 @@ function renderPreviewStep(){
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
   const days=(preview.days||[]).map(day=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
-    return `<details class="onb__day"><summary class="onb__dayname">${esc(day.label||day.dayId)}<span>${esc(t("entry.preview.exercises",{n:exercises.length}))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
+    return `<details class="onb__day"><summary class="onb__dayname">${esc(day.label||day.dayId)}<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
     (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`});
@@ -8897,7 +8899,7 @@ function renderPreviewStep(){
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<div class="entry__decision"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
-    `<div class="entry__facts"><span>${esc(t("entry.preview.exercises",{n:facts.exercises}))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
+    `<div class="entry__facts"><span>${esc(entryExerciseCountLabel(facts.exercises))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
     `<div class="entry__review-grid"><section><h4>${esc(t("entry.preview.priorities"))}</h4><p>${esc(entryPriorityLabel())}</p></section>`+
     `<section><h4>${esc(t("entry.preview.equipment"))}</h4><p>${esc(environment||t("entry.preview.equipment_unspecified"))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t("entry.preview.progression_body"))}</p></section>`+

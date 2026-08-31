@@ -174,6 +174,14 @@ try {
   {
     const { context, page } = await openFresh(browser);
     await page.click("#firstRunCreate");
+    const localizedExerciseCounts = await page.evaluate(() => {
+      window.RepForgeI18n.setLang("pt");
+      const value = { one: window.__repforgeEntryExerciseCountLabel(1), many: window.__repforgeEntryExerciseCountLabel(2) };
+      window.RepForgeI18n.setLang("en");
+      return value;
+    });
+    assert(localizedExerciseCounts.one === "1 exercício" && localizedExerciseCounts.many === "2 exercícios",
+      "common preview exercise facts use native singular and plural copy", JSON.stringify(localizedExerciseCounts));
     const hubComposition = await page.evaluate(() => {
       const visible = (selector) => [...document.querySelectorAll(selector)].filter((el) => {
         const style = getComputedStyle(el);
