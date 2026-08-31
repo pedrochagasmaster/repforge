@@ -6113,9 +6113,16 @@ function renderProgram(){renderProgramOverview();renderProgramHeader();renderPro
   if(meta)meta.classList.toggle("visually-hidden",!(programEditMode||setupEditorOpen));
   if(tog)tog.textContent=setupEditorOpen?t("entry.editor.close"):programEditMode?t("program.done_edit"):t("program.edit");
   const end=$("#endBlock");if(end)end.classList.toggle("hidden",setupEditorOpen);
-  const exp=$("#exportProgram"),imp=$("#importProgram");if(exp)exp.classList.toggle("hidden",setupEditorOpen);if(imp)imp.closest("label")?.classList.toggle("hidden",setupEditorOpen)}
+  const exp=$("#exportProgram"),imp=$("#importProgram");if(exp)exp.classList.toggle("hidden",setupEditorOpen);if(imp)imp.closest("label")?.classList.toggle("hidden",setupEditorOpen);
+  // Candidate edits can invalidate a paired relation while the exercise picker
+  // is closing. Focus after the editor DOM has been rebuilt, rather than racing
+  // the picker animation's one-shot focus attempt.
+  if(setupEditorOpen)focusEntryEditorStatus()}
 function focusEntryEditorStatus(){
-  if(!entryEditorStatusFocusPending)return false;
+  // A picker owns focus until its close transition has restored the editor.
+  // Leave the pending request intact so the post-close call can focus the new
+  // status node instead of immediately losing focus back to the picker trigger.
+  if(!entryEditorStatusFocusPending||activeModal)return false;
   const status=$("#entryEditorStatus");
   if(!status||status.offsetParent===null)return false;
   entryEditorStatusFocusPending=false;
