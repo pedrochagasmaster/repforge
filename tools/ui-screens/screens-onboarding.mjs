@@ -32,8 +32,24 @@ const pick = (page, key, value) =>
   page.click(`[data-entry-pick="${key}"][data-entry-val="${value}"]`);
 const next = (page) => page.click("#onbNext");
 
+/**
+ * Open the entry hub.
+ *
+ * The `existing` path has to leave the first-run gate before it asks. Seeding
+ * an already-onboarded program and calling `startOnboarding` immediately can
+ * beat the gate's own dismissal, and `body.is-firstrun main{visibility:hidden}`
+ * (styles.css) then hides the hub that did open — present in the DOM, correctly
+ * sized, invisible. Waiting for the gate to actually be gone is the difference
+ * between a real surface and a blank frame.
+ */
 async function openHub(page, { existing = false } = {}) {
   if (existing) {
+    await page.evaluate(() => window.closeFirstRun?.());
+    await page.waitForFunction(
+      () => !document.body.classList.contains("is-firstrun"),
+      undefined,
+      { timeout: 20000 }
+    );
     await page.evaluate(() => window.startOnboarding("settings"));
   } else {
     await page.evaluate(() => window.openFirstRun());
