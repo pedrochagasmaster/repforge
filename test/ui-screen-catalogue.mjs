@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /** Self-test for the explicit Plan 048 screenshot manifest and checker. */
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
-import { resolve } from "node:path";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { spawnSync } from "node:child_process";
+import { replaceCatalogue } from "../tools/capture-program-entry-catalogue.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-entry-manifest.json"), "utf8"));
@@ -38,6 +40,28 @@ const result = spawnSync(process.execPath, ["tools/check-ui-screen-catalogue.mjs
 assert.equal(result.status, 0, "report mode is non-blocking while captures are pending");
 const report = JSON.parse(result.stdout);
 assert.equal(report.expected, 60);
+
+// A failed swap must roll back the old catalogue. This exercises the
+// filesystem transaction without launching Chromium or touching the committed
+// evidence tree.
+{
+  const root = mkdtempSync(join(tmpdir(), "repforge-catalogue-test-"));
+  const target = join(root, "program-entry");
+  const staging = join(root, "staging");
+  mkdirSync(target); mkdirSync(staging);
+  writeFileSync(join(target, "old.png"), "old");
+  writeFileSync(join(staging, "new.png"), "new");
+  assert.throws(() => replaceCatalogue(staging, target, {
+    rename(source, destination) {
+      if (source === staging && destination === target) throw new Error("injected swap failure");
+      renameSync(source, destination);
+    },
+  }), /injected swap failure/);
+  assert.equal(readFileSync(join(target, "old.png"), "utf8"), "old");
+  assert.equal(existsSync(join(target, "new.png")), false);
+  assert.equal(existsSync(join(staging, "new.png")), true);
+  rmSync(root, { recursive: true, force: true });
+}
 assert.equal(report.present, 60);
 assert.equal(report.missing.length, 0);
 assert.equal(report.invalid.length, 0);

@@ -6,13 +6,15 @@
  * writes only the declared PNG paths. Service workers are blocked in each
  * isolated context so a previous shell cannot serve stale application code.
  */
-import { mkdirSync, readFileSync, rmSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync } from "node:fs";
+import { basename, dirname, join, resolve } from "node:path";
+import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { launchChromium } from "../test/browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const MANIFEST = JSON.parse(readFileSync(join(ROOT, "docs", "ui-screens", "program-entry-manifest.json"), "utf8"));
+const ARTIFACT_ROOT = join(ROOT, MANIFEST.artifactRoot);
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const CAPTURE_FILTER = process.env.CAPTURE_FILTER || "";
 const KEY = "repforge_v1";
@@ -220,43 +222,85 @@ async function captureState(page, state) {
   throw new Error(`no production capture scenario for ${state}`);
 }
 
-function pathFor(capture) {
+function pathFor(capture, artifactRoot = ARTIFACT_ROOT) {
   let path = MANIFEST.artifactTemplate;
   for (const [key, value] of Object.entries(capture)) path = path.replaceAll(`{${key}}`, value);
-  return join(ROOT, MANIFEST.artifactRoot, path);
+  return join(artifactRoot, path);
 }
 
-const browser = await launchChromium();
-const failures = [];
-try {
-  if (!CAPTURE_FILTER) rmSync(join(ROOT, MANIFEST.artifactRoot), { recursive: true, force: true });
-  for (const capture of MANIFEST.captures.filter((item) => !CAPTURE_FILTER || item.state === CAPTURE_FILTER)) {
-    const state = MANIFEST.states.find((item) => item.id === capture.state);
-    const out = pathFor(capture); mkdirSync(dirname(out), { recursive: true });
-    let context;
-    try {
-      const opened = await openPage(browser, capture, capture.state.includes("review-existing") || capture.state === "replacement-confirm" || capture.state === "activation-conflict" || capture.state === "rules-drift" ? activeState(capture.locale === "pt-BR" ? "pt" : "en") : emptyState(capture.locale === "pt-BR" ? "pt" : "en"));
-      context = opened.context;
-      await captureState(opened.page, capture.state);
-      await opened.page.evaluate((state) => {
-        document.documentElement.scrollTop = 0; document.body.scrollTop = 0; window.scrollTo(0, 0);
-        const target = state.includes("pain") ? document.querySelector(".entry__pain") :
-          state === "build-ready" ? document.querySelector("#entryEditorActivate") :
-          state === "activation-conflict" ? document.querySelector(".entry__notice") : null;
-        target?.scrollIntoView({ block: "center", inline: "nearest" });
-      }, capture.state);
-      await opened.page.waitForTimeout(capture.state.startsWith("build-") ? 2200 : 220);
-      await opened.page.screenshot({ path: out, fullPage: false });
-      console.log(`✓ ${capture.state} ${capture.locale}/${capture.theme}/${capture.viewport}/${capture.text}/${capture.motion}`);
-    } catch (error) {
-      const contextText = process.env.CAPTURE_DEBUG && context ? await context.pages()[0]?.locator("body").innerText().catch(() => "") : "";
-      failures.push({ state: capture.state, path: out, error: `${error.message.split("\n")[0]}${contextText ? ` [${contextText.slice(0, 160).replace(/\s+/g, " ")}]` : ""}` });
-      console.warn(`✗ ${state.label}: ${error.message.split("\n")[0]}`);
-    } finally { await context?.close(); }
+function replaceCatalogue(stagingRoot, targetRoot, operations = {}) {
+  const exists = operations.exists || existsSync;
+  const rename = operations.rename || renameSync;
+  const remove = operations.remove || rmSync;
+  const backupRoot = `${targetRoot}.backup-${basename(stagingRoot)}`;
+  let movedExisting = false;
+  let installed = false;
+  try {
+    if (exists(targetRoot)) {
+      rename(targetRoot, backupRoot);
+      movedExisting = true;
+    }
+    rename(stagingRoot, targetRoot);
+    installed = true;
+    if (movedExisting) remove(backupRoot, { recursive: true, force: true });
+  } catch (error) {
+    if (installed && exists(targetRoot)) remove(targetRoot, { recursive: true, force: true });
+    if (movedExisting && exists(backupRoot)) rename(backupRoot, targetRoot);
+    throw error;
   }
-} finally { await browser.close(); }
-if (failures.length) {
-  console.warn(`\n${failures.length} capture(s) failed:`);
-  for (const failure of failures) console.warn(`  - ${failure.state}: ${failure.error}`);
-  process.exitCode = 1;
 }
+
+async function main() {
+  const stagingRoot = mkdtempSync(join(tmpdir(), "repforge-program-entry-capture-"));
+  const captures = MANIFEST.captures.filter((item) => !CAPTURE_FILTER || item.state === CAPTURE_FILTER);
+  let browser;
+  const failures = [];
+  try {
+    // A filtered rerun is merged into a private copy so the final directory is
+    // still complete. An unfiltered run starts clean, but neither mode touches
+    // committed evidence until every requested capture has succeeded.
+    if (CAPTURE_FILTER && existsSync(ARTIFACT_ROOT)) cpSync(ARTIFACT_ROOT, stagingRoot, { recursive: true });
+    browser = await launchChromium();
+    for (const capture of captures) {
+      const state = MANIFEST.states.find((item) => item.id === capture.state);
+      const out = pathFor(capture, stagingRoot); mkdirSync(dirname(out), { recursive: true });
+      let context;
+      try {
+        const opened = await openPage(browser, capture, capture.state.includes("review-existing") || capture.state === "replacement-confirm" || capture.state === "activation-conflict" || capture.state === "rules-drift" ? activeState(capture.locale === "pt-BR" ? "pt" : "en") : emptyState(capture.locale === "pt-BR" ? "pt" : "en"));
+        context = opened.context;
+        await captureState(opened.page, capture.state);
+        await opened.page.evaluate((state) => {
+          document.documentElement.scrollTop = 0; document.body.scrollTop = 0; window.scrollTo(0, 0);
+          const target = state.includes("pain") ? document.querySelector(".entry__pain") :
+            state === "build-ready" ? document.querySelector("#entryEditorActivate") :
+            state === "activation-conflict" ? document.querySelector(".entry__notice") : null;
+          target?.scrollIntoView({ block: "center", inline: "nearest" });
+        }, capture.state);
+        await opened.page.waitForTimeout(capture.state.startsWith("build-") ? 2200 : 220);
+        await opened.page.screenshot({ path: out, fullPage: false });
+        console.log(`✓ ${capture.state} ${capture.locale}/${capture.theme}/${capture.viewport}/${capture.text}/${capture.motion}`);
+      } catch (error) {
+        const contextText = process.env.CAPTURE_DEBUG && context ? await context.pages()[0]?.locator("body").innerText().catch(() => "") : "";
+        failures.push({ state: capture.state, path: out, error: `${error.message.split("\n")[0]}${contextText ? ` [${contextText.slice(0, 160).replace(/\s+/g, " ")}]` : ""}` });
+        console.warn(`✗ ${state.label}: ${error.message.split("\n")[0]}`);
+      } finally { await context?.close(); }
+    }
+    const missing = MANIFEST.captures.filter((capture) => !existsSync(pathFor(capture, stagingRoot)));
+    if (missing.length) failures.push(...missing.map((capture) => ({ state: capture.state, path: pathFor(capture, stagingRoot), error: "capture output missing" })));
+    if (failures.length) {
+      console.warn(`\n${failures.length} capture(s) failed; committed catalogue was left untouched:`);
+      for (const failure of failures) console.warn(`  - ${failure.state}: ${failure.error}`);
+      return 1;
+    }
+    replaceCatalogue(stagingRoot, ARTIFACT_ROOT);
+    console.log(`Committed ${MANIFEST.captures.length} program-entry captures atomically.`);
+    return 0;
+  } finally {
+    await browser?.close();
+    if (existsSync(stagingRoot)) rmSync(stagingRoot, { recursive: true, force: true });
+  }
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) process.exitCode = await main();
+
+export { replaceCatalogue };
