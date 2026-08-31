@@ -8104,29 +8104,18 @@ async function commitImportReview(){
     preview,
   });
   next=ProgramEntry.advance(next).state;
-  // Keep the in-memory state in lockstep with the staged draft.  First-run
-  // legacy imports activate immediately below; passing the pre-review state
-  // to the shared activation gate makes it report an incomplete candidate and
-  // leaves the first-run screen open even though the draft was saved.
+  // Keep the in-memory state in lockstep with the staged draft. Every import,
+  // including an unversioned first-run program file, remains a candidate until
+  // the common preview's explicit activation action is chosen.
   entryState=next;
   const saved=await persistSetupDraft(next);
   if(!saved?.ok){toast(t("toast.program_import_failed"));return saved}
-  // A legacy file selected from the first-run gate is the one import path that
-  // still activates immediately. Keep the review open until that transaction
-  // completes; otherwise closing it hides the gate before the asynchronous
-  // activation has committed, allowing callers to observe a false first-run
-  // state and the wrong tab.
-  if(draft.fromFirstRun&&draft.legacy){
-    const result=await activateEntryPreview({destination:"log",skipReplaceConfirm:true});
-    closeImportReview({toProgram:false});
-    entryUiNotice=null;
-    return result}
   closeImportReview({toProgram:false});
   entryUiNotice=null;
   showOnboardingView();renderOnboarding();
-  // The original unversioned program-file door predates the staged setup
-  // candidate. Preserve its first-run behavior through the same activation
-  // transaction, while versioned onboarding imports remain explicit previews.
+  // The original unversioned program-file door now converges with versioned
+  // onboarding imports: both leave the active state untouched until the
+  // preview's explicit activation transaction runs.
   return{localOk:false,idbOk:false,staged:true,setupDraft:true}}
 
 /* A backup is not a program file. It carries the log, the settings and the meta

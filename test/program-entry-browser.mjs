@@ -105,6 +105,60 @@ async function seedActiveProgram(page, { libraryId = "row_cable", exerciseName =
 
 const browser = await launchChromium();
 try {
+  console.log("\nFirst-run legacy import stages a preview before activation");
+  {
+    const { context, page } = await openFresh(browser);
+    await page.evaluate(async () => {
+      localStorage.clear();
+      await new Promise((resolve) => {
+        const request = indexedDB.deleteDatabase("repforge");
+        request.onsuccess = request.onerror = request.onblocked = () => resolve();
+      });
+    });
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
+    const before = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.setInputFiles("#importProgram", {
+      name: "legacy-first-run.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify([{
+        id: "legacy-first-run-row",
+        day: "Day 1",
+        name: "Barbell bench press",
+        sets: 3,
+        repLow: 6,
+        repHigh: 10,
+        muscles: ["Chest"],
+      }])),
+    });
+    await page.waitForSelector("#importReview.active", { timeout: 10000 });
+    await page.click("#importCommit");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    const staged = await page.evaluate((key) => ({
+      active: localStorage.getItem(key),
+      step: window.__repforgeEntryState?.()?.step,
+      route: window.__repforgeEntryState?.()?.route,
+      previewRows: window.__repforgeEntryState?.()?.result?.preview?.program?.length || 0,
+      editVisible: !!document.querySelector("#entryEdit"),
+      activateDisabled: !!document.querySelector("#entryActivate")?.disabled,
+      firstRunVisible: !document.querySelector("#firstRun")?.classList.contains("hidden"),
+    }), KEY);
+    assert(staged.active === before, "first-run legacy import leaves active state byte-identical", JSON.stringify(staged));
+    assert(staged.step === "preview" && staged.route === "import" && staged.previewRows === 1,
+      "first-run legacy import stages the parsed candidate in common preview", JSON.stringify(staged));
+    assert(staged.editVisible && !staged.activateDisabled && !staged.firstRunVisible,
+      "first-run legacy import exposes edit and explicit activation controls", JSON.stringify(staged));
+    await page.click("#entryActivate");
+    await page.waitForFunction((key) => {
+      const state = JSON.parse(localStorage.getItem(key) || "{}");
+      return state.programMeta?.onboarded === true && state.program?.length === 1;
+    }, KEY, { timeout: 10000 });
+    assert((await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta?.onboarded, KEY)) === true,
+      "first-run legacy import activates only after explicit preview action");
+    await context.close();
+  }
+
   console.log("\nBrowser Back and explicit setup cancellation preserve draft safety");
   {
     const { context, page } = await openFresh(browser);
