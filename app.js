@@ -8297,7 +8297,7 @@ const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
 const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;

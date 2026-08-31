@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
@@ -55,6 +56,38 @@ test("persisted result is closed and bound to the normalized answers", () => {
   assert.equal(migrated.ok, true);
   assert.equal(migrated.value.result.route, "recommend");
   assert.equal(typeof migrated.value.result.answersFingerprint, "string");
+
+  const nestedSelected = structuredClone(state);
+  nestedSelected.result.selected.extra = true;
+  assert.equal(Entry.normalizeSetupDraft(nestedSelected).ok, false);
+
+  const wrongSelected = structuredClone(state);
+  wrongSelected.result.selected.id = 42;
+  assert.equal(Entry.normalizeSetupDraft(wrongSelected).ok, false);
+
+  const nestedPreview = structuredClone(state);
+  nestedPreview.result.preview.extra = true;
+  assert.equal(Entry.normalizeSetupDraft(nestedPreview).ok, false);
+
+  const wrongPreview = structuredClone(state);
+  wrongPreview.result.preview.program = {};
+  assert.equal(Entry.normalizeSetupDraft(wrongPreview).ok, false);
+
+  const nestedDay = structuredClone(state);
+  nestedDay.result.preview.days = [{ id: "day-1", exercises: [], extra: true }];
+  assert.equal(Entry.normalizeSetupDraft(nestedDay).ok, false);
+});
+
+test("persisted entry muscle controls use the authoritative adapter vocabulary", () => {
+  const state = previewState();
+  for (const key of ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles"]) {
+    const tampered = structuredClone(state);
+    tampered.answers[key] = ["core"];
+    assert.equal(Entry.normalizeSetupDraft(tampered).ok, false, key);
+  }
+  const movement = structuredClone(state);
+  movement.answers.priorityMovements = ["invented_pattern"];
+  assert.equal(Entry.normalizeSetupDraft(movement).ok, false);
 });
 
 test("recent-consistency and simple-start pins drift independently", () => {
@@ -108,4 +141,12 @@ test("entry vocabularies have one adapter authority and band is explicit-only", 
   assert.deepEqual(Adapter.KNOWN_CAPABILITIES, ["safe_pull", "training_support"]);
   assert.equal(Adapter.ENV_EQUIPMENT.commercial_gym.includes("band"), false);
   assert.equal(Adapter.ENTRY_MUSCLES.includes("core"), false);
+});
+
+test("app day merge and entry controls consume adapter-owned vocabularies", async () => {
+  const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
+  assert.match(app, /RepForgeProgramEntryAdapter\.DAY_MERGE_VOCABULARY/);
+  assert.match(app, /ENTRY_MUSCLES=ProgramEntryAdapter\.ENTRY_MUSCLES/);
+  assert.match(app, /ENTRY_MOVEMENTS=ProgramEntryAdapter\.ENTRY_MOVEMENTS/);
+  assert.doesNotMatch(app, /const DAY_TYPES\s*=\s*\{/);
 });
