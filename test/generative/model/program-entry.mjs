@@ -56,9 +56,20 @@ function fixtureResult(route, state, services) {
     return services.compile({ mode: route, answers: state.answers, versions: MODEL_VERSIONS });
   }
   if (route === "browse") {
-    return { source: "fixture-catalogue", id: state.answers.catalogueSelection, fingerprint: "browse-fixture" };
+    return {
+      source: "fixture-catalogue", id: state.answers.catalogueSelection, fingerprint: "browse-fixture",
+      selected: { id: state.answers.catalogueSelection, source: "fixture-catalogue" },
+      preview: { program: [{ id: "fixture-browse", day: "Day 1", name: "Fixture movement", sets: 1, min: 1, max: 1 }] },
+    };
   }
-  return { source: `fixture-${route}`, fingerprint: `${route}-fixture` };
+  // Import and shared callers publish a reviewed candidate too.  A route
+  // result without a preview is not a resumable setup draft and is rejected
+  // by the persisted closed schema; keep the model on that same contract.
+  return {
+    source: `fixture-${route}`, fingerprint: `${route}-fixture`,
+    selected: { id: `fixture-${route}`, source: `fixture-${route}` },
+    preview: { program: [{ id: `fixture-${route}`, day: "Day 1", name: "Fixture movement", sets: 1, min: 1, max: 1 }] },
+  };
 }
 
 function assertInvariants(Entry, model) {
