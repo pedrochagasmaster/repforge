@@ -9,10 +9,20 @@ import { replaceCatalogue } from "../tools/capture-program-entry-catalogue.mjs";
 
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-entry-manifest.json"), "utf8"));
+const workflow = readFileSync(resolve(root, ".github/workflows/simulation.yml"), "utf8");
 const stateIds = new Set(manifest.states.map((state) => state.id));
 assert.equal(manifest.states.length, 24, "the required Plan 048 state list stays complete");
 assert.equal(manifest.captures.length, 60, "the reviewed capture list stays deliberately non-Cartesian");
 assert.equal(manifest.captures.length, manifest.states.length + 6 * 6, "each representative adds six distinct variants");
+assert.equal((workflow.match(/node tools\/capture-program-entry-catalogue\.mjs/g) || []).length, 1,
+  "CI uses one canonical program-entry capture invocation");
+assert.match(workflow, /git diff --exit-code -- docs\/ui-screens\/program-entry\//,
+  "CI fails when regenerated program-entry evidence differs from committed PNGs");
+const captureIndex = workflow.indexOf("node tools/capture-program-entry-catalogue.mjs");
+const catalogueCheckIndex = workflow.indexOf("node tools/check-ui-screen-catalogue.mjs");
+const evidenceDiffIndex = workflow.indexOf("git diff --exit-code -- docs/ui-screens/program-entry/");
+assert(captureIndex < catalogueCheckIndex && catalogueCheckIndex < evidenceDiffIndex,
+  "CI captures, structurally checks, then compares program-entry evidence");
 
 for (const state of manifest.states) {
   const canonical = manifest.captures.filter((capture) => capture.state === state.id && capture.canonical);
