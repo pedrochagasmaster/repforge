@@ -542,12 +542,12 @@
     "complexity", "reentry", "source",
   ]);
   const PREVIEW_KEYS = Object.freeze({
-    recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
-    custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
-    browse: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
+    recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
+    custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
+    browse: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
     build: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "days", "primaryMuscles", "customExercises"]),
     import: new Set(["source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles"]),
-    shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
+    shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
   const PROGRAM_ROW_KEYS = new Set(["id", "slotId", "dayId", "day", "order", "name", "displayName", "libraryId", "movementId", "sets", "min", "max", "primary", "secondary", "notes", "alternates", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "priority", "loadingMode", "loadIncrement", "progression", "progressionIncompatibility", "rest", "rir", "tempo", "progressionType"]);
   const DAY_KEYS = new Set(["id", "dayId", "label", "order", "estimateMinutes", "exercises"]);
@@ -1337,6 +1337,9 @@
     const preview = state.result?.preview;
     const program = Array.isArray(preview?.program) ? preview.program : [];
     const issues = [];
+    if (Array.isArray(preview?.progressionIncompatibilities) && preview.progressionIncompatibilities.length) {
+      issues.push("progression_incompatible:program");
+    }
     if (!program.length) issues.push("program_exercises_required");
     for (const exercise of program) {
       if (!exercise || typeof exercise !== "object" || !String(exercise.name || "").trim() ||

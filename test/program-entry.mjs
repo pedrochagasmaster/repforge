@@ -498,6 +498,30 @@ test("Build activation names every incomplete day and requires executable exerci
   }).issues, ["progression_incompatible:row-1"]);
 });
 
+test("activation blocks a candidate with program-level progression incompatibility", () => {
+  const state = driveToTerminal("recommend").state;
+  const incompatible = Entry.setResult(state, {
+    ...state.result,
+    preview: {
+      ...state.result.preview,
+      progressionIncompatibilities: [{
+        version: 1,
+        kind: "relations",
+        source: "program-import",
+        reason: "unknown live slot",
+        value: [{ id: "pair", type: "paired_exposure", version: 1, movementId: "movement:pair", members: [] }],
+      }],
+    },
+  });
+  const readiness = Entry.activationReadiness(incompatible, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  });
+  assert.equal(readiness.ok, false);
+  assert.equal(readiness.code, "candidate_incomplete");
+  assert.deepEqual(readiness.issues, ["progression_incompatible:program"]);
+});
+
 test("start over requests deletion of only the setup draft", () => {
   const restarted = Entry.startOver({
     draftId: "new-draft",

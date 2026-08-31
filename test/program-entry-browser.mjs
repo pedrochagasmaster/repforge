@@ -159,6 +159,52 @@ try {
     await context.close();
   }
 
+  console.log("\nInvalid program-level progression relations stay reviewable and non-destructive");
+  {
+    const { context, page } = await openFresh(browser);
+    await seedActiveProgram(page);
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.setInputFiles("#importProgram", {
+      name: "invalid-relation.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({
+        version: 3,
+        meta: {
+          name: "Invalid relation import",
+          progressionRelations: [{
+            schemaVersion: 1, id: "broken-pair", type: "paired_exposure", version: 1,
+            movementId: "movement:missing", members: [
+              { exerciseId: "missing-heavy", role: "heavy" },
+              { exerciseId: "missing-volume", role: "volume" },
+            ],
+          }],
+        },
+        exercises: [{ day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 6, max: 10 }],
+      })),
+    });
+    await page.waitForSelector("#importReview.active", { timeout: 10000 });
+    await page.click("#importCommit");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    const candidate = await page.evaluate(() => ({
+      active: localStorage.getItem("repforge_v1"),
+      relations: window.__repforgeEntryState?.()?.result?.preview?.progressionRelations || [],
+      incompatibilities: window.__repforgeEntryState?.()?.result?.preview?.progressionIncompatibilities || [],
+      progressionCopy: document.querySelector("#onbBody")?.innerText || "",
+      disabled: !!document.querySelector("#entryActivate")?.disabled,
+      focused: document.activeElement?.id || "",
+    }));
+    assert(candidate.active === activeBefore, "invalid import leaves active state byte-identical", JSON.stringify(candidate));
+    assert(candidate.relations.length === 0 && candidate.incompatibilities.some((item) => item.kind === "relations"),
+      "invalid program relation becomes explicit candidate incompatibility", JSON.stringify(candidate));
+    assert(candidate.disabled && /cannot verify|activation is paused/i.test(candidate.progressionCopy),
+      "preview does not claim unsupported progression is executable and disables activation", candidate.progressionCopy);
+    const activation = await page.evaluate(() => window.__repforgeActivateEntryPreview?.({ skipReplaceConfirm: true }));
+    assert(activation?.code === "candidate_incomplete", "activation reports the progression incompatibility", JSON.stringify(activation));
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
+      "blocked invalid import never replaces the active program");
+    await context.close();
+  }
+
   console.log("\nBrowser Back and explicit setup cancellation preserve draft safety");
   {
     const { context, page } = await openFresh(browser);
@@ -567,6 +613,54 @@ try {
     assert(activated.relations.every((relation) => relation.members.every((member) =>
       activated.program.some((exercise) => exercise.id === member.exerciseId && exercise.movementId === relation.movementId))),
       "every persisted relation member resolves to the activated movement identity");
+    await context.close();
+  }
+
+  console.log("\nCandidate movement edits surface broken paired relations");
+  {
+    const { context, page } = await openFresh(browser);
+    const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="recommend"]');
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
+    await page.click("[data-entry-select-candidate]");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    const relation = await page.evaluate(() => window.__repforgeEntryState().result.preview.progressionRelations?.[0]);
+    const targetId = relation?.members?.[0]?.exerciseId;
+    assert(!!targetId, "candidate editor fixture contains a paired relation member", JSON.stringify(relation));
+    await page.click("#entryEdit");
+    await page.waitForSelector(`#programEditor .pex[data-id="${targetId}"] [data-act="changeEx"]`, { timeout: 5000 });
+    await page.locator(`#programEditor .pex[data-id="${targetId}"] [data-act="changeEx"]`).click();
+    await page.waitForSelector("#exPickList .pickrow", { timeout: 5000 });
+    await page.locator("#exPickList .pickrow").first().click();
+    await page.waitForFunction(() => {
+      const preview = window.__repforgeEntryState?.()?.result?.preview;
+      return (preview?.progressionIncompatibilities || []).some((item) => item.kind === "relations");
+    }, { timeout: 10000 });
+    const edited = await page.evaluate(() => ({
+      active: localStorage.getItem("repforge_v1"),
+      relations: window.__repforgeEntryState().result.preview.progressionRelations || [],
+      incompatibilities: window.__repforgeEntryState().result.preview.progressionIncompatibilities || [],
+      disabled: !!document.querySelector("#entryEditorActivate")?.disabled,
+      status: document.querySelector("#entryEditorStatus")?.textContent || "",
+    }));
+    assert(edited.active === activeBefore, "candidate movement replacement leaves active state byte-identical", JSON.stringify(edited));
+    assert(edited.relations.length === 0 && edited.incompatibilities.some((item) => item.kind === "relations"),
+      "candidate movement replacement removes the stale relation with an explicit incompatibility", JSON.stringify(edited));
+    assert(edited.disabled && /progression/i.test(edited.status),
+      "candidate activation stays blocked after a paired movement change", edited.status);
     await context.close();
   }
 

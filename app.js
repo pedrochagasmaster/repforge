@@ -1578,6 +1578,10 @@ function normalizeProgressionRelations(value,program=[],options={}){
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
     options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
   return checked?.ok?cloneSnapshot(checked.value):[]}
+function candidateProgressionData(value,program,existing=[],source="candidate"){
+  const incompatibilities=Array.isArray(existing)?cloneSnapshot(existing):[];
+  const relations=normalizeProgressionRelations(value,program,{preserveInvalid:true,incompatibilities,source});
+  return{relations,incompatibilities}}
 function normalizeProgressionModifiers(value,options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
@@ -6071,8 +6075,12 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
       exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
       model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)})));
   const program=model.toJSON();
+  const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
+    proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
   const referencedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
   const preview={...cloneSnapshot(entryState.result.preview),program,programStructure:structure,
+    progressionRelations:progressionData.relations,
+    progressionIncompatibilities:progressionData.incompatibilities,
     days:previewDays,
     customExercises:(entryState.result.preview?.customExercises||[])
       .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
@@ -8085,15 +8093,17 @@ function importCandidate(draft){
   }));
   const progressionIncompatibilities=Array.isArray(draft.meta?.progressionIncompatibilities)
     ?cloneSnapshot(draft.meta.progressionIncompatibilities):[];
+  const progressionData=candidateProgressionData(draft.meta?.progressionRelations,program,
+    progressionIncompatibilities,"program-import");
   const progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers,{
-    preserveInvalid:true,incompatibilities:progressionIncompatibilities,source:"program-json"});
+    preserveInvalid:true,incompatibilities:progressionData.incompatibilities,source:"program-json"});
   return{
     program,
     days,
     programStructure:structure,
-    progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
+    progressionRelations:progressionData.relations,
     progressionModifiers,
-    progressionIncompatibilities,
+    progressionIncompatibilities:progressionData.incompatibilities,
     customExercises:candidateCustomExercises,
     source:"import",
     format:draft.format,
@@ -8900,6 +8910,8 @@ function renderPreviewStep(){
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`});
   const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
+  const progressionIssue=(Array.isArray(preview.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
+    (preview.program||[]).some(exercise=>exercise?.progressionIncompatibility);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
@@ -8910,10 +8922,11 @@ function renderPreviewStep(){
     `<div class="entry__facts"><span>${esc(entryExerciseCountLabel(facts.exercises))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
     `<div class="entry__review-grid"><section><h4>${esc(t("entry.preview.priorities"))}</h4><p>${esc(entryPriorityLabel(previewAnswers))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.equipment"))}</h4><p>${esc(environment||t("entry.preview.equipment_unspecified"))}</p></section>`+
-    `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t("entry.preview.progression_body"))}</p></section>`+
+    `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t(progressionIssue?"entry.preview.progression_incompatible":"entry.preview.progression_body"))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.compromises"))}</h4><p>${esc(compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none"))}</p></section></div></div>`+
+    (progressionIssue?`<p id="entryActivationStatus" class="entry__notice" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}<div class="onb__actions">`+
-    `<button type="button" id="entryActivate" class="btn btn--cta">${esc(activateLabel)}</button>`+
+    `<button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
     `<button type="button" id="entryEdit" class="btn btn--steel">${esc(t("entry.preview.edit"))}</button>`+
     `<button type="button" id="entryRestart" class="btn btn--steel">${esc(t("entry.preview.restart"))}</button></div></div>`}
 function renderEntryNotice(){
@@ -9233,7 +9246,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     if(readiness.code==="rules_changed_rebuild_required"){entryUiNotice="rules_changed";renderOnboarding();return}
     if(readiness.code==="candidate_incomplete"){
       if(setupEditorOpen){renderProgram();$("#entryEditorStatus")?.focus?.()}
-      else renderOnboarding();
+      else {renderOnboarding();$("#entryActivationStatus")?.focus?.()}
       return readiness}
     renderOnboarding();return}
   if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};

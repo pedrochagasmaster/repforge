@@ -483,8 +483,11 @@ async function main() {
       futureCandidate.result.preview.program[0]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy",
       "program JSON review preserves unvalidated progression as non-executable provenance",
       JSON.stringify(futureCandidate.result?.preview?.program?.[0]));
-    await page.click("#entryActivate");
-    await settle(page, 300);
+    assert(await page.locator("#entryActivate").isDisabled(),
+      "an import with unsupported progression disables activation until it is repaired");
+    const blockedFuture = await page.evaluate(() => window.__repforgeActivateEntryPreview?.({ skipReplaceConfirm: true }));
+    assert(blockedFuture?.code === "candidate_incomplete", "unsupported import exposes an actionable activation validation result",
+      JSON.stringify(blockedFuture));
     assert(await page.evaluate(({ key, before }) => localStorage.getItem(key) === before,
       { key: KEY, before: activeBeforeFuture }),
     "an import with unsupported progression cannot replace active state");
@@ -840,7 +843,10 @@ async function main() {
     // Program only is still there for a lifter who wants the split alone.
     await reset(page);
     await openEditor(page);
-    await importFile(page, "backup.json", backup);
+    const cleanProgramOnly = JSON.parse(backup);
+    cleanProgramOnly.programMeta.progressionModifiers = [];
+    cleanProgramOnly.programMeta.progressionIncompatibilities = [];
+    await importFile(page, "backup.json", JSON.stringify(cleanProgramOnly));
     await page.evaluate(() => document.querySelector("#importProgramOnly").click());
     await settle(page, 500);
     assert((await dialogState()).reviewing, "program only opens the review screen");
