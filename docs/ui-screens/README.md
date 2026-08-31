@@ -74,10 +74,15 @@ The script is the only supported way to refresh these images. Do not hand-edit t
 and do not capture against an unseeded or partial install — designers need a stable,
 comparable pair. Appearance (System/Light/Dark) must be present in the running app.
 
-Plan 048 entry evidence has a separate exact matrix. Read
+Plan 048 entry evidence has a separate explicit matrix. Read
 [`program-entry-manifest.json`](program-entry-manifest.json) for the required
 states and variants, then run
 `node tools/check-ui-screen-catalogue.mjs --report` to list missing captures.
-The release gate is the same command without `--report`.
+The structural checker is the first release-gate half; CI also copies the
+committed program-entry tree before regeneration and runs
+`node tools/compare-ui-screen-catalogue.mjs --baseline <immutable-copy>` so
+every declared capture remains visually consistent while tolerating hosted
+runner rasterisation noise. The comparator requires exact PNG dimensions and
+fails broad colour, edge-structure, or luminance-distribution changes.
 
 Captured 2026-08-30 · 35 screens × 2 themes.

@@ -168,6 +168,35 @@ The manifest self-test runs with:
 node test/ui-screen-catalogue.mjs
 ```
 
+## compare-ui-screen-catalogue.mjs
+
+Compares regenerated Plan 048 program-entry evidence with an immutable copy of
+the committed catalogue. CI makes that copy before the one canonical capture
+invocation, then runs the structural checker and this comparator. The
+comparator walks every manifest-declared PNG, requires the baseline and
+regenerated dimensions to match the manifest exactly, and compares a fixed
+96×128 sample grid using colour, luminance-edge, and luminance-histogram
+features.
+
+PNG bytes are intentionally not compared: Chromium font rasterisation and
+anti-aliasing can differ between hosted runners while the rendered UI remains
+the same. A cell counts as changed only above an 8% colour delta; the default
+gate rejects broad changes (more than 4.5% of cells or a 3.5% mean colour
+delta), coordinated edge changes, and a 16% luminance-histogram delta. The
+thresholds are covered by the catalogue self-test, which proves small
+deterministic pixel noise passes while a broad panel/content change and any
+dimension drift fail.
+
+```bash
+baseline="$(mktemp -d)"
+cp -a docs/ui-screens/program-entry "$baseline/"
+chmod -R a-w "$baseline"
+node tools/capture-program-entry-catalogue.mjs
+node tools/check-ui-screen-catalogue.mjs
+node tools/compare-ui-screen-catalogue.mjs --baseline "$baseline/program-entry"
+rm -rf -- "$baseline"
+```
+
 ## capture-program-entry-catalogue.mjs
 
 Drives the production program-entry UI through the explicit captures in the
