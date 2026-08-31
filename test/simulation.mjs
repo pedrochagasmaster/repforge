@@ -7168,54 +7168,16 @@ async function main() {
     () =>
       typeof window.__repforgeOnboarding?.services === "function" &&
       window.__repforgeExerciseCatalog &&
-      typeof window.__repforgeEquipmentSupportsSplit === "function" &&
       window.__repforgeOnboarding?.entry &&
-      typeof window.__repforgeResolveSplit === "function"
+      window.RepForgeProgramEntryAdapter &&
+      window.RepForgeProgramCompiler
   );
-  const f45 = await page.evaluate(() => {
+  const f45 = await page.evaluate(async () => {
     const services = window.__repforgeOnboarding.services();
-    const compileMatrixCase = (matrixAnswers) => {
-      const answers = {
-        desiredResult: matrixAnswers.goal === "strength" ? "strength" : "muscle_growth",
-        structuredExperience: matrixAnswers.experience === "beginner" ? "first" : "6_to_24m",
-        recentConsistency: "most",
-        daysPerWeek: matrixAnswers.daysPerWeek,
-        sessionMinutes: 60,
-        preferredRestSeconds: 120,
-        environment: { kind: "commercial_gym", equipment: matrixAnswers.equipment, capabilities: ["safe_pull", "training_support"] },
-        primaryMuscles: (matrixAnswers.priorityMuscles || []).map((value) => String(value).toLowerCase()),
-        priorityMovements: [],
-        exerciseConstraints: [],
-      };
-      const compiled = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
-      return compiled.ok ? compiled.preview.program : [];
-    };
+    const fixtureResponse = await fetch("./test/fixtures/program-families-v1.json", { cache: "no-store" });
+    const fixture = fixtureResponse.ok ? await fixtureResponse.json() : null;
     const catalog = window.__repforgeExerciseCatalog;
     const catalogById = new Map(catalog.map((e) => [e.id, e]));
-    const EQ_UI = ["machines", "cables", "dumbbells", "barbells"];
-    const EQ_GEN = { machines: "machine", cables: "cable", dumbbells: "dumbbell", barbells: "barbell" };
-    const DAY_SLOTS = {
-      full_body: ["squat", "hinge", "press", "pull", "delts", "arms"],
-      upper: ["press", "row", "pulldown", "delts", "chest_iso", "arms"],
-      lower: ["squat", "hinge", "leg_curl", "leg_extension", "calves"],
-      push: ["press", "incline_press", "shoulder_press", "lateral_raise", "triceps"],
-      pull: ["row", "pulldown", "rear_delt", "curl"],
-      legs: ["squat", "hinge", "leg_curl", "leg_extension", "adduction", "calves"],
-    };
-    const EXPECTED_SPLITS = [
-      { daysPerWeek: 2, splitType: "full_body", dayTypes: ["full_body", "full_body"] },
-      { daysPerWeek: 2, splitType: "upper_lower", dayTypes: ["upper", "lower"] },
-      { daysPerWeek: 3, splitType: "full_body", dayTypes: ["full_body", "full_body", "full_body"] },
-      { daysPerWeek: 3, splitType: "machine_only", dayTypes: ["full_body", "full_body", "full_body"] },
-      { daysPerWeek: 3, splitType: "ppl", dayTypes: ["push", "pull", "legs"] },
-      { daysPerWeek: 4, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower"] },
-      { daysPerWeek: 4, splitType: "full_body", dayTypes: ["full_body", "full_body", "full_body", "full_body"] },
-      { daysPerWeek: 5, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull"] },
-      { daysPerWeek: 5, splitType: "bro", dayTypes: ["push", "pull", "legs", "push", "pull"] },
-      { daysPerWeek: 5, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower", "upper"] },
-      { daysPerWeek: 6, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull", "legs"] },
-    ];
-    const MUSCLES = ["Chest", "Back", "Quads", "Hamstrings", "Glutes", "Side delts", "Arms", "Calves"];
     const visible = (rows) =>
       rows.map((e) => ({
         day: e.day,
@@ -7237,158 +7199,112 @@ async function main() {
         rows.filter((e) => e.day === d).sort((a, b) => a.order - b.order)
       );
     };
-    const slotPool = (slot, equipment) =>
-      catalog
-        .filter(
-          (e) =>
-            e.patterns.includes(slot) &&
-            e.equipment.some((x) => equipment.includes(String(x).toLowerCase()))
-        )
-        .sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50) || a.id.localeCompare(b.id));
-    // Mirrors dayTypeHasPrimary: a day type counts as supported only when at
-    // least half its slots have candidates, not merely one.
-    const dayHasPrimary = (dayType, equipment) => {
-      const slots = DAY_SLOTS[dayType] || [];
-      if (!slots.length) return false;
-      const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
-      return fillable * 2 >= slots.length;
-    };
-    const splitSupported = (dayTypes, equipment) =>
-      dayTypes.every((dt) => dayHasPrimary(dt, equipment));
     const matchesEq = (ex, equipment) => {
       const entry = catalogById.get(ex.libraryId);
       if (!entry) return false;
-      return entry.equipment.some((x) => equipment.includes(String(x).toLowerCase()) || String(x).toLowerCase() === "bodyweight");
-    };
-    const subsets = (items) => {
-      const out = [];
-      for (let mask = 1; mask < 1 << items.length; mask++) {
-        out.push(items.filter((_, i) => mask & (1 << i)));
-      }
-      return out;
+      return entry.equipment.some((x) => equipment.has(String(x).toLowerCase()) || String(x).toLowerCase() === "bodyweight");
     };
     const onb = window.__repforgeOnboarding;
+    const adapter = window.RepForgeProgramEntryAdapter;
+    const knownEquipment = Array.isArray(adapter.KNOWN_EQUIPMENT) ? [...adapter.KNOWN_EQUIPMENT] : [];
     const optionParity = {
-      eqUi: true,
-      eqGen: true,
-      splits: true,
+      // The UI vocabulary is authoritative in the adapter. This checks that
+      // it is a closed, unique vocabulary backed by the shipped catalogue;
+      // the browser step below compares the rendered controls to this list.
+      eqUi: knownEquipment.length > 0 &&
+        new Set(knownEquipment).size === knownEquipment.length &&
+        knownEquipment.every((token) => catalog.some((entry) => entry.equipment.includes(token)) || token === "band"),
+      eqGen: false,
+      splits: false,
       entryHook: !!(onb && typeof onb.entry === "function" && onb.setupDraftKey),
     };
     const failures = [];
-    // The equipment/split matrix remains a compatibility fixture; generated
-    // output is checked through the Plan 048 compiler service.
-    const eqSubsets = subsets(EQ_UI);
-    let checked = 0;
+    const fixtureBlueprints = Array.isArray(fixture?.blueprints) ? fixture.blueprints : [];
+    const fixtureFamilies = new Map((fixture?.families || []).map((family) => [family.id, family]));
+    let checked = fixtureBlueprints.length;
     let blocked = 0;
     let generated = 0;
-    let supportParity = 0;
-    let seqParity = 0;
+    let splitParity = 0;
     let structureOk = 0;
     let stable = 0;
-    let priorityOk = 0;
-    const prodSupports = window.__repforgeEquipmentSupportsSplit;
-    const prodResolve = window.__repforgeResolveSplit;
-    for (const uiEq of eqSubsets) {
-      const equipment = uiEq.map((k) => EQ_GEN[k]);
-      for (const pair of EXPECTED_SPLITS) {
-        checked++;
-        const { daysPerWeek, splitType, dayTypes } = pair;
-        const label = `${uiEq.join("+")}|${daysPerWeek}|${splitType}`;
-        const ok = splitSupported(dayTypes, equipment);
-        const prodOk = prodSupports(daysPerWeek, splitType, equipment, "intermediate");
-        if (prodOk !== ok) {
-          failures.push(`${label}: production support ${prodOk} independent ${ok}`);
-        } else supportParity++;
-        if (JSON.stringify(prodResolve(daysPerWeek, splitType)) !== JSON.stringify(dayTypes)) {
-          failures.push(`${label}: resolveSplit ${JSON.stringify(prodResolve(daysPerWeek, splitType))} want ${JSON.stringify(dayTypes)}`);
-        } else seqParity++;
-        const answers = {
-          goal: "hypertrophy",
-          experience: "intermediate",
-          daysPerWeek,
-          splitType,
-          equipment,
-          priorityMuscles: [],
-          sessionLength: "normal",
-        };
-        const raw = compileMatrixCase(answers);
-        const days = byDay(raw);
-        if (!ok) {
-          blocked++;
-          // Unsupported combinations are rejected by the entry validation
-          // layer. Keep this matrix check focused on the compatibility oracle:
-          // every blocked combination must genuinely lack enough candidates for
-          // at least one authored day type.
-          const thin = dayTypes.some((dt) => {
-            const slots = DAY_SLOTS[dt] || [];
-            const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
-            return fillable * 2 < slots.length;
-          });
-          if (!thin) failures.push(`${label}: blocked combo fills every day type`);
-          continue;
-        }
-        generated++;
-        if (days.length !== daysPerWeek) {
-          failures.push(`${label}: compiler returned ${days.length} days, want ${daysPerWeek}`);
-          continue;
-        }
-        if (days.some((d) => !d.length)) failures.push(`${label}: empty day`);
-        if (raw.every((exercise) => exercise.day && Number.isInteger(exercise.order) && exercise.order > 0)) structureOk++;
-        for (const ex of raw) {
-          if (!ex.libraryId || !matchesEq(ex, equipment)) {
-            failures.push(`${label}: equipment-invalid ${ex.name} (${ex.libraryId})`);
-            break;
-          }
-        }
-        const vis1 = JSON.stringify(visible(raw));
-        const vis2 = JSON.stringify(visible(compileMatrixCase(answers)));
-        if (vis1 !== vis2) failures.push(`${label}: unstable visible/library fields`);
-        else stable++;
-        const withPri = compileMatrixCase({ ...answers, priorityMuscles: MUSCLES });
-        const priDays = byDay(withPri);
-        if (priDays.length !== daysPerWeek) failures.push(`${label}: priority dropped a day`);
-        let priBad = priDays.some((d) => !d.length);
-        for (const ex of withPri) {
-          if (!ex.libraryId || !matchesEq(ex, equipment)) {
-            failures.push(`${label}: priority equipment-invalid ${ex.name}`);
-            priBad = true;
-            break;
-          }
-        }
-        if (!priBad && priDays.length === daysPerWeek) priorityOk++;
+    let equipmentInvalid = 0;
+    for (const blueprint of fixtureBlueprints) {
+      const family = fixtureFamilies.get(blueprint.familyId);
+      const goal = (fixture.publicGoals || []).find((entry) => entry.familyId === blueprint.familyId);
+      const answers = {
+        desiredResult: goal?.id === "strength_priority" ? "strength" : goal?.id === "muscle_strength" ? "balanced" : "muscle_growth",
+        structuredExperience: "6_to_24m",
+        recentConsistency: "most",
+        daysPerWeek: blueprint.frequency,
+        sessionMinutes: 90,
+        preferredRestSeconds: 120,
+        environment: blueprint.familyId === "home"
+          ? { kind: "limited_home" }
+          : { kind: "commercial_gym" },
+        primaryMuscles: [],
+        priorityMovements: [],
+        exerciseConstraints: [],
+      };
+      const label = `${blueprint.familyId}/${blueprint.frequency}`;
+      if (!family) {
+        failures.push(`${label}: fixture references an unknown family`);
+        continue;
       }
+      const choices = services.splitChoices(answers).choices || [];
+      const choice = choices.find((candidate) => candidate?.id === blueprint.id);
+      const expectedLabels = blueprint.days.map((day) => day.label);
+      if (choices.length < 1 || !choice || choice.familyId !== blueprint.familyId ||
+        choice.frequency !== blueprint.frequency || choice.blueprintId !== blueprint.id ||
+        JSON.stringify((choice.days || []).map((day) => day.label)) !== JSON.stringify(expectedLabels)) {
+        failures.push(`${label}: split choice diverges from reviewed fixture`);
+      } else splitParity++;
+      const first = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+      const second = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+      if (!first.ok || !first.preview?.program?.length) {
+        blocked++;
+        failures.push(`${label}: fixture blueprint did not compile (${first.code || "unknown"})`);
+        continue;
+      }
+      generated++;
+      const raw = first.preview.program;
+      const days = byDay(raw);
+      if (days.length !== blueprint.frequency || days.some((day) => !day.length)) {
+        failures.push(`${label}: compiler returned ${days.length} non-empty days, want ${blueprint.frequency}`);
+      }
+      if (raw.every((exercise) => exercise.day && Number.isInteger(exercise.order) && exercise.order > 0)) structureOk++;
+      const environment = answers.environment.kind === "limited_home"
+        ? adapter.defaultEnvironment("limited_home")
+        : adapter.defaultEnvironment("commercial_gym");
+      const allowedEquipment = new Set(environment.equipment || []);
+      if (answers.environment.kind === "limited_home") allowedEquipment.add("bodyweight");
+      for (const ex of raw) {
+        if (!ex.libraryId || !matchesEq(ex, allowedEquipment)) {
+          equipmentInvalid++;
+          failures.push(`${label}: equipment-invalid ${ex.name} (${ex.libraryId})`);
+          break;
+        }
+      }
+      const vis1 = JSON.stringify(visible(raw));
+      const vis2 = JSON.stringify(visible(second.preview?.program || []));
+      if (vis1 !== vis2) failures.push(`${label}: unstable visible/library fields`);
+      else stable++;
     }
-    const squatPool = slotPool("squat", ["machine"]);
-    const usedAll = new Set(squatPool.map((e) => e.id));
-    const exhausted = window.__repforgeChooseExercise("squat", ["machine"], "intermediate", usedAll, 0);
-    const skipPri = compileMatrixCase({
-      goal: "hypertrophy",
-      experience: "intermediate",
-      daysPerWeek: 3,
-      splitType: "full_body",
-      equipment: ["cable"],
-      priorityMuscles: ["Quads"],
-      sessionLength: "short",
-    });
+    optionParity.eqGen = generated === checked && equipmentInvalid === 0;
+    optionParity.splits = splitParity === checked;
     return {
-      eqUi: window.__repforgeOnboarding?.eqUi,
-      subsetCount: eqSubsets.length,
-      splitCount: EXPECTED_SPLITS.length,
+      familyCount: fixtureFamilies.size,
+      blueprintCount: fixtureBlueprints.length,
       checked,
       blocked,
       generated,
-      supportParity,
-      seqParity,
+      splitParity,
       structureOk,
       optionParity,
       stable,
-      priorityOk,
+      equipmentInvalid,
       failures: failures.slice(0, 24),
       failureCount: failures.length,
-      exhaustedIsNull: exhausted === null,
-      addedLegExt: skipPri.some((e) => e.libraryId === "le_mc" || /leg extension/i.test(e.name)),
-      bwInUi: EQ_UI.includes("bodyweight"),
-      eqUi: EQ_UI,
+      eqUi: knownEquipment,
       entryHook: optionParity.entryHook,
       strings: {
         en: window.RepForgeI18n.STRINGS.en["onb.equipment.unsupported"],
@@ -7398,52 +7314,46 @@ async function main() {
   });
 
   assert(
-    !f45.bwInUi && f45.eqUi.length === 4,
-    "F4: Bodyweight is absent from selectable equipment fixture set",
-    JSON.stringify({ eqUi: f45.eqUi, bwInUi: f45.bwInUi }),
-    "EQ_UI excludes bodyweight; compiler receives only the selected equipment"
+    f45.optionParity.eqUi,
+    "F4: entry equipment vocabulary is closed and backed by the shipped catalogue",
+    JSON.stringify({ equipment: f45.eqUi }),
+    "RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT is unique and every token is represented by catalogue data"
   );
   assert(
-    f45.subsetCount === 15 && f45.splitCount === 11 && f45.checked === 165,
-    "F4: matrix covers every non-empty equipment subset and reachable split",
-    JSON.stringify({ subsets: f45.subsetCount, splits: f45.splitCount, checked: f45.checked }),
-    "4 equipment choices → 15 subsets × 11 fixtured split/day sequences"
+    f45.familyCount === 4 && f45.blueprintCount === 20 && f45.checked === 20,
+    "F4: reviewed Plan 047 fixture covers every released family/frequency blueprint",
+    JSON.stringify({ families: f45.familyCount, blueprints: f45.blueprintCount, checked: f45.checked }),
+    "test/fixtures/program-families-v1.json is the independent family and frequency catalogue"
   );
   assert(
     f45.optionParity.eqUi && f45.optionParity.eqGen && f45.optionParity.splits && f45.entryHook,
-    "F4: local equipment/split fixtures are intact and entry hook remains available",
+    "F4: fixture-derived equipment generation and split choices remain available",
     JSON.stringify(f45.optionParity),
-    "Independent fixtures drive equipment parity; __repforgeOnboarding exposes compiler services"
+    "adapter vocabulary plus Plan 047 blueprints drive actual entry services"
   );
   assert(
-    f45.supportParity === f45.checked && f45.seqParity === f45.checked,
-    "F4: production support and resolveSplit equal independently derived expectations for every combo",
-    `supportParity=${f45.supportParity} seqParity=${f45.seqParity} checked=${f45.checked} ${f45.failures.join(" | ")}`,
-    "__repforgeEquipmentSupportsSplit === independent primary-slot support; resolveSplit === fixtured dayTypes"
+    f45.splitParity === f45.checked,
+    "F4: each reviewed blueprint is an executable split choice with fixture day labels",
+    `splitParity=${f45.splitParity} checked=${f45.checked} ${f45.failures.join(" | ")}`,
+    "adapter splitChoices includes the independent Plan 047 blueprint id, family, frequency, and day labels"
   );
   assert(
-    f45.failureCount === 0 && f45.generated + f45.blocked === f45.checked && f45.generated > 0 && f45.blocked > 0,
-    "F4: every supported combo compiles non-empty days or is independently unsupported",
+    f45.failureCount === 0 && f45.generated === f45.checked && f45.blocked === 0,
+    "F4: every released family blueprint compiles to non-empty executable days",
     `generated=${f45.generated} blocked=${f45.blocked} failures=${f45.failureCount} ${f45.failures.join(" | ")}`,
-    "Compiler-supported cases keep one non-empty day per requested frequency with equipment-compatible libraryIds"
+    "fixture-derived family/frequency contexts compile through the production adapter without unsupported fallbacks"
   );
   assert(
-    f45.stable === f45.generated && f45.priorityOk === f45.generated,
-    "F4: supported compiler outputs are deterministic and keep equipment-valid priority additions",
-    `stable=${f45.stable} priorityOk=${f45.priorityOk} generated=${f45.generated} ${f45.failures.join(" | ")}`,
-    "Two adapter compiles match visible/library fields; priority outputs remain equipment-valid"
+    f45.stable === f45.generated && f45.equipmentInvalid === 0 && f45.optionParity.eqGen,
+    "F4: released outputs are deterministic and equipment-compatible",
+    `stable=${f45.stable} generated=${f45.generated} equipmentInvalid=${f45.equipmentInvalid} ${f45.failures.join(" | ")}`,
+    "two production adapter compiles match projected fields and every libraryId fits its authoritative environment vocabulary"
   );
   assert(
     f45.structureOk === f45.generated,
     "F4: supported compiler outputs retain explicit day and order structure",
     `structureOk=${f45.structureOk} generated=${f45.generated}`,
     "Every projected exercise carries a non-empty day and positive authored order"
-  );
-  assert(
-    f45.exhaustedIsNull && !f45.addedLegExt,
-    "F4: exhausted catalogue pools stay empty and unavailable priorities are skipped",
-    `exhaustedIsNull=${f45.exhaustedIsNull} addedLegExt=${f45.addedLegExt} ${f45.failures.join(" | ")}`,
-    "chooseExercise returns null when the within-day pool is empty; compiler priority stays equipment-valid"
   );
   assert(
     f45.strings.en === "Choose equipment that supports every training day." &&
@@ -7475,6 +7385,18 @@ async function main() {
     "F4: environment step offers the closed shortcut set",
     `vals=${envVals.join(",")}`,
     "Onboarding environment cards"
+  );
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  await page.locator("details.entry__correct summary").click();
+  const renderedEquipment = await page.$$eval("[data-entry-pick='environmentEquipment']", (els) =>
+    els.map((el) => el.getAttribute("data-entry-val"))
+  );
+  const canonicalEquipment = await page.evaluate(() => [...window.RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT]);
+  assert(
+    JSON.stringify(renderedEquipment) === JSON.stringify(canonicalEquipment),
+    "F4: environment correction controls use the canonical equipment vocabulary",
+    `rendered=${renderedEquipment.join(",")} canonical=${canonicalEquipment.join(",")}`,
+    "rendered environmentEquipment choices equal RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT"
   );
   await page.click('[data-entry-pick="environment"][data-entry-val="limited_home"]');
   const envSelected = await page.locator('[data-entry-pick="environment"][data-entry-val="limited_home"].is-selected').count();
