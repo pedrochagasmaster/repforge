@@ -196,12 +196,16 @@ baseline="$(mktemp -d)"
 cp -a docs/ui-screens/program-entry "$baseline/"
 cp -a docs/ui-screens/program-entry-semantic.json "$baseline/"
 chmod -R a-w "$baseline"
+cleanup() {
+  chmod -R u+w -- "$baseline" 2>/dev/null || true
+  rm -rf -- "$baseline"
+}
+trap cleanup EXIT
 node tools/capture-program-entry-catalogue.mjs
 node tools/check-ui-screen-catalogue.mjs
 node tools/compare-ui-screen-catalogue.mjs \
   --baseline "$baseline/program-entry" \
   --baseline-semantic "$baseline/program-entry-semantic.json"
-rm -rf -- "$baseline"
 ```
 
 ## capture-program-entry-catalogue.mjs

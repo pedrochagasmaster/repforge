@@ -13,6 +13,7 @@ import { compareSemanticArtifacts, normalizeSemanticRecords, normalizeSemanticVa
 const root = resolve(new URL("..", import.meta.url).pathname);
 const manifest = JSON.parse(readFileSync(resolve(root, "docs/ui-screens/program-entry-manifest.json"), "utf8"));
 const workflow = readFileSync(resolve(root, ".github/workflows/simulation.yml"), "utf8");
+const toolsReadme = readFileSync(resolve(root, "tools/README.md"), "utf8");
 const capture = readFileSync(resolve(root, "tools/capture-program-entry-catalogue.mjs"), "utf8");
 const semanticTool = readFileSync(resolve(root, "tools/program-entry-semantic.mjs"), "utf8");
 const stateIds = new Set(manifest.states.map((state) => state.id));
@@ -33,6 +34,14 @@ assert.match(workflow, /cleanup\(\)\s*\{[\s\S]*chmod -R u\+w -- "\$baseline"[\s\
   "CI restores baseline permissions before cleanup");
 assert.match(workflow, /trap cleanup EXIT/,
   "CI uses the permission-safe baseline cleanup trap");
+assert.match(toolsReadme, /baseline="\$\(mktemp -d\)"/,
+  "the documented catalogue command creates a private screenshot baseline");
+assert.match(toolsReadme, /cleanup\(\)\s*\{[\s\S]*chmod -R u\+w -- "\$baseline"[\s\S]*rm -rf -- "\$baseline"[\s\S]*\}/,
+  "the documented catalogue command restores baseline permissions before cleanup");
+assert.match(toolsReadme, /trap cleanup EXIT/,
+  "the documented catalogue command cleans up its baseline on exit");
+assert.doesNotMatch(toolsReadme, /\nrm -rf -- "\$baseline"\s*```/,
+  "the documented catalogue command does not remove a read-only baseline outside its cleanup trap");
 assert.match(workflow, /node tools\/compare-ui-screen-catalogue\.mjs --baseline "\$baseline\/program-entry"/,
   "CI compares every regenerated capture with the immutable baseline");
 assert.match(workflow, /--baseline-semantic "\$baseline\/program-entry-semantic\.json"/,
