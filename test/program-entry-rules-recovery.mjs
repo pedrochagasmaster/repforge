@@ -28,11 +28,19 @@ function resultFixture(route, selectedId = `${route}-old`) {
   };
   if (route === "shared") preview.sharedMeta = { name: "Shared old", daysPerWeek: 3 };
   const selected = { id: selectedId, source: route };
-  return {
+  const result = {
     fingerprint: `${route}-old-fingerprint`, name: `${route} old`, namePt: `${route} old`,
-    selected, candidates: [{ ...selected }], alternative: null,
-    explanation: { familyId: "balanced" }, preview, telemetry: { family: `${route}_v1` },
+    selected, preview,
   };
+  if (route === "recommend" || route === "custom") {
+    result.candidates = [{ ...selected }];
+    result.alternative = null;
+    result.explanation = { familyId: "balanced" };
+    result.telemetry = { family: `${route}_v1` };
+  } else if (route === "browse" || route === "shared") {
+    result.telemetry = { family: `${route}_v1` };
+  }
+  return result;
 }
 
 const browser = await launchChromium();
