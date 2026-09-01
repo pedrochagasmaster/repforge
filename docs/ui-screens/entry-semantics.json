@@ -57,6 +57,10 @@
           "text": "Full commercial gym"
         },
         {
+          "tag": "p",
+          "text": "Fits your 4 days"
+        },
+        {
           "tag": "button",
           "name": "Review Muscle + Strength · 4 days",
           "label": "Review Muscle + Strength · 4 days",
@@ -191,6 +195,10 @@
         {
           "tag": "span",
           "text": "Uses: Barbell, Machine, Cable"
+        },
+        {
+          "tag": "p",
+          "text": "Other schedules"
         },
         {
           "tag": "button",
@@ -1681,6 +1689,10 @@
           "text": "Academia comercial completa"
         },
         {
+          "tag": "p",
+          "text": "Encaixa nos seus 4 dias"
+        },
+        {
           "tag": "button",
           "name": "Rever Massa + força · 4 dias",
           "label": "Rever Massa + força · 4 dias",
@@ -1815,6 +1827,10 @@
         {
           "tag": "span",
           "text": "Usa: Barra, Máquina, Cabo"
+        },
+        {
+          "tag": "p",
+          "text": "Outros horários"
         },
         {
           "tag": "button",
@@ -3748,82 +3764,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "p",
@@ -3962,82 +3958,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "p",
@@ -4176,82 +4152,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2dias",
+          "name": "2 dias",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "2 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3dias",
+          "name": "3 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "3 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4dias",
+          "name": "4 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "4 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5dias",
+          "name": "5 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "5 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6dias",
+          "name": "6 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "6 dias"
         },
         {
           "tag": "p",
@@ -4405,7 +4361,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -4621,7 +4577,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -5053,7 +5009,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -5269,7 +5225,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -5485,7 +5441,7 @@
         },
         {
           "tag": "p",
-          "text": "Adicione dias e exercícios abaixo. Separe os músculos com vírgulas. Músculos secundários contam como meia série na auditoria de volume."
+          "text": "Adicione dias e exercícios abaixo."
         },
         {
           "tag": "input",
@@ -5701,7 +5657,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -5917,7 +5873,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -6335,7 +6291,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -6753,7 +6709,7 @@
         },
         {
           "tag": "p",
-          "text": "Adicione dias e exercícios abaixo. Separe os músculos com vírgulas. Músculos secundários contam como meia série na auditoria de volume."
+          "text": "Adicione dias e exercícios abaixo."
         },
         {
           "tag": "input",
@@ -7157,7 +7113,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -7961,7 +7917,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -8765,7 +8721,7 @@
         },
         {
           "tag": "p",
-          "text": "Adicione dias e exercícios abaixo. Separe os músculos com vírgulas. Músculos secundários contam como meia série na auditoria de volume."
+          "text": "Adicione dias e exercícios abaixo."
         },
         {
           "tag": "input",
@@ -9538,87 +9494,67 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "2days3days4days5days6days"
+          "name": "2 days3 days4 days5 days6 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "button",
@@ -9804,87 +9740,67 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "2dias3dias4dias5dias6dias"
+          "name": "2 dias3 dias4 dias5 dias6 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "2dias",
+          "name": "2 dias",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "2 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3dias",
+          "name": "3 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "3 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4dias",
+          "name": "4 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "4 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5dias",
+          "name": "5 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "5 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6dias",
+          "name": "6 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "6 dias"
         },
         {
           "tag": "button",
@@ -13893,19 +13809,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 4 days with sessions capped at 60 minutes."
+          "text": "Fits 4 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -13984,19 +13900,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 4 days with sessions capped at 60 minutes."
+          "text": "Fits 4 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -14075,19 +13991,19 @@
         },
         {
           "tag": "li",
-          "text": "Cabe em 4 dias, com sessões limitadas a 60 minutos."
+          "text": "Encaixa em 4 dias de treino, cada um limitado a 60 minutos."
         },
         {
           "tag": "li",
-          "text": "Considera sua estrutura de Academia comercial completa."
+          "text": "Escrito para um Academia comercial completa."
         },
         {
           "tag": "li",
-          "text": "Os equipamentos disponíveis incluem Barra, Halteres, Máquina, Cabo, Smith."
+          "text": "Usa Barra, Halteres, Máquina, Cabo, Smith."
         },
         {
           "tag": "li",
-          "text": "Progressão: Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
+          "text": "Progride por Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
         },
         {
           "tag": "button",
@@ -14162,82 +14078,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "p",
@@ -14446,82 +14342,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "p",
@@ -14730,82 +14606,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2dias",
+          "name": "2 dias",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "2 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3dias",
+          "name": "3 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "3 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4dias",
+          "name": "4 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "4 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5dias",
+          "name": "5 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "5 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6dias",
+          "name": "6 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "6 dias"
         },
         {
           "tag": "p",
@@ -14994,16 +14850,16 @@
         },
         {
           "tag": "h2",
-          "text": "Program shape",
+          "text": "Your program shape",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Choose a compatible weekly structure. Taurifer still writes the sets, targets, and progression."
+          "text": "One weekly structure fits your answers. Taurifer writes the sets, targets, and progression."
         },
         {
           "tag": "p",
-          "text": "Weekly structure preference"
+          "text": "Weekly structure"
         },
         {
           "tag": "div",
@@ -15073,16 +14929,16 @@
         },
         {
           "tag": "h2",
-          "text": "Program shape",
+          "text": "Your program shape",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Choose a compatible weekly structure. Taurifer still writes the sets, targets, and progression."
+          "text": "One weekly structure fits your answers. Taurifer writes the sets, targets, and progression."
         },
         {
           "tag": "p",
-          "text": "Weekly structure preference"
+          "text": "Weekly structure"
         },
         {
           "tag": "div",
@@ -15152,16 +15008,16 @@
         },
         {
           "tag": "h2",
-          "text": "Formato do programa",
+          "text": "A forma do seu programa",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Escolha uma estrutura semanal compatível. O Taurifer ainda escreve as séries, metas e progressão."
+          "text": "Uma estrutura semanal encaixa nas suas respostas. A Taurifer escreve as séries, os alvos e a progressão."
         },
         {
           "tag": "p",
-          "text": "Preferência de estrutura semanal"
+          "text": "Estrutura semanal"
         },
         {
           "tag": "div",
@@ -16165,11 +16021,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose a Taurifer program file."
-        },
-        {
-          "tag": "p",
-          "text": "You review every exercise before anything is activated. Your current program and history stay unchanged until you confirm."
+          "text": "Choose a Taurifer program file. You review every exercise before anything is activated."
         },
         {
           "tag": "button",
@@ -16214,11 +16066,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose a Taurifer program file."
-        },
-        {
-          "tag": "p",
-          "text": "You review every exercise before anything is activated. Your current program and history stay unchanged until you confirm."
+          "text": "Choose a Taurifer program file. You review every exercise before anything is activated."
         },
         {
           "tag": "button",
@@ -16263,11 +16111,7 @@
         },
         {
           "tag": "p",
-          "text": "Escolha um ficheiro de programa Taurifer."
-        },
-        {
-          "tag": "p",
-          "text": "Você revê cada exercício antes de qualquer ativação. O seu programa atual e o histórico permanecem inalterados até confirmar."
+          "text": "Escolha um ficheiro de programa Taurifer. Você revê cada exercício antes de qualquer ativação."
         },
         {
           "tag": "button",
@@ -16336,12 +16180,6 @@
         {
           "tag": "p",
           "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "p",
-          "role": "status",
-          "text": "Your current program stays active until you confirm a replacement.",
-          "name": "Your current program stays active until you confirm a replacement."
         },
         {
           "tag": "h3",
@@ -16990,12 +16828,6 @@
           "text": "Rascunho editável. O programa ativo permanece até você confirmar."
         },
         {
-          "tag": "p",
-          "role": "status",
-          "text": "Seu programa atual permanece ativo até você confirmar uma substituição.",
-          "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
-        },
-        {
           "tag": "h3",
           "text": "Ganhar massa"
         },
@@ -17534,7 +17366,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid this exercise?"
+          "text": "Why avoid {exercise}?"
         },
         {
           "tag": "div",
@@ -17879,7 +17711,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid this exercise?"
+          "text": "Why avoid {exercise}?"
         },
         {
           "tag": "div",
@@ -18224,7 +18056,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid this exercise?"
+          "text": "Why avoid {exercise}?"
         },
         {
           "tag": "div",
@@ -18569,7 +18401,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid this exercise?"
+          "text": "Why avoid {exercise}?"
         },
         {
           "tag": "div",
@@ -18914,7 +18746,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid this exercise?"
+          "text": "Why avoid {exercise}?"
         },
         {
           "tag": "div",
@@ -19259,7 +19091,7 @@
         },
         {
           "tag": "p",
-          "text": "Por que evitar este exercício?"
+          "text": "Porquê evitar {exercise}?"
         },
         {
           "tag": "div",
@@ -19604,7 +19436,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid this exercise?"
+          "text": "Why avoid {exercise}?"
         },
         {
           "tag": "div",
@@ -20981,21 +20813,21 @@
         },
         {
           "tag": "summary",
-          "name": "Correct equipment & Correct capabilities"
+          "name": "Change what this setup includes"
         },
         {
           "tag": "span",
-          "text": "Correct equipment & Correct capabilities"
+          "text": "Change what this setup includes"
         },
         {
           "tag": "p",
-          "text": "Correct equipment"
+          "text": "Equipment"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct equipment",
-          "label": "Correct equipment"
+          "name": "Equipment",
+          "label": "Equipment"
         },
         {
           "tag": "button",
@@ -21076,13 +20908,13 @@
         },
         {
           "tag": "p",
-          "text": "Correct capabilities"
+          "text": "Training capabilities"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct capabilities",
-          "label": "Correct capabilities"
+          "name": "Training capabilities",
+          "label": "Training capabilities"
         },
         {
           "tag": "button",
@@ -21232,21 +21064,21 @@
         },
         {
           "tag": "summary",
-          "name": "Correct equipment & Correct capabilities"
+          "name": "Change what this setup includes"
         },
         {
           "tag": "span",
-          "text": "Correct equipment & Correct capabilities"
+          "text": "Change what this setup includes"
         },
         {
           "tag": "p",
-          "text": "Correct equipment"
+          "text": "Equipment"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct equipment",
-          "label": "Correct equipment"
+          "name": "Equipment",
+          "label": "Equipment"
         },
         {
           "tag": "button",
@@ -21327,13 +21159,13 @@
         },
         {
           "tag": "p",
-          "text": "Correct capabilities"
+          "text": "Training capabilities"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct capabilities",
-          "label": "Correct capabilities"
+          "name": "Training capabilities",
+          "label": "Training capabilities"
         },
         {
           "tag": "button",
@@ -21734,21 +21566,21 @@
         },
         {
           "tag": "summary",
-          "name": "Correct equipment & Correct capabilities"
+          "name": "Change what this setup includes"
         },
         {
           "tag": "span",
-          "text": "Correct equipment & Correct capabilities"
+          "text": "Change what this setup includes"
         },
         {
           "tag": "p",
-          "text": "Correct equipment"
+          "text": "Equipment"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct equipment",
-          "label": "Correct equipment"
+          "name": "Equipment",
+          "label": "Equipment"
         },
         {
           "tag": "button",
@@ -21829,13 +21661,13 @@
         },
         {
           "tag": "p",
-          "text": "Correct capabilities"
+          "text": "Training capabilities"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct capabilities",
-          "label": "Correct capabilities"
+          "name": "Training capabilities",
+          "label": "Training capabilities"
         },
         {
           "tag": "button",
@@ -21985,21 +21817,21 @@
         },
         {
           "tag": "summary",
-          "name": "Correct equipment & Correct capabilities"
+          "name": "Change what this setup includes"
         },
         {
           "tag": "span",
-          "text": "Correct equipment & Correct capabilities"
+          "text": "Change what this setup includes"
         },
         {
           "tag": "p",
-          "text": "Correct equipment"
+          "text": "Equipment"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct equipment",
-          "label": "Correct equipment"
+          "name": "Equipment",
+          "label": "Equipment"
         },
         {
           "tag": "button",
@@ -22080,13 +21912,13 @@
         },
         {
           "tag": "p",
-          "text": "Correct capabilities"
+          "text": "Training capabilities"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct capabilities",
-          "label": "Correct capabilities"
+          "name": "Training capabilities",
+          "label": "Training capabilities"
         },
         {
           "tag": "button",
@@ -22236,21 +22068,21 @@
         },
         {
           "tag": "summary",
-          "name": "Corrigir equipamento & Corrigir capacidades"
+          "name": "Alterar o que este espaço inclui"
         },
         {
           "tag": "span",
-          "text": "Corrigir equipamento & Corrigir capacidades"
+          "text": "Alterar o que este espaço inclui"
         },
         {
           "tag": "p",
-          "text": "Corrigir equipamento"
+          "text": "Equipamento"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Corrigir equipamento",
-          "label": "Corrigir equipamento"
+          "name": "Equipamento",
+          "label": "Equipamento"
         },
         {
           "tag": "button",
@@ -22331,13 +22163,13 @@
         },
         {
           "tag": "p",
-          "text": "Corrigir capacidades"
+          "text": "Capacidades de treino"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Corrigir capacidades",
-          "label": "Corrigir capacidades"
+          "name": "Capacidades de treino",
+          "label": "Capacidades de treino"
         },
         {
           "tag": "button",
@@ -22487,21 +22319,21 @@
         },
         {
           "tag": "summary",
-          "name": "Correct equipment & Correct capabilities"
+          "name": "Change what this setup includes"
         },
         {
           "tag": "span",
-          "text": "Correct equipment & Correct capabilities"
+          "text": "Change what this setup includes"
         },
         {
           "tag": "p",
-          "text": "Correct equipment"
+          "text": "Equipment"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct equipment",
-          "label": "Correct equipment"
+          "name": "Equipment",
+          "label": "Equipment"
         },
         {
           "tag": "button",
@@ -22582,13 +22414,13 @@
         },
         {
           "tag": "p",
-          "text": "Correct capabilities"
+          "text": "Training capabilities"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct capabilities",
-          "label": "Correct capabilities"
+          "name": "Training capabilities",
+          "label": "Training capabilities"
         },
         {
           "tag": "button",
@@ -26275,19 +26107,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
+          "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -26360,19 +26192,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
+          "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -26445,19 +26277,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
+          "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -26530,19 +26362,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
+          "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -26615,19 +26447,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
+          "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -26700,19 +26532,19 @@
         },
         {
           "tag": "li",
-          "text": "Cabe em 3 dias, com sessões limitadas a 60 minutos."
+          "text": "Encaixa em 3 dias de treino, cada um limitado a 60 minutos."
         },
         {
           "tag": "li",
-          "text": "Considera sua estrutura de Academia comercial completa."
+          "text": "Escrito para um Academia comercial completa."
         },
         {
           "tag": "li",
-          "text": "Os equipamentos disponíveis incluem Barra, Halteres, Máquina, Cabo, Smith."
+          "text": "Usa Barra, Halteres, Máquina, Cabo, Smith."
         },
         {
           "tag": "li",
-          "text": "Progressão: Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
+          "text": "Progride por Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
         },
         {
           "tag": "button",
@@ -26785,19 +26617,19 @@
         },
         {
           "tag": "li",
-          "text": "It fits 3 days with sessions capped at 60 minutes."
+          "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
           "tag": "li",
-          "text": "It uses your Full commercial gym setup."
+          "text": "Written for a Full commercial gym."
         },
         {
           "tag": "li",
-          "text": "Available equipment includes Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
           "tag": "li",
-          "text": "Progression: Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
           "tag": "button",
@@ -26866,82 +26698,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "p",
@@ -27414,82 +27226,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2dias",
+          "name": "2 dias",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "2 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3dias",
+          "name": "3 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "3 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4dias",
+          "name": "4 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "4 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5dias",
+          "name": "5 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "5 dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6dias",
+          "name": "6 dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "dias"
+          "text": "6 dias"
         },
         {
           "tag": "p",
@@ -27677,6 +27469,15 @@
           "aria-live": "polite"
         },
         {
+          "tag": "h2",
+          "text": "What do you want from this program?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Pick the result your program should be built around."
+        },
+        {
           "tag": "div",
           "role": "alert",
           "name": "Answer neededChoose an answer in this section before continuing.",
@@ -27690,15 +27491,6 @@
         {
           "tag": "p",
           "text": "Choose an answer in this section before continuing."
-        },
-        {
-          "tag": "h2",
-          "text": "What do you want from this program?",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Pick the result your program should be built around."
         },
         {
           "tag": "div",
@@ -27923,6 +27715,15 @@
           "aria-live": "polite"
         },
         {
+          "tag": "h2",
+          "text": "O que você quer deste programa?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Escolha o resultado em torno do qual o programa deve ser construído."
+        },
+        {
           "tag": "div",
           "role": "alert",
           "name": "Falta uma respostaEscolha uma resposta nesta seção antes de continuar.",
@@ -27936,15 +27737,6 @@
         {
           "tag": "p",
           "text": "Escolha uma resposta nesta seção antes de continuar."
-        },
-        {
-          "tag": "h2",
-          "text": "O que você quer deste programa?",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Escolha o resultado em torno do qual o programa deve ser construído."
         },
         {
           "tag": "div",
@@ -28041,14 +27833,9 @@
           "text": "Recommend"
         },
         {
-          "tag": "p",
-          "text": "Section 5 of 5",
-          "aria-live": "polite"
-        },
-        {
           "tag": "div",
           "role": "status",
-          "name": "Resume setup?You have an unfinished program setup on this device.Recommend · Priorities and constraints · Aug 31"
+          "name": "Resume setup?You have an unfinished program setup on this device.Left off at Recommend · Priorities and constraints, saved Aug 31."
         },
         {
           "tag": "strong",
@@ -28061,7 +27848,7 @@
         },
         {
           "tag": "p",
-          "text": "Recommend · Priorities and constraints · Aug 31"
+          "text": "Left off at Recommend · Priorities and constraints, saved Aug 31."
         },
         {
           "tag": "button",
@@ -28103,14 +27890,9 @@
           "text": "Recommend"
         },
         {
-          "tag": "p",
-          "text": "Section 5 of 5",
-          "aria-live": "polite"
-        },
-        {
           "tag": "div",
           "role": "status",
-          "name": "Resume setup?You have an unfinished program setup on this device.Recommend · Priorities and constraints · Aug 31"
+          "name": "Resume setup?You have an unfinished program setup on this device.Left off at Recommend · Priorities and constraints, saved Aug 31."
         },
         {
           "tag": "strong",
@@ -28123,7 +27905,7 @@
         },
         {
           "tag": "p",
-          "text": "Recommend · Priorities and constraints · Aug 31"
+          "text": "Left off at Recommend · Priorities and constraints, saved Aug 31."
         },
         {
           "tag": "button",
@@ -28165,14 +27947,9 @@
           "text": "Recomendação"
         },
         {
-          "tag": "p",
-          "text": "Seção 5 de 5",
-          "aria-live": "polite"
-        },
-        {
           "tag": "div",
           "role": "status",
-          "name": "Retomar a configuração?Há uma configuração de programa incompleta neste dispositivo.Recomendação · Prioridades e restrições · 31 de ago."
+          "name": "Retomar a configuração?Há uma configuração de programa incompleta neste dispositivo.Parou em Recomendação · Prioridades e restrições, guardado a 31 de ago.."
         },
         {
           "tag": "strong",
@@ -28185,7 +27962,7 @@
         },
         {
           "tag": "p",
-          "text": "Recomendação · Prioridades e restrições · 31 de ago."
+          "text": "Parou em Recomendação · Prioridades e restrições, guardado a 31 de ago.."
         },
         {
           "tag": "button",
@@ -29688,6 +29465,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -29712,6 +29493,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -29772,6 +29557,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -29796,6 +29585,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -29948,6 +29741,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -29972,6 +29769,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -30032,6 +29833,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -30056,6 +29861,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -30116,6 +29925,10 @@
           "text": "Escolha como quer que o seu primeiro programa seja escrito."
         },
         {
+          "tag": "p",
+          "text": "A Taurifer escreve-o"
+        },
+        {
           "tag": "button",
           "name": "Recomendar um para mimResponda algumas perguntas. O Taurifer escolhe a estrutura.",
           "type": "button"
@@ -30140,6 +29953,10 @@
         {
           "tag": "span",
           "text": "Escolha mais da estrutura e das preferências de exercícios."
+        },
+        {
+          "tag": "p",
+          "text": "Começar a partir de algo"
         },
         {
           "tag": "button",
@@ -30200,6 +30017,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -30224,6 +30045,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -30290,6 +30115,10 @@
           "name": "Your current program stays active until you confirm a replacement."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -30314,6 +30143,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -30380,6 +30213,10 @@
           "name": "Your current program stays active until you confirm a replacement."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -30404,6 +30241,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -30470,6 +30311,10 @@
           "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
         },
         {
+          "tag": "p",
+          "text": "A Taurifer escreve-o"
+        },
+        {
           "tag": "button",
           "name": "Recomendar um para mimResponda algumas perguntas. O Taurifer escolhe a estrutura.",
           "type": "button"
@@ -30494,6 +30339,10 @@
         {
           "tag": "span",
           "text": "Escolha mais da estrutura e das preferências de exercícios."
+        },
+        {
+          "tag": "p",
+          "text": "Começar a partir de algo"
         },
         {
           "tag": "button",
@@ -30554,6 +30403,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -30578,6 +30431,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -30664,6 +30521,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -30688,6 +30549,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",
@@ -30774,6 +30639,10 @@
           "text": "Escolha como quer que o seu primeiro programa seja escrito."
         },
         {
+          "tag": "p",
+          "text": "A Taurifer escreve-o"
+        },
+        {
           "tag": "button",
           "name": "Recomendar um para mimResponda algumas perguntas. O Taurifer escolhe a estrutura.",
           "type": "button"
@@ -30798,6 +30667,10 @@
         {
           "tag": "span",
           "text": "Escolha mais da estrutura e das preferências de exercícios."
+        },
+        {
+          "tag": "p",
+          "text": "Começar a partir de algo"
         },
         {
           "tag": "button",
