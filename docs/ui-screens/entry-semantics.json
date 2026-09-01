@@ -23290,6 +23290,12 @@
           "text": "Editable draft. The active program stays until you confirm."
         },
         {
+          "tag": "p",
+          "role": "status",
+          "text": "Your current program stays active until you confirm a replacement.",
+          "name": "Your current program stays active until you confirm a replacement."
+        },
+        {
           "tag": "h3",
           "text": "Build Muscle"
         },
@@ -23522,8 +23528,8 @@
         },
         {
           "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
+          "text": "Archive current program and use this one",
+          "name": "Archive current program and use this one",
           "type": "button"
         },
         {
@@ -23890,6 +23896,12 @@
           "text": "Rascunho editável. O programa ativo permanece até você confirmar."
         },
         {
+          "tag": "p",
+          "role": "status",
+          "text": "Seu programa atual permanece ativo até você confirmar uma substituição.",
+          "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
+        },
+        {
           "tag": "h3",
           "text": "Ganhar massa"
         },
@@ -24122,8 +24134,8 @@
         },
         {
           "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
+          "text": "Arquivar o programa atual e usar este",
+          "name": "Arquivar o programa atual e usar este",
           "type": "button"
         },
         {
