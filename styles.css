@@ -295,6 +295,11 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
 }
 .btn:active{transform:translateY(1px) scale(.995)}
 .btn:disabled{opacity:.4;cursor:default}
+/* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
+   white text (~2.5:1) that read as an enabled secondary button rather than a
+   blocked one. Give it a flat, legible "not yet" treatment instead. */
+.btn--cta:disabled{opacity:1;background:var(--rule);color:var(--ink-soft)}
+.btn--cta:disabled::after{color:var(--ink-faint)}
 .btn--ghost{background:transparent;padding:8px 13px;font-size:13px;border-radius:999px}
 .btn--steel{background:var(--surface);border-color:var(--rule-strong)}
 .btn--cta{
@@ -2286,7 +2291,13 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 }
 .onb__review{display:flex;flex-direction:column;gap:12px}
 .onb__day{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:12px 14px}
-.onb__dayname{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.05em;cursor:pointer}
+.onb__dayname{font-weight:700;font-size:15px;letter-spacing:0;cursor:pointer}
+/* The compiler's split token, carried beside the day name rather than shouted
+   as it. Uppercasing "Knee / horizontal" made it read as a machine constant. */
+.onb__daytag{
+  margin-left:8px;font-style:normal;font-weight:500;font-size:12px;
+  letter-spacing:.02em;color:var(--ink-soft)
+}
 .onb__dayname span{display:block;margin-top:4px;font-weight:500;font-size:11px;line-height:1.35;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
 .onb__day[open] .onb__dayname{margin-bottom:8px}
 .onb__ex{font-size:13px;color:var(--ink-soft);padding:4px 0;border-top:1px solid var(--rule)}
@@ -2296,6 +2307,9 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .onb__nav{display:flex;gap:10px;padding:12px 0}
 .onb__nav .btn{flex:1}
 .onb__nav .btn--steel{flex:.4}
+/* A lone Back (steps whose primary action lives in the body, like Import)
+   should not render at the 40% width meant for a Back/Continue pair. */
+.onb__nav .btn--steel:only-child{flex:1}
 .onb__hint{margin:16px 0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
 .onb__hint-body{font-size:13px;color:var(--ink-soft);margin:0 0 16px;text-transform:none;letter-spacing:0;font-weight:400}
 .onb__import{text-align:center;font-size:14px;color:var(--ink-soft);margin:14px 0 8px;padding:0;background:none;border:0}
@@ -2712,12 +2726,44 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-card__warn{font-size:12px;color:var(--accent-deep);margin-top:4px}
 .entry__own{display:flex;flex-direction:column;gap:8px;padding:4px 0 0 8px;border-left:2px solid var(--rule)}
 .entry__active,.entry__legacy,.entry__explain{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--rule);color:var(--ink-soft);font-size:13px;line-height:1.4}
-.entry__notice{margin:0 0 16px;padding:14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);overflow-wrap:anywhere}
-.entry__notice--error{border-color:var(--danger)}
+/* Severity carried by three channels — a rail, a glyph and the title colour —
+   because `--danger` and `--accent` are close enough in hue that a border swap
+   alone reads as branding rather than alarm. The role each notice already
+   carries drives the treatment, so the visual matches what is announced. */
+.entry__notice{
+  margin:0 0 16px;padding:14px 14px 14px 15px;border-radius:var(--radius);
+  border:1px solid var(--rule);border-left:3px solid var(--rule-strong);
+  background:var(--surface);overflow-wrap:anywhere
+}
+.entry__notice--error,.entry__notice[role="alert"]{border-left-color:var(--danger)}
+.entry__notice--warn{border-left-color:var(--accent)}
+.entry__notice--error>strong,.entry__notice[role="alert"]>strong{color:var(--danger)}
+.entry__notice--error>strong::before,
+.entry__notice[role="alert"]>strong::before,
+.entry__notice--warn>strong::before{
+  content:"";flex:none;width:16px;height:16px;background:currentColor;
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5v5.5'/%3E%3Cpath d='M12 16.5h.01'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5v5.5'/%3E%3Cpath d='M12 16.5h.01'/%3E%3C/svg%3E");
+}
+.entry__notice--warn>strong::before{color:var(--accent)}
 .entry__resume-detail{margin:0 0 12px;color:var(--ink-soft);font-size:13px;overflow-wrap:anywhere}
-.entry__notice strong{display:block;margin-bottom:6px}
+.entry__notice>strong{display:flex;align-items:center;gap:8px;margin-bottom:6px}
 .entry__notice p{margin:0 0 12px;color:var(--ink-soft);font-size:13px;line-height:1.4}
-.entry__recommend h3,.entry__decision h3{margin:0 0 8px;font-size:22px;line-height:1.15}
+.btnrow--primary-first{flex-direction:column}
+/* A discard is not a Back button. */
+.btn--destructive{color:var(--danger);border-color:var(--rule)}
+.btnrow--primary-first .btn{width:100%}
+
+/* Review actions sit above the weekly detail, not after it. */
+.entry__confirm{display:flex;flex-direction:column;gap:8px;margin:18px 0 22px}
+.entry__confirm-alt{display:flex;gap:10px}
+.entry__confirm-alt .btn{flex:1}
+
+/* The named program is the payoff of the whole flow, not a subheading. */
+.entry__recommend h3,.entry__decision h3{margin:0 0 8px;font-size:26px;line-height:1.12;letter-spacing:-.01em}
+.entry__recommend .entry__facts{margin-bottom:16px}
+.entry__recommend .onb__actions{margin-top:18px}
 .entry__reasons{margin:0 0 14px;padding-left:20px;color:var(--ink-soft);font-size:14px;line-height:1.45}
 .entry__reasons li+li{margin-top:6px}
 .entry__source{margin:0 0 10px;color:var(--ink-soft);font-size:13px}
@@ -2728,7 +2774,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__review-grid h4{margin:0 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
 .entry__review-grid p{margin:0;font-size:13px;line-height:1.4;color:var(--ink-soft)}
 .entry__group-lab{margin:16px 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
-.entry__optional{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)}
+.entry__optional{
+  margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-faint)
+}
 .entry__field{display:flex;flex-direction:column;gap:6px;margin:12px 0 16px;font-size:13px;font-weight:600}
 .entry__field input{font:inherit;font-weight:500;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
 .radio-card.is-disabled,.radio-card:disabled{
@@ -2765,15 +2814,14 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-hub-active .onb__title{visibility:hidden}
 .entry-body .entry__hub{gap:0;margin-top:4px}
 .entry-body .entry-card{
-  flex-direction:row;align-items:center;gap:12px;min-height:58px;padding:12px 0;
-  border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent;
+  flex-direction:row;align-items:center;gap:12px;min-height:58px;
+  padding:12px 0 12px 12px;border:0;border-bottom:1px solid var(--rule);
+  border-left:3px solid transparent;border-radius:0;background:transparent;
 }
 .entry-body .entry-card:hover,.entry-body .entry-card:focus-visible{
   border-color:var(--rule);outline:2px solid var(--accent);outline-offset:2px
 }
-.entry-body .entry-card--primary{
-  border-left:3px solid var(--accent);padding-left:12px;box-shadow:none
-}
+.entry-body .entry-card--primary{border-left-color:var(--accent);box-shadow:none}
 .entry-body .entry-card--secondary{color:var(--ink-soft)}
 .entry-body .entry-card--secondary .entry-card__title{color:var(--ink)}
 .entry-body .entry-card--nested{min-height:48px;padding:10px 0 10px 12px;border-bottom:0}
@@ -2783,20 +2831,68 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .entry-card__title{font-size:16px;line-height:1.25}
 .entry-body .entry-card__cap{font-size:13px;line-height:1.35}
 .entry-body .entry-card__go{flex:none;color:var(--ink-faint)}
-.entry-body .entry-card__go.is-down{transform:rotate(90deg)}
+/* `.chevron.is-down` already swaps the mask to a downward glyph; rotating it
+   again pointed the expanded disclosure back to the left. */
 .entry-body .entry__own{gap:0;padding:4px 0 4px 18px;border-left:1px solid var(--rule)}
+
+/* Browse catalogue. A program is compared, not skimmed: identity first, then
+   the facts that differ between programs, then the assumptions behind them.
+   Deliberately not `.entry-card`, whose row layout is built for the hub. */
+.entry__progs{display:flex;flex-direction:column;margin-top:4px}
+.entry-prog{
+  display:flex;flex-direction:column;gap:6px;width:100%;padding:16px 0;
+  border:0;border-bottom:1px solid var(--rule);border-radius:0;
+  background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer;
+}
+.entry-prog:hover{background:var(--well)}
+.entry-prog:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.entry-prog__head{display:flex;align-items:center;gap:10px;width:100%}
+.entry-prog__name{flex:1;min-width:0;font-size:17px;font-weight:700;line-height:1.2}
+.entry-prog__days{
+  flex:none;padding:3px 9px;border:1px solid var(--rule-strong);border-radius:999px;
+  font-size:11px;font-weight:600;letter-spacing:.05em;color:var(--ink-soft);white-space:nowrap;
+}
+.entry-prog__go{flex:none;color:var(--ink-faint)}
+.entry-prog__purpose{font-size:13.5px;line-height:1.4;color:var(--ink-soft)}
+.entry-prog__facts{display:flex;flex-wrap:wrap;gap:2px 9px;font-size:12.5px;font-weight:600;color:var(--ink)}
+.entry-prog__facts>span:not(:last-child)::after{content:"·";margin-left:9px;font-weight:400;color:var(--ink-faint)}
+.entry-prog__meta{font-size:12px;line-height:1.45;color:var(--ink-faint)}
+.entry-prog__warn{font-size:12px;line-height:1.4;font-weight:600;color:var(--accent-deep)}
+@media (min-width:720px){
+  .entry__progs{display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+}
 @media (min-width:720px){
   .entry-body .entry__hub--routes{display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
   .entry-body .entry__hub--routes .entry-card--secondary{grid-column:auto}
   .entry-body .entry__hub--routes .entry__own{grid-column:1/-1}
 }
 
+/* The global reset zeroes every heading and paragraph margin, and nothing ever
+   restored it for the entry screens: the question, its lede and the answers all
+   sat flush. A focus ring (2px, offset 2px) on the first answer then landed on
+   the paragraph above it and struck the text through. Space the block. */
+.entry-body .onb__q{margin:0 0 6px;text-wrap:balance}
+.entry-body .onb__explain{margin:0 0 18px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
+.entry-body .onb__explain:last-child{margin-bottom:0}
+.entry-body .entry__hint{margin:0 0 18px}
+.entry-body .entry__decision h3{margin-top:4px}
+
 /* Questionnaire choices are grouped rows, not a stack of mini panels. */
 .entry-body .radio-card{
+  position:relative;isolation:isolate;
   min-height:44px;padding:11px 0;background:transparent;border:0;border-bottom:1px solid var(--rule);
   border-radius:0;transition:background-color .15s ease,padding-left .15s ease
 }
-.entry-body .radio-card.is-selected{padding:11px 0;border:0;border-bottom:1px solid var(--rule);background:rgba(var(--accent-rgb),.055)}
+/* The wash is painted by a pseudo-element that bleeds a little past the text
+   without touching layout: negative margins on the box itself made adjacent
+   grid columns overlap, and horizontal padding shifted selected labels right. */
+.entry-body .radio-card.is-selected{
+  padding:11px 0;border:0;border-bottom:1px solid var(--rule);background:transparent
+}
+.entry-body .radio-card.is-selected::before{
+  content:"";position:absolute;inset:0 -6px;z-index:-1;border-radius:8px;
+  background:rgba(var(--accent-rgb),.07);pointer-events:none
+}
 .entry-body .radio-card:hover,.entry-body .radio-card:focus-visible{border-color:var(--rule);outline:2px solid var(--accent);outline-offset:2px}
 .entry-body .radio-card__title{font-size:15px;font-weight:500}
 .entry-body .radio-card__cap{font-size:13px}

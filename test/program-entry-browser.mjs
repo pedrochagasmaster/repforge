@@ -448,8 +448,9 @@ try {
       eyebrow: await page.locator("#onbEyebrow").innerText(),
       step: await page.locator("#onbStepLabel").innerText(),
     };
-    assert(resultHeader.eyebrow === "Recommend" && /5 of 5/i.test(resultHeader.step),
-      "recommendation uses a route-specific header and final-section progress", JSON.stringify(resultHeader));
+    assert(resultHeader.eyebrow === "Recommend" && resultHeader.step.trim() === "",
+      "recommendation uses a route-specific header and reports no section progress on a terminal step",
+      JSON.stringify(resultHeader));
     assert(recommendationCopy.includes("Build Muscle"),
       "recommendation shows a human-readable program identity", recommendationCopy);
     assert(/Prioritize muscle growth/.test(recommendationCopy) && /3 days/.test(recommendationCopy) && /60 minutes/.test(recommendationCopy),
@@ -773,14 +774,24 @@ try {
     await page.click("#onbNext");
     await page.waitForSelector('[data-entry-catalogue="growth_4_v1"]', { timeout: 10000 });
     const catalogueCopy = await page.locator("#onbBody").innerText();
-    const names = await page.locator("[data-entry-catalogue] .entry-card__title").allInnerTexts();
+    /* The catalogue lists each family at every released frequency, so a card's
+       identity is its name plus its day count — both are rendered, and both are
+       carried in the accessible name. */
+    const names = await page.locator("[data-entry-catalogue]").evaluateAll((nodes) => nodes.map((node) => [
+      node.querySelector(".entry-prog__name")?.textContent?.trim() || "",
+      node.querySelector(".entry-prog__days")?.textContent?.trim() || "",
+    ].filter(Boolean).join(" · ")));
     assert(names.length > 0 && new Set(names).size === names.length,
       "Browse gives every released sibling a distinct human name", names.join(" | "));
     assert(/4 days available/.test(catalogueCopy) && /Up to 60 minutes/.test(catalogueCopy),
       "Browse preserves the answered context as comparison facts", catalogueCopy);
-    assert(/Prioritizes muscle growth/.test(catalogueCopy) && /exercises and .*sets per day/.test(catalogueCopy) &&
-      /Progression:/.test(catalogueCopy) && /Uses:/.test(catalogueCopy) && /Review program/.test(catalogueCopy),
-      "Browse cards show purpose, weekly structure, progression, equipment, and an explicit review action",
+    const reviewLabels = await page.locator("[data-entry-catalogue]").evaluateAll(
+      (nodes) => nodes.map((node) => node.getAttribute("aria-label") || ""));
+    assert(reviewLabels.length > 0 && reviewLabels.every((label) => /^Review .+/.test(label)),
+      "every Browse card is an explicit review action named for its program", reviewLabels.join(" | "));
+    assert(/Prioritizes muscle growth/.test(catalogueCopy) && /exercises/.test(catalogueCopy) && /sets/.test(catalogueCopy) &&
+      /Progression:/.test(catalogueCopy) && /Uses:/.test(catalogueCopy),
+      "Browse cards show purpose, weekly structure, progression, and equipment",
       catalogueCopy);
     assert(!/_v\d+|growth_\d|balanced_\d|strength_\d|home_\d|compiler|blueprint/i.test(catalogueCopy),
       "Browse exposes no internal identifier or implementation jargon", catalogueCopy);

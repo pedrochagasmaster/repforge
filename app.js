@@ -6257,8 +6257,9 @@ function renderProgramHeader(){
     el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
       `<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
       `<p class="entry__active" id="entryEditorStatus" role="${saveError||progressionError?"alert":"status"}" aria-live="${saveError||progressionError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
-      `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
-      `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button></div>`;
+      `<div class="btnrow btnrow--primary-first">`+
+      `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button>`+
+      `<button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button></div>`;
     const name=$("#programName");if(name)name.onchange=async()=>{
       const proposal=programEditorSnapshot();proposal.programMeta.name=name.value.trim()||meta.name;
       const result=await commitProgramEditorProposal(proposal);if(result.localOk||result.idbOk)renderProgram()};
@@ -8589,12 +8590,16 @@ function entryPatchAnswers(patch){
   entryPinnedVersionsExecutable=false;
   entrySetState(ProgramEntry.setAnswers(entryState,patch))}
 function entryProgressSections(route){
-  if(!route)return{n:0,total:1};
+  if(!route)return{n:0,total:1,show:false};
   const steps=ProgramEntry.ROUTE_STEPS[route]||[];
   const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step));
   const semanticIndex=semantic.indexOf(entryState.step);
   const n=semanticIndex>=0?semanticIndex+1:semantic.length;
-  return{n:Math.min(n,semantic.length||1),total:Math.max(semantic.length,1)}}
+  /* A meter is only informative while the user is moving through questions and
+     there is more than one of them. On a review, a result or a single-question
+     route it either lies (pinned full) or says nothing ("1 of 1"). */
+  const show=semantic.length>1&&semanticIndex>=0;
+  return{n:Math.min(n,semantic.length||1),total:Math.max(semantic.length,1),show}}
 function entryRouteLabel(route){
   const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
     build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
@@ -8681,7 +8686,7 @@ function entryAvoidMatches(query){
   const taken=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
   const mustHave=new Set(entryState?.answers?.mustHaveExercises||[]);
   const pool=pickableExercises().filter(entry=>!taken.has(entry.id)&&!mustHave.has(entry.id)&&entry.id!==entryPendingAvoid);
-  if(!q)return pool.slice(0,8);
+  if(!q)return[];
   return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
 function entryMustMatches(query){
   const q=foldSearch(query||"");
@@ -8709,7 +8714,7 @@ function renderAvoidanceSection(){
   const matches=entryAvoidMatches(entryAvoidQuery);
   return `<p class="entry__group-lab">${esc(t("entry.priorities.avoid"))}</p>`+
     `<label class="entry__field"><span>${esc(t("entry.priorities.avoid_search"))}</span>`+
-    `<input id="entryAvoidSearch" type="search" autocomplete="off" value="${esc(entryAvoidQuery)}" placeholder="${esc(t("entry.priorities.avoid_search"))}"></label>`+
+    `<input id="entryAvoidSearch" type="search" autocomplete="off" value="${esc(entryAvoidQuery)}" placeholder="${esc(t("entry.search_placeholder"))}"></label>`+
     `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.avoid_search"))}">`+
     matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-avoid-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
     `</div>`+
@@ -8728,7 +8733,8 @@ function renderPrioritiesStep(){
   const a=entryState.answers||{},custom=entryState.route==="custom";
   const primary=a.primaryMuscles||[];
   const blocked=custom&&ENTRY_MUSCLES.some(m=>entryMuscleBlocked("primaryMuscles",m)||entryMuscleBlocked("deEmphasizedMuscles",m)||entryMuscleBlocked("ignoredMuscles",m));
-  return entryHeading(t("entry.priorities.title"))+`<p class="onb__explain">${esc(t("entry.priorities.lede"))} <span class="entry__optional">${esc(t("entry.optional"))}</span></p>`+(blocked?`<p class="entry__hint" id="entryBlockedChoices">${esc(t("entry.choice.disabled_group"))}</p>`:"")+
+  return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+(blocked?`<p class="entry__hint" id="entryBlockedChoices">${esc(t("entry.choice.disabled_group"))}</p>`:"")+
     `<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
@@ -8996,7 +9002,11 @@ function entrySourceLabel(route=entryState?.route){
 function entryDurationLabel(preview){
   const facts=entryPreviewFacts(preview);
   if(!facts.minMinutes)return"";
+  if(facts.minMinutes===facts.maxMinutes)return t("entry.preview.minutes",{n:facts.minMinutes});
   return t("entry.result.duration",{min:facts.minMinutes,max:facts.maxMinutes})}
+/* Collapse a min/max pair to the exact form when both ends agree. */
+function entryRangeLabel(min,max,rangeKey,exactKey){
+  return min===max?t(exactKey,{n:min}):t(rangeKey,{min,max})}
 function entryProgressionLabel(preview){
   const ids=[...new Set((preview?.program||[]).map(exercise=>exercise.progression?.strategy?.id).filter(Boolean))];
   const labels={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
@@ -9051,13 +9061,24 @@ function renderResultStep(){
       ?t("entry.result.why_interrupted"):"",
   ].filter(Boolean);
   const duration=entryDurationLabel(preview);
-  const cards=primary?[`<button type="button" role="radio" aria-checked="true" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(primary.id)}">`+
-    `<span class="entry-card__title">${esc(t("entry.result.review"))}</span>`+
-    `<span class="entry-card__cap">${esc(entryResultName(result))} · ${esc(String(primary.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}${duration?` · ${esc(duration)}`:""}</span></button>`]:[];
+  const candidates=result.candidates||[];
+  const facts=primary?[
+    t("entry.catalogue.days_badge",{days:primary.daysPerWeek}),duration].filter(Boolean):[];
+  /* With one candidate this is not a choice between programs — it is the
+     single action the whole flow was leading to, so it renders as the primary
+     button. A real fork still gets the radiogroup. */
+  const action=!primary?""
+    :candidates.length>1
+      ?`<div class="entry__hub" role="radiogroup" aria-label="${esc(t("entry.result.title"))}">`+
+        candidates.map(candidate=>`<button type="button" role="radio" aria-checked="${candidate.id===primary.id?"true":"false"}" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(candidate.id)}">`+
+          `<span class="entry-card__title">${esc(entryResultName(result))}</span>`+
+          `<span class="entry-card__cap">${esc(String(candidate.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`).join("")+`</div>`
+      :`<div class="onb__actions"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
   return entryHeading(resultTitle)+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
     `<div class="entry__recommend"><h3>${esc(entryResultName(result))}</h3>`+
+    (facts.length?`<div class="entry__facts">${facts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.result.why"))}</p><ul class="entry__reasons">${why.map(fact=>`<li>${esc(fact)}</li>`).join("")}</ul>`+
-    `<div class="entry__hub" role="radiogroup" aria-label="${esc(t("entry.result.title"))}">${cards.join("")}</div>`+
+    action+
     (entryState.route==="custom"?`<button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_custom"))}</button>`:"")+`</div>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
@@ -9076,27 +9097,36 @@ function renderCatalogueStep(){
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div><div class="entry__hub">`+
+    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div><div class="entry__progs">`+
     cards.map(card=>{
       const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
       const name=isPt()?card.namePt||card.name:card.name;
-      const minutes=card.minutes?.length?t("entry.catalogue.minutes",{min:card.minutes[0],max:card.minutes[1]}):"";
+      const minutes=card.minutes?.length
+        ?(card.minutes[0]===card.minutes[1]?t("entry.preview.minutes",{n:card.minutes[0]})
+          :t("entry.catalogue.minutes",{min:card.minutes[0],max:card.minutes[1]})):"";
       const counts=card.structureFacts||[],exerciseCounts=counts.map(day=>day.exerciseCount),setCounts=counts.map(day=>day.setCount);
-      const structure=counts.length?t("entry.catalogue.structure",{
-        minExercises:Math.min(...exerciseCounts),maxExercises:Math.max(...exerciseCounts),
-        minSets:Math.min(...setCounts),maxSets:Math.max(...setCounts)}):"";
+      const structure=counts.length?[
+        entryRangeLabel(Math.min(...exerciseCounts),Math.max(...exerciseCounts),
+          "entry.catalogue.exercises_range","entry.catalogue.exercises_exact"),
+        entryRangeLabel(Math.min(...setCounts),Math.max(...setCounts),
+          "entry.catalogue.sets_range","entry.catalogue.sets_exact")].join(" · "):"";
       const progression=(card.progressionStrategies||[]).map(id=>progressionLabels[id]).filter(Boolean).join(" · ");
       const equipment=(card.equipmentAssumptions||[]).map(token=>t(`entry.equip.${token}`)||token).join(", ");
       const mismatch=card.mismatch==="frequency"?t("entry.catalogue.mismatch_frequency",{
         requested:entryState.answers.daysPerWeek,actual:card.daysPerWeek}):"";
-      return `<button type="button" class="entry-card" data-entry-catalogue="${esc(card.id)}">`+
-        `<span class="entry-card__title">${esc(name)}</span>`+
-        `<span class="entry-card__cap">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
-        `<span class="entry-card__cap">${esc(minutes)}${structure?` · ${esc(structure)}`:""}</span>`+
-        `<span class="entry-card__cap">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
-        `<span class="entry-card__cap">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
-        (mismatch?`<span class="entry-card__warn">${esc(mismatch)}</span>`:"")+
-        `<span class="entry-card__action">${esc(t("entry.catalogue.review"))}</span></button>`}).join("")+`</div>`}
+      /* One flat button per program, laid out as a column: identity first, then
+         the facts a reader compares across programs, then the assumptions. The
+         hub's `.entry-card` is a row of three and cannot carry this shape. */
+      return `<button type="button" class="entry-prog" data-entry-catalogue="${esc(card.id)}" aria-label="${esc(t("entry.catalogue.review_aria",{name}))}">`+
+        `<span class="entry-prog__head"><span class="entry-prog__name">${esc(familyName)}</span>`+
+        `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
+        `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
+        `<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
+        `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
+        `<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
+        `<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
+        (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
+        `</button>`}).join("")+`</div>`}
 function renderBuildSetupStep(){
   const name=entryState.answers.programName||"";
   return entryHeading(t("entry.build_setup.title"))+`<p class="onb__explain">${esc(t("entry.build_setup.lede"))}</p>`+
@@ -9116,9 +9146,15 @@ function renderPreviewStep(){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
   const previewAnswers=entryPreviewAnswers(preview);
-  const days=(preview.days||[]).map(day=>{
+  const days=(preview.days||[]).map((day,index)=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
-    return `<details class="onb__day"><summary class="onb__dayname">${esc(day.label||day.dayId)}<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
+    /* `day.label` is a compiler split token ("Knee / horizontal"), not a name a
+       person would give a session. Lead with the ordinal the user recognises and
+       carry the token as a qualifier instead of shouting it as the day's name. */
+    const dayName=t("program.default.day",{n:index+1});
+    const dayQualifier=day.label&&day.label!==dayName?day.label:"";
+    return `<details class="onb__day"><summary class="onb__dayname">${esc(dayName)}`+
+    (dayQualifier?`<em class="onb__daytag">${esc(dayQualifier)}</em>`:"")+`<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
     (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`});
@@ -9137,10 +9173,13 @@ function renderPreviewStep(){
     `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t(entryPreviewProgressionCopy(preview,progressionIssue)))}</p></section>`+
     `<section><h4>${esc(t("entry.preview.compromises"))}</h4><p>${esc(compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none"))}</p></section></div></div>`+
     (progressionIssue?`<p id="entryActivationStatus" class="entry__notice" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
-    `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}<div class="onb__actions">`+
-    `<button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
-    `<button type="button" id="entryEdit" class="btn btn--steel">${esc(t("entry.preview.edit"))}</button>`+
-    `<button type="button" id="entryRestart" class="btn btn--steel">${esc(t("entry.preview.restart"))}</button></div></div>`}
+    /* The confirm action used to sit after the whole weekly structure, off the
+       bottom of every phone. It is the point of the screen: keep it above the
+       detail, and pin it so a long program cannot scroll it away. */
+    `<div class="entry__confirm"><button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
+    `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel">${esc(t("entry.preview.edit"))}</button>`+
+    `<button type="button" id="entryRestart" class="btn btn--steel">${esc(t("entry.preview.restart"))}</button></div></div>`+
+    `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
   if(entryUiNotice==="cancel")return `<div class="entry__notice" role="region" aria-labelledby="entryCancelTitle"><strong id="entryCancelTitle" tabindex="-1">${esc(t("entry.cancel_confirm.title"))}</strong><p>${esc(t("entry.cancel_confirm.body"))}</p>`+
@@ -9153,8 +9192,8 @@ function renderEntryNotice(){
     const detail=[entryState?.route?entryRouteLabel(entryState.route):"",entryState?.step?t(`entry.${entryState.step}.title`):"",when].filter(Boolean).join(" · ");
     return `<div class="entry__notice" role="status"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
     (detail?`<p class="entry__resume-detail">${esc(detail)}</p>`:"")+`</div>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
-    `<button type="button" class="btn btn--steel" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`}
+    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`}
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
@@ -9166,7 +9205,8 @@ function renderEntryNotice(){
     const action=keepPinned
       ?`<button type="button" class="btn btn--cta" id="entryKeepPinned"${pinnedReady?"":" disabled aria-describedby='entryActivationStatus'"}>${esc(t("entry.rules_changed.keep"))}</button>`
       :`<button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button>`;
-    return `<div class="entry__notice" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t("entry.rules_changed.body"))}</p>`+
+    return `<div class="entry__notice entry__notice--warn" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong>`+
+      `<p>${esc(t(keepPinned?"entry.rules_changed.body_keep":"entry.rules_changed.body_rebuild"))}</p>`+
       `<div class="btnrow">${action}</div></div>`;
   }
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
@@ -9222,13 +9262,23 @@ function renderOnboarding(){
   const focusToken=entryFocusToken();
   const route=entryState.route,stepId=entryState.step;
   $("#onboarding")?.classList.toggle("entry-hub-active",!route||stepId==="entry");
-  const eyebrow=$("#onbEyebrow");if(eyebrow)eyebrow.textContent=route?entryRouteLabel(route):t("entry.eyebrow");
-  title.textContent=t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
+  /* On a single-step route the chrome eyebrow and the page heading are the
+     same string ("Import a program" twice, 60px apart). Show one of them. */
+  const eyebrowText=route?entryRouteLabel(route):t("entry.eyebrow");
+  const titleText=t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
+  const eyebrow=$("#onbEyebrow");
+  if(eyebrow){const duplicate=eyebrowText===titleText;
+    eyebrow.textContent=duplicate?"":eyebrowText;
+    eyebrow.classList.toggle("hidden",duplicate)}
+  title.textContent=titleText;
   const progress=entryProgressSections(route);
-  if(step)step.textContent=route?t("entry.step",{n:progress.n,total:progress.total}):"";
+  const showProgress=Boolean(route)&&progress.show;
+  if(step){step.textContent=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
+    step.classList.toggle("hidden",!showProgress)}
   const seg=$("#onbSegbar");
-  if(seg){const total=route?progress.total:0,current=route?progress.n-1:0;
-    seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("")}
+  if(seg){const total=showProgress?progress.total:0,current=progress.n-1;
+    seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
+    seg.classList.toggle("hidden",!showProgress)}
   const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
   const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
   const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface);
