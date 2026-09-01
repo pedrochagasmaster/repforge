@@ -23,7 +23,7 @@ async function idbDel(key){const db=await idbOpen();
     const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);
     tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
   finally{db.close()}}
-const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction";
+const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction",STORAGE_SETUP_TXN="_storageSetupActivation";
 /* Transient, journal-only: what a shared proposal contributed as its own custom
    definitions, so a rebase against a refreshed head can tell payload data from
    recipient data. Stripped before any snapshot becomes durable. */
@@ -71,12 +71,25 @@ function isSafeLogRow(entry){
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
+function isValidSetupActivationMarker(marker){
+  return isPlainStateObject(marker)&&marker.version===1&&
+    typeof marker.programId==="string"&&marker.programId.length>0&&marker.programId.length<=128&&
+    typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=70000&&
+    (!Object.prototype.hasOwnProperty.call(marker,"revision")||
+      (Number.isInteger(marker.revision)&&marker.revision>=1))}
+function setupActivationMarker(raw,programId){
+  if(typeof raw!=="string"||!raw||typeof programId!=="string"||!programId)return null;
+  const marker={version:1,programId,raw};
+  return isValidSetupActivationMarker(marker)?marker:null}
+function setupActivationMatches(marker,raw,programId){
+  return isValidSetupActivationMarker(marker)&&marker.programId===programId&&marker.raw===raw}
 function isValidStateShape(s){
   try{
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
+    if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN)&&!isValidSetupActivationMarker(s[STORAGE_SETUP_TXN]))return false;
     // Optional: backups written before custom exercises existed stay importable.
     if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
       !(Array.isArray(s.customExercises)&&s.customExercises.every(isSafeCustomExercise)))return false;
@@ -84,7 +97,7 @@ function isValidStateShape(s){
     return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
   catch{return false}}
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
-function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];return o}
+function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];delete o[STORAGE_SETUP_TXN];return o}
 function exportableState(s){return stripStorageMeta(s)}
 function canonicalize(value){
   if(Array.isArray(value))return value.map(canonicalize);
@@ -702,6 +715,17 @@ function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgr
   const raw=JSON.stringify(journal);
   try{localStorage.setItem(key,raw);return decodePendingJournal(key,raw)}
   catch(e){console.warn("pending state journal failed",e);return null}}
+function setupActivationAlreadyCommitted(head,proposal,expectedSetupDraftRaw){
+  if(typeof expectedSetupDraftRaw!=="string"||!expectedSetupDraftRaw)return false;
+  const proposed=proposal?.[STORAGE_SETUP_TXN],current=head?.[STORAGE_SETUP_TXN];
+  if(!isValidSetupActivationMarker(proposed)||!isValidSetupActivationMarker(current))return false;
+  const headRevision=readRevision(head);
+  if(!Number.isInteger(current.revision)||current.revision!==headRevision||
+    Object.prototype.hasOwnProperty.call(proposed,"revision")&&proposed.revision!==headRevision)return false;
+  return setupActivationMatches(proposed,expectedSetupDraftRaw,proposed.programId)&&
+    setupActivationMatches(current,expectedSetupDraftRaw,head?.programMeta?.id)&&
+    current.programId===proposed.programId;
+}
 function armPendingJournalRollback(record,snapshot){
   if(!record||record.legacy||!isValidStateShape(snapshot)||
     Object.prototype.hasOwnProperty.call(snapshot,STORAGE_DRAFT_TXN))return null;
@@ -777,6 +801,10 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconci
   delete snapshot[STORAGE_DRAFT_TXN];
   delete snapshot[SHARED_IMPORT];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
+  const setupMarker=snapshot[STORAGE_SETUP_TXN];
+  if(isValidSetupActivationMarker(setupMarker)&&
+    !Object.prototype.hasOwnProperty.call(setupMarker,"revision"))
+    snapshot[STORAGE_SETUP_TXN]={...setupMarker,revision:snapshot[STORAGE_REV]};
   return snapshot}
 function pendingJournalSuccessorMatches(record,head){
   const journal=record?.journal,rollback=journal?.rollback;
@@ -988,6 +1016,15 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,
         conflict:true,setupDraftConflict:true}}
+    // A setup activation writes a receipt into the durable successor before it
+    // attempts to consume the separate setup-draft key. If that consumption
+    // was interrupted, the next click must recognize the already-installed
+    // successor instead of archiving it a second time.
+    if(setupActivationAlreadyCommitted(head,frozenProposal,expectedSetupDraftRaw)){
+      const discarded=await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:true,idbOk:true,alreadyCommitted:true,
+        pendingJournalCleanup:discarded.settled!==true}}
     if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
@@ -2261,6 +2298,7 @@ function normalizeLoaded(s,options={}){
   out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
+  if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN))out[STORAGE_SETUP_TXN]=cloneSnapshot(s[STORAGE_SETUP_TXN]);
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
     const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
     if(Entry){
@@ -8335,6 +8373,33 @@ function removeSetupDraftIfCurrent(handle=entryDraftHandle){
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(handle)))}
 function clearSetupDraft(){
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(entryDraftHandle)))}
+function setupActivationAlreadyCommittedToLive(raw){
+  const marker=state?.[STORAGE_SETUP_TXN];
+  return typeof raw==="string"&&isValidSetupActivationMarker(marker)&&
+    marker.revision===readRevision(state)&&setupActivationMatches(marker,raw,state?.programMeta?.id);
+}
+async function finishAlreadyCommittedSetup(handle){
+  const cleanup=await removeSetupDraftIfCurrent(handle);
+  if(cleanup?.ok){
+    entryState=null;entryDraftHandle=null;onboardingOrigin=null;setupEditorOpen=false;
+    programEditMode=false;document.body.classList.remove("is-entry-editor");closeOnboarding();
+  }else{
+    entryUiNotice=cleanup?.conflict?"save_conflict":"save_failed";
+    renderOnboarding();
+  }
+  return{revision:readRevision(state),localOk:true,idbOk:true,alreadyCommitted:true,
+    setupDraftCleanup:cleanup};
+}
+async function recoverCommittedSetupDraft(){
+  const marker=state?.[STORAGE_SETUP_TXN];
+  if(!isValidSetupActivationMarker(marker)||marker.revision!==readRevision(state)||
+    marker.programId!==state?.programMeta?.id)return{ok:true,absent:true};
+  const raw=readSetupDraftRaw();
+  // A missing draft means the post-commit cleanup already won. A different
+  // raw value belongs to a later owner/revision and must remain untouched.
+  if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
+  return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
+}
 function persistSetupDraft(next,io=storageIO){
   if(!ProgramEntry||!next)return Promise.resolve({ok:false});
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
@@ -8962,7 +9027,8 @@ function renderEntryNotice(){
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
-  if(entryUiNotice==="durable_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.durable_conflict.title"))}</strong><p>${esc(t("entry.durable_conflict.body"))}</p></div>`;
+  if(entryUiNotice==="durable_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.durable_conflict.title"))}</strong><p>${esc(t("entry.durable_conflict.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryDurableConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
   if(entryUiNotice==="rules_changed")return `<div class="entry__notice" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t("entry.rules_changed.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button></div></div>`;
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
@@ -9197,7 +9263,17 @@ function wireEntryDom(){
     renderOnboarding()};
   const conflict=$("#entryConflictReview");if(conflict)conflict.onclick=()=>{
     entryUiNotice=null;
-    entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()})}}
+    entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()})};
+  const durableConflict=$("#entryDurableConflictReview");if(durableConflict)durableConflict.onclick=async()=>{
+    durableConflict.disabled=true;
+    if(entryState?.step==="activation_conflict"){
+      entryUiNotice=null;
+      entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()});
+      return;
+    }
+    const recovered=await recoverEntryDurableConflict();
+    entryUiNotice=recovered.ok?"conflict":"durable_conflict";
+    renderOnboarding()}}
 function entryConfirmReplaceIfNeeded(){
   if(!hasActiveProgram())return true;
   return confirm(t("entry.confirm.replace"))}
@@ -9207,6 +9283,22 @@ function entryStartOver(){
   if(restarted.effects?.deleteSetupDraft)clearSetupDraft();
   entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;
   entrySetState(restarted.state,{persist:true})}
+async function recoverEntryDurableConflict(){
+  const refreshed=await refreshPersistenceHead();
+  const head=refreshed?.head;
+  if(refreshed?.conflict||!head)return{ok:false,conflict:true};
+  const currentRevision=readRevision(state),headRevision=readRevision(head);
+  if(headRevision<=currentRevision)return{ok:false,conflict:headRevision<currentRevision};
+  const liveBase=cloneSnapshot(state);
+  persistHead=cloneSnapshot(head);
+  applyAcceptedSnapshot(liveBase,head);
+  if(entryState){
+    entryState={...entryState,step:"activation_conflict",activeProgramRevisionAtStart:headRevision};
+    const saved=await persistSetupDraft(entryState);
+    if(!saved?.ok)return{ok:false,conflict:true,saveConflict:true};
+  }
+  return{ok:true,revision:headRevision};
+}
 function entryAdvance(){
   if(!ProgramEntry||!entryState)return;
   if(entryState.step==="build_setup"){
@@ -9252,6 +9344,12 @@ function onEntryPopState(){
 async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
   if(!ProgramEntry||!entryState)return;
   await setupDraftWriteQueue;
+  const activationDraftHandle=entryDraftHandle;
+  // A previous attempt may already have committed the exact draft and then
+  // failed only while consuming this separate setup record. Treat that receipt
+  // as success and retry only the CAS cleanup; never mint a second program.
+  if(setupActivationAlreadyCommittedToLive(activationDraftHandle?.raw))
+    return finishAlreadyCommittedSetup(activationDraftHandle);
   const readiness=ProgramEntry.activationReadiness(entryState,{
     liveActiveProgramRevision:liveProgramRevision(),
     currentVersions:entryVersions(),
@@ -9312,7 +9410,6 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
   baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
-  const activationDraftHandle=entryDraftHandle;
   const result=await finalizeProgramSetup({
     exercises,
     name,
@@ -9333,6 +9430,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     renderOnboarding();
     return result}
   if(result?.staleRevision){
+    await recoverEntryDurableConflict();
     entryUiNotice="durable_conflict";
     renderOnboarding();
     return result}
@@ -9368,6 +9466,12 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   meta.programStructure=programStructure?cloneSnapshot(programStructure):
     (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
   proposal.programMeta=meta;
+  // The setup draft lives outside the mirrored state stores. Keep an exact,
+  // storage-only receipt in the successor so a crash after the program commit
+  // but before setup-draft cleanup can be recognized and safely finalized.
+  delete proposal[STORAGE_SETUP_TXN];
+  const setupActivation=setupActivationMarker(expectedSetupDraftRaw,meta.id);
+  if(setupActivation)proposal[STORAGE_SETUP_TXN]=setupActivation;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
@@ -10353,6 +10457,17 @@ async function resolveBootReplicas(candidate=null){
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         draftConflict=true;
         continue}
+      // A setup activation can leave its journal behind after the durable
+      // successor is committed but before the separate setup draft is
+      // consumed. Treat that journal as settled; replaying it would archive
+      // the successor a second time after a crash.
+      const setupMarker=journal.proposal?.[STORAGE_SETUP_TXN];
+      if(setupActivationAlreadyCommitted(head,journal.proposal,setupMarker?.raw)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
       if(pendingJournalSuccessorMatches(record,head)){
         const prepared=preparePendingDraftTransaction(
           head,journal.rollback,journal.effectOutcome,journal.id);
@@ -10517,6 +10632,7 @@ async function boot(){
     const candidate=await presentStorageRecovery(decision);
     decision=await resolveBootReplicas(candidate)}
   await applyBootDecision(decision);
+  await recoverCommittedSetupDraft();
   await prepareSharedSetup(sharedCandidate);
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
