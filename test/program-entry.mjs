@@ -171,10 +171,47 @@ test("Browse keeps compatibility context and manual routes inherit no prescripti
     "daysPerWeek",
     "environment",
     "sessionMinutes",
-    "structuredExperience",
   ]);
   for (const route of ["build", "import", "shared"]) {
     assert.deepEqual(Entry.selectRoute(state, route).answers, {});
+  }
+});
+
+test("reusable context prefill is scoped to each route's visible inputs", () => {
+  const context = validContext();
+  const recommend = Entry.selectRoute(fresh(), "recommend", { reusableContext: context });
+  assert.deepEqual(Object.keys(recommend.answers).sort(), [
+    "daysPerWeek",
+    "environment",
+    "exerciseConstraints",
+    "preferredRestSeconds",
+    "primaryMuscles",
+    "priorityMovements",
+    "recentConsistency",
+    "sessionMinutes",
+    "structuredExperience",
+    "desiredResult",
+  ].sort());
+  assert.equal(recommend.answers.deEmphasizedMuscles, undefined);
+  assert.equal(recommend.answers.ignoredMuscles, undefined);
+
+  const custom = Entry.selectRoute(fresh(), "custom", { reusableContext: context });
+  assert.deepEqual(custom.answers.deEmphasizedMuscles, context.deEmphasizedMuscles);
+  assert.deepEqual(custom.answers.ignoredMuscles, context.ignoredMuscles);
+
+  const browse = Entry.selectRoute(fresh(), "browse", { reusableContext: context });
+  assert.deepEqual(Object.keys(browse.answers).sort(), [
+    "daysPerWeek",
+    "environment",
+    "sessionMinutes",
+  ]);
+  for (const key of ["desiredResult", "structuredExperience", "recentConsistency", "preferredRestSeconds",
+    "primaryMuscles", "priorityMovements", "exerciseConstraints", "deEmphasizedMuscles", "ignoredMuscles"]) {
+    assert.equal(browse.answers[key], undefined, `Browse must not prefill ${key}`);
+  }
+
+  for (const route of ["build", "import", "shared"]) {
+    assert.deepEqual(Entry.selectRoute(fresh(), route, { reusableContext: context }).answers, {});
   }
 });
 

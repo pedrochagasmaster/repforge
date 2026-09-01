@@ -8375,27 +8375,6 @@ function createEntryState(extra={}){
     now:entryNow(),
     versions:entryVersions(),
     ...extra})}
-function loadReusableContextIntoAnswers(answers){
-  const context=state?.programmingContext;
-  if(!context||!ProgramEntry)return answers||{};
-  const normalized=ProgramEntry.normalizeProgrammingContext(context);
-  if(!normalized.ok)return answers||{};
-  const value=normalized.value;
-  return{
-    ...answers,
-    desiredResult:answers.desiredResult??value.desiredResult,
-    structuredExperience:answers.structuredExperience??value.structuredExperience,
-    recentConsistency:answers.recentConsistency??value.recentConsistency,
-    daysPerWeek:answers.daysPerWeek??value.availability?.daysPerWeek,
-    sessionMinutes:answers.sessionMinutes??value.availability?.sessionMinutes,
-    preferredRestSeconds:Object.prototype.hasOwnProperty.call(answers,"preferredRestSeconds")
-      ?answers.preferredRestSeconds:value.availability?.preferredRestSeconds,
-    environment:answers.environment??value.environment,
-    primaryMuscles:answers.primaryMuscles??value.primaryMuscles,
-    deEmphasizedMuscles:answers.deEmphasizedMuscles??value.deEmphasizedMuscles,
-    ignoredMuscles:answers.ignoredMuscles??value.ignoredMuscles,
-    priorityMovements:answers.priorityMovements??value.priorityMovements,
-    exerciseConstraints:answers.exerciseConstraints??value.exerciseConstraints}}
 function applyLegacyHints(stateIn){
   if(!ProgramEntry)return stateIn;
   const legacy=state?.programMeta;
@@ -8523,15 +8502,15 @@ function entrySetState(next,{persist=true}={}){
 function entrySelectRoute(route){
   if(!ProgramEntry||!entryState)return;
   reportEntryRoute(route);
-  let next=ProgramEntry.selectRoute(entryState,route);
-  next=ProgramEntry.setAnswers(next,loadReusableContextIntoAnswers(next.answers||{}));
-  next=applyLegacyHints(next);
+  const next=ProgramEntry.selectRoute(entryState,route,{reusableContext:state?.programmingContext});
+  const migrated=applyLegacyHints(next);
+  let selected=migrated;
   if(route==="custom"){
-    const splits=entryServices()?.splitChoices(next.answers)||{choices:[]};
-    if(splits.choices.length===1)next=ProgramEntry.setAnswers(next,{splitPreference:splits.choices[0].id});
+    const splits=entryServices()?.splitChoices(selected.answers)||{choices:[]};
+    if(splits.choices.length===1)selected=ProgramEntry.setAnswers(selected,{splitPreference:splits.choices[0].id});
   }
   entryOwnOpen=false;
-  entrySetState(next)}
+  entrySetState(selected)}
 function entryPatchAnswers(patch){
   if(!ProgramEntry||!entryState)return;
   entrySetState(ProgramEntry.setAnswers(entryState,patch))}

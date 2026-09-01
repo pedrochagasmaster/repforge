@@ -83,7 +83,6 @@
     "exerciseConstraints",
   ]);
   const BROWSE_CONTEXT_KEYS = Object.freeze([
-    "structuredExperience",
     "daysPerWeek",
     "sessionMinutes",
     "environment",
@@ -94,6 +93,17 @@
     "ignoredMuscles",
     "mustHaveExercises",
   ]);
+  // Reusable context is deliberately narrower than the answer schema. These
+  // are the fields each route actually renders and asks the user to review;
+  // anything else must not influence a route's compiler input implicitly.
+  const ROUTE_PREFILL_KEYS = Object.freeze({
+    recommend: Object.freeze([...SHARED_GENERATOR_KEYS]),
+    custom: Object.freeze([...SHARED_GENERATOR_KEYS, "deEmphasizedMuscles", "ignoredMuscles"]),
+    browse: Object.freeze([...BROWSE_CONTEXT_KEYS]),
+    build: Object.freeze([]),
+    import: Object.freeze([]),
+    shared: Object.freeze([]),
+  });
 
   function hasOwn(value, key) {
     return Object.prototype.hasOwnProperty.call(value, key);
@@ -1114,6 +1124,31 @@
     return result;
   }
 
+  function programmingContextAnswers(input) {
+    const normalized = normalizeProgrammingContext(input);
+    if (!normalized.ok) return {};
+    const value = normalized.value;
+    return {
+      desiredResult: value.desiredResult,
+      structuredExperience: value.structuredExperience,
+      recentConsistency: value.recentConsistency,
+      daysPerWeek: value.availability.daysPerWeek,
+      sessionMinutes: value.availability.sessionMinutes,
+      preferredRestSeconds: value.availability.preferredRestSeconds,
+      environment: value.environment,
+      primaryMuscles: value.primaryMuscles,
+      deEmphasizedMuscles: value.deEmphasizedMuscles,
+      ignoredMuscles: value.ignoredMuscles,
+      priorityMovements: value.priorityMovements,
+      exerciseConstraints: value.exerciseConstraints,
+    };
+  }
+
+  function reusableContextAnswers(input, route) {
+    if (!ROUTE_SET.has(route)) return {};
+    return copyKeys(programmingContextAnswers(input), ROUTE_PREFILL_KEYS[route]);
+  }
+
   function compatibleAnswers(answers, fromRoute, toRoute) {
     if (toRoute === "recommend" || toRoute === "custom") {
       const kept = copyKeys(answers, SHARED_GENERATOR_KEYS);
@@ -1155,12 +1190,17 @@
     }
   }
 
-  function selectRoute(state, route) {
+  function selectRoute(state, route, options) {
     assertState(state);
     if (!ROUTE_SET.has(route)) throw new TypeError("Unknown program-entry route");
-    const answers = route === "browse" && state.route === "browse"
+    const config = isPlainObject(options) ? options : {};
+    const carried = route === "browse" && state.route === "browse"
       ? copyKeys(state.answers, [...BROWSE_CONTEXT_KEYS, "catalogueSelection"])
       : compatibleAnswers(state.answers, state.route, route);
+    const answers = {
+      ...reusableContextAnswers(config.reusableContext, route),
+      ...carried,
+    };
     return {
       ...clone(state),
       route,
@@ -1409,11 +1449,13 @@
     CONSTRAINT_REASONS,
     ROUTES,
     ROUTE_STEPS,
+    ROUTE_PREFILL_KEYS,
     createState,
     selectRoute,
     setAnswers,
     setResult,
     normalizeProgrammingContext,
+    reusableContextAnswers,
     normalizeSetupDraft,
     normalizeSetupDraftEnvelope,
     advanceSetupDraftEnvelope,
