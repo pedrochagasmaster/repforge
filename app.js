@@ -99,6 +99,10 @@ function isValidStateShape(s){
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
 function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];delete o[STORAGE_SETUP_TXN];return o}
 function exportableState(s){return stripStorageMeta(s)}
+// Mirror arbitration must retain setup-activation receipts. They are omitted
+// from exports, but dropping one while choosing between equal-revision local
+// and IndexedDB copies can re-enable a second activation after a partial write.
+function mirrorComparisonSnapshot(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];return o}
 function canonicalize(value){
   if(Array.isArray(value))return value.map(canonicalize);
   if(value&&typeof value==="object"){
@@ -107,7 +111,7 @@ function canonicalize(value){
     return out}
   return value}
 function canonicalPayload(s){return JSON.stringify(canonicalize(stripStorageMeta(s)))}
-function snapshotsEqual(a,b){return canonicalPayload(a)===canonicalPayload(b)}
+function snapshotsEqual(a,b){return JSON.stringify(canonicalize(mirrorComparisonSnapshot(a)))===JSON.stringify(canonicalize(mirrorComparisonSnapshot(b)))}
 function snapshotSummary(s){
   const log=Array.isArray(s?.log)?s.log:[];
   const sessions=new Set(log.map(r=>r&&r.session).filter(Boolean)).size;
@@ -720,8 +724,10 @@ function setupActivationAlreadyCommitted(head,proposal,expectedSetupDraftRaw){
   const proposed=proposal?.[STORAGE_SETUP_TXN],current=head?.[STORAGE_SETUP_TXN];
   if(!isValidSetupActivationMarker(proposed)||!isValidSetupActivationMarker(current))return false;
   const headRevision=readRevision(head);
-  if(!Number.isInteger(current.revision)||current.revision!==headRevision||
-    Object.prototype.hasOwnProperty.call(proposed,"revision")&&proposed.revision!==headRevision)return false;
+  // The proposal can be an older in-memory copy after another harmless write
+  // advanced the receipt. The durable head is authoritative; matching the
+  // exact draft raw value and program id is the idempotency proof.
+  if(!Number.isInteger(current.revision)||current.revision!==headRevision)return false;
   return setupActivationMatches(proposed,expectedSetupDraftRaw,proposed.programId)&&
     setupActivationMatches(current,expectedSetupDraftRaw,head?.programMeta?.id)&&
     current.programId===proposed.programId;
@@ -802,8 +808,7 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconci
   delete snapshot[SHARED_IMPORT];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
   const setupMarker=snapshot[STORAGE_SETUP_TXN];
-  if(isValidSetupActivationMarker(setupMarker)&&
-    !Object.prototype.hasOwnProperty.call(setupMarker,"revision"))
+  if(isValidSetupActivationMarker(setupMarker))
     snapshot[STORAGE_SETUP_TXN]={...setupMarker,revision:snapshot[STORAGE_REV]};
   return snapshot}
 function pendingJournalSuccessorMatches(record,head){
@@ -8314,7 +8319,7 @@ const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
 const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -8508,7 +8513,7 @@ function reportEntryRoute(route){
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;
+  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   if(opts.forceFresh||opts.resume===false){
@@ -8751,7 +8756,9 @@ function renderCustomShapeStep(){
 function compileGeneratorCandidate(){
   const services=entryServices();
   if(!services||!entryState)return null;
-  const compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()});
+  let compiled;
+  try{compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()})}
+  catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
   if(!compiled.ok){entryCompileError=compiled;return null}
   return{
     fingerprint:compiled.fingerprint,
@@ -8823,7 +8830,8 @@ async function rebuildEntryForCurrentRules(){
     return{ok:true,pinned:true}}
   if(route==="browse"){
     const services=entryServices();
-    const cards=services?.browseCatalogue?.(entryState.answers)||[];
+    let cards=[];
+    try{cards=services?.browseCatalogue?.(entryState.answers)||[]}catch(error){console.warn("browse catalogue rebuild failed",error)}
     const selectedId=entryState.answers.catalogueSelection||entryState.result?.selected?.id;
     const card=cards.find(item=>item.id===selectedId);
     if(!card){
@@ -8856,7 +8864,7 @@ async function rebuildEntryForCurrentRules(){
     // path is an explicit handoff into the editable draft; the editor still
     // blocks incomplete/unsupported rows before activation.
     const previous=entryState;
-    const next={...entryState,versions:entryVersions()};
+    const next={...entryState,step:entryState.result?.preview?entryState.step:"build_setup",versions:entryVersions()};
     const saved=await persistEntryRulesState(next,previous);
     if(!saved?.ok){
       if(!entryUiNotice)entryUiNotice="rules_changed";
@@ -9396,15 +9404,18 @@ function wireEntryDom(){
   const conflict=$("#entryConflictReview");if(conflict)conflict.onclick=()=>{
   entryUiNotice=null;
     entryPinnedVersionsExecutable=false;
+    entryDurableConflictNeedsReload=false;
     entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()})};
   const durableConflict=$("#entryDurableConflictReview");if(durableConflict)durableConflict.onclick=async()=>{
     durableConflict.disabled=true;
+    if(entryDurableConflictNeedsReload){window.location.reload();return}
     if(entryState?.step==="activation_conflict"){
       entryUiNotice=null;
       entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()});
       return;
     }
     const recovered=await recoverEntryDurableConflict();
+    entryDurableConflictNeedsReload=!recovered.ok;
     entryUiNotice=recovered.ok?"conflict":"durable_conflict";
     renderOnboarding()}}
 function entryConfirmReplaceIfNeeded(){
@@ -9431,6 +9442,13 @@ async function recoverEntryDurableConflict(){
     if(!saved?.ok)return{ok:false,conflict:true,saveConflict:true};
   }
   return{ok:true,revision:headRevision};
+}
+async function surfaceEntryDurableConflict(){
+  const recovered=await recoverEntryDurableConflict();
+  entryDurableConflictNeedsReload=!recovered.ok;
+  entryUiNotice="durable_conflict";
+  renderOnboarding();
+  return recovered;
 }
 function entryAdvance(){
   if(!ProgramEntry||!entryState)return;
@@ -9562,14 +9580,13 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryUiNotice="save_conflict";
     renderOnboarding();
     return result}
-  if(result?.staleRevision){
-    await recoverEntryDurableConflict();
-    entryUiNotice="durable_conflict";
-    renderOnboarding();
+  if(result?.staleRevision||result?.conflict||result?.duplicate||result?.ineligible){
+    await surfaceEntryDurableConflict();
     return result}
   if(result?.localOk||result?.idbOk){
     const cleanup=await removeSetupDraftIfCurrent(activationDraftHandle);
     if(cleanup?.writeFailed)toast(t("entry.save_failed.body"));
+    entryDurableConflictNeedsReload=false;
     entryState=null;
     return result}}
 function telemetryGeneratedProgram(goal){
@@ -9619,7 +9636,8 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     telemetryRoute==="shared"?"shared_v1":
     telemetryRoute==="build"?"manual_v1":
     telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
-  captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
+  if(!result.alreadyCommitted)
+    captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
   if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
   if(telemetryRoute==="shared")syncLang();
   resetDraftSessionState();
