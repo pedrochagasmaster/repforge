@@ -156,6 +156,14 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
  * anchors, the Progress chart) scroll to their subject on purpose.
  */
 export async function settle(page) {
+  // Park the pointer off-viewport first. A scenario drives the app by clicking,
+  // and the pointer stays where it was left, so whatever the last layout puts
+  // under that point is photographed in its :hover state — a warm wash on one
+  // arbitrary row that reads as a deliberate colour decision. Which row it hits
+  // changes with the viewport, so it also made narrow frames disagree with wide
+  // ones for no reason in the app. A catalog frame shows a surface at rest, and
+  // nothing is hovered on a phone.
+  await page.mouse.move(-50, -50);
   // Wait for the DOM to stop changing first. Several surfaces finish rendering
   // after their readiness selector appears — the hub's "current program stays
   // active" notice is one — and a frame taken in that window is missing real

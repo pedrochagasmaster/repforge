@@ -47,7 +47,68 @@ function paeth(a, b, c) {
   return pa <= pb && pa <= pc ? a : pb <= pc ? b : c;
 }
 
-function parsePng(buffer, label = "PNG") {
+/**
+ * Where each grid cell takes its samples.
+ *
+ * The columns depend only on gx and the rows only on gy, so both collapse to
+ * two small tables that are reused for every frame of a given size. The
+ * decoder below walks rows once, in order, which is what lets it accumulate
+ * each cell's four samples in exactly the order the original two nested
+ * ratio loops produced them — the sums are floating point, so that order is
+ * part of the result, not an implementation detail.
+ */
+function sampleGrid(width, height) {
+  const columns = new Int32Array(GRID_WIDTH * SAMPLE_OFFSETS.length);
+  for (let gx = 0; gx < GRID_WIDTH; gx++) {
+    const x0 = gx * width / GRID_WIDTH;
+    const x1 = (gx + 1) * width / GRID_WIDTH;
+    for (let i = 0; i < SAMPLE_OFFSETS.length; i++) {
+      columns[gx * SAMPLE_OFFSETS.length + i] = Math.min(width - 1, Math.floor(x0 + (x1 - x0) * SAMPLE_OFFSETS[i]));
+    }
+  }
+  // rowPlan[y] lists the (gy, slot) pairs sampling that row, pushed gy-ascending
+  // and slot-ascending so a cell whose two sampled rows collapse to one still
+  // accumulates its slots in order.
+  const rowPlan = new Map();
+  let lastRow = 0;
+  for (let gy = 0; gy < GRID_HEIGHT; gy++) {
+    const y0 = gy * height / GRID_HEIGHT;
+    const y1 = (gy + 1) * height / GRID_HEIGHT;
+    for (let slot = 0; slot < SAMPLE_OFFSETS.length; slot++) {
+      const y = Math.min(height - 1, Math.floor(y0 + (y1 - y0) * SAMPLE_OFFSETS[slot]));
+      if (!rowPlan.has(y)) rowPlan.set(y, []);
+      rowPlan.get(y).push(gy);
+      if (y > lastRow) lastRow = y;
+    }
+  }
+  return { columns, rowPlan, lastRow };
+}
+
+/** Composite one pixel over white, exactly as the full-image decoder did. */
+function compositePixel(row, source, channels, out) {
+  let red = row[source];
+  let green = channels >= 3 ? row[source + 1] : red;
+  let blue = channels >= 3 ? row[source + 2] : red;
+  if (channels === 2 || channels === 4) {
+    const alpha = (channels === 2 ? row[source + 1] : row[source + 3]) / 255;
+    if (channels === 2) green = blue = red;
+    red = Math.round(red * alpha + 255 * (1 - alpha));
+    green = Math.round(green * alpha + 255 * (1 - alpha));
+    blue = Math.round(blue * alpha + 255 * (1 - alpha));
+  }
+  out[0] = red;
+  out[1] = green;
+  out[2] = blue;
+}
+
+/**
+ * Everything that can be checked without inflating: the signature, a
+ * well-formed IHDR, a supported encoding, and the presence of pixel data.
+ * Split out so a comparison that never needs pixels can still reject a
+ * malformed file, and so the dimensions are available for the price of a
+ * chunk walk rather than a full decode.
+ */
+function readPngChunks(buffer, label = "PNG") {
   if (!Buffer.isBuffer(buffer) || !buffer.subarray(0, 8).equals(PNG_SIGNATURE)) {
     throw new Error(`${label}: invalid PNG signature`);
   }
@@ -87,91 +148,98 @@ function parsePng(buffer, label = "PNG") {
   const channels = { 0: 1, 2: 3, 4: 2, 6: 4 }[header.colorType];
   if (!channels) throw new Error(`${label}: unsupported PNG colour type ${header.colorType}`);
   if (!header.width || !header.height) throw new Error(`${label}: invalid dimensions`);
+  return { header, channels, idat };
+}
 
+function parsePng(buffer, label = "PNG") {
+  const { header, channels, idat } = readPngChunks(buffer, label);
   const rowBytes = header.width * channels;
   const inflated = inflateSync(Buffer.concat(idat));
   const expected = header.height * (rowBytes + 1);
   if (inflated.length < expected) throw new Error(`${label}: truncated scanline data`);
-  const rgb = Buffer.alloc(header.width * header.height * 3);
+
+  /*
+   * Decode straight into the feature grid.
+   *
+   * The grid reads four pixels per cell — 96×128×4 — so materialising every
+   * pixel of a 780×1688 frame first threw away about 96% of the work, and the
+   * per-byte filter branch made the rest slower than it needed to be. Rows are
+   * still unfiltered in order because each one is defined against the row above
+   * it, but only the sampled columns of sampled rows are ever composited, and
+   * the branch is hoisted into one specialised loop per filter type.
+   */
+  const { columns, rowPlan, lastRow } = sampleGrid(header.width, header.height);
+  const cells = GRID_WIDTH * GRID_HEIGHT;
+  const totals = new Float64Array(cells * 4);
+  const pixel = [0, 0, 0];
+  let current = new Uint8Array(rowBytes);
+  let previous = new Uint8Array(rowBytes);
   let sourceOffset = 0;
-  let previous = Buffer.alloc(rowBytes);
-  for (let y = 0; y < header.height; y++) {
+
+  for (let y = 0; y <= lastRow; y++) {
     const filterType = inflated[sourceOffset++];
-    const filtered = inflated.subarray(sourceOffset, sourceOffset + rowBytes);
+    const base = sourceOffset;
     sourceOffset += rowBytes;
-    const row = Buffer.alloc(rowBytes);
-    for (let i = 0; i < rowBytes; i++) {
-      const left = i >= channels ? row[i - channels] : 0;
-      const above = previous[i] || 0;
-      const upperLeft = i >= channels ? previous[i - channels] : 0;
-      const value = filtered[i];
-      if (filterType === 0) row[i] = value;
-      else if (filterType === 1) row[i] = (value + left) & 0xff;
-      else if (filterType === 2) row[i] = (value + above) & 0xff;
-      else if (filterType === 3) row[i] = (value + Math.floor((left + above) / 2)) & 0xff;
-      else if (filterType === 4) row[i] = (value + paeth(left, above, upperLeft)) & 0xff;
-      else throw new Error(`${label}: unsupported PNG filter ${filterType}`);
-    }
-    for (let x = 0; x < header.width; x++) {
-      const source = x * channels;
-      const target = (y * header.width + x) * 3;
-      let red = row[source];
-      let green = channels >= 3 ? row[source + 1] : red;
-      let blue = channels >= 3 ? row[source + 2] : red;
-      if (channels === 2 || channels === 4) {
-        const alpha = (channels === 2 ? row[source + 1] : row[source + 3]) / 255;
-        if (channels === 2) green = blue = red;
-        red = Math.round(red * alpha + 255 * (1 - alpha));
-        green = Math.round(green * alpha + 255 * (1 - alpha));
-        blue = Math.round(blue * alpha + 255 * (1 - alpha));
+    if (filterType === 0) {
+      for (let i = 0; i < rowBytes; i++) current[i] = inflated[base + i];
+    } else if (filterType === 1) {
+      for (let i = 0; i < channels; i++) current[i] = inflated[base + i];
+      for (let i = channels; i < rowBytes; i++) current[i] = (inflated[base + i] + current[i - channels]) & 0xff;
+    } else if (filterType === 2) {
+      for (let i = 0; i < rowBytes; i++) current[i] = (inflated[base + i] + previous[i]) & 0xff;
+    } else if (filterType === 3) {
+      for (let i = 0; i < channels; i++) current[i] = (inflated[base + i] + (previous[i] >> 1)) & 0xff;
+      for (let i = channels; i < rowBytes; i++) {
+        current[i] = (inflated[base + i] + ((current[i - channels] + previous[i]) >> 1)) & 0xff;
       }
-      rgb[target] = red;
-      rgb[target + 1] = green;
-      rgb[target + 2] = blue;
+    } else if (filterType === 4) {
+      for (let i = 0; i < channels; i++) current[i] = (inflated[base + i] + previous[i]) & 0xff;
+      for (let i = channels; i < rowBytes; i++) {
+        current[i] = (inflated[base + i] + paeth(current[i - channels], previous[i], previous[i - channels])) & 0xff;
+      }
+    } else {
+      throw new Error(`${label}: unsupported PNG filter ${filterType}`);
     }
-    previous = row;
+
+    const sampling = rowPlan.get(y);
+    if (sampling) {
+      for (const gy of sampling) {
+        for (let gx = 0; gx < GRID_WIDTH; gx++) {
+          const target = (gy * GRID_WIDTH + gx) * 4;
+          for (let i = 0; i < SAMPLE_OFFSETS.length; i++) {
+            compositePixel(current, columns[gx * SAMPLE_OFFSETS.length + i] * channels, channels, pixel);
+            totals[target] += pixel[0] / 255;
+            totals[target + 1] += pixel[1] / 255;
+            totals[target + 2] += pixel[2] / 255;
+            totals[target + 3] += luma(pixel[0], pixel[1], pixel[2]);
+          }
+        }
+      }
+    }
+    const swap = previous;
+    previous = current;
+    current = swap;
   }
-  return { width: header.width, height: header.height, rgb };
+
+  const samplesPerCell = SAMPLE_OFFSETS.length * SAMPLE_OFFSETS.length;
+  const values = new Float32Array(cells * 4);
+  const histogram = new Float32Array(16);
+  for (let cell = 0; cell < cells; cell++) {
+    const index = cell * 4;
+    values[index] = totals[index] / samplesPerCell;
+    values[index + 1] = totals[index + 1] / samplesPerCell;
+    values[index + 2] = totals[index + 2] / samplesPerCell;
+    const light = totals[index + 3] / samplesPerCell;
+    values[index + 3] = light;
+    histogram[Math.min(15, Math.floor(light * 16))]++;
+  }
+  for (let i = 0; i < histogram.length; i++) histogram[i] /= cells;
+
+  return { width: header.width, height: header.height, features: { values, histogram } };
 }
 
 function luma(red, green, blue) {
   return (0.2126 * red + 0.7152 * green + 0.0722 * blue) / 255;
-}
-
-function sample(image) {
-  const values = new Float32Array(GRID_WIDTH * GRID_HEIGHT * 4);
-  const histogram = new Float32Array(16);
-  for (let gy = 0; gy < GRID_HEIGHT; gy++) {
-    const y0 = gy * image.height / GRID_HEIGHT;
-    const y1 = (gy + 1) * image.height / GRID_HEIGHT;
-    for (let gx = 0; gx < GRID_WIDTH; gx++) {
-      const x0 = gx * image.width / GRID_WIDTH;
-      const x1 = (gx + 1) * image.width / GRID_WIDTH;
-      let red = 0;
-      let green = 0;
-      let blue = 0;
-      let light = 0;
-      for (const yRatio of SAMPLE_OFFSETS) {
-        const y = Math.min(image.height - 1, Math.floor(y0 + (y1 - y0) * yRatio));
-        for (const xRatio of SAMPLE_OFFSETS) {
-          const x = Math.min(image.width - 1, Math.floor(x0 + (x1 - x0) * xRatio));
-          const index = (y * image.width + x) * 3;
-          const r = image.rgb[index] / 255;
-          const g = image.rgb[index + 1] / 255;
-          const b = image.rgb[index + 2] / 255;
-          red += r; green += g; blue += b; light += luma(image.rgb[index], image.rgb[index + 1], image.rgb[index + 2]);
-        }
-      }
-      const index = (gy * GRID_WIDTH + gx) * 4;
-      values[index] = red / 4;
-      values[index + 1] = green / 4;
-      values[index + 2] = blue / 4;
-      values[index + 3] = light / 4;
-      histogram[Math.min(15, Math.floor((light / 4) * 16))]++;
-    }
-  }
-  for (let i = 0; i < histogram.length; i++) histogram[i] /= GRID_WIDTH * GRID_HEIGHT;
-  return { values, histogram };
 }
 
 function cellColourDelta(first, second, index) {
@@ -243,6 +311,32 @@ function compareFeatures(first, second, thresholds = DEFAULT_THRESHOLDS) {
 export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DEFAULT_THRESHOLDS) {
   let baseline;
   let current;
+  /*
+   * Identical bytes cannot have drifted, so there is nothing to measure. This
+   * is the ordinary case for a determinism run on one machine, where the whole
+   * catalog short-circuits; a hosted runner re-rasterises text and falls
+   * through to the perceptual comparison below, which is the case the
+   * thresholds exist for. The header is still parsed so a malformed file is
+   * reported rather than waved through on its own corruption.
+   */
+  if (Buffer.isBuffer(baselineBuffer) && Buffer.isBuffer(currentBuffer) && baselineBuffer.equals(currentBuffer)) {
+    try {
+      const { header } = readPngChunks(baselineBuffer, "baseline");
+      return {
+        width: header.width,
+        height: header.height,
+        ok: true,
+        meanCellDelta: 0,
+        changedCellRatio: 0,
+        meanEdgeDelta: 0,
+        changedEdgeRatio: 0,
+        histogramDelta: 0,
+        reasons: [],
+      };
+    } catch (error) {
+      return { ok: false, reasons: [error.message] };
+    }
+  }
   try {
     baseline = parsePng(baselineBuffer, "baseline");
     current = parsePng(currentBuffer, "current");
@@ -260,7 +354,7 @@ export function comparePngBuffers(baselineBuffer, currentBuffer, thresholds = DE
     };
   }
   const effectiveThresholds = { ...DEFAULT_THRESHOLDS, ...(thresholds || {}) };
-  const features = compareFeatures(sample(baseline), sample(current), effectiveThresholds);
+  const features = compareFeatures(baseline.features, current.features, effectiveThresholds);
   return {
     width: current.width,
     height: current.height,
