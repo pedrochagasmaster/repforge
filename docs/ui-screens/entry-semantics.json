@@ -31294,6 +31294,12 @@
           "text": "Choose how Taurifer should write your first prescription."
         },
         {
+          "tag": "p",
+          "role": "status",
+          "text": "Your current program stays active until you confirm a replacement.",
+          "name": "Your current program stays active until you confirm a replacement."
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
