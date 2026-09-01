@@ -385,21 +385,23 @@ try {
     await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
     const scheduleComposition = await page.evaluate(() => {
       const rows = [...document.querySelectorAll(".entry-body--schedule .radio-card")];
-      const first = rows[0];
-      const style = first ? getComputedStyle(first) : null;
       const rects = rows.map((el) => el.getBoundingClientRect());
+      const groups = [...document.querySelectorAll(".entry-body--schedule .onb__opts")];
+      const seg = document.querySelector(".entry-body--schedule .onb__seg");
       return {
-        radius: style?.borderRadius || "",
-        hairline: style?.borderBottomStyle || "",
-        columns: getComputedStyle(document.querySelector(".entry-body--schedule .onb__opts"))?.gridTemplateColumns || "",
+        // Days and the session ceiling read as segmented bands; the rest
+        // chooser is a bounded grouped list. Both are bounded surfaces, not
+        // the old flush hairline rows.
+        segmented: seg ? getComputedStyle(seg).display : "",
+        bounded: groups.length > 0 && groups.every((group) => getComputedStyle(group).borderRadius !== "0px"),
         noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
           rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
           rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
       };
     });
-    assert(scheduleComposition.radius === "0px" && scheduleComposition.hairline === "solid",
-      "schedule choices use compact hairline rows", JSON.stringify(scheduleComposition));
-    assert(scheduleComposition.columns.includes(" ") && scheduleComposition.noOverlap,
+    assert(scheduleComposition.segmented === "flex" && scheduleComposition.bounded,
+      "schedule days and duration use bounded segmented controls", JSON.stringify(scheduleComposition));
+    assert(scheduleComposition.noOverlap,
       "schedule groups stay compact without overlap", JSON.stringify(scheduleComposition));
     await page.click("#onbNext");
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
@@ -419,17 +421,21 @@ try {
     assert(await page.locator("#entryAvoidSearch").isVisible(), "avoidance search is present on priorities");
     const priorityComposition = await page.evaluate(() => {
       const rows = [...document.querySelectorAll(".entry-body--priorities .radio-card")];
+      const tiles = [...document.querySelectorAll(".entry-body--priorities .onb__grid .radio-card")];
       const rects = rows.map((el) => el.getBoundingClientRect());
       return {
-        radius: rows[0] ? getComputedStyle(rows[0]).borderRadius : "",
-        hairline: rows[0] ? getComputedStyle(rows[0]).borderBottomStyle : "",
+        // Muscle and movement choices are bounded, scannable tiles.
+        radius: tiles[0] ? getComputedStyle(tiles[0]).borderRadius : "",
+        surface: tiles[0] ? getComputedStyle(tiles[0]).borderStyle : "",
+        target: tiles[0] ? tiles[0].getBoundingClientRect().height : 0,
         noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
           rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
           rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
       };
     });
-    assert(priorityComposition.radius === "0px" && priorityComposition.hairline === "solid" && priorityComposition.noOverlap,
-      "priorities and constraints use readable compact grouped rows", JSON.stringify(priorityComposition));
+    assert(priorityComposition.radius !== "0px" && priorityComposition.radius !== "" &&
+      priorityComposition.surface === "solid" && priorityComposition.target >= 44 && priorityComposition.noOverlap,
+      "priorities and constraints use readable bounded tiles without overlap", JSON.stringify(priorityComposition));
     await page.fill("#entryAvoidSearch", "bench");
     await page.waitForTimeout(50);
     const avoidAdd = page.locator("[data-entry-avoid-add]").first();

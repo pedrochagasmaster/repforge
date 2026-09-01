@@ -2924,7 +2924,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Lower primary4 exercises · 11 working sets · about 42 minutes"
+          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "em",
@@ -2969,7 +2969,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Upper primary4 exercises · 11 working sets · about 42 minutes"
+          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "em",
@@ -3014,7 +3014,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Lower volume4 exercises · 12 working sets · about 43 minutes"
+          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 43 minutes"
         },
         {
           "tag": "em",
@@ -3059,7 +3059,7 @@
         {
           "tag": "summary",
           "text": "Day 4",
-          "name": "Day 4Upper volume4 exercises · 11 working sets · about 39 minutes"
+          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -3225,7 +3225,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Lower primary4 exercises · 11 working sets · about 42 minutes"
+          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "em",
@@ -3270,7 +3270,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Upper primary4 exercises · 11 working sets · about 42 minutes"
+          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "em",
@@ -3315,7 +3315,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Lower volume4 exercises · 12 working sets · about 43 minutes"
+          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 43 minutes"
         },
         {
           "tag": "em",
@@ -3360,7 +3360,7 @@
         {
           "tag": "summary",
           "text": "Day 4",
-          "name": "Day 4Upper volume4 exercises · 11 working sets · about 39 minutes"
+          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -3526,7 +3526,7 @@
         {
           "tag": "summary",
           "text": "Dia 1",
-          "name": "Dia 1Lower primary4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
+          "name": "1Dia 1Lower primary4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
         },
         {
           "tag": "em",
@@ -3571,7 +3571,7 @@
         {
           "tag": "summary",
           "text": "Dia 2",
-          "name": "Dia 2Upper primary4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
+          "name": "2Dia 2Upper primary4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
         },
         {
           "tag": "em",
@@ -3616,7 +3616,7 @@
         {
           "tag": "summary",
           "text": "Dia 3",
-          "name": "Dia 3Lower volume4 exercícios · 12 séries de trabalho · cerca de 43 minutos"
+          "name": "3Dia 3Lower volume4 exercícios · 12 séries de trabalho · cerca de 43 minutos"
         },
         {
           "tag": "em",
@@ -3661,7 +3661,7 @@
         {
           "tag": "summary",
           "text": "Dia 4",
-          "name": "Dia 4Upper volume4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
+          "name": "4Dia 4Upper volume4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "em",
@@ -3752,7 +3752,7 @@
           "text": "Time is a ceiling, not a volume target."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Training days per week"
         },
         {
@@ -3764,65 +3764,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 days",
+          "name": "2days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 days"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 days",
+          "name": "3days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 days"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 days",
+          "name": "4days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 days"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 days",
+          "name": "5days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 days"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 days",
+          "name": "6days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 days"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
           "text": "Maximum typical session"
         },
         {
@@ -3834,62 +3854,82 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutes",
+          "name": "30minutes",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutes"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutes",
+          "name": "45minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutes"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutes",
+          "name": "60minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutes"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutes",
+          "name": "75minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutes"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutes",
+          "name": "90+minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutes"
+          "text": "90+"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
@@ -3946,7 +3986,7 @@
           "text": "Time is a ceiling, not a volume target."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Training days per week"
         },
         {
@@ -3958,65 +3998,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 days",
+          "name": "2days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 days"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 days",
+          "name": "3days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 days"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 days",
+          "name": "4days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 days"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 days",
+          "name": "5days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 days"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 days",
+          "name": "6days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 days"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
           "text": "Maximum typical session"
         },
         {
@@ -4028,62 +4088,82 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutes",
+          "name": "30minutes",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutes"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutes",
+          "name": "45minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutes"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutes",
+          "name": "60minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutes"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutes",
+          "name": "75minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutes"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutes",
+          "name": "90+minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutes"
+          "text": "90+"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
@@ -4140,7 +4220,7 @@
           "text": "O tempo é um teto, não uma meta de volume."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Dias de treino por semana"
         },
         {
@@ -4152,65 +4232,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 dias",
+          "name": "2dias",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 dias"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 dias",
+          "name": "3dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 dias"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 dias",
+          "name": "4dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 dias"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 dias",
+          "name": "5dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 dias"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 dias",
+          "name": "6dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 dias"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "span",
           "text": "Sessão típica máxima"
         },
         {
@@ -4222,62 +4322,82 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutos",
+          "name": "30minutos",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutos"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutos",
+          "name": "45minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutos"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutos",
+          "name": "60minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutos"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutos",
+          "name": "75minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutos"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutos",
+          "name": "90+minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutos"
+          "text": "90+"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
@@ -9857,7 +9977,7 @@
           "text": "These answers describe recent reality, not a self-rated level."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Time following structured resistance programs"
         },
         {
@@ -9915,7 +10035,7 @@
           "text": "Over 2 years"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Recent consistency over about six weeks"
         },
         {
@@ -10027,7 +10147,7 @@
           "text": "These answers describe recent reality, not a self-rated level."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Time following structured resistance programs"
         },
         {
@@ -10085,7 +10205,7 @@
           "text": "Over 2 years"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Recent consistency over about six weeks"
         },
         {
@@ -10197,7 +10317,7 @@
           "text": "Essas respostas descrevem a realidade recente, não um nível autoavaliado."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Tempo seguindo programas estruturados de resistência"
         },
         {
@@ -10255,7 +10375,7 @@
           "text": "Mais de 2 anos"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Consistência recente em cerca de seis semanas"
         },
         {
@@ -11126,7 +11246,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Lower primary4 exercises · 11 working sets · about 39 minutes"
+          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -11171,7 +11291,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Upper primary4 exercises · 11 working sets · about 39 minutes"
+          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -11216,7 +11336,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Lower volume4 exercises · 12 working sets · about 39 minutes"
+          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -11261,7 +11381,7 @@
         {
           "tag": "summary",
           "text": "Day 4",
-          "name": "Day 4Upper volume4 exercises · 11 working sets · about 35 minutes"
+          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 35 minutes"
         },
         {
           "tag": "em",
@@ -11427,7 +11547,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Lower primary4 exercises · 11 working sets · about 39 minutes"
+          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -11472,7 +11592,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Upper primary4 exercises · 11 working sets · about 39 minutes"
+          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -11517,7 +11637,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Lower volume4 exercises · 12 working sets · about 39 minutes"
+          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 39 minutes"
         },
         {
           "tag": "em",
@@ -11562,7 +11682,7 @@
         {
           "tag": "summary",
           "text": "Day 4",
-          "name": "Day 4Upper volume4 exercises · 11 working sets · about 35 minutes"
+          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 35 minutes"
         },
         {
           "tag": "em",
@@ -11728,7 +11848,7 @@
         {
           "tag": "summary",
           "text": "Dia 1",
-          "name": "Dia 1Lower primary4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
+          "name": "1Dia 1Lower primary4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "em",
@@ -11773,7 +11893,7 @@
         {
           "tag": "summary",
           "text": "Dia 2",
-          "name": "Dia 2Upper primary4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
+          "name": "2Dia 2Upper primary4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "em",
@@ -11818,7 +11938,7 @@
         {
           "tag": "summary",
           "text": "Dia 3",
-          "name": "Dia 3Lower volume4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
+          "name": "3Dia 3Lower volume4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "em",
@@ -11863,7 +11983,7 @@
         {
           "tag": "summary",
           "text": "Dia 4",
-          "name": "Dia 4Upper volume4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
+          "name": "4Dia 4Upper volume4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
         },
         {
           "tag": "em",
@@ -13804,23 +13924,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 4 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -13895,23 +14015,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 4 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -13986,23 +14106,23 @@
           "text": "Por que combina com você"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Construído em torno de Equilibrar massa e força."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Encaixa em 4 dias de treino, cada um limitado a 60 minutos."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Escrito para um Academia comercial completa."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Usa Barra, Halteres, Máquina, Cabo, Smith."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progride por Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
         },
         {
@@ -14066,7 +14186,7 @@
           "text": "Time is a ceiling, not a volume target."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Training days per week"
         },
         {
@@ -14078,65 +14198,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 days",
+          "name": "2days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 days"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 days",
+          "name": "3days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 days"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 days",
+          "name": "4days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 days"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 days",
+          "name": "5days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 days"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 days",
+          "name": "6days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 days"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
           "text": "Maximum typical session"
         },
         {
@@ -14148,65 +14288,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutes",
+          "name": "30minutes",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutes"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutes",
+          "name": "45minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutes"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutes",
+          "name": "60minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutes"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutes",
+          "name": "75minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutes"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutes",
+          "name": "90+minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutes"
+          "text": "90+"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "span",
           "text": "Preferred rest between demanding sets"
         },
         {
@@ -14330,7 +14490,7 @@
           "text": "Time is a ceiling, not a volume target."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Training days per week"
         },
         {
@@ -14342,65 +14502,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 days",
+          "name": "2days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 days"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 days",
+          "name": "3days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 days"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 days",
+          "name": "4days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 days"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 days",
+          "name": "5days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 days"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 days",
+          "name": "6days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 days"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
           "text": "Maximum typical session"
         },
         {
@@ -14412,65 +14592,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutes",
+          "name": "30minutes",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutes"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutes",
+          "name": "45minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutes"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutes",
+          "name": "60minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutes"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutes",
+          "name": "75minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutes"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutes",
+          "name": "90+minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutes"
+          "text": "90+"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "span",
           "text": "Preferred rest between demanding sets"
         },
         {
@@ -14594,7 +14794,7 @@
           "text": "O tempo é um teto, não uma meta de volume."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Dias de treino por semana"
         },
         {
@@ -14606,65 +14806,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 dias",
+          "name": "2dias",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 dias"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 dias",
+          "name": "3dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 dias"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 dias",
+          "name": "4dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 dias"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 dias",
+          "name": "5dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 dias"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 dias",
+          "name": "6dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 dias"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "span",
           "text": "Sessão típica máxima"
         },
         {
@@ -14676,65 +14896,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutos",
+          "name": "30minutos",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutos"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutos",
+          "name": "45minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutos"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutos",
+          "name": "60minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutos"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutos",
+          "name": "75minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutos"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutos",
+          "name": "90+minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutos"
+          "text": "90+"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "minutos"
+        },
+        {
+          "tag": "span",
           "text": "Descanso preferido entre séries exigentes"
         },
         {
@@ -15166,7 +15406,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets"
+          "name": "1Day 11 exercise · 3 working sets"
         },
         {
           "tag": "span",
@@ -15300,7 +15540,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets"
+          "name": "1Day 11 exercise · 3 working sets"
         },
         {
           "tag": "span",
@@ -15434,7 +15674,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets"
+          "name": "1Day 11 exercise · 3 working sets"
         },
         {
           "tag": "span",
@@ -15568,7 +15808,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets"
+          "name": "1Day 11 exercise · 3 working sets"
         },
         {
           "tag": "span",
@@ -15702,7 +15942,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets"
+          "name": "1Day 11 exercise · 3 working sets"
         },
         {
           "tag": "span",
@@ -15836,7 +16076,7 @@
         {
           "tag": "summary",
           "text": "Dia 1",
-          "name": "Dia 11 exercício · 3 séries de trabalho"
+          "name": "1Dia 11 exercício · 3 séries de trabalho"
         },
         {
           "tag": "span",
@@ -15970,7 +16210,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets"
+          "name": "1Day 11 exercise · 3 working sets"
         },
         {
           "tag": "span",
@@ -16262,7 +16502,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -16323,7 +16563,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -16384,7 +16624,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -16585,7 +16825,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -16646,7 +16886,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -16707,7 +16947,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -16908,7 +17148,7 @@
         {
           "tag": "summary",
           "text": "Dia 1",
-          "name": "Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -16969,7 +17209,7 @@
         {
           "tag": "summary",
           "text": "Dia 2",
-          "name": "Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
+          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "em",
@@ -17030,7 +17270,7 @@
         {
           "tag": "summary",
           "text": "Dia 3",
-          "name": "Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -17366,7 +17606,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid {exercise}?"
+          "text": "Why avoid Barbell bench press?"
         },
         {
           "tag": "div",
@@ -17424,8 +17664,11 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts.",
           "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+        },
+        {
+          "tag": "span",
+          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -17711,7 +17954,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid {exercise}?"
+          "text": "Why avoid Barbell bench press?"
         },
         {
           "tag": "div",
@@ -17769,8 +18012,11 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts.",
           "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+        },
+        {
+          "tag": "span",
+          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -18056,7 +18302,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid {exercise}?"
+          "text": "Why avoid Barbell bench press?"
         },
         {
           "tag": "div",
@@ -18114,8 +18360,11 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts.",
           "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+        },
+        {
+          "tag": "span",
+          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -18401,7 +18650,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid {exercise}?"
+          "text": "Why avoid Barbell bench press?"
         },
         {
           "tag": "div",
@@ -18459,8 +18708,11 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts.",
           "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+        },
+        {
+          "tag": "span",
+          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -18746,7 +18998,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid {exercise}?"
+          "text": "Why avoid Barbell bench press?"
         },
         {
           "tag": "div",
@@ -18804,8 +19056,11 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts.",
           "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+        },
+        {
+          "tag": "span",
+          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -19091,7 +19346,7 @@
         },
         {
           "tag": "p",
-          "text": "Porquê evitar {exercise}?"
+          "text": "Porquê evitar Supino com barra?"
         },
         {
           "tag": "div",
@@ -19149,8 +19404,11 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "Dor ou desconforto é tratado como restrição de segurança, não como preferência. Prefira uma substituição compatível e pare qualquer movimento que doa.",
           "name": "Dor ou desconforto é tratado como restrição de segurança, não como preferência. Prefira uma substituição compatível e pare qualquer movimento que doa."
+        },
+        {
+          "tag": "span",
+          "text": "Dor ou desconforto é tratado como restrição de segurança, não como preferência. Prefira uma substituição compatível e pare qualquer movimento que doa."
         },
         {
           "tag": "button",
@@ -19436,7 +19694,7 @@
         },
         {
           "tag": "p",
-          "text": "Why avoid {exercise}?"
+          "text": "Why avoid Barbell bench press?"
         },
         {
           "tag": "div",
@@ -19494,8 +19752,11 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts.",
           "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+        },
+        {
+          "tag": "span",
+          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -19552,7 +19813,7 @@
           "text": "These answers describe recent reality, not a self-rated level."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Time following structured resistance programs"
         },
         {
@@ -19610,7 +19871,7 @@
           "text": "Over 2 years"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Recent consistency over about six weeks"
         },
         {
@@ -19722,7 +19983,7 @@
           "text": "These answers describe recent reality, not a self-rated level."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Time following structured resistance programs"
         },
         {
@@ -19780,7 +20041,7 @@
           "text": "Over 2 years"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Recent consistency over about six weeks"
         },
         {
@@ -19892,7 +20153,7 @@
           "text": "Essas respostas descrevem a realidade recente, não um nível autoavaliado."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Tempo seguindo programas estruturados de resistência"
         },
         {
@@ -19950,7 +20211,7 @@
           "text": "Mais de 2 anos"
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Consistência recente em cerca de seis semanas"
         },
         {
@@ -22584,7 +22845,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -22645,7 +22906,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -22706,7 +22967,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -22894,7 +23155,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -22955,7 +23216,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -23016,7 +23277,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -23204,7 +23465,7 @@
         {
           "tag": "summary",
           "text": "Dia 1",
-          "name": "Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -23265,7 +23526,7 @@
         {
           "tag": "summary",
           "text": "Dia 2",
-          "name": "Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
+          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "em",
@@ -23326,7 +23587,7 @@
         {
           "tag": "summary",
           "text": "Dia 3",
-          "name": "Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -23508,7 +23769,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -23569,7 +23830,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -23630,7 +23891,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -23812,7 +24073,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -23873,7 +24134,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -23934,7 +24195,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -24116,7 +24377,7 @@
         {
           "tag": "summary",
           "text": "Dia 1",
-          "name": "Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -24177,7 +24438,7 @@
         {
           "tag": "summary",
           "text": "Dia 2",
-          "name": "Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
+          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "em",
@@ -24238,7 +24499,7 @@
         {
           "tag": "summary",
           "text": "Dia 3",
-          "name": "Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -25242,7 +25503,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -25303,7 +25564,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -25364,7 +25625,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -25552,7 +25813,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
+          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -25613,7 +25874,7 @@
         {
           "tag": "summary",
           "text": "Day 2",
-          "name": "Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
+          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "em",
@@ -25674,7 +25935,7 @@
         {
           "tag": "summary",
           "text": "Day 3",
-          "name": "Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
+          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "em",
@@ -25862,7 +26123,7 @@
         {
           "tag": "summary",
           "text": "Dia 1",
-          "name": "Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -25923,7 +26184,7 @@
         {
           "tag": "summary",
           "text": "Dia 2",
-          "name": "Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
+          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "em",
@@ -25984,7 +26245,7 @@
         {
           "tag": "summary",
           "text": "Dia 3",
-          "name": "Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "em",
@@ -26102,23 +26363,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -26187,23 +26448,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -26272,23 +26533,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -26357,23 +26618,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -26442,23 +26703,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -26527,23 +26788,23 @@
           "text": "Por que combina com você"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Construído em torno de Equilibrar massa e força."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Encaixa em 3 dias de treino, cada um limitado a 60 minutos."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Escrito para um Academia comercial completa."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Usa Barra, Halteres, Máquina, Cabo, Smith."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progride por Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
         },
         {
@@ -26612,23 +26873,23 @@
           "text": "Why it fits"
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Built around Balance muscle and strength."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Fits 3 training days, each capped at 60 minutes."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Written for a Full commercial gym."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
         },
         {
-          "tag": "li",
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -26686,7 +26947,7 @@
           "text": "Time is a ceiling, not a volume target."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Training days per week"
         },
         {
@@ -26698,65 +26959,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 days",
+          "name": "2days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 days"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 days",
+          "name": "3days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 days"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 days",
+          "name": "4days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 days"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 days",
+          "name": "5days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 days"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 days",
+          "name": "6days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 days"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
           "text": "Maximum typical session"
         },
         {
@@ -26768,65 +27049,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutes",
+          "name": "30minutes",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutes"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutes",
+          "name": "45minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutes"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutes",
+          "name": "60minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutes"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutes",
+          "name": "75minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutes"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutes",
+          "name": "90+minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutes"
+          "text": "90+"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "span",
           "text": "Preferred rest between demanding sets"
         },
         {
@@ -26950,7 +27251,7 @@
           "text": "Time is a ceiling, not a volume target."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Training days per week"
         },
         {
@@ -26962,65 +27263,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 days",
+          "name": "2days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 days"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 days",
+          "name": "3days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 days"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 days",
+          "name": "4days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 days"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 days",
+          "name": "5days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 days"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 days",
+          "name": "6days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 days"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
           "text": "Maximum typical session"
         },
         {
@@ -27032,65 +27353,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutes",
+          "name": "30minutes",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutes"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutes",
+          "name": "45minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutes"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutes",
+          "name": "60minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutes"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutes",
+          "name": "75minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutes"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutes",
+          "name": "90+minutes",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutes"
+          "text": "90+"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "span",
           "text": "Preferred rest between demanding sets"
         },
         {
@@ -27214,7 +27555,7 @@
           "text": "O tempo é um teto, não uma meta de volume."
         },
         {
-          "tag": "p",
+          "tag": "span",
           "text": "Dias de treino por semana"
         },
         {
@@ -27226,65 +27567,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2 dias",
+          "name": "2dias",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2 dias"
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3 dias",
+          "name": "3dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3 dias"
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4 dias",
+          "name": "4dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4 dias"
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5 dias",
+          "name": "5dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5 dias"
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6 dias",
+          "name": "6dias",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6 dias"
+          "text": "6"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "span",
           "text": "Sessão típica máxima"
         },
         {
@@ -27296,65 +27657,85 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "30 minutos",
+          "name": "30minutos",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "30 minutos"
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "45 minutos",
+          "name": "45minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "45 minutos"
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "60 minutos",
+          "name": "60minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "60 minutos"
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "75 minutos",
+          "name": "75minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "75 minutos"
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "90+ minutos",
+          "name": "90+minutos",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "90+ minutos"
+          "text": "90+"
         },
         {
-          "tag": "p",
+          "tag": "span",
+          "text": "minutos"
+        },
+        {
+          "tag": "span",
           "text": "Descanso preferido entre séries exigentes"
         },
         {
@@ -28645,7 +29026,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets · about 12 minutes"
+          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
         },
         {
           "tag": "span",
@@ -28783,7 +29164,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets · about 12 minutes"
+          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
         },
         {
           "tag": "span",
@@ -28921,7 +29302,7 @@
         {
           "tag": "summary",
           "text": "Day 1",
-          "name": "Day 11 exercise · 3 working sets · about 12 minutes"
+          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
         },
         {
           "tag": "span",

@@ -8604,15 +8604,21 @@ function entryRouteLabel(route){
   const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
     build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
   return labels[route]||t("entry.eyebrow")}
-function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio"}={}){
+function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio",icon=""}={}){
   const current=entryState?.answers||{};
   const isSelected=selected!=null?selected:multi?(current[key]||[]).includes(val):current[key]===val;
   const checked=isSelected?"true":"false";
   const disabledCopy=disabled?` aria-label="${esc(`${label}. ${t("entry.choice.disabled")}`)}" aria-describedby="entryChoiceDisabledNote"`:
     "";
   return `<button type="button" class="radio-card${isSelected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""}${disabledCopy} role="${esc(role)}" aria-checked="${checked}">`+
+    (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
+/* Compact uppercase section metadata, optionally led by a copper glyph. */
+function entryGroupLab(text,icon,attrs=""){
+  return `<p class="entry__group-lab${icon?" entry__group-lab--ico":""}"${attrs}>`+
+    (icon?`<span class="entry__group-lab-ico icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
+    `<span>${esc(text)}</span></p>`}
 function entryHeading(title){
   return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
 function entryLegacyBanner(){
@@ -8637,23 +8643,26 @@ function renderEntryHub(){
         `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__icon icon-mask icon-mask--download" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
       `</div>`:"")+
     `</div>`}
+const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
+const ENTRY_ENV_ICONS={commercial_gym:"building",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
 function renderDesiredResultStep(){
   return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
-    ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`))).join("")+`</div>`}
+    ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
 function renderBackgroundStep(){
   return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
-    `<p class="entry__group-lab" id="entryExpLab">${esc(t("entry.background.experience.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryExpLab">`+
+    entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
     ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
-    `<p class="entry__group-lab" id="entryConLab">${esc(t("entry.background.consistency.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryConLab">`+
+    entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
     ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
 function renderScheduleStep(){
   const browse=entryState.route==="browse";
+  const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
   return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
-    `<p class="entry__group-lab" id="entryDaysLab">${esc(t("entry.schedule.days.label"))}</p><div class="onb__opts onb__grid" role="radiogroup" aria-labelledby="entryDaysLab">`+
-    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,t("entry.catalogue.days_badge",{days:n}),"")).join("")+`</div>`+
-    `<p class="entry__group-lab" id="entryMinLab">${esc(t("entry.schedule.minutes.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryMinLab">`+
-    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,t(`entry.schedule.minutes.${n}`),"")).join("")+`</div>`+
-    (browse?"":`<p class="entry__group-lab" id="entryRestLab">${esc(t("entry.schedule.rest.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryRestLab">`+
+    entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryDaysLab">`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
+    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryMinLab">`+
+    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
+    (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
       entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
       [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
 function entryEnvironmentValue(){
@@ -8672,8 +8681,8 @@ function renderEnvironmentStep(){
     `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
     ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
     `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div></details>`:"";
-  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
-    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v})).join("")+`</div>${correction}`}
+  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
+    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>${correction}`}
 function entryMuscleBlocked(key,muscle){
   const a=entryState?.answers||{};
   const primary=new Set(a.primaryMuscles||[]);
@@ -8702,20 +8711,22 @@ function renderMustHaveSection(){
   const matches=entryMustMatches(entryMustQuery);
   return `<p class="entry__group-lab">${esc(t("entry.priorities.must"))}</p>`+
     `<p class="entry__hint">${esc(t("entry.priorities.must_hint"))}</p>`+
-    `<label class="entry__field"><span>${esc(t("entry.priorities.must_search"))}</span>`+
+    `<label class="entry__field entry__field--search"><span>${esc(t("entry.priorities.must_search"))}</span>`+
+    `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
     `<input id="entryMustSearch" type="search" autocomplete="off" value="${esc(entryMustQuery)}" placeholder="${esc(t("entry.priorities.must_search"))}"></label>`+
     `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.must_search"))}">`+
     matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-must-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
     `</div>`+(selected.length?`<ul class="entry__avoid-list">`+selected.map(exerciseId=>{
       const entry=libraryEntry(exerciseId);
       return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):exerciseId)}</strong>`+
-        `<button type="button" class="btn btn--steel" data-entry-must-remove="${esc(exerciseId)}">${esc(t("entry.priorities.must_remove"))}</button></div></li>`}).join("")+`</ul>`:"")}
+        `<button type="button" class="entry__remove" data-entry-must-remove="${esc(exerciseId)}">${esc(t("entry.priorities.must_remove"))}</button></div></li>`}).join("")+`</ul>`:"")}
 function renderAvoidanceSection(){
   const constraints=entryState?.answers?.exerciseConstraints||[];
   const hasPain=constraints.some(item=>item.reason==="pain");
   const matches=entryAvoidMatches(entryAvoidQuery);
   return `<p class="entry__group-lab">${esc(t("entry.priorities.avoid"))}</p>`+
-    `<label class="entry__field"><span>${esc(t("entry.priorities.avoid_search"))}</span>`+
+    `<label class="entry__field entry__field--search"><span>${esc(t("entry.priorities.avoid_search"))}</span>`+
+    `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
     `<input id="entryAvoidSearch" type="search" autocomplete="off" value="${esc(entryAvoidQuery)}" placeholder="${esc(t("entry.search_placeholder"))}"></label>`+
     `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.avoid_search"))}">`+
     matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-avoid-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
@@ -8724,23 +8735,23 @@ function renderAvoidanceSection(){
       const exercise=entry?libraryName(entry):entryPendingAvoid;
       const reasonLab=t("entry.priorities.avoid_reason",{exercise});
       return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(reasonLab)}"><strong>${esc(exercise)}</strong>`+
-      `<p class="entry__group-lab">${esc(reasonLab)}</p><div class="onb__opts onb__grid" role="radiogroup">`+
+      `<p class="entry__group-lab">${esc(reasonLab)}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
       ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div><p class="entry__hint" id="entryPendingAvoidNote">${esc(t("entry.priorities.reason_required"))}</p></div>`})():"")+
     (constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
       const entry=libraryEntry(item.exerciseId);
       return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):item.exerciseId)}</strong>`+
-        `<button type="button" class="btn btn--steel" data-entry-avoid-remove="${esc(item.exerciseId)}">${esc(t("entry.priorities.avoid_remove"))}</button></div>`+
-        `<p class="entry__group-lab">${esc(t("entry.priorities.avoid_reason"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
+        `<button type="button" class="entry__remove" data-entry-avoid-remove="${esc(item.exerciseId)}">${esc(t("entry.priorities.avoid_remove"))}</button></div>`+
+        `<p class="entry__group-lab">${esc(t("entry.priorities.avoid_reason",{exercise:entry?libraryName(entry):item.exerciseId}))}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
         ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+
         `</div></li>`}).join("")+`</ul>`:"")+
-    (hasPain?`<p class="entry__pain" role="note">${esc(t("entry.priorities.pain_note"))}</p>`:"")}
+    (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
 function renderPrioritiesStep(){
   const a=entryState.answers||{},custom=entryState.route==="custom";
   const primary=a.primaryMuscles||[];
   const blocked=custom&&ENTRY_MUSCLES.some(m=>entryMuscleBlocked("primaryMuscles",m)||entryMuscleBlocked("deEmphasizedMuscles",m)||entryMuscleBlocked("ignoredMuscles",m));
   return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
     `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+(blocked?`<p class="entry__hint" id="entryBlockedChoices">${esc(t("entry.choice.disabled_group"))}</p>`:"")+
-    `<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
+    `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
     (custom?`<p class="entry__group-lab">${esc(t("entry.priorities.deemph"))}</p><div class="onb__opts onb__grid" role="group">`+
@@ -9055,22 +9066,21 @@ function renderResultStep(){
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
   const environment=entryEnvironmentLabel({environment:{kind:explanation.mainConstraint}});
-  const why=[
-    goal?t("entry.result.why_goal",{goal}):"",
-    days&&minutes?t("entry.result.why_schedule",{days,minutes}):"",
-    environment?t("entry.result.why_environment",{environment}):"",
-    entryEquipmentLabel()?t("entry.result.why_equipment",{equipment:entryEquipmentLabel()}):"",
-    (entryPriorityLabel()!==t("entry.preview.priorities_none"))?t("entry.result.why_priorities",{priorities:entryPriorityLabel()}):"",
-    t("entry.result.why_progression",{progression:entryProgressionLabel(preview)}),
-    (preview.reductions||[]).length?t("entry.result.why_reductions",{n:preview.reductions.length}):"",
-    (preview.limitations||[]).length?t("entry.result.why_compromises",{n:preview.limitations.length}):"",
+  const whyRows=[
+    goal?{icon:"flex",text:t("entry.result.why_goal",{goal})}:null,
+    days&&minutes?{icon:"cal",text:t("entry.result.why_schedule",{days,minutes})}:null,
+    environment?{icon:"building",text:t("entry.result.why_environment",{environment})}:null,
+    entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
+    (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
+    {icon:"trend",text:t("entry.result.why_progression",{progression:entryProgressionLabel(preview)})},
+    (preview.reductions||[]).length?{icon:"scale",text:t("entry.result.why_reductions",{n:preview.reductions.length})}:null,
+    (preview.limitations||[]).length?{icon:"scale",text:t("entry.result.why_compromises",{n:preview.limitations.length})}:null,
     explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
-      ?t("entry.result.why_interrupted"):"",
+      ?{icon:"clock",text:t("entry.result.why_interrupted")}:null,
   ].filter(Boolean);
   const duration=entryDurationLabel(preview);
   const candidates=result.candidates||[];
-  const facts=primary?[
-    t("entry.catalogue.days_badge",{days:primary.daysPerWeek}),duration].filter(Boolean):[];
+  const daysBadge=primary?t("entry.catalogue.days_badge",{days:primary.daysPerWeek}):"";
   /* With one candidate this is not a choice between programs — it is the
      single action the whole flow was leading to, so it renders as the primary
      button. A real fork still gets the radiogroup. */
@@ -9080,11 +9090,17 @@ function renderResultStep(){
         candidates.map(candidate=>`<button type="button" role="radio" aria-checked="${candidate.id===primary.id?"true":"false"}" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(candidate.id)}">`+
           `<span class="entry-card__title">${esc(entryResultName(result))}</span>`+
           `<span class="entry-card__cap">${esc(String(candidate.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`).join("")+`</div>`
-      :`<div class="onb__actions"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
-  return entryHeading(resultTitle)+`<p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
-    `<div class="entry__recommend"><h3>${esc(entryResultName(result))}</h3>`+
-    (facts.length?`<div class="entry__facts">${facts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div>`:"")+
-    `<p class="entry__group-lab">${esc(t("entry.result.why"))}</p><ul class="entry__reasons">${why.map(fact=>`<li>${esc(fact)}</li>`).join("")}</ul>`+
+      :`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
+  return entryHeading(resultTitle)+
+    `<div class="entry__payoff"><p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
+    `<span class="entry__payoff-badge" aria-hidden="true"><span class="icon-mask icon-mask--rosette"></span></span></div>`+
+    `<div class="entry__recommend"><div class="entry__ident"><h3>${esc(entryResultName(result))}</h3>`+
+    (primary?`<div class="entry__metrics">`+
+      (daysBadge?`<span class="entry__metric"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span>${esc(daysBadge)}</span>`:"")+
+      (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
+      `</div>`:"")+`</div>`+
+    `<p class="entry__group-lab entry__group-lab--accent">${esc(t("entry.result.why"))}</p>`+
+    `<ul class="entry__rows entry__rows--reasons">`+whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")+`</ul>`+
     action+
     (entryState.route==="custom"?`<button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_custom"))}</button>`:"")+`</div>`}
 function renderCatalogueStep(){
@@ -9172,7 +9188,7 @@ function renderPreviewStep(){
        carry the token as a qualifier instead of shouting it as the day's name. */
     const dayName=t("program.default.day",{n:index+1});
     const dayQualifier=day.label&&day.label!==dayName?day.label:"";
-    return `<details class="onb__day"><summary class="onb__dayname">${esc(dayName)}`+
+    return `<details class="onb__day"><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
     (dayQualifier?`<em class="onb__daytag">${esc(dayQualifier)}</em>`:"")+`<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
     (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
@@ -9182,23 +9198,33 @@ function renderPreviewStep(){
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+  const reviewRows=[
+    {icon:"target",lab:t("entry.preview.priorities"),text:entryPriorityLabel(previewAnswers)},
+    {icon:"building",lab:t("entry.preview.equipment"),text:environment||t("entry.preview.equipment_unspecified")},
+    {icon:"trend",lab:t("entry.preview.progression"),text:t(entryPreviewProgressionCopy(preview,progressionIssue))},
+    {icon:"scale",lab:t("entry.preview.compromises"),text:compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none")},
+  ];
   return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()&&!entryUiNotice&&entryState?.step!=="activation_conflict"
       ?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<div class="entry__decision"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
-    `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
-    `<div class="entry__facts"><span>${esc(entryExerciseCountLabel(facts.exercises))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
-    `<div class="entry__review-grid"><section><h4>${esc(t("entry.preview.priorities"))}</h4><p>${esc(entryPriorityLabel(previewAnswers))}</p></section>`+
-    `<section><h4>${esc(t("entry.preview.equipment"))}</h4><p>${esc(environment||t("entry.preview.equipment_unspecified"))}</p></section>`+
-    `<section><h4>${esc(t("entry.preview.progression"))}</h4><p>${esc(t(entryPreviewProgressionCopy(preview,progressionIssue)))}</p></section>`+
-    `<section><h4>${esc(t("entry.preview.compromises"))}</h4><p>${esc(compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none"))}</p></section></div></div>`+
+    `<div class="entry__decision"><div class="entry__ident--boxed"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
+    `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p></div>`+
+    `<div class="entry__metrics entry__metrics--boxed">`+
+    `<span class="entry__metric"><span class="icon-mask icon-mask--dumbbell" aria-hidden="true"></span>${esc(entryExerciseCountLabel(facts.exercises))}</span>`+
+    `<span class="entry__metric"><span class="icon-mask icon-mask--target" aria-hidden="true"></span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>`+
+    (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
+    `</div>`+
+    /* Each facet keeps its heading element: the review's heading outline is how
+       a screen-reader user jumps between Priorities, Equipment, Progression and
+       Compromises, so the redesign restyles `h4` rather than demoting it. */
+    `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
     (progressionIssue?`<p id="entryActivationStatus" class="entry__notice" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
     /* The confirm action used to sit after the whole weekly structure, off the
        bottom of every phone. It is the point of the screen: keep it above the
        detail, and pin it so a long program cannot scroll it away. */
     `<div class="entry__confirm"><button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
-    `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel">${esc(t("entry.preview.edit"))}</button>`+
-    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive">${esc(t("entry.preview.restart"))}</button></div></div>`+
+    `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
+    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></div>`+
     `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
@@ -9212,10 +9238,13 @@ function renderEntryNotice(){
     const where=[entryState?.route?entryRouteLabel(entryState.route):"",
       entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
     const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
-    return `<div class="entry__notice" role="status"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
-    (detail?`<p class="entry__resume-detail">${esc(detail)}</p>`:"")+`</div>`+
+    return `<div class="entry__resume" role="status">`+
+    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
+    `<div class="entry__resume-copy"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p></div></div>`+
+    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
+    `</div>`+
     `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
-    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div></div>`}
+    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div>`}
   if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
