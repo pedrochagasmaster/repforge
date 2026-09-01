@@ -865,6 +865,10 @@
           "text": "Full commercial gym"
         },
         {
+          "tag": "p",
+          "text": "Fits your 4 days"
+        },
+        {
           "tag": "button",
           "name": "Review Muscle + Strength · 4 days",
           "label": "Review Muscle + Strength · 4 days",
@@ -999,6 +1003,10 @@
         {
           "tag": "span",
           "text": "Uses: Barbell, Machine, Cable"
+        },
+        {
+          "tag": "p",
+          "text": "Other schedules"
         },
         {
           "tag": "button",
@@ -4829,7 +4837,7 @@
         },
         {
           "tag": "p",
-          "text": "Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit."
+          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -9673,87 +9681,67 @@
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "2days3days4days5days6days"
+          "name": "2 days3 days4 days5 days6 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "button",
@@ -16679,12 +16667,6 @@
           "text": "Editable draft. The active program stays until you confirm."
         },
         {
-          "tag": "p",
-          "role": "status",
-          "text": "Your current program stays active until you confirm a replacement.",
-          "name": "Your current program stays active until you confirm a replacement."
-        },
-        {
           "tag": "h3",
           "text": "Build Muscle"
         },
@@ -21501,21 +21483,21 @@
         },
         {
           "tag": "summary",
-          "name": "Correct equipment & Correct capabilities"
+          "name": "Change what this setup includes"
         },
         {
           "tag": "span",
-          "text": "Correct equipment & Correct capabilities"
+          "text": "Change what this setup includes"
         },
         {
           "tag": "p",
-          "text": "Correct equipment"
+          "text": "Equipment"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct equipment",
-          "label": "Correct equipment"
+          "name": "Equipment",
+          "label": "Equipment"
         },
         {
           "tag": "button",
@@ -21596,13 +21578,13 @@
         },
         {
           "tag": "p",
-          "text": "Correct capabilities"
+          "text": "Training capabilities"
         },
         {
           "tag": "div",
           "role": "group",
-          "name": "Correct capabilities",
-          "label": "Correct capabilities"
+          "name": "Training capabilities",
+          "label": "Training capabilities"
         },
         {
           "tag": "button",
@@ -27168,82 +27150,62 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "2days",
+          "name": "2 days",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "2"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "2 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "3days",
+          "name": "3 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "3 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "4days",
+          "name": "4 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "4"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "4 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "5days",
+          "name": "5 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "5"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "5 days"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "6days",
+          "name": "6 days",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "days"
+          "text": "6 days"
         },
         {
           "tag": "p",
@@ -27838,6 +27800,15 @@
           "aria-live": "polite"
         },
         {
+          "tag": "h2",
+          "text": "What do you want from this program?",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Pick the result your program should be built around."
+        },
+        {
           "tag": "div",
           "role": "alert",
           "name": "Answer neededChoose an answer in this section before continuing.",
@@ -27851,15 +27822,6 @@
         {
           "tag": "p",
           "text": "Choose an answer in this section before continuing."
-        },
-        {
-          "tag": "h2",
-          "text": "What do you want from this program?",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Pick the result your program should be built around."
         },
         {
           "tag": "div",
@@ -29894,6 +29856,10 @@
           "text": "Choose how you want your first program written."
         },
         {
+          "tag": "p",
+          "text": "Taurifer writes it"
+        },
+        {
           "tag": "button",
           "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
           "type": "button"
@@ -29918,6 +29884,10 @@
         {
           "tag": "span",
           "text": "Choose more of the structure and exercise preferences."
+        },
+        {
+          "tag": "p",
+          "text": "Start from something"
         },
         {
           "tag": "button",

@@ -546,6 +546,9 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
   flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--rule-strong);
   background:transparent;
 }
+/* Nothing told you whether picking a second option replaced the first. A
+   checkbox is a square; a radio is a circle. */
+.radio-card[role="checkbox"] .radio-card__mark{border-radius:6px}
 .radio-card.is-selected .radio-card__mark{
   border-color:var(--accent);background:var(--accent);
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M4.5 8.5L2 6l.7-.7 1.8 1.8 4-4 .7.7z'/%3E%3C/svg%3E");
@@ -1822,6 +1825,10 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .peditor{display:flex;flex-direction:column;gap:14px}
 .pday{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:14px;box-shadow:none}
 .pday__head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+/* Separate the destructive control from the benign one beside it, and tint it
+   so the two identical squares are no longer interchangeable at a glance. */
+.pday__head .iconbtn--del{margin-right:6px;color:var(--danger)}
+.pday__head .iconbtn--del:hover{border-color:var(--danger)}
 .pday__name{flex:1;margin-top:0;font-weight:700;font-size:16px;letter-spacing:0;
   text-transform:none;padding:9px 11px;background:var(--bg);border-color:var(--rule)}
 .pday__count{flex:none;font-size:11px;letter-spacing:.04em;color:var(--ink-faint);text-transform:uppercase;white-space:nowrap}
@@ -2583,6 +2590,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .icon-mask--chev-up{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E")}
 .icon-mask--gear{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.93 5.63L9.98 2.51A9.7 9.7 0 0 1 14.02 2.51L14.07 5.63A6.7 6.7 0 0 1 16.48 7.02L19.21 5.51A9.7 9.7 0 0 1 21.23 9L18.55 10.61A6.7 6.7 0 0 1 18.55 13.39L21.23 15A9.7 9.7 0 0 1 19.21 18.49L16.48 16.98A6.7 6.7 0 0 1 14.07 18.37L14.02 21.49A9.7 9.7 0 0 1 9.98 21.49L9.93 18.37A6.7 6.7 0 0 1 7.52 16.98L4.79 18.49A9.7 9.7 0 0 1 2.77 15L5.45 13.39A6.7 6.7 0 0 1 5.45 10.61L2.77 9A9.7 9.7 0 0 1 4.79 5.51L7.52 7.02Z'/%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.93 5.63L9.98 2.51A9.7 9.7 0 0 1 14.02 2.51L14.07 5.63A6.7 6.7 0 0 1 16.48 7.02L19.21 5.51A9.7 9.7 0 0 1 21.23 9L18.55 10.61A6.7 6.7 0 0 1 18.55 13.39L21.23 15A9.7 9.7 0 0 1 19.21 18.49L16.48 16.98A6.7 6.7 0 0 1 14.07 18.37L14.02 21.49A9.7 9.7 0 0 1 9.98 21.49L9.93 18.37A6.7 6.7 0 0 1 7.52 16.98L4.79 18.49A9.7 9.7 0 0 1 2.77 15L5.45 13.39A6.7 6.7 0 0 1 5.45 10.61L2.77 9A9.7 9.7 0 0 1 4.79 5.51L7.52 7.02Z'/%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3C/svg%3E")}
 .icon-mask--search{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='10.75' cy='10.75' r='6.25'/%3E%3Cpath d='M15.4 15.4L20 20'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='10.75' cy='10.75' r='6.25'/%3E%3Cpath d='M15.4 15.4L20 20'/%3E%3C/svg%3E")}
+.icon-mask--wand{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20L16 8'/%3E%3Cpath d='M14 6l4 4'/%3E%3Cpath d='M18 3v4M20.5 5h-4'/%3E%3Cpath d='M6 4v3M7.5 5.5h-3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20L16 8'/%3E%3Cpath d='M14 6l4 4'/%3E%3Cpath d='M18 3v4M20.5 5h-4'/%3E%3Cpath d='M6 4v3M7.5 5.5h-3'/%3E%3C/svg%3E")}
+.icon-mask--sliders{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 7h9M17 7h3M4 17h3M11 17h9'/%3E%3Ccircle cx='15' cy='7' r='2'/%3E%3Ccircle cx='9' cy='17' r='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 7h9M17 7h3M4 17h3M11 17h9'/%3E%3Ccircle cx='15' cy='7' r='2'/%3E%3Ccircle cx='9' cy='17' r='2'/%3E%3C/svg%3E")}
+.icon-mask--pencil{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19.5 8.5a2 2 0 0 0-2.8-2.8L5 17.2z'/%3E%3Cpath d='M15 7.5l3 3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19.5 8.5a2 2 0 0 0-2.8-2.8L5 17.2z'/%3E%3Cpath d='M15 7.5l3 3'/%3E%3C/svg%3E")}
+.icon-mask--download{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10'/%3E%3Cpolyline points='8 10.5 12 14.5 16 10.5'/%3E%3Cpath d='M5 18h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10'/%3E%3Cpolyline points='8 10.5 12 14.5 16 10.5'/%3E%3Cpath d='M5 18h14'/%3E%3C/svg%3E")}
 .icon-mask--sheet{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='4.5' width='17' height='15' rx='2'/%3E%3Cpath d='M3.5 9.25h17M3.5 14.25h17M11.5 9.25v10.25'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='4.5' width='17' height='15' rx='2'/%3E%3Cpath d='M3.5 9.25h17M3.5 14.25h17M11.5 9.25v10.25'/%3E%3C/svg%3E")}
 .icon-btn{color:var(--ink)}
 .icon-btn--ghost{border:0;background:transparent;color:var(--ink)}
@@ -2753,7 +2764,9 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .btnrow--primary-first{flex-direction:column}
 /* A discard is not a Back button. */
 .btn--destructive{color:var(--danger);border-color:var(--rule)}
-.btnrow--primary-first .btn{width:100%}
+/* `.btnrow .btn{flex:1 1 160px}` sizes the main axis, so in a column that
+   became a height rule and stretched each button to fill the row. */
+.btnrow--primary-first .btn{width:100%;flex:0 0 auto}
 
 /* Review actions sit above the weekly detail, not after it. */
 .entry__confirm{display:flex;flex-direction:column;gap:8px;margin:18px 0 22px}
@@ -2766,24 +2779,49 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__recommend .onb__actions{margin-top:18px}
 .entry__reasons{margin:0 0 14px;padding-left:20px;color:var(--ink-soft);font-size:14px;line-height:1.45}
 .entry__reasons li+li{margin-top:6px}
-.entry__source{margin:0 0 10px;color:var(--ink-soft);font-size:13px}
-.entry__source span{font-weight:700;color:var(--ink)}
-.entry__facts{display:flex;flex-wrap:wrap;gap:6px 14px;padding:10px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);font-size:12px;font-weight:600;color:var(--ink-soft)}
+.entry__source{margin:0 0 12px;color:var(--ink-soft);font-size:13px}
+.entry__source span{font-weight:600;color:var(--ink-faint);text-transform:uppercase;
+  font-size:11px;letter-spacing:.06em;margin-right:6px}
+.entry__facts{
+  display:flex;flex-wrap:wrap;gap:6px 0;padding:11px 0;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  font-size:12.5px;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums
+}
+/* A middot rather than a rule: a border-left dangles at the start of a wrapped
+   line, and this row wraps on narrow phones. */
+.entry__facts{gap:4px 12px}
+.entry__facts>span:not(:last-child)::after{
+  content:"·";margin-left:12px;font-weight:400;color:var(--ink-faint)
+}
 .entry__review-grid{display:grid;grid-template-columns:1fr 1fr;gap:0 18px;margin-top:12px}
-.entry__review-grid section{padding:10px 0;border-bottom:1px solid var(--rule)}
-.entry__review-grid h4{margin:0 0 4px;font-size:12px;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
-.entry__review-grid p{margin:0;font-size:13px;line-height:1.4;color:var(--ink-soft)}
+.entry__review-grid{row-gap:2px}
+.entry__review-grid section{
+  display:grid;grid-template-columns:minmax(0,7.5rem) 1fr;gap:4px 14px;align-items:baseline;
+  padding:11px 0;border-bottom:1px solid var(--rule)
+}
+.entry__review-grid h4{
+  margin:0;font-size:11px;letter-spacing:.06em;text-transform:uppercase;
+  color:var(--ink-faint);font-weight:600
+}
+.entry__review-grid p{margin:0;font-size:13.5px;line-height:1.45;color:var(--ink)}
+@media (max-width:420px){
+  .entry__review-grid section{grid-template-columns:1fr;gap:3px}
+}
 .entry__group-lab{margin:16px 0 8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
 .entry__optional{
   margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:.06em;
   text-transform:uppercase;color:var(--ink-faint)
 }
-.entry__field{display:flex;flex-direction:column;gap:6px;margin:12px 0 16px;font-size:13px;font-weight:600}
+.entry__field{
+  display:flex;flex-direction:column;gap:6px;margin:12px 0 16px;
+  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)
+}
+.entry__field input{text-transform:none;letter-spacing:normal;color:var(--ink);font-size:16px}
 .entry__field input{font:inherit;font-weight:500;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
 .radio-card.is-disabled,.radio-card:disabled{
   opacity:.45;cursor:not-allowed}
 .entry__correct{margin-top:14px;padding-top:4px}
-.entry__hint,.entry__pain{margin:10px 0 0;font-size:13px;line-height:1.4;color:var(--ink-soft)}
+.entry__hint,.entry__pain{margin:14px 0 0;font-size:13px;line-height:1.4;color:var(--ink-soft)}
 .entry__pain{padding:10px 12px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface)}
 .entry__avoid-results{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;max-height:180px;overflow:auto}
 .entry-card--compact{padding:10px 12px}
@@ -2834,6 +2872,13 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 /* `.chevron.is-down` already swaps the mask to a downward glyph; rotating it
    again pointed the expanded disclosure back to the left. */
 .entry-body .entry__own{gap:0;padding:4px 0 4px 18px;border-left:1px solid var(--rule)}
+/* The rail groups the routes Taurifer authors for you; the label says so, so
+   the rail reads as structure rather than a clipped border. */
+.entry-body .entry__group-lab{margin:16px 0 4px}
+.entry-body .entry__group-lab:first-child{margin-top:6px}
+/* Every hub row's content starts 15px in (3px rail + 12px padding), so its
+   group labels sit on the same spine rather than at two different x. */
+.entry-body--entry .entry__group-lab{padding-left:15px}
 
 /* Browse catalogue. A program is compared, not skimmed: identity first, then
    the facts that differ between programs, then the assumptions behind them.
@@ -2897,11 +2942,22 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .radio-card__title{font-size:15px;font-weight:500}
 .entry-body .radio-card__cap{font-size:13px}
 .entry-body .radio-card__mark{width:20px;height:20px}
+.entry-body .onb__opts.onb__grid .radio-card__body{flex:0 1 auto}
+.entry-body .onb__opts.onb__grid .radio-card{justify-content:flex-start;gap:10px}
+.entry-body .onb__opts.onb__grid .radio-card__mark{margin-left:auto}
 .entry-body .onb__opts{gap:0}
-.entry-body .onb__opts.onb__grid{gap:0 16px}
+/* Hairlines are the grammar here, but a per-cell rule stops at the column edge,
+   so any row the list does not fill left a ragged half-width rule under an
+   orphan. Keep the rules and let a trailing orphan span the row instead. */
+.entry-body .onb__opts.onb__grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:0 14px
+}
+.entry-body .onb__opts.onb__grid>.radio-card:last-child:nth-child(3n+1){grid-column:1/-1}
+.entry-body .onb__opts.onb__grid>.radio-card:last-child:nth-child(3n+2){grid-column:2/-1}
 .entry-body--schedule .onb__opts.onb__grid,
-.entry-body--schedule .onb__opts:not(.onb__grid){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 16px}
-.entry-body--schedule .onb__opts.onb__grid .radio-card{border-bottom:1px solid var(--rule)}
+.entry-body--schedule .onb__opts:not(.onb__grid){display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:0 14px}
+.entry-body--schedule .onb__opts>.radio-card:last-child:nth-child(odd){grid-column:1/-1}
+.entry-body--schedule .onb__opts .radio-card{border-bottom:1px solid var(--rule)}
 .entry-body--schedule .radio-card{min-height:46px}
 .entry-body--schedule .radio-card__body{align-items:flex-start}
 .entry-body--schedule .radio-card__cap{font-size:12px;color:var(--ink-faint)}
@@ -3048,6 +3104,15 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-pad:clamp(18px,5vw,34px);
   max-width:900px;margin:0 auto;padding:0 var(--firstrun-pad);
 }
+/* Someone arriving from a shared link came to see a program, not the ethos.
+   Raise what they were sent above the poem; the brand still opens the page. */
+.firstrun.is-shared .firstrun__inner{display:flex;flex-direction:column}
+.firstrun.is-shared .firstrun__brand{order:0}
+.firstrun.is-shared .firstrun__lede{order:1;margin-top:26px}
+.firstrun.is-shared .firstrun__section{order:2}
+.firstrun.is-shared #firstRunInstall{order:3}
+.firstrun.is-shared .firstrun-hero{order:4;margin-top:38px}
+.firstrun.is-shared .firstrun__continue{order:5}
 /* The paper both brand images were painted on. It is a property of the files,
    not of the theme, which is why it is one constant rather than a palette
    entry: light lets the page be it, dark hands it back as a plate. */

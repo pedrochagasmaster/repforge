@@ -8626,13 +8626,15 @@ function renderEntryHub(){
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     entryLegacyBanner()+
     `<div class="entry__hub entry__hub--routes">`+
-      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__icon icon-mask icon-mask--play" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<button type="button" class="entry-card entry-card--primary" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--plus" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<p class="entry__group-lab">${esc(t("entry.hub.group.written"))}</p>`+
+      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__icon icon-mask icon-mask--wand" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<button type="button" class="entry-card entry-card--primary" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--sliders" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<p class="entry__group-lab">${esc(t("entry.hub.group.ready"))}</p>`+
       `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__icon icon-mask icon-mask--search" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
       `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own">`+
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__icon icon-mask icon-mask--pencil" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__icon icon-mask icon-mask--download" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
       `</div>`:"")+
     `</div>`}
 function renderDesiredResultStep(){
@@ -8648,7 +8650,7 @@ function renderScheduleStep(){
   const browse=entryState.route==="browse";
   return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
     `<p class="entry__group-lab" id="entryDaysLab">${esc(t("entry.schedule.days.label"))}</p><div class="onb__opts onb__grid" role="radiogroup" aria-labelledby="entryDaysLab">`+
-    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,t("entry.catalogue.days_badge",{days:n}),"")).join("")+`</div>`+
     `<p class="entry__group-lab" id="entryMinLab">${esc(t("entry.schedule.minutes.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryMinLab">`+
     [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,t(`entry.schedule.minutes.${n}`),"")).join("")+`</div>`+
     (browse?"":`<p class="entry__group-lab" id="entryRestLab">${esc(t("entry.schedule.rest.label"))}</p><div class="onb__opts" role="radiogroup" aria-labelledby="entryRestLab">`+
@@ -8664,7 +8666,7 @@ function renderEnvironmentStep(){
   const equipment=new Set(env?.equipment||[]);
   const capabilities=new Set(env?.capabilities||[]);
   const correction=env?`<details class="entry__disclosure entry__correct">`+
-    `<summary><span>${esc(t("entry.env_correct.equipment"))} &amp; ${esc(t("entry.env_correct.capabilities"))}</span><span class="chevron" aria-hidden="true"></span></summary><div class="entry__disclosure-body">`+
+    `<summary><span>${esc(t("entry.env_correct.summary"))}</span><span class="chevron" aria-hidden="true"></span></summary><div class="entry__disclosure-body">`+
     `<p class="entry__group-lab">${esc(t("entry.env_correct.equipment"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.equipment"))}">`+
     ENTRY_EQUIPMENT.map(token=>entryOpt("environmentEquipment",token,t(`entry.equip.${token}`)||token,"",{multi:true,selected:equipment.has(token),role:"checkbox"})).join("")+`</div>`+
     `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
@@ -8718,8 +8720,11 @@ function renderAvoidanceSection(){
     `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.avoid_search"))}">`+
     matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-avoid-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
     `</div>`+
-    (entryPendingAvoid?(()=>{const entry=libraryEntry(entryPendingAvoid);return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(t("entry.priorities.avoid_reason"))}"><strong>${esc(entry?libraryName(entry):entryPendingAvoid)}</strong>`+
-      `<p class="entry__group-lab">${esc(t("entry.priorities.avoid_reason"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
+    (entryPendingAvoid?(()=>{const entry=libraryEntry(entryPendingAvoid);
+      const exercise=entry?libraryName(entry):entryPendingAvoid;
+      const reasonLab=t("entry.priorities.avoid_reason",{exercise});
+      return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(reasonLab)}"><strong>${esc(exercise)}</strong>`+
+      `<p class="entry__group-lab">${esc(reasonLab)}</p><div class="onb__opts onb__grid" role="radiogroup">`+
       ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div><p class="entry__hint" id="entryPendingAvoidNote">${esc(t("entry.priorities.reason_required"))}</p></div>`})():"")+
     (constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
       const entry=libraryEntry(item.exerciseId);
@@ -8749,8 +8754,10 @@ function renderCustomShapeStep(){
   const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
   if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
     `<button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
-  return entryHeading(t("entry.custom_shape.title"))+`<p class="onb__explain">${esc(t("entry.custom_shape.lede"))}</p>`+
-    `<p class="entry__group-lab">${esc(t("entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
+  const sole=splits.choices.length===1;
+  return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
+    `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+
+    `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
     splits.choices.map(choice=>{
       const name=isPt()?choice.namePt||choice.name:choice.name;
       const label=t("entry.custom_shape.choice",{name,days:choice.frequency});
@@ -9094,50 +9101,62 @@ function renderCatalogueStep(){
     entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):"",
     entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):"",
     entryEnvironmentLabel()].filter(Boolean);
+  function renderCard(card){
+    const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
+    const name=isPt()?card.namePt||card.name:card.name;
+    const minutes=card.minutes?.length
+      ?(card.minutes[0]===card.minutes[1]?t("entry.preview.minutes",{n:card.minutes[0]})
+        :t("entry.catalogue.minutes",{min:card.minutes[0],max:card.minutes[1]})):"";
+    const counts=card.structureFacts||[],exerciseCounts=counts.map(day=>day.exerciseCount),setCounts=counts.map(day=>day.setCount);
+    const structure=counts.length?[
+      entryRangeLabel(Math.min(...exerciseCounts),Math.max(...exerciseCounts),
+        "entry.catalogue.exercises_range","entry.catalogue.exercises_exact"),
+      entryRangeLabel(Math.min(...setCounts),Math.max(...setCounts),
+        "entry.catalogue.sets_range","entry.catalogue.sets_exact")].join(" · "):"";
+    const progression=(card.progressionStrategies||[]).map(id=>progressionLabels[id]).filter(Boolean).join(" · ");
+    const equipment=(card.equipmentAssumptions||[]).map(token=>t(`entry.equip.${token}`)||token).join(", ");
+    const mismatch=card.mismatch==="frequency"?t("entry.catalogue.mismatch_frequency",{
+      requested:entryState.answers.daysPerWeek,actual:card.daysPerWeek}):"";
+    /* One flat button per program, laid out as a column: identity first, then
+       the facts a reader compares across programs, then the assumptions. The
+       hub's `.entry-card` is a row of three and cannot carry this shape. */
+    return `<button type="button" class="entry-prog" data-entry-catalogue="${esc(card.id)}" aria-label="${esc(t("entry.catalogue.review_aria",{name}))}">`+
+      `<span class="entry-prog__head"><span class="entry-prog__name">${esc(familyName)}</span>`+
+      `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
+      `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
+      `<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
+      `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
+      `<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
+      `<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
+      (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
+      `</button>`}
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div><div class="entry__progs">`+
-    cards.map(card=>{
-      const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
-      const name=isPt()?card.namePt||card.name:card.name;
-      const minutes=card.minutes?.length
-        ?(card.minutes[0]===card.minutes[1]?t("entry.preview.minutes",{n:card.minutes[0]})
-          :t("entry.catalogue.minutes",{min:card.minutes[0],max:card.minutes[1]})):"";
-      const counts=card.structureFacts||[],exerciseCounts=counts.map(day=>day.exerciseCount),setCounts=counts.map(day=>day.setCount);
-      const structure=counts.length?[
-        entryRangeLabel(Math.min(...exerciseCounts),Math.max(...exerciseCounts),
-          "entry.catalogue.exercises_range","entry.catalogue.exercises_exact"),
-        entryRangeLabel(Math.min(...setCounts),Math.max(...setCounts),
-          "entry.catalogue.sets_range","entry.catalogue.sets_exact")].join(" · "):"";
-      const progression=(card.progressionStrategies||[]).map(id=>progressionLabels[id]).filter(Boolean).join(" · ");
-      const equipment=(card.equipmentAssumptions||[]).map(token=>t(`entry.equip.${token}`)||token).join(", ");
-      const mismatch=card.mismatch==="frequency"?t("entry.catalogue.mismatch_frequency",{
-        requested:entryState.answers.daysPerWeek,actual:card.daysPerWeek}):"";
-      /* One flat button per program, laid out as a column: identity first, then
-         the facts a reader compares across programs, then the assumptions. The
-         hub's `.entry-card` is a row of three and cannot carry this shape. */
-      return `<button type="button" class="entry-prog" data-entry-catalogue="${esc(card.id)}" aria-label="${esc(t("entry.catalogue.review_aria",{name}))}">`+
-        `<span class="entry-prog__head"><span class="entry-prog__name">${esc(familyName)}</span>`+
-        `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
-        `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
-        `<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
-        `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
-        `<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
-        `<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
-        (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
-        `</button>`}).join("")+`</div>`}
+    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div>`+
+    /* Every family is released at every frequency, so a flat list is twenty
+       near-identical rows. Split the ones that match the answered schedule from
+       the rest, which is the comparison the reader is actually making. */
+    (()=>{const answered=entryState.answers.daysPerWeek;
+      const fits=cards.filter(card=>!card.mismatch),others=cards.filter(card=>card.mismatch);
+      const section=(label,list)=>!list.length?"":
+        (label?`<p class="entry__group-lab">${esc(label)}</p>`:"")+
+        `<div class="entry__progs">`+list.map(renderCard).join("")+`</div>`;
+      if(!others.length)return section("",fits);
+      return section(answered?t("entry.catalogue.group_fits",{days:answered}):"",fits)+
+        section(t("entry.catalogue.group_other"),others)})()}
+
 function renderBuildSetupStep(){
   const name=entryState.answers.programName||"";
   return entryHeading(t("entry.build_setup.title"))+`<p class="onb__explain">${esc(t("entry.build_setup.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<label class="entry__field"><span>${esc(t("entry.build_setup.name"))}</span>`+
-    `<input id="entryProgramName" type="text" maxlength="80" value="${esc(name)}"></label>`+
+    `<input id="entryProgramName" type="text" maxlength="80" value="${esc(name)}" placeholder="${esc(t("entry.build_setup.name_placeholder"))}"></label>`+
     `<p class="entry__group-lab">${esc(t("entry.build_setup.days"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
-    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`}
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,t("entry.catalogue.days_badge",{days:n}),"")).join("")+`</div>`}
 function renderImportSourceStep(){
   return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
-    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+`<p class="entry__hint">${esc(t("entry.import_source.safety"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`}
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
@@ -9164,7 +9183,8 @@ function renderPreviewStep(){
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
   return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
-    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    (hasActiveProgram()&&!entryUiNotice&&entryState?.step!=="activation_conflict"
+      ?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<div class="entry__decision"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
     `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p>`+
     `<div class="entry__facts"><span>${esc(entryExerciseCountLabel(facts.exercises))}</span><span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>${duration?`<span>${esc(duration)}</span>`:""}</div>`+
@@ -9178,7 +9198,7 @@ function renderPreviewStep(){
        detail, and pin it so a long program cannot scroll it away. */
     `<div class="entry__confirm"><button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
     `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel">${esc(t("entry.preview.edit"))}</button>`+
-    `<button type="button" id="entryRestart" class="btn btn--steel">${esc(t("entry.preview.restart"))}</button></div></div>`+
+    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive">${esc(t("entry.preview.restart"))}</button></div></div>`+
     `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`}
 function renderEntryNotice(){
   if(!entryUiNotice)return"";
@@ -9189,7 +9209,9 @@ function renderEntryNotice(){
   if(entryUiNotice==="resume"){
     const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
     const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
-    const detail=[entryState?.route?entryRouteLabel(entryState.route):"",entryState?.step?t(`entry.${entryState.step}.title`):"",when].filter(Boolean).join(" · ");
+    const where=[entryState?.route?entryRouteLabel(entryState.route):"",
+      entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
+    const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
     return `<div class="entry__notice" role="status"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p>`+
     (detail?`<p class="entry__resume-detail">${esc(detail)}</p>`:"")+`</div>`+
     `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
@@ -9198,19 +9220,19 @@ function renderEntryNotice(){
   if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
   if(entryUiNotice==="durable_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.durable_conflict.title"))}</strong><p>${esc(t("entry.durable_conflict.body"))}</p>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryDurableConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
+    `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryDurableConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
   if(entryUiNotice==="rules_changed"){
     const keepPinned=entryState?.route==="import"||entryState?.route==="shared";
     const pinnedReady=entryPinnedPreviewCanActivate();
     const action=keepPinned
-      ?`<button type="button" class="btn btn--cta" id="entryKeepPinned"${pinnedReady?"":" disabled aria-describedby='entryActivationStatus'"}>${esc(t("entry.rules_changed.keep"))}</button>`
-      :`<button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button>`;
+      ?`<button type="button" class="btn btn--steel" id="entryKeepPinned"${pinnedReady?"":" disabled aria-describedby='entryActivationStatus'"}>${esc(t("entry.rules_changed.keep"))}</button>`
+      :`<button type="button" class="btn btn--steel" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button>`;
     return `<div class="entry__notice entry__notice--warn" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong>`+
       `<p>${esc(t(keepPinned?"entry.rules_changed.body_keep":"entry.rules_changed.body_rebuild"))}</p>`+
       `<div class="btnrow">${action}</div></div>`;
   }
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
+    `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
   return""}
 /* Rerendering a step must not strand keyboard users at the top of the page.
    Keep a small semantic token for the control that caused the update and restore
@@ -9271,8 +9293,9 @@ function renderOnboarding(){
     eyebrow.textContent=duplicate?"":eyebrowText;
     eyebrow.classList.toggle("hidden",duplicate)}
   title.textContent=titleText;
+  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
   const progress=entryProgressSections(route);
-  const showProgress=Boolean(route)&&progress.show;
+  const showProgress=Boolean(route)&&progress.show&&!noticeOwnsSurface;
   if(step){step.textContent=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
     step.classList.toggle("hidden",!showProgress)}
   const seg=$("#onbSegbar");
@@ -9280,7 +9303,6 @@ function renderOnboarding(){
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
     seg.classList.toggle("hidden",!showProgress)}
   const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
-  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
   const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface);
   const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
   if(back){back.classList.toggle("hidden",!route||stepId==="entry");back.setAttribute("aria-label",t("entry.back"))}
@@ -9316,6 +9338,12 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
+  const validation=$("#entryValidation");
+  if(validation){
+    const lede=body.querySelector(".onb__explain"),heading=body.querySelector(".onb__q");
+    const anchor=lede||heading;
+    if(anchor&&anchor.parentNode===body)body.insertBefore(validation,anchor.nextSibling);
+  }
   wireEntryDom();
   setupEntryRovingFocus();
   if(!restoreEntryFocus(focusToken)){
@@ -9858,6 +9886,7 @@ function renderFirstRunProgramMode(){
   const ready=sharedSetupReady();
   standard?.classList.toggle("hidden",ready);
   shared?.classList.toggle("hidden",!ready);
+  $("#firstRun")?.classList.toggle("is-shared",ready);
   if(ready){
     const name=sharedSetupDraft.payload.program.meta.name;
     const n=sharedSetupDraft.payload.program.meta.daysPerWeek;
