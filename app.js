@@ -6126,6 +6126,7 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   const nextName=proposal.programMeta?.name||entryState.result.name;
   if(nextName){result.name=nextName;delete result.namePt}else delete result.name;
   result.fingerprint=entryCandidateFingerprint(entryState.route,result.name,preview);
+  entryPinnedVersionsExecutable=false;
   entryState=ProgramEntry.setResult(entryState,result);
   const saved=await persistSetupDraft(entryState);
   if(saved?.ok&&progressionData.incompatibilities.length){
@@ -8176,6 +8177,7 @@ async function commitImportReview(){
   const preview=importCandidate(draft);
   const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
   let next=ProgramEntry.setAnswers(entryState,{importReady:true});
+  next={...next,versions:entryVersions()};
   next=ProgramEntry.setResult(next,{
     fingerprint:entryCandidateFingerprint("import",name,preview),
     selected:{id:"import",source:"import"},
@@ -8312,7 +8314,7 @@ const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
 const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -8506,7 +8508,7 @@ function reportEntryRoute(route){
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;
+  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   if(opts.forceFresh||opts.resume===false){
@@ -8567,6 +8569,7 @@ function entrySetState(next,{persist=true}={}){
 function entrySelectRoute(route){
   if(!ProgramEntry||!entryState)return;
   reportEntryRoute(route);
+  entryPinnedVersionsExecutable=false;
   const next=ProgramEntry.selectRoute(entryState,route,{reusableContext:state?.programmingContext});
   const migrated=applyLegacyHints(next);
   let selected=migrated;
@@ -8578,6 +8581,7 @@ function entrySelectRoute(route){
   entrySetState(selected)}
 function entryPatchAnswers(patch){
   if(!ProgramEntry||!entryState)return;
+  entryPinnedVersionsExecutable=false;
   entrySetState(ProgramEntry.setAnswers(entryState,patch))}
 function entryProgressSections(route){
   if(!route)return{n:0,total:1};
@@ -8744,14 +8748,12 @@ function renderCustomShapeStep(){
         days:choice.frequency,min:Math.min(...estimates),max:Math.max(...estimates)}):"";
       const reason=choice.default?t("entry.custom_shape.default_reason"):t("entry.custom_shape.compatible_reason");
       return entryOpt("splitPreference",choice.id,label,`${reason}${summary?` ${summary}`:""}`)}).join("")+`</div>`}
-function ensureGeneratorResult(){
+function compileGeneratorCandidate(){
   const services=entryServices();
   if(!services||!entryState)return null;
-  if(entryState.result?.fingerprint&&entryState.result?.preview){reportGeneratorCompleted(entryState.result);return entryState.result}
   const compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()});
   if(!compiled.ok){entryCompileError=compiled;return null}
-  entryCompileError=null;
-  const result={
+  return{
     fingerprint:compiled.fingerprint,
     name:compiled.name,
     namePt:compiled.namePt,
@@ -8761,6 +8763,14 @@ function ensureGeneratorResult(){
     preview:compiled.preview,
     telemetry:compiled.telemetry,
     explanation:compiled.explanation};
+}
+function ensureGeneratorResult({force=false}={}){
+  const services=entryServices();
+  if(!services||!entryState)return null;
+  if(!force&&entryState.result?.fingerprint&&entryState.result?.preview){reportGeneratorCompleted(entryState.result);return entryState.result}
+  const result=compileGeneratorCandidate();
+  if(!result)return null;
+  entryCompileError=null;
   entryState=ProgramEntry.setResult(entryState,result);
   persistSetupDraft(entryState);
   reportGeneratorCompleted(result);
@@ -8779,6 +8789,119 @@ function reportGeneratorCompleted(result){
     entryState=ProgramEntry.setResult(entryState,marked);
     persistSetupDraft(entryState)}
 }
+function entryPinnedPreviewCanActivate(){
+  if(!entryState?.result?.preview)return false;
+  try{return ProgramEntry.candidateActivationIssues(entryState).length===0}catch{return false}}
+async function persistEntryRulesState(next,previous=entryState){
+  const saved=await persistSetupDraft(next);
+  // persistSetupDraft advances the in-memory state before taking the lock. If
+  // the write loses a draft CAS race, retain the old candidate in memory too;
+  // otherwise a failed recovery could make the UI appear to have replaced a
+  // preview that is still the durable one.
+  if(!saved?.ok)entryState=previous;
+  return saved}
+function browseResultFromCard(card){
+  return{
+    fingerprint:card.fingerprint,
+    name:card.name,
+    namePt:card.namePt,
+    selected:{id:card.id,familyId:card.familyId,daysPerWeek:card.daysPerWeek,blueprintId:card.id},
+    preview:card.preview,
+    telemetry:{family:card.telemetryFamily}}
+}
+async function rebuildEntryForCurrentRules(){
+  if(!ProgramEntry||!entryState)return{ok:false};
+  const route=entryState.route;
+  if(route==="import"||route==="shared"){
+    // These routes carry a reviewed external snapshot. There is no generator
+    // input from which the import/shared candidate could be reconstructed.
+    // Activation is allowed only after this explicit user acknowledgement and
+    // still runs the normal candidate/readiness checks.
+    entryPinnedVersionsExecutable=true;
+    entryUiNotice=null;
+    renderOnboarding();
+    return{ok:true,pinned:true}}
+  if(route==="browse"){
+    const services=entryServices();
+    const cards=services?.browseCatalogue?.(entryState.answers)||[];
+    const selectedId=entryState.answers.catalogueSelection||entryState.result?.selected?.id;
+    const card=cards.find(item=>item.id===selectedId);
+    if(!card){
+      // A released card may disappear or change identity. Keep the old
+      // preview intact and put the user back in the current catalogue instead
+      // of compiling it as a recommendation.
+      const previous=entryState;
+      const next={...entryState,step:"catalogue"};
+      const saved=await persistEntryRulesState(next,previous);
+      if(!saved?.ok){
+        if(!entryUiNotice)entryUiNotice="rules_changed";
+        renderOnboarding();
+        return saved}
+      entryUiNotice=null;
+      renderOnboarding();
+      return saved}
+    const previous=entryState;
+    let next=ProgramEntry.setResult({...entryState,versions:entryVersions()},browseResultFromCard(card));
+    if(next.step==="catalogue")next={...next,step:"preview"};
+    const saved=await persistEntryRulesState(next,previous);
+    if(!saved?.ok){
+      if(!entryUiNotice)entryUiNotice="rules_changed";
+      renderOnboarding();
+      return saved}
+    entryUiNotice=null;
+    renderOnboarding();
+    return saved}
+  if(route==="build"){
+    // Build has no compiler-generated candidate to rerun. Its current-version
+    // path is an explicit handoff into the editable draft; the editor still
+    // blocks incomplete/unsupported rows before activation.
+    const previous=entryState;
+    const next={...entryState,versions:entryVersions()};
+    const saved=await persistEntryRulesState(next,previous);
+    if(!saved?.ok){
+      if(!entryUiNotice)entryUiNotice="rules_changed";
+      renderOnboarding();
+      return saved}
+    entryPinnedVersionsExecutable=false;
+    entryUiNotice=null;
+    if(next.step==="editor"&&next.result?.preview)openEntryDraftEditor();
+    else renderOnboarding();
+    return saved}
+  // Recommend and Custom are the only generator-owned routes. Compile into a
+  // detached result first; the saved old preview is untouched if compilation
+  // fails or the draft write cannot commit the replacement.
+  if(route==="recommend"||route==="custom"){
+    if(!entryState.result||!["result","preview"].includes(entryState.step)){
+      const previous=entryState;
+      const next={...entryState,versions:entryVersions()};
+      const saved=await persistEntryRulesState(next,previous);
+      if(!saved?.ok){
+        if(!entryUiNotice)entryUiNotice="rules_changed";
+        renderOnboarding();
+        return saved}
+      entryUiNotice=null;
+      renderOnboarding();
+      return saved}
+    const replacement=compileGeneratorCandidate();
+    if(!replacement){
+      entryUiNotice="rules_changed";
+      renderOnboarding();
+      return{ok:false,compileFailed:true}}
+    const previous=entryState;
+    const next=ProgramEntry.setResult({...entryState,versions:entryVersions()},replacement);
+    const saved=await persistEntryRulesState(next,previous);
+    if(!saved?.ok){
+      if(!entryUiNotice)entryUiNotice="rules_changed";
+      renderOnboarding();
+      return saved}
+    entryCompileError=null;
+    entryUiNotice=null;
+    reportGeneratorCompleted(entryState.result);
+    renderOnboarding();
+    return saved}
+  entryUiNotice=null;
+  renderOnboarding();
+  return{ok:false,unsupportedRoute:true}}
 /* Shared links carry working sets and the released rest setting, but not the
    compiler's exercise-class warmups or station transitions. Estimate only the
    time represented by those payload facts; the UI labels it "about" and leaves
@@ -9029,8 +9152,15 @@ function renderEntryNotice(){
   if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
   if(entryUiNotice==="durable_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.durable_conflict.title"))}</strong><p>${esc(t("entry.durable_conflict.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryDurableConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
-  if(entryUiNotice==="rules_changed")return `<div class="entry__notice" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t("entry.rules_changed.body"))}</p>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button></div></div>`;
+  if(entryUiNotice==="rules_changed"){
+    const keepPinned=entryState?.route==="import"||entryState?.route==="shared";
+    const pinnedReady=entryPinnedPreviewCanActivate();
+    const action=keepPinned
+      ?`<button type="button" class="btn btn--cta" id="entryKeepPinned"${pinnedReady?"":" disabled aria-describedby='entryActivationStatus'"}>${esc(t("entry.rules_changed.keep"))}</button>`
+      :`<button type="button" class="btn btn--cta" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button>`;
+    return `<div class="entry__notice" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong><p>${esc(t("entry.rules_changed.body"))}</p>`+
+      `<div class="btnrow">${action}</div></div>`;
+  }
   if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
     `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
   return""}
@@ -9219,6 +9349,7 @@ function wireEntryDom(){
       preview:entryState.result.preview,
       telemetry:entryState.result.telemetry,
       explanation:entryState.result.explanation});
+    entryPinnedVersionsExecutable=false;
     entrySetState(ProgramEntry.advance(next).state)});
   $$("[data-entry-catalogue]").forEach(btn=>btn.onclick=()=>{
     const id=btn.dataset.entryCatalogue;
@@ -9226,6 +9357,7 @@ function wireEntryDom(){
     if(!card)return;
     if(!entryState.answers.catalogueSelection)captureEvent("template_selected",{family:card.telemetryFamily});
     let next=ProgramEntry.setAnswers(entryState,{catalogueSelection:id});
+    next={...next,versions:entryVersions()};
     next=ProgramEntry.setResult(next,{
       fingerprint:card.fingerprint,
       name:card.name,
@@ -9255,14 +9387,15 @@ function wireEntryDom(){
   const cancelContinue=$("#entryCancelContinue");if(cancelContinue)cancelContinue.onclick=()=>{entryUiNotice=null;renderOnboarding()};
   const cancelKeep=$("#entryCancelKeep");if(cancelKeep)cancelKeep.onclick=()=>keepEntryDraftAndCancel();
   const cancelDiscard=$("#entryCancelDiscard");if(cancelDiscard)cancelDiscard.onclick=()=>discardEntryDraftAndCancel();
-  const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>{
+  const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>rebuildEntryForCurrentRules();
+  const keepPinned=$("#entryKeepPinned");if(keepPinned)keepPinned.onclick=()=>{
+    if(!entryPinnedPreviewCanActivate())return;
+    entryPinnedVersionsExecutable=true;
     entryUiNotice=null;
-    if(entryState.result)entrySetState({...entryState,result:null,versions:entryVersions()});
-    else entrySetState({...entryState,versions:entryVersions()});
-    if(entryState.step==="result"||entryState.step==="preview")ensureGeneratorResult();
     renderOnboarding()};
   const conflict=$("#entryConflictReview");if(conflict)conflict.onclick=()=>{
-    entryUiNotice=null;
+  entryUiNotice=null;
+    entryPinnedVersionsExecutable=false;
     entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()})};
   const durableConflict=$("#entryDurableConflictReview");if(durableConflict)durableConflict.onclick=async()=>{
     durableConflict.disabled=true;
@@ -9281,7 +9414,7 @@ function entryStartOver(){
   const restarted=ProgramEntry.startOver({
     draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
   if(restarted.effects?.deleteSetupDraft)clearSetupDraft();
-  entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;
+  entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;entryPinnedVersionsExecutable=false;
   entrySetState(restarted.state,{persist:true})}
 async function recoverEntryDurableConflict(){
   const refreshed=await refreshPersistenceHead();
@@ -9353,7 +9486,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   const readiness=ProgramEntry.activationReadiness(entryState,{
     liveActiveProgramRevision:liveProgramRevision(),
     currentVersions:entryVersions(),
-    pinnedVersionsExecutable:false});
+    pinnedVersionsExecutable:entryPinnedVersionsExecutable});
   if(!readiness.ok){
     if(readiness.code==="active_program_changed"){
       entryUiNotice="conflict";
