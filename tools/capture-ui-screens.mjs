@@ -41,6 +41,22 @@ const README_PATH = join(ROOT, "docs", "ui-screens", "README.md");
 const SCENARIOS = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
 const BROWSER_RECYCLE_EVERY = Number(process.env.CAPTURE_RECYCLE_EVERY || 40);
 const CAPTURE_ATTEMPTS = Number(process.env.CAPTURE_ATTEMPTS || 3);
+/*
+ * A frame spends most of its life waiting rather than computing: opening the
+ * context, booting the app and settling the surface are about 1.5s of the
+ * 1.7-2.4s a capture takes, and roughly 0.9s of that is deliberate sleeping.
+ * A sequential sweep therefore leaves about half of a two-core machine idle.
+ *
+ * Each worker owns its own browser, so the recycle counter stays a private
+ * per-worker concern rather than a shared mutable one that another worker's
+ * in-flight capture could have closed underneath it.
+ *
+ * The default stays deliberately low. This tool already retries captures that
+ * lose actionability races under contention, and raising concurrency raises
+ * that pressure, so a higher number needs to be justified by a run on the
+ * hardware in question rather than assumed from the core count.
+ */
+const CAPTURE_CONCURRENCY = Math.max(1, Number(process.env.CAPTURE_CONCURRENCY || 2));
 
 function parseArgs(argv) {
   const options = { flows: [], screens: [], canonical: false, keepGoing: false };
@@ -182,32 +198,16 @@ async function main() {
   }
 
   const failures = [];
-  let browser;
   try {
     if (filtered && existsSync(ARTIFACT_ROOT)) cpSync(ARTIFACT_ROOT, stagingRoot, { recursive: true });
-    browser = await launchChromium();
     let done = 0;
-    let sinceRestart = 0;
-
-    /**
-     * One Chromium instance does not stay healthy across a couple of hundred
-     * contexts: later captures start losing actionability races on elements
-     * that are demonstrably present. Recycle the browser periodically so the
-     * two-hundredth frame runs under the same conditions as the first.
-     */
-    async function recycleIfNeeded() {
-      if (sinceRestart < BROWSER_RECYCLE_EVERY) return;
-      await browser.close();
-      browser = await launchChromium();
-      sinceRestart = 0;
-    }
 
     /**
      * Take one frame. Returns null on success or the failure reason, so the
      * caller can retry a capture that lost a race rather than failing the run
      * on contention. A scenario that is genuinely broken fails both attempts.
      */
-    async function capture1(capture, key, out) {
+    async function capture1(browser, capture, key, out) {
       let context;
       try {
         const opened = await openPage(browser, MANIFEST, capture, stateFor(capture), {
@@ -233,7 +233,7 @@ async function main() {
       }
     }
 
-    const pending = [];
+    const work = [];
     for (const capture of captures) {
       const key = screenKey(capture);
       const out = capturePath(MANIFEST, capture, stagingRoot);
@@ -242,37 +242,80 @@ async function main() {
         failures.push({ key, error: "no capture scenario is registered for this screen" });
         continue;
       }
-      await recycleIfNeeded();
-      sinceRestart += 1;
-      const reason = await capture1(capture, key, out);
-      if (reason) {
-        pending.push({ capture, key, out, reason });
-        console.warn(`… ${key} ${variantSlug(capture)}: ${reason} (will retry)`);
-      } else {
-        done += 1;
-        console.log(`✓ ${key} ${variantSlug(capture)}  (${done}/${captures.length})`);
-      }
+      work.push({ capture, key, out });
     }
 
-    // Retry passes run after the first sweep so the machine is quiet again.
-    for (let attempt = 1; attempt <= CAPTURE_ATTEMPTS - 1 && pending.length; attempt++) {
-      const retrying = pending.splice(0, pending.length);
-      for (const item of retrying) {
-        await recycleIfNeeded();
-        sinceRestart += 1;
-        const reason = await capture1(item.capture, item.key, item.out);
-        if (reason) {
-          if (attempt === CAPTURE_ATTEMPTS - 1) {
-            failures.push({ key: item.key, variant: variantSlug(item.capture), error: reason });
-            console.warn(`✗ ${item.key} ${variantSlug(item.capture)}: ${reason}`);
-          } else {
+    const pending = [];
+    let cursor = 0;
+    /**
+     * One Chromium instance does not stay healthy across a couple of hundred
+     * contexts: later captures start losing actionability races on elements
+     * that are demonstrably present. Each worker recycles its own browser so
+     * its two-hundredth frame runs under the same conditions as its first.
+     */
+    async function sweepWorker() {
+      let browser = await launchChromium();
+      let sinceRestart = 0;
+      try {
+        while (cursor < work.length) {
+          const item = work[cursor++];
+          if (sinceRestart >= BROWSER_RECYCLE_EVERY) {
+            await browser.close();
+            browser = await launchChromium();
+            sinceRestart = 0;
+          }
+          sinceRestart += 1;
+          const reason = await capture1(browser, item.capture, item.key, item.out);
+          if (reason) {
             pending.push({ ...item, reason });
             console.warn(`… ${item.key} ${variantSlug(item.capture)}: ${reason} (will retry)`);
+          } else {
+            done += 1;
+            console.log(`✓ ${item.key} ${variantSlug(item.capture)}  (${done}/${captures.length})`);
           }
-        } else {
-          done += 1;
-          console.log(`✓ ${item.key} ${variantSlug(item.capture)}  (retry ${attempt}, ${done}/${captures.length})`);
         }
+      } finally {
+        await browser.close().catch(() => {});
+      }
+    }
+    await Promise.all(Array.from(
+      { length: Math.max(1, Math.min(CAPTURE_CONCURRENCY, work.length)) },
+      () => sweepWorker(),
+    ));
+
+    // Retry passes run after the first sweep, one at a time, so a capture that
+    // lost a race to contention is retried on a quiet machine rather than into
+    // the same pressure that failed it.
+    if (pending.length) {
+      let retryBrowser = await launchChromium();
+      let sinceRestart = 0;
+      try {
+        for (let attempt = 1; attempt <= CAPTURE_ATTEMPTS - 1 && pending.length; attempt++) {
+          const retrying = pending.splice(0, pending.length);
+          for (const item of retrying) {
+            if (sinceRestart >= BROWSER_RECYCLE_EVERY) {
+              await retryBrowser.close();
+              retryBrowser = await launchChromium();
+              sinceRestart = 0;
+            }
+            sinceRestart += 1;
+            const reason = await capture1(retryBrowser, item.capture, item.key, item.out);
+            if (reason) {
+              if (attempt === CAPTURE_ATTEMPTS - 1) {
+                failures.push({ key: item.key, variant: variantSlug(item.capture), error: reason });
+                console.warn(`✗ ${item.key} ${variantSlug(item.capture)}: ${reason}`);
+              } else {
+                pending.push({ ...item, reason });
+                console.warn(`… ${item.key} ${variantSlug(item.capture)}: ${reason} (will retry)`);
+              }
+            } else {
+              done += 1;
+              console.log(`✓ ${item.key} ${variantSlug(item.capture)}  (retry ${attempt}, ${done}/${captures.length})`);
+            }
+          }
+        }
+      } finally {
+        await retryBrowser.close().catch(() => {});
       }
     }
 
@@ -310,7 +353,6 @@ async function main() {
     if (failures.length) console.warn(`${failures.length} capture(s) still failing.`);
     return failures.length ? 1 : 0;
   } finally {
-    await browser?.close();
     if (existsSync(stagingRoot)) rmSync(stagingRoot, { recursive: true, force: true });
   }
 }
