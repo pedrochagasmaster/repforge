@@ -58,6 +58,41 @@ export async function seed(page, state) {
   await waitForApp(page);
 }
 
+/**
+ * Seed, then prove the seed survived.
+ *
+ * openPage has to load the app once before it can touch its origin's storage,
+ * and that first boot persists a state of its own. Its write can land *after*
+ * the seed, replacing it — the page then comes up with an unrelated program
+ * (18 exercises, onboarded false, revision 1) instead of the fixture. It looks
+ * like a rendering race in the app and is not one: the storage genuinely holds
+ * something else. Flushing first narrows the window; verifying closes it.
+ */
+async function seedVerified(page, state) {
+  let last = null;
+  for (let attempt = 0; attempt < 4; attempt++) {
+    await page.evaluate(() => window.__repforgeStorage?.flush?.()).catch(() => {});
+    await seed(page, state);
+    last = await page.evaluate((key) => {
+      const stored = JSON.parse(localStorage.getItem(key) || "{}");
+      return {
+        onboarded: !!stored?.programMeta?.onboarded,
+        exercises: (stored?.program || []).length,
+        revision: stored?._storageRevision ?? null,
+      };
+    }, KEY);
+    const wanted = {
+      onboarded: !!state.programMeta?.onboarded,
+      exercises: (state.program || []).length,
+    };
+    if (last.onboarded === wanted.onboarded && last.exercises === wanted.exercises) return;
+  }
+  throw new Error(
+    `seeded state did not survive boot: wanted onboarded=${!!state.programMeta?.onboarded} `
+    + `exercises=${(state.program || []).length}, got onboarded=${last?.onboarded} exercises=${last?.exercises}`
+  );
+}
+
 export async function openPage(browser, manifest, capture, state, options = {}) {
   const viewport = manifest.viewports[capture.viewport];
   const locale = manifest.locales[capture.locale];
@@ -88,7 +123,7 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
   }, CAPTURE_NOW);
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await seed(page, state);
+  await seedVerified(page, state);
   await page.evaluate(({ theme, scale, uiKey }) => {
     localStorage.setItem(uiKey, JSON.stringify({ theme }));
     window.__repforgeUi.setTheme(theme);

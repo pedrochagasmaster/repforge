@@ -53,37 +53,20 @@ async function step(label, action) {
 
 async function openHub(page, { existing = false } = {}) {
   if (existing) {
-    // Whether the hub renders its active-program notice is decided at page
-    // load and never changes afterwards: probing at 0/500/1500/3000ms gives
-    // the same answer every time, and re-rendering the hub does not move it.
-    // Some loads simply come up with the entry view unable to see the seeded
-    // program, so the only lever is another load. The notice is the whole
-    // point of this variant — a hub without it is the wrong screen, not an
-    // early one — so reload until the app comes up able to show it.
-    await step("active-program notice never rendered", async () => {
-      let lastError;
-      for (let attempt = 0; attempt < 6; attempt++) {
-        if (attempt) {
-          await page.reload({ waitUntil: "domcontentloaded" });
-          await waitForApp(page);
-        }
-        await page.evaluate(() => window.closeFirstRun?.());
-        await page.waitForFunction(
-          () => !document.body.classList.contains("is-firstrun"),
-          undefined,
-          { timeout: 20000 }
-        ).catch(() => {});
-        await page.evaluate(() => window.startOnboarding("settings"));
-        await page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 });
-        try {
-          await page.waitForSelector(".entry__active", { timeout: 2500 });
-          return;
-        } catch (error) {
-          lastError = error;
-        }
-      }
-      throw lastError;
-    });
+    await page.evaluate(() => window.closeFirstRun?.());
+    await step("first-run gate did not clear", () => page.waitForFunction(
+      () => !document.body.classList.contains("is-firstrun"),
+      undefined,
+      { timeout: 20000 }
+    ));
+    await page.evaluate(() => window.startOnboarding("settings"));
+    await step("hub did not open from Settings", () =>
+      page.waitForSelector("#onboarding.active .entry__hub", { timeout: 20000 }));
+    // The notice is the whole point of this variant: a hub captured without it
+    // is the wrong screen, not an early one. With the seed verified it is
+    // simply always there, so this is a correctness assertion, not a retry.
+    await step("active-program notice never rendered", () =>
+      page.waitForSelector(".entry__active", { timeout: 20000 }));
     return;
   }
   await page.evaluate(() => window.openFirstRun());
