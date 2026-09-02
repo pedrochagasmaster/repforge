@@ -384,6 +384,28 @@ async function nav(page, view) {
   }
 }
 
+async function applyProgramEditor(page) {
+  if (!(await page.locator("#programEditorWrap:not(.is-hidden)").count())) return;
+  await page.click("#programEditToggle");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    const tour = document.querySelector("#tour");
+    if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+  });
+  await page.waitForSelector("#tour", { state: "hidden", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+}
+
+async function revealProgramExerciseDetails(page, id) {
+  const day = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`).locator('xpath=ancestor::*[@data-role="day"]');
+  await day.locator('[data-role="day-menu"]').click();
+  await day.locator('[data-role="toggle-reorder"]').click();
+  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`);
+  await row.locator('[data-role="exercise-menu"]').click();
+  await row.locator('[data-role="more-details"][role="menuitem"]').click();
+  return row.locator('details[data-role="more-details"]');
+}
+
 async function selectDay(page, dayName) {
   await page.evaluate((d) => {
     // Day tabs live in the workout shell; ensure it is open in List mode
@@ -1403,10 +1425,10 @@ async function main() {
   await nav(page, "program");
 
   // Rename Day 1
-  const renameInput = page.locator('[data-act="renameDay"][data-day="Day 1"]');
+  const renameInput = page.locator('#programEditor [data-role="day-name"][data-day="Day 1"]');
   await renameInput.fill("Push Day");
   await renameInput.blur();
-  await page.waitForTimeout(150);
+  await applyProgramEditor(page);
 
   state = await getState(page);
   const hasPushDay = state.program.some((e) => e.day === "Push Day");
@@ -1433,12 +1455,14 @@ async function main() {
   state = await getState(page);
   const loggedOnDay2 = state.log.find((x) => x.day === "Day 2");
   assert(loggedOnDay2, "Day 2 has log history before rename test", "No Day 2 log rows", "Phase 1 should log Day 2 sessions");
-  const targetInput = page.locator(`.pex__name[value="${loggedOnDay2.name.replace(/"/g, '\\"')}"]`).first();
+  const day2 = page.locator('#programEditor [data-role="day"][data-day="Day 2"]');
+  if (!(await day2.locator('[data-role="day-body"]').isVisible())) await day2.locator('[data-role="toggle-day"]').click();
+  const targetInput = page.locator(`#programEditor [data-role="exercise-field"][data-field="name"][value="${loggedOnDay2.name.replace(/"/g, '\\"')}"]`).first();
   const oldName = await targetInput.inputValue();
   const newName = "Custom Leg Press";
   await targetInput.fill(newName);
   await targetInput.blur();
-  await page.waitForTimeout(100);
+  await applyProgramEditor(page);
 
   state = await getState(page);
   assert(
@@ -1475,13 +1499,14 @@ async function main() {
   // Add exercise — now via the library picker rather than a blank row
   await nav(page, "program");
   const exCountBefore = state.program.filter((e) => e.day === "Push Day").length;
-  await page.click('[data-act="addEx"][data-day="Push Day"]');
+  await page.click('#programEditor [data-role="add-exercise"][data-day="Push Day"]');
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   await page.fill("#exPickSearch", "pec deck");
   await page.waitForTimeout(120);
   const pickedName = ((await page.locator("#exPickList .pickrow__name").first().textContent()) || "").trim();
   await page.click("#exPickList .pickrow");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await applyProgramEditor(page);
   state = await getState(page);
   const pushRows = state.program.filter((e) => e.day === "Push Day");
   const added = pushRows.find((e) => e.name === pickedName);
@@ -1505,8 +1530,14 @@ async function main() {
   if (pushExs.length >= 3) {
     const secondId = pushExs[1].id;
     const thirdId = pushExs[2].id;
-    await page.click(`button[data-act="down"][data-id="${secondId}"]`);
-    await page.waitForTimeout(100);
+    await nav(page, "program");
+    const pushDay = page.locator('#programEditor [data-role="day"][data-day="Push Day"]');
+    await pushDay.locator('[data-role="day-menu"]').click();
+    await pushDay.locator('[data-role="toggle-reorder"]').click();
+    const second = page.locator(`#programEditor [data-role="exercise"][data-id="${secondId}"]`);
+    await second.locator('[data-role="exercise-menu"]').click();
+    await second.locator('[data-role="move-down"]').click();
+    await applyProgramEditor(page);
     state = await getState(page);
     const reordered = state.program
       .filter((e) => e.day === "Push Day")
@@ -1522,8 +1553,12 @@ async function main() {
   // Remove the exercise added above
   const newEx = state.program.find((e) => e.name === pickedName && e.day === "Push Day");
   if (newEx) {
-    await page.click(`button[data-act="delEx"][data-id="${newEx.id}"]`);
-    await page.waitForTimeout(100);
+    await nav(page, "program");
+    const row = page.locator(`#programEditor [data-role="exercise"][data-id="${newEx.id}"]`);
+    if (!(await row.evaluate((element) => element.classList.contains("is-expanded"))))
+      await row.locator('[data-role="toggle-exercise"]').click();
+    await row.locator('[data-role="remove-exercise"]').click();
+    await applyProgramEditor(page);
     state = await getState(page);
     assert(
       !state.program.find((e) => e.id === newEx.id),
@@ -1534,22 +1569,29 @@ async function main() {
   }
 
   // Add new day
-  await page.click("#addDay");
-  await page.waitForTimeout(100);
+  await nav(page, "program");
+  await page.click('#programEditor [data-role="add-day"]');
+  const addedDayName = await page.locator('#programEditor [data-role="day-name"]').last().inputValue();
+  await page.click(`#programEditor [data-role="add-exercise"][data-day="${addedDayName}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  await page.click("#exPickList .pickrow");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await applyProgramEditor(page);
   state = await getState(page);
-  const dayNames = [...new Set(state.program.map((e) => e.day))];
+  const dayNames = (state.programMeta?.programStructure?.days || []).map((entry) => entry.label || entry.dayId);
   assert(
-    dayNames.some((d) => d.match(/^Day \d+$/)),
+    dayNames.includes(addedDayName) && /^Day \d+$/.test(addedDayName) && state.program.some((exercise) => exercise.day === addedDayName),
     "Add new training day",
     `Days: ${dayNames.join(", ")}`,
     "Program tab → + Add day"
   );
 
   // Duplicate day rename rejected
-  const dupInput = page.locator('[data-act="renameDay"][data-day="Day 2"]');
+  await nav(page, "program");
+  const dupInput = page.locator('#programEditor [data-role="day-name"][data-day="Day 2"]');
   await dupInput.fill("Push Day");
   await dupInput.blur();
-  await page.waitForTimeout(150);
+  await applyProgramEditor(page);
   state = await getState(page);
   assert(
     state.program.some((e) => e.day === "Day 2"),
@@ -1569,15 +1611,18 @@ async function main() {
     `programMeta=${JSON.stringify(state.programMeta)}`,
     "Open Program tab → inspect state.programMeta"
   );
-  const metaBefore = await page.locator("#programMeta").textContent();
+  await applyProgramEditor(page);
+  const metaBefore = await page.locator("#programOverview").textContent();
   assert(
-    metaBefore.includes("days in the last 7 days"),
-    "Program tab shows rolling-7 adherence chip",
+    metaBefore.includes("days (7d)"),
+    "Program overview shows rolling-7 adherence",
     `Meta card: ${metaBefore?.slice(0, 120)}`,
-    "Program tab → check summary card"
+    "Program tab → check overview stats"
   );
-  await page.fill("#programName", "Simulation Split");
-  await page.waitForTimeout(150);
+  await nav(page, "program");
+  await page.fill('#programEditor [data-role="program-name"]', "Simulation Split");
+  await page.locator('#programEditor [data-role="program-name"]').blur();
+  await applyProgramEditor(page);
   state = await getState(page);
   assert(
     state.programMeta.name === "Simulation Split",
@@ -1613,21 +1658,24 @@ async function main() {
     const d = new Date(Date.now() - 15 * 86400000);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   })();
-  await page.fill("#programStarted", startedIso);
-  await page.waitForTimeout(150);
-  const metaAfterDate = await page.locator("#programMeta").textContent();
+  state = await getState(page);
+  await persistState(page, { ...state, programMeta: { ...state.programMeta, started: startedIso } });
+  await reloadApp(page);
+  await nav(page, "program");
+  await applyProgramEditor(page);
+  const metaAfterDate = await page.locator("#programOverview").textContent();
   assert(
     /Week 3/.test(metaAfterDate),
-    "Week chip appears immediately after setting start date",
+    "Program overview derives the current week from the stored block start",
     `Meta card after date edit: ${metaAfterDate?.slice(0, 140)}`,
-    "Program tab → set start date 15 days back → Week chip without leaving the tab"
+    "Store a block start 15 days back → Program overview"
   );
   state = await getState(page);
   assert(
     state.programMeta.started === startedIso,
-    "Start date persists on edit",
+    "Stored block start survives the Program overview render",
     `started=${state.programMeta?.started}`,
-    "Program tab → edit start date"
+    "Persist block start → render Program overview"
   );
   await page.evaluate(async (k) => {
     const s = JSON.parse(localStorage.getItem(k));
@@ -2583,6 +2631,7 @@ async function main() {
   // An unsaved JSON draft must survive a render it did not cause; only a real
   // program change underneath is newer and allowed to replace it.
   const draftRows = JSON.parse(await jsonArea.inputValue());
+  const originalSets = draftRows[0].sets;
   draftRows[0].sets = 9;
   await jsonArea.fill(JSON.stringify(draftRows, null, 2));
   await page.evaluate(() => document.querySelector("#programJson").blur());
@@ -2594,19 +2643,24 @@ async function main() {
     "textarea was reset before Save JSON",
     "Program → Advanced → edit JSON → blur → render() → text still there"
   );
-  const dayCountBefore = JSON.parse(await jsonArea.inputValue()).length;
-  await page.click("#addDay");
-  await page.waitForTimeout(400);
-  const afterAddDay = JSON.parse(await jsonArea.inputValue());
+  const firstExerciseId = draftRows[0].id;
+  const firstRow = page.locator(`#programEditor [data-role="exercise"][data-id="${firstExerciseId}"]`);
+  if (!(await firstRow.evaluate((element) => element.classList.contains("is-expanded"))))
+    await firstRow.locator('[data-role="toggle-exercise"]').click();
+  await firstRow.locator('[data-role="adjust"][data-field="sets"][data-delta="1"]').click();
+  await applyProgramEditor(page);
+  await nav(page, "program");
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
+  const afterEditorChange = JSON.parse(await jsonArea.inputValue());
   assert(
-    afterAddDay.length === dayCountBefore + 1 && afterAddDay[0].sets !== 9,
+    afterEditorChange[0].sets === originalSets + 1 && afterEditorChange[0].sets !== 9,
     "A visual-editor change refreshes the raw JSON over a stale draft",
-    `rows=${afterAddDay.length} sets0=${afterAddDay[0].sets}`,
-    "Program → edit JSON → +Add day → textarea shows the new program"
+    `sets0=${afterEditorChange[0].sets}`,
+    "Program → edit JSON → adjust sets → Done → textarea shows the new program"
   );
-  // Drop the scratch day again so later phases see the program they expect.
-  const addedDay = afterAddDay.at(-1).day;
-  await jsonArea.fill(JSON.stringify(afterAddDay.filter((e) => e.day !== addedDay), null, 2));
+  // Restore the scratch set change so later phases see the program they expect.
+  afterEditorChange[0].sets = originalSets;
+  await jsonArea.fill(JSON.stringify(afterEditorChange, null, 2));
   await page.click("#saveProgram");
   await page.waitForTimeout(200);
 
@@ -2616,12 +2670,12 @@ async function main() {
   // Backdated date in UI
   await nav(page, "log");
   const backdate = "2020-01-15";
-  await setLogDate(page, backdate);
   const logDay =
     (await page.locator('#dayTabs button[data-day="Day 2"]').count()) > 0
       ? "Day 2"
       : await page.locator("#dayTabs button").first().getAttribute("data-day");
   await selectDay(page, logDay);
+  await setLogDate(page, backdate);
   const d2 = await getExerciseMeta(page, logDay);
   await fillExerciseSets(page, d2[0].id, 1, 40, 10, 2);
   await saveWorkout(page);
@@ -4044,10 +4098,12 @@ async function main() {
   // Setup notes persist and show on the Log card
   await nav(page, "program");
   const note = "Seat 4, feet high";
-  const noteInput = page.locator('.pex [data-field="notes"]').first();
+  const noteExerciseId = await page.locator('#programEditor [data-role="exercise"]').first().getAttribute("data-id");
+  await revealProgramExerciseDetails(page, noteExerciseId);
+  const noteInput = page.locator(`#programEditor [data-role="exercise"][data-id="${noteExerciseId}"] [data-field="notes"]`);
   await noteInput.fill(note);
   await noteInput.blur();
-  await page.waitForTimeout(120);
+  await applyProgramEditor(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const info0 = await cardInfo(page, 0);
@@ -4775,7 +4831,8 @@ async function main() {
   // (which the library has no row for) — both must come back preselected, or
   // opening the picker would quietly delete whichever it could not match.
   const altsBefore = (subState.program.find((e) => e.id === d1First.id)?.alternates || []).slice();
-  await page.click(`[data-act="pickAlternates"][data-id="${d1First.id}"]`);
+  await revealProgramExerciseDetails(page, d1First.id);
+  await page.click(`#programEditor [data-role="alternates"][data-id="${d1First.id}"]`);
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   const preselected = await page.evaluate(() => (window.__repforgePickerSelection?.() || []).length);
   assert(
@@ -4787,7 +4844,7 @@ async function main() {
   const altPicked = await pickExact("Pec deck");
   await page.click("#exPickDone");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-  await page.waitForTimeout(250);
+  await applyProgramEditor(page);
   subState = await getState(page);
   const altRow = subState.program.find((e) => e.id === d1First.id);
   assert(
@@ -6303,17 +6360,12 @@ async function main() {
         `cap="${overviewCap}"`,
         "Program overview → days (7d) caption"
       );
-      const editHidden = await f2Page.locator("#programEditorWrap.is-hidden").count();
-      if (editHidden) {
-        await f2Page.click("#programEditToggle");
-        await f2Page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
-      }
-      const chip = await f2Page.locator("#pmetaChipsBottom").textContent();
+      const chip = await overviewCell.textContent();
       assert(
-        chip.includes("4 / 5 days in the last 7 days") && !/days this week/i.test(chip),
-        "F2: Program chip shows rolling 4 / 5 and copy",
+        chip.includes("4 / 5") && chip.includes("days (7d)") && !/this week/i.test(chip),
+        "F2: Program overview stat shows rolling 4 / 5 and copy",
         `chip="${chip}"`,
-        "Program → days in the last 7 days chip"
+        "Program overview → rolling days stat"
       );
       const afterEn = await getState(f2Page);
       await persistState(f2Page, { ...afterEn, settings: { ...afterEn.settings, lang: "pt" } });
@@ -6330,17 +6382,12 @@ async function main() {
         `cap="${ptCap}"`,
         "lang=pt → Program overview → dias (7d)"
       );
-      const ptEditHidden = await f2Page.locator("#programEditorWrap.is-hidden").count();
-      if (ptEditHidden) {
-        await f2Page.click("#programEditToggle");
-        await f2Page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
-      }
-      const ptChip = await f2Page.locator("#pmetaChipsBottom").textContent();
+      const ptChip = await f2Page.locator("#programOverview .statrow__cell").first().textContent();
       assert(
-        ptChip.includes("4 / 5 dias nos últimos 7 dias"),
-        "F2: Program chip rolling copy is Portuguese",
+        ptChip.includes("4 / 5") && ptChip.includes("dias (7d)"),
+        "F2: Program overview rolling copy is Portuguese",
         `chip="${ptChip}"`,
-        "lang=pt → Program chip"
+        "lang=pt → Program overview rolling stat"
       );
       assert(
         f2PageErrors.length === 0,
@@ -6526,18 +6573,19 @@ async function main() {
     "Today dashboard → program strip includes of 6"
   );
   await nav(page, "program");
-  const weekChipText = await page.locator("#pmetaChipsTop").textContent();
+  const weekChipText = await page.locator('#programEditor [data-role="context"]').textContent();
   assert(
     /of 6/.test(weekChipText),
-    "P7: Program week chip shows of 6",
-    `chips=${weekChipText}`,
-    "Program tab → week chip includes of 6"
+    "P7: Program editor context shows of 6",
+    `context=${weekChipText}`,
+    "Program tab → editor context includes of 6"
   );
+  await applyProgramEditor(page);
   assert(
-    (await page.locator("#endBlock").count()) === 1,
-    "P7: #endBlock button exists",
-    "endBlock missing from Program tab",
-    "Program tab → End block button near program meta"
+    await page.locator("#reviewBlockLink").isVisible(),
+    "P7: Review block action is visible",
+    "Review block missing from Program overview",
+    "Program tab → Review block row"
   );
 
   beginPhase("Phase: F8 mesocycle lifecycle display");
@@ -6654,14 +6702,14 @@ async function main() {
     const editHidden = await page.locator("#programEditorWrap.is-hidden").count();
     if (editHidden) {
       await page.click("#programEditToggle");
-      await page.waitForSelector("#pmetaChipsTop", { timeout: 5000 });
+      await page.waitForSelector('#programEditor [data-role="context"]', { timeout: 5000 });
     }
-    const chipW8 = await page.locator("#pmetaChipsTop").textContent();
+    const chipW8 = await page.locator('#programEditor [data-role="context"]').textContent();
     assert(
       /Week 6 of 6/.test(chipW8) && /ready for review/i.test(chipW8) && !overrunText(chipW8),
-      "F8: Program week chip is clamped",
+      "F8: Program editor week context is clamped",
       `chip="${chipW8}"`,
-      "#pmetaChipsTop at week 8 of 6"
+      "Program editor context at week 8 of 6"
     );
     await nav(page, "stats");
     await page.click('#statsSeg button[data-seg="review"]');
@@ -6683,7 +6731,8 @@ async function main() {
 
     const openFullScreenReview = async () => {
       await nav(page, "program");
-      await page.click("#endBlock");
+      await applyProgramEditor(page);
+      await page.click("#reviewBlockLink");
       await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
       await page.click("#endBlockGo");
       await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
@@ -6917,7 +6966,8 @@ async function main() {
     "__repforgeBuildBlockReview → volumeCompliance capped at 1"
   );
   await nav(page, "program");
-  await page.click("#endBlock");
+  await applyProgramEditor(page);
+  await page.click("#reviewBlockLink");
   await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
   assert(
     await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
@@ -6933,7 +6983,7 @@ async function main() {
     `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
     "Cancel #endBlockConfirm → overlay hides, review not opened"
   );
-  await page.click("#endBlock");
+  await page.click("#reviewBlockLink");
   await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
   await page.click("#endBlockGo");
   await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
@@ -7927,65 +7977,75 @@ async function main() {
   );
 
   beginPhase("\nPhase: program day collapse");
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await nav(page, "program");
-  const collapseDay = await page.locator("#programEditor .pday").first().getAttribute("data-day");
+  const editorDays = await page.locator('#programEditor [data-role="day"]').evaluateAll((days) =>
+    days.map((day) => day.getAttribute("data-day")).filter(Boolean)
+  );
+  const expandedDay = editorDays[0];
+  const collapsedDay = editorDays[1];
   const expandedVisible = await page
-    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"] [data-role="day-body"]`)
     .isVisible();
   assert(
     expandedVisible,
-    "Program days start expanded",
-    `Exercise list not visible for ${collapseDay}`,
+    "The first Program day starts expanded",
+    `Exercise list not visible for ${expandedDay}`,
     "Program tab → first day card"
   );
-  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
-  await page.waitForTimeout(120);
+  const expandedCaretHidden = await page
+    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"] [data-role="toggle-day"]`)
+    .isHidden();
+  assert(
+    expandedCaretHidden,
+    "An expanded day hides its disclosure caret",
+    `Disclosure caret remained visible for ${expandedDay}`,
+    "Program tab → expanded day header"
+  );
   const collapsedHidden = await page
-    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="day-body"]`)
     .isHidden();
   assert(
     collapsedHidden,
-    "Toggling a day collapses its exercise list",
-    `Exercise list still visible for ${collapseDay}`,
-    "Program tab → day card → caret button"
+    "Later Program days start collapsed",
+    `Exercise list remained visible for ${collapsedDay}`,
+    "Program tab → second day card"
   );
-  const collapseAria = await page.getAttribute(
-    `#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`,
-    "aria-expanded"
+  const collapsedCaret = page.locator(
+    `#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="toggle-day"]`
   );
   assert(
-    collapseAria === "false",
-    "Collapse caret reports aria-expanded=false",
-    `aria-expanded=${collapseAria}`,
-    "Program tab → day card → caret button"
+    (await collapsedCaret.isVisible()) && (await collapsedCaret.getAttribute("aria-expanded")) === "false",
+    "A collapsed day exposes an aria-expanded=false caret",
+    `Caret state was not collapsed for ${collapsedDay}`,
+    "Program tab → second day header"
   );
-  const collapsePref = await page.evaluate(() => {
-    try {
-      return JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").collapsedProgramDays || [];
-    } catch {
-      return [];
-    }
-  });
+  await collapsedCaret.click();
+  await page.waitForTimeout(120);
+  const revealed = await page
+    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="day-body"]`)
+    .isVisible();
   assert(
-    collapsePref.includes(collapseDay),
-    "Collapsed day is stored in UI prefs",
-    `Prefs: ${JSON.stringify(collapsePref)}`,
-    "Collapse a day → inspect localStorage repforge_ui_v1"
+    revealed,
+    "The collapsed-day caret reveals its exercises",
+    `Exercise list stayed hidden for ${collapsedDay}`,
+    "Program tab → collapsed day → disclosure caret"
   );
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("#log.view.active", { timeout: 8000 });
   await nav(page, "program");
-  const stillCollapsed = await page
-    .locator(`#programEditor .pday[data-day="${collapseDay}"]`)
+  const resetExpanded = await page
+    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"]`)
+    .evaluate((el) => el.classList.contains("is-expanded"));
+  const resetCollapsed = await page
+    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"]`)
     .evaluate((el) => el.classList.contains("is-collapsed"));
   assert(
-    stillCollapsed,
-    "Collapsed day survives a reload",
-    `${collapseDay} re-rendered expanded`,
-    "Collapse a day → reload → Program tab"
+    resetExpanded && resetCollapsed,
+    "A reload restores one expanded day as the editor's scannable default",
+    `expanded=${resetExpanded}, collapsed=${resetCollapsed}`,
+    "Expand the second day → reload → Program tab"
   );
-  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
-  await page.waitForTimeout(120);
 
   beginPhase("\nPhase: exercise session notes + exercise page");
   await nav(page, "log");
@@ -9167,15 +9227,18 @@ async function main() {
   await driveRecommendOnboarding(page, { days: 3, experience: "first", activate: false });
   const activeBeforeCandidateEdit = await page.evaluate(() => localStorage.getItem("repforge_v1"));
   await page.click("#entryEdit");
-  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 8000 });
-  await page.waitForSelector("#programEditor .pex", { timeout: 8000 });
-  const candidateNote = page.locator('#programEditor .pex [data-field="notes"]').first();
+  await page.waitForSelector('#onbProgramEditor [data-role="exercise"]', { timeout: 8000 });
+  await page.locator('#onbProgramEditor [data-role="day-menu"]').first().click();
+  await page.locator('#onbProgramEditor [data-role="toggle-reorder"]').first().click();
+  await page.locator('#onbProgramEditor [data-role="exercise-menu"]').first().click();
+  await page.locator('#onbProgramEditor [data-role="more-details"][role="menuitem"]').first().click();
+  const candidateNote = page.locator('#onbProgramEditor [data-role="exercise-field"][data-field="notes"]').first();
   await candidateNote.fill("Simulation candidate edit");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit");
   const editState = await page.evaluate(() => ({
     activeRaw: localStorage.getItem("repforge_v1"),
     draft: JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}"),
-    editorVisible: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+    editorVisible: !!document.querySelector('#onbProgramEditor [data-role="editor"]'),
   }));
   assert(
     editState.activeRaw === activeBeforeCandidateEdit &&

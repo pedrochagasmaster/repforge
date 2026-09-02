@@ -174,30 +174,27 @@ async function capture(page, { lang, program, rows, current, unit = "kg", rirMod
   }, current || []);
 }
 
-async function openProgressionEditor(page) {
+async function openInstalledEditor(page, id = "ex0") {
   await page.click('nav button[data-view="program"]');
   if (await page.locator("#programEditorWrap").evaluate((el) => el.classList.contains("is-hidden"))) {
     await page.click("#programEditToggle");
   }
-  const details = page.locator('[data-progression-editor="ex0"]');
-  if (!(await details.evaluate((el) => el.open))) await details.locator("summary").click();
-  return details;
+  await page.waitForSelector('#programEditor [data-role="editor"]');
+  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`);
+  await row.waitFor();
+  if (!(await row.evaluate((element) => element.classList.contains("is-expanded")))) {
+    await row.locator('[data-role="toggle-exercise"]').click();
+  }
+  return row;
 }
 
 async function storedSlot(page) {
   return page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.find((ex) => ex.id === "ex0"), KEY);
 }
 
-async function chooseStrategy(page, details, strategy) {
-  await details.locator("[data-progression-strategy]").selectOption(strategy);
-}
-
-async function setFormValues(details, values) {
-  for (const [name, value] of Object.entries(values)) await details.locator(`[name="${name}"]`).fill(String(value));
-}
-
-async function saveStrategy(details) {
-  await details.locator('button[type="submit"]').click();
+async function applyInstalledEditor(page) {
+  await page.click("#programEditToggle");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
 }
 
 async function workoutSurface(page) {
@@ -440,84 +437,34 @@ try {
   assert(legacy.rec.status === "add", "a slot with no prescription still runs range@1", legacy.rec.status);
   assert(legacy.rec.strategy === undefined, "range@1 keeps its released result shape");
 
-  console.log("strategy editor");
-  let details = await openProgressionEditor(page);
-  await chooseStrategy(page, details, "rep_goal");
-  await details.locator("[data-progression-strategy]").focus();
-  await page.keyboard.press("Tab");
-  assert(await page.evaluate(() => document.activeElement?.getAttribute("name")) === "sets",
-    "the editor's keyboard order moves from method to its first value");
-  const editorA11y = await details.evaluate((element) => ({
-    unlabeled: [...element.querySelectorAll("input, select")].filter((control) => !control.closest("label")?.querySelector("span")?.textContent?.trim()).length,
-    errorRole: element.querySelector("[data-progression-error]")?.getAttribute("role"),
-    saveHeight: Math.round(element.querySelector('button[type="submit"]')?.getBoundingClientRect().height || 0),
+  console.log("installed editor prescription preservation");
+  await capture(page, { lang: "en", program: repGoalProgram, rows: [] });
+  let editorRow = await openInstalledEditor(page);
+  const editorShape = await editorRow.evaluate((element) => ({
+    summary: element.querySelector('[data-role="exercise-summary"]')?.textContent?.trim(),
+    sets: element.querySelector('[data-role="sets-value"]')?.textContent?.trim(),
+    min: element.querySelector('[data-field="min"]')?.value,
+    max: element.querySelector('[data-field="max"]')?.value,
   }));
-  assert(editorA11y.unlabeled === 0 && editorA11y.errorRole === "alert" && editorA11y.saveHeight >= 44,
-    "editor controls have labels, an announced error, and a touch-sized save action", JSON.stringify(editorA11y));
-  await setFormValues(details, {
-    sets: 4, repGoal: 32, repMin: 6, repMax: 10, rirMin: 1, rirMax: 3, increment: 2.5, jump: 2.5,
-  });
-  await saveStrategy(details);
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.[0]?.progression?.strategy?.id === "rep_goal", KEY);
-  let authored = await storedSlot(page);
-  assert(authored.sets === 4 && authored.progression.strategy.params.workingSets === 4,
-    "total-rep authoring keeps workout rows equal to the authored set count", JSON.stringify(authored));
-  assert(await page.locator('#programEditor input[data-id="ex0"][data-field="sets"]').isDisabled(),
-    "the general set field cannot drift an authored prescription");
+  assert(editorShape.summary === "3 × 6–12" && editorShape.sets === "3" && editorShape.min === "6" && editorShape.max === "12",
+    "the installed editor renders the authored prescription shape", JSON.stringify(editorShape));
+  await page.locator('#programEditor [data-role="program-name"]').fill("Strategy fixture edited");
+  await applyInstalledEditor(page);
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta?.name === "Strategy fixture edited", KEY);
+  const authored = await storedSlot(page);
+  assert(JSON.stringify(authored.progression) === JSON.stringify(REP_GOAL),
+    "an ordinary staged edit preserves the authored progression", JSON.stringify(authored.progression));
 
-  details = await openProgressionEditor(page);
-  await setFormValues(details, { repGoal: 10 });
-  await saveStrategy(details);
-  assert((await details.locator("[data-progression-error]").textContent()).trim().length > 0,
-    "an impossible total-rep prescription is rejected explicitly");
-  authored = await storedSlot(page);
-  assert(authored.progression.strategy.params.repGoal === 32 && authored.sets === 4,
-    "rejected values never replace the last valid prescription");
-
-  await chooseStrategy(page, details, "effort_target");
-  await setFormValues(details, { sets: 3, targetReps: 5, rirMin: 2, rirMax: 3, increment: 2.5 });
-  await saveStrategy(details);
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.[0]?.progression?.strategy?.id === "effort_target", KEY);
-  authored = await storedSlot(page);
-  assert(authored.sets === 3 && authored.min === 5 && authored.max === 5 && authored.progression.strategy.params.targetReps === 5,
-    "fixed-rep authoring keeps set count and reps aligned with the prescription", JSON.stringify(authored));
-
-  details = await openProgressionEditor(page);
-  await chooseStrategy(page, details, "anchor_backoff");
-  await setFormValues(details, {
-    anchorRepMin: 3, anchorRepMax: 5, rirMin: 1, rirMax: 3,
-    backoffSets: 4, backoffRepMin: 6, backoffRepMax: 10, backoffPercent: 80,
-    increment: 2.5, jump: 2.5,
-  });
-  await saveStrategy(details);
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.[0]?.progression?.strategy?.id === "anchor_backoff", KEY);
-  authored = await storedSlot(page);
-  assert(authored.sets === 5 && authored.progression.strategy.params.backoffSets === 4,
-    "heavy-plus-lighter authoring keeps workout rows at one plus lighter sets", JSON.stringify(authored));
-
-  details = await openProgressionEditor(page);
-  await chooseStrategy(page, details, "manual");
-  await saveStrategy(details);
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.[0]?.progression?.strategy?.id === "manual", KEY);
-  const manual = await page.evaluate(() => {
-    const P = window.__repforgeProgression;
-    const ex = P.programSlot("ex0"), rec = P.recommendation(ex);
-    return { rec, suggestion: P.setSuggestion(ex, 1, rec, { __done: [], __warm: [], __touched: [] }, null) };
-  });
-  assert(manual.rec.status === "manual" && manual.suggestion.load === null && manual.suggestion.reps === null,
-    "manual authoring remains target-free", JSON.stringify(manual));
-
-  const ptEditor = await capture(page, { lang: "pt", program: legacySlot, rows: [] });
-  void ptEditor;
-  details = await openProgressionEditor(page);
-  assert((await details.locator("summary").textContent()).includes("Progressão") &&
-    (await details.locator("[data-progression-strategy] option").allTextContents()).some((text) => text.includes("Total de repetições")),
-  "the editor is usable in Portuguese");
+  await capture(page, { lang: "pt", program: legacySlot, rows: [] });
+  editorRow = await openInstalledEditor(page);
+  const ptEditor = await page.locator('#programEditor [data-role="editor"]').innerText();
+  assert(/Nome do programa/i.test(ptEditor) && /Substituir exercício/i.test(ptEditor) && /Remover exercício/i.test(ptEditor),
+    "the installed editor is usable in Portuguese", ptEditor);
   await page.setViewportSize({ width: 320, height: 800 });
   await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
-  const largeText = await details.evaluate((element) => ({
+  const largeText = await editorRow.evaluate((element) => ({
     pageOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    fields: [...element.querySelectorAll("input, select, button")].filter((control) => control.getBoundingClientRect().right > document.documentElement.clientWidth + 1).length,
+    fields: [...element.querySelectorAll("input, button")].filter((control) => control.getBoundingClientRect().right > document.documentElement.clientWidth + 1).length,
   }));
   assert(largeText.pageOverflow <= 1 && largeText.fields === 0,
     "the editor keeps controls on-screen at 320px with large text", JSON.stringify(largeText));
@@ -529,18 +476,14 @@ try {
     schemaVersion: 9, strategy: { id: "future_strategy", version: 9, params: { authored: true } }, modifiers: [],
   } });
   await capture(page, { lang: "en", program: futureSlot, rows: [] });
-  details = await openProgressionEditor(page);
-  assert(await details.locator('[data-progression-strategy]').inputValue() === "unsupported" &&
-    await details.locator('button[type="submit"]').isDisabled(),
-  "an unsupported imported method is named and cannot be silently saved as range");
+  await openInstalledEditor(page);
   const beforeFuture = (await storedSlot(page)).progressionIncompatibility;
-  const notes = page.locator('#programEditor input[data-id="ex0"][data-field="notes"]');
-  await notes.fill("Keep imported data");
-  await notes.blur();
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.[0]?.notes === "Keep imported data", KEY);
+  await page.locator('#programEditor [data-role="program-name"]').fill("Keep imported data");
+  await applyInstalledEditor(page);
+  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta?.name === "Keep imported data", KEY);
   const afterFuture = (await storedSlot(page)).progressionIncompatibility;
   assert(JSON.stringify(afterFuture) === JSON.stringify(beforeFuture),
-    "ordinary exercise edits preserve unsupported future progression provenance");
+    "ordinary staged edits preserve unsupported future progression provenance");
 } finally {
   await browser.close();
 }

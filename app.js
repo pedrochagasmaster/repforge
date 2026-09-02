@@ -6176,8 +6176,13 @@ function editorChooseExercise(request){
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
     if(request?.mode==="alternates"){
       options.mode="multi";
-      const selected=(request.exercise?.alternates||[]).map(name=>pickableExercises().find(entry=>foldSearch(libraryName(entry))===foldSearch(name))?.id).filter(Boolean);
-      options.selected=selected}
+      const byName=new Map(pickableExercises().map(entry=>[foldSearch(libraryName(entry)),entry.id]));
+      const selected=[],extras=[];
+      for(const name of request.exercise?.alternates||[]){
+        const match=byName.get(foldSearch(name));
+        if(match){selected.push(match);continue}
+        const extra=nameOnlyEntry(name);extras.push(extra);selected.push(extra.id)}
+      options.selected=selected;options.extras=extras}
     openExercisePicker(options)})}
 function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
 function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
