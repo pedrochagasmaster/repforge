@@ -9928,6 +9928,7 @@ function renderOnboarding(){
   const focusToken=entryFocusToken();
   const onboarding=$("#onboarding");
   const screenKey=entryScreenKey();
+  const environmentCorrectionOpen=screenKey===entryVisibleScreenKey&&body.querySelector(".entry__correct")?.open===true;
   if(onboarding&&screenKey!==entryVisibleScreenKey){
     onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
     onboarding.scrollTop=0;onboarding.scrollLeft=0;
@@ -9999,6 +10000,8 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
+  const environmentCorrection=body.querySelector(".entry__correct");
+  if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
   const validation=$("#entryValidation");
   if(validation){
     const lede=body.querySelector(".onb__explain"),heading=body.querySelector(".onb__q");
