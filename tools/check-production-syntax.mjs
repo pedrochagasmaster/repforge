@@ -20,6 +20,7 @@ const expected = [
   "notify.js",
   "posthog-init.js",
   "program-compiler.js",
+  "program-editor.js",
   "program-entry-adapter.js",
   "program-entry.js",
   "progression-engine.js",
