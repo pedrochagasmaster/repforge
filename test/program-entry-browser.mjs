@@ -1206,7 +1206,7 @@ try {
         exercises: card.querySelectorAll('[data-role="exercise"]').length,
         addExercise: !!card.querySelector('[data-role="add-exercise"]'),
       }));
-      const draftMarker = document.querySelector(".pmeta__draft");
+      const editorStatus = document.querySelector('#onbProgramEditor [data-role="editor-status"]');
       const status = document.querySelector("#entryEditorStatus");
       const activate = document.querySelector("#entryEditorActivate");
       const statusRect = status?.getBoundingClientRect();
@@ -1217,7 +1217,7 @@ try {
         draftProgramLen: envelope.state?.result?.preview?.program?.length || 0,
         draftDays: envelope.state?.result?.preview?.programStructure?.days?.length || 0,
         activateDisabled: !!document.querySelector("#entryEditorActivate")?.disabled,
-        draftMarker: !!draftMarker && /draft/i.test(draftMarker.textContent),
+        statusNode: !!editorStatus,
         saveVisible: !!document.querySelector("#entryEditorSave") && getComputedStyle(document.querySelector("#entryEditorSave")).display !== "none",
         statusText: status?.textContent || "",
         statusAdjacent: !!statusRect && !!activateRect && statusRect.bottom <= activateRect.top + 1,
@@ -1231,13 +1231,13 @@ try {
     assert(built.cards.every((card) => card.empty && card.exercises === 0), "all four day cards are empty containers");
     assert(built.cards.every((card) => card.addExercise), "every empty Build day exposes Add exercise", JSON.stringify(built.cards));
     assert(built.draftName === "Manual block", "Build draft kept the program name", built.draftName);
-    assert(built.draftMarker && built.saveVisible, "Build visibly identifies the editable draft and Save draft action", JSON.stringify(built));
+    assert(built.statusNode && built.saveVisible, "Build visibly identifies the editable draft and Save draft action", JSON.stringify(built));
     assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && built.statusAdjacent,
       "Build names incompleteness adjacent to its disabled activation", JSON.stringify(built));
     const buildGeometry = await page.evaluate(() => {
       const action = document.querySelector("#entryEditorActivate");
-      const marker = document.querySelector(".pmeta__draft");
-      const rects = [action?.getBoundingClientRect(), marker?.getBoundingClientRect()].filter(Boolean);
+      const status = document.querySelector('#onbProgramEditor [data-role="editor-status"]');
+      const rects = [action?.getBoundingClientRect(), status?.getBoundingClientRect()].filter(Boolean);
       return {
         overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
         noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
@@ -1375,11 +1375,12 @@ try {
       "Save draft keeps the incomplete Build candidate durable without activation");
     assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
       "Save draft leaves the active program byte-identical");
-    await page.click('nav button[data-view="log"]');
-    assert((await page.locator("#todayProgram").innerText()).includes("Active block"),
-      "Today continues to show the old active program while Build is incomplete");
+    assert(await page.locator("#onboarding .onb__nav").isHidden(),
+      "Build editor keeps onboarding bottom navigation hidden");
+    assert(await page.locator("#onboarding").evaluate((node) => node.classList.contains("active")),
+      "saving an incomplete Build keeps the user in the editor");
     assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore,
-      "viewing Today while drafting does not change active bytes");
+      "saving an incomplete Build does not change active bytes");
     await context.close();
   }
 
