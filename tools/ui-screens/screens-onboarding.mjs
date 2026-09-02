@@ -442,6 +442,12 @@ export async function focusOnboardingSubject(page, key) {
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
     window.scrollTo(0, 0);
+    const onboarding = document.querySelector("#onboarding");
+    if (onboarding) {
+      onboarding.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+      onboarding.scrollTop = 0;
+      onboarding.scrollLeft = 0;
+    }
     if (sel) document.querySelector(sel)?.scrollIntoView({ block: "center", inline: "nearest" });
   }, FOCUS_SELECTOR[key] || null);
   await sleep(page, 200);

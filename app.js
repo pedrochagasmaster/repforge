@@ -8356,7 +8356,7 @@ const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
 const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -8517,7 +8517,7 @@ function programmingContextFromAnswers(answers){
     priorityMovements:answers.priorityMovements||[],
     exerciseConstraints:answers.exerciseConstraints||[],
     reviewedAt:entryNow()})}
-function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
+function showOnboardingView(){entryVisibleScreenKey=null;$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
   $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
 function entryHistoryState(active=true){
   const current=history.state&&typeof history.state==="object"?history.state:{};
@@ -9432,6 +9432,10 @@ function entryFocusToken(){
   if(el.dataset.entryCatalogue)return{kind:"catalogue",value:el.dataset.entryCatalogue};
   return null;
 }
+function entryScreenKey(){
+  const notice=entryUiNotice||
+    (entryValidationNotice?"validation":entryCompileError?(entryCompileError.code||"compile-error"):"");
+  return [notice,entryState?.route||"",entryState?.step||""].join("|")}
 function restoreEntryFocus(token){
   if(!token)return false;
   let el=null;
@@ -9468,6 +9472,13 @@ function renderOnboarding(){
   if(!body||!ProgramEntry||!entryState)return;
   collapseSingleCustomShape();
   const focusToken=entryFocusToken();
+  const onboarding=$("#onboarding");
+  const screenKey=entryScreenKey();
+  if(onboarding&&screenKey!==entryVisibleScreenKey){
+    onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
+    onboarding.scrollTop=0;onboarding.scrollLeft=0;
+  }
+  entryVisibleScreenKey=screenKey;
   const route=entryState.route,stepId=entryState.step;
   $("#onboarding")?.classList.toggle("entry-hub-active",!route||stepId==="entry");
   /* On a single-step route the chrome eyebrow and the page heading are the

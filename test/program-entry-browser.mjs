@@ -103,6 +103,123 @@ async function seedActiveProgram(page, { libraryId = "row_cable", exerciseName =
   }
 }
 
+async function openFreshEntryAt(browser, viewport) {
+  const { context, page } = await openFresh(browser);
+  await page.setViewportSize(viewport);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  await page.click("#firstRunCreate");
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
+  return { context, page };
+}
+
+async function parkOnboardingScroll(page) {
+  return page.evaluate(() => {
+    const onboarding = document.querySelector("#onboarding");
+    if (!onboarding) return { max: 0, before: 0 };
+    const max = Math.max(0, onboarding.scrollHeight - onboarding.clientHeight);
+    const before = Math.min(120, max);
+    onboarding.scrollTop = before;
+    onboarding.scrollLeft = 7;
+    return { max, before, after: onboarding.scrollTop };
+  });
+}
+
+async function onboardingGeometry(page) {
+  return page.evaluate(() => {
+    const onboarding = document.querySelector("#onboarding");
+    const heading = document.querySelector("#entryHeading");
+    const headingRect = heading?.getBoundingClientRect();
+    const onboardingRect = onboarding?.getBoundingClientRect();
+    const step = document.querySelector("#onbStepLabel")?.textContent.trim() || "";
+    return {
+      scrollTop: Math.round(onboarding?.scrollTop || 0),
+      scrollLeft: Math.round(onboarding?.scrollLeft || 0),
+      headingTop: headingRect ? Math.round(headingRect.top) : null,
+      headingBottom: headingRect ? Math.round(headingRect.bottom) : null,
+      viewportTop: onboardingRect ? Math.round(onboardingRect.top) : 0,
+      viewportBottom: onboardingRect ? Math.round(onboardingRect.bottom) : window.innerHeight,
+      headingVisible: !!headingRect && headingRect.top >= (onboardingRect?.top || 0) - 1 &&
+        headingRect.bottom <= (onboardingRect?.bottom || window.innerHeight) + 1,
+      step,
+    };
+  });
+}
+
+async function assertOnboardingTransition(page, check, label, action) {
+  const parked = await parkOnboardingScroll(page);
+  await action();
+  await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 25000 });
+  await page.waitForTimeout(20);
+  const geometry = await onboardingGeometry(page);
+  check(geometry.scrollTop === 0 && geometry.scrollLeft === 0 && geometry.headingVisible,
+    `${label} resets onboarding scroll and exposes its heading`, JSON.stringify({ parked, geometry }));
+  return geometry;
+}
+
+async function runOnboardingScrollRegression(browser, check) {
+  for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }]) {
+    const { context, page } = await openFreshEntryAt(browser, viewport);
+    try {
+      const routeEntry = await assertOnboardingTransition(page, check, `${viewport.width}px route entry`,
+        () => page.click('[data-entry-route="recommend"]'));
+      check(/1 of 5/i.test(routeEntry.step), `${viewport.width}px route entry exposes progress context`, routeEntry.step);
+
+      await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+      await assertOnboardingTransition(page, check, `${viewport.width}px Next to background`,
+        () => page.click("#onbNext"));
+      await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+      await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+      await assertOnboardingTransition(page, check, `${viewport.width}px Next to schedule`,
+        () => page.click("#onbNext"));
+      await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+      await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+      await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+      await assertOnboardingTransition(page, check, `${viewport.width}px Next to environment`,
+        () => page.click("#onbNext"));
+      check(/4 of 5/i.test((await onboardingGeometry(page)).step),
+        `${viewport.width}px environment keeps progress context`, await onboardingGeometry(page));
+
+      await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+      await assertOnboardingTransition(page, check, `${viewport.width}px Next to priorities`,
+        () => page.click("#onbNext"));
+
+      const sameStepBefore = await parkOnboardingScroll(page);
+      await page.evaluate(() => document.querySelector('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]')?.click());
+      await page.waitForTimeout(20);
+      const sameStepAfter = await onboardingGeometry(page);
+      check(sameStepBefore.before > 0 && sameStepAfter.scrollTop === sameStepBefore.before,
+        `${viewport.width}px same-step selection preserves intentional scroll`,
+        JSON.stringify({ before: sameStepBefore, after: sameStepAfter }));
+
+      await assertOnboardingTransition(page, check, `${viewport.width}px Next to recommendation result`,
+        () => page.click("#onbNext"));
+      await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 25000 });
+      const resultGeometry = await onboardingGeometry(page);
+      check(resultGeometry.scrollTop === 0 && resultGeometry.headingVisible && resultGeometry.headingTop < 220,
+        `${viewport.width}px recommendation result starts at title region`, JSON.stringify(resultGeometry));
+
+      await assertOnboardingTransition(page, check, `${viewport.width}px Back to priorities`,
+        () => page.click("#onbBack"));
+      await assertOnboardingTransition(page, check, `${viewport.width}px Back to environment`,
+        () => page.click("#onbBack"));
+      const environmentGeometry = await onboardingGeometry(page);
+      check(/4 of 5/i.test(environmentGeometry.step) && environmentGeometry.headingTop < 220,
+        `${viewport.width}px environment correction opens at title/progress region`,
+        JSON.stringify(environmentGeometry));
+      await page.evaluate(() => document.querySelector(".entry__correct > summary")?.click());
+      await page.waitForTimeout(20);
+      const correctionGeometry = await onboardingGeometry(page);
+      check(correctionGeometry.scrollTop === 0 && correctionGeometry.headingVisible &&
+        await page.locator(".entry__correct").getAttribute("open") !== null,
+        `${viewport.width}px environment correction keeps title region visible`,
+        JSON.stringify(correctionGeometry));
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 const browser = await launchChromium();
 try {
   console.log("\nFirst-run legacy import stages a preview before activation");
@@ -580,6 +697,9 @@ try {
     assert(exportShapes.sharedHasContext === false, "shared-setup shape excludes programmingContext by construction");
     await context.close();
   }
+
+  console.log("\nOnboarding route transitions reset only semantic screen changes");
+  await runOnboardingScrollRegression(browser, assert);
 
   console.log("\nRecommend preserves compiler paired-exposure relations through activation");
   {
