@@ -35,6 +35,7 @@ try {
   assert.equal(await page.locator("#entryRebuildRules").count(), 1, `resume exposes a rebuild action when rules changed: ${await page.locator("#onbBody").innerText()}`);
   assert.match(await page.locator("#onbBody").innerText(), /changed|alterad|rebuild|rebuild/i, "resume explains the rules drift");
   await page.click("#entryRebuildRules");
+  await page.waitForSelector("#entryRebuildRules", { state: "detached", timeout: 5000 });
   assert.equal(await page.locator("#entryRebuildRules").count(), 0, "rebuild clears the drift notice");
   console.log("program-entry rules drift: resume/rebuild UI proof passes");
 } finally { await context.close(); await browser.close(); }
