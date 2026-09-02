@@ -34,7 +34,7 @@ export function assert(cond, name, detail) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.waitForFunction(
     () => typeof window.__repforgeStorage === "object" && typeof window.__repforgeStorage.flush === "function",
     { timeout: 15000 }
@@ -426,6 +426,8 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await clearState(page);
+  // A cleared device has no program, so Today offers no session to start.
+  await persistState(page, sampleState({ log: [] }));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
@@ -880,6 +882,9 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await clearState(page);
+  // The overdue banner is a statement about a program, so seed one: a cleared
+  // device holds none.
+  await persistState(page, sampleState({ log: [] }));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), KEY);

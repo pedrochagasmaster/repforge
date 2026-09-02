@@ -225,7 +225,7 @@ async function readBoth(page) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.waitForFunction(
     () => typeof window.__repforgeStorage === "object" && typeof window.__repforgeStorage.flush === "function",
     { timeout: 15000 }

@@ -13,6 +13,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const DRAFT = "repforge_draft_v1";
@@ -61,7 +62,7 @@ window.__scrim = (sel) => {
 `;
 
 async function settle(page) {
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -116,6 +117,8 @@ async function run() {
     window.stopRest();
     localStorage.removeItem(d);
   }, DRAFT);
+  // The sheets under test describe a program; a fresh device holds none.
+  await installSeedProgram(page, { waitFor: settle });
 
   // ---- the program-text sheet: the whole grammar of the gesture ---------------
   phase("a long push down dismisses the sheet");

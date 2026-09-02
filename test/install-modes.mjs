@@ -167,7 +167,7 @@ async function bannerPage(browser, { ua, locale = "en-US", width = 393, native =
     timeout: 8000,
   });
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   if (native) await page.evaluate(() => window.__fireInstall());
   await page.waitForSelector("#installBanner:not(.hidden)", { timeout: 8000 });
   // The copy is measured in characters of a web font.
@@ -632,7 +632,7 @@ async function run() {
     assert(committed.log, "and lands on Today", JSON.stringify(committed));
 
     await page.reload({ waitUntil: "domcontentloaded" });
-    await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+    await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
     await page.waitForTimeout(300);
     assert(
       await page.evaluate(() => document.querySelector("#firstRun").classList.contains("hidden")),

@@ -2,6 +2,7 @@
 /** Focused Playwright checks for History indexing and operability. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
+import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -20,7 +21,7 @@ function assert(cond, name, detail) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.waitForFunction(
     () => typeof window.__repforgeStorage === "object" && typeof window.__repforgeStorage.flush === "function",
     { timeout: 15000 }
@@ -674,6 +675,8 @@ async function main() {
     await clearState(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
+    // History describes sessions against a program; a cleared device has none.
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
 
     console.log("\nHistory index");
     await runHistoryIndexChecks(page, assert);

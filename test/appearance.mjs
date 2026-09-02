@@ -37,7 +37,7 @@ function assert(cond, name, detail) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 10000 });
   await page.evaluate(() => {
     window.closeFirstRun?.();
     if (document.querySelector("#onboarding")?.classList.contains("active")) window.closeOnboarding?.();

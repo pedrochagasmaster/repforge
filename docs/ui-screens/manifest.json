@@ -532,6 +532,13 @@
       "variants": "standard"
     },
     {
+      "id": "no-program",
+      "flow": "today",
+      "label": "Today — no program",
+      "scenario": "Nothing onboarded, the state after backing out of setup: no session is offered and the way back in is the only control.",
+      "variants": "standard"
+    },
+    {
       "id": "day-picker",
       "flow": "today",
       "label": "Today — choose another day",
@@ -669,6 +676,13 @@
       "flow": "program",
       "label": "Program",
       "scenario": "The current program and its days.",
+      "variants": "standard"
+    },
+    {
+      "id": "no-program",
+      "flow": "program",
+      "label": "Program — no program",
+      "scenario": "Nothing onboarded: the tab offers setup instead of an empty program summary.",
       "variants": "standard"
     },
     {

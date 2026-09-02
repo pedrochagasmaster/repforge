@@ -85,6 +85,14 @@
           </div>
         </div>
         <div id="todayProgram" class="today-prog hidden"></div>
+        <!-- A device that has not been through onboarding has no program. Today
+             says exactly that and points back at the entry hub, rather than
+             offering a session the lifter never chose. -->
+        <div id="todayNoProgram" class="emptystate emptystate--today hidden">
+          <p class="emptystate__title" data-i18n="today.no_program.title">No program yet</p>
+          <p class="emptystate__body" data-i18n="today.no_program.body">Taurifer plans your sessions from a program. Set one up and today's training appears here.</p>
+          <button type="button" class="btn btn--cta" id="todaySetupProgram" data-i18n="today.no_program.cta">Set up a program</button>
+        </div>
         <p class="section-label" id="todaySessionLabel" data-i18n="today.session_label">Today's session</p>
         <div id="todaySession" class="today-session"></div>
         <button type="button" class="btn btn--cta" id="startWorkout"><span data-i18n="today.start">Start workout</span></button>
@@ -92,9 +100,9 @@
         <button type="button" class="text-link text-link--center" id="viewExercises" data-i18n="today.view_exercises">View exercises</button>
         <button type="button" class="btn btn--steel hidden" id="reviewTodaySession" data-i18n="today.done_review">View today's session</button>
         <button type="button" class="text-link text-link--center hidden" id="logAnotherSession" data-i18n="today.done_another">Log another session</button>
-        <p class="section-label" data-i18n="today.this_week">This week</p>
+        <p class="section-label" id="todayWeekLabel" data-i18n="today.this_week">This week</p>
         <div id="todayWeek" class="today-week"></div>
-        <p class="section-label" data-i18n="today.up_next">Up next</p>
+        <p class="section-label" id="todayUpNextLabel" data-i18n="today.up_next">Up next</p>
         <div id="todayUpNext" class="today-upnext"></div>
         <div id="todayLast" class="today-footer"></div>
         <button type="button" class="eyebrow eyebrow--link hidden" id="logContext" data-i18n="log.context.today">Today's session</button>
@@ -263,6 +271,14 @@
         <div class="pagehead__actions">
           <button type="button" class="link-accent" id="programEditToggle" data-i18n="program.edit">Edit</button>
         </div>
+      </div>
+      <!-- Same rule as Today: with nothing onboarded there is no program to
+           describe, so the tab offers the way in rather than an empty shell of
+           a summary with zeroes in every stat. -->
+      <div id="programNoProgram" class="emptystate emptystate--today hidden">
+        <p class="emptystate__title" data-i18n="today.no_program.title">No program yet</p>
+        <p class="emptystate__body" data-i18n="program.no_program.body">Set one up and its training days, volume and progression settings live here.</p>
+        <button type="button" class="btn btn--cta" id="programSetupProgram" data-i18n="today.no_program.cta">Set up a program</button>
       </div>
       <div id="programOverview"></div>
       <div id="programMeta" class="pmeta visually-hidden" data-i18n-aria="program.summary_aria" aria-label="Program summary"></div>
@@ -923,7 +939,7 @@
   <script src="program-entry.js"></script>
   <script src="program-entry-adapter.js"></script>
   <script src="program-editor.js?v=168"></script>
-  <script src="shared-setup.js?v=170"></script>
-  <script src="app.js?v=170"></script>
+  <script src="shared-setup.js?v=171"></script>
+  <script src="app.js?v=171"></script>
 </body>
 </html>

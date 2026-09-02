@@ -33,7 +33,7 @@ async function clearState(page) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 10000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -64,6 +64,33 @@ async function persistState(page, state) {
     },
     { k: KEY, blob: state }
   );
+}
+
+/**
+ * The two-day program these cases log against. A device that has not been
+ * through onboarding holds no program, so the gate needs one seeded rather than
+ * read off a bundled default.
+ */
+function gateProgram() {
+  return [
+    { id: "gate-ex-1", day: "Day 1", order: 1, name: "Hack squat", sets: 2, min: 4, max: 8,
+      primary: "Quads", secondary: "Glutes" },
+    { id: "gate-ex-2", day: "Day 1", order: 2, name: "Seated leg curl", sets: 2, min: 4, max: 8,
+      primary: "Hamstrings", secondary: "" },
+    { id: "gate-ex-3", day: "Day 2", order: 1, name: "Chest press", sets: 2, min: 4, max: 8,
+      primary: "Chest", secondary: "Front delts,Triceps" },
+  ];
+}
+function gateProgramMeta() {
+  return {
+    id: "gate-program", name: "Gate program", started: null,
+    created: "2025-01-01T00:00:00.000Z", updated: "2025-01-01T00:00:00.000Z",
+    goal: null, experience: null, daysPerWeek: 2, splitType: null, equipment: [],
+    priorityMuscles: [], sessionLength: null, mesocycleLengthWeeks: 6,
+    mesocycleStatus: "active", completedAt: null, onboarded: true,
+    progressionRelations: [], progressionModifiers: [], progressionIncompatibilities: [],
+    programStructure: null, entrySource: null,
+  };
 }
 
 function setRows(ex, day, date, load, setSpecs) {
@@ -134,16 +161,14 @@ for (const c of cases) {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
-  const meta = await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-    const ex = (raw.program || []).find((e) => e.day === "Day 1") || (raw.program || [])[0];
-    return ex;
-  });
+  const meta = gateProgram()[0];
   const mid = Math.max(meta.min, Math.min(meta.max - 1, meta.min + 1));
   const rows = c.build(meta, meta.day, mid);
 
   const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), KEY);
-  await persistState(page, { ...state, log: rows });
+  await persistState(page, {
+    ...state, program: gateProgram(), programMeta: gateProgramMeta(), log: rows,
+  });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
@@ -171,17 +196,16 @@ await clearState(page);
 await page.reload({ waitUntil: "domcontentloaded" });
 await waitForApp(page);
 {
-  const meta = await page.evaluate(() => {
-    const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
-    return (raw.program || []).find((e) => e.day === "Day 1") || (raw.program || [])[0];
-  });
+  const meta = gateProgram()[0];
   const mid = Math.max(meta.min, Math.min(meta.max - 1, meta.min + 1));
   const rows = [
     ...setRows(meta, meta.day, "2025-03-01", 60, [{ reps: mid, rir: 1 }, { reps: mid, rir: 1 }]),
     ...setRows(meta, meta.day, "2025-03-08", 60, [{ reps: mid + 1, rir: 0 }, { reps: mid, rir: 0 }]),
   ];
   const state = await page.evaluate((k) => JSON.parse(localStorage.getItem(k)), KEY);
-  await persistState(page, { ...state, log: rows });
+  await persistState(page, {
+    ...state, program: gateProgram(), programMeta: gateProgramMeta(), log: rows,
+  });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   const attn = await page.evaluate((name) => {

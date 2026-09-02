@@ -84,7 +84,7 @@ async function dismissOnboardingIfPresent(page) {
 }
 
 async function waitForApp(page, { dismissOnboarding = true } = {}) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 10000 });
   if (dismissOnboarding) await dismissOnboardingIfPresent(page);
   await page.waitForFunction(() => typeof window.detectPRs === "function", { timeout: 10000 });
 }
@@ -9916,7 +9916,7 @@ async function main() {
     );
     const noConfigBoot = optionalDeploymentAsset?.optionalMissing
       ? await pwaPage.evaluate(() => ({
-        appReady: typeof window.__repforgeStorage?.flush === "function" && !!document.querySelector("#dayTabs button"),
+        appReady: typeof window.__repforgeStorage?.flush === "function" && window.__repforgeBooted === true,
         telemetryBoundaryReady: typeof window.RepForgeTelemetry?.boot === "function",
         configAbsent: typeof window.__POSTHOG_CONFIG__ === "undefined",
       }))

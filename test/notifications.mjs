@@ -38,7 +38,7 @@ async function clearState(page) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 10000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -76,6 +76,47 @@ async function persistState(page, state) {
   );
 }
 
+/**
+ * A three-day program to hang the notification cases on. A device that has not
+ * been through onboarding holds no program at all, so these surfaces — overdue
+ * banners, missed-session reminders, the unfinished-draft prompt — need one
+ * seeded explicitly rather than harvested from a bundled default.
+ */
+const NOTIFY_ROWS = [
+  ["Day 1", 1, "Hack squat", "Quads", "Glutes"],
+  ["Day 1", 2, "Seated leg curl", "Hamstrings", ""],
+  ["Day 2", 1, "Chest press", "Chest", "Front delts,Triceps"],
+  ["Day 2", 2, "Seated row", "Mid/upper back", "Lats,Biceps"],
+  ["Day 3", 1, "Leg extension", "Quads", ""],
+  ["Day 3", 2, "Lateral raise", "Side delts", ""],
+];
+function notifyProgram() {
+  return NOTIFY_ROWS.map(([day, order, name, primary, secondary], i) => ({
+    id: `notify-ex-${i + 1}`, day, order, name, sets: 2, min: 4, max: 8, primary, secondary,
+  }));
+}
+function notifyProgramMeta() {
+  return {
+    id: "notify-program", name: "Notify program", started: null,
+    created: "2026-01-01T00:00:00.000Z", updated: "2026-01-01T00:00:00.000Z",
+    goal: null, experience: null, daysPerWeek: 3, splitType: null, equipment: [],
+    priorityMuscles: [], sessionLength: null, mesocycleLengthWeeks: 6,
+    mesocycleStatus: "active", completedAt: null, onboarded: true,
+    progressionRelations: [], progressionModifiers: [], progressionIncompatibilities: [],
+    programStructure: null, entrySource: null,
+  };
+}
+
+/** Install that program over the empty first-run state and reload onto it. */
+async function seedNotifyProgram(page) {
+  const base = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), KEY);
+  await persistState(page, {
+    ...base, program: notifyProgram(), programMeta: notifyProgramMeta(), log: [],
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+}
+
 async function freshPage(browser) {
   const context = await browser.newContext();
   await context.addInitScript(() => {
@@ -95,6 +136,7 @@ async function freshPage(browser) {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  await seedNotifyProgram(page);
   return { context, page };
 }
 
@@ -509,6 +551,7 @@ async function notifyContext(browser, adapter) {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  await seedNotifyProgram(page);
   return { context, page };
 }
 

@@ -150,6 +150,9 @@ test/generative/*/*.mjs`.
   the build.
 - **Appearance / dark theme** — lives in device-only UI prefs (`repforge_ui_v1`, key `theme`);
   never enters export/import, a state proposal, or the setup-link allowlist. See ADR 0009.
+- **No program before onboarding** — first-run state is `program: []` / `onboarded:false`. There is
+  no bundled starter split; Today and Program render their no-program state and point at the entry
+  hub, which is what backing out of onboarding leaves behind. See `AGENTS.md`.
 - **Setup links** — the first-run gate is the confirmation surface: persist nothing until
   **Start this program**, and never apply a payload when a program is onboarded or any
   log/history exists. Never log the payload, cookie, or full URL. 3,072-char hard cap;
