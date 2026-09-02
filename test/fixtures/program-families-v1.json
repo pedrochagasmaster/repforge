@@ -1,6 +1,7 @@
 {
   "schemaVersion": 1,
   "contractStatus": "owner_approved_executable",
+  "contract": "test/fixtures/program-family-contract-v1.json",
   "source": [
     "docs/plan-047-owner-approved-design.md",
     "docs/progression-effort-target-v1.md"
@@ -8,10 +9,10 @@
   "versions": {
     "schema": 1,
     "blueprint": 1,
-    "compiler": 1,
+    "compiler": 2,
     "catalogue": 1,
     "rules": 1,
-    "context": 1,
+    "context": 2,
     "recentConsistency": 1,
     "simpleStart": 1
   },

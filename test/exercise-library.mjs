@@ -32,8 +32,8 @@ const MUSCLES = new Set([
 ]);
 const EQUIPMENT = new Set(["barbell", "dumbbell", "cable", "machine", "smith", "bodyweight"]);
 
-/* Every slot the program generator can ask a day for. A slot with no
-   candidates makes generateProgramFromOnboarding silently skip an exercise. */
+/* Every slot the Plan 048 compiler can ask a day for. A slot with no
+   candidates must be reported rather than silently skipping an exercise. */
 const GENERATOR_SLOTS = [
   "squat", "hinge", "press", "incline_press", "shoulder_press", "row", "pulldown",
   "pull", "delts", "lateral_raise", "rear_delt", "chest_iso", "arms", "curl",
@@ -243,8 +243,16 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     missingCache.join(", "));
   assert(index.includes('src="program-compiler.js"') && sw.includes('"./program-compiler.js"'),
     "the program compiler is loaded and precached");
+  assert(index.includes('src="program-entry.js"') && sw.includes('"./program-entry.js"'),
+    "the program-entry state machine is loaded and precached");
+  assert(index.includes('src="program-entry-adapter.js"') && sw.includes('"./program-entry-adapter.js"'),
+    "the program-entry adapter is loaded and precached");
+  assert(index.indexOf('src="program-entry.js"') < index.indexOf('src="program-entry-adapter.js"'),
+    "the dependency-free state machine loads before its production adapter");
   assert(/SHELL = new Set\([^\n]+"\/program-compiler\.js"/.test(sw),
     "the program compiler is part of the offline shell");
+  assert(/SHELL = new Set\([^\n]+"\/program-entry\.js"/.test(sw) && /SHELL = new Set\([^\n]+"\/program-entry-adapter\.js"/.test(sw),
+    "program-entry modules are part of the offline shell");
   assert(/registration\.scope/.test(sw) && /SCOPE_PATH/.test(sw),
     "service-worker shell matching is relative to its production scope");
 }

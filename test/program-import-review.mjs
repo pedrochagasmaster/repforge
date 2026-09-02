@@ -5,7 +5,8 @@
  * Reading a file used to link names and replace the program behind one
  * confirm(), so a wrong file had already landed by the time you saw it. Now the
  * file is parsed into a transient model, every name is classified, likely
- * matches have to be looked at, and durable state moves once — on Import.
+ * matches have to be looked at, and the reviewed candidate stays separate
+ * until the lifter explicitly activates it.
  *
  * Also covers what a program file has to carry to be portable: version 3
  * embeds the custom definitions the program references, and importing them
@@ -26,6 +27,7 @@ import { launchChromium } from "./browser.mjs";
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 
 const results = { passed: 0, failed: 0 };
 function assert(cond, name, detail) {
@@ -50,27 +52,35 @@ const settle = (page, ms = 350) => page.waitForTimeout(ms);
 const draftModel = (page) => page.evaluate(() => window.__repforgeImportDraft());
 
 async function reset(page) {
-  await page.evaluate(async ({ k, d }) => {
+  await page.evaluate(async ({ k, d, setup }) => {
     localStorage.removeItem(k);
     localStorage.removeItem(d);
+    localStorage.removeItem(setup);
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
       req.onsuccess = req.onerror = req.onblocked = () => res();
     });
-  }, { k: KEY, d: DRAFT });
+  }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 }
 
 async function openEditor(page) {
-  await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
-  await settle(page, 200);
   await page.evaluate(() => {
-    if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"))
-      document.querySelector("#programEditToggle")?.click();
-    document.querySelector("#program details.advanced")?.setAttribute("open", "");
+    if (document.querySelector("#tour") && !document.querySelector("#tour")?.classList.contains("hidden"))
+      window.closeTour?.();
+    document.querySelector('nav button[data-view="program"]')?.click();
   });
-  await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+  await settle(page, 200);
+  const hidden = await page.locator("#programEditorWrap").evaluate((element) =>
+    element.classList.contains("is-hidden")
+  );
+  if (hidden) await page.click("#programEditToggle");
+  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+  // Import and export remain in the installed editor's Advanced disclosure.
+  // Keep that host mounted so the controls are actually reachable; the shared
+  // editor itself owns the ordinary editing surface.
+  await page.locator("#program details.advanced").evaluate((details) => { details.open = true; });
 }
 
 async function importFile(page, name, body) {
@@ -79,6 +89,35 @@ async function importFile(page, name, body) {
     buffer: Buffer.from(body),
   });
   await settle(page, 500);
+}
+
+async function stageReviewedImport(page) {
+  await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  await settle(page, 200);
+}
+
+async function activateStagedImport(page) {
+  const before = await page.evaluate((key) => localStorage.getItem(key), KEY);
+  await page.click("#entryActivate");
+  try {
+    await page.waitForFunction(({ key, before }) => localStorage.getItem(key) !== before,
+      { key: KEY, before }, { timeout: 10000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(() => ({
+      entry: window.__repforgeOnboarding.entry(),
+      activeRevision: JSON.parse(localStorage.getItem("repforge_v1") || "{}")._storageRevision,
+      activateVisible: !!document.querySelector("#entryActivate"),
+      notice: document.querySelector(".entry__notice")?.textContent?.trim() || null,
+    }));
+    throw new Error(`Import activation did not change active state: ${JSON.stringify(diagnostic)}`, { cause: error });
+  }
+  await settle(page, 350);
+}
+
+async function reviewAndActivateImport(page) {
+  await stageReviewedImport(page);
+  await activateStagedImport(page);
 }
 
 async function downloadJson(page, selector) {
@@ -328,10 +367,29 @@ async function main() {
     assert(model.counts.review === 0, "reviewing every row unblocks Import", JSON.stringify(model.counts));
     assert(!(await page.locator("#importCommit").isDisabled()), "the Import button enables once nothing is pending");
 
-    await page.click("#importCommit");
-    await settle(page, 700);
+    const activeBeforeReview = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await stageReviewedImport(page);
+    assert(await page.evaluate(() => document.activeElement?.id === "entryHeading"),
+      "valid imported preview focuses its heading on initial render");
+    const stagedImport = await page.evaluate(({ activeKey, draftKey }) => ({
+      active: localStorage.getItem(activeKey),
+      draft: JSON.parse(localStorage.getItem(draftKey) || "null"),
+    }), { activeKey: KEY, draftKey: SETUP_DRAFT });
+    assert(stagedImport.active === activeBeforeReview,
+      "reviewing the mapped import leaves active state byte-identical");
+    assert(stagedImport.draft?.state?.route === "import" && stagedImport.draft.state.step === "preview" &&
+      stagedImport.draft.state.result?.preview?.program?.length === 5,
+    "the reviewed import persists as an owned setup candidate", JSON.stringify(stagedImport.draft));
+    const manualProgressionCopy = await page.locator("#onbBody").innerText();
+    assert(/program or you set each exercise's target/i.test(manualProgressionCopy) &&
+      !/supported Taurifer progression/i.test(manualProgressionCopy),
+    "common import preview explains that authored manual targets belong to the program or user",
+    manualProgressionCopy);
+    assert(!(await page.locator("#entryActivate").isDisabled()),
+      "an authored manual progression remains activation-ready after review");
+    await activateStagedImport(page);
     after = await getState(page);
-    assert(after.program.length === 5, "committing writes the reviewed program", `${after.program.length} rows`);
+    assert(after.program.length === 5, "explicit activation writes the reviewed program", `${after.program.length} rows`);
     assert(
       after.program.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
         after.program.find((e) => e.id === "slot-volume")?.progression?.strategy?.id === "manual",
@@ -429,14 +487,24 @@ async function main() {
     model = await draftModel(page);
     assert(model?.counts.total === 1 && model.counts.review === 0,
       "a future progression file reaches the editor review", JSON.stringify(model?.counts));
-    await page.click("#importCommit");
-    await settle(page, 600);
-    after = await getState(page);
-    assert(after.program[0]?.progression === undefined &&
-      after.program[0]?.progressionIncompatibility?.kind === "prescription" &&
-      after.program[0]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy",
-      "program JSON import preserves unvalidated progression as non-executable provenance",
-      JSON.stringify(after.program?.[0]));
+    const activeBeforeFuture = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await stageReviewedImport(page);
+    assert(await page.evaluate(() => document.activeElement?.id === "entryActivationStatus"),
+      "future-strategy import preview focuses its activation status on initial render");
+    const futureCandidate = await page.evaluate(() => window.__repforgeOnboarding.entry());
+    assert(futureCandidate.result?.preview?.program?.[0]?.progression === undefined &&
+      futureCandidate.result.preview.program[0]?.progressionIncompatibility?.kind === "prescription" &&
+      futureCandidate.result.preview.program[0]?.progressionIncompatibility?.value?.strategy?.id === "future_strategy",
+      "program JSON review preserves unvalidated progression as non-executable provenance",
+      JSON.stringify(futureCandidate.result?.preview?.program?.[0]));
+    assert(await page.locator("#entryActivate").isDisabled(),
+      "an import with unsupported progression disables activation until it is repaired");
+    const blockedFuture = await page.evaluate(() => window.__repforgeActivateEntryPreview?.({ skipReplaceConfirm: true }));
+    assert(blockedFuture?.code === "candidate_incomplete", "unsupported import exposes an actionable activation validation result",
+      JSON.stringify(blockedFuture));
+    assert(await page.evaluate(({ key, before }) => localStorage.getItem(key) === before,
+      { key: KEY, before: activeBeforeFuture }),
+    "an import with unsupported progression cannot replace active state");
 
     const legacyProgression = await page.evaluate(() => {
       const common = { id: "legacy-slot", movementId: "legacy-slot", name: "Legacy lift", sets: 3, min: 6, max: 10 };
@@ -500,12 +568,18 @@ async function main() {
       return r.entry?.id || null;
     });
     assert(!!localId, "seeded a local custom definition", String(localId));
+    await settle(page, 700);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
     const colliding = JSON.parse(v3);
     // The file claims the id the local definition already holds, for a
     // different movement — two devices minting ids independently.
     colliding.customExercises[0].id = localId;
     colliding.exercises[4].libraryId = localId;
-    await openEditor(page);
     await importFile(page, "split.json", JSON.stringify(colliding));
     // One decision at a time: each click re-renders the list, so a captured
     // NodeList goes stale after the first.
@@ -519,8 +593,10 @@ async function main() {
       if (!acted) break;
       await settle(page, 150);
     }
-    await page.click("#importCommit");
-    await settle(page, 700);
+    await stageReviewedImport(page);
+    const collisionCandidate = await page.evaluate(() => window.__repforgeOnboarding.entry().result.preview);
+    const stagedTheirs = (collisionCandidate.customExercises || []).find((e) => e.name === "My gym row");
+    await activateStagedImport(page);
     after = await getState(page);
     const mine = (after.customExercises || []).find((e) => e.name === "Something else entirely");
     const theirs = (after.customExercises || []).find((e) => e.name === "My gym row");
@@ -530,13 +606,13 @@ async function main() {
       JSON.stringify(after.customExercises?.map((e) => [e.id, e.name]))
     );
     assert(
-      theirs && theirs.id !== localId,
-      "the imported definition is minted a fresh id instead",
+      stagedTheirs && theirs && theirs.id === stagedTheirs.id && theirs.id !== localId,
+      "explicit activation installs the imported definition under its fresh id",
       JSON.stringify([theirs?.id, theirs?.name])
     );
     assert(
       after.program.some((e) => e.libraryId === theirs?.id),
-      "templates are repointed at the newly minted id",
+      "explicit activation keeps templates pointed at the remapped definition",
       JSON.stringify(after.program.map((e) => [e.name, e.libraryId]))
     );
 
@@ -549,8 +625,7 @@ async function main() {
     }));
     model = await draftModel(page);
     assert(model && model.counts.total === 1, "a version 2 file still imports", JSON.stringify(model?.counts));
-    await page.click("#importCommit");
-    await settle(page, 600);
+    await reviewAndActivateImport(page);
     after = await getState(page);
     assert(
       after.program.length === 1 && after.program[0].libraryId === "pr_bb",
@@ -574,8 +649,7 @@ async function main() {
       "text rows match the library by name",
       JSON.stringify(model.rows.map((r) => [r.name, r.status]))
     );
-    await page.click("#importCommit");
-    await settle(page, 600);
+    await reviewAndActivateImport(page);
     after = await getState(page);
     assert(
       after.program.length === 3 && after.program.filter((e) => e.day === "Day 1").length === 2,
@@ -629,57 +703,81 @@ async function main() {
     }));
     assert(model?.counts.review === 0 && onboardingDraft.origin === "first-run" && !onboardingDraft.commitDisabled,
       "an onboarding import reaches the same reviewed draft", JSON.stringify(onboardingDraft));
-    const atomic = await page.evaluate(async (key) => {
-      const writes = [];
-      const io = {
-        writeLocal(snapshot) {
-          const copy = structuredClone(snapshot);
-          writes.push(copy);
-          localStorage.setItem(key, JSON.stringify(copy));
-        },
-        async writeIdb(snapshot) {
-          const db = await new Promise((res, rej) => {
-            const req = indexedDB.open("repforge", 1);
-            req.onupgradeneeded = () => req.result.createObjectStore("kv");
-            req.onsuccess = () => res(req.result);
-            req.onerror = () => rej(req.error);
-          });
-          await new Promise((res, rej) => {
-            const tx = db.transaction("kv", "readwrite");
-            tx.objectStore("kv").put(structuredClone(snapshot), key);
-            tx.oncomplete = () => res();
-            tx.onerror = () => rej(tx.error);
-          });
-          db.close();
-        },
-      };
-      const result = await window.__repforgeCommitImport(io);
-      const coherent = (snapshot) =>
-        snapshot.customExercises?.some((e) => e.id === "custom:onboarding") &&
-        snapshot.program?.some((e) => e.libraryId === "custom:onboarding") &&
-        snapshot.programMeta?.name === "Atomic onboarding";
+    const activeBeforeOnboardingImport = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    await stageReviewedImport(page);
+    const atomicCandidate = await page.evaluate(({ activeKey, setupKey }) => {
+      const active = localStorage.getItem(activeKey);
+      const draft = JSON.parse(localStorage.getItem(setupKey) || "null");
+      const preview = draft?.state?.result?.preview;
       return {
-        result,
-        count: writes.length,
-        everyWriteCoherent: writes.length > 0 && writes.every(coherent),
-        finalCoherent: coherent(JSON.parse(localStorage.getItem(key) || "{}")),
+        active,
+        route: draft?.state?.route,
+        step: draft?.state?.step,
+        coherent: preview?.customExercises?.some((e) => e.id === "custom:onboarding") &&
+          preview?.program?.some((e) => e.libraryId === "custom:onboarding"),
       };
-    }, KEY);
-    assert(
-      atomic.result?.localOk && atomic.result?.idbOk && atomic.finalCoherent,
-      "onboarding persists the imported custom definition and program together",
-      JSON.stringify(atomic)
-    );
-    assert(
-      atomic.count === 2 && atomic.everyWriteCoherent,
-      "the two-phase durable write has no intermediate custom-only snapshot",
-      JSON.stringify(atomic)
-    );
+    }, { activeKey: KEY, setupKey: SETUP_DRAFT });
+    assert(atomicCandidate.active === activeBeforeOnboardingImport && atomicCandidate.route === "import" &&
+      atomicCandidate.step === "preview" && atomicCandidate.coherent,
+    "onboarding stages the imported custom definition and program together",
+    JSON.stringify(atomicCandidate));
+    await activateStagedImport(page);
+    const atomicActive = await getState(page);
+    assert(atomicActive.customExercises?.some((e) => e.id === "custom:onboarding") &&
+      atomicActive.program?.some((e) => e.libraryId === "custom:onboarding") &&
+      atomicActive.programMeta?.name === "Atomic onboarding",
+    "explicit activation persists the imported custom definition and program atomically",
+    JSON.stringify({ customExercises: atomicActive.customExercises, program: atomicActive.program,
+      name: atomicActive.programMeta?.name }));
+
+    // Candidate edits must keep the fingerprint and carried definitions bound
+    // to the program that will actually activate.
+    await reset(page);
+    await importFile(page, "editable-custom.json", JSON.stringify({
+      version: 3,
+      meta: { name: "Editable import" },
+      exercises: [
+        { id: "keep-row", day: "Day 1", order: 1, name: "Barbell bench press", sets: 3, min: 5, max: 8 },
+        { id: "remove-row", day: "Day 1", order: 2, name: "Orphan candidate row", sets: 3, min: 8, max: 12,
+          libraryId: "custom:orphan" },
+      ],
+      customExercises: [{ id: "custom:orphan", name: "Orphan candidate row", equipment: ["machine"],
+        primary: "Chest", secondary: "Triceps" }],
+    }));
+    await stageReviewedImport(page);
+    const editableBefore = await page.evaluate((key) => ({
+      active: localStorage.getItem(key),
+      fingerprint: window.__repforgeOnboarding.entry().result.fingerprint,
+    }), KEY);
+    await page.click("#entryEdit");
+    const orphanRow = page.locator('#onbProgramEditor [data-role="exercise"][data-id="remove-row"]');
+    if (!(await orphanRow.locator('[data-role="remove-exercise"]').isVisible()))
+      await orphanRow.locator('[data-role="toggle-exercise"]').click();
+    await orphanRow.locator('[data-role="remove-exercise"]').click();
+    await settle(page, 500);
+    const editableAfter = await page.evaluate((key) => ({
+      active: localStorage.getItem(key),
+      result: window.__repforgeOnboarding.entry().result,
+    }), KEY);
+    assert(editableAfter.active === editableBefore.active,
+      "deleting an imported custom row edits only the setup candidate");
+    assert(editableAfter.result.preview.program.every((exercise) => exercise.libraryId !== "custom:orphan") &&
+      editableAfter.result.preview.customExercises.length === 0,
+    "candidate edits drop imported custom definitions after their final reference is removed",
+    JSON.stringify(editableAfter.result.preview));
+    assert(editableAfter.result.fingerprint !== editableBefore.fingerprint,
+      "candidate edits recompute the semantic fingerprint",
+      JSON.stringify([editableBefore.fingerprint, editableAfter.result.fingerprint]));
 
     // ---- prose is rejected, not guessed at ----
     const prose = await page.evaluate(() =>
       window.__repforgeParseProgramSource("Do some squats and then maybe a few curls, whatever feels good", "notes.txt"));
     assert(prose === null, "arbitrary prose is refused rather than invented into a program", JSON.stringify(prose));
+    const malformedRow = await page.evaluate(() =>
+      window.__repforgeParseProgramSource(JSON.stringify({
+        exercises: [{ day: "Day 1", order: 1, name: "Press", sets: 3, min: "bad", repLow: 6, max: 10 }],
+      }), "malformed.json"));
+    assert(malformedRow === null, "malformed canonical bounds are rejected instead of defaulted", JSON.stringify(malformedRow));
 
     // ---- a full backup is not a program file ----
     // The sessions in the file are the whole point of a backup. Reading only
@@ -761,7 +859,10 @@ async function main() {
     // Program only is still there for a lifter who wants the split alone.
     await reset(page);
     await openEditor(page);
-    await importFile(page, "backup.json", backup);
+    const cleanProgramOnly = JSON.parse(backup);
+    cleanProgramOnly.programMeta.progressionModifiers = [];
+    cleanProgramOnly.programMeta.progressionIncompatibilities = [];
+    await importFile(page, "backup.json", JSON.stringify(cleanProgramOnly));
     await page.evaluate(() => document.querySelector("#importProgramOnly").click());
     await settle(page, 500);
     assert((await dialogState()).reviewing, "program only opens the review screen");
@@ -769,8 +870,7 @@ async function main() {
       const draft = window.__repforgeImportDraft();
       draft.rows.forEach((r) => { r.reviewed = true; });
     });
-    await page.evaluate(() => document.querySelector("#importCommit").click());
-    await settle(page, 900);
+    await reviewAndActivateImport(page);
     restored = await getState(page);
     assert(restored.program?.length === 2 && (restored.log || []).length === 0,
       "program only imports the exercises and leaves history alone",
@@ -841,8 +941,7 @@ async function main() {
       const draft = window.__repforgeImportDraft();
       draft.rows.forEach((r) => { r.reviewed = true; });
     });
-    await page.evaluate(() => document.querySelector("#importCommit").click());
-    await settle(page, 900);
+    await reviewAndActivateImport(page);
     restored = await getState(page);
     assert(restored.programMeta?.name === "Projeto novo",
       "program only carries the program's name out of a backup", JSON.stringify(restored.programMeta?.name));

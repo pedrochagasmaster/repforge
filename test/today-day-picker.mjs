@@ -456,6 +456,7 @@ phase("the picker is only offered when there is another day to start");
   await persistState(page, {
     ...single,
     log: [],
+    programMeta: { ...single.programMeta, programStructure: null },
     program: single.program.filter((e) => e.day === firstDay),
   });
   await page.reload({ waitUntil: "domcontentloaded" });

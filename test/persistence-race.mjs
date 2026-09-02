@@ -105,7 +105,8 @@ async function waitForApp(page) {
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
       typeof window.__repforgeSaveWorkout === "function" &&
-      typeof window.__repforgeShowSettings === "function",
+      typeof window.__repforgeShowSettings === "function" &&
+      typeof window.__repforgeFinalizeProgramSetup === "function",
     { timeout: 15000 }
   );
   await waitForWorkerToClaim(page);
@@ -558,9 +559,18 @@ try {
         { ordinaryUi, ordinaryArtifacts }
       );
 
-      const requiredResult = await writer.evaluate(() =>
-        window.__repforgeApplyProgramTemplate()
-      );
+      const requiredResult = await writer.evaluate(async (key) => {
+        const current = JSON.parse(localStorage.getItem(key));
+        return window.__repforgeFinalizeProgramSetup({
+          exercises: current.program,
+          name: current.programMeta.name,
+          answers: { goal: current.programMeta.goal },
+          destination: "log",
+          origin: "settings",
+          draftConfirmed: true,
+          telemetryRoute: "custom",
+        });
+      }, KEY);
       await writer.evaluate(
         () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
       );

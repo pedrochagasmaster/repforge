@@ -119,21 +119,34 @@ function loggableProgram() {
   };
 }
 
-/** Click one answer per step, then Next, until the review step offers Save. */
-async function driveOnboarding(page, { goal }) {
-  await page.click(`[data-onb-pick="goal"][data-onb-val="${goal}"]`);
-  for (let guard = 0; guard < 20; guard++) {
-    if (await page.locator("#onbSave").isVisible().catch(() => false)) return true;
-    const next = page.locator("#onbNext");
-    if (await next.isDisabled()) {
-      const pick = page.locator("[data-onb-pick]").first();
-      if (!(await pick.count())) return false;
-      await pick.click();
-      continue;
-    }
-    await next.click();
+/** Drive Recommend from the entry hub through activation-ready preview. */
+async function driveOnboarding(page, { route = "recommend", foundation = false } = {}) {
+  await page.click(`[data-entry-route="${route}"]`);
+  const desired = foundation ? "muscle_growth" : "muscle_growth";
+  await page.click(`[data-entry-pick="desiredResult"][data-entry-val="${desired}"]`);
+  await page.click("#onbNext");
+  await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${foundation ? "first" : "6_to_24m"}"]`);
+  await page.click(`[data-entry-pick="recentConsistency"][data-entry-val="${foundation ? "few" : "most"}"]`);
+  await page.click("#onbNext");
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
+  await page.click("#onbNext");
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  await page.click("#onbNext");
+  // priorities are optional
+  await page.click("#onbNext");
+  if (route === "custom") {
+    const split = page.locator("[data-entry-pick='splitPreference']").first();
+    if (await split.count()) await split.click();
+    await page.click("#onbNext");
   }
-  return false;
+  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 10000 });
+  if (await page.locator("[data-entry-select-candidate]").count()) {
+    await page.locator("[data-entry-select-candidate]").first().click();
+  }
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  return true;
 }
 
 const browser = await launchChromium();
@@ -165,7 +178,7 @@ try {
     await context.close();
   }
 
-  phase("Onboarding nobody asked for stays silent until it is answered");
+  phase("Onboarding nobody asked for stays silent until a route is chosen");
   {
     const { context, page } = await openApp(browser);
     // Stand the gate down and let onboarding open the way maybeShowOnboarding
@@ -180,46 +193,55 @@ try {
       "an automatic open reports nothing",
       namesOf(events).join(","),
     );
-    await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+    await page.click('[data-entry-route="recommend"]');
     events = await captured(page);
-    assert(countOf(events, "program_path_selected") === 1, "the first answer selects the route once");
-    assert(countOf(events, "generator_started") === 1, "the first answer starts the generator once");
-    assert(propsOf(events, "program_path_selected")?.route === "custom", "the route is custom");
-    await page.click('[data-onb-pick="goal"][data-onb-val="strength_hypertrophy"]');
+    assert(countOf(events, "program_path_selected") === 1, "choosing a route selects it once");
+    assert(countOf(events, "generator_started") === 1, "recommend starts the generator once");
+    assert(propsOf(events, "program_path_selected")?.route === "recommend", "the route is recommend");
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
     events = await captured(page);
     assert(
       countOf(events, "program_path_selected") === 1 && countOf(events, "generator_started") === 1,
-      "changing the answer does not restart the flow",
+      "changing an answer does not restart the flow",
       `${countOf(events, "program_path_selected")}/${countOf(events, "generator_started")}`,
     );
     await context.close();
   }
 
-  phase("Asking for onboarding reports the route immediately");
+  phase("Opening Create program shows the hub without selecting a route");
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
     const events = await captured(page);
-    assert(countOf(events, "program_path_selected") === 1, "Create program selects the route once");
-    assert(countOf(events, "generator_started") === 1, "Create program starts the generator once");
+    assert(countOf(events, "program_path_selected") === 0, "Create program alone selects no route");
+    assert(countOf(events, "generator_started") === 0, "Create program alone starts no generator");
+    assert(await page.locator('[data-entry-route="recommend"]').count(), "the entry hub is visible");
     await context.close();
   }
 
-  phase("Beginner consistency reports the program it actually built");
+  phase("Foundation recommend reports the program it actually built");
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    const drove = await driveOnboarding(page, { goal: "beginner_consistency" });
-    assert(drove, "the beginner flow reaches its review step");
-    await page.click("#onbSave");
+    const drove = await driveOnboarding(page, { route: "recommend", foundation: true });
+    assert(drove, "the recommend flow reaches its preview step");
+    let events = await captured(page);
+    assert(
+      countOf(events, "generator_completed") === 1,
+      "generator completion reports when the reviewable result is produced",
+      `saw ${countOf(events, "generator_completed")} before activation: ${namesOf(events).join(",")}`,
+    );
+    assert(countOf(events, "program_activated") === 0,
+      "reviewing a generated result does not imply activation", namesOf(events).join(","));
+    await page.click("#entryActivate");
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "program_activated"), undefined, {
       timeout: 10000,
     });
-    const events = await captured(page);
+    events = await captured(page);
     const completed = propsOf(events, "generator_completed");
     assert(
       countOf(events, "generator_completed") === 1,
-      "beginner consistency is not dropped from the funnel",
+      "foundation recommend is not dropped from the funnel",
       `saw ${countOf(events, "generator_completed")}: ${namesOf(events).join(",")}`,
     );
     assert(completed?.goal === "muscle_growth", "it reports the muscle-growth program it compiles to", JSON.stringify(completed));
@@ -230,7 +252,7 @@ try {
       JSON.stringify(completed),
     );
     assert(countOf(events, "program_activated") === 1, "activation reports once");
-    assert(propsOf(events, "program_activated")?.route === "custom", "activation reports the custom route");
+    assert(propsOf(events, "program_activated")?.route === "recommend", "activation reports the recommend route");
     assert(
       countOf(events, "program_path_selected") === 1 && countOf(events, "generator_started") === 1,
       "the whole flow reports its once_per_setup_flow events once",
@@ -243,16 +265,87 @@ try {
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    const reached = await driveOnboarding(page, { goal: "hypertrophy" });
+    const reached = await driveOnboarding(page, { route: "recommend" });
     assert(reached, "the flow reaches the step that offers Start over");
-    await page.click("#onbRestart");
-    await page.click('[data-onb-pick="goal"][data-onb-val="strength_hypertrophy"]');
+    await page.click("#entryRestart");
+    await page.click('[data-entry-route="recommend"]');
     const events = await captured(page);
     assert(
       countOf(events, "program_path_selected") === 1 && countOf(events, "generator_started") === 1,
       "Start over does not open a second flow",
       `${countOf(events, "program_path_selected")}/${countOf(events, "generator_started")}`,
     );
+    await context.close();
+  }
+
+  phase("Browse selection telemetry remains once per setup flow across review changes");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="browse"]');
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.waitForSelector('[data-entry-catalogue="growth_2_v1"]', { timeout: 10000 });
+    await page.click('[data-entry-catalogue="growth_2_v1"]');
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    await page.click("#onbBack");
+    await page.waitForSelector('[data-entry-catalogue="growth_4_v1"]', { timeout: 5000 });
+    await page.click('[data-entry-catalogue="growth_4_v1"]');
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    const events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1 && propsOf(events, "program_path_selected")?.route === "browse",
+      "Browse emits one route-selection event for the setup flow", namesOf(events).join(","));
+    assert(countOf(events, "template_selected") === 1,
+      "changing the reviewed Browse card does not duplicate template selection", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 0,
+      "Browse review remains silent until explicit activation", namesOf(events).join(","));
+    await context.close();
+  }
+
+  phase("Import selects its route once and activates only after common review");
+  {
+    const { context, page } = await openApp(browser);
+    await page.click("#firstRunCreate");
+    await page.click("#entryOwnToggle");
+    await page.click('[data-entry-route="import"]');
+    await page.setInputFiles("#importProgram", {
+      name: "reviewed-program.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify({
+        version: 3,
+        meta: { name: "Reviewed import" },
+        exercises: [{
+          id: "import-row", day: "Day 1", order: 1, name: "Assisted pull-up",
+          sets: 3, min: 8, max: 12, libraryId: "pd_bw",
+        }],
+        customExercises: [],
+      })),
+    });
+    await page.waitForSelector("#importCommit:not([disabled])", { timeout: 10000 });
+    let events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1,
+      "opening Import review does not select the route twice", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 0,
+      "mapping review does not activate a program", namesOf(events).join(","));
+    await page.click("#importCommit");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1,
+      "staging the reviewed import keeps one route event", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 0,
+      "staging the reviewed import leaves activation telemetry silent", namesOf(events).join(","));
+    await page.click("#entryActivate");
+    await page.waitForFunction(() => window.__captured.some(([name]) => name === "program_activated"), undefined, {
+      timeout: 10000,
+    });
+    events = await captured(page);
+    assert(countOf(events, "program_path_selected") === 1,
+      "the complete Import setup flow emits one route event", namesOf(events).join(","));
+    assert(countOf(events, "program_activated") === 1 && propsOf(events, "program_activated")?.route === "import",
+      "explicit Import activation emits once with the import route", namesOf(events).join(","));
     await context.close();
   }
 
@@ -368,8 +461,8 @@ try {
   {
     const { context, page } = await openApp(browser);
     await page.click("#firstRunCreate");
-    await driveOnboarding(page, { goal: "hypertrophy" });
-    await page.click("#onbSave").catch(() => {});
+    await driveOnboarding(page, { route: "recommend" });
+    await page.click("#entryActivate").catch(() => {});
     await page.waitForTimeout(500);
     const events = await captured(page);
     const offenders = [];

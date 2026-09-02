@@ -42,6 +42,10 @@
   --positive-rgb:47,125,51;
   --danger-rgb:201,58,43;
   --ink-rgb:27,26,23;
+  /* The wash behind a selected program-entry choice: warm copper at a low
+     alpha so a bounded white card gains a tint without a second surface
+     colour. Defined per theme so dark lifts it enough to register. */
+  --entry-tint:rgba(224,78,20,.06);
   --knob:#FFFFFF;
   /* Scrims stay dark in both themes: they exist to push the page back. */
   --scrim:rgba(27,26,23,.42);
@@ -125,6 +129,7 @@
   --positive-rgb:99,194,103;
   --danger-rgb:255,102,112;
   --ink-rgb:242,239,233;
+  --entry-tint:rgba(242,112,59,.12);
   --knob:#F7F5F1;
   --scrim:rgba(0,0,0,.62);
   /* Dark content showing through glass becomes visual noise around the nav
@@ -233,7 +238,7 @@ main{
 
 /* ---- Typography ---- */
 .page-title{
-  font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05;color:var(--ink);
+  font-size:1.875rem;font-weight:650;letter-spacing:-0.02em;line-height:1.05;color:var(--ink);
 }
 .page-date{margin-top:4px;font-size:14px;color:var(--ink-soft);font-weight:400}
 .section-label{
@@ -245,13 +250,13 @@ main{
 .eyebrow{font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:4px}
 .eyebrow--link{background:none;border:0;padding:0;cursor:pointer;text-align:left;color:var(--accent-deep)}
 .eyebrow--link::after{content:" ›"}
-h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
+h2{font-size:1.875rem;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
 .subhead{
   font-size:11px;font-weight:600;letter-spacing:0.08em;text-transform:uppercase;
   color:var(--ink-faint);margin:26px 0 12px;display:flex;align-items:center;gap:12px;
 }
 .subhead::after{content:"";flex:1;height:1px;background:var(--rule)}
-.lede{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-top:4px}
+.lede{color:var(--ink-soft);font-size:.875rem;line-height:1.5;margin-top:4px}
 
 /* ---- Page headers ---- */
 .pagehead{display:flex;align-items:flex-start;justify-content:space-between;gap:14px;margin:4px 0 18px}
@@ -264,7 +269,7 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
 .pagehead--center .page-title{font-size:17px;font-weight:600;letter-spacing:0;text-align:center}
 .pagehead__back,.back-link{
   background:none;border:0;padding:8px 4px;cursor:pointer;color:var(--accent-deep);
-  font-size:15px;font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px;
+  font-size:.9375rem;font-weight:500;min-height:44px;display:inline-flex;align-items:center;gap:2px;
 }
 .back-link:focus-visible{border-radius:8px}
 .icon-btn{
@@ -290,17 +295,22 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
 .btn{
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);color:var(--ink);
-  padding:13px 16px;font-weight:600;cursor:pointer;font-size:15px;
+  padding:13px 16px;font-weight:600;cursor:pointer;font-size:.9375rem;
   transition:transform .12s ease,filter .2s ease,border-color .2s ease,background .2s ease;
 }
 .btn:active{transform:translateY(1px) scale(.995)}
 .btn:disabled{opacity:.4;cursor:default}
-.btn--ghost{background:transparent;padding:8px 13px;font-size:13px;border-radius:999px}
+/* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
+   white text (~2.5:1) that read as an enabled secondary button rather than a
+   blocked one. Give it a flat, legible "not yet" treatment instead. */
+.btn--cta:disabled{opacity:1;background:var(--rule);color:var(--ink-soft)}
+.btn--cta:disabled::after{color:var(--ink-faint)}
+.btn--ghost{background:transparent;padding:8px 13px;font-size:.8125rem;border-radius:999px}
 .btn--steel{background:var(--surface);border-color:var(--rule-strong)}
 .btn--cta{
-  position:relative;width:100%;height:54px;border:0;border-radius:var(--radius);
-  background:var(--cta);color:var(--cta-ink);font-size:17px;font-weight:600;
-  justify-content:center;padding:0 48px;
+  position:relative;width:100%;height:auto;min-height:54px;border:0;border-radius:var(--radius);
+  background:var(--cta);color:var(--cta-ink);font-size:1.0625rem;font-weight:600;
+  justify-content:center;padding:13px 48px;
 }
 .btn--cta::after{
   content:"";position:absolute;right:18px;top:50%;transform:translateY(-50%);
@@ -325,12 +335,12 @@ h2{font-size:30px;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
 .cta-sub--accent{color:var(--accent-deep);text-decoration:underline;text-underline-offset:3px}
 
 /* ---- Fields ---- */
-.field{display:block;margin:14px 0 0;color:var(--ink-soft);font-size:12px;font-weight:600;
+.field{display:block;margin:14px 0 0;color:var(--ink-soft);font-size:.75rem;font-weight:600;
   text-transform:uppercase;letter-spacing:.08em}
 input:not(:where([type=checkbox],[type=radio])),select,textarea{
   width:100%;margin-top:7px;background:var(--surface);border:1px solid var(--rule);
   color:var(--ink);border-radius:12px;padding:13px 12px;font-family:var(--body);
-  font-size:16px;letter-spacing:normal;text-transform:none;transition:border-color .15s ease,box-shadow .15s ease;
+  font-size:1rem;letter-spacing:normal;text-transform:none;transition:border-color .15s ease,box-shadow .15s ease;
 }
 /* Boxes and radios keep a full 44px hit area but paint a 22px control inside it:
    the native rendering blown up to 44px is a slab, and shrinking the element to
@@ -535,12 +545,15 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 }
 .radio-card.is-selected{border-color:var(--accent);border-width:1.5px;padding:13.5px 15.5px}
 .radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
-.radio-card__title{font-size:16px;font-weight:600;line-height:1.25;color:var(--ink)}
-.radio-card__cap{font-size:13px;line-height:1.35;color:var(--ink-soft)}
+.radio-card__title{font-size:1rem;font-weight:600;line-height:1.25;color:var(--ink)}
+.radio-card__cap{font-size:.8125rem;line-height:1.35;color:var(--ink-soft)}
 .radio-card__mark{
   flex:none;width:22px;height:22px;border-radius:50%;border:1.5px solid var(--rule-strong);
   background:transparent;
 }
+/* Nothing told you whether picking a second option replaced the first. A
+   checkbox is a square; a radio is a circle. */
+.radio-card[role="checkbox"] .radio-card__mark{border-radius:6px}
 .radio-card.is-selected .radio-card__mark{
   border-color:var(--accent);background:var(--accent);
   background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath fill='white' d='M4.5 8.5L2 6l.7-.7 1.8 1.8 4-4 .7.7z'/%3E%3C/svg%3E");
@@ -1791,71 +1804,75 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 /* ---- Program ---- */
 .pmeta{background:transparent;border:0;border-radius:0;padding:0;margin-bottom:14px;box-shadow:none;display:flex;flex-direction:column;gap:10px}
 .pmeta__row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
-.pmeta__name{flex:1;min-width:min(12rem,100%);margin-top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
-.pmeta__name input{margin-top:5px;font-weight:600;font-size:16px;text-transform:none;letter-spacing:normal;padding:10px 11px;background:var(--surface)}
-.pmeta__started{flex:none;margin-top:0;font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.pmeta__name{flex:1;min-width:min(12rem,100%);margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.pmeta__name input{margin-top:5px;font-weight:600;font-size:1rem;text-transform:none;letter-spacing:normal;padding:10px 11px;background:var(--surface)}
+.pmeta__started{flex:none;margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 /* 16px, like every other field: below that iOS zooms the page in on focus and
    leaves it there. */
-.pmeta__started input{margin-top:5px;font-size:16px;padding:9px 11px;background:var(--surface);color-scheme:var(--scheme)}
+.pmeta__started input{margin-top:5px;font-size:1rem;padding:9px 11px;background:var(--surface);color-scheme:var(--scheme)}
 .pmeta__chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-left:auto}
-.pmeta__chip{font-size:12px;color:var(--ink-soft);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:6px 10px;white-space:nowrap}
+.pmeta__chip{font-size:.75rem;color:var(--ink-soft);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:6px 10px;white-space:nowrap}
 .pmeta__chip--status{color:var(--ink);border-color:var(--rule-strong);font-weight:600}
-.program-overview__name{font-size:26px;font-weight:650;letter-spacing:-0.02em}
-.program-overview__meta{font-size:14px;color:var(--ink-soft);margin-top:4px}
-.program-overview__started{font-size:13px;color:var(--ink-soft);margin-top:6px}
+.program-overview__name{font-size:1.625rem;font-weight:650;letter-spacing:-0.02em}
+.program-overview__meta{font-size:.875rem;color:var(--ink-soft);margin-top:4px}
+.program-overview__started{font-size:.8125rem;color:var(--ink-soft);margin-top:6px}
 .program-day{border-bottom:1px solid var(--rule)}
 .program-day__row{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;width:100%;
   padding:14px 0;background:none;border:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
-.program-day__name{font-size:17px;font-weight:600}
-.program-day__muscles{font-size:13px;color:var(--ink-soft);margin-top:2px}
-.program-day__meta{font-size:13px;color:var(--ink-soft);flex:none;display:flex;align-items:center;gap:8px}
+.program-day__name{font-size:1.0625rem;font-weight:600}
+.program-day__muscles{font-size:.8125rem;color:var(--ink-soft);margin-top:2px}
+.program-day__meta{font-size:.8125rem;color:var(--ink-soft);flex:none;display:flex;align-items:center;gap:8px}
 .program-day__exs{padding:0 0 12px}
-.program-day__ex{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--rule);font-size:15px}
+.program-day__ex{display:flex;justify-content:space-between;gap:10px;padding:10px 0;border-top:1px solid var(--rule);font-size:.9375rem}
 .program-day__ex-sets{color:var(--ink-soft);flex:none}
-.program-day__link{color:var(--accent-deep);font-size:14px;background:none;border:0;cursor:pointer;padding:8px 0;display:block}
+.program-day__link{color:var(--accent-deep);font-size:.875rem;background:none;border:0;cursor:pointer;padding:8px 0;display:block}
 #programEditor.hidden,#programEditChrome.hidden{display:none!important}
 .peditor{display:flex;flex-direction:column;gap:14px}
 .pday{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:14px;box-shadow:none}
 .pday__head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
-.pday__name{flex:1;margin-top:0;font-weight:700;font-size:16px;letter-spacing:0;
+/* Separate the destructive control from the benign one beside it, and tint it
+   so the two identical squares are no longer interchangeable at a glance. */
+.pday__head .iconbtn--del{margin-right:6px;color:var(--danger)}
+.pday__head .iconbtn--del:hover{border-color:var(--danger)}
+.pday__name{flex:1;margin-top:0;font-weight:700;font-size:1rem;letter-spacing:0;
   text-transform:none;padding:9px 11px;background:var(--bg);border-color:var(--rule)}
-.pday__count{flex:none;font-size:11px;letter-spacing:.04em;color:var(--ink-faint);text-transform:uppercase;white-space:nowrap}
-.pday__empty{color:var(--ink-faint);font-size:13px;font-style:italic;margin:2px 0 10px}
+.pday__count{flex:none;font-size:.6875rem;letter-spacing:.04em;color:var(--ink-faint);text-transform:uppercase;white-space:nowrap}
+.pday__empty{color:var(--ink-faint);font-size:.8125rem;font-style:italic;margin:2px 0 10px}
 .pexlist{display:flex;flex-direction:column;gap:11px;margin-bottom:12px}
-.pday__add{width:100%;font-size:13px;padding:10px}
-.peditor__addday{width:100%;margin-top:14px;font-size:14px}
+.pday__add{width:100%;font-size:.8125rem;padding:10px}
+.peditor__addday{width:100%;margin-top:14px;font-size:.875rem}
 .pex{background:var(--bg);border:1px solid var(--rule);border-radius:12px;padding:12px}
 /* Four 44px controls plus a name will not fit 390px, and library names are
    longer than the hand-typed ones were ("Incline chest press machine"), so the
    name takes its own row and the controls sit under it. */
 .pex__head{display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end}
-.pex__name{flex:1 1 100%;margin-top:0;font-weight:600;font-size:16px;padding:10px 11px}
+.pex__name{flex:1 1 100%;margin-top:0;font-weight:600;font-size:1rem;padding:10px 11px}
 .pex__move{flex:none;display:flex;gap:5px}
 .pex__nums{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:11px}
-.pex__num,.pex__mus{display:block;text-transform:uppercase;letter-spacing:.07em;font-size:10.5px;font-weight:600;color:var(--ink-soft)}
+.pex__num,.pex__mus{display:block;text-transform:uppercase;letter-spacing:.07em;font-size:.65625rem;font-weight:600;color:var(--ink-soft)}
 .pex__num input{margin-top:5px;text-align:center;font-weight:500;padding:9px 4px;background:var(--surface)}
 .pex__mus{margin-top:11px}
-.pex__mus input{margin-top:5px;padding:10px 11px;font-size:16px;background:var(--surface)}
+.pex__mus input{margin-top:5px;padding:10px 11px;font-size:1rem;background:var(--surface)}
 .pstrategy{margin-top:12px;border-top:1px solid var(--rule)}
-.pstrategy summary{min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;font-size:14px;font-weight:600;color:var(--ink)}
-.pstrategy summary span{font-size:12px;font-weight:500;color:var(--ink-soft);text-align:right}
+.pstrategy summary{min-height:48px;display:flex;align-items:center;justify-content:space-between;gap:10px;cursor:pointer;font-size:.875rem;font-weight:600;color:var(--ink)}
+.pstrategy summary span{font-size:.75rem;font-weight:500;color:var(--ink-soft);text-align:right}
 .pstrategy__body{padding:2px 0 4px}
-.pstrategy__select,.pstrategy__field{display:block;font-size:11px;font-weight:600;letter-spacing:.04em;color:var(--ink-soft)}
-.pstrategy__select select,.pstrategy__field input{margin-top:5px;background:var(--surface);font-size:16px}
-.pstrategy__help,.pstrategy__manual{margin:8px 0 12px;color:var(--ink-soft);font-size:13px;line-height:1.45}
+.pstrategy__select,.pstrategy__field{display:block;font-size:.6875rem;font-weight:600;letter-spacing:.04em;color:var(--ink-soft)}
+.pstrategy__select select,.pstrategy__field input{margin-top:5px;background:var(--surface);font-size:1rem}
+.pstrategy__help,.pstrategy__manual{margin:8px 0 12px;color:var(--ink-soft);font-size:.8125rem;line-height:1.45}
 .pstrategy__grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
 .pstrategy__field input{padding:10px 8px}
-.pstrategy__error{min-height:20px;margin:8px 0 0;color:var(--danger);font-size:13px;line-height:1.4}
+.pstrategy__error{min-height:20px;margin:8px 0 0;color:var(--danger);font-size:.8125rem;line-height:1.4}
 .pstrategy__save{width:100%;min-height:44px}
 @media(max-width:350px){.pstrategy__grid{grid-template-columns:1fr}}
 .iconbtn{flex:none;width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;
-  border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:9px;cursor:pointer;font-size:12px;line-height:1}
+  border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);border-radius:9px;cursor:pointer;font-size:.75rem;line-height:1}
 .iconbtn:hover:not(:disabled){color:var(--ink);border-color:var(--ink-soft)}
 .iconbtn:disabled{opacity:.3;cursor:default}
 .iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:rgba(var(--danger-rgb),.4);background:rgba(var(--danger-rgb),.06)}
 .advanced{margin-top:24px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
 .advanced[open]{padding-bottom:16px}
-.advanced summary{cursor:pointer;list-style:none;min-height:52px;padding:14px 0;font-weight:500;font-size:15px;color:var(--ink);
+.advanced summary{cursor:pointer;list-style:none;min-height:52px;padding:14px 0;font-weight:500;font-size:.9375rem;color:var(--ink);
   display:flex;align-items:center;justify-content:space-between;gap:8px;text-transform:none;letter-spacing:0}
 .advanced summary::-webkit-details-marker{display:none}
 .advanced summary::after{
@@ -1864,12 +1881,196 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
   -webkit-mask-size:contain;mask-size:contain;transition:transform .2s ease;
 }
 .advanced[open] summary::after{transform:rotate(180deg)}
-.advanced textarea{font-family:var(--mono);font-size:16px}
+.advanced textarea{font-family:var(--mono);font-size:1rem}
 .file{display:flex;cursor:pointer;margin-top:10px;text-transform:none}
 .file input{display:none}
 .program__endblock{margin:14px 0}
 .program-footer{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid var(--rule);margin-top:8px}
-.program-footer__link{color:var(--accent-deep);background:none;border:0;cursor:pointer;font-size:15px;padding:8px 0}
+.program-footer__link{color:var(--accent-deep);background:none;border:0;cursor:pointer;font-size:.9375rem;padding:8px 0}
+
+/* ---- Shared program editor ----
+   The setup and installed hosts deliberately share this visual grammar.  The
+   host supplies only the surrounding title/actions; this surface owns the
+   editable document and remains a single-column phone layout at larger text
+   sizes. */
+.program-editor-host{display:block;width:100%}
+.program-editor{display:flex;flex-direction:column;gap:16px}
+.program-editor__meta{display:flex;flex-direction:column;gap:10px}
+.program-editor__program-name{display:block;color:var(--ink-soft);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__program-name input{display:block;width:100%;margin-top:6px;padding:12px 16px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:20px;font-weight:400;letter-spacing:0;text-transform:none}
+.program-editor__program-name input:focus{border-color:var(--accent);outline:2px solid rgba(var(--accent-rgb),.2);outline-offset:1px}
+.program-editor__context{margin:6px 0 0;color:var(--ink-soft);font-size:16px}
+.program-editor__status{margin:0;color:var(--ink-soft);font-size:14px;line-height:1.4}
+.program-editor__status.is-error{color:var(--danger)}
+.program-editor__status[hidden]{display:none}
+.program-editor__undo{margin-left:8px;padding:0;border:0;background:none;color:var(--accent-deep);cursor:pointer;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.program-editor__days{display:flex;flex-direction:column;gap:12px}
+.program-editor__day{overflow:hidden;padding:0;background:var(--surface);border:1px solid var(--rule-strong);border-radius:10px}
+.program-editor__day-head{display:flex;align-items:center;gap:10px;min-height:66px;margin:0;padding:10px 14px;background:var(--well);border-bottom:1px solid var(--rule);position:relative}
+.program-editor__day-name{flex:1;min-width:0;margin:0;padding:4px 0;border:0;background:transparent;color:var(--ink);font-size:20px;font-weight:650;letter-spacing:-.01em}
+.program-editor__day-name:focus{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+.program-editor__day-count{flex:none;color:var(--ink-soft);font-size:14px;letter-spacing:0;text-transform:none;font-weight:400}
+.program-editor__day-menu,.program-editor__exercise-menu{flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer;font-size:24px;line-height:1}
+.program-editor__day-menu-panel{display:flex;flex-direction:column;gap:0;margin:0 12px 12px;border:1px solid var(--rule-strong);border-radius:8px;background:var(--surface);overflow:hidden}
+.program-editor__day-menu-panel[hidden]{display:none}
+.program-editor__day-menu-panel button{min-height:44px;padding:10px 12px;border:0;background:transparent;color:var(--danger);cursor:pointer;text-align:left;font:inherit;font-size:14px}
+.program-editor__day-menu-panel button:hover{background:var(--well)}
+.program-editor__day-toggle,.program-editor__exercise-toggle{flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.program-editor__day-toggle .icon-mask,.program-editor__exercise-toggle .icon-mask{width:20px;height:20px}
+/* The legacy .pday rule rotates its always-down glyph for the old editor.
+   The shared editor selects up/down glyphs in markup, so a collapsed day must
+   retain the reference's downward disclosure in both hosts. */
+.program-editor .program-editor__day.is-collapsed .program-editor__day-toggle{transform:none}
+.program-editor__day-body{display:block;margin:0;padding:0}
+.program-editor__day-body[hidden]{display:none}
+.program-editor__exercise{position:relative;margin:0;padding:0;background:var(--surface);border-bottom:1px solid var(--rule)}
+.program-editor__exercise:last-of-type{border-bottom:0}
+.program-editor__exercise-head{display:flex;align-items:center;gap:8px;min-height:66px;margin:0;padding:8px 12px 8px 16px;background:var(--surface)}
+.program-editor__exercise-name{flex:1;min-width:0;margin:0;padding:6px 0;border:0;background:transparent;color:var(--ink);font-size:18px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:visible;text-overflow:clip}
+.program-editor__exercise-name:focus{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+.program-editor__summary{flex:none;color:var(--ink);font-size:17px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.program-editor__drag-handle{flex:none;width:44px;height:44px;margin:0;padding:0;border:0;background:transparent;color:var(--ink-soft);cursor:grab;font-size:23px;line-height:1;letter-spacing:-.16em;text-indent:-3px;touch-action:none}
+.program-editor__drag-handle:active{cursor:grabbing}
+.program-editor__drag-handle:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:6px}
+.program-editor__exercise-menu{font-size:25px;color:var(--ink-soft)}
+.program-editor__drag-handle,.program-editor__exercise-menu{display:none}
+.program-editor.is-reorder-mode .program-editor__drag-handle,
+.program-editor.is-reorder-mode .program-editor__exercise-menu{display:inline-flex;align-items:center;justify-content:center}
+.program-editor__exercise-body{margin:0;padding:14px 16px 0;border-top:1px solid var(--rule)}
+.program-editor__sets{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:62px}
+.program-editor__field-label,.program-editor__range legend{color:var(--ink-soft);font-size:13px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__stepper{display:grid;grid-template-columns:62px minmax(70px,120px) 62px;min-height:62px;border:1px solid var(--rule-strong);border-radius:9px;overflow:hidden;background:var(--surface)}
+.program-editor__stepper button,.program-editor__stepper output{display:flex;align-items:center;justify-content:center;min-width:0;min-height:60px;padding:0;border:0;background:transparent;color:var(--ink);font-size:23px;font-variant-numeric:tabular-nums}
+.program-editor__stepper button{cursor:pointer}
+.program-editor__stepper button+output,.program-editor__stepper output+button{border-left:1px solid var(--rule)}
+.program-editor__stepper button:hover{background:var(--well)}
+.program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
+.program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
+.program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 -4px}
+.program-editor__range label,.program-editor__more label{display:block;color:var(--ink-soft);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__range input,.program-editor__more input{display:block;width:100%;margin-top:6px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:18px;font-weight:400;letter-spacing:0;text-transform:none}
+.program-editor__range input:focus,.program-editor__more input:focus{border-color:var(--accent);outline:2px solid rgba(var(--accent-rgb),.2);outline-offset:1px}
+.program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
+.program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:16px;font-weight:500}
+.program-editor__replace{color:var(--accent-deep)}
+.program-editor__remove{color:var(--danger)}
+.program-editor__more{display:none;margin:0 -16px;padding:0 16px;border-top:1px solid var(--rule)}
+.program-editor__more[open]{display:block;border-top:0}
+.program-editor__more summary{display:none}
+.program-editor__more label{margin:0 0 12px}
+.program-editor__more button{width:100%;min-height:44px;padding:10px;text-align:left;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--accent-deep);cursor:pointer;font:inherit}
+.program-editor__add{display:flex;align-items:center;gap:8px;width:100%;min-height:62px;margin:0;padding:12px 16px;border:0;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font-size:17px}
+.program-editor__add:hover{background:var(--well)}
+.program-editor__add span{font-size:25px;font-weight:300;line-height:1;color:var(--ink-soft)}
+.program-editor__add-day{display:flex;align-items:center;gap:8px;width:100%;min-height:62px;padding:10px 16px;border:1px solid var(--rule-strong);border-radius:9px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font-size:17px}
+.program-editor__add-day:hover{background:var(--well)}
+.program-editor__add-day:first-letter{font-size:25px;color:var(--ink-soft)}
+.program-editor__empty{padding:18px 16px;color:var(--ink-soft);font-size:14px;line-height:1.4}
+.program-editor__menu{position:relative;z-index:2;display:flex;flex-direction:column;gap:0;margin:0 12px 12px;border:1px solid var(--rule-strong);border-radius:8px;background:var(--surface);overflow:hidden}
+.program-editor__menu[hidden]{display:none}
+.program-editor__menu button{min-height:44px;padding:10px 12px;border:0;border-bottom:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer;text-align:left;font:inherit;font-size:14px}
+.program-editor__menu button:last-child{border-bottom:0}
+.program-editor__menu button:hover{background:var(--well)}
+.program-editor__menu [data-role="move-days"]{display:flex;flex-direction:column;background:var(--well)}
+.program-editor__menu [data-role="move-days"] button{padding-left:24px}
+.program-editor__exercise.is-dragging{position:relative;z-index:4;transform-origin:center;border-left:2px solid var(--accent);transition:none;opacity:.98}
+.program-editor__day.is-drag-target-expanded .program-editor__day-body{display:block}
+.program-editor__day.is-drag-target-expanded .program-editor__day-toggle .icon-mask{transform:rotate(180deg)}
+.program-editor__exercise.is-reordered{animation:program-editor-flip .18s cubic-bezier(.2,.7,.2,1) both}
+.program-editor__exercise.is-settling{animation:program-editor-drop .21s cubic-bezier(.2,.7,.2,1) both}
+@keyframes program-editor-flip{from{transform:translateY(var(--program-editor-flip-y,0))}to{transform:translateY(0)}}
+@keyframes program-editor-drop{from{transform:translateY(-2px)}to{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){
+  .program-editor__exercise.is-dragging{transform:none}
+  .program-editor__exercise.is-reordered{animation:none}
+  .program-editor__exercise.is-settling{animation:none}
+}
+
+/* Build is a setup workspace, so its title and actions are part of the same
+   scroll flow and the installed dock remains absent. */
+.program-editor-onboarding .onb__head{display:grid;grid-template-columns:1fr auto;align-items:start;gap:10px;margin-bottom:20px}
+.program-editor-onboarding .onb{padding-top:28px}
+.program-editor-onboarding .onb__head #onbCancel{grid-column:2;grid-row:1;justify-self:end;margin:0}
+.program-editor-onboarding .onb__editor-title{display:block;grid-column:1;grid-row:1;margin:0;font-size:40px;font-weight:650;line-height:1.05;letter-spacing:-.035em}
+.program-editor-onboarding .onb__head #onbEyebrow,.program-editor-onboarding .onb__head #onbStepLabel,.program-editor-onboarding .onb__head #onbSegbar{display:none}
+.program-editor-onboarding #onbTitle{display:none}
+.program-editor-onboarding .onb__body{margin-bottom:20px}
+.program-editor-onboarding .program-editor__program-name input{font-size:18px;padding:10px 16px}
+.program-editor-onboarding .program-editor__day{border-radius:5px}
+.program-editor-onboarding .program-editor__day-head{min-height:48px;padding:6px 16px}
+.program-editor-onboarding .program-editor__day-menu{display:inline-flex;align-items:center;justify-content:center;font-size:0}
+.program-editor-onboarding .program-editor__day-menu::before{content:"≡";font-size:24px;line-height:1}
+.program-editor__day.is-expanded .program-editor__day-toggle{display:none}
+.program-editor__day.is-collapsed .program-editor__day-menu{display:none}
+.program-editor-onboarding .program-editor__day.is-expanded .program-editor__day-toggle{display:none}
+.program-editor-onboarding .program-editor__day.is-collapsed .program-editor__day-menu{display:none}
+.program-editor-onboarding .program-editor__day-count{font-size:16px}
+.program-editor-onboarding .program-editor__status:not(.is-error)::before{
+  content:"";display:inline-block;width:19px;height:19px;margin:0 8px 0 0;vertical-align:-5px;
+  border:1.5px solid var(--ink-soft);border-radius:50%;background:var(--surface) var(--check) center/13px 13px no-repeat
+}
+.program-editor-onboarding .program-editor__add-day{display:none}
+.program-editor-onboarding .program-editor__exercise-head{min-height:50px;padding:4px 16px}
+.program-editor-onboarding .program-editor__exercise-body{padding:12px 16px 0}
+.program-editor-onboarding .program-editor__sets{min-height:58px}
+.program-editor-onboarding .program-editor__stepper{width:160px;grid-template-columns:44px 1fr 44px;min-height:58px}
+.program-editor-onboarding .program-editor__stepper button,.program-editor-onboarding .program-editor__stepper output{min-height:56px}
+.program-editor-onboarding .program-editor__exercise-actions{margin-top:14px}
+.program-editor-onboarding .program-editor__exercise-actions button{min-height:50px}
+.program-editor-onboarding-actions{display:flex;flex-direction:column;gap:16px;margin:16px 0 12px}
+.program-editor-onboarding-actions .btn{width:100%;min-height:52px;height:52px;font-size:17px}
+.program-editor-onboarding-actions .program-editor__activate{display:flex;align-items:center;justify-content:space-between;padding-inline:18px;background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
+.program-editor-onboarding-actions .program-editor__activate::after{content:"→";font-size:27px;color:var(--accent)}
+.program-editor-onboarding-actions .program-editor__save{background:var(--surface);color:var(--ink);border:1px solid var(--rule-strong)}
+.program-editor-onboarding-actions .program-editor__activate:disabled{opacity:.5}
+
+/* Installed Program keeps the same editor grammar while matching the compact
+   phone reference: the page title carries the weight, the week context sits
+   close to the name field, and the sets control spans the exercise card. */
+.program-editor-installed .page-title{font-size:40px;letter-spacing:-.035em}
+.program-editor-installed .pagehead{margin-top:24px;margin-bottom:24px}
+.program-editor-installed .program-editor{gap:14px}
+.program-editor-installed .program-editor__meta{gap:8px}
+.program-editor-installed .program-editor__program-name input{font-size:18px;padding:10px 16px}
+.program-editor-installed .program-editor__context{margin-top:8px;font-size:16px}
+.program-editor-installed .program-editor__days{gap:10px}
+.program-editor-installed .program-editor__day-head{min-height:58px;padding:7px 16px}
+.program-editor-installed .program-editor__exercise-head{min-height:56px;padding:5px 16px}
+.program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
+.program-editor-installed .program-editor__sets{display:block;min-height:0}
+.program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
+.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:48px}
+.program-editor-installed .program-editor__stepper button,.program-editor-installed .program-editor__stepper output{min-height:46px}
+.program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
+.program-editor-installed .program-editor__range{row-gap:4px}
+.program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px}
+.program-editor-installed .program-editor__exercise-actions{margin-top:10px}
+.program-editor-installed .program-editor__exercise-actions button{min-height:46px}
+.program-editor-installed .program-editor__add{
+  min-height:44px;margin:0;padding:6px 16px;border:1px solid var(--rule-strong);border-radius:9px;
+  background:var(--surface);color:var(--ink);font-size:17px
+}
+.program-editor-installed .program-editor__add:hover{background:var(--well)}
+
+/* The installed editor reference is a full-width bottom bar. It deliberately
+   drops the overview's floating dock treatment while editing, so the four
+   destinations remain quiet text-and-icon actions and Program is marked only
+   by its orange ink. */
+body:has(#program.program-editor-installed) nav{
+  left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;height:calc(var(--dock-h) + env(safe-area-inset-bottom));
+  padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+  border:0;border-top:1px solid var(--rule);border-radius:0;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none
+}
+body:has(#program.program-editor-installed) nav button,
+body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
+body:has(#program.program-editor-installed) nav::before{display:none}
+
+.program-editor-leave{width:min(calc(100% - 32px),420px);padding:24px;border:1px solid var(--rule);border-radius:14px;background:var(--surface);color:var(--ink)}
+.program-editor-leave::backdrop{background:var(--scrim)}
+.program-editor-leave h2{font-size:22px;line-height:1.2;margin:0 0 8px}
+.program-editor-leave p{margin:0 0 18px;color:var(--ink-soft);font-size:14px;line-height:1.45}
+.program-editor-leave__actions{display:flex;flex-direction:column;gap:8px}
+.program-editor-leave__actions .btn,.program-editor-leave__actions .text-link{width:100%}
 
 /* ---- Bottom nav — floating glass dock ----
    A capsule that hovers over the page rather than capping it, so the content
@@ -2269,34 +2470,48 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .modeswitch button{flex:1;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);cursor:pointer;border-radius:10px;padding:9px 8px;font-weight:600;font-size:13px}
 .modeswitch button.active{color:var(--ink);border-color:var(--accent)}
 /* Onboarding */
+/* Keep layout and hit-target dimensions in device pixels, but express every
+   onboarding text size in rem so the browser's root text setting can enlarge
+   copy without turning the whole page into a zoomed viewport. */
 .onboarding{position:fixed;inset:0;z-index:50;overflow:auto;background:var(--bg);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(88px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left))}
 .onboarding.active{display:block}
 .onb{max-width:var(--maxw);margin:0 auto}
 .onb__head{margin-bottom:18px}
-.onb__step{margin:6px 0 0;font-size:11px;color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.onb__step{margin:6px 0 0;font-size:.6875rem;color:var(--ink-faint);letter-spacing:.08em;text-transform:uppercase;font-weight:600}
 .onb__body{margin-bottom:18px}
-.onb__lede{margin:0 0 16px;font-size:15px;line-height:1.45;color:var(--ink-soft)}
+.onb__lede{margin:0 0 16px;font-size:.9375rem;line-height:1.45;color:var(--ink-soft)}
 .onb__opts{display:flex;flex-direction:column;gap:10px}
 .onb__opts.onb__grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:8px}
 .onb__changes{margin:18px 0 8px}
 .onb__changes-lab{
-  font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  font-size:.6875rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
   color:var(--ink-faint);margin:0 0 6px;
 }
 .onb__review{display:flex;flex-direction:column;gap:12px}
 .onb__day{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);padding:12px 14px}
-.onb__dayname{font-weight:700;font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px}
-.onb__ex{font-size:13px;color:var(--ink-soft);padding:4px 0;border-top:1px solid var(--rule)}
+.onb__dayname{font-weight:700;font-size:.9375rem;letter-spacing:0;cursor:pointer}
+/* The compiler's split token, carried beside the day name rather than shouted
+   as it. Uppercasing "Knee / horizontal" made it read as a machine constant. */
+.onb__daytag{
+  margin-left:8px;font-style:normal;font-weight:500;font-size:.75rem;
+  letter-spacing:.02em;color:var(--ink-soft)
+}
+.onb__dayname span{display:block;margin-top:4px;font-weight:500;font-size:.6875rem;line-height:1.35;letter-spacing:0;text-transform:none;color:var(--ink-soft)}
+.onb__day[open] .onb__dayname{margin-bottom:8px}
+.onb__ex{font-size:.8125rem;color:var(--ink-soft);padding:4px 0;border-top:1px solid var(--rule)}
 .onb__ex:first-of-type{border-top:0;padding-top:0}
 .onb__ex b{color:var(--ink);font-weight:600}
 .onb__actions{display:flex;flex-direction:column;gap:8px;margin-top:4px}
-.onb__nav{display:flex;gap:10px;position:sticky;bottom:0;padding:12px 0;background:linear-gradient(transparent,var(--bg) 30%)}
+.onb__nav{display:flex;gap:10px;padding:12px 0}
 .onb__nav .btn{flex:1}
 .onb__nav .btn--steel{flex:.4}
-.onb__hint{margin:16px 0;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
-.onb__hint-body{font-size:13px;color:var(--ink-soft);margin:0 0 16px;text-transform:none;letter-spacing:0;font-weight:400}
-.onb__import{text-align:center;font-size:14px;color:var(--ink-soft);margin:14px 0 8px;padding:0;background:none;border:0}
+/* A lone Back (steps whose primary action lives in the body, like Import)
+   should not render at the 40% width meant for a Back/Continue pair. */
+.onb__nav .btn--steel:only-child{flex:1}
+.onb__hint{margin:16px 0;font-size:.6875rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.onb__hint-body{font-size:.8125rem;color:var(--ink-soft);margin:0 0 16px;text-transform:none;letter-spacing:0;font-weight:400}
+.onb__import{text-align:center;font-size:.875rem;color:var(--ink-soft);margin:14px 0 8px;padding:0;background:none;border:0}
 .onb__import button{background:none;border:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit;padding:0}
 
 /* Tour */
@@ -2515,7 +2730,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 }
 @media (min-width:680px){
   .metrics,.statrow--4,.statband--4{grid-template-columns:repeat(4,minmax(0,1fr))}
-  .page-title,h2{font-size:32px}
+  .page-title,h2{font-size:2rem}
 }
 @media (max-width:360px){
   /* A 288px row cannot hold the set action, a three-part load control, reps,
@@ -2567,7 +2782,29 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .icon-mask--chev-up{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E")}
 .icon-mask--gear{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.93 5.63L9.98 2.51A9.7 9.7 0 0 1 14.02 2.51L14.07 5.63A6.7 6.7 0 0 1 16.48 7.02L19.21 5.51A9.7 9.7 0 0 1 21.23 9L18.55 10.61A6.7 6.7 0 0 1 18.55 13.39L21.23 15A9.7 9.7 0 0 1 19.21 18.49L16.48 16.98A6.7 6.7 0 0 1 14.07 18.37L14.02 21.49A9.7 9.7 0 0 1 9.98 21.49L9.93 18.37A6.7 6.7 0 0 1 7.52 16.98L4.79 18.49A9.7 9.7 0 0 1 2.77 15L5.45 13.39A6.7 6.7 0 0 1 5.45 10.61L2.77 9A9.7 9.7 0 0 1 4.79 5.51L7.52 7.02Z'/%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.93 5.63L9.98 2.51A9.7 9.7 0 0 1 14.02 2.51L14.07 5.63A6.7 6.7 0 0 1 16.48 7.02L19.21 5.51A9.7 9.7 0 0 1 21.23 9L18.55 10.61A6.7 6.7 0 0 1 18.55 13.39L21.23 15A9.7 9.7 0 0 1 19.21 18.49L16.48 16.98A6.7 6.7 0 0 1 14.07 18.37L14.02 21.49A9.7 9.7 0 0 1 9.98 21.49L9.93 18.37A6.7 6.7 0 0 1 7.52 16.98L4.79 18.49A9.7 9.7 0 0 1 2.77 15L5.45 13.39A6.7 6.7 0 0 1 5.45 10.61L2.77 9A9.7 9.7 0 0 1 4.79 5.51L7.52 7.02Z'/%3E%3Ccircle cx='12' cy='12' r='3.2'/%3E%3C/svg%3E")}
 .icon-mask--search{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='10.75' cy='10.75' r='6.25'/%3E%3Cpath d='M15.4 15.4L20 20'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Ccircle cx='10.75' cy='10.75' r='6.25'/%3E%3Cpath d='M15.4 15.4L20 20'/%3E%3C/svg%3E")}
+.icon-mask--wand{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20L16 8'/%3E%3Cpath d='M14 6l4 4'/%3E%3Cpath d='M18 3v4M20.5 5h-4'/%3E%3Cpath d='M6 4v3M7.5 5.5h-3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20L16 8'/%3E%3Cpath d='M14 6l4 4'/%3E%3Cpath d='M18 3v4M20.5 5h-4'/%3E%3Cpath d='M6 4v3M7.5 5.5h-3'/%3E%3C/svg%3E")}
+.icon-mask--sliders{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 7h9M17 7h3M4 17h3M11 17h9'/%3E%3Ccircle cx='15' cy='7' r='2'/%3E%3Ccircle cx='9' cy='17' r='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M4 7h9M17 7h3M4 17h3M11 17h9'/%3E%3Ccircle cx='15' cy='7' r='2'/%3E%3Ccircle cx='9' cy='17' r='2'/%3E%3C/svg%3E")}
+.icon-mask--pencil{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19.5 8.5a2 2 0 0 0-2.8-2.8L5 17.2z'/%3E%3Cpath d='M15 7.5l3 3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 20h4L19.5 8.5a2 2 0 0 0-2.8-2.8L5 17.2z'/%3E%3Cpath d='M15 7.5l3 3'/%3E%3C/svg%3E")}
+.icon-mask--download{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10'/%3E%3Cpolyline points='8 10.5 12 14.5 16 10.5'/%3E%3Cpath d='M5 18h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10'/%3E%3Cpolyline points='8 10.5 12 14.5 16 10.5'/%3E%3Cpath d='M5 18h14'/%3E%3C/svg%3E")}
 .icon-mask--sheet{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='4.5' width='17' height='15' rx='2'/%3E%3Cpath d='M3.5 9.25h17M3.5 14.25h17M11.5 9.25v10.25'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='4.5' width='17' height='15' rx='2'/%3E%3Cpath d='M3.5 9.25h17M3.5 14.25h17M11.5 9.25v10.25'/%3E%3C/svg%3E")}
+/* Program-entry redesign semantic glyphs. Line-art on a 24 grid, 1.7 stroke,
+   round joins — same drawing language as the icons above. Tinted by
+   `currentColor` so a selected card or a copper section label recolours them. */
+.icon-mask--cal{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='16' rx='2'/%3E%3Cpath d='M4 9.5h16M8 3.5v3M16 3.5v3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='4' y='5' width='16' height='16' rx='2'/%3E%3Cpath d='M4 9.5h16M8 3.5v3M16 3.5v3'/%3E%3C/svg%3E")}
+.icon-mask--clock{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7v5.2l3.4 2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Cpath d='M12 7v5.2l3.4 2'/%3E%3C/svg%3E")}
+.icon-mask--dumbbell{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3 9v6M6 7v10M18 7v10M21 9v6M6 12h12'/%3E%3C/svg%3E")}
+.icon-mask--target{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Ccircle cx='12' cy='12' r='3.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='8.5'/%3E%3Ccircle cx='12' cy='12' r='3.5'/%3E%3C/svg%3E")}
+.icon-mask--trend{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 16 10 10 14 14 20 7'/%3E%3Cpolyline points='15 7 20 7 20 12'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 16 10 10 14 14 20 7'/%3E%3Cpolyline points='15 7 20 7 20 12'/%3E%3C/svg%3E")}
+.icon-mask--scale{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v16M8 20h8M6 8h12'/%3E%3Cpath d='M6 8l-3 6a3 3 0 0 0 6 0zM18 8l-3 6a3 3 0 0 0 6 0z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v16M8 20h8M6 8h12'/%3E%3Cpath d='M6 8l-3 6a3 3 0 0 0 6 0zM18 8l-3 6a3 3 0 0 0 6 0z'/%3E%3C/svg%3E")}
+.icon-mask--building{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='4' width='14' height='17' rx='1.5'/%3E%3Cpath d='M9 8h2M13 8h2M9 12h2M13 12h2M10.5 21v-4h3v4'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='4' width='14' height='17' rx='1.5'/%3E%3Cpath d='M9 8h2M13 8h2M9 12h2M13 12h2M10.5 21v-4h3v4'/%3E%3C/svg%3E")}
+.icon-mask--house{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 11l8-6 8 6'/%3E%3Cpath d='M6 10v9h12v-9'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 11l8-6 8 6'/%3E%3Cpath d='M6 10v9h12v-9'/%3E%3C/svg%3E")}
+.icon-mask--kettlebell{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 9a2.8 2.8 0 1 1 5 0'/%3E%3Cpath d='M7.5 9h9l1.4 8a2 2 0 0 1-2 2.4H8.1a2 2 0 0 1-2-2.4z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M9.5 9a2.8 2.8 0 1 1 5 0'/%3E%3Cpath d='M7.5 9h9l1.4 8a2 2 0 0 1-2 2.4H8.1a2 2 0 0 1-2-2.4z'/%3E%3C/svg%3E")}
+.icon-mask--rack{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4v16M19 4v16M5 8.5h14M5 13.5h3M16 13.5h3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 4v16M19 4v16M5 8.5h14M5 13.5h3M16 13.5h3'/%3E%3C/svg%3E")}
+.icon-mask--flex{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19v-3a3 3 0 0 1 3-3h3.5a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 1 5 0c0 4.5-2.5 8-7 9'/%3E%3Cpath d='M4 19h6.5v-3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 19v-3a3 3 0 0 1 3-3h3.5a2.5 2.5 0 0 0 2.5-2.5V7a2.5 2.5 0 0 1 5 0c0 4.5-2.5 8-7 9'/%3E%3Cpath d='M4 19h6.5v-3'/%3E%3C/svg%3E")}
+.icon-mask--shield{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z'/%3E%3Cpolyline points='9 11.8 11.3 14 16 9.3'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3l7 3v5c0 5-3 8.5-7 10-4-1.5-7-5-7-10V6z'/%3E%3Cpolyline points='9 11.8 11.3 14 16 9.3'/%3E%3C/svg%3E")}
+.icon-mask--pin{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21c4-5 7-8 7-11a7 7 0 0 0-14 0c0 3 3 6 7 11z'/%3E%3Ccircle cx='12' cy='10' r='2.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 21c4-5 7-8 7-11a7 7 0 0 0-14 0c0 3 3 6 7 11z'/%3E%3Ccircle cx='12' cy='10' r='2.5'/%3E%3C/svg%3E")}
+.icon-mask--clipboard{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='5' width='14' height='16' rx='2'/%3E%3Crect x='9' y='3' width='6' height='4' rx='1'/%3E%3Cpolyline points='9 13 11 15 15 11'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='5' y='5' width='14' height='16' rx='2'/%3E%3Crect x='9' y='3' width='6' height='4' rx='1'/%3E%3Cpolyline points='9 13 11 15 15 11'/%3E%3C/svg%3E")}
+.icon-mask--rosette{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='9' r='5.5'/%3E%3Cpolyline points='9 8.8 11.3 11 15 7'/%3E%3Cpolyline points='8.5 13.2 7 21 12 18.2 17 21 15.5 13.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='9' r='5.5'/%3E%3Cpolyline points='9 8.8 11.3 11 15 7'/%3E%3Cpolyline points='8.5 13.2 7 21 12 18.2 17 21 15.5 13.2'/%3E%3C/svg%3E")}
 .icon-btn{color:var(--ink)}
 .icon-btn--ghost{border:0;background:transparent;color:var(--ink)}
 .icon-btn--note{width:44px;height:44px;color:var(--ink-soft);flex:none}
@@ -2697,9 +2934,521 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .settings-group > .lede{padding-bottom:10px}
 .blockreview__head{display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:18px;min-height:44px}
 .blockreview__head .back-link{position:absolute;left:0}
-.blockreview__head-title{font-size:17px;font-weight:600;margin:0}
+.blockreview__head-title{font-size:1.0625rem;font-weight:600;margin:0}
 .onb__cancel{color:var(--accent-deep)}
-.onb__title{font-size:17px;font-weight:600;text-align:center}
+.onb__title{font-size:1.0625rem;font-weight:600;text-align:center}
+.entry__hub{display:flex;flex-direction:column;gap:10px;margin-top:8px}
+.entry-card{display:flex;flex-direction:column;gap:4px;text-align:left;width:100%;min-height:44px;padding:14px 16px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink);cursor:pointer;font:inherit;overflow-wrap:anywhere}
+/* Hover and focus are distinct signals: a pointer resting on a card tints its
+   keyline, while the copper ring is reserved for keyboard focus. Sharing one
+   declaration made a hovered card read as the focused one. */
+.entry-card:hover{border-color:var(--accent)}
+.entry-card:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:2px}
+.entry-card--primary{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent)}
+.entry-card--secondary{background:transparent}
+.entry-card__title{font-weight:700;font-size:.9375rem}
+.entry-card__cap{font-size:.8125rem;color:var(--ink-soft);line-height:1.35}
+.entry-card__warn{font-size:.75rem;color:var(--accent-deep);margin-top:4px}
+.entry__own{display:flex;flex-direction:column;gap:8px;padding:4px 0 0 8px;border-left:2px solid var(--rule)}
+.entry__active,.entry__legacy,.entry__explain{margin:0 0 12px;padding:10px 12px;border-radius:var(--radius);background:var(--surface);border:1px solid var(--rule);color:var(--ink-soft);font-size:.8125rem;line-height:1.4}
+/* Severity carried by three channels — a rail, a glyph and the title colour —
+   because `--danger` and `--accent` are close enough in hue that a border swap
+   alone reads as branding rather than alarm. The role each notice already
+   carries drives the treatment, so the visual matches what is announced. */
+.entry__notice{
+  margin:0 0 16px;padding:14px 14px 14px 15px;border-radius:var(--radius);
+  border:1px solid var(--rule);border-left:3px solid var(--rule-strong);
+  background:var(--surface);overflow-wrap:anywhere
+}
+.entry__notice--error,.entry__notice[role="alert"]{border-left-color:var(--danger)}
+.entry__notice--warn{border-left-color:var(--accent)}
+.entry__notice--error>strong,.entry__notice[role="alert"]>strong{color:var(--danger)}
+.entry__notice--error>strong::before,
+.entry__notice[role="alert"]>strong::before,
+.entry__notice--warn>strong::before{
+  content:"";flex:none;width:16px;height:16px;background:currentColor;
+  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
+  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5v5.5'/%3E%3Cpath d='M12 16.5h.01'/%3E%3C/svg%3E");
+  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 7.5v5.5'/%3E%3Cpath d='M12 16.5h.01'/%3E%3C/svg%3E");
+}
+.entry__notice--warn>strong::before{color:var(--accent)}
+.entry__resume-detail{margin:0 0 12px;color:var(--ink-soft);font-size:.8125rem;overflow-wrap:anywhere}
+.entry__notice>strong{display:flex;align-items:center;gap:8px;margin-bottom:6px}
+.entry__notice p{margin:0 0 12px;color:var(--ink-soft);font-size:.8125rem;line-height:1.4}
+.btnrow--primary-first{flex-direction:column}
+/* A discard is not a Back button. */
+.btn--destructive{color:var(--danger);border-color:var(--rule)}
+/* `.btnrow .btn{flex:1 1 160px}` sizes the main axis, so in a column that
+   became a height rule and stretched each button to fill the row. */
+.btnrow--primary-first .btn{width:100%;flex:0 0 auto}
+
+/* Review actions sit above the weekly detail, not after it. */
+.entry__confirm{display:flex;flex-direction:column;gap:8px;margin:18px 0 22px}
+.entry__confirm-alt{display:flex;gap:10px}
+.entry__confirm-alt .btn{flex:1}
+
+/* ---- Result and review payoff surfaces ----
+   The generated recommendation and the editable review share one grammar:
+   a program identity, a compact metric strip, and ruled icon-and-copy rows.
+   Informational rows stay open (hairline + icon); only genuine choices get a
+   bounded white surface elsewhere in the flow. */
+.entry__payoff{display:flex;align-items:flex-start;justify-content:space-between;gap:16px}
+.entry__payoff .onb__explain{flex:1;min-width:0}
+.entry__payoff-badge{
+  flex:none;width:56px;height:56px;border-radius:50%;
+  border:1.5px solid var(--accent);color:var(--accent);
+  display:grid;place-items:center
+}
+.entry__payoff-badge .icon-mask{width:26px;height:26px}
+
+/* The named program is the payoff of the whole flow, not a subheading. */
+.entry__recommend h3{margin:0 0 10px;font-size:1.6875rem;line-height:1.1;letter-spacing:-.015em}
+.entry__ident{margin:6px 0 4px}
+/* The review keeps the candidate's real name in its own case — a screen
+   reader and the browser tests both read this string verbatim — and leans on
+   weight and the bounded surface for prominence rather than a transform. */
+.entry__decision h3{
+  margin:0 0 4px;font-size:1.0625rem;font-weight:700;line-height:1.25;
+  letter-spacing:-.005em;color:var(--ink)
+}
+.entry__ident--boxed{
+  margin:14px 0 4px;padding:16px 16px 6px;
+  border:1px solid var(--rule);border-radius:12px;background:var(--surface)
+}
+.entry__source{margin:0 0 12px;color:var(--ink-soft);font-size:.8125rem}
+.entry__ident--boxed .entry__source{margin-bottom:0}
+.entry__source span{font-weight:600;color:var(--ink-faint);text-transform:uppercase;
+  font-size:.6875rem;letter-spacing:.06em;margin-right:6px}
+
+/* Metric strip: copper glyph + factual value. Boxed variant divides three
+   equal metrics with a hairline, like the reference review card. */
+.entry__metrics{
+  display:flex;flex-wrap:wrap;gap:10px 18px;margin:12px 0 4px;
+  font-size:.8125rem;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums
+}
+.entry__metric{display:inline-flex;align-items:center;gap:8px;min-height:24px}
+.entry__metric .icon-mask{width:18px;height:18px;flex:none;color:var(--ink-soft)}
+.entry__metrics--boxed{
+  gap:0;border:1px solid var(--rule);border-radius:12px;background:var(--surface);
+  margin:12px 0 4px;overflow:hidden
+}
+.entry__metrics--boxed .entry__metric{
+  flex:1 1 0;min-width:0;flex-direction:column;align-items:flex-start;gap:6px;
+  padding:14px 14px;border-left:1px solid var(--rule)
+}
+.entry__metrics--boxed .entry__metric:first-child{border-left:0}
+.entry__metrics--boxed .entry__metric .icon-mask{color:var(--accent)}
+@media (max-width:360px){
+  .entry__metrics--boxed{flex-direction:column}
+  .entry__metrics--boxed .entry__metric{border-left:0;border-top:1px solid var(--rule)}
+  .entry__metrics--boxed .entry__metric:first-child{border-top:0}
+}
+
+/* The Browse catalogue's answered-context row: the schedule and environment
+   facts the list below is filtered by. An open ruled band rather than a card,
+   with middot separators — a border-left would dangle at the start of a
+   wrapped line, and this row wraps on narrow phones. */
+.entry__facts{
+  display:flex;flex-wrap:wrap;gap:4px 12px;margin:14px 0 4px;padding:11px 0;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  font-size:.78125rem;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums
+}
+.entry__facts>span:not(:last-child)::after{
+  content:"·";margin-left:12px;font-weight:400;color:var(--ink-faint)
+}
+
+/* Ruled icon-and-copy rows: the "why it fits" list and the review facets.
+   Not interactive — no chevron — so they read as explanation, not navigation. */
+.entry__rows{list-style:none;margin:10px 0 4px;padding:0;border-top:1px solid var(--rule)}
+.entry__row{
+  display:flex;align-items:flex-start;gap:14px;padding:14px 2px;
+  border-bottom:1px solid var(--rule)
+}
+.entry__row-ico{flex:none;width:24px;height:24px;margin-top:1px;color:var(--ink-soft)}
+.entry__rows--reasons .entry__row-ico{color:var(--accent)}
+.entry__row-body{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+/* An `h4` here so the review keeps its heading outline; the global reset gives
+   headings no margin, so only the label treatment is needed. */
+.entry__row-lab{
+  margin:0;font-size:.6875rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-faint)
+}
+.entry__row-body p{margin:0}
+.entry__row-body,.entry__row-body p{font-size:.84375rem;line-height:1.45;color:var(--ink)}
+
+/* Edit / Start over sit under the dominant activation action as a quiet pair. */
+.entry__confirm-alt .btn{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.entry__confirm-alt .btn .icon-mask{width:15px;height:15px;flex:none}
+.entry__custom-actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.entry__custom-actions .btn{flex:1 1 180px}
+
+/* Resume: recovery gets its own legible composition — a single bounded
+   surface, the route/step context, and the real saved location. */
+.entry__resume{
+  margin:0 0 16px;border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden
+}
+.entry__resume-head{display:flex;gap:14px;align-items:flex-start;padding:18px 16px}
+.entry__resume-head .entry__resume-ico{color:var(--ink-soft)}
+.entry__resume-copy strong{display:block;font-size:1.1875rem;line-height:1.2;color:var(--ink);margin-bottom:6px}
+.entry__resume-copy p{margin:0;font-size:.875rem;line-height:1.45;color:var(--ink-soft)}
+.entry__resume-loc{
+  display:flex;gap:14px;align-items:flex-start;padding:14px 16px;border-top:1px solid var(--rule)
+}
+.entry__resume-loc .entry__resume-ico{color:var(--accent)}
+.entry__resume-loc p{margin:0;font-size:.84375rem;line-height:1.5;color:var(--ink-soft);overflow-wrap:anywhere}
+.entry__resume-ico{flex:none;width:24px;height:24px;margin-top:1px}
+
+/* Numbered day badge in the weekly-structure list. The facts line already
+   breaks to its own row via `.onb__dayname span`; keep that and inline only
+   the badge with the day name. */
+.entry-body .onb__dayname{display:flex;flex-wrap:wrap;align-items:center}
+.entry-body .onb__dayname>span:not(.onb__daynum){flex-basis:100%}
+.entry-body .onb__dayname span.onb__daynum{
+  flex:none;display:grid;place-items:center;width:26px;height:26px;border-radius:50%;
+  background:var(--well);border:1px solid var(--rule);margin:0 10px 0 0;
+  font-size:.75rem;font-weight:700;color:var(--accent-deep)
+}
+.entry__group-lab{margin:16px 0 8px;font-size:.75rem;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
+.entry__optional{
+  margin:0 0 6px;font-size:.6875rem;font-weight:700;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--ink-faint)
+}
+.entry__field{
+  display:flex;flex-direction:column;gap:6px;margin:12px 0 16px;
+  font-size:.6875rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)
+}
+.entry__field input{text-transform:none;letter-spacing:normal;color:var(--ink);font-size:1rem}
+.entry__field input{font:inherit;font-weight:500;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+.radio-card.is-disabled,.radio-card:disabled{
+  opacity:.45;cursor:not-allowed}
+.entry__correct{margin-top:14px;padding-top:4px}
+.entry__hint,.entry__pain{margin:14px 0 0;font-size:.8125rem;line-height:1.4;color:var(--ink-soft)}
+.entry__pain{padding:10px 12px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface)}
+.entry__avoid-results{display:flex;flex-direction:column;gap:6px;margin:8px 0 12px;max-height:180px;overflow:auto}
+.entry-card--compact{padding:10px 12px}
+.entry__avoid-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:12px}
+.entry__avoid-item{padding:12px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface)}
+.entry__avoid-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:8px}
+@media (min-width:720px){
+  .entry__hub{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  .entry-card--primary{grid-column:1/-1}
+}
+@media (min-width:900px){
+  .onboarding .onb{max-width:960px}
+  .onboarding .onb__body,.onboarding .onb__nav{max-width:820px;margin-left:auto;margin-right:auto}
+  .onboarding .entry__hub{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .onboarding .entry-card--primary{grid-column:1/-1}
+}
+:root[data-theme="dark"] .entry-card--primary{box-shadow:inset 0 0 0 1px var(--accent)}
+@media (prefers-reduced-motion:reduce){
+  .entry-card{transition:none}
+}
+
+/* Program entry composition. The hub offers four comprehensible routes on the
+   warm paper: Recommend is the focal route and takes a bounded copper keyline;
+   the rest stay quiet hairline rows in the grammar used elsewhere in Taurifer.
+   Route emphasis is not selection — no radio, check, or persistent pressed
+   state lives on these cards. */
+.entry-body--entry .entry-hub__lede{margin-top:4px;margin-bottom:22px}
+.entry-hub-active .onb__title{visibility:hidden}
+.entry-body .entry__hub{gap:0;margin-top:4px}
+.entry-body .entry-card{
+  flex-direction:row;align-items:center;gap:14px;min-height:64px;
+  padding:16px 4px;border:0;border-bottom:1px solid var(--rule);
+  border-radius:0;background:transparent;box-shadow:none;transition:background-color .15s ease
+}
+/* `.entry-card--primary` (carried by Recommend and Custom for the wide-screen
+   grid) paints a copper inset ring on the plain surface; the hub only wants
+   that emphasis on the focal route, applied as a real keyline below. */
+:root .entry-body .entry-card,
+:root[data-theme="dark"] .entry-body .entry-card{box-shadow:none}
+/* In the flow a route row is borderless, so hover reads as a wash rather than
+   a keyline; the copper ring stays reserved for `:focus-visible`. */
+.entry-body .entry-card:hover{background:var(--well)}
+.entry-body .entry-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.entry-body .entry-card--nested{min-height:52px;padding:12px 4px 12px 14px;border-bottom:0}
+.entry-body .entry-card__icon{width:28px;height:28px;flex:none;background:currentColor;color:var(--ink-soft)}
+.entry-body .entry-card__body{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;text-align:left}
+.entry-body .entry-card__title{font-size:1rem;line-height:1.25;font-weight:700}
+.entry-body .entry-card--secondary .entry-card__title{font-weight:700}
+.entry-body .entry-card__cap{font-size:.8125rem;line-height:1.4;color:var(--ink-soft)}
+.entry-body .entry-card__go{flex:none;color:var(--ink-faint)}
+/* The focal route: a full rounded keyline and a whisper of copper wash, so it
+   reads as the recommended path without a fake selected state. */
+.entry-body .entry-card[data-entry-route="recommend"]{
+  margin-bottom:14px;padding:18px 16px;border:1.5px solid var(--accent);
+  border-radius:12px;background:var(--entry-tint)
+}
+.entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
+.entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
+.entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
+.entry-body .entry__own{gap:0;padding:2px 0 2px 20px;border-left:1px solid var(--rule);margin-top:2px}
+.entry-body .entry__group-lab{
+  margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)
+}
+.entry-body .entry__group-lab:first-child{margin-top:8px}
+.entry-body .entry__group-lab-ico{width:18px;height:18px;flex:none;color:var(--accent)}
+/* Copper section metadata: the hub route groups, the questionnaire section
+   headers that carry a glyph, and the result's "why it fits". */
+.entry-body--entry .entry__group-lab,
+.entry-body .entry__group-lab--ico,
+.entry-body .entry__group-lab--accent{color:var(--accent-deep)}
+.entry-body--entry .entry__group-lab::after{content:"";flex:1;height:1px;background:var(--rule)}
+
+/* ---- Choice surfaces ----
+   A questionnaire answer is a real choice, so it gets a bounded white surface:
+   border, 12px radius, an optional semantic glyph, and a radio/checkbox mark.
+   Selected = copper keyline + a copper wash + a firmer label. */
+.entry-body .onb__opts{display:flex;flex-direction:column;gap:10px}
+.entry-body .radio-card{
+  position:relative;isolation:isolate;display:flex;align-items:center;gap:14px;
+  width:100%;min-height:56px;padding:14px 16px;background:var(--surface);
+  border:1px solid var(--rule);border-radius:12px;color:var(--ink);
+  transition:border-color .15s ease,background-color .15s ease
+}
+.entry-body .radio-card.is-selected{
+  border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);
+  background:var(--entry-tint);padding:14px 16px
+}
+.entry-body .radio-card:hover{border-color:var(--rule-strong)}
+.entry-body .radio-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.entry-body .radio-card__body{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.entry-body .radio-card__title{font-size:.96875rem;font-weight:500;line-height:1.3}
+.entry-body .radio-card.is-selected .radio-card__title{font-weight:600}
+.entry-body .radio-card__cap{font-size:.8125rem;line-height:1.4;color:var(--ink-soft)}
+.entry-body .radio-card__icon{
+  flex:none;width:26px;height:26px;background:currentColor;color:var(--ink-soft)
+}
+.entry-body .radio-card.is-selected .radio-card__icon{color:var(--accent)}
+.entry-body .radio-card__mark{width:22px;height:22px;flex:none}
+/* A radio reads as a ring with a filled centre, not a ticked box. */
+.entry-body .radio-card[role="radio"] .radio-card__mark{border-radius:50%}
+.entry-body .radio-card[role="radio"].is-selected .radio-card__mark{
+  background:var(--surface);border:2px solid var(--accent);background-image:none;position:relative
+}
+.entry-body .radio-card[role="radio"].is-selected .radio-card__mark::after{
+  content:"";position:absolute;inset:3px;border-radius:50%;background:var(--accent)
+}
+.entry-body .radio-card.is-disabled,.entry-body .radio-card:disabled{opacity:.45}
+
+/* Grouped list: several rows share one bounded surface, divided by hairlines.
+   Used where the options are a plain enumeration (experience, consistency,
+   rest, environment) rather than cards that each need their own supporting
+   copy. The selected row still lifts with the copper wash. */
+.entry-body .onb__opts.onb__list{
+  gap:0;border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden
+}
+.entry-body .onb__opts.onb__list .radio-card{
+  border:0;border-radius:0;border-top:1px solid var(--rule);box-shadow:none;background:transparent
+}
+.entry-body .onb__opts.onb__list .radio-card:first-child{border-top:0}
+.entry-body .onb__opts.onb__list .radio-card.is-selected{
+  box-shadow:inset 3px 0 0 var(--accent);background:var(--entry-tint)
+}
+
+/* Segmented control: days per week and session ceiling. Real radios, laid out
+   as one horizontal band where they fit; a selected numeric segment fills
+   graphite with a restrained copper underline. */
+.entry-body .onb__opts.onb__seg{
+  flex-direction:row;gap:0;border:1px solid var(--rule);border-radius:12px;
+  background:var(--surface);overflow:hidden
+}
+.entry-body .onb__opts.onb__seg .radio-card{
+  flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;text-align:center;
+  gap:2px;min-height:62px;padding:10px 6px;border:0;border-left:1px solid var(--rule);
+  border-radius:0;box-shadow:none;background:transparent
+}
+.entry-body .onb__opts.onb__seg .radio-card:first-child{border-left:0}
+.entry-body .onb__opts.onb__seg .radio-card__body{align-items:center;flex:0 0 auto;gap:0}
+.entry-body .onb__opts.onb__seg .radio-card__title{font-weight:600;font-size:1rem;line-height:1.15}
+.entry-body .onb__opts.onb__seg .radio-card__cap{font-size:.6875rem}
+.entry-body .onb__opts.onb__seg .radio-card__mark{display:none}
+.entry-body .onb__opts.onb__seg .radio-card.is-selected{
+  background:var(--cta);box-shadow:inset 0 -3px 0 var(--accent)
+}
+.entry-body .onb__opts.onb__seg .radio-card.is-selected .radio-card__title,
+.entry-body .onb__opts.onb__seg .radio-card.is-selected .radio-card__cap{color:var(--cta-ink)}
+@media (max-width:360px){
+  .entry-body .onb__opts.onb__seg{flex-wrap:wrap}
+  .entry-body .onb__opts.onb__seg .radio-card{flex:1 0 33.33%;border-top:1px solid var(--rule)}
+}
+
+/* Tiles: the short-label muscle and movement checkboxes. Bounded cards in a
+   responsive grid, checkbox mark trailing. */
+.entry-body .onb__opts.onb__grid{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px
+}
+.entry-body .onb__opts.onb__grid .radio-card{
+  min-height:48px;padding:9px 10px;gap:6px;border-radius:10px
+}
+.entry-body .onb__opts.onb__grid .radio-card__body{flex:1 1 auto}
+.entry-body .onb__opts.onb__grid .radio-card__title{font-size:.78125rem;overflow-wrap:anywhere}
+.entry-body .onb__opts.onb__grid .radio-card__mark{width:16px;height:16px;margin-left:auto}
+.entry-body .onb__opts.onb__grid>.radio-card:last-child:nth-child(3n+1){grid-column:1/-1}
+.entry-body .onb__opts.onb__grid>.radio-card:last-child:nth-child(3n+2){grid-column:2/-1}
+@media (max-width:360px){
+  .entry-body .onb__opts.onb__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .entry-body .onb__opts.onb__grid>.radio-card:last-child:nth-child(3n+1),
+  .entry-body .onb__opts.onb__grid>.radio-card:last-child:nth-child(3n+2){grid-column:auto}
+  .entry-body .onb__opts.onb__grid>.radio-card:last-child:nth-child(odd){grid-column:1/-1}
+}
+
+/* Custom muscle priorities: one bounded row per muscle and one mutually
+   exclusive setting per row. The status label stays beside the muscle name so
+   the selected state is understandable without relying on colour alone. */
+.entry__muscle-list{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden}
+.entry__muscle-row{display:flex;flex-direction:column;gap:10px;padding:13px 12px;border-top:1px solid var(--rule)}
+.entry__muscle-row:first-child{border-top:0}
+.entry__muscle-name{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.875rem;font-weight:600;color:var(--ink)}
+.entry__muscle-current{flex:none;padding:3px 7px;border:1px solid var(--rule-strong);border-radius:999px;font-size:.625rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
+.entry__muscle-states{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.entry__muscle-state{min-height:40px;padding:7px 4px;border:1px solid var(--rule);border-radius:8px;background:var(--well);color:var(--ink-soft);font:inherit;font-size:.6875rem;font-weight:600;line-height:1.15;text-align:center}
+.entry__muscle-state:hover{border-color:var(--rule-strong);color:var(--ink)}
+.entry__muscle-state:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.entry__muscle-state.is-selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--entry-tint);color:var(--accent-deep)}
+.entry__muscle-state.is-disabled,.entry__muscle-state:disabled{opacity:.45;cursor:not-allowed}
+.entry__muscle-state-hint{margin-bottom:10px}
+
+/* Custom exercise preferences: one search result, two explicit outcomes.
+   The selected lists below keep Include and Avoid visibly separate after the
+   result has left the search area. */
+.entry__exercise-results{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden}
+.entry__exercise-result{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-top:1px solid var(--rule)}
+.entry__exercise-result:first-child{border-top:0}
+.entry__exercise-name{min-width:0;font-size:.875rem;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.entry__exercise-actions{display:flex;flex:none;gap:6px}
+.entry__exercise-action{min-height:40px;padding:7px 10px;border:1px solid var(--accent);border-radius:8px;background:var(--entry-tint);color:var(--accent-deep);font:inherit;font-size:.75rem;font-weight:700;white-space:nowrap}
+.entry__exercise-action--avoid{border-color:var(--rule-strong);background:var(--surface);color:var(--ink-soft)}
+.entry__exercise-action:hover{background:var(--accent);color:var(--cta-ink)}
+.entry__exercise-action:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.entry__exercise-selected-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
+.entry__exercise-selected-group{margin-top:16px}
+.entry__exercise-selected{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);font-size:.875rem;color:var(--ink)}
+.entry__exercise-empty{padding:0 2px}
+@media (max-width:360px){
+  .entry__muscle-states{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .entry__exercise-result{align-items:flex-start;flex-direction:column}
+  .entry__exercise-actions{width:100%}
+  .entry__exercise-action{flex:1 1 0}
+}
+
+/* Reason chooser: one closed reason per avoided exercise, laid out as a short
+   horizontal row of radio pills. */
+.entry-body .onb__opts.onb__opts--reasons{flex-direction:row;flex-wrap:wrap;gap:8px}
+.entry-body .onb__opts--reasons .radio-card{
+  width:auto;flex:0 1 auto;min-height:44px;padding:9px 12px;gap:8px;border-radius:999px
+}
+.entry-body .onb__opts--reasons .radio-card__body{flex:0 0 auto}
+.entry-body .onb__opts--reasons .radio-card__title{font-size:.8125rem}
+
+.entry-body .onb__q{margin:0 0 6px;text-wrap:balance}
+.entry-body .onb__explain{margin:0 0 20px;font-size:.9375rem;line-height:1.45;color:var(--ink-soft)}
+.entry-body .onb__explain:last-child{margin-bottom:0}
+.entry-body .entry__hint{margin:0 0 18px}
+@media (prefers-reduced-motion:reduce){
+  .entry-body .entry-card,.entry-body .radio-card{transition:none}
+}
+
+/* Browse catalogue. A program is compared, not skimmed: identity first, then
+   the facts that differ between programs, then the assumptions behind them.
+   Deliberately not `.entry-card`, whose row layout is built for the hub. */
+.entry__progs{display:flex;flex-direction:column;margin-top:4px}
+.entry-prog{
+  display:flex;flex-direction:column;gap:6px;width:100%;padding:16px 0;
+  border:0;border-bottom:1px solid var(--rule);border-radius:0;
+  background:transparent;color:var(--ink);font:inherit;text-align:left;cursor:pointer;
+}
+.entry-prog:hover{background:var(--well)}
+.entry-prog:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.entry-prog__head{display:flex;align-items:center;gap:10px;width:100%}
+.entry-prog__name{flex:1;min-width:0;font-size:1.0625rem;font-weight:700;line-height:1.2}
+.entry-prog__days{
+  flex:none;padding:3px 9px;border:1px solid var(--rule-strong);border-radius:999px;
+  font-size:.6875rem;font-weight:600;letter-spacing:.05em;color:var(--ink-soft);white-space:nowrap;
+}
+.entry-prog__go{flex:none;color:var(--ink-faint)}
+.entry-prog__purpose{font-size:.84375rem;line-height:1.4;color:var(--ink-soft)}
+.entry-prog__facts{display:flex;flex-wrap:wrap;gap:2px 9px;font-size:.78125rem;font-weight:600;color:var(--ink)}
+.entry-prog__facts>span:not(:last-child)::after{content:"·";margin-left:9px;font-weight:400;color:var(--ink-faint)}
+.entry-prog__meta{font-size:.75rem;line-height:1.45;color:var(--ink-faint)}
+.entry-prog__warn{font-size:.75rem;line-height:1.4;font-weight:600;color:var(--accent-deep)}
+@media (min-width:720px){
+  .entry__progs{display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+}
+@media (min-width:720px){
+  .entry-body .entry__hub--routes{display:grid;grid-template-columns:1fr 1fr;column-gap:28px}
+  .entry-body .entry__hub--routes .entry-card[data-entry-route="recommend"]{grid-column:1/-1}
+  .entry-body .entry__hub--routes .entry__own{grid-column:1/-1}
+}
+
+.entry-body .entry__decision h3{margin-top:0}
+
+/* Equipment is a correction, so its long inventory sits under one native
+   disclosure while remaining keyboard and screen-reader discoverable. */
+.entry__disclosure{margin-top:16px;border:1px solid var(--rule);border-radius:12px;background:var(--surface);padding:0 14px}
+.entry__disclosure>summary{display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:48px;padding:12px 0;cursor:pointer;font-size:.9375rem;font-weight:600;list-style:none}
+.entry__disclosure>summary::-webkit-details-marker{display:none}
+.entry__disclosure>summary .chevron{transform:rotate(90deg);transition:transform .15s ease}
+.entry__disclosure[open]>summary{border-bottom:1px solid var(--rule)}
+.entry__disclosure[open]>summary .chevron{transform:rotate(270deg)}
+.entry__disclosure-body{padding:12px 0 14px}
+.entry__disclosure-body .entry__group-lab{margin-top:12px}
+.entry__disclosure-body .onb__opts.onb__grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+@media (prefers-reduced-motion:reduce){.entry__disclosure>summary .chevron{transition:none}}
+
+/* Priorities and avoidance: a dense optional section kept structured. */
+.entry-body--priorities .entry__group-lab{margin-top:22px}
+.entry-body--priorities .entry__none{margin-bottom:6px}
+.entry-body--priorities .entry__none .radio-card{
+  border:1.5px solid var(--accent);border-radius:12px;background:var(--surface)
+}
+.entry-body--priorities .entry__none .radio-card.is-selected{background:var(--entry-tint)}
+.entry-body--priorities .entry__avoid-list{gap:10px}
+.entry-body--priorities .entry__avoid-item{
+  padding:14px;border:1px solid var(--rule);border-radius:12px;background:var(--surface)
+}
+.entry-body--priorities .entry__avoid-pending{border-color:var(--accent)}
+.entry-body--priorities .entry-card--compact{min-height:44px;padding:10px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface)}
+.entry-body--priorities .entry__optional{font-size:.875rem;font-weight:400;letter-spacing:0;text-transform:none;color:var(--ink-soft);margin:0 0 4px}
+.entry__avoid-head{align-items:center}
+.entry__avoid-item .entry__avoid-head strong{font-size:.875rem;font-weight:600;color:var(--ink)}
+/* A remove is a quiet text affordance, not a filled button. */
+.entry__remove{
+  flex:none;min-height:44px;padding:0 4px;border:0;background:none;cursor:pointer;
+  font:inherit;font-size:.8125rem;font-weight:600;color:var(--accent-deep)
+}
+.entry__remove:hover{text-decoration:underline;text-underline-offset:3px}
+.entry__remove:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:6px}
+
+/* Search field with a leading glyph inside the input. */
+.entry__field--search{position:relative}
+.entry__field--search .entry__field-ico{
+  position:absolute;left:14px;bottom:14px;width:18px;height:18px;color:var(--ink-faint);pointer-events:none
+}
+.entry__field--search input{padding-left:40px}
+
+/* Pain / safety notice: a calm but unmistakable tinted card. */
+.entry-body .entry__pain{
+  display:flex;gap:12px;align-items:flex-start;margin:16px 0 0;padding:14px 14px 14px 15px;
+  border:1px solid var(--rule);border-left:3px solid var(--accent);border-radius:12px;
+  background:var(--entry-tint);color:var(--ink);font-size:.8125rem;line-height:1.45
+}
+.entry-body .entry__pain-ico{flex:none;width:22px;height:22px;color:var(--accent);margin-top:1px}
+
+/* Manual Build is an editable draft, not an activated Program view. Empty days
+   stay explicit, with the next action attached to each day. */
+.is-entry-editor .pmeta{margin-top:4px;margin-bottom:18px;padding-bottom:16px;border-bottom:1px solid var(--rule)}
+.is-entry-editor .pmeta__draft{display:flex;align-items:center;gap:8px;margin:0 0 14px;font-size:.875rem;line-height:1.35;color:var(--ink-soft)}
+.is-entry-editor .pmeta__draft-mark{width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.is-entry-editor .entry__active{margin:12px 0;padding:10px 0;border:0;border-bottom:1px solid var(--rule);border-radius:0;background:transparent}
+.is-entry-editor .peditor{gap:0}
+.is-entry-editor .pday{padding:16px 0 14px;background:transparent;border:0;border-bottom:1px solid var(--rule);border-radius:0}
+.is-entry-editor .pday__head{margin-bottom:10px}
+.is-entry-editor .pday__empty{margin:4px 0 10px;padding:10px 0;border-top:1px dashed var(--rule-strong);color:var(--ink-soft);font-style:normal}
+.is-entry-editor .pday__add{width:auto;padding:8px 0;border:0;background:transparent;color:var(--accent-deep);text-align:left}
+.is-entry-editor .peditor__addday{margin-top:18px}
+@media (prefers-reduced-motion:reduce){
+  .entry-body .radio-card,.entry__disclosure>summary{transition:none}
+}
 .exview-head{display:flex;align-items:center;justify-content:center;position:relative;min-height:44px;margin-bottom:14px}
 /* The rule named .exview__back, which nothing in the markup uses — every header
    built on .exview-head has been centring its back link inline instead of
@@ -2803,6 +3552,15 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   --firstrun-pad:clamp(18px,5vw,34px);
   max-width:900px;margin:0 auto;padding:0 var(--firstrun-pad);
 }
+/* Someone arriving from a shared link came to see a program, not the ethos.
+   Raise what they were sent above the poem; the brand still opens the page. */
+.firstrun.is-shared .firstrun__inner{display:flex;flex-direction:column}
+.firstrun.is-shared .firstrun__brand{order:0}
+.firstrun.is-shared .firstrun__lede{order:1;margin-top:26px}
+.firstrun.is-shared .firstrun__section{order:2}
+.firstrun.is-shared #firstRunInstall{order:3}
+.firstrun.is-shared .firstrun-hero{order:4;margin-top:38px}
+.firstrun.is-shared .firstrun__continue{order:5}
 /* The paper both brand images were painted on. It is a property of the files,
    not of the theme, which is why it is one constant rather than a palette
    entry: light lets the page be it, dark hands it back as a plate. */

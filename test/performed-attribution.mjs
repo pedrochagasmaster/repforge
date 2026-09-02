@@ -214,11 +214,18 @@ async function main() {
       if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"))
         document.querySelector("#programEditToggle")?.click();
     });
-    await page.click(`[data-act="changeEx"][data-id="${slot.id}"]`);
+    await page.waitForSelector('#programEditor [data-role="editor"]');
+    await page.click(`[data-role="replace"][data-id="${slot.id}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await pickExact(page, "Cable fly");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
+    await page.click("#programEditToggle");
+    await page.waitForFunction(({ key, id }) => {
+      const saved = JSON.parse(localStorage.getItem(key) || "{}");
+      return document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") &&
+        saved.program?.find((exercise) => exercise.id === id)?.libraryId === "ci_cb";
+    }, { key: KEY, id: slot.id });
     state = await getState(page);
     const replacement = state.program.find((e) => e.id === slot.id);
     const permanent = await page.evaluate((ex) => ({

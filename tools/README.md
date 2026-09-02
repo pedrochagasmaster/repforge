@@ -7,9 +7,13 @@ committed files, the same way `i18n.js` is produced from `i18n-en.json` and
 
 ## build-program-family-fixtures.mjs
 
-Generates the reviewed Plan 047 fixture from `program-compiler.js`. The source
-contains twenty separately authored 2–6 day blueprints; this command does not
-derive sibling frequencies from recipes.
+Generates the reviewed Plan 047 resolution fixture from `program-compiler.js`.
+The independent identity contract in
+`test/fixtures/program-family-contract-v1.json` pins the released families,
+frequencies, blueprint IDs, and day labels first; `--check` rejects compiler
+drift against that contract before checking the generated resolution snapshot.
+The source contains twenty separately authored 2–6 day blueprints; this command
+does not derive sibling frequencies from recipes.
 
 ```bash
 node tools/build-program-family-fixtures.mjs
@@ -123,10 +127,9 @@ is that drawing's paper.
 
 ## capture-ui-screens.mjs
 
-Rewrites `docs/ui-screens/{light,dark}/` — the exhaustive phone-frame catalog
-UI and Brand Designers use as the visual source of truth for both Appearance
-themes. Agents must re-run it whenever a user-visible surface changes (see
-`AGENTS.md` and `docs/ui-screens/README.md`).
+Rewrites `docs/ui-screens/screens/` — the phone-frame catalog UI and Brand
+Designers use as the visual source of truth. Agents must re-run it whenever a
+user-visible surface changes (see `AGENTS.md` and `docs/ui-screens/README.md`).
 
 ```bash
 python3 -m http.server 8000
@@ -134,9 +137,85 @@ python3 -m http.server 8000
 node tools/capture-ui-screens.mjs
 ```
 
-Seeds a stable three-day program with history, walks every primary surface in
-Light and Dark, and refreshes the folder README. Appearance must be present in
-the running app. Do not hand-edit the PNGs.
+The screen list, the variant matrix and every output path come from
+`docs/ui-screens/manifest.json`. Each screen names a scenario in
+`tools/ui-screens/screens-app.mjs` or `tools/ui-screens/screens-onboarding.mjs`
+that drives the real controls; nothing renders a fixture. Every capture gets an
+isolated context with service workers blocked, a pinned clock, locale and
+timezone, so a previously installed shell can never serve stale code into the
+evidence.
+
+The catalog is **mobile only** — the manifest rejects a non-phone viewport.
+Onboarding is covered state by state across every route in `ROUTE_STEPS`, not
+just each route's entrance, and onboarding frames also record a normalized
+semantic snapshot (`docs/ui-screens/entry-semantics.json`) so a copy or role
+change is caught without depending on glyph pixels.
+
+Options:
+
+```bash
+node tools/capture-ui-screens.mjs --flow onboarding-build   # one flow
+node tools/capture-ui-screens.mjs --screen today/day-picker # one screen
+node tools/capture-ui-screens.mjs --canonical               # one frame each
+node tools/capture-ui-screens.mjs --keep-going              # report, don't abort
+```
+
+A filtered run merges into a copy of the committed catalog, so the folder on
+disk stays complete. Nothing replaces committed evidence until every requested
+capture succeeds. Do not hand-edit the PNGs.
+
+## check-ui-screens.mjs
+
+The registration gate. Fails when a registered frame is missing, an
+unregistered PNG is sitting in the tree, a screen has no capture scenario, a
+scenario is not in the manifest, or a frame was captured at the wrong pixel
+size.
+
+```bash
+node tools/check-ui-screens.mjs           # release gate
+node tools/check-ui-screens.mjs --report  # list gaps, exit 0
+```
+
+## compare-ui-screens.mjs
+
+Compares a regenerated catalog with an immutable copy of the committed one. CI
+makes that copy, captures, runs the registration gate, then runs this. The
+comparator walks **every** manifest-declared PNG — not one favoured subtree —
+requires dimensions to match the manifest exactly, and compares a fixed 96×128
+sample grid using colour, luminance-edge, and luminance-histogram features. It
+also compares the normalized semantic snapshots exactly.
+
+PNG bytes are intentionally not compared: Chromium font rasterisation and
+anti-aliasing can differ between hosted runners while the rendered UI remains
+the same. A cell counts as changed only above an 8% colour delta; the default
+gate rejects broad changes (more than 4.5% of cells or a 3.5% mean colour
+delta), coordinated edge changes, and a 16% luminance-histogram delta. The
+thresholds are covered by the self-test, which proves small deterministic pixel
+noise passes while a broad panel/content change, a layout shift and any
+dimension drift fail.
+
+```bash
+baseline="$(mktemp -d)"
+cp -a docs/ui-screens/screens "$baseline/"
+cp -a docs/ui-screens/entry-semantics.json "$baseline/"
+chmod -R a-w "$baseline"
+cleanup() {
+  chmod -R u+w -- "$baseline" 2>/dev/null || true
+  rm -rf -- "$baseline"
+}
+trap cleanup EXIT
+node tools/capture-ui-screens.mjs
+node tools/check-ui-screens.mjs
+node tools/compare-ui-screens.mjs \
+  --baseline "$baseline/screens" \
+  --baseline-semantic "$baseline/entry-semantics.json"
+```
+
+The manifest, gate and comparator self-test runs with:
+
+```bash
+node test/ui-screens.mjs
+```
 
 ## build-brand-mark.mjs
 

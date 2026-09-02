@@ -269,7 +269,7 @@
       <div id="programBlockBanner" class="blockprompt hidden" aria-live="polite"></div>
       <div id="programEditorWrap" class="is-hidden">
         <button id="endBlock" class="btn btn--steel program__endblock" type="button" data-i18n="program.end_block">End block</button>
-        <p class="lede" data-i18n="program.lede">Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit.</p>
+        <p class="lede program-editor-lede" data-i18n="program.lede">Add days and exercises below. Separate muscles with commas. Secondary muscles count as half a set in the volume audit.</p>
         <div id="programEditor" class="peditor ph-no-capture"></div>
         <button id="addDay" class="btn btn--steel peditor__addday" type="button" data-i18n="program.add_day">+ Add day</button>
         <details class="advanced">
@@ -282,8 +282,8 @@
             <label class="btn btn--steel file"><span data-i18n-text data-i18n="program.import_json">Import program file</span><input id="importProgram" type="file" accept=".json,.txt,application/json,text/plain"></label>
           </div>
         </details>
-        <h3 class="subhead" data-i18n="program.planned_volume">Planned weekly volume</h3>
-        <p class="lede" data-i18n="program.planned_volume.lede" data-i18n-html>These totals count each training day once per week. See <b>Stats → Completed hard sets</b> to compare them with your log.</p>
+        <h3 class="subhead program-volume-head" data-i18n="program.planned_volume">Planned weekly volume</h3>
+        <p class="lede program-volume-lede" data-i18n="program.planned_volume.lede" data-i18n-html>These totals count each training day once per week. See <b>Stats → Completed hard sets</b> to compare them with your log.</p>
         <div id="volume" class="volume"></div>
       </div>
     </section>
@@ -460,10 +460,6 @@
           <span class="settings-row__label" data-i18n="settings.create_program">Create new program</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
-        <button type="button" class="settings-row" id="beginnerProgram">
-          <span class="settings-row__label" data-i18n="settings.beginner_program">Use beginner-friendly program</span>
-          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
-        </button>
         <button type="button" class="settings-row" id="progressionRow" aria-expanded="false" aria-controls="progressionDetails">
           <span>
             <span class="settings-row__label" data-i18n="settings.advanced_progression_short">Progression controls</span>
@@ -520,7 +516,8 @@
       <div class="onb">
         <div class="onb__head">
           <button type="button" class="back-link onb__cancel" id="onbCancel" data-i18n="onb.cancel">Cancel</button>
-          <div class="onb__title" id="onbEyebrow" data-i18n="onb.eyebrow">New program</div>
+          <h1 id="onbEditorTitle" class="onb__editor-title" hidden>Build a program</h1>
+          <div class="onb__title" id="onbEyebrow" data-i18n="entry.eyebrow">Create a program</div>
           <div></div>
           <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
           <div id="onbSegbar" class="segbar" style="grid-column:1/-1"></div>
@@ -899,6 +896,15 @@
     <div id="storageRecoveryCopies"></div>
     <div id="storageRecoveryActions" class="btnrow"></div>
   </dialog>
+  <dialog id="programEditorLeave" class="program-editor-leave" aria-modal="true" aria-labelledby="programEditorLeaveTitle">
+    <h2 id="programEditorLeaveTitle">Unsaved changes</h2>
+    <p id="programEditorLeaveBody">Your changes have not been applied.</p>
+    <div class="program-editor-leave__actions">
+      <button type="button" id="programEditorApply" class="btn btn--cta">Apply changes</button>
+      <button type="button" id="programEditorDiscard" class="btn btn--steel">Discard changes</button>
+      <button type="button" id="programEditorKeep" class="text-link text-link--center">Keep editing</button>
+    </div>
+  </dialog>
   <div id="sessionSummary" class="sumsheet hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.session_summary.aria" aria-label="Session summary" hidden>
     <div id="sessionSummaryBody" class="sumsheet__body"></div>
   </div>
@@ -914,7 +920,10 @@
   <script src="exercises.js"></script>
   <script src="progression-engine.js"></script>
   <script src="program-compiler.js"></script>
-  <script src="shared-setup.js?v=120"></script>
-  <script src="app.js?v=120"></script>
+  <script src="program-entry.js"></script>
+  <script src="program-entry-adapter.js"></script>
+  <script src="program-editor.js?v=168"></script>
+  <script src="shared-setup.js?v=170"></script>
+  <script src="app.js?v=170"></script>
 </body>
 </html>

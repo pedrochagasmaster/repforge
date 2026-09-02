@@ -60,13 +60,26 @@ try {
   assert(response?.fromServiceWorker() === true, "the cached app boots offline");
   await page.click('nav button[data-view="program"]');
   await page.click("#programEditToggle");
-  const editor = page.locator('[data-progression-editor="offline-slot"]');
-  await editor.locator("summary").click();
-  assert(await editor.locator('[data-progression-strategy]').inputValue() === "rep_goal", "the progression editor renders from cached JS and copy");
-  await editor.locator('[data-progression-strategy]').selectOption("manual");
-  await editor.locator('button[type="submit"]').click();
-  await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").program?.[0]?.progression?.strategy?.id === "manual", KEY);
-  assert((await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").program[0].progression.strategy.id, KEY)) === "manual", "an editor save remains local and works offline");
+  await page.waitForSelector('#programEditor [data-role="editor"]');
+  const editor = page.locator('#programEditor [data-role="exercise"][data-id="offline-slot"]');
+  const shape = await editor.evaluate((element) => ({
+    summary: element.querySelector('[data-role="exercise-summary"]')?.textContent?.trim(),
+    sets: element.querySelector('[data-role="sets-value"]')?.textContent?.trim(),
+    min: element.querySelector('[data-field="min"]')?.value,
+    max: element.querySelector('[data-field="max"]')?.value,
+  }));
+  assert(shape.summary === "3 × 6–12" && shape.sets === "3" && shape.min === "6" && shape.max === "12",
+    "the installed editor renders its prescription from the cached shell", JSON.stringify(shape));
+  await page.locator('#programEditor [data-role="program-name"]').fill("Offline progression edited");
+  await page.click("#programEditToggle");
+  await page.waitForFunction((key) => {
+    const saved = JSON.parse(localStorage.getItem(key) || "{}");
+    return document.querySelector("#programEditorWrap")?.classList.contains("is-hidden") &&
+      saved.programMeta?.name === "Offline progression edited";
+  }, KEY);
+  const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), KEY);
+  assert(saved.program?.[0]?.progression?.strategy?.id === "rep_goal",
+    "an offline staged edit remains local and preserves its progression", JSON.stringify(saved.program?.[0]?.progression));
   const config = await page.evaluate(async () => {
     try { const response = await fetch("./posthog-config.js"); return { ok: response.ok, status: response.status }; }
     catch (error) { return { ok: false, error: String(error) }; }

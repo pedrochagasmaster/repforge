@@ -6,6 +6,7 @@
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { createRequire } from "module";
 import vm from "vm";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
@@ -13,6 +14,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const require = createRequire(import.meta.url);
+const Compiler = require("../program-compiler.js");
 
 const results = { passed: 0, failed: 0 };
 
@@ -169,6 +172,18 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("tour.${tourStep}.title") || s.includes('"tour."'), keys: (en) => Object.keys(en).filter((k) => /^tour\.\d+\.title$/.test(k)) },
   { test: (s) => s.includes("tour.${tourStep}.body"), keys: (en) => Object.keys(en).filter((k) => /^tour\.\d+\.body$/.test(k)) },
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
+  { test: (s) => s.includes("entry.desired_result.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.desired_result\.[^.]+\.(label|sub)$/.test(k)) },
+  { test: (s) => s.includes("entry.background.experience.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.experience.") && k !== "entry.background.experience.label") },
+  { test: (s) => s.includes("entry.background.consistency.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.consistency.") && k !== "entry.background.consistency.label") },
+  { test: (s) => s.includes("entry.schedule.minutes.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.schedule.minutes.")) },
+  { test: (s) => s.includes("entry.schedule.rest.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.schedule.rest.")) },
+  { test: (s) => s.includes("entry.environment.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.environment.") && !k.endsWith(".title") && !k.endsWith(".lede")) },
+  { test: (s) => s.includes("entry.equip.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.equip.")) },
+  { test: (s) => s.includes("entry.cap.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.cap.")) },
+  { test: (s) => s.includes("entry.priorities.reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.priorities.reason.")) },
+  { test: (s) => s.includes("entry.muscle.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.muscle.")) },
+  { test: (s) => s.includes("entry.movement.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.movement.")) },
+  { test: (s) => /entry\.\$\{stepId\}\.title|`entry\.\$\{/.test(s) || s.includes("entry.${stepId}.title"), keys: (en) => Object.keys(en).filter((k) => /^entry\.[^.]+\.title$/.test(k)) },
   { test: (s) => s.includes("glossary.term.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("glossary.term.")) },
   { test: (s) => s.includes("glossary.${termKey}") || s.includes("glossary.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("glossary.") && !k.startsWith("glossary.term.")) },
   { test: (s) => s.includes("block_rec.${"), keys: (en) => Object.keys(en).filter((k) => /^block_rec\.[^.]+\.(line|why)$/.test(k)) },
@@ -272,6 +287,19 @@ async function main() {
   const en = JSON.parse(enSrc);
   const pt = JSON.parse(ptSrc);
   const runtime = loadRuntimeDicts();
+
+  const dayNameKeys = Compiler.DAY_DISPLAY_NAME_KEYS || {};
+  const blueprintCheck = Compiler.validateBlueprints();
+  const missingDayNames = Object.entries(dayNameKeys)
+    .filter(([, key]) => !(key in en) || !(key in pt))
+    .map(([dayId, key]) => `${dayId}:${key}`);
+  const compilerLabels = new Set(Object.values(Compiler.DAY_CONTRACT_LABELS || {}));
+  const compilerLabelsAsNames = Object.entries(dayNameKeys)
+    .filter(([, key]) => compilerLabels.has(en[key]) || compilerLabels.has(pt[key]))
+    .map(([dayId]) => dayId);
+  assert(blueprintCheck.ok, "Every compiler day has a stable display-name key", blueprintCheck.issues?.join(", "));
+  assert(!missingDayNames.length, "Every stable compiler day key has EN/PT copy", missingDayNames.slice(0, 8).join(", "));
+  assert(!compilerLabelsAsNames.length, "Authored day copy does not fall back to compiler labels", compilerLabelsAsNames.slice(0, 8).join(", "));
 
   const enKeys = Object.keys(en).sort();
   const ptKeys = Object.keys(pt).sort();

@@ -1,23 +1,24 @@
 # Program entry flow
 
-This document fixes the route and screen contract for Taurifer's program-entry
-redesign. It implements the Wave 1 design boundary in
-[Plan 048](../plans/048-program-entry-onboarding-redesign.md). Production UI
-work remains deferred until Plans 045 through 047 land.
+This document fixes the route and screen contract for Taurifer's shipped
+program-entry redesign. The pure contract was first specified as the Wave 1
+boundary in [Plan 048](../plans/048-program-entry-onboarding-redesign.md);
+Plans 045 through 047 are now integrated and the production route consumes
+those contracts through the entry adapter.
 
 ## Authorship decides the route
 
 The person choosing a split does not make a program manual. The route depends
 on who writes the executable prescription.
 
-| Route | Who chooses the prescription? | First destination | End of Wave 1 |
+| Route | Who chooses the prescription? | First destination | Shipped production surface |
 |---|---|---|---|
-| Recommend | Taurifer chooses structure, exercises, sets, targets, and progression from factual context. | Desired result | Injected compiler preview |
-| Custom | The user chooses bounded preferences. Taurifer still writes the prescription. | Desired result | Injected compiler preview |
-| Browse | The user chooses a complete, executable Taurifer program. | Compatibility context | Injected catalogue preview |
-| Build | The user writes days, exercises, sets, targets, and a supported progression method. | Program name and day count | Empty-day editor handoff |
-| Import | The user brings an external prescription. | Import source and review handoff | Import preview handoff |
-| Shared | Another Taurifer user supplied a released setup payload. | Existing shared-program review | Existing first-run confirmation handoff |
+| Recommend | Taurifer chooses structure, exercises, sets, targets, and progression from factual context. | Desired result | Five questionnaire sections, recommendation, and common editable preview |
+| Custom | The user chooses bounded preferences. Taurifer still writes the prescription. | Desired result | Five questionnaire sections, split choice, generated result, and common editable preview |
+| Browse | The user chooses a complete, executable Taurifer program. | Compatibility context | Reviewed catalogue and common editable preview |
+| Build | The user writes days, exercises, sets, targets, and a supported progression method. | Program name and day count | Empty-day editor and common editable preview |
+| Import | The user brings an external prescription. | Import source and review handoff | Import mapping, common editable preview, and explicit activation |
+| Shared | Another Taurifer user supplied a released setup payload. | Existing shared-program review | Consent gate, common editable preview, and explicit activation |
 
 Recommend is the default inside the primary **Create a program** group. Custom
 is its deliberate alternative. Browse is a lower-emphasis choice. Build and
@@ -45,7 +46,7 @@ display indexes.
 | `build_setup` | Build | Non-empty bounded name and 2-6 days | The editor receives real empty day containers, never placeholder exercises. |
 | `import_source` | Import | A validated import handoff | This module never reads files or decodes payloads. |
 | `shared_review` | Shared | A validated released setup handoff | Preserve [ADR 0007](adr/0007-shared-setup-links.md) first-run precedence and consent. |
-| `result` | Recommend, Custom | A deterministic selected candidate and snapshot | Recommend has one primary result and at most one close alternative. Custom has one result and no reroll. |
+| `result` | Recommend, Custom | A deterministic selected candidate and snapshot | Recommend has one primary result; a close alternative is shown only when the compiler supplies a genuinely valid one. Custom has one result and no reroll. |
 | `preview` | Recommend, Custom, Browse, Import, Shared | A complete preview snapshot | Edits affect the draft only. The active program remains untouched. |
 | `editor` | Build | Empty-day draft created | Activation stays blocked until the later production editor validates it. |
 | `activation_conflict` | Preview routes | Fresh review after a revision mismatch | A stale setup can never overwrite a newer active program. |
@@ -98,15 +99,17 @@ Reusable programming context and the setup draft are different records.
 - A saved old-version preview stays readable. The application must not silently
   regenerate it under new rules.
 
-The pure module normalizes these records. A production storage adapter will own
-the `repforge_program_setup_draft_v1` key and durable-state integration later.
-Wave 1 performs no storage writes.
+The pure module normalizes these records. The production entry adapter owns the
+`repforge_program_setup_draft_v1` key and persists the owned draft through the
+existing storage lock. Activation remains a separate explicit transaction; no
+draft edit changes the active program.
 
 ## Service boundary
 
-Wave 1 tests state-machine behavior with injected fixture services. These
-services describe the future compiler and catalogue contract; they are not a
-temporary production generator.
+The original Wave 1 tests state-machine behavior with injected fixture
+services. Those services document the historical compiler and catalogue
+contract; the shipped production route now uses the Plan 047 compiler and
+catalogue through `program-entry-adapter.js`.
 
 - The compiler receives normalized answers and an explicit version set. It
   returns candidates, diagnostics, a complete preview snapshot, and a stable
@@ -158,10 +161,11 @@ Legacy answers are reviewable hints, not new factual claims.
 Historical `programMeta` is unchanged. New provenance begins only when a new
 draft is created.
 
-## Production integration gates
+## Historical production integration gates
 
-Wave 1 ends at the pure module and fixture services. Production work may start
-only after the dependent contracts land on `main`:
+The following list records the historical gates that governed the transition
+from the Wave 1 fixture handoff to production. Plans 045, 046, and 047 have
+landed, and the Plan 048 production route now consumes those contracts:
 
 1. Merge Plan 045 before adding semantic telemetry calls.
 2. Merge Plan 046 before exposing progression choices in the manual editor.
@@ -175,10 +179,11 @@ rules in [AGENTS.md](../AGENTS.md), the owner decisions in the
 [decision register](product-grilling-decision-register.md), and the strategy in
 [the business and product thesis](business-product-thesis.md).
 
-## Production UI integration handoff
+## Production UI integration handoff (historical Wave 1 contract)
 
-Wave 1 is complete. This section is the contract the production slices consume.
-It adds no runtime code and changes no production file.
+Wave 1 is complete. This section preserves the contract that the production
+slices consumed; its runtime implementation now lives in the shipped entry
+adapter and application. Editing this section alone adds no runtime code.
 
 ### What Wave 1 delivered
 
@@ -227,8 +232,8 @@ partially built next slice.
    steps against `ROUTE_STEPS`, `validationIssues`, `advance`, and `back`. Own
    the `repforge_program_setup_draft_v1` key and call `normalizeSetupDraft`,
    `resumeSetupDraft`, `startOver`, and `updateTimestamp` for durable state.
-   Prefill from `migrateLegacyAnswers`; keep the legacy generator behind a
-   temporary compatibility flag only until the real compiler path passes.
+   Prefill from `migrateLegacyAnswers`; use the Plan 048 compiler path for
+   every supported setup route.
 2. **Recommend and common preview (Slice 3).** Swap the fixture `compile` for
    the real Plan 047 + Plan 046 path. Feed `setResult` with the compiled
    snapshot. Activate through the existing transition journal after
@@ -246,8 +251,9 @@ partially built next slice.
    structure; the manual editor offers only Plan 046 strategies. Route Import
    and shared setup through the same `preview` and activation path without
    changing released payload handling.
-6. **Legacy removal and hardening (Slice 7).** Remove `onbStep`, `onbAnswers`,
-   and the embedded legacy generator only after every gate below is green.
+6. **Legacy removal and hardening (Slice 7).** The obsolete `onbStep`,
+   `onbAnswers`, and embedded generator APIs are removed; retain only the
+   migration and import compatibility needed for existing data.
 
 ### Gates before legacy DOM removal
 
@@ -266,10 +272,11 @@ partially built next slice.
 - Service-worker `CACHE` bumped and `?v=NN` revisions moved in lockstep for any
   newly precached module.
 
-### Explicitly not part of this handoff
+### Historical Wave 1 non-deliverables
 
-- No second temporary production generator.
-- No `app.js`, `index.html`, `styles.css`, `i18n`, `sw.js`, or telemetry change
-  in this PR.
+- No second temporary production generator was part of the Wave 1 handoff.
+- Wave 1 changed no `app.js`, `index.html`, `styles.css`, `i18n`, `sw.js`, or
+  telemetry file; the later Plan 048 production integration does ship changes
+  in those surfaces.
 - No public route pointing at a placeholder or unbuilt slice.
 - No Pro, paywall, participant-only flow, or future-family teaser.

@@ -43,7 +43,36 @@ assert.equal(SDK_VERSION, "1.400.0");
   assert.equal(config.session_recording.recordHeaders, false);
   assert.equal(config.session_recording.recordBody, false);
   assert.equal(config.get_current_url(), "https://taurifer.example/index.html");
-  assert.equal(config.before_send, beforeSend);
+  assert.notEqual(config.before_send, beforeSend);
+  const retained = config.before_send({
+    event: "first_set_logged",
+    properties: { token: "phc_publictoken", distinct_id: "id" },
+  });
+  assert.equal(retained.properties.token, undefined,
+    "the config wrapper does not invent a token when none was configured");
+}
+
+{
+  const beforeSend = (event) => ({
+    ...event,
+    properties: { ...event.properties, token: undefined },
+  });
+  const config = createConfig({
+    beforeSend,
+    enabled: true,
+    host: "https://e.taurifer.com",
+    installationId: "123e4567-e89b-42d3-a456-426614174000",
+    safeLocation,
+    token: "phc_faithful",
+  });
+  const accepted = config.before_send({
+    event: "first_set_logged",
+    properties: { token: "phc_faithful", distinct_id: "id" },
+  });
+  assert.equal(accepted.properties.token, "phc_faithful",
+    "PostHog's required project token survives a privacy hook");
+  assert.equal(accepted.properties.distinct_id, "id",
+    "the wrapper preserves the boundary-filtered event");
 }
 
 {

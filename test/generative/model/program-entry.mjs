@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 export const MODEL_STEPS = Object.freeze({
   recommend: Object.freeze(["desired_result", "background", "schedule", "environment", "priorities", "result", "preview"]),
-  custom: Object.freeze(["desired_result", "background", "schedule", "environment", "priorities", "custom_shape", "result", "preview"]),
+  custom: Object.freeze(["desired_result", "background", "schedule", "environment", "priorities", "exercise_preferences", "custom_shape", "result", "preview"]),
   browse: Object.freeze(["schedule", "environment", "catalogue", "preview"]),
   build: Object.freeze(["build_setup", "editor"]),
   import: Object.freeze(["import_source", "preview"]),
@@ -56,9 +56,20 @@ function fixtureResult(route, state, services) {
     return services.compile({ mode: route, answers: state.answers, versions: MODEL_VERSIONS });
   }
   if (route === "browse") {
-    return { source: "fixture-catalogue", id: state.answers.catalogueSelection, fingerprint: "browse-fixture" };
+    return {
+      source: "fixture-catalogue", id: state.answers.catalogueSelection, fingerprint: "browse-fixture",
+      selected: { id: state.answers.catalogueSelection, source: "fixture-catalogue" },
+      preview: { program: [{ id: "fixture-browse", day: "Day 1", name: "Fixture movement", sets: 1, min: 1, max: 1 }] },
+    };
   }
-  return { source: `fixture-${route}`, fingerprint: `${route}-fixture` };
+  // Import and shared callers publish a reviewed candidate too.  A route
+  // result without a preview is not a resumable setup draft and is rejected
+  // by the persisted closed schema; keep the model on that same contract.
+  return {
+    source: `fixture-${route}`, fingerprint: `${route}-fixture`,
+    selected: { id: `fixture-${route}`, source: `fixture-${route}` },
+    preview: { program: [{ id: `fixture-${route}`, day: "Day 1", name: "Fixture movement", sets: 1, min: 1, max: 1 }] },
+  };
 }
 
 function assertInvariants(Entry, model) {
@@ -96,7 +107,17 @@ export function runProgramEntryJourney(Entry, services, actions) {
     } else if (action.type === "fill" && model.state.route) {
       model.state = Entry.setAnswers(model.state, baseAnswers(model.state.route, services));
     } else if (action.type === "advance" && model.state.route && model.state.step !== "activation_conflict") {
-      if (["result", "catalogue", "import_source", "shared_review"].includes(model.state.step)) {
+      // A result is produced only after its owning route has supplied the
+      // required handoff. Arbitrary generated journeys can reach Browse's
+      // catalogue (or an Import/Shared source step) before that handoff is
+      // selected. Do not manufacture an undefined fixture and ask the real
+      // state boundary to accept it; leave the state where the product would
+      // correctly report the missing selection.
+      const canPublishFixture = model.state.step === "result" ||
+        (model.state.step === "catalogue" && model.state.answers.catalogueSelection) ||
+        (model.state.step === "import_source" && model.state.answers.importReady) ||
+        (model.state.step === "shared_review" && model.state.answers.sharedReady);
+      if (canPublishFixture) {
         model.state = Entry.setResult(model.state, fixtureResult(model.state.route, model.state, services));
       }
       const transition = Entry.advance(model.state);

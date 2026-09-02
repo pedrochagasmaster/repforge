@@ -385,14 +385,25 @@ Scope rulings (the app is local-only; do not invent features):
 
 ### 3.7 New program onboarding (`#onboarding`) — mock `08-new-program.png`
 
-Restyle the existing 8-step wizard: top bar "Cancelar" (orange, exits to previous view)
-+ centered "Novo programa"; "ETAPA n DE 8" + segmented progress; big question title
-(28px/650) + `--ink-soft` explainer; options as radio cards (icon, title, caption,
-radio); "O QUE ISSO MUDA" label + one-liner under the options where the step has one;
-footer line "Já tenho um programa · Importar" (underlined "Importar" → program JSON
-import) on step 1; sticky bottom "Continuar" CTA (last step: existing finish label).
-Keep all steps, answers, and `generateProgramFromOnboarding` behavior. Back = "Cancelar"
-on step 1, and a back affordance ("‹") on later steps.
+The shipped onboarding is Plan 048's route-driven program-entry flow, not the
+former eight-step wizard. Keep the restrained grouped-row composition from the
+mock, with a route-specific header, Cancel/Back affordance, semantic progress,
+and a document-flow action footer:
+
+- Recommend and Custom share five short questionnaire sections: desired result,
+  background, schedule, environment, and priorities. Custom then adds its
+  bounded compiler-approved split choice.
+- Browse asks only for the compatibility context it needs before the released
+  catalogue. Build starts with a bounded name and day count, then shows real
+  empty-day editor containers. Import and Shared enter through their owning
+  validated handoffs.
+- Every route ends in the common editable preview. **Use this program** (or
+  the explicit replacement action) is the activation boundary; review and
+  editing remain draft-only.
+
+Use the real localized labels and semantic step IDs from
+[`docs/program-entry-flow.md`](../program-entry-flow.md), not a display index or
+the superseded eight-step copy.
 
 ### 3.8 Block review — mock `09-block-review.png`
 

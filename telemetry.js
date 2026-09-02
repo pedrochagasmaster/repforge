@@ -93,6 +93,7 @@
       navigator: null,
       now: () => new Date(),
       onReject: null,
+      projectToken: null,
       releaseChannel: "preview",
       storage: null,
     };
@@ -183,6 +184,7 @@
     if (Object.prototype.hasOwnProperty.call(options, "crypto")) runtime.crypto = options.crypto || null;
     if (typeof options.now === "function") runtime.now = options.now;
     if (typeof options.onReject === "function") runtime.onReject = options.onReject;
+    if (typeof options.projectToken === "string") runtime.projectToken = options.projectToken;
     if (VERSION_PATTERN.test(options.appVersion || "")) runtime.appVersion = options.appVersion;
     if (CHANNELS.includes(options.releaseChannel)) runtime.releaseChannel = options.releaseChannel;
     runtime.enabled = readEnabled();
@@ -210,7 +212,12 @@
     if (!definition || definition.phase !== "alpha") return reject("unknown_event", eventName);
     if (!properties || typeof properties !== "object" || Array.isArray(properties)) return reject("invalid_properties", eventName);
     const keys = Object.keys(properties);
-    if (keys.some(key => key.startsWith("$") || !Object.prototype.hasOwnProperty.call(definition.properties, key))) return reject("unknown_property", eventName);
+    if (keys.some(key => key.startsWith("$") ||
+      (key !== "token" && !Object.prototype.hasOwnProperty.call(definition.properties, key)))) return reject("unknown_property", eventName);
+    if (Object.prototype.hasOwnProperty.call(properties, "token") &&
+      (typeof runtime.projectToken !== "string" || properties.token !== runtime.projectToken)) {
+      return reject("invalid_property", `${eventName}.token`);
+    }
     for (const [key, validator] of Object.entries(definition.properties)) {
       if (!validProperty(properties[key], validator)) return reject("invalid_property", `${eventName}.${key}`);
     }
@@ -245,6 +252,11 @@
     clean.telemetry_schema_version = SCHEMA_VERSION;
     clean.app_version = runtime.appVersion;
     clean.release_channel = runtime.releaseChannel;
+    // PostHog 1.400.0 carries the project API key in properties.token at the
+    // before_send seam. The SDK adds it before calling us; preserve only the
+    // exact configured token so the privacy allowlist cannot become a general
+    // pass-through for token-shaped application data.
+    if (properties.token !== undefined) clean.token = properties.token;
     const identity = installationIdentity();
     if (!identity || properties.distinct_id !== identity.installationId) return null;
     clean.distinct_id = identity.installationId;

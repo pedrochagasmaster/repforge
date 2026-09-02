@@ -2,6 +2,7 @@
 /** Focused Playwright checks for modal, disclosure, and live-status semantics. Requires the app HTTP server. */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
+import { runProgramEntryA11y } from "./program-entry-a11y.mjs";
 import { MINIMAL_PAYLOAD, cloneFixture } from "./fixtures/shared-setup.mjs";
 import {
   APP_INDEX,
@@ -503,26 +504,25 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click('nav button[data-view="program"]');
   await page.waitForSelector("#program.view.active");
-  await page.click("#programEditToggle");
-  await page.waitForSelector("#programEditorWrap:not(.is-hidden) #endBlock");
-  await page.locator("#endBlock").click();
+  await page.waitForSelector("#reviewBlockLink");
+  await page.locator("#reviewBlockLink").click();
   let info = await modalInfo(page, "#endBlockConfirm");
-  assert(info.open && info.active === "endBlockCancel", "End Block Confirm: initial focus is #endBlockCancel", JSON.stringify(info));
-  assert(info.liveKids.includes("endBlockConfirm") && info.liveKids.includes("announcementHost"), "End Block Confirm: dialog and announcement host stay interactive", JSON.stringify(info.liveKids));
-  assert(info.inertIds.includes("main") || info.inertIds.length > 0, "End Block Confirm: background is inert", JSON.stringify(info.inertIds));
+  assert(info.open && info.active === "endBlockCancel", "Review Block Confirm: initial focus is #endBlockCancel", JSON.stringify(info));
+  assert(info.liveKids.includes("endBlockConfirm") && info.liveKids.includes("announcementHost"), "Review Block Confirm: dialog and announcement host stay interactive", JSON.stringify(info.liveKids));
+  assert(info.inertIds.includes("main") || info.inertIds.length > 0, "Review Block Confirm: background is inert", JSON.stringify(info.inertIds));
   const wrap = await tabWrap(page, "#endBlockConfirm");
-  assert(wrap.forward.inside && wrap.back.inside, "End Block Confirm: Tab wraps inside", JSON.stringify(wrap));
+  assert(wrap.forward.inside && wrap.back.inside, "Review Block Confirm: Tab wraps inside", JSON.stringify(wrap));
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
-  await page.waitForFunction(() => document.activeElement?.id === "endBlock");
+  await page.waitForFunction(() => document.activeElement?.id === "reviewBlockLink");
   info = await modalInfo(page, "#endBlockConfirm");
   const afterEsc = await page.evaluate(() => ({
     hidden: document.querySelector("#endBlockConfirm")?.classList.contains("hidden"),
     active: document.activeElement?.id,
     leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id),
   }));
-  assert(info.hidden && afterEsc.active === "endBlock", "End Block Confirm: Escape is Cancel and returns to #endBlock", JSON.stringify(afterEsc));
-  assert(afterEsc.leaked.length === 0, "End Block Confirm: closing restores inertness", JSON.stringify(afterEsc.leaked));
+  assert(info.hidden && afterEsc.active === "reviewBlockLink", "Review Block Confirm: Escape is Cancel and returns to #reviewBlockLink", JSON.stringify(afterEsc));
+  assert(afterEsc.leaked.length === 0, "Review Block Confirm: closing restores inertness", JSON.stringify(afterEsc.leaked));
   await context.close();
 }
 
@@ -530,9 +530,8 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click('nav button[data-view="program"]');
   await page.waitForSelector("#program.view.active");
-  await page.click("#programEditToggle");
-  await page.waitForSelector("#programEditorWrap:not(.is-hidden) #endBlock");
-  await page.locator("#endBlock").click();
+  await page.waitForSelector("#reviewBlockLink");
+  await page.locator("#reviewBlockLink").click();
   await page.locator("#endBlockGo").click();
   const review = await modalInfo(page, "#blockReview");
   const confirmGone = await page.evaluate(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
@@ -543,13 +542,13 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   assert(wrap.forward.inside && wrap.back.inside, "Block Review: Tab wraps inside", JSON.stringify(wrap));
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
-  await page.waitForFunction(() => document.activeElement?.id === "endBlock");
+  await page.waitForFunction(() => document.activeElement?.id === "reviewBlockLink");
   const after = await page.evaluate(() => ({
     hidden: document.querySelector("#blockReview")?.classList.contains("hidden"),
     active: document.activeElement?.id,
     leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
   }));
-  assert(after.hidden && after.active === "endBlock", "Block Review: Escape closes and returns to original #endBlock opener", JSON.stringify(after));
+  assert(after.hidden && after.active === "reviewBlockLink", "Block Review: Escape closes and returns to original #reviewBlockLink opener", JSON.stringify(after));
   assert(after.leaked.length === 0, "chained modals do not leak inertness", JSON.stringify(after.leaked));
   await context.close();
 }
@@ -2634,8 +2633,7 @@ console.log("\nShared setup gate accessibility");
       const start = document.querySelector("#firstRunSharedStart");
       if (!hook?.commit || !start) return { missing: true, hasStart: !!start };
       hook.commit({
-        writeLocal() { return new Promise(() => {}); },
-        writeIdb() { return new Promise(() => {}); },
+        writeSetupDraft() { return new Promise(() => {}); },
       });
       await new Promise((res) => setTimeout(res, 50));
       return {
@@ -2676,6 +2674,7 @@ async function main() {
     await runDimmedStateAccessibility(browser);
     await runVisualAccessibility(browser);
     await runSharedSetupAccessibility(browser);
+    await runProgramEntryA11y(browser);
   }
   await browser.close();
   console.log(`\n${results.passed} passed, ${results.failed} failed`);

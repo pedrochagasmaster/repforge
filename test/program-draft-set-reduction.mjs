@@ -201,6 +201,17 @@ function programSets(snapshot) {
   return snapshot?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.sets ?? null;
 }
 
+function setsValue(page) {
+  return page.locator(`#programEditor [data-role="sets-value"]`).first();
+}
+
+async function reduceSets(page) {
+  await page.locator(
+    `#programEditor [data-role="adjust"][data-id="${EXERCISE_ID}"][data-field="sets"][data-delta="-1"]`
+  ).click();
+  await page.waitForTimeout(100);
+}
+
 async function fillSet(page, set, load, reps, rir) {
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).fill(String(load));
   await page.locator(`[data-k="${EXERCISE_ID}_${set}_reps"]`).fill(String(reps));
@@ -327,17 +338,15 @@ async function main() {
     await page.click("#programEditToggle");
     await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
 
-    const setsInput = page.locator(
-      `#programEditor input[data-id="${EXERCISE_ID}"][data-field="sets"]`
-    );
+    const setsInput = setsValue(page);
     const beforeReduction = await readRuntime(page);
 
-    await setsInput.fill("1");
-    await setsInput.blur();
+    await reduceSets(page);
+    await page.click("#programEditToggle");
+    await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await page.evaluate(() => window.__repforgeStorage.flush());
 
     const afterReduction = await readRuntime(page);
-    const rejectedToast = await page.locator("#toast").textContent();
     const reductionGuarded =
       programSets(afterReduction.local) === 2 &&
       programSets(afterReduction.idb) === 2 &&
@@ -358,9 +367,8 @@ async function main() {
         artifacts: afterReduction.persistenceArtifacts,
       }
     );
-    check(dialogs.length === 0, "rejection does not open a confirmation dialog", dialogs);
-    check(await setsInput.inputValue() === "2", "rejected input is restored to the planned count", {
-      inputValue: await setsInput.inputValue(),
+    check(await setsInput.textContent() === "1", "rejected staged reduction remains visible until discarded", {
+      inputValue: await setsInput.textContent(),
     });
     check(replicasUnchanged, "rejection leaves both durable replicas unchanged", {
       localBefore: beforeReduction.local,
@@ -376,13 +384,17 @@ async function main() {
         after: afterReduction.draftRaw,
       }
     );
+    const conflictBody = await page.locator("#programEditorLeaveBody").textContent();
     check(
-      rejectedToast === "Finish or discard this workout before reducing sets you've started.",
+      conflictBody === "These changes affect your unfinished workout. Apply them and discard that workout, or keep editing.",
       "rejection shows guidance to finish or discard the workout",
-      { rejectedToast }
+      { conflictBody }
     );
 
+    await page.click("#programEditorKeep");
     await page.click('nav button[data-view="log"]');
+    await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await page.click("#programEditorDiscard");
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
     await page.click("#viewExercises");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
@@ -450,12 +462,17 @@ async function main() {
     await page.click("#programEditToggle");
     await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
 
-    const allowedInput = page.locator(
-      `#programEditor input[data-id="${EXERCISE_ID}"][data-field="sets"]`
-    );
+    const allowedInput = setsValue(page);
     const dialogsBeforeAllowed = dialogs.length;
-    await allowedInput.fill("1");
-    await allowedInput.blur();
+    await reduceSets(page);
+    check(await allowedInput.textContent() === "1", "allowed reduction updates the staged count", {
+      inputValue: await allowedInput.textContent(),
+    });
+    await page.click("#programEditToggle");
+    await page.waitForFunction(
+      () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      { timeout: 5000 }
+    );
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterAllowedReduction = await readRuntime(page);
     const allowed =
@@ -472,8 +489,8 @@ async function main() {
       "allowed reduction does not open a confirmation dialog",
       dialogs.slice(dialogsBeforeAllowed)
     );
-    check(await allowedInput.inputValue() === "1", "allowed reduction keeps the requested count", {
-      inputValue: await allowedInput.inputValue(),
+    check(programSets(afterAllowedReduction.local) === 1, "allowed reduction keeps the requested count", {
+      durableSets: programSets(afterAllowedReduction.local),
     });
     check(
       afterAllowedReduction.draftRaw === allowedDraft.draftRaw,
@@ -636,15 +653,14 @@ async function main() {
       await workout.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
       await holdStorageLock(locker);
 
-      const queuedInput = page.locator(
-        `#programEditor input[data-id="${EXERCISE_ID}"][data-field="sets"]`
-      );
-      await queuedInput.fill("1");
+      await reduceSets(page);
+      await page.click("#programEditToggle");
       await waitForPendingStorageLock(locker);
       await fillSet(workout, 2, 97.5, 7, 1);
       await waitForDraftValue(workout, `${EXERCISE_ID}_2_load`, "97.5");
 
       await releaseStorageLock(locker);
+      await page.waitForTimeout(500);
       await page.evaluate(() => window.__repforgeStorage.flush());
       const raced = await readRuntime(page);
       await reloadApp(page);

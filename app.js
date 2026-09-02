@@ -23,7 +23,7 @@ async function idbDel(key){const db=await idbOpen();
     const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);
     tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
   finally{db.close()}}
-const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction";
+const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction",STORAGE_SETUP_TXN="_storageSetupActivation";
 /* Transient, journal-only: what a shared proposal contributed as its own custom
    definitions, so a rebase against a refreshed head can tell payload data from
    recipient data. Stripped before any snapshot becomes durable. */
@@ -71,12 +71,25 @@ function isSafeLogRow(entry){
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
+function isValidSetupActivationMarker(marker){
+  return isPlainStateObject(marker)&&marker.version===1&&
+    typeof marker.programId==="string"&&marker.programId.length>0&&marker.programId.length<=128&&
+    typeof marker.raw==="string"&&marker.raw.length>0&&marker.raw.length<=70000&&
+    (!Object.prototype.hasOwnProperty.call(marker,"revision")||
+      (Number.isInteger(marker.revision)&&marker.revision>=1))}
+function setupActivationMarker(raw,programId){
+  if(typeof raw!=="string"||!raw||typeof programId!=="string"||!programId)return null;
+  const marker={version:1,programId,raw};
+  return isValidSetupActivationMarker(marker)?marker:null}
+function setupActivationMatches(marker,raw,programId){
+  return isValidSetupActivationMarker(marker)&&marker.programId===programId&&marker.raw===raw}
 function isValidStateShape(s){
   try{
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
+    if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN)&&!isValidSetupActivationMarker(s[STORAGE_SETUP_TXN]))return false;
     // Optional: backups written before custom exercises existed stay importable.
     if(Object.prototype.hasOwnProperty.call(s,"customExercises")&&
       !(Array.isArray(s.customExercises)&&s.customExercises.every(isSafeCustomExercise)))return false;
@@ -84,8 +97,12 @@ function isValidStateShape(s){
     return Array.isArray(s.programHistory)&&s.programHistory.every(isSafeProgramHistoryEntry)}
   catch{return false}}
 function readRevision(s){const n=s?.[STORAGE_REV];return Number.isInteger(n)&&n>=0?n:0}
-function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];return o}
+function stripStorageMeta(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];delete o[STORAGE_SETUP_TXN];return o}
 function exportableState(s){return stripStorageMeta(s)}
+// Mirror arbitration must retain setup-activation receipts. They are omitted
+// from exports, but dropping one while choosing between equal-revision local
+// and IndexedDB copies can re-enable a second activation after a partial write.
+function mirrorComparisonSnapshot(s){if(!s||typeof s!=="object")return s;const o=cloneSnapshot(s);delete o[STORAGE_REV];delete o[STORAGE_FOLLOWUP];delete o[STORAGE_DRAFT_TXN];return o}
 function canonicalize(value){
   if(Array.isArray(value))return value.map(canonicalize);
   if(value&&typeof value==="object"){
@@ -94,7 +111,7 @@ function canonicalize(value){
     return out}
   return value}
 function canonicalPayload(s){return JSON.stringify(canonicalize(stripStorageMeta(s)))}
-function snapshotsEqual(a,b){return canonicalPayload(a)===canonicalPayload(b)}
+function snapshotsEqual(a,b){return JSON.stringify(canonicalize(mirrorComparisonSnapshot(a)))===JSON.stringify(canonicalize(mirrorComparisonSnapshot(b)))}
 function snapshotSummary(s){
   const log=Array.isArray(s?.log)?s.log:[];
   const sessions=new Set(log.map(r=>r&&r.session).filter(Boolean)).size;
@@ -276,7 +293,7 @@ function applyAcceptedSnapshot(base,snapshot){
   const live=rebaseStateChange(base,snapshot,state,{preferProposal:false});
   live[STORAGE_REV]=readRevision(snapshot);
   state=live;
-  prog=new Program(state.program);state.program=prog.toJSON();
+  prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   mutationBase=cloneSnapshot(snapshot);
   dropMemo.clear();baselineMemo.clear()}
 function unversionedSnapshot(snapshot){
@@ -453,7 +470,8 @@ function draftContextFingerprint(snapshot){
     unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"}))}
 function programTransitionPrecondition(snapshot=state){
   return{expectedProgramId:snapshot?.programMeta?.id||null,
-    expectedProgramFingerprint:draftProgramFingerprint(snapshot)}}
+    expectedProgramFingerprint:draftProgramFingerprint(snapshot),
+    expectedStorageRevision:readRevision(snapshot)}}
 const DraftStore={
   readCanonicalRaw(){
     try{return localStorage.getItem(DRAFT)}
@@ -630,6 +648,9 @@ function decodePendingJournal(key,raw){
     const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
       journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
     if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
+    const expectedStorageRevision=Object.prototype.hasOwnProperty.call(journal,"expectedStorageRevision")
+      ?journal.expectedStorageRevision:null;
+    if(expectedStorageRevision!==null&&(!Number.isInteger(expectedStorageRevision)||expectedStorageRevision<0))return null;
     const reconcileSessionIds=normalizeJournalSessionIds(journal.reconcileSessionIds);
     const dayRenames=normalizeJournalDayRenames(journal.dayRenames);
     if(reconcileSessionIds==null||dayRenames==null)return null;
@@ -646,7 +667,8 @@ function decodePendingJournal(key,raw){
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
-      expectedProgramFingerprint,expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
+      expectedProgramFingerprint,expectedStorageRevision,
+      expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
       effectOutcome,effect:effectOutcome.effect,rollback}}}
   catch{return null}}
 function readPendingJournal(){
@@ -681,11 +703,14 @@ function normalizeJournalDayRenames(value){
     renames.push({from:entry.from,to:entry.to})}
   return renames}
 function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
+  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
   if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
+  if(Number.isInteger(expectedStorageRevision)&&expectedStorageRevision>=0)
+    journal.expectedStorageRevision=expectedStorageRevision;
   if(expectedFirstRunEmpty)journal.expectedFirstRunEmpty=true;
   if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
   if(dayRenames.length)journal.dayRenames=dayRenames;
@@ -694,6 +719,19 @@ function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgr
   const raw=JSON.stringify(journal);
   try{localStorage.setItem(key,raw);return decodePendingJournal(key,raw)}
   catch(e){console.warn("pending state journal failed",e);return null}}
+function setupActivationAlreadyCommitted(head,proposal,expectedSetupDraftRaw){
+  if(typeof expectedSetupDraftRaw!=="string"||!expectedSetupDraftRaw)return false;
+  const proposed=proposal?.[STORAGE_SETUP_TXN],current=head?.[STORAGE_SETUP_TXN];
+  if(!isValidSetupActivationMarker(proposed)||!isValidSetupActivationMarker(current))return false;
+  const headRevision=readRevision(head);
+  // The proposal can be an older in-memory copy after another harmless write
+  // advanced the receipt. The durable head is authoritative; matching the
+  // exact draft raw value and program id is the idempotency proof.
+  if(!Number.isInteger(current.revision)||current.revision!==headRevision)return false;
+  return setupActivationMatches(proposed,expectedSetupDraftRaw,proposed.programId)&&
+    setupActivationMatches(current,expectedSetupDraftRaw,head?.programMeta?.id)&&
+    current.programId===proposed.programId;
+}
 function armPendingJournalRollback(record,snapshot){
   if(!record||record.legacy||!isValidStateShape(snapshot)||
     Object.prototype.hasOwnProperty.call(snapshot,STORAGE_DRAFT_TXN))return null;
@@ -769,6 +807,9 @@ function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconci
   delete snapshot[STORAGE_DRAFT_TXN];
   delete snapshot[SHARED_IMPORT];
   snapshot[STORAGE_REV]=readRevision(durableHead)+1;
+  const setupMarker=snapshot[STORAGE_SETUP_TXN];
+  if(isValidSetupActivationMarker(setupMarker))
+    snapshot[STORAGE_SETUP_TXN]={...setupMarker,revision:snapshot[STORAGE_REV]};
   return snapshot}
 function pendingJournalSuccessorMatches(record,head){
   const journal=record?.journal,rollback=journal?.rollback;
@@ -936,10 +977,13 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   return{kind:"committed",accepted:true,rejected:false,settled:true,
     snapshot,result:settlement.result||result,closed}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedFirstRunEmpty=false,reconcileSessionIds=[],dayRenames=[],effect=null}={}){
+  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  expectedSetupDraftRaw=undefined,
+  reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
+  let workingProposal=cloneSnapshot(frozenProposal);
   const frozenReconcileSessionIds=normalizeJournalSessionIds(reconcileSessionIds);
   const frozenDayRenames=normalizeJournalDayRenames(dayRenames);
   if(frozenReconcileSessionIds==null||frozenDayRenames==null)
@@ -952,6 +996,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   let pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
       {replace,expectedProgramId,expectedProgramFingerprint,
+        expectedStorageRevision,
         expectedFirstRunEmpty,
         reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
         effectOutcome:frozenEffectOutcome})
@@ -972,6 +1017,25 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}
       head=refreshed.head||head}
     const coordinationId=pendingRecord?.journal.id||null;
+    if(expectedSetupDraftRaw!==undefined&&readSetupDraftRaw()!==expectedSetupDraftRaw){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,
+        conflict:true,setupDraftConflict:true}}
+    // A setup activation writes a receipt into the durable successor before it
+    // attempts to consume the separate setup-draft key. If that consumption
+    // was interrupted, the next click must recognize the already-installed
+    // successor instead of archiving it a second time.
+    if(setupActivationAlreadyCommitted(head,frozenProposal,expectedSetupDraftRaw)){
+      const discarded=await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:true,idbOk:true,alreadyCommitted:true,
+        pendingJournalCleanup:discarded.settled!==true}}
+    if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,
+        conflict:true,staleRevision:true}}
     if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
@@ -984,6 +1048,30 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
+    // Some editor guards depend on a second tab's draft, which can be written
+    // while this operation waits for the cross-tab lock. Let the caller inspect
+    // that state after the lock is acquired but before the journal is armed or
+    // either durable replica is touched.
+    if(typeof preflight==="function"){
+      const checked=await preflight({head:cloneSnapshot(head),proposal:cloneSnapshot(workingProposal)});
+      if(checked?.proposal){
+        workingProposal=cloneSnapshot(checked.proposal);
+        // Keep crash recovery pointed at the proposal that survived the
+        // lock-held semantic rebase, not the stale copy written before it.
+        if(pendingRecord){
+          try{
+            const journal=JSON.parse(pendingRecord.raw);
+            journal.proposal=unversionedSnapshot(workingProposal);
+            const raw=JSON.stringify(journal);
+            localStorage.setItem(pendingRecord.key,raw);
+            pendingRecord=decodePendingJournal(pendingRecord.key,raw)||pendingRecord;
+          }catch{}
+        }
+      }
+      if(checked?.reject){
+        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+          effect:frozenEffectOutcome,discard:true});
+        return Object.assign({revision:readRevision(head),localOk:false,idbOk:false},checked.result||{conflict:true})}}
     if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
       const armed=armPendingJournalRollback(pendingRecord,head);
       if(!armed){
@@ -992,7 +1080,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         return{revision:readRevision(head),localOk:false,idbOk:false,
           draftConflict:true,journalFailed:true}}
       pendingRecord=armed}
-    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,
+    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,workingProposal,head,
       {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
         expectedFirstRunEmpty,sharedRebaseSeed:pendingRecord?.journal.id||coordinationId});
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
@@ -1263,15 +1351,37 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
-/* Day names are stored data: the bundled splits, the onboarding builder and
-   "+ Add day" all mint the canonical English `Day N`, and every log row, tab
-   and lookup keys off that stored string. Renaming them per locale would
-   rewrite the lifter's program on a language switch, so only the display is
-   translated, and only for that exact canonical shape — anything typed by hand
-   ("Push A", "Dia de perna") is shown back exactly as typed. */
+/* Rows and logs keep their stable grouping labels. Generated structure records
+   carry a localized display-name key beside that internal label, while a name
+   override is the exact text the lifter typed. Legacy Day N strings still get
+   their ordinal translation, and arbitrary hand-authored labels remain exact. */
 const DEFAULT_DAY_NAME=/^Day\s+(\d+)$/;
-const dayLabel=d=>{const s=String(d??"").trim(),m=DEFAULT_DAY_NAME.exec(s);
-  return m?t("program.default.day",{n:+m[1]}):String(d??"")};
+function dayStructureFor(value,meta){
+  const s=String(value??"").trim();
+  const days=meta?.programStructure?.days;
+  if(!Array.isArray(days))return null;
+  return days.find(entry=>{
+    const label=String(entry?.label??"").trim(),dayId=String(entry?.dayId??"").trim();
+    return s&&(label===s||dayId===s)})||null}
+function localizedDayName(entry,fallback,index){
+  const override=typeof entry?.nameOverride==="string"&&entry.nameOverride.trim()
+    ?entry.nameOverride:"";
+  if(override)return override;
+  const key=typeof entry?.displayNameKey==="string"?entry.displayNameKey:"";
+  if(key){const translated=t(key);if(translated!==key)return translated}
+  const value=String(entry?.label??fallback??"");
+  const match=DEFAULT_DAY_NAME.exec(value.trim());
+  return match?t("program.default.day",{n:+match[1]}):value}
+function previewDayLabel(day,index,structure){
+  const entry=dayStructureFor(day?.dayId||day?.label,structure)||day;
+  return localizedDayName(entry,day?.label||`Day ${index+1}`,index)}
+const dayLabel=d=>{
+  const s=String(d??"").trim();
+  const meta=setupEditorOpen
+    ?entryState?.result?.preview
+    :state?.programMeta;
+  return localizedDayName(dayStructureFor(s,meta),d);
+};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
@@ -1518,7 +1628,6 @@ const rowMuscles=row=>{
    switch leaves an existing program exactly as the lifter left it. Rows carry
    the seed key rather than a literal so the alternates keep keying off it. */
 const seedName=k=>t("seed.ex."+k);
-const seedNote=k=>t("seed.note."+k);
 const defaultAlternates={
   hack_or_pendulum_squat:["leg_press","pendulum_squat"],
   leg_press_45_quad:["hack_squat","belt_squat"],
@@ -1533,35 +1642,6 @@ const STARTER_ROWS=[
 const starterProgram=()=>STARTER_ROWS.map(x=>{
   const ex={id:uid(),day:x[0],order:x[1],name:seedName(x[2]),sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]};
   if(defaultAlternates[x[2]])ex.alternates=defaultAlternates[x[2]].map(seedName);
-  return ex});
-
-const BEGINNER_ROWS=[
-["Day 1",1,"leg_press_quad_focus",2,4,8,"Quads","Glutes,Adductors"],
-["Day 1",2,"seated_leg_curl",2,4,8,"Hamstrings",""],
-["Day 1",3,"chest_press_machine",2,4,8,"Chest","Front delts,Triceps"],
-["Day 1",4,"seated_row_machine",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],
-["Day 1",5,"lateral_raise_machine",2,6,8,"Side delts",""],
-["Day 1",6,"hip_adduction_machine",2,6,8,"Adductors",""],
-["Day 2",1,"leg_press_glute_focus",2,4,8,"Quads","Glutes,Adductors"],
-["Day 2",2,"romanian_deadlift_machine",2,4,8,"Hamstrings,Glutes","Spinal erectors"],
-["Day 2",3,"shoulder_press_machine",2,4,8,"Front delts","Side delts,Triceps"],
-["Day 2",4,"lat_pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],
-["Day 2",5,"chest_fly_machine",2,6,8,"Chest",""],
-["Day 2",6,"preacher_curl_machine",2,6,8,"Biceps",""],
-["Day 3",1,"leg_extension",2,6,8,"Quads",""],
-["Day 3",2,"leg_curl_machine",2,6,8,"Hamstrings",""],
-["Day 3",3,"chest_press_flat",2,4,8,"Chest","Front delts,Triceps"],
-["Day 3",4,"high_row_machine",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],
-["Day 3",5,"reverse_fly_machine",2,6,8,"Rear delts","Mid/upper back"],
-["Day 3",6,"triceps_pushdown",2,6,8,"Triceps",""]
-];
-const BEGINNER_ALTERNATES={
-  leg_press_quad_focus:["hack_squat_machine","pendulum_squat"],
-  lat_pulldown:["assisted_pull_up","neutral_grip_pulldown"]
-};
-const beginnerProgram=()=>BEGINNER_ROWS.map(x=>{
-  const ex={id:uid(),day:x[0],order:x[1],name:seedName(x[2]),sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7],notes:seedNote(x[2])};
-  if(BEGINNER_ALTERNATES[x[2]])ex.alternates=BEGINNER_ALTERNATES[x[2]].map(seedName);
   return ex});
 
 /* The single crossing from library entry to program template. Muscles and
@@ -1587,6 +1667,10 @@ function normalizeProgressionRelations(value,program=[],options={}){
   if(!checked?.ok&&options.preserveInvalid&&value!=null&&Array.isArray(options.incompatibilities))
     options.incompatibilities.push(progressionIncompatibility("relations",value,checked,options.source));
   return checked?.ok?cloneSnapshot(checked.value):[]}
+function candidateProgressionData(value,program,existing=[],source="candidate"){
+  const incompatibilities=Array.isArray(existing)?cloneSnapshot(existing):[];
+  const relations=normalizeProgressionRelations(value,program,{preserveInvalid:true,incompatibilities,source});
+  return{relations,incompatibilities}}
 function normalizeProgressionModifiers(value,options={}){
   if(value!=null&&!Array.isArray(value))throw new TypeError("progressionModifiers: expected array");
   if(value!=null&&!isBoundedProgressionValue(value))throw new TypeError("progressionModifiers: structure exceeds safety bounds");
@@ -1687,12 +1771,23 @@ class Exercise{
 
 class Program{
   /* lookup lets a caller resolve against a snapshot's own custom definitions —
-     import and normalizeLoaded work on state that is not live yet. */
-  constructor(list=[],lookup=null){const ids=new Set();
+     import and normalizeLoaded work on state that is not live yet.
+     structureDays (optional) keeps empty programStructure containers visible. */
+  constructor(list=[],lookup=null,structureDays=null,emptyDayContainers=false){const ids=new Set();
     this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);
       return ex.resolveIdentity(lookup)});
+    this._structureDays=Array.isArray(structureDays)&&structureDays.length
+      ?structureDays.map(d=>String(d)).filter(Boolean):null;
+    this._emptyDayContainers=emptyDayContainers===true;
     this.renumber()}
-  days(){return [...new Set(this.exercises.map(e=>e.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
+  days(){
+    const fromEx=[...new Set(this.exercises.map(e=>e.day))];
+    if(!this._structureDays)return fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+    const out=[],seen=new Set();
+    for(const d of this._structureDays){if(!d||seen.has(d))continue;seen.add(d);out.push(d)}
+    for(const d of fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
+      if(seen.has(d))continue;seen.add(d);out.push(d)}
+    return out}
   forDay(d){return this.exercises.filter(e=>e.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
   find(id){return this.exercises.find(e=>e.id===id)}
   renumber(){for(const d of this.days())this.forDay(d).forEach((e,i)=>e.order=i+1)}
@@ -1737,20 +1832,26 @@ class Program{
   removeExercise(id){this.exercises=this.exercises.filter(e=>e.id!==id);this.renumber()}
   move(id,dir){const e=this.find(id);if(!e)return;const list=this.forDay(e.day),i=list.indexOf(e),j=i+dir;
     if(j<0||j>=list.length)return;[list[i].order,list[j].order]=[list[j].order,list[i].order]}
-  addDay(){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
-    this.exercises.push(new Exercise({day:name,order:1,name:t("program.default.exercise"),sets:3,min:6,max:10}));return name}
+  addDay({withPlaceholder}={}){const ds=this.days();let n=ds.length+1,name=`Day ${n}`;while(ds.includes(name))name=`Day ${++n}`;
+    const placeholder=withPlaceholder!=null?!!withPlaceholder:!this._emptyDayContainers;
+    if(placeholder)this.exercises.push(new Exercise({day:name,order:1,name:t("program.default.exercise"),sets:3,min:6,max:10}));
+    if(this._structureDays)this._structureDays.push(name);
+    return name}
   renameDay(oldName,newName){const nv=String(newName).trim();if(!nv||nv===oldName)return false;
     if(this.days().includes(nv))return false;
-    for(const e of this.exercises)if(e.day===oldName)e.day=nv;this.renumber();return true}
-  removeDay(d){this.exercises=this.exercises.filter(e=>e.day!==d)}
+    for(const e of this.exercises)if(e.day===oldName)e.day=nv;
+    if(this._structureDays){
+      const idx=this._structureDays.indexOf(oldName);
+      if(idx>=0)this._structureDays[idx]=nv}
+    this.renumber();return true}
+  removeDay(d){this.exercises=this.exercises.filter(e=>e.day!==d);
+    if(this._structureDays)this._structureDays=this._structureDays.filter(x=>x!==d)}
   volume(){const m=new Map();for(const e of this.exercises){
     for(const x of muscles(e.primary))addVol(m,x,e.sets,0);
     for(const x of muscles(e.secondary))addVol(m,x,0,e.sets*.5)}return m}
 }
 
-const DAY_TYPES={full_body:["squat","hinge","press","pull","delts","arms"],upper:["press","row","pulldown","delts","chest_iso","arms"],
-  lower:["squat","hinge","leg_curl","leg_extension","calves"],push:["press","incline_press","shoulder_press","lateral_raise","triceps"],
-  pull:["row","pulldown","rear_delt","curl"],legs:["squat","hinge","leg_curl","leg_extension","adduction","calves"]};
+const DAY_TYPES=window.RepForgeProgramEntryAdapter.DAY_MERGE_VOCABULARY;
 const SESSION_BOUNDS={short:[4,5],normal:[5,7],long:[7,9]};
 const FILLER_SLOTS=["curl","triceps","lateral_raise","chest_iso","calves","leg_curl"];
 /* The exercise library. exercises.js is generated (see tools/README.md) and
@@ -1868,23 +1969,6 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
-function generateProgramFromOnboarding(answers){
-  const a=answers||{},equipment=a.equipment||[],experience=a.experience||"intermediate",goal=a.goal||"hypertrophy";
-  const dayTypes=resolveSplit(a.daysPerWeek,a.splitType),program=[],dayOcc={},seen={};
-  dayTypes.forEach((dayType,di)=>{
-    const occ=seen[dayType]|0;seen[dayType]=occ+1;
-    const dayName=`Day ${di+1}`;dayOcc[dayName]=occ;
-    const slots=exerciseSlotsForDay(dayType,a),usedIds=new Set();let order=0;
-    for(const slot of slots){
-      const entry=chooseExercise(slot,equipment,experience,usedIds,occ);if(!entry)continue;
-      usedIds.add(entry.id);order++;
-      const rs=repScheme(experience,goal,slot);
-      program.push({id:uid(),day:dayName,order,name:libraryName(entry),sets:rs.sets,min:rs.min,max:rs.max,
-        primary:entry.primary,secondary:entry.secondary||"",notes:entry.notes||"",libraryId:entry.id})}});
-  applyPriorityMuscles(program,a.priorityMuscles||[],equipment,experience);
-  applySessionLength(program,a.sessionLength||"normal",equipment,experience,dayOcc);
-  return program}
-
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
@@ -2118,7 +2202,10 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,histMonth=null,histQuery="",readyExpanded=false;
+let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="",readyExpanded=false;
+/* The editor module owns the draft document. Hosts retain only its lifecycle
+   and adapter session so the installed editor can stay private until Done. */
+let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
@@ -2154,16 +2241,25 @@ function earliestLogDate(log){if(!log?.length)return null;return log.reduce((min
 function defaultProgramMeta(log=[]){const now=new Date().toISOString();return{id:uid(),name:"",started:earliestLogDate(log),created:now,updated:now,
   goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:[],priorityMuscles:[],sessionLength:null,
   mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:false,
-  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null}}
-function buildProgramMeta({name, answers}={}){
+  progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],programStructure:null,entrySource:null}}
+function normalizeProgramEntrySource(value){
+  if(!value||typeof value!=="object"||Array.isArray(value))return null;
+  const routes=window.RepForgeProgramEntry?.ROUTES||[];
+  const route=routes.includes(value.route)?value.route:null;
+  const fingerprint=typeof value.fingerprint==="string"&&value.fingerprint.length<=128&&/^[a-zA-Z0-9._:-]+$/.test(value.fingerprint)
+    ?value.fingerprint:null;
+  return route&&fingerprint?{route,fingerprint}:null}
+function buildProgramMeta({name, answers, entrySource}={}){
   const a=answers||{},now=new Date().toISOString();
   const programName=String(name??"").trim()||t("untitled_program")||"Untitled program";
   return{id:uid(),name:programName,started:today(),created:now,updated:now,
     goal:a.goal??null,experience:a.experience??null,daysPerWeek:a.daysPerWeek??null,splitType:a.splitType??null,
     equipment:Array.isArray(a.equipment)?a.equipment:[],priorityMuscles:Array.isArray(a.priorityMuscles)?a.priorityMuscles:[],
-    sessionLength:a.sessionLength??null,mesocycleLengthWeeks:6,mesocycleStatus:"active",completedAt:null,onboarded:true,
+    sessionLength:a.sessionLength??null,
+    mesocycleLengthWeeks:Number.isFinite(+a.mesocycleLengthWeeks)&&+a.mesocycleLengthWeeks>0?Math.round(+a.mesocycleLengthWeeks):6,
+    mesocycleStatus:"active",completedAt:null,onboarded:true,
     progressionRelations:[],progressionModifiers:[],
-    blockPromptDismissedId:null}}
+    blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
 function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
@@ -2189,10 +2285,11 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
   if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
   const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
+  const entrySource=normalizeProgramEntrySource(m.entrySource);
   return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource}}
 
 function withExplicitProgramStructure(program,meta){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
@@ -2256,6 +2353,13 @@ function normalizeLoaded(s,options={}){
   out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
+  if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN))out[STORAGE_SETUP_TXN]=cloneSnapshot(s[STORAGE_SETUP_TXN]);
+  if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
+    const Entry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
+    if(Entry){
+      const normalized=Entry.normalizeProgrammingContext(s.programmingContext);
+      if(normalized.ok)out.programmingContext=normalized.value}
+    else if(s.programmingContext&&typeof s.programmingContext==="object")out.programmingContext=cloneSnapshot(s.programmingContext)}
   return out}
 function proposalFromImport(incoming){
   if(!isValidStateShape(incoming))throw new TypeError("Invalid Taurifer backup");
@@ -2541,15 +2645,44 @@ function successorProgramList(strategy,list){
   if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
   return src}
 function capturePendingBlock(strategy,review){
-  return{oldProgramId:state.programMeta?.id,oldMeta:cloneSnapshot(state.programMeta),oldProgram:cloneSnapshot(prog.toJSON()),
-    programFingerprint:draftProgramFingerprint(state),review:cloneSnapshot(review||blockReviewCurrent),strategy}}
-function archiveCapturedBlock(proposal,cap){
+  return{...captureProgramReplacement(state,review||blockReviewCurrent),strategy}}
+function hasArchivableProgram(snapshot){
+  const meta=snapshot?.programMeta;
+  const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
+  if(!meta||!hasDefinition)return false;
+  return meta.onboarded===true||Array.isArray(snapshot?.log)&&snapshot.log.length>0||
+    Array.isArray(snapshot?.programHistory)&&snapshot.programHistory.length>0}
+function captureProgramReplacement(snapshot=state,review=null){
+  const meta=snapshot?.programMeta;
+  const program=Array.isArray(snapshot?.program)?snapshot.program:[];
+  if(!hasArchivableProgram(snapshot))return null;
+  return{oldProgramId:meta.id,oldMeta:cloneSnapshot(meta),oldProgram:cloneSnapshot(program),
+    programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),
+    review:review?cloneSnapshot(review):null}}
+function archiveCapturedProgram(proposal,cap){
   if(!cap?.oldProgramId)return proposal;
   const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
   if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
   history.push({id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
     completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)});
   proposal.programHistory=history;return proposal}
+async function commitProgramReplacement(proposal,io=storageIO,{capture=captureProgramReplacement(state),
+  effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
+  requireAdapter(io,"commitProgramReplacement");
+  if(capture)archiveCapturedProgram(proposal,capture);
+  // A first-run shared proposal is deliberately rebased onto the newest
+  // eligible head. Its eligibility guard replaces the ordinary active-program
+  // precondition; retaining the stale starter revision would reject exactly
+  // the concurrent custom/settings cases the shared transaction is designed to
+  // converge.
+  const transition=replace&&expectedFirstRunEmpty
+    ?{expectedProgramId:state?.programMeta?.id||null,
+      expectedProgramFingerprint:draftProgramFingerprint(state)}
+    :capture
+    ?{expectedProgramId:capture.oldProgramId,expectedProgramFingerprint:capture.programFingerprint,
+      expectedStorageRevision:capture.storageRevision}
+    :programTransitionPrecondition(state);
+  return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty})}
 function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
@@ -2593,13 +2726,12 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
         toast(t("toast.set_count_locked_draft"));
         return blockTransitionResult("failed",{draftConflict:true})}}
     const proposal=cloneSnapshot(state);
-    archiveCapturedBlock(proposal,cap);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
     proposal.programMeta=nextMeta;
     proposal.program=nextProgram;
-    const persisted=await commitProposedState(proposal,io,{expectedProgramId:cap.oldProgramId,
-      expectedProgramFingerprint:cap.programFingerprint,effect});
-    const kind=persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed";
+    const persisted=await commitProgramReplacement(proposal,io,{capture:cap,effect});
+    const kind=persisted.localOk||persisted.idbOk?"committed":
+      persisted.duplicate||persisted.staleRevision?"duplicate":"failed";
     const result=blockTransitionResult(kind,persisted);
     if(result.committed){
       pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
@@ -2619,9 +2751,15 @@ function openBlockReview(review,opts={}){
     prevInert:opts.prevInert
   });
   $("#blockReviewClose").onclick=closeBlockReview}
-function promptEndBlock(){
+function promptEndBlock(event){
   const d=$("#endBlockConfirm");if(!d)return;
-  const opener=$("#endBlock")||document.activeElement;
+  const invoked=event?.currentTarget;
+  const focused=document.activeElement;
+  const opener=invoked instanceof HTMLElement
+    ?invoked
+    :focused instanceof HTMLElement&&focused!==document.body
+    ?focused
+    :[$("#reviewBlockLink"),$("#endBlock")].find(el=>el&&el.offsetParent!==null);
   openModal(d,{
     initialFocus:$("#endBlockCancel"),
     returnFocus:opener,
@@ -2832,8 +2970,53 @@ window.__repforgeStorage={
   rebaseForTest(base,proposal,target,opts){return rebaseStateChange(base,proposal,target,opts)},
   replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
   mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
-function days(){return [...new Set(state.program.map(x=>x.day))].sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))}
-function exercises(d=day){return state.program.filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
+function days(){
+  const fromEx=[...new Set((state.program||[]).map(x=>x.day))];
+  const fromStruct=structureDayLabels(state.programMeta);
+  if(!fromStruct)return fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  const out=[],seen=new Set();
+  for(const d of fromStruct){if(!d||seen.has(d))continue;seen.add(d);out.push(d)}
+  for(const d of fromEx.sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}))){
+    if(seen.has(d))continue;seen.add(d);out.push(d)}
+  return out}
+function structureDayLabels(meta){
+  const days=meta?.programStructure?.days;
+  if(!Array.isArray(days)||!days.length)return null;
+  const labels=days.map(d=>String(d.label||d.dayId||"").trim()).filter(Boolean);
+  return labels.length?labels:null}
+function makeProgram(list,lookup=null,meta=null){
+  return new Program(list,lookup,structureDayLabels(meta),
+    meta?.programStructure?.provenance?.source==="manual_build")}
+function syncProgramStructureFromProgram(proposal,program){
+  const struct=proposal.programMeta?.programStructure;
+  if(!struct||!Array.isArray(struct.days))return;
+  const labels=program._structureDays&&program._structureDays.length
+    ?program._structureDays.slice():program.days();
+  const byLabel=new Map(struct.days.map(d=>[d.label,d]));
+  const byIndex=struct.days.slice();
+  proposal.programMeta.programStructure={
+    ...cloneSnapshot(struct),
+    days:labels.map((label,i)=>{
+      const prev=byLabel.get(label)||byIndex[i];
+      const dayId=prev?.dayId||`manual_d${i+1}`;
+      const displayNameKey=prev?.displayNameKey||ProgramCompiler?.dayDisplayNameKey?.(dayId);
+      const previousLabel=String(prev?.label||"");
+      const override=typeof prev?.nameOverride==="string"&&prev.nameOverride.trim()
+        ?prev.nameOverride:"";
+      // A rename changes the row grouping label, but not the generated day's
+      // identity. Once a generated label diverges, remember the exact text so
+      // a later language switch cannot replace it with the default translation.
+      const nameOverride=displayNameKey&&previousLabel&&label!==previousLabel
+        ?label:override;
+      return{dayId,label,order:i+1,
+        ...(displayNameKey?{displayNameKey}:{}),
+        ...(nameOverride?{nameOverride}:{})}})}
+}
+function scheduledProgramRows(){
+  const week=mesocycleLifecycle(state.programMeta).current;
+  if(week==null||typeof ProgramCompiler?.projectProgramForWeek!=="function")return state.program;
+  return ProgramCompiler.projectProgramForWeek(state.program,state.programMeta?.programStructure,week)}
+function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
   const entry=ex?.libraryId?libraryEntry(ex.libraryId):null;
@@ -5355,7 +5538,6 @@ function parseSetCommand(text){
   const lead=exSrc.match(/^([a-z][a-z\s]*?)(?=\d)/);if(lead){const ex=lead[1].trim();if(ex)exerciseName=ex}
   return {ok:true,exerciseName,set,load,reps,rir,effort,unit,confidence,warnings}}
 window.detectPRs=detectPRs;
-window.__repforgeGenerateProgram=generateProgramFromOnboarding;
 window.__repforgeCatalogForSlot=catalogForSlot;
 window.__repforgeChooseExercise=chooseExercise;
 window.__repforgeResolveSplit=resolveSplit;
@@ -5391,7 +5573,10 @@ window.__repforgeMesocycleWeek=mesocycleWeek;
 window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCommitNextBlock=commitNextBlock;
 window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
-window.__repforgeApplyProgramTemplate=applyProgramTemplate;
+window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,storageIO);
+window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
+window.__repforgeEntryState=()=>cloneSnapshot(entryState);
+window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
 window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
 window.__repforgePendingBlock=()=>pendingBlockTransition;
 window.__repforgeParseCommand=parseSetCommand;
@@ -5971,12 +6156,493 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
-function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
-  const ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
+function editorDocumentFromSnapshot(snapshot){
+  return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
+    customExercises:cloneSnapshot(snapshot?.customExercises||[])}
+}
+function editorSnapshotFromDocument(document,base=state){
+  const proposal=cloneSnapshot(base);
+  proposal.program=cloneSnapshot(document?.program||[]);
+  proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
+  proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
+  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
+  return proposal}
+function editorAdapterTranslate(key,vars,fallback){
+  const value=t(key,vars);return value===key?(fallback||key):value}
+function editorChooseExercise(request){
+  return new Promise(resolve=>{
+    const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
+      subtitle:request?.exercise?.name||"",exclude:request?.exclude||[],onPick:entry=>resolve(entry),
+      ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
+    if(request?.mode==="alternates"){
+      options.mode="multi";
+      const byName=new Map(pickableExercises().map(entry=>[foldSearch(libraryName(entry)),entry.id]));
+      const selected=[],extras=[];
+      for(const name of request.exercise?.alternates||[]){
+        const match=byName.get(foldSearch(name));
+        if(match){selected.push(match);continue}
+        const extra=nameOnlyEntry(name);extras.push(extra);selected.push(extra.id)}
+      options.selected=selected;options.extras=extras}
+    openExercisePicker(options)})}
+function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
+function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
+  fingerprint:draftProgramFingerprint(snapshot)}}
+function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&a?.fingerprint===b?.fingerprint}
+function editorDocumentDays(document){
+  const labels=[];
+  for(const entry of document?.programMeta?.programStructure?.days||[]){
+    const label=String(entry?.label||entry?.dayId||"");if(label&&!labels.includes(label))labels.push(label)}
+  for(const exercise of document?.program||[]){const label=String(exercise?.day||"");if(label&&!labels.includes(label))labels.push(label)}
+  return labels}
+function editorDocumentExercises(document,day){
+  return(document?.program||[]).filter(exercise=>exercise?.day===day)
+    .sort((a,b)=>(Number(a?.order)||0)-(Number(b?.order)||0)||String(a?.id||"").localeCompare(String(b?.id||"")))}
+function editorDraftExerciseIds(draft){
+  const ids=new Set(),addKey=key=>{
+    const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
+  for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
+  for(const key of Object.keys(draft||{}))if(/_load$/.test(key))addKey(key.slice(0,-5));
+  for(const id of [...(draft?.__skipped||[]),...Object.keys(draft?.__substituted||{})])if(id)ids.add(String(id));
+  return ids}
+function editorIntentValue(exercise,field){
+  if(field==="alternates")return cloneSnapshot(exercise?.alternates||[]);
+  return exercise?.[field]}
+function applyInstalledEditorIntent(document,edit,{check=true}={}){
+  const kind=edit?.kind;
+  if(kind==="program_name"){
+    const current=document.programMeta?.name||"";
+    if(check&&edit.before!==undefined&&current!==edit.before&&current!==edit.after)return{conflict:true};
+    document.programMeta={...(document.programMeta||{}),name:String(edit.after??"")};return{ok:true}}
+  if(kind==="day_name"){
+    const old=String(edit.before||edit.targetDay||""),next=String(edit.after||"");
+    const model=makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta);
+    const current=!!model.days().includes(old);
+    if(check&&!current)return{conflict:true};
+    if(!model.renameDay(old,next))return{conflict:true};
+    document.program=model.toJSON();syncProgramStructureFromProgram(document,model);return{ok:true}}
+  if(kind==="day_add"){
+    const day=String(edit.after||edit.targetDay||"").trim();
+    if(!day)return{conflict:true};
+    if(check&&editorDocumentDays(document).includes(day))return{conflict:true};
+    const structure=(document.programMeta?.programStructure?.days||[]).slice();
+    structure.push({dayId:`manual_d${structure.length+1}`,label:day,order:structure.length+1});
+    document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),days:structure}};
+    return{ok:true};
+  }
+  if(kind==="exercise_field"||kind==="prescription"||kind==="alternates"){
+    const exercise=document.program?.find(item=>item.id===edit.targetId);
+    if(!exercise)return{conflict:true};
+    const current=editorIntentValue(exercise,edit.field);
+    if(check&&edit.before!==undefined&&!changeValueEqualForEditor(current,edit.before)&&!changeValueEqualForEditor(current,edit.after))return{conflict:true};
+    exercise[edit.field]=cloneSnapshot(edit.after);
+    if(edit.field==="name"&&exercise.libraryId){
+      if(String(edit.after||"").trim())exercise.displayName=String(edit.after).trim();
+      else delete exercise.displayName;
+    }
+    if(edit.field==="min"&&Number(exercise.max)<Number(exercise.min))exercise.max=exercise.min;
+    if(edit.field==="max"&&Number(exercise.min)>Number(exercise.max))exercise.min=exercise.max;
+    return{ok:true}}
+  if(kind==="exercise_move"){
+    const exercise=document.program?.find(item=>item.id===edit.targetId);if(!exercise)return{conflict:true};
+    if(check&&exercise.day!==edit.sourceDay)return{conflict:true};
+    if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
+    const source=editorDocumentExercises(document,edit.sourceDay),sourceIndex=source.findIndex(item=>item.id===edit.targetId);
+    if(sourceIndex<0)return{conflict:true};
+    // The intent carries the source position as a precondition. Checking it
+    // catches a second tab moving the same exercise within the same day; a day
+    // check alone would silently reorder over that concurrent edit.
+    if(check&&edit.sourceIndex!==undefined&&sourceIndex!==Number(edit.sourceIndex))return{conflict:true};
+    const targetDay=String(edit.targetDay||edit.sourceDay),target=editorDocumentExercises(document,targetDay)
+      .filter(item=>item.id!==edit.targetId);
+    const requested=Number.isFinite(Number(edit.targetIndex))?Number(edit.targetIndex):target.length;
+    const at=Math.max(0,Math.min(requested,target.length));
+    const moved=document.program.find(item=>item.id===edit.targetId);
+    if(!moved)return{conflict:true};
+    if(targetDay===edit.sourceDay){
+      source.splice(sourceIndex,1);source.splice(at,0,moved);
+      source.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
+    }else{
+      source.splice(sourceIndex,1);target.splice(at,0,moved);
+      source.forEach((item,index)=>{item.order=index+1});
+      target.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
+    }
+    return{ok:true}}
+  if(kind==="exercise_add"){
+    if(check&&document.program?.some(item=>item.id===edit.targetId))return{conflict:true};
+    if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
+    if(edit.exercise){
+      document.program=(document.program||[]).concat(cloneSnapshot(edit.exercise));
+      syncProgramStructureFromProgram(document,makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta));
+    }
+    return{ok:true};
+  }
+  if(kind==="exercise_replace"){
+    const existing=document.program?.find(item=>item.id===edit.targetId);
+    if(!existing)return{conflict:true};
+    if(check&&edit.beforeLibraryId!==undefined&&existing.libraryId!==edit.beforeLibraryId)return{conflict:true};
+    if(edit.exercise)Object.assign(existing,cloneSnapshot(edit.exercise));
+    return{ok:true};
+  }
+  if(kind==="exercise_remove"){
+    const existing=document.program?.find(item=>item.id===edit.targetId);
+    if(check&&!existing)return{conflict:true};
+    document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);return{ok:true};
+  }
+  if(kind==="day_remove"){
+    const day=String(edit.targetDay||"");
+    if(check&&!editorDocumentDays(document).includes(day))return{conflict:true};
+    document.program=(document.program||[]).filter(item=>item.day!==day);
+    const structure=document.programMeta?.programStructure;
+    if(structure?.days)document.programMeta.programStructure={...structure,days:structure.days.filter(item=>String(item?.label||item?.dayId||"")!==day)};
+    return{ok:true};
+  }
+  return{ok:true};
+}
+function changeValueEqualForEditor(a,b){return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+function editorRebaseDocument(session,head){
+  const rebased=editorDocumentFromSnapshot(head),edits=session?.edits||[];
+  for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);if(result?.conflict)return{conflict:true};}
+  return{document:rebased,conflict:false}}
+function installedEditorImpact(document,base=state,edits=[]){
+  const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
+  const active=draftHasProgress();
+  if(!active)return{active:false,incompatible:false,harmless:true,effect:null};
+  let draft={};try{const parsed=JSON.parse(readDraftRaw()||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
+  const referenced=editorDraftExerciseIds(draft),currentById=new Map((current.program||[]).map(item=>[item.id,item]));
+  let incompatible=false,effect=null;
+  for(const edit of edits||[]){
+    if(edit?.kind==="exercise_remove"||edit?.kind==="exercise_replace"||edit?.kind==="exercise_move"){
+      if(referenced.has(String(edit.targetId)))incompatible=true;
+    }else if(edit?.kind==="day_remove"){
+      if(draft.__day===edit.targetDay)incompatible=true;
+    }else if(edit?.kind==="prescription"&&edit.field==="sets"&&Number(edit.after)<Number(edit.before)&&referenced.has(String(edit.targetId))){
+      const before=currentById.get(edit.targetId);
+      if(before&&draftHasProgressInRemovedSets(edit.targetId,Number(edit.after),Number(before.sets),draft))incompatible=true;
+    }else if(edit?.kind==="day_name"&&draft.__day===edit.before&&editorDocumentDays(next).includes(String(edit.after))){
+      // Preserve a workout's selected day when a user simply renames that day.
+      effect=draftDayReplacementEffect(edit.before,edit.after);
+      if(effect.status!==DRAFT_EFFECT_VALID)incompatible=true;
+    }
+  }
+  // A legacy caller may provide a complete changed document without intents.
+  // Keep the same conservative rules for that path as a safety net.
+  if(!edits.length){
+    for(const id of referenced){
+      const before=currentById.get(id),after=(next.program||[]).find(item=>item.id===id);
+      if(!after||before?.day!==after.day||before?.libraryId!==after.libraryId||before?.movementId!==after.movementId){incompatible=true;break}
+      if(before&&Number(after.sets)<Number(before.sets)&&draftHasProgressInRemovedSets(id,Number(after.sets),Number(before.sets),draft)){incompatible=true;break}
+    }
+    if(draft.__day&&!editorDocumentDays(next).includes(draft.__day))incompatible=true;
+  }
+  return{active:true,incompatible,harmless:!incompatible,effect:incompatible?null:effect}
+}
+function createInstalledProgramEditorAdapter(){
+  return{
+    read(){
+      return{document:installedEditorDocument(),token:installedEditorToken()};
+    },
+    async commit({expectedToken,nextDocument,intent}){
+      if(intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
+        if(!installedEditorSession)installedEditorSession={document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:[]};
+        installedEditorSession.document=cloneSnapshot(nextDocument);
+        installedEditorSession.edits.push(cloneSnapshot(intent));
+        return{ok:true,staged:true,token:cloneSnapshot(expectedToken)}
+      }
+      const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
+      const refreshed=await refreshPersistenceHead();
+      if(refreshed.conflict)return{ok:false,conflict:true,editorConflict:true};
+      const head=refreshed.head||state,headToken=installedEditorToken(head);
+      let document=cloneSnapshot(nextDocument),edits=session.edits||intent?.edits||[];
+      if(!editorTokenEqual(expectedToken,headToken)){
+        const rebased=editorRebaseDocument({edits},head);if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true};
+        document=rebased.document}
+      const impact=installedEditorImpact(document,head,edits);
+      if(impact.active&&impact.incompatible&&intent.kind!=="apply_discard_workout")
+        return{ok:false,workoutConflict:true,impact};
+      const proposal=editorSnapshotFromDocument(document,head);
+      const rename=edits.find(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined);
+      const renameEffect=rename?draftDayReplacementEffect(String(rename.before),String(rename.after)):null;
+      const effect=impact.active&&impact.incompatible||intent.kind==="apply_discard_workout"&&readDraftRaw()!=null
+        ?destructiveDraftClearEffect(readDraftRaw()):renameEffect?.status==="valid"?renameEffect:impact.effect;
+      const dayRenames=edits.filter(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined)
+        .map(edit=>({from:String(edit.before),to:String(edit.after)}));
+      const result=await commitProposedState(proposal,storageIO,{effect,dayRenames,
+        preflight:({head:lockedHead})=>{
+          const lockedToken=installedEditorToken(lockedHead);
+          if(!editorTokenEqual(headToken,lockedToken)){
+            const rebased=editorRebaseDocument({edits},lockedHead);
+            if(rebased.conflict)
+              return{reject:true,result:{ok:false,conflict:true,editorConflict:true}};
+            document=rebased.document;
+          }
+          const lockedImpact=installedEditorImpact(document,lockedHead,edits);
+          if(lockedImpact.active&&lockedImpact.incompatible&&intent.kind!=="apply_discard_workout")
+            return{reject:true,result:{ok:false,workoutConflict:true,impact:lockedImpact}};
+          // A rename that started with no draft must still abort if a second
+          // tab creates a draft for the old day while this write waits on the
+          // lock. There is no frozen replace-draft receipt to settle in that
+          // case, so reject before preparing either durable replica.
+          if(intent.kind!=="apply_discard_workout"&&lockedImpact.effect?.status==="valid"&&
+            lockedImpact.effect.effect?.precondition==="abort-same-day"&&
+            !(effect?.status==="valid"&&effect.effect?.precondition==="abort-same-day"))
+            return{reject:true,result:{ok:false,draftConflict:true,impact:lockedImpact}};
+          const lockedProposal=editorSnapshotFromDocument(document,lockedHead);
+          return{proposal:lockedProposal};
+        }});
+      if(result.localOk||result.idbOk){installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
+      return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
+    },
+    chooseExercise:editorChooseExercise,
+    t:editorAdapterTranslate,
+    dayLabel:(day)=>dayLabel(day),
+    dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
+    dayAddPlacement:()=>"outside",
+    exerciseEntry:(id)=>libraryEntry(id),
+    exerciseLabel:(exercise)=>exercise?.name,
+    formatNumber:(value)=>fmt(value),
+    context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
+    status:()=>"",
+    confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
+    reducedMotion:()=>reducedMotion(),
+    announce:(message)=>toast(message),
+  }
+}
+window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:cloneSnapshot(installedEditorSession),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
+function createOnboardingProgramEditorAdapter(){
+  return{
+    read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
+    async commit({nextDocument}){
+      const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
+      proposal.programMeta=cloneSnapshot(nextDocument.programMeta||proposal.programMeta);
+      proposal.customExercises=cloneSnapshot(nextDocument.customExercises||proposal.customExercises||[]);
+      syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
+      const result=await commitProgramEditorProposal(proposal);
+      updateOnboardingEditorActions();
+      return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,token:{draftRevision:entryState?.revision||0}};
+    },
+    chooseExercise:editorChooseExercise,
+    t:editorAdapterTranslate,
+    dayLabel:(day)=>dayLabel(day),
+    dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
+    exerciseEntry:(id)=>libraryEntry(id),
+    exerciseLabel:(exercise)=>exercise?.name,
+    formatNumber:(value)=>fmt(value),
+    context:()=>"",
+    status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
+    confirm:()=>true,
+    reducedMotion:()=>reducedMotion(),
+    announce:(message)=>toast(message),
+  }
+}
+function updateOnboardingEditorActions(){
+  const button=$("#entryEditorActivate");if(!button||!entryState)return;
+  const issues=ProgramEntry.candidateActivationIssues(entryState);button.disabled=issues.length>0;
+  if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
+  const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
+  const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
+  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"));
+  const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
+    issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
+      emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
+        issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
+          editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
+  status.id="entryEditorStatus";
+  status.textContent=message;
+  status.hidden=false;
+  status.classList.toggle("is-error",issues.length>0);
+  status.setAttribute("role",issues.length?"alert":"status");
+  status.setAttribute("aria-live",issues.length?"assertive":"polite");
+}
+function mountOnboardingProgramEditor(){
+  const host=$("#onbProgramEditor");if(!host||!window.mountProgramEditor)return null;
+  onboardingProgramEditor?.dispose?.();
+  onboardingProgramEditor=window.mountProgramEditor(host,createOnboardingProgramEditorAdapter());
+  const status=host.querySelector('[data-role="editor-status"]');if(status)status.id="entryEditorStatus";
+  return onboardingProgramEditor;
+}
+function mountInstalledProgramEditor(){
+  const host=$("#programEditor");if(!host||!window.mountProgramEditor)return null;
+  installedProgramEditor?.dispose?.();
+  installedEditorSession=null;
+  installedProgramEditor=window.mountProgramEditor(host,createInstalledProgramEditorAdapter());
+  return installedProgramEditor;
+}
+function disposeProgramEditors(){
+  onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
+  installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
+}
+let installedLeaveMode=null;
+function installedEditorHistoryState(){
+  const current=history.state&&typeof history.state==="object"?history.state:{};
+  return{...current,[INSTALLED_EDITOR_HISTORY_STATE_KEY]:{active:true}}}
+function armInstalledEditorHistory(){
+  if(installedEditorHistoryArmed)return;
+  try{
+    if(history.state?.[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active===true){installedEditorHistoryArmed=true;return}
+    history.pushState(installedEditorHistoryState(),"",location.href);
+    installedEditorHistoryArmed=true;
+  }catch{}
+}
+function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
+  if(!installedEditorHistoryArmed)return;
+  installedEditorHistoryArmed=false;
+  if(historyAlreadyPopped)return;
+  installedEditorHistoryRelease=true;
+  try{history.back()}catch{installedEditorHistoryRelease=false}
+}
+function closeInstalledLeaveDialog(){
+  const dialog=$("#programEditorLeave");
+  installedLeaveMode=null;
+  pendingEditorNavigation=null;
+  if(dialog)closeModal(dialog);
+}
+function openInstalledLeaveDialog({workout=false}={}){
+  const dialog=$("#programEditorLeave");if(!dialog)return;
+  installedLeaveMode={workout};
+  const title=$("#programEditorLeaveTitle"),body=$("#programEditorLeaveBody"),apply=$("#programEditorApply"),discard=$("#programEditorDiscard"),keep=$("#programEditorKeep");
+  if(title)title.textContent=t(workout?"program.editor.workout_conflict.title":"program.editor.leave.title");
+  if(body)body.textContent=t(workout?"program.editor.workout_conflict.body":"program.editor.leave.body");
+  if(apply){apply.textContent=t(workout?"program.editor.apply_discard_workout":"program.editor.apply_changes");apply.disabled=false}
+  if(discard){discard.textContent=t("program.editor.discard_changes");discard.hidden=workout}
+  if(keep){keep.textContent=t("program.editor.keep_editing")}
+  openModal(dialog,{initialFocus:apply,onEscape:()=>{pendingEditorNavigation=null;closeInstalledLeaveDialog()}});
+}
+function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
+  const nextView=pendingEditorNavigation;
+  pendingEditorNavigation=null;
+  installedLeaveMode=null;
+  closeModal($("#programEditorLeave"));
+  if(discard)installedProgramEditor?.discard?.();
+  installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;programEditMode=false;
+  disarmInstalledEditorHistory({historyAlreadyPopped});
+  render();
+  if(nextView){
+    const button=$(`nav button[data-view="${CSS.escape(nextView)}"]`);
+    if(button)button.click();
+  }
+}
+async function applyInstalledEditorAndContinue(){
+  const editor=installedProgramEditor;if(!editor)return;
+  const mode=installedLeaveMode?.workout?"apply_discard_workout":"apply";
+  const apply=$("#programEditorApply");if(apply)apply.disabled=true;
+  const result=await editor.commit({kind:mode});
+  if(apply)apply.disabled=false;
+  if(result?.workoutConflict){
+    openInstalledLeaveDialog({workout:true});
+    return result;
+  }
+  if(result?.conflict||result?.editorConflict||result?.staleRevision){
+    const status=$("#programEditor [data-role=\"editor-status\"]");
+    if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error");}
+    closeInstalledLeaveDialog();
+    return result;
+  }
+  if(result?.ok||result?.localOk||result?.idbOk){
+    finishInstalledEditor();
+    if(!maybeStartTour())maybeShowInstallBanner();
+  }
+  return result;
+}
+async function requestInstalledDone(){
+  if(!programEditMode||!installedProgramEditor)return;
+  if(!installedProgramEditor.isDirty()){finishInstalledEditor();return}
+  // Done is the editor's explicit commit action. The three-way leave dialog is
+  // reserved for navigation and browser Back, so a deliberate tap never
+  // makes the user confirm the same action twice.
+  installedLeaveMode={workout:false};
+  await applyInstalledEditorAndContinue();
+}
+function programEditorSnapshot(){
+  if(!setupEditorOpen)return cloneSnapshot(state);
+  const preview=entryState?.result?.preview||{},snapshot=cloneSnapshot(state);
+  const candidateProgram=cloneSnapshot(preview.program||[]);
+  const merged=mergeImportedCustomExercises(preview.customExercises||[],candidateProgram,snapshot);
+  snapshot.customExercises=merged.customExercises;
+  snapshot.program=candidateProgram;
+  snapshot.programMeta={...defaultProgramMeta([]),name:entryResultName()||entryState?.answers?.programName||"",
+    daysPerWeek:entryState?.answers?.daysPerWeek||preview.frequency||null,onboarded:false,
+    programStructure:cloneSnapshot(preview.programStructure||null),
+    progressionRelations:cloneSnapshot(preview.progressionRelations||[]),
+    progressionModifiers:cloneSnapshot(preview.progressionModifiers||[]),
+    progressionIncompatibilities:cloneSnapshot(preview.progressionIncompatibilities||[])};
+  return snapshot}
+function programEditorProgram(){
+  if(!setupEditorOpen)return prog;
+  const snapshot=programEditorSnapshot();
+  return makeProgram(snapshot.program,null,snapshot.programMeta)}
+async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
+  if(!setupEditorOpen)return commitProposedState(proposal,io,opts);
+  if(!entryState?.result?.preview)return{localOk:false,idbOk:false,setupDraftInvalid:true};
+  const model=makeProgram(proposal.program,null,proposal.programMeta);
+  const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
+  const structureDays=structure?.days||[];
+  const previewDays=entryState.route==="shared"
+    ?sharedPreviewDays(model.toJSON(),structure,entryState.result.preview.sharedSettings)
+    :(structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
+      ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
+      ...(item.nameOverride?{nameOverride:item.nameOverride}:{}),
+      exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
+      model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)})));
+  const program=model.toJSON();
+  const progressionData=candidateProgressionData(proposal.programMeta?.progressionRelations,program,
+    proposal.programMeta?.progressionIncompatibilities,"candidate-editor");
+  const referencedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
+  const preview={...cloneSnapshot(entryState.result.preview),program,programStructure:structure,
+    progressionRelations:progressionData.relations,
+    progressionIncompatibilities:progressionData.incompatibilities,
+    days:previewDays,
+    customExercises:(entryState.result.preview?.customExercises||[])
+      .filter(entry=>referencedCustomIds.has(entry.id)).map(cloneSnapshot)};
+  const result={...cloneSnapshot(entryState.result),preview};
+  const nextName=proposal.programMeta?.name||entryState.result.name;
+  if(nextName){result.name=nextName;delete result.namePt}else delete result.name;
+  result.fingerprint=entryCandidateFingerprint(entryState.route,result.name,preview);
+  entryPinnedVersionsExecutable=false;
+  entryState=ProgramEntry.setResult(entryState,result);
+  const saved=await persistSetupDraft(entryState);
+  if(saved?.ok&&progressionData.incompatibilities.length){
+    entryEditorStatusFocusPending=true;
+    setTimeout(()=>focusEntryEditorStatus(),reducedMotion()?0:320)}
+  return saved?.ok?{revision:saved.envelope?.revision||0,localOk:true,idbOk:true,setupDraft:true}:
+    {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict}}
+function openEntryDraftEditor(){
+  if(!entryState?.result?.preview)return;
+  setupEditorOpen=true;programEditMode=false;
+  showOnboardingView();armEntryHistory();renderOnboarding()}
+function closeEntryDraftEditor(){
+  setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
+  onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
+function renderProgram(){renderProgramOverview();
+  const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
+  view?.classList.toggle("program-editor-installed",programEditMode);
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  if(meta)meta.classList.toggle("visually-hidden",!programEditMode);
-  if(tog)tog.textContent=programEditMode?t("program.done_edit"):t("program.edit")}
+  if(meta)meta.classList.toggle("visually-hidden",programEditMode);
+  if(tog)tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");
+  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
+  // Advanced remains part of the installed editor. It is inside the editor
+  // host, so hiding the disclosure here would strand the raw import/export
+  // controls whenever the visual editor is open.
+  [end,lede,addDay,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
+  if(programEditMode){armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
+  renderProgramHeader();renderProgramEditor();renderVolume();
+  // Candidate edits can invalidate a paired relation while the exercise picker
+  // is closing. Focus after the editor DOM has been rebuilt, rather than racing
+  // the picker animation's one-shot focus attempt.
+  if(setupEditorOpen)focusEntryEditorStatus()}
+function focusEntryEditorStatus(){
+  // A picker owns focus until its close transition has restored the editor.
+  // Leave the pending request intact so the post-close call can focus the new
+  // status node instead of immediately losing focus back to the picker trigger.
+  if(!entryEditorStatusFocusPending)return false;
+  const status=$("#onbProgramEditor [data-role=\"editor-status\"]")||$("#entryEditorStatus");
+  if(activeModal||!status||status.offsetParent===null){
+    if(!entryEditorStatusFocusTimer)entryEditorStatusFocusTimer=setTimeout(()=>{
+      entryEditorStatusFocusTimer=null;focusEntryEditorStatus()},120);
+    return false}
+  entryEditorStatusFocusPending=false;
+  try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
+  return true}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
@@ -6041,7 +6707,39 @@ function renderProgramChips(){
 
 function renderProgramHeader(){
   const el=$("#programMeta");if(!el)return;
-  if(document.activeElement?.closest("#programMeta"))return;
+  if(!setupEditorOpen&&document.activeElement?.closest("#programMeta"))return;
+  if(setupEditorOpen){
+    const snapshot=programEditorSnapshot(),meta=snapshot.programMeta;
+    const issues=ProgramEntry.candidateActivationIssues(entryState);
+    const saveError=entryUiNotice==="save_conflict"?t("entry.save_conflict.body"):
+      entryUiNotice==="save_failed"?t("entry.save_failed.body"):null;
+    const progressionError=issues.some(issue=>issue.startsWith("progression_incompatible:"));
+    const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"))
+      .map(issue=>entryState.result?.preview?.programStructure?.days
+        ?.find(item=>item.dayId===issue.slice("day_empty:".length))?.label||issue.slice("day_empty:".length));
+    const issueStatus=issues.some(issue=>issue.startsWith("progression_incompatible:"))
+      ?t("entry.editor.progression_invalid")
+      :issues.some(issue=>issue.startsWith("exercise_invalid:"))
+        ?t("entry.editor.exercise_invalid")
+        :emptyDays.length?t("entry.editor.empty_days",{days:emptyDays.join(", ")})
+          :issues.length?t("entry.editor.incomplete",{n:issues.length}):t("entry.editor.ready");
+    const status=saveError||issueStatus;
+    const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+    el.innerHTML=`<p class="pmeta__draft"><span class="pmeta__draft-mark" aria-hidden="true"></span>${esc(t("entry.preview.lede"))}</p>`+
+      `<label class="pmeta__name">${esc(t("program.name"))}<input id="programName" type="text" value="${esc(meta.name)}" maxlength="80"></label>`+
+      `<p class="entry__active" id="entryEditorStatus" role="${saveError||progressionError?"alert":"status"}" aria-live="${saveError||progressionError?"assertive":"polite"}" tabindex="-1">${esc(status)}</p>`+
+      `<div class="btnrow btnrow--primary-first">`+
+      `<button type="button" class="btn btn--cta" id="entryEditorActivate"${issues.length||saveError?" disabled aria-describedby=\"entryEditorStatus\"":""}>${esc(activateLabel)}</button>`+
+      `<button type="button" class="btn btn--steel" id="entryEditorSave">${esc(t("entry.editor.save"))}</button></div>`;
+    const name=$("#programName");if(name)name.onchange=async()=>{
+      const proposal=programEditorSnapshot();proposal.programMeta.name=name.value.trim()||meta.name;
+      const result=await commitProgramEditorProposal(proposal);if(result.localOk||result.idbOk)renderProgram()};
+    const save=$("#entryEditorSave");if(save)save.onclick=async()=>{
+      const result=await persistSetupDraft(entryState);
+      if(result?.ok){renderProgram();toast(t("entry.editor.saved"))}
+      else $("#entryEditorStatus")?.focus?.()};
+    const activate=$("#entryEditorActivate");if(activate)activate.onclick=()=>activateEntryPreview();
+    return}
   const meta=state.programMeta||defaultProgramMeta(state.log);
   el.innerHTML=
     `<div class="pmeta__row">`+
@@ -6065,7 +6763,7 @@ function renderProgramHeader(){
 function collapsedProgramDays(){const v=uiPrefs.collapsedProgramDays;return Array.isArray(v)?v.filter(x=>typeof x==="string"):[]}
 function setDayCollapsed(d,on){const cur=new Set(collapsedProgramDays());
   on?cur.add(d):cur.delete(d);
-  setUiPref("collapsedProgramDays",[...cur].filter(x=>prog.days().includes(x)))}
+  setUiPref("collapsedProgramDays",[...cur].filter(x=>programEditorProgram().days().includes(x)))}
 function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
   if(!cur.includes(oldName))return;
   setUiPref("collapsedProgramDays",cur.map(x=>x===oldName?newName:x))}
@@ -6079,14 +6777,14 @@ function renameCollapsedDay(oldName,newName){const cur=collapsedProgramDays();
 let programJsonSynced=null;
 function syncProgramJson({force=false}={}){
   const box=$("#programJson");if(!box)return;
-  const next=JSON.stringify(prog.toJSON(),null,2);
+  const next=JSON.stringify(programEditorProgram().toJSON(),null,2);
   if(!force){
     if(document.activeElement===box)return;
     if(next===programJsonSynced&&box.value!==programJsonSynced)return}
   programJsonSynced=next;box.value=next}
 
 function renderProgramEditor(){
-  const ds=prog.days();
+  const ds=programEditorProgram().days();
   $("#programEditor").innerHTML=ds.length
     ?ds.map(dayCard).join("")
     :`<div class="table"><div class="empty">${esc(t("program.empty.days"))}</div></div>`;
@@ -6095,7 +6793,7 @@ function renderProgramEditor(){
 }
 
 function dayCard(d){
-  const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets));
+  const exs=programEditorProgram().forDay(d),sets=sum(exs.map(e=>e.sets));
   const isCollapsed=collapsedProgramDays().includes(d);
   const body=exs.length
     ?exs.map((e,i)=>exCard(e,i,exs.length)).join("")
@@ -6212,9 +6910,9 @@ function exCard(e,i,n){
 const EDITOR_TEXT_FIELDS=new Set(["name","primary","secondary","notes"]);
 const editorFieldText=(e,field)=>field==="alternates"?(e.alternates||[]).join(", "):String(e[field]??"");
 function commitEditorField(id,field,value,effect){
-  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+  const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   nextProgram.update(id,field,value);proposal.program=nextProgram.toJSON();
-  return commitProposedState(proposal,storageIO,{effect})}
+  return commitProgramEditorProposal(proposal,storageIO,{effect})}
 
 const progressionFormNumber=(data,name)=>Number(data.get(name));
 function authoredProgressionFromForm(strategy,data,e){
@@ -6247,7 +6945,7 @@ function progressionAuthoredShape(strategy,params,e){
   if(strategy==="range")return{sets:params.workingSets,min:params.repMin,max:params.repMax};
   return{sets:e.sets,min:e.min,max:e.max}}
 function progressionPairCompatible(id,prescription,program){
-  const relations=state.programMeta?.progressionRelations;
+  const relations=programEditorSnapshot().programMeta?.progressionRelations;
   if(!Array.isArray(relations))return true;
   const relation=relations.find(item=>Array.isArray(item?.members)&&item.members.some(member=>member.exerciseId===id));
   if(!relation)return true;
@@ -6257,7 +6955,7 @@ function progressionPairCompatible(id,prescription,program){
     byRole[member.role]=`${selected?.strategy?.id}@${selected?.strategy?.version}`}
   return RepForgeProgression.pairedExposureCompatibility({heavy:byRole.heavy,volume:byRole.volume}).compatible}
 async function saveProgressionEditor(form){
-  const id=form.dataset.id,e=prog.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
+  const model=programEditorProgram(),id=form.dataset.id,e=model.find(id),error=form.querySelector("[data-progression-error]");if(!e)return;
   error.textContent="";
   if(!form.reportValidity())return;
   const select=form.closest("[data-progression-editor]")?.querySelector("[data-progression-strategy]");
@@ -6270,11 +6968,11 @@ async function saveProgressionEditor(form){
     ...progressionInput(e),prescription:checked.value,history:[],currentSession:[]});
   if(executable.kind==="invalid"||executable.kind==="incompatible"){
     error.textContent=t("program.progression.error.invalid");return}
-  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program),next=nextProgram.find(id);
+  const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta),next=nextProgram.find(id);
   if(!progressionPairCompatible(id,checked.value,nextProgram)){error.textContent=t("program.progression.error.paired");return}
   const shape=progressionAuthoredShape(strategy,checked.value.strategy.params,next);
   let effect=null;
-  if(shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
+  if(!setupEditorOpen&&shape.sets<next.sets){const draftRaw=readDraftRaw();let draft={};
     try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
     if(draftHasProgressInRemovedSets(id,shape.sets,next.sets,draft)){error.textContent=t("program.progression.error.active_sets");return}
     effect=draftPreservationEffect(draftRaw);
@@ -6282,21 +6980,21 @@ async function saveProgressionEditor(form){
   next.progression=cloneSnapshot(checked.value);delete next.progressionIncompatibility;
   next.sets=shape.sets;next.min=shape.min;next.max=shape.max;
   proposal.program=nextProgram.toJSON();
-  const result=await commitProposedState(proposal,storageIO,{effect});
+  const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
   if(!(result.localOk||result.idbOk)){error.textContent=t("program.progression.error.save");return}
   render();toast(t("program.progression.saved"))}
 
 function bindEditor(){
   $$("#programEditor [data-field]").forEach(inp=>{
     const field=inp.dataset.field,isText=EDITOR_TEXT_FIELDS.has(field);
-    inp.oninput=async()=>{const e=prog.find(inp.dataset.id);if(!e)return;
+    inp.oninput=async()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;
       const captured=inp.value,priorValue=String(e[field]??"");
       // A blank name is a stage of typing, not a rename: hold the committed name
       // until something non-blank arrives, so the Exercise fallback never lands
       // in the box under the cursor. Blur puts a name back if none does.
       if(field==="name"&&!captured.trim())return;
       let effect=null;
-      if(field==="sets"){
+      if(!setupEditorOpen&&field==="sets"){
         const next=Exercise.posInt(captured,e.sets);
         if(next<e.sets){
           const draftRaw=readDraftRaw();
@@ -6310,16 +7008,16 @@ function bindEditor(){
             inp.value=e.sets;toast(t("toast.set_count_locked_draft"));return}}}
       const result=await commitEditorField(inp.dataset.id,field,captured,effect);
       if(!(result.localOk||result.idbOk)){
-        const cur=prog.find(inp.dataset.id);
+        const cur=programEditorProgram().find(inp.dataset.id);
         if(inp.value===captured)inp.value=cur?(isText?editorFieldText(cur,field):cur[field]):captured;
         if(effect)toast(t("toast.set_count_locked_draft"));
         return}
       if(!isText&&(inp.value===captured||inp.value===priorValue))
-        inp.value=String(prog.find(inp.dataset.id)?.[field]??captured);
+        inp.value=String(programEditorProgram().find(inp.dataset.id)?.[field]??captured);
       renderVolume();updateGauge();updateSaveMeta()};
     if(inp.type==="number"){
       inp.onfocus=()=>inp.select();
-      inp.onchange=()=>{const e=prog.find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
+      inp.onchange=()=>{const e=programEditorProgram().find(inp.dataset.id);if(!e)return;const card=inp.closest(".pex");
         (card?card.querySelectorAll('input[type="number"][data-field]'):[inp]).forEach(x=>x.value=e[x.dataset.field])};
     }
     else if(isText){
@@ -6328,7 +7026,7 @@ function bindEditor(){
       // box on focus and put that back — clearing a name and walking away is an
       // abandoned edit, not a rename to a fragment.
       let onFocusText=null;
-      inp.onfocus=()=>{const e=prog.find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
+      inp.onfocus=()=>{const e=programEditorProgram().find(inp.dataset.id);onFocusText=e?editorFieldText(e,field):null};
       // Blur is where the box catches up with the model: stray whitespace goes and
       // alternates regain their ", " spacing.
       inp.onchange=async()=>{
@@ -6337,9 +7035,9 @@ function bindEditor(){
           // a proposal built on a state they have not landed in yet diffs to nothing.
           // Let the queue drain so the restore is a real change against the model.
           await flushStorage();
-          if(prog.find(inp.dataset.id)?.name!==onFocusText)
+          if(programEditorProgram().find(inp.dataset.id)?.name!==onFocusText)
             await commitEditorField(inp.dataset.id,field,onFocusText);}
-        const e=prog.find(inp.dataset.id);if(!e)return;
+        const e=programEditorProgram().find(inp.dataset.id);if(!e)return;
         const shown=editorFieldText(e,field);
         if(inp.value!==shown)inp.value=shown;
         onFocusText=null;
@@ -6348,19 +7046,20 @@ function bindEditor(){
   });
   $$('#programEditor [data-act="renameDay"]').forEach(inp=>{
     inp.onchange=async()=>{const old=inp.dataset.day,next=inp.value.trim();
-      const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+      const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
       if(!nextProgram.renameDay(old,next)){
-        inp.value=dayLabel(old);toast(prog.days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
+        inp.value=dayLabel(old);toast(programEditorProgram().days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
       proposal.program=nextProgram.toJSON();
+      syncProgramStructureFromProgram(proposal,nextProgram);
       const effect=draftDayReplacementEffect(old,next);
-      const result=await commitProposedState(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
+      const result=await commitProgramEditorProposal(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
       if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
       renameCollapsedDay(old,next);
-      if(day===old)day=next;
+      if(!setupEditorOpen&&day===old)day=next;
       render();toast(t("toast.day_renamed"))};
   });
   $$("#programEditor [data-progression-editor]").forEach(editor=>{
-    const e=prog.find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
+    const e=programEditorProgram().find(editor.dataset.progressionEditor),select=editor.querySelector("[data-progression-strategy]");
     const form=editor.querySelector("[data-progression-form]"),fields=editor.querySelector("[data-progression-fields]");
     select.onchange=()=>{const strategy=select.value;
       fields.innerHTML=PROGRESSION_EDITOR_STRATEGIES.includes(strategy)?progressionEditorParams(e,strategy):"";
@@ -6383,32 +7082,32 @@ async function editorAction(act,ds){
     // own movements — with the whole library one tap further on. Everything
     // already on the day is excluded; the same movement twice is always a slip.
     openExercisePicker({quick:true,day:ds.day,title:t("picker.add_to",{day:dayLabel(ds.day)}),subtitle:"",
-      exclude:prog.forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
+      exclude:programEditorProgram().forDay(ds.day).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
-        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
         nextProgram.addExercise(ds.day,entry);proposal.program=nextProgram.toJSON();
-        const result=await commitProposedState(proposal);
+        const result=await commitProgramEditorProposal(proposal);
         if(result.localOk||result.idbOk){setDayCollapsed(ds.day,false);render();toast(t("toast.exercise_added"))}}})}
   else if(act==="changeEx"){
-    const ex=prog.find(ds.id);if(!ex)return;
+    const ex=programEditorProgram().find(ds.id);if(!ex)return;
     openExercisePicker({title:t("picker.title_change"),subtitle:ex.name,
-      exclude:prog.forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
+      exclude:programEditorProgram().forDay(ex.day).filter(e=>e.id!==ex.id).map(e=>e.libraryId).filter(Boolean),
       onPick:async entry=>{
-        const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+        const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
         if(!nextProgram.replaceExercise(ds.id,entry))return;
         proposal.program=nextProgram.toJSON();
-        const result=await commitProposedState(proposal);
+        const result=await commitProgramEditorProposal(proposal);
         if(result.localOk||result.idbOk){render();toast(t("toast.exercise_changed"))}}})}
   else if(act==="detachEx"){
-    const ex=prog.find(ds.id);if(!ex)return;
+    const ex=programEditorProgram().find(ds.id);if(!ex)return;
     if(!confirm(t("confirm.detach_exercise",{name:ex.name})))return;
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     if(!nextProgram.detachExercise(ds.id))return;
     proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal);
+    const result=await commitProgramEditorProposal(proposal);
     if(result.localOk||result.idbOk){render();toast(t("toast.exercise_detached"))}}
   else if(act==="pickAlternates"){
-    const ex=prog.find(ds.id);if(!ex)return;
+    const ex=programEditorProgram().find(ds.id);if(!ex)return;
     // Alternates were a comma-separated string of whatever got typed. They are
     // still stored as names, so older programs keep working, but they are now
     // chosen from the library — which is what makes a one-tap swap possible.
@@ -6423,31 +7122,32 @@ async function editorAction(act,ds){
       onPick:async entries=>{
         const result=await commitEditorField(ds.id,"alternates",entries.map(libraryName).join(", "));
         if(result.localOk||result.idbOk){render();toast(t("toast.alternates_saved"))}}})}
-  else if(act==="delEx"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  else if(act==="delEx"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
     const key=draftActive?"confirm.remove_exercise_discard_draft":"confirm.remove_exercise";
     if(confirm(t(key))){
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.removeExercise(ds.id);proposal.program=nextProgram.toJSON();
     const effect=destructiveDraftClearEffect(discardDraftRaw);
-    const result=await commitProposedState(proposal,storageIO,{effect});
-    if(result.localOk||result.idbOk){resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
+    const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();render();toast(t("toast.exercise_removed"))}}}
   else if(act==="up"||act==="down"){
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.move(ds.id,act==="up"?-1:1);proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal);
+    const result=await commitProgramEditorProposal(proposal);
     if(result.localOk||result.idbOk)render()}
-  else if(act==="delDay"){const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  else if(act==="delDay"){const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
     const key=draftActive?"confirm.delete_day_discard_draft":"confirm.delete_day";
     if(confirm(t(key,{day:dayLabel(ds.day)}))){
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     nextProgram.removeDay(ds.day);proposal.program=nextProgram.toJSON();
+    syncProgramStructureFromProgram(proposal,nextProgram);
     const effect=destructiveDraftClearEffect(discardDraftRaw);
-    const result=await commitProposedState(proposal,storageIO,{effect});
-    if(result.localOk||result.idbOk){resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
+    const result=await commitProgramEditorProposal(proposal,storageIO,{effect});
+    if(result.localOk||result.idbOk){if(!setupEditorOpen)resetDraftSessionState();setDayCollapsed(ds.day,false);render();toast(t("toast.day_deleted"))}}}
 }
 
 function renderVolume(){
-  const arr=[...prog.volume().entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff);
+  const arr=[...programEditorProgram().volume().entries()].map(([name,v])=>({name,eff:v.d+v.p})).sort((a,b)=>b.eff-a.eff);
   const max=Math.max(...arr.map(x=>x.eff),1);
   $("#volume").innerHTML=arr.length?arr.map(x=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(x.name))}</span>`+
     `<span class="vrow__bar"><span class="vrow__fill${x.eff>=10?" is-high":""}" style="width:${Math.max(4,Math.round(x.eff/max*100))}%"></span></span>`+
@@ -6455,9 +7155,9 @@ function renderVolume(){
 }
 function addVol(m,k,d,p){if(!m.has(k))m.set(k,{d:0,p:0});m.get(k).d+=d;m.get(k).p+=p}
 
-function persistProgram(nextProgram=prog){
-  const proposal=cloneSnapshot(state);proposal.program=new Program(nextProgram.toJSON()).toJSON();
-  return commitProposedState(proposal)}
+function persistProgram(nextProgram=programEditorProgram()){
+  const proposal=programEditorSnapshot();proposal.program=new Program(nextProgram.toJSON()).toJSON();
+  return commitProgramEditorProposal(proposal)}
 
 /* Hand-edited rows skip Program.update, so they also skip its rule that a
    linked slot's label is an alias (displayName) while its muscles belong to the
@@ -6486,21 +7186,38 @@ function reconcileLinkedProgramRows(rows,byId){
   return{ignoredMuscles:[...ignoredMuscles]}}
 
 async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value);if(!Array.isArray(parsed))throw Error();
-  const transition=programTransitionPrecondition(state);
-  const byId=new Map(prog.exercises.map(e=>[e.id,e]));
+  const currentSnapshot=programEditorSnapshot(),currentProgram=programEditorProgram();
+  const transition=setupEditorOpen?{}:programTransitionPrecondition(state);
+  const byId=new Map(currentProgram.exercises.map(e=>[e.id,e]));
   for(const row of parsed){if(row.id&&byId.has(row.id))continue;
-    const match=prog.exercises.find(e=>e.name===row.name&&e.day===row.day)||prog.exercises.find(e=>e.name===row.name);
+    const match=currentProgram.exercises.find(e=>e.name===row.name&&e.day===row.day)||currentProgram.exercises.find(e=>e.name===row.name);
     if(match&&!parsed.some(r=>r.id===match.id))row.id=match.id}
   const{ignoredMuscles}=reconcileLinkedProgramRows(parsed,byId);
-  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
+  const draftActive=!setupEditorOpen&&draftHasProgress(),discardDraftRaw=setupEditorOpen?null:readDraftRaw();
   if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))return;
-  const proposal=cloneSnapshot(state);
-  proposal.program=new Program(parsed).toJSON();
+  const proposal=currentSnapshot;
+  // Raw JSON lists exercises only. Drop structure days that previously had
+  // exercises but are gone from the payload; keep already-empty containers
+  // (manual build) so Save JSON does not wipe intentional blank days.
+  const prevExDays=new Set((proposal.program||[]).map(e=>e.day));
+  const nextProgram=makeProgram(parsed,null,proposal.programMeta);
+  if(nextProgram._structureDays&&!setupEditorOpen&&proposal.programMeta?.programStructure?.provenance?.source!=="manual_build"){
+    const nextExDays=new Set(nextProgram.exercises.map(e=>e.day));
+    nextProgram._structureDays=nextProgram._structureDays.filter(d=>nextExDays.has(d)||!prevExDays.has(d))}
+  proposal.program=nextProgram.toJSON();
+  syncProgramStructureFromProgram(proposal,nextProgram);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,storageIO,{effect,...transition});
+  const result=await commitProgramEditorProposal(proposal,storageIO,{effect,...transition});
   if(!(result.localOk||result.idbOk))return result;
-  resetDraftSessionState();day=prog.days()[0]||"Day 1";render();
+  if(!setupEditorOpen)resetDraftSessionState();
+  // Land on an exercise-bearing day. Structure order can put a renamed first
+  // slot (e.g. Push Day) ahead of Day 2; sorted exercise days match the pre-
+  // structure default and avoid a day-switch discard wiping a just-set date.
+  const exerciseDays=[...new Set((programEditorProgram().exercises||[]).map(x=>x.day))]
+    .sort((a,b)=>a.localeCompare(b,undefined,{numeric:true}));
+  if(!setupEditorOpen)day=exerciseDays.includes(day)?day:(exerciseDays[0]||days()[0]||"Day 1");
+  render();
   // The save consumed the box, so show the normalised result over the draft.
   syncProgramJson({force:true});
   if(!ignoredMuscles.length)toast(t("toast.program_saved"));
@@ -6683,8 +7400,17 @@ const fileSlug=s=>String(s||"").toLowerCase().replace(/[^a-z0-9]+/g,"-").replace
 function referencedCustomExercises(list){
   const wanted=new Set((list||[]).map(e=>e.libraryId).filter(id=>isCustomLibraryId(id)));
   return customExercises().filter(e=>wanted.has(e.id)).map(cloneSnapshot)}
-const SHARED_EQUIPMENT={machine:"machines",machines:"machines",cable:"cables",cables:"cables",
-  dumbbell:"dumbbells",dumbbells:"dumbbells",barbell:"barbells",barbells:"barbells",bodyweight:"bodyweight"};
+const SHARED_EQUIPMENT=window.RepForgeProgramEntryAdapter.SHARED_EQUIPMENT;
+function sharedRelationForPayload(relation,program){
+  const members=Array.isArray(relation?.members)?relation.members:[];
+  const rows=members.map(member=>program.find(ex=>ex?.id===member?.exerciseId));
+  const current=String(relation?.movementId||"").trim();
+  if(rows.length!==2||rows.some(row=>!row)||!current)return relation;
+  const identities=rows.map(row=>ProgramEntryAdapter.sharedMovementId(row,LEGACY_LIBRARY_IDS));
+  const internalIds=rows.map(row=>String(row.movementId||"").trim());
+  if(!identities[0]||identities.some(id=>id!==identities[0])||internalIds.some(id=>id!==current))return relation;
+  return{...relation,movementId:identities[0]};
+}
 function sharedProgramMeta(meta,program){
   const days=program.days();
   const optional=(value,allowed)=>allowed.includes(value)?value:null;
@@ -6698,7 +7424,8 @@ function sharedProgramMeta(meta,program){
       .map(value=>String(value).trim()).filter(Boolean))],
     sessionLength:optional(meta?.sessionLength,["short","normal","long"]),
     mesocycleLengthWeeks:meta?.mesocycleLengthWeeks==null?6:meta.mesocycleLengthWeeks,
-    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON()),
+    progressionRelations:normalizeProgressionRelations(meta?.progressionRelations,program.toJSON())
+      .map(relation=>sharedRelationForPayload(relation,program.toJSON())),
     progressionModifiers:normalizeProgressionModifiers(meta?.progressionModifiers)};
   if(meta?.programStructure)out.programStructure=cloneSnapshot(meta.programStructure);
   return out}
@@ -6706,7 +7433,7 @@ function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
-  if(preserveIdentity){out.id=ex?.id;out.movementId=ex?.movementId}
+  if(preserveIdentity){out.id=ex?.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
   for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
@@ -6868,17 +7595,10 @@ async function shareSetupLinkNow(){
    Portuguese lifter still types "bench press" for a machine whose plate says
    so, and an English one still finds "supino". */
 const foldSearch=s=>String(s??"").toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");
-const MUSCLE_TOKENS=["Chest","Lats","Mid/upper back","Traps","Front delts","Side delts","Rear delts",
-  "Biceps","Triceps","Forearms","Quads","Hamstrings","Glutes","Adductors","Abductors","Calves",
-  "Spinal erectors","Abs","Obliques"];
-const PICKER_EQUIPMENT=["machine","cable","dumbbell","barbell","smith","bodyweight"];
+const MUSCLE_TOKENS=window.RepForgeProgramEntryAdapter.MUSCLE_TOKENS;
+const PICKER_EQUIPMENT=window.RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT;
 /* Muscle filters lifters actually think in, each covering the tokens under it. */
-const PICKER_MUSCLE_GROUPS=[
-  ["chest",["Chest"]],["back",["Lats","Mid/upper back","Traps"]],
-  ["shoulders",["Front delts","Side delts","Rear delts"]],
-  ["arms",["Biceps","Triceps","Forearms"]],
-  ["legs",["Quads","Hamstrings","Glutes","Adductors","Abductors","Calves"]],
-  ["core",["Abs","Obliques","Spinal erectors"]]];
+const PICKER_MUSCLE_GROUPS=window.RepForgeProgramEntryAdapter.PICKER_MUSCLE_GROUPS;
 
 let pickerState=null,pickerReturn=null,customState=null,customReturn=null;
 
@@ -7020,7 +7740,7 @@ async function choosePicked(id){
   const active=pickerState,handler=active.onPick;
   active.choosing=true;
   const sheet=$("#exPickSheet");if(sheet)sheet.setAttribute("aria-busy","true");
-  try{if(handler)await handler(entry);await closeExercisePicker()}
+  try{if(handler)await handler(entry);await closeExercisePicker();focusEntryEditorStatus()}
   finally{if(pickerState===active)active.choosing=false;if(sheet)sheet.removeAttribute("aria-busy")}}
 
 /* mode "single" fires onPick with one entry and closes; "multi" collects and
@@ -7052,6 +7772,7 @@ function openExercisePicker({title=null,subtitle="",mode="single",selected=[],ex
   if(done)done.classList.toggle("hidden",mode!=="multi");
   const tabs=$("#exPickTabs");if(tabs)tabs.classList.toggle("hidden",!quick);
   const full=$("#exPickFull");if(full)full.classList.toggle("hidden",!quick);
+  const custom=$("#exPickCustom");if(custom)custom.classList.toggle("hidden",setupEditorOpen);
   if(quick)renderQuickTabs();
   renderPickerFilters();renderPickerList();
   document.body.classList.add("is-sheet-open");
@@ -7323,14 +8044,70 @@ function parseProgramTextExport(text){
   if(metaOut&&data){if(Array.isArray(data.relations))metaOut.progressionRelations=data.relations;if(Array.isArray(data.modifiers))metaOut.progressionModifiers=data.modifiers;if(Array.isArray(data.incompatibilities))metaOut.progressionIncompatibilities=data.incompatibilities}
   return{exercises,meta:metaOut,customExercises:[]}}
 
-/* Reads whatever the file turns out to be. JSON first, then the text export. */
+const IMPORT_MAX_BYTES=1024*1024;
+const IMPORT_MAX_DEPTH=32;
+const IMPORT_MAX_NODES=10000;
+function importUtf8Bytes(value){return new TextEncoder().encode(String(value||"")).byteLength}
+function boundedImportJson(text){
+  if(importUtf8Bytes(text)>IMPORT_MAX_BYTES)return null;
+  let parsed;
+  try{parsed=JSON.parse(String(text||""))}catch{return null}
+  let nodes=0;
+  const visit=(value,depth)=>{
+    if(++nodes>IMPORT_MAX_NODES||depth>IMPORT_MAX_DEPTH)return false;
+    if(value===null||typeof value!=="object")return true;
+    if(Array.isArray(value))return value.every(child=>visit(child,depth+1));
+    return Object.keys(value).every(key=>visit(value[key],depth+1))};
+  return visit(parsed,0)?parsed:null}
+function validImportedExerciseRow(row){
+  if(!row||typeof row!=="object"||Array.isArray(row))return false;
+  const text=v=>typeof v==="string"&&v.trim().length>0;
+  return text(row.day)&&Number.isInteger(row.order)&&row.order>=1&&row.order<=1000&&
+    text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
+    Number.isInteger(row.min)&&row.min>=1&&row.min<=1000&&
+    Number.isInteger(row.max)&&row.max>=row.min&&row.max<=1000&&
+    (row.libraryId===undefined||text(row.libraryId));}
+function validRawImportedExerciseRow(row){
+  if(!row||typeof row!=="object"||Array.isArray(row))return false;
+  const text=v=>typeof v==="string"&&v.trim().length>0;
+  // A legacy alias is accepted only when it is itself well-formed. Do not let
+  // a valid repLow/repHigh silently mask a malformed canonical min/max field.
+  if(Object.prototype.hasOwnProperty.call(row,"min")&&
+    (!Number.isInteger(row.min)||row.min<1||row.min>1000))return false;
+  if(Object.prototype.hasOwnProperty.call(row,"max")&&
+    (!Number.isInteger(row.max)||row.max<1||row.max>1000))return false;
+  if(Object.prototype.hasOwnProperty.call(row,"repLow")&&
+    (!Number.isInteger(row.repLow)||row.repLow<1||row.repLow>1000))return false;
+  if(Object.prototype.hasOwnProperty.call(row,"repHigh")&&
+    (!Number.isInteger(row.repHigh)||row.repHigh<1||row.repHigh>1000))return false;
+  const min=Number.isInteger(row.min)?row.min:row.repLow;
+  const max=Number.isInteger(row.max)?row.max:row.repHigh;
+  return text(row.day)&&text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
+    Number.isInteger(min)&&min>=1&&min<=1000&&Number.isInteger(max)&&max>=min&&max<=1000&&
+    (row.order===undefined||(Number.isInteger(row.order)&&row.order>=1&&row.order<=1000))&&
+    (row.libraryId===undefined||text(row.libraryId));}
+function normalizeImportedRows(rows){
+  const orders=new Map();
+  return rows.map(row=>{
+    const out={...row};
+    // Older program-only exports carried repLow/repHigh and omitted order.
+    // These are lossless aliases: order is the row's position within its day,
+    // and bounds are copied only when the source supplied valid integers.
+    if(out.order===undefined&&typeof out.day==="string"){
+      const next=(orders.get(out.day)||0)+1;orders.set(out.day,next);out.order=next}
+    if(out.min===undefined&&Number.isInteger(out.repLow))out.min=out.repLow;
+    if(out.max===undefined&&Number.isInteger(out.repHigh))out.max=out.repHigh;
+    return out})}
 function parseProgramSource(text,fileName=""){
   const trimmed=String(text||"").trim();
   if(trimmed.startsWith("{")||trimmed.startsWith("[")){
-    let parsed=null;
-    try{parsed=JSON.parse(trimmed)}catch{return null}
+    const parsed=boundedImportJson(trimmed);if(parsed===null)return null;
     const imp=parseProgramImport(parsed);
-    return imp?.exercises?.length?Object.assign({format:"json"},imp):null}
+    if(!imp?.exercises?.length||!imp.exercises.every(validRawImportedExerciseRow))return null;
+    imp.exercises=normalizeImportedRows(imp.exercises);
+    if(!imp.exercises.every(validImportedExerciseRow))return null;
+    return Object.assign({format:"json",legacy:parsed?.version===undefined},imp)}
+  if(importUtf8Bytes(trimmed)>IMPORT_MAX_BYTES)return null;
   const text2=parseProgramTextExport(trimmed);
   return text2?Object.assign({format:"text"},text2):null}
 
@@ -7379,6 +8156,7 @@ function buildImportDraft(source,fileName){
       decision:status===IMPORT_EXACT||status===IMPORT_ALIAS?"link":"raw",
       reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
   return{fileName:String(fileName||""),format:source.format||"json",
+    legacy:source.legacy===true,
     meta:source.meta||null,customExercises:source.customExercises||[],rows}}
 
 const importCounts=draft=>{
@@ -7426,7 +8204,7 @@ let libFlow=null,libReturn=null,previewState=null;
    need a third suggested; one with no back work does. Ranked so the staple for
    an uncovered pattern leads. */
 function suggestedForDay(dayName,limit=6){
-  const onDay=prog.forDay(dayName);
+  const onDay=programEditorProgram().forDay(dayName);
   const have=new Set(onDay.map(e=>e.libraryId).filter(Boolean));
   const covered=new Set();
   for(const e of onDay)for(const m of muscles(e.primary))covered.add(m);
@@ -7479,10 +8257,11 @@ function librarySelectionMap(selected){const out=new Map();
 function libraryResumeOptions(){
   if(!libFlow)return null;
   return{day:libFlow.day,tab:libFlow.tab,query:libFlow.query,muscle:libFlow.muscle,
-    equipment:libFlow.equipment,step:libFlow.step,selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
-function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null}={}){
+    equipment:libFlow.equipment,step:libFlow.step,editorScope:libFlow.editorScope,
+    selected:[...libFlow.selected.entries()].map(cloneSnapshot)}}
+function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",query="",muscle=null,equipment=null,editorScope=false}={}){
   libFlow={day:dayName,tab:LIB_PAGE_TABS.includes(tab)?tab:"browse",query:String(query||""),muscle,equipment,step,
-    selected:librarySelectionMap(selected)};
+    editorScope:!!editorScope,selected:librarySelectionMap(selected)};
   libReturn=document.activeElement;
   document.body.classList.add("is-library");
   document.body.classList.remove("is-preview");
@@ -7493,10 +8272,13 @@ function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",que
   search?.focus({preventScroll:true})}
 
 function closeLibrary({toProgram=true}={}){
+  const returnToOnboarding=!!libFlow?.editorScope&&setupEditorOpen;
   libFlow=null;
   document.body.classList.remove("is-library","is-preview");
   const back=resolveReturnFocus(libReturn);libReturn=null;
-  if(toProgram)returnToTab("program");
+  if(toProgram){
+    if(returnToOnboarding){showOnboardingView();renderOnboarding()}
+    else returnToTab("program")}
   if(back)try{back.focus({preventScroll:true})}catch{}}
 
 function renderLibrary(){
@@ -7512,6 +8294,7 @@ function renderLibrary(){
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`+
       `<span class="libstep__bar${configuring?" is-done":""}" aria-hidden="true"></span>`}
   if(configuring)renderLibraryConfigure();else renderLibraryBrowse();
+  $("#libCustom")?.classList.toggle("hidden",!!libFlow.editorScope);
   renderLibraryBar()}
 
 function renderLibraryTabs(){
@@ -7564,7 +8347,7 @@ function libraryRowHtml(e){
     `<div class="librow__text">`+
       `<p class="librow__name">${esc(libraryName(e))}</p>`+
       `<p class="librow__meta">${esc(meta)}</p>`+
-      (isCustomLibraryId(e.id)
+      (isCustomLibraryId(e.id)&&!libFlow?.editorScope
         ?`<button type="button" class="librow__edit" data-lib-edit="${esc(e.id)}">${esc(t("library.edit"))}</button>`:"")+
     `</div>`+
     `<button type="button" class="librow__check${on?" is-on":""}" role="checkbox" aria-checked="${on?"true":"false"}" `+
@@ -7635,17 +8418,31 @@ async function commitLibrarySelection(){
   if(!libFlow||!libFlow.selected.size)return null;
   if(libFlow.step!=="configure"){libFlow.step="configure";renderLibrary();window.scrollTo({top:0});return null}
   const rows=libraryConfigureRows();
-  const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+  const editorScope=!!libFlow.editorScope;
+  const proposal=libFlow.editorScope?programEditorSnapshot():cloneSnapshot(state);
+  const nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   for(const r of rows){
     const added=nextProgram.addExercise(libFlow.day,r.entry);
     added.sets=r.cfg.sets;added.min=r.cfg.min;added.max=Math.max(r.cfg.min,r.cfg.max)}
   proposal.program=nextProgram.toJSON();
-  const result=await commitProposedState(proposal);
+  const result=libFlow.editorScope
+    ?await commitProgramEditorProposal(proposal)
+    :await commitProposedState(proposal);
   if(!(result.localOk||result.idbOk)){toast(t("toast.program_save_failed"));return result}
   const n=rows.length,target=libFlow.day;
   setDayCollapsed(target,false);
   closeLibrary({toProgram:true});
-  render();
+  if(editorScope&&setupEditorOpen){
+    // The full-library detour commits through the legacy library controller,
+    // while the shared editor still owns its private in-memory document. Pull
+    // the committed candidate back into that editor before the next action.
+    // Every edit made before the detour was already staged in this same setup
+    // draft, so discard here is a synchronization operation, not user-facing
+    // data loss. A normal refresh would correctly report an external change as
+    // a conflict because the editor's baseline is still the pre-detour copy.
+    onboardingProgramEditor?.discard?.();
+    updateOnboardingEditorActions();
+  }else render();
   toast(t("toast.exercises_added",{n}));
   return result}
 
@@ -7706,7 +8503,7 @@ function renderImportReview(){
   if(!importDraft)return;
   const counts=importCounts(importDraft);
   const file=$("#importFile");
-  if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total});
+  if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total,exercise:tp(counts.total,"lift")});
   const countsEl=$("#importCounts");
   if(countsEl)countsEl.innerHTML=
     `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
@@ -7723,7 +8520,7 @@ function renderImportReview(){
   const commit=$("#importCommit");
   if(commit){
     commit.disabled=counts.review>0;
-    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("import.commit")}
+    commit.textContent=counts.review>0?t("import.commit_blocked",{n:counts.review}):t("entry.preview.review")}
 }
 
 function importRowHtml(row){
@@ -7789,9 +8586,16 @@ function importRowAction(act,key){
 /** A decided row folds back down: the alternatives have done their job. */
 function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportReview()}
 
+function ensureImportEntryFlow(draft){
+  if(entryState?.route==="import"&&entryState.step==="import_source")return;
+  const origin=draft?.fromFirstRun?"first-run":hasActiveProgram()?"settings":"first-run";
+  startOnboarding(origin,{userInitiated:true});
+  if(entryState?.route!=="import"||entryState.step!=="import_source")entrySelectRoute("import")}
+
 function openImportReview(draft){
+  ensureImportEntryFlow(draft);
+  draft.onboarding=true;
   importDraft=draft;
-  captureEvent("program_path_selected",{route:"import"});
   importReturn=document.activeElement;
   // The review renders inside the app shell, so the first-run gate steps aside
   // for it rather than covering it.
@@ -7819,67 +8623,72 @@ function closeImportReview({toProgram=true}={}){
   if(toProgram)returnToTab("program");
   if(back)try{back.focus({preventScroll:true})}catch{}}
 
-/* The only place an import touches durable state. Custom definitions and the
-   templates that reference them are assembled in one proposal, so neither can
-   become durable without the other. */
-async function commitImportReview(io=storageIO){
-  if(!importDraft)return null;
-  const counts=importCounts(importDraft);
-  if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review}));return null}
-  const draft=importDraft;
+function importCandidate(draft){
   const exercises=importDraftExercises(draft);
-  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
-  const adapter=io||storageIO;
-  if(draft.onboarding){
-    const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
-    const staged=importDraftCustomDefinitions(draft);
-    const proposal=cloneSnapshot(state);
-    if(staged.length){
-      const merged=mergeImportedCustomExercises(staged,exercises,proposal);
-      proposal.customExercises=merged.customExercises}
-    proposal.programMeta={...proposal.programMeta,
-      progressionRelations:cloneSnapshot(draft.meta?.progressionRelations||[]),
-      progressionModifiers:cloneSnapshot(draft.meta?.progressionModifiers||[]),
-      programStructure:draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null};
-    const setup=await finalizeProgramSetup({exercises,name,answers:onbAnswers,destination:"log",
-      origin:onboardingOrigin||"first-run",io:adapter,draftConfirmed:draftActive,discardDraftRaw,baseProposal:proposal,
-      telemetryRoute:"import"});
-    if(setup&&!(setup.localOk||setup.idbOk)){
-      // The write was refused; leave the screen it came from standing so it can
-      // be retried.
-      if(draft.fromFirstRun)openFirstRun();else{showOnboardingView();renderOnboarding()}
-      toast(t("toast.program_import_failed"));return setup}
-    closeImportReview({toProgram:false});
-    toast(t("toast.program_imported",{n:counts.total}));
-    return setup||{localOk:true,idbOk:true}}
-  const transition=programTransitionPrecondition(state);
   const proposal=cloneSnapshot(state);
   const merged=mergeImportedCustomExercises(importDraftCustomDefinitions(draft),exercises,proposal);
-  proposal.customExercises=merged.customExercises;
-  const meta=cloneSnapshot(proposal.programMeta)||defaultProgramMeta(proposal.log);
-  if(typeof draft.meta?.name==="string"&&draft.meta.name.trim())meta.name=draft.meta.name.trim();
-  meta.updated=new Date().toISOString();
-  proposal.programMeta=meta;
-  proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
-  meta.progressionRelations=normalizeProgressionRelations(draft.meta?.progressionRelations,proposal.program);
-  meta.progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers);
-  meta.programStructure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;
-  migrateLogSnapshot(proposal);
-  const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,adapter,{effect,...transition});
-  if(!(result.localOk||result.idbOk)){
-    // Keep the reviewed decisions on screen: the lifter can press Import again
-    // once whatever blocked the write has cleared.
-    toast(t("toast.program_import_failed"));return result}
-  resetDraftSessionState();
-  day=days()[0]||"Day 1";
-  closeImportReview({toProgram:true});
-  render();
-  // An import replaces the program outright — the box shows the new one.
-  syncProgramJson({force:true});
-  captureEvent("program_activated",{route:"import",version_category:"import_v1"});
-  toast(t("toast.program_imported",{n:counts.total}));
-  return result}
+  const program=new Program(exercises,snapshotLookup(merged.customExercises)).toJSON();
+  const wantedCustomIds=new Set(program.map(exercise=>exercise.libraryId).filter(isCustomLibraryId));
+  const candidateCustomExercises=merged.customExercises
+    .filter(entry=>wantedCustomIds.has(entry.id)).map(cloneSnapshot);
+  const structure=draft.meta?.programStructure?cloneSnapshot(draft.meta.programStructure):null;
+  const structureDays=Array.isArray(structure?.days)?structure.days:[];
+  const labels=structureDays.length?structureDays.map(item=>item.label||item.dayId):
+    [...new Set(program.map(exercise=>exercise.day))];
+  const days=labels.filter(Boolean).map((label,index)=>({
+    dayId:structureDays[index]?.dayId||label,label,
+    exercises:program.filter(exercise=>exercise.day===label).map(cloneSnapshot),
+  }));
+  const progressionIncompatibilities=Array.isArray(draft.meta?.progressionIncompatibilities)
+    ?cloneSnapshot(draft.meta.progressionIncompatibilities):[];
+  const progressionData=candidateProgressionData(draft.meta?.progressionRelations,program,
+    progressionIncompatibilities,"program-import");
+  const progressionModifiers=normalizeProgressionModifiers(draft.meta?.progressionModifiers,{
+    preserveInvalid:true,incompatibilities:progressionData.incompatibilities,source:"program-json"});
+  return{
+    program,
+    days,
+    programStructure:structure,
+    progressionRelations:progressionData.relations,
+    progressionModifiers,
+    progressionIncompatibilities:progressionData.incompatibilities,
+    customExercises:candidateCustomExercises,
+    source:"import",
+    format:draft.format,
+  }}
+
+/* Review decisions become an owned setup candidate. Durable active state moves
+   only through the common explicit activation transaction on the next screen. */
+async function commitImportReview(){
+  if(!importDraft)return null;
+  const counts=importCounts(importDraft);
+  if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review,exercise:tp(counts.review,"lift")}));return null}
+  const draft=importDraft;
+  ensureImportEntryFlow(draft);
+  const preview=importCandidate(draft);
+  const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
+  let next=ProgramEntry.setAnswers(entryState,{importReady:true});
+  next={...next,versions:entryVersions()};
+  next=ProgramEntry.setResult(next,{
+    fingerprint:entryCandidateFingerprint("import",name,preview),
+    selected:{id:"import",source:"import"},
+    name,
+    preview,
+  });
+  next=ProgramEntry.advance(next).state;
+  // Keep the in-memory state in lockstep with the staged draft. Every import,
+  // including an unversioned first-run program file, remains a candidate until
+  // the common preview's explicit activation action is chosen.
+  entryState=next;
+  const saved=await persistSetupDraft(next);
+  if(!saved?.ok){toast(t("toast.program_import_failed"));return saved}
+  closeImportReview({toProgram:false});
+  entryUiNotice=null;
+  showOnboardingView();renderOnboarding();
+  // The original unversioned program-file door now converges with versioned
+  // onboarding imports: both leave the active state untouched until the
+  // preview's explicit activation transaction runs.
+  return{localOk:false,idbOk:false,staged:true,setupDraft:true}}
 
 /* A backup is not a program file. It carries the log, the settings and the meta
    as well as the program, so reading only its exercises drops the rest on the
@@ -7890,8 +8699,7 @@ async function commitImportReview(io=storageIO){
    read them out of. Recognised here so the program door can offer the restore
    instead of quietly discarding it. */
 function parseBackupFile(text){
-  let parsed=null;
-  try{parsed=JSON.parse(text)}catch{return null}
+  const parsed=boundedImportJson(text);
   return isImportableState(parsed)?parsed:null}
 
 /* Reading a file no longer changes anything: it opens the review screen. The
@@ -7899,6 +8707,7 @@ function parseBackupFile(text){
    a wrong file had already replaced the program by the time you saw it. */
 async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   try{
+    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
     const text=await f.text();
     const backup=parseBackupFile(text);
     const source=parseProgramSource(text,f.name);
@@ -7934,7 +8743,9 @@ function importChoiceContext(s,opener,io){
     curSessions:have.size,curSets:state.log.length,
     newSessions:new Set(s.log.filter(r=>!have.has(r.session)).map(r=>r.session)).size}}
 async function importJson(e){const f=e.target.files?.[0];if(!f)return;
-  try{const s=JSON.parse(await f.text());
+  try{
+    if(Number.isFinite(f.size)&&f.size>IMPORT_MAX_BYTES)throw Error();
+    const s=boundedImportJson(await f.text());
     if(!isImportableState(s))throw Error();
     openImportChoice(importChoiceContext(s,e.target))}
   catch{toast(t("toast.import_invalid"))}
@@ -7985,137 +8796,1633 @@ function openImportChoice(ctx){const d=$("#importChoice");
     finally{importBusy=false}}}
 function mergeLog(s){return mergeImportedLog(s)}
 
-function switchToBeginnerProgram(discardDraftRaw){return applyProgramTemplate(storageIO,{discardDraftRaw})}
-async function applyProgramTemplate(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
-  requireAdapter(io,"applyProgramTemplate");
-  const transition=programTransitionPrecondition(state);
-  const proposal=cloneSnapshot(state);
-  proposal.program=new Program(beginnerProgram()).toJSON();
-  proposal.programMeta=buildProgramMeta({name:t("program.beginner_name")});
-  const effect=destructiveDraftClearEffect(discardDraftRaw);
-  const result=await commitProposedState(proposal,io,{effect,...transition});
-  if(result.localOk||result.idbOk){captureEvent("program_path_selected",{route:"browse"});captureEvent("program_activated",{route:"browse",version_category:"legacy_v1"});resetDraftSessionState();day=days()[0]||"Day 1";render();toast(t("toast.beginner_loaded"))}
-  return result}
-
-const ONB_SPLITS={2:["full_body","upper_lower"],3:["full_body","machine_only","ppl"],4:["upper_lower","full_body"],
-  5:["ppl","bro","upper_lower"],6:["ppl"]};
-const ONB_EQ_UI=["machines","cables","dumbbells","barbells"];
-const ONB_EQ_GEN={machines:"machine",cables:"cable",dumbbells:"dumbbell",barbells:"barbell",bodyweight:"bodyweight"};
-const ONB_MUSCLES=["Chest","Back","Quads","Hamstrings","Glutes","Side delts","Arms","Calves"];
-let onbStep=0,onbAnswers={};
-function defaultOnbAnswers(){return{goal:null,experience:null,daysPerWeek:null,splitType:null,equipment:["machines","cables"],
-  priorityMuscles:[],sessionLength:null}}
-function onbGenAnswers(a){const eq=(a.equipment||[]).map(x=>ONB_EQ_GEN[x]||x);
-  const goal=a.goal==="strength_hypertrophy"?"strength":a.goal==="beginner_consistency"?"hypertrophy":a.goal||"hypertrophy";
-  return{...a,goal,equipment:eq}}
-function showOnboardingView(){$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
+const SETUP_DRAFT_KEY="repforge_program_setup_draft_v1";
+const ProgramEntry=typeof window!=="undefined"?window.RepForgeProgramEntry:null;
+const ProgramEntryAdapter=typeof window!=="undefined"?window.RepForgeProgramEntryAdapter:null;
+const ENTRY_MUSCLES=ProgramEntryAdapter.ENTRY_MUSCLES;
+const ENTRY_MOVEMENTS=ProgramEntryAdapter.ENTRY_MOVEMENTS;
+const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
+const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
+const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
+const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
+const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
+let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
+const setupDraftOwnerId=uid();
+let entryDraftHandle=null;
+let setupDraftWriteQueue=Promise.resolve();
+function entryServices(){
+  if(typeof window!=="undefined"&&window.__repforgeProgramEntryServicesOverride)return window.__repforgeProgramEntryServicesOverride;
+  if(!ProgramEntryAdapter)return null;
+  const history=[...loggedExerciseRefs().ids].sort().map(libraryId=>({libraryId}));
+  return ProgramEntryAdapter.createProductionServices({Compiler:ProgramCompiler,catalogue:EXERCISE_LIBRARY,history})}
+function entryCandidateFingerprint(route,name,preview){
+  const semanticPreview=cloneSnapshot(preview||{});
+  if(Array.isArray(semanticPreview.customExercises)){
+    semanticPreview.customExercises=semanticPreview.customExercises.map(entry=>{
+      const normalized={...entry};delete normalized.created;return normalized})}
+  return entryServices()?.fingerprint?.({route:route||null,name:name||"",preview:semanticPreview})||"candidate"}
+function entryResultName(result=entryState?.result){
+  if(!result)return"";
+  return String(isPt()?(result.namePt||result.name||""):(result.name||result.namePt||"")).trim()}
+function entryNow(){return new Date().toISOString()}
+function entryVersions(){return entryServices()?.currentVersions?.()||{
+  compiler:"1",family:"1",blueprint:"1",catalogue:"1",rules:"1",context:"1",progression:"range-1",
+  recentConsistency:"1",simpleStart:"1"}}
+function liveProgramRevision(){return readRevision(state)}
+function hasActiveProgram(){return !!(state?.programMeta?.onboarded&&((state.program||[]).length||structureDayLabels(state.programMeta)))}
+function readSetupDraftRaw(){try{return localStorage.getItem(SETUP_DRAFT_KEY)}catch{return null}}
+function readSetupDraftRecord(){
+  const raw=readSetupDraftRaw();
+  if(raw===null)return{raw:null,envelope:null,migrated:false,ok:true};
+  const normalized=ProgramEntry?.normalizeSetupDraftEnvelope(raw);
+  if(!normalized?.ok)return{raw,envelope:null,migrated:false,ok:false,issues:normalized?.issues||[]};
+  return{raw,envelope:normalized.value.envelope,migrated:normalized.value.migrated,ok:true}}
+function freshSetupDraftEnvelope(next){return{
+  schemaVersion:ProgramEntry.SCHEMA_VERSION,
+  draftId:next.draftId,
+  revision:0,
+  ownerId:null,
+  state:next}}
+function queueSetupDraftWrite(operation){
+  const pending=setupDraftWriteQueue.then(operation,operation);
+  setupDraftWriteQueue=pending.catch(()=>{});
+  return pending}
+function reportSetupDraftWriteFailure(kind,error){
+  entryUiNotice=kind;
+  if(error)console.warn("setup draft save failed",error);
+  if(setupEditorOpen)renderOnboarding();
+  else if(document.body.classList.contains("is-onboarding"))renderOnboarding()}
+function removeObservedSetupDraft(handle){
+  if(!handle)return{ok:true,absent:true};
+  const currentRaw=readSetupDraftRaw();
+  if(currentRaw!==handle.raw)return{ok:false,conflict:true};
+  try{localStorage.removeItem(SETUP_DRAFT_KEY)}catch(error){
+    reportSetupDraftWriteFailure("save_failed",error);
+    return{ok:false,writeFailed:true}}
+  if(entryDraftHandle?.raw===handle.raw)entryDraftHandle=null;
+  return{ok:true}}
+function removeSetupDraftIfCurrent(handle=entryDraftHandle){
+  if(!handle)return Promise.resolve({ok:true,absent:true});
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(handle)))}
+function clearSetupDraft(){
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>removeObservedSetupDraft(entryDraftHandle)))}
+function setupActivationAlreadyCommittedToLive(raw){
+  const marker=state?.[STORAGE_SETUP_TXN];
+  return typeof raw==="string"&&isValidSetupActivationMarker(marker)&&
+    marker.revision===readRevision(state)&&setupActivationMatches(marker,raw,state?.programMeta?.id);
+}
+async function finishAlreadyCommittedSetup(handle){
+  const cleanup=await removeSetupDraftIfCurrent(handle);
+  if(cleanup?.ok){
+    entryState=null;entryDraftHandle=null;onboardingOrigin=null;setupEditorOpen=false;
+    programEditMode=false;document.body.classList.remove("is-entry-editor");closeOnboarding();
+  }else{
+    entryUiNotice=cleanup?.conflict?"save_conflict":"save_failed";
+    renderOnboarding();
+  }
+  return{revision:readRevision(state),localOk:true,idbOk:true,alreadyCommitted:true,
+    setupDraftCleanup:cleanup};
+}
+async function recoverCommittedSetupDraft(){
+  const marker=state?.[STORAGE_SETUP_TXN];
+  if(!isValidSetupActivationMarker(marker)||marker.revision!==readRevision(state)||
+    marker.programId!==state?.programMeta?.id)return{ok:true,absent:true};
+  const raw=readSetupDraftRaw();
+  // A missing draft means the post-commit cleanup already won. A different
+  // raw value belongs to a later owner/revision and must remain untouched.
+  if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
+  return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
+}
+function persistSetupDraft(next,io=storageIO){
+  if(!ProgramEntry||!next)return Promise.resolve({ok:false});
+  const stamped=ProgramEntry.updateTimestamp(next,entryNow());
+  const normalized=ProgramEntry.normalizeSetupDraft(stamped);
+  if(!normalized.ok)return Promise.resolve({ok:false,invalid:true});
+  const queuedState=normalized.value;
+  entryState=queuedState;
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,async()=>{
+    const currentRaw=readSetupDraftRaw();
+    const handle=entryDraftHandle||{
+      raw:null,
+      envelope:freshSetupDraftEnvelope(queuedState)};
+    if(currentRaw!==handle.raw){
+      reportSetupDraftWriteFailure("save_conflict");
+      return{ok:false,conflict:true}}
+    let envelope;
+    try{envelope=ProgramEntry.advanceSetupDraftEnvelope(handle.envelope,queuedState,setupDraftOwnerId)}
+    catch(error){
+      reportSetupDraftWriteFailure("save_failed",error);
+      return{ok:false,invalid:true}}
+    const raw=JSON.stringify(envelope);
+    // The optional adapter controls only this setup-draft write. Lock ownership
+    // remains on the production storageIO path so tests cannot change the
+    // concurrency contract around the draft record.
+    const writeSetupDraft=typeof io?.writeSetupDraft==="function"
+      ?io.writeSetupDraft.bind(io)
+      :value=>localStorage.setItem(SETUP_DRAFT_KEY,value);
+    try{await writeSetupDraft(raw)}catch(error){
+      reportSetupDraftWriteFailure("save_failed",error);
+      return{ok:false,writeFailed:true}}
+    entryDraftHandle={raw,envelope};
+    if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")entryUiNotice=null;
+    return{ok:true,envelope}}))}
+function createEntryState(extra={}){
+  return ProgramEntry.createState({
+    draftId:uid(),
+    activeProgramRevisionAtStart:liveProgramRevision(),
+    now:entryNow(),
+    versions:entryVersions(),
+    ...extra})}
+function applyLegacyHints(stateIn){
+  if(!ProgramEntry)return stateIn;
+  const legacy=state?.programMeta;
+  if(!legacy||legacy.onboarded!==true)return stateIn;
+  const migrated=ProgramEntry.migrateLegacyAnswers({
+    goal:legacy.goal,experience:legacy.experience,daysPerWeek:legacy.daysPerWeek,
+    sessionLength:legacy.sessionLength,equipment:legacy.equipment,splitType:legacy.splitType,
+    priorityMuscles:legacy.priorityMuscles},
+    {route:stateIn.route,compatibleSplits:(entryServices()?.splitChoices(stateIn.answers||{})?.choices||[]).map(c=>c.id)});
+  if(!migrated.ok)return stateIn;
+  let next=ProgramEntry.setAnswers(stateIn,migrated.value.answers);
+  next={...next,legacyHints:migrated.value.legacyHints};
+  return next}
+function programmingContextFromAnswers(answers){
+  if(!ProgramEntry||!answers?.desiredResult||!answers?.structuredExperience||!answers?.recentConsistency)return null;
+  if(!answers.daysPerWeek||!answers.sessionMinutes||!answers.environment)return null;
+  if(!Object.prototype.hasOwnProperty.call(answers,"preferredRestSeconds"))return null;
+  return ProgramEntry.normalizeProgrammingContext({
+    schemaVersion:1,
+    desiredResult:answers.desiredResult,
+    structuredExperience:answers.structuredExperience,
+    recentConsistency:answers.recentConsistency,
+    availability:{
+      daysPerWeek:answers.daysPerWeek,
+      sessionMinutes:answers.sessionMinutes,
+      preferredRestSeconds:answers.preferredRestSeconds},
+    environment:answers.environment,
+    primaryMuscles:answers.primaryMuscles||[],
+    deEmphasizedMuscles:answers.deEmphasizedMuscles||[],
+    ignoredMuscles:answers.ignoredMuscles||[],
+    priorityMovements:answers.priorityMovements||[],
+    exerciseConstraints:answers.exerciseConstraints||[],
+    reviewedAt:entryNow()})}
+function showOnboardingView(){entryVisibleScreenKey=null;$("#onboarding").classList.remove("hidden");$("#onboarding").classList.add("active");document.body.classList.add("is-onboarding");
   $$(".view").forEach(v=>{if(v.id!=="onboarding")v.classList.remove("active")})}
-function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding");
+function entryHistoryState(active=true){
+  const current=history.state&&typeof history.state==="object"?history.state:{};
+  return{...current,[ENTRY_HISTORY_STATE_KEY]:{
+    active,draftId:entryState?.draftId||null}}}
+function armEntryHistory(){
+  try{
+    const existing=history.state?.[ENTRY_HISTORY_STATE_KEY];
+    const method=existing?"replaceState":"pushState";
+    history[method](entryHistoryState(true),"",location.href)}catch{}}
+function syncEntryHistory(){
+  try{
+    if(history.state?.[ENTRY_HISTORY_STATE_KEY]?.active)
+      history.replaceState(entryHistoryState(true),"",location.href)}catch{}}
+function disarmEntryHistory(){
+  try{
+    if(history.state?.[ENTRY_HISTORY_STATE_KEY])
+      history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
+function closeOnboarding(){
+  onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
+  $("#onboarding")?.classList.remove("program-editor-onboarding");
+  $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor");
+  disarmEntryHistory();
   const log=$("#log");if(log&&!log.classList.contains("active")){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     log.classList.add("active")}
   render()}
-/* Onboarding that opens by itself on first run is not a route anybody chose.
-   Counting it would enter every install into the generator funnel and make
-   the drop-off after it meaningless. So an automatic open stays silent until
-   the first answer, which is the user actually choosing this path; an open
-   the user asked for reports immediately. Either way the flow reports once —
-   Start over inside it continues the same attempt. */
-let onbEngaged=false;
-function reportOnboardingEngagement(){if(onbEngaged)return;
-  onbEngaged=true;
-  captureEvent("program_path_selected",{route:"custom"});captureEvent("generator_started",{mode:"baseline"})}
+function reportEntryRoute(route){
+  if(entryEngaged)return;
+  entryEngaged=true;
+  captureEvent("program_path_selected",{route});
+  if(route==="recommend"||route==="custom")captureEvent("generator_started",{mode:"baseline"})}
 function startOnboarding(origin,opts={}){
+  if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  onbEngaged=false;
-  onbStep=0;onbAnswers=defaultOnbAnswers();showOnboardingView();renderOnboarding();
-  if(opts.userInitiated!==false)reportOnboardingEngagement()}
+  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
+  const record=readSetupDraftRecord();
+  entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
+  if(opts.forceFresh||opts.resume===false){
+    clearSetupDraft();
+    entryState=createEntryState();
+  }else if(record.raw&&opts.resume!==false&&record.ok){
+    const resumed=ProgramEntry.resumeSetupDraft(record.envelope.state,{
+      currentVersions:entryVersions(),
+      liveActiveProgramRevision:liveProgramRevision(),
+      pinnedVersionsExecutable:false});
+    if(!resumed.ok){
+      clearSetupDraft();
+      entryUiNotice="corrupt";
+      entryState=createEntryState();
+    }else if(resumed.value.status==="activation_conflict"){
+      entryState=resumed.value.state;
+      entryUiNotice="conflict";
+    }else if(resumed.value.status==="rules_changed"){
+      entryState=resumed.value.state;
+      entryUiNotice="rules_changed";
+    }else if(resumed.value.state.route||Object.keys(resumed.value.state.answers||{}).length){
+      entryState=resumed.value.state;
+      entryUiNotice="resume";
+    }else entryState=createEntryState();
+  }else if(record.raw&&!record.ok){
+    clearSetupDraft();
+    entryUiNotice="corrupt";
+    entryState=createEntryState();
+  }else entryState=createEntryState();
+  showOnboardingView();armEntryHistory();renderOnboarding();
+  if(opts.userInitiated===false)return;
+  // Opening the hub is not choosing a route; telemetry waits for a route pick.
+}
 function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run",{userInitiated:false})}
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
   onboardingOrigin=null;closeOnboarding()}
-function onbEquipmentSupportsDays(a){
-  if(!a?.equipment?.length||a.daysPerWeek==null||!a.splitType)return false;
-  const gen=onbGenAnswers(a);
-  return equipmentSupportsSplit(gen.daysPerWeek,gen.splitType,gen.equipment,gen.experience)}
-function onbCanNext(){const a=onbAnswers;
-  if(onbStep===0)return!!a.goal;if(onbStep===1)return!!a.experience;if(onbStep===2)return!!a.daysPerWeek;
-  if(onbStep===3)return!!a.splitType;if(onbStep===4)return onbEquipmentSupportsDays(a);if(onbStep===6)return!!a.sessionLength;return true}
-function onbPick(key,val,multi){reportOnboardingEngagement();
-  if(multi){const arr=onbAnswers[key]||[];const i=arr.indexOf(val);
-  if(i>=0)arr.splice(i,1);else arr.push(val);onbAnswers[key]=arr}else onbAnswers[key]=val;
-  if(key==="daysPerWeek"){const opts=ONB_SPLITS[val]||[];if(!opts.includes(onbAnswers.splitType))onbAnswers.splitType=null}
+function requestEntryCancel(){
+  if(!entryState)return cancelOnboarding();
+  entryUiNotice="cancel";
+  persistSetupDraft(entryState);
   renderOnboarding()}
-function onbOpt(cls,key,val,label,sub,multi){const sel=multi?(onbAnswers[key]||[]).includes(val):onbAnswers[key]===val;
-  return `<button type="button" class="radio-card${sel?" is-selected":""}" data-onb-pick="${esc(key)}" data-onb-val="${esc(val)}" data-onb-multi="${multi?"1":"0"}">`+
+async function keepEntryDraftAndCancel(){
+  await setupDraftWriteQueue;
+  if(entryUiNotice==="save_failed"||entryUiNotice==="save_conflict")return renderOnboarding();
+  cancelOnboarding()}
+async function discardEntryDraftAndCancel(){
+  await setupDraftWriteQueue;
+  const removed=await clearSetupDraft();
+  if(!removed.ok)return renderOnboarding();
+  cancelOnboarding()}
+function entrySetState(next,{persist=true}={}){
+  entryState=next;
+  entryValidationNotice=false;
+  syncEntryHistory();
+  if(persist)persistSetupDraft(entryState);
+  renderOnboarding()}
+function entryCustomSplitChoices(answers=entryState?.answers||{}){
+  try{return entryServices()?.splitChoices?.(answers)||{choices:[]}}catch(error){console.warn("custom split choices failed",error);return{choices:[]}}}
+function entryCustomShapeRequired(answers=entryState?.answers||{}){
+  return entryCustomSplitChoices(answers).choices.length>=2}
+function collapseSingleCustomShape(){
+  if(!entryState||entryState.route!=="custom"||entryState.step!=="custom_shape")return false;
+  const splits=entryCustomSplitChoices(entryState.answers);
+  if(splits.choices.length!==1)return false;
+  const preferred=splits.choices[0];
+  let next=ProgramEntry.setAnswers(entryState,{splitPreference:preferred.id});
+  const advanced=ProgramEntry.advance(next);
+  if(!advanced.ok)return false;
+  entryState=advanced.state;
+  persistSetupDraft(entryState);
+  return true}
+function entrySelectRoute(route){
+  if(!ProgramEntry||!entryState)return;
+  reportEntryRoute(route);
+  entryPinnedVersionsExecutable=false;
+  const next=ProgramEntry.selectRoute(entryState,route,{reusableContext:state?.programmingContext});
+  const migrated=applyLegacyHints(next);
+  let selected=migrated;
+  if(route==="custom"){
+    const splits=entryServices()?.splitChoices(selected.answers)||{choices:[]};
+    if(splits.choices.length===1)selected=ProgramEntry.setAnswers(selected,{splitPreference:splits.choices[0].id});
+  }
+  entryOwnOpen=false;
+  entrySetState(selected)}
+function entryPatchAnswers(patch){
+  if(!ProgramEntry||!entryState)return;
+  entryPinnedVersionsExecutable=false;
+  entrySetState(ProgramEntry.setAnswers(entryState,patch))}
+function entryProgressSections(route){
+  if(!route)return{n:0,total:1,show:false};
+  const steps=ProgramEntry.ROUTE_STEPS[route]||[];
+  const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step)&&
+    !(route==="custom"&&step==="custom_shape"&&!entryCustomShapeRequired()));
+  const semanticIndex=semantic.indexOf(entryState.step);
+  const n=semanticIndex>=0?semanticIndex+1:semantic.length;
+  /* A meter is only informative while the user is moving through questions and
+     there is more than one of them. On a review, a result or a single-question
+     route it either lies (pinned full) or says nothing ("1 of 1"). */
+  const show=semantic.length>1&&semanticIndex>=0;
+  return{n:Math.min(n,semantic.length||1),total:Math.max(semantic.length,1),show}}
+function entryRouteLabel(route){
+  const labels={recommend:t("entry.route.recommend"),custom:t("entry.route.custom"),browse:t("entry.route.browse"),
+    build:t("entry.route.build"),import:t("entry.route.import"),shared:t("entry.route.shared")};
+  return labels[route]||t("entry.eyebrow")}
+function entryOpt(key,val,label,sub,{multi=false,selected=null,disabled=false,role="radio",icon=""}={}){
+  const current=entryState?.answers||{};
+  const isSelected=selected!=null?selected:multi?(current[key]||[]).includes(val):current[key]===val;
+  const checked=isSelected?"true":"false";
+  const disabledCopy=disabled?` aria-label="${esc(`${label}. ${t("entry.choice.disabled")}`)}" aria-describedby="entryChoiceDisabledNote"`:
+    "";
+  return `<button type="button" class="radio-card${isSelected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="${esc(key)}" data-entry-val="${esc(String(val))}" data-entry-multi="${multi?"1":"0"}"${disabled?" disabled aria-disabled=\"true\"":""}${disabledCopy} role="${esc(role)}" aria-checked="${checked}">`+
+    (icon?`<span class="radio-card__icon icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
     `<span class="radio-card__body"><span class="radio-card__title">${esc(label)}</span>${sub?`<span class="radio-card__cap">${esc(sub)}</span>`:""}</span>`+
     `<span class="radio-card__mark" aria-hidden="true"></span></button>`}
-function renderOnboarding(){const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
-  if(!body)return;title.textContent=t(`onb.title.${onbStep}`)||t("onb.title.default");
-  if(step)step.textContent=t("onb.step",{n:onbStep+1,total:8});
-  const seg=$("#onbSegbar");if(seg)seg.innerHTML=Array.from({length:8},(_,i)=>`<span class="segbar__seg${i<=onbStep?" is-current":""}${i<onbStep?" is-done":""}"></span>`).join("");
-  const cancel=$("#onbCancel");if(cancel)cancel.textContent=onbStep===0?t("onb.cancel"):"‹";
-  if(back)back.classList.toggle("hidden",onbStep===0||onbStep===7);
-  if(next){next.classList.toggle("hidden",onbStep===7);next.textContent=t("onb.next")}
-  let html=`<h2 class="onb__q">${esc(t(`onb.title.${onbStep}`)||t("onb.title.default"))}</h2>`;
-  if(onbStep===0)html+=`<p class="onb__explain">${esc(t("onb.goal.lede"))}</p><div class="onb__opts">`+
-    onbOpt("","goal","hypertrophy",t("onb.goal.hypertrophy.label"),t("onb.goal.hypertrophy.sub"),false)+
-    onbOpt("","goal","strength_hypertrophy",t("onb.goal.strength_hypertrophy.label"),t("onb.goal.strength_hypertrophy.sub"),false)+
-    onbOpt("","goal","beginner_consistency",t("onb.goal.beginner_consistency.label"),t("onb.goal.beginner_consistency.sub"),false)+`</div>`+
-    `<div class="onb__changes"><div class="onb__changes-lab">${esc(t("onb.what_changes"))}</div><p class="lede">${esc(t("onb.goal.changes"))}</p></div>`+
-    `<p class="onb__import">${esc(t("onb.have_program"))} · <button type="button" id="onbImportLink">${esc(t("onb.import"))}</button></p>`;
-  else if(onbStep===1)html+=`<p class="onb__explain">${esc(t("onb.experience.lede")||"")}</p><div class="onb__opts">`+
-    onbOpt("","experience","beginner",t("onb.experience.beginner"),"",false)+onbOpt("","experience","intermediate",t("onb.experience.intermediate"),"",false)+
-    onbOpt("","experience","advanced",t("onb.experience.advanced"),"",false)+`</div>`;
-  else if(onbStep===2)html+=`<div class="onb__opts">`+[2,3,4,5,6].map(n=>onbOpt("","daysPerWeek",n,String(n),t("onb.days.sub"),false)).join("")+`</div>`;
-  else if(onbStep===3){const opts=ONB_SPLITS[onbAnswers.daysPerWeek]||[];
-    html+=`<p class="onb__explain">${esc(t("onb.split.lede",{n:onbAnswers.daysPerWeek}))}</p><div class="onb__opts">`+
-      opts.map(s=>onbOpt("","splitType",s,t("split."+s),"",false)).join("")+`</div>`}
-  else if(onbStep===4){html+=`<p class="onb__explain">${esc(t("onb.equipment.lede"))}</p><div class="onb__opts">`+
-    ONB_EQ_UI.map(e=>onbOpt("", "equipment",e,t("equipment."+e),"",true)).join("")+`</div>`;
-    if(!onbEquipmentSupportsDays(onbAnswers))
-      html+=`<p class="lede" id="onbEquipUnsupported" role="status">${esc(t("onb.equipment.unsupported"))}</p>`}
-  else if(onbStep===5)html+=`<p class="onb__explain">${esc(t("onb.priority.lede"))}</p><div class="onb__opts">`+
-    ONB_MUSCLES.map(m=>onbOpt("","priorityMuscles",m,t("muscle."+m)||m,"",true)).join("")+`</div>`;
-  else if(onbStep===6)html+=`<div class="onb__opts">`+
-    onbOpt("","sessionLength","short",t("onb.session.short.label"),t("onb.session.short.sub"),false)+
-    onbOpt("","sessionLength","normal",t("onb.session.normal.label"),t("onb.session.normal.sub"),false)+
-    onbOpt("","sessionLength","long",t("onb.session.long.label"),t("onb.session.long.sub"),false)+`</div>`;
-  else{const gen=generateProgramFromOnboarding(onbGenAnswers(onbAnswers)),days=[...new Set(gen.map(e=>e.day))];
-    const byDay=days.map(d=>{const exs=gen.filter(e=>e.day===d);
-      return `<div class="onb__day"><div class="onb__dayname">${esc(dayLabel(d))}</div>`+
-        exs.map(e=>`<div class="onb__ex"><b>${esc(e.name)}</b> · ${e.sets}×${e.min}–${e.max} · ${esc(muscleListLabel(e.primary))}</div>`).join("")+`</div>`});
-    html=`<div class="onb__review">${byDay.join("")}<div class="onb__actions">`+
-      `<button type="button" id="onbSave" class="btn btn--cta">${esc(t("onb.review.save"))}</button>`+
-      `<button type="button" id="onbEdit" class="btn btn--steel">${esc(t("onb.review.edit"))}</button>`+
-      `<button type="button" id="onbRestart" class="btn btn--steel">${esc(t("onb.review.restart"))}</button></div></div>`}
+/* Compact uppercase section metadata, optionally led by a copper glyph. */
+function entryGroupLab(text,icon,attrs=""){
+  return `<p class="entry__group-lab${icon?" entry__group-lab--ico":""}"${attrs}>`+
+    (icon?`<span class="entry__group-lab-ico icon-mask icon-mask--${esc(icon)}" aria-hidden="true"></span>`:"")+
+    `<span>${esc(text)}</span></p>`}
+function entryHeading(title){
+  return `<h2 class="onb__q" id="entryHeading" tabindex="-1">${esc(title)}</h2>`}
+function entryLegacyBanner(){
+  if(!entryState?.legacyHints||!Object.keys(entryState.legacyHints).length)return"";
+  return `<p class="entry__legacy" role="note">${esc(t("entry.legacy.hint"))}</p>`}
+function renderEntryHub(){
+  // Keep the semantic body heading for focus and assistive technology. The
+  // shell title is visually suppressed on this hub so it is not repeated.
+  return entryHeading(t("entry.hub.title"))+
+    `<p class="onb__explain entry-hub__lede">${esc(t("entry.hub.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    entryLegacyBanner()+
+    `<div class="entry__hub entry__hub--routes">`+
+      `<p class="entry__group-lab">${esc(t("entry.hub.group.written"))}</p>`+
+      `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__icon icon-mask icon-mask--wand" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<button type="button" class="entry-card entry-card--primary" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--sliders" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<p class="entry__group-lab">${esc(t("entry.hub.group.ready"))}</p>`+
+      `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__icon icon-mask icon-mask--search" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
+      (entryOwnOpen?`<div class="entry__own">`+
+        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__icon icon-mask icon-mask--pencil" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__icon icon-mask icon-mask--download" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `</div>`:"")+
+    `</div>`}
+const ENTRY_DESIRED_ICONS={muscle_growth:"flex",balanced:"scale",strength:"dumbbell"};
+const ENTRY_ENV_ICONS={commercial_gym:"building",basic_gym:"house",limited_home:"kettlebell",full_home:"rack",other:"dumbbell"};
+function renderDesiredResultStep(){
+  return entryHeading(t("entry.desired_result.title"))+`<p class="onb__explain">${esc(t("entry.desired_result.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts" role="radiogroup" aria-label="${esc(t("entry.desired_result.title"))}">`+
+    ["muscle_growth","balanced","strength"].map(v=>entryOpt("desiredResult",v,t(`entry.desired_result.${v}.label`),t(`entry.desired_result.${v}.sub`),{icon:ENTRY_DESIRED_ICONS[v]})).join("")+`</div>`}
+function renderBackgroundStep(){
+  return entryHeading(t("entry.background.title"))+`<p class="onb__explain">${esc(t("entry.background.lede"))}</p>${entryLegacyBanner()}`+
+    entryGroupLab(t("entry.background.experience.label"),"clock",` id="entryExpLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryExpLab">`+
+    ["first","under_6m","6_to_24m","over_24m"].map(v=>entryOpt("structuredExperience",v,t(`entry.background.experience.${v}`),"")).join("")+`</div>`+
+    entryGroupLab(t("entry.background.consistency.label"),"cal",` id="entryConLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryConLab">`+
+    ["most","about_half","few","none"].map(v=>entryOpt("recentConsistency",v,t(`entry.background.consistency.${v}`),"")).join("")+`</div>`}
+function renderScheduleStep(){
+  const browse=entryState.route==="browse";
+  const minuteUnit=n=>t(`entry.schedule.minutes.${n}`).replace(/^[\d+]+\s*/,"").trim()||t(`entry.schedule.minutes.${n}`);
+  return entryHeading(t("entry.schedule.title"))+`<p class="onb__explain">${esc(t("entry.schedule.lede"))}</p>${entryLegacyBanner()}`+
+    entryGroupLab(t("entry.schedule.days.label"),"cal",` id="entryDaysLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryDaysLab">`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,String(n),t("entry.schedule.days.sub"))).join("")+`</div>`+
+    entryGroupLab(t("entry.schedule.minutes.label"),"clock",` id="entryMinLab"`)+`<div class="onb__opts onb__seg" role="radiogroup" aria-labelledby="entryMinLab">`+
+    [30,45,60,75,90].map(n=>entryOpt("sessionMinutes",n,n===90?"90+":String(n),minuteUnit(n))).join("")+`</div>`+
+    (browse?"":entryGroupLab(t("entry.schedule.rest.label"),"timer",` id="entryRestLab"`)+`<div class="onb__opts onb__list" role="radiogroup" aria-labelledby="entryRestLab">`+
+      entryOpt("preferredRestSeconds","auto",t("entry.schedule.rest.auto"),"",{selected:entryState.answers.preferredRestSeconds===null})+
+      [60,90,120,180].map(n=>entryOpt("preferredRestSeconds",n,t(`entry.schedule.rest.${n}`),"")).join("")+`</div>`)}
+function entryEnvironmentValue(){
+  const env=entryState?.answers?.environment;
+  if(!env?.kind)return null;
+  if(Array.isArray(env.equipment)||Array.isArray(env.capabilities))return env;
+  return ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||{kind:env.kind,equipment:[],capabilities:[]}}
+function renderEnvironmentStep(){
+  const env=entryEnvironmentValue();
+  const equipment=new Set(env?.equipment||[]);
+  const capabilities=new Set(env?.capabilities||[]);
+  const correction=env?`<details class="entry__disclosure entry__correct">`+
+    `<summary><span>${esc(t("entry.env_correct.summary"))}</span><span class="chevron" aria-hidden="true"></span></summary><div class="entry__disclosure-body">`+
+    `<p class="entry__group-lab">${esc(t("entry.env_correct.equipment"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.equipment"))}">`+
+    ENTRY_EQUIPMENT.map(token=>entryOpt("environmentEquipment",token,t(`entry.equip.${token}`)||token,"",{multi:true,selected:equipment.has(token),role:"checkbox"})).join("")+`</div>`+
+    `<p class="entry__group-lab">${esc(t("entry.env_correct.capabilities"))}</p><div class="onb__opts onb__grid" role="group" aria-label="${esc(t("entry.env_correct.capabilities"))}">`+
+    ENTRY_CAPABILITIES.map(token=>entryOpt("environmentCapabilities",token,t(`entry.cap.${token}`)||token,"",{multi:true,selected:capabilities.has(token),role:"checkbox"})).join("")+`</div>`+
+    `<p class="entry__hint">${esc(t("entry.env_correct.note"))}</p></div></details>`:"";
+  return entryHeading(t("entry.environment.title"))+`<p class="onb__explain">${esc(t("entry.environment.lede"))}</p>${entryLegacyBanner()}<div class="onb__opts onb__list" role="radiogroup" aria-label="${esc(t("entry.environment.title"))}">`+
+    ENTRY_ENVIRONMENTS.map(v=>entryOpt("environment",v,t(`entry.environment.${v}`),"",{selected:entryState.answers.environment?.kind===v,icon:ENTRY_ENV_ICONS[v]||"dumbbell"})).join("")+`</div>${correction}`}
+function entryMuscleBlocked(key,muscle){
+  const a=entryState?.answers||{};
+  const primary=new Set(a.primaryMuscles||[]);
+  const deemph=new Set(a.deEmphasizedMuscles||[]);
+  const ignored=new Set(a.ignoredMuscles||[]);
+  if(key==="primaryMuscles")return deemph.has(muscle)||ignored.has(muscle);
+  if(key==="deEmphasizedMuscles")return primary.has(muscle)||ignored.has(muscle);
+  if(key==="ignoredMuscles")return primary.has(muscle)||deemph.has(muscle);
+  return false}
+const ENTRY_MUSCLE_STATES=["normal","prioritize","deemphasize","ignore"];
+function entryMuscleStateLabel(status){
+  switch(status){
+    case "prioritize":return t("entry.priorities.state.prioritize");
+    case "deemphasize":return t("entry.priorities.state.deemphasize");
+    case "ignore":return t("entry.priorities.state.ignore");
+    default:return t("entry.priorities.state.normal")}}
+function entryMuscleStatus(muscle){
+  const a=entryState?.answers||{};
+  if((a.primaryMuscles||[]).includes(muscle))return"prioritize";
+  if((a.deEmphasizedMuscles||[]).includes(muscle))return"deemphasize";
+  if((a.ignoredMuscles||[]).includes(muscle))return"ignore";
+  return"normal"}
+function entryMuscleStatusDisabled(muscle,status){
+  if(status==="prioritize"){
+    const primary=entryState?.answers?.primaryMuscles||[];
+    return primary.length>=2&&!primary.includes(muscle)}
+  if(status==="deemphasize"){
+    const selected=entryState?.answers?.deEmphasizedMuscles||[];
+    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!selected.includes(muscle)}
+  if(status==="ignore"){
+    const selected=entryState?.answers?.ignoredMuscles||[];
+    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!selected.includes(muscle)}
+  return false}
+function entryMuscleStatusOption(muscle,status){
+  const selected=entryMuscleStatus(muscle)===status;
+  const disabled=entryMuscleStatusDisabled(muscle,status);
+  const label=entryMuscleStateLabel(status);
+  const muscleLabel=t(`entry.muscle.${muscle}`)||muscle;
+  return `<button type="button" class="entry__muscle-state${selected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="musclePriority" data-entry-val="${esc(`${muscle}|${status}`)}"${disabled?` disabled aria-disabled="true" aria-label="${esc(`${muscleLabel}: ${label}. ${t("entry.choice.disabled")}`)}"`:` aria-label="${esc(`${muscleLabel}: ${label}`)}"`} role="radio" aria-checked="${selected?"true":"false"}"><span>${esc(label)}</span></button>`}
+function renderCustomMusclePriorities(){
+  return `<p class="entry__group-lab" id="entryMuscleStatesLab">${esc(t("entry.priorities.states"))}</p>`+
+    `<p class="entry__hint entry__muscle-state-hint">${esc(t("entry.priorities.state_hint"))}</p>`+
+    `<div class="entry__muscle-list" role="group" aria-labelledby="entryMuscleStatesLab">`+
+    ENTRY_MUSCLES.map(muscle=>{
+      const label=t(`entry.muscle.${muscle}`)||muscle;
+      const current=entryMuscleStateLabel(entryMuscleStatus(muscle));
+      return `<div class="entry__muscle-row"><div class="entry__muscle-name" id="entryMuscleLabel-${esc(muscle)}"><span>${esc(label)}</span><span class="entry__muscle-current">${esc(current)}</span></div>`+
+        `<div class="entry__muscle-states" role="radiogroup" aria-labelledby="entryMuscleLabel-${esc(muscle)}">`+
+        ENTRY_MUSCLE_STATES.map(status=>entryMuscleStatusOption(muscle,status)).join("")+`</div></div>`}).join("")+`</div>`}
+function entryAvoidMatches(query){
+  const q=foldSearch(query||"");
+  const taken=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
+  const mustHave=new Set(entryState?.answers?.mustHaveExercises||[]);
+  const pool=pickableExercises().filter(entry=>!taken.has(entry.id)&&!mustHave.has(entry.id)&&entry.id!==entryPendingAvoid);
+  if(!q)return[];
+  return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
+function entryMustMatches(query){
+  const q=foldSearch(query||"");
+  const taken=new Set(entryState?.answers?.mustHaveExercises||[]);
+  const avoided=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
+  const pool=pickableExercises().filter(entry=>!taken.has(entry.id)&&!avoided.has(entry.id)&&entry.id!==entryPendingAvoid);
+  if(!q)return pool.slice(0,8);
+  return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
+function renderMustHaveSection(){
+  const selected=entryState?.answers?.mustHaveExercises||[];
+  const matches=entryMustMatches(entryMustQuery);
+  return `<p class="entry__group-lab">${esc(t("entry.priorities.must"))}</p>`+
+    `<p class="entry__hint">${esc(t("entry.priorities.must_hint"))}</p>`+
+    `<label class="entry__field entry__field--search"><span>${esc(t("entry.priorities.must_search"))}</span>`+
+    `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
+    `<input id="entryMustSearch" type="search" autocomplete="off" value="${esc(entryMustQuery)}" placeholder="${esc(t("entry.priorities.must_search"))}"></label>`+
+    `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.must_search"))}">`+
+    matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-must-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
+    `</div>`+(selected.length?`<ul class="entry__avoid-list">`+selected.map(exerciseId=>{
+      const entry=libraryEntry(exerciseId);
+      return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):exerciseId)}</strong>`+
+        `<button type="button" class="entry__remove" data-entry-must-remove="${esc(exerciseId)}">${esc(t("entry.priorities.must_remove"))}</button></div></li>`}).join("")+`</ul>`:"")}
+function renderAvoidanceSection(){
+  const constraints=entryState?.answers?.exerciseConstraints||[];
+  const hasPain=constraints.some(item=>item.reason==="pain");
+  const matches=entryAvoidMatches(entryAvoidQuery);
+  return `<p class="entry__group-lab">${esc(t("entry.priorities.avoid"))}</p>`+
+    `<label class="entry__field entry__field--search"><span>${esc(t("entry.priorities.avoid_search"))}</span>`+
+    `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
+    `<input id="entryAvoidSearch" type="search" autocomplete="off" value="${esc(entryAvoidQuery)}" placeholder="${esc(t("entry.search_placeholder"))}"></label>`+
+    `<div class="entry__avoid-results" role="listbox" aria-label="${esc(t("entry.priorities.avoid_search"))}">`+
+    matches.map(entry=>`<button type="button" class="entry-card entry-card--compact" data-entry-avoid-add="${esc(entry.id)}" role="option"><span class="entry-card__title">${esc(libraryName(entry))}</span></button>`).join("")+
+    `</div>`+
+    (entryPendingAvoid?(()=>{const entry=libraryEntry(entryPendingAvoid);
+      const exercise=entry?libraryName(entry):entryPendingAvoid;
+      const reasonLab=t("entry.priorities.avoid_reason",{exercise});
+      return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(reasonLab)}"><strong>${esc(exercise)}</strong>`+
+      `<p class="entry__group-lab">${esc(reasonLab)}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
+      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div><p class="entry__hint" id="entryPendingAvoidNote">${esc(t("entry.priorities.reason_required"))}</p></div>`})():"")+
+    (constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
+      const entry=libraryEntry(item.exerciseId);
+      return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(entry?libraryName(entry):item.exerciseId)}</strong>`+
+        `<button type="button" class="entry__remove" data-entry-avoid-remove="${esc(item.exerciseId)}">${esc(t("entry.priorities.avoid_remove"))}</button></div>`+
+        `<p class="entry__group-lab">${esc(t("entry.priorities.avoid_reason",{exercise:entry?libraryName(entry):item.exerciseId}))}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
+        ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+
+        `</div></li>`}).join("")+`</ul>`:"")+
+    (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
+function entryExerciseMatches(query){
+  const q=foldSearch(query||"");
+  const included=new Set(entryState?.answers?.mustHaveExercises||[]);
+  const avoided=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
+  const pool=pickableExercises().filter(entry=>!included.has(entry.id)&&!avoided.has(entry.id)&&entry.id!==entryPendingAvoid);
+  if(!q)return pool.slice(0,8);
+  return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
+function renderExercisePreferencesStep(){
+  const included=entryState?.answers?.mustHaveExercises||[];
+  const constraints=entryState?.answers?.exerciseConstraints||[];
+  const matches=entryExerciseMatches(entryExerciseQuery);
+  const resultRows=matches.map(entry=>`<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(libraryName(entry))}</span><span class="entry__exercise-actions">`+
+    `<button type="button" class="entry__exercise-action" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
+    `<button type="button" class="entry__exercise-action entry__exercise-action--avoid" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`).join("");
+  const pending=entryPendingAvoid?(()=>{
+    const entry=libraryEntry(entryPendingAvoid),exercise=entry?libraryName(entry):entryPendingAvoid;
+    const reasonLab=t("entry.exercise_preferences.avoid_reason",{exercise});
+    return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(reasonLab)}"><strong>${esc(exercise)}</strong>`+
+      `<p class="entry__group-lab">${esc(reasonLab)}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
+      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div>`+
+      `<p class="entry__hint" id="entryPendingAvoidNote">${esc(t("entry.exercise_preferences.reason_required"))}</p></div>`})():"";
+  const includeList=included.length?`<ul class="entry__exercise-selected-list">`+included.map(exerciseId=>{
+    const entry=libraryEntry(exerciseId);
+    return `<li class="entry__exercise-selected"><span>${esc(entry?libraryName(entry):exerciseId)}</span><button type="button" class="entry__remove" data-entry-exercise-remove="${esc(exerciseId)}">${esc(t("entry.exercise_preferences.remove"))}</button></li>`}).join("")+`</ul>`:
+    `<p class="entry__hint entry__exercise-empty">${esc(t("entry.exercise_preferences.include_none"))}</p>`;
+  const avoidList=constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
+    const entry=libraryEntry(item.exerciseId),exercise=entry?libraryName(entry):item.exerciseId;
+    return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(exercise)}</strong>`+
+      `<button type="button" class="entry__remove" data-entry-exercise-remove="${esc(item.exerciseId)}">${esc(t("entry.exercise_preferences.remove"))}</button></div>`+
+      `<p class="entry__group-lab">${esc(t("entry.exercise_preferences.avoid_reason",{exercise}))}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
+      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+`</div></li>`}).join("")+`</ul>`:
+    `<p class="entry__hint entry__exercise-empty">${esc(t("entry.exercise_preferences.avoid_none"))}</p>`;
+  const hasPain=constraints.some(item=>item.reason==="pain");
+  return entryHeading(t("entry.exercise_preferences.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.exercise_preferences.lede"))}</p>`+
+    `<label class="entry__field entry__field--search"><span>${esc(t("entry.exercise_preferences.search"))}</span>`+
+    `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
+    `<input id="entryExerciseSearch" type="search" autocomplete="off" value="${esc(entryExerciseQuery)}" placeholder="${esc(t("entry.exercise_preferences.search"))}"></label>`+
+    `<div class="entry__exercise-results" role="list" aria-label="${esc(t("entry.exercise_preferences.results"))}">${resultRows}</div>`+
+    `<section class="entry__exercise-selected-group" aria-labelledby="entryIncludeListLabel"><p class="entry__group-lab" id="entryIncludeListLabel">${esc(t("entry.exercise_preferences.include_list"))}</p>${includeList}</section>`+
+    `<section class="entry__exercise-selected-group" aria-labelledby="entryAvoidListLabel"><p class="entry__group-lab" id="entryAvoidListLabel">${esc(t("entry.exercise_preferences.avoid_list"))}</p>${pending}${avoidList}</section>`+
+    (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
+function renderPrioritiesStep(){
+  const a=entryState.answers||{},custom=entryState.route==="custom";
+  if(custom){
+    return entryHeading(t("entry.priorities.custom_title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+      `<p class="onb__explain">${esc(t("entry.priorities.custom_lede"))}</p>`+
+      renderCustomMusclePriorities()+
+      `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+      ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
+  const primary=a.primaryMuscles||[];
+  return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+
+    `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
+    ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+    ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
+    renderAvoidanceSection()}
+function renderCustomShapeStep(){
+  const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
+  if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
+    `<button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
+  const sole=splits.choices.length===1;
+  return entryHeading(t(sole?"entry.custom_shape.title_sole":"entry.custom_shape.title"))+
+    `<p class="onb__explain">${esc(t(sole?"entry.custom_shape.lede_sole":"entry.custom_shape.lede"))}</p>`+
+    `<p class="entry__group-lab">${esc(t(sole?"entry.custom_shape.split_sole":"entry.custom_shape.split"))}</p><div class="onb__opts" role="radiogroup">`+
+    splits.choices.map(choice=>{
+      const name=isPt()?choice.namePt||choice.name:choice.name;
+      const label=t("entry.custom_shape.choice",{name,days:choice.frequency});
+      const estimates=(choice.days||[]).map(day=>day.estimateMinutes).filter(Number.isFinite);
+      const summary=estimates.length?t("entry.custom_shape.summary",{
+        days:choice.frequency,min:Math.min(...estimates),max:Math.max(...estimates)}):"";
+      const reason=choice.default?t("entry.custom_shape.default_reason"):t("entry.custom_shape.compatible_reason");
+      return entryOpt("splitPreference",choice.id,label,`${reason}${summary?` ${summary}`:""}`)}).join("")+`</div>`}
+function compileGeneratorCandidate(){
+  const services=entryServices();
+  if(!services||!entryState)return null;
+  let compiled;
+  try{compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()})}
+  catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
+  if(!compiled.ok){entryCompileError=compiled;return null}
+  return{
+    fingerprint:compiled.fingerprint,
+    name:compiled.name,
+    namePt:compiled.namePt,
+    selected:compiled.selected,
+    candidates:compiled.candidates,
+    alternative:null,
+    preview:compiled.preview,
+    telemetry:compiled.telemetry,
+    explanation:compiled.explanation};
+}
+function ensureGeneratorResult({force=false}={}){
+  const services=entryServices();
+  if(!services||!entryState)return null;
+  if(!force&&entryState.result?.fingerprint&&entryState.result?.preview){reportGeneratorCompleted(entryState.result);return entryState.result}
+  const result=compileGeneratorCandidate();
+  if(!result)return null;
+  entryCompileError=null;
+  entryState=ProgramEntry.setResult(entryState,result);
+  persistSetupDraft(entryState);
+  reportGeneratorCompleted(result);
+  return result}
+function reportGeneratorCompleted(result){
+  if(!entryState||!result||!(entryState.route==="recommend"||entryState.route==="custom"))return;
+  const telemetry=result.telemetry;
+  if(!telemetry||telemetry.completed===true)return;
+  const sent=captureEvent("generator_completed",{
+    goal:telemetry.goal,frequency:telemetry.frequency,family:telemetry.family});
+  // Persist the marker with the candidate so reload/resume and repeated renders
+  // cannot create a second completion event for this setup flow. If analytics
+  // is opted out, leave it unset so an explicit later opt-in can report it.
+  if(sent){
+    const marked={...result,telemetry:{...telemetry,completed:true}};
+    entryState=ProgramEntry.setResult(entryState,marked);
+    persistSetupDraft(entryState)}
+}
+function entryPinnedPreviewCanActivate(){
+  if(!entryState?.result?.preview)return false;
+  try{return ProgramEntry.candidateActivationIssues(entryState).length===0}catch{return false}}
+async function persistEntryRulesState(next,previous=entryState){
+  const saved=await persistSetupDraft(next);
+  // persistSetupDraft advances the in-memory state before taking the lock. If
+  // the write loses a draft CAS race, retain the old candidate in memory too;
+  // otherwise a failed recovery could make the UI appear to have replaced a
+  // preview that is still the durable one.
+  if(!saved?.ok)entryState=previous;
+  return saved}
+function browseResultFromCard(card){
+  return{
+    fingerprint:card.fingerprint,
+    name:card.name,
+    namePt:card.namePt,
+    selected:{id:card.id,familyId:card.familyId,daysPerWeek:card.daysPerWeek,blueprintId:card.id},
+    preview:card.preview,
+    telemetry:{family:card.telemetryFamily}}
+}
+async function rebuildEntryForCurrentRules(){
+  if(!ProgramEntry||!entryState)return{ok:false};
+  const route=entryState.route;
+  if(route==="import"||route==="shared"){
+    // These routes carry a reviewed external snapshot. There is no generator
+    // input from which the import/shared candidate could be reconstructed.
+    // Activation is allowed only after this explicit user acknowledgement and
+    // still runs the normal candidate/readiness checks.
+    entryPinnedVersionsExecutable=true;
+    entryUiNotice=null;
+    renderOnboarding();
+    return{ok:true,pinned:true}}
+  if(route==="browse"){
+    const services=entryServices();
+    let cards=[];
+    try{cards=services?.browseCatalogue?.(entryState.answers)||[]}catch(error){console.warn("browse catalogue rebuild failed",error)}
+    const selectedId=entryState.answers.catalogueSelection||entryState.result?.selected?.id;
+    const card=cards.find(item=>item.id===selectedId);
+    if(!card){
+      // A released card may disappear or change identity. Keep the old
+      // preview intact and put the user back in the current catalogue instead
+      // of compiling it as a recommendation.
+      const previous=entryState;
+      const next={...entryState,step:"catalogue"};
+      const saved=await persistEntryRulesState(next,previous);
+      if(!saved?.ok){
+        if(!entryUiNotice)entryUiNotice="rules_changed";
+        renderOnboarding();
+        return saved}
+      entryUiNotice=null;
+      renderOnboarding();
+      return saved}
+    const previous=entryState;
+    let next=ProgramEntry.setResult({...entryState,versions:entryVersions()},browseResultFromCard(card));
+    if(next.step==="catalogue")next={...next,step:"preview"};
+    const saved=await persistEntryRulesState(next,previous);
+    if(!saved?.ok){
+      if(!entryUiNotice)entryUiNotice="rules_changed";
+      renderOnboarding();
+      return saved}
+    entryUiNotice=null;
+    renderOnboarding();
+    return saved}
+  if(route==="build"){
+    // Build has no compiler-generated candidate to rerun. Its current-version
+    // path is an explicit handoff into the editable draft; the editor still
+    // blocks incomplete/unsupported rows before activation.
+    const previous=entryState;
+    const next={...entryState,step:entryState.result?.preview?entryState.step:"build_setup",versions:entryVersions()};
+    const saved=await persistEntryRulesState(next,previous);
+    if(!saved?.ok){
+      if(!entryUiNotice)entryUiNotice="rules_changed";
+      renderOnboarding();
+      return saved}
+    entryPinnedVersionsExecutable=false;
+    entryUiNotice=null;
+    if(next.step==="editor"&&next.result?.preview)openEntryDraftEditor();
+    else renderOnboarding();
+    return saved}
+  // Recommend and Custom are the only generator-owned routes. Compile into a
+  // detached result first; the saved old preview is untouched if compilation
+  // fails or the draft write cannot commit the replacement.
+  if(route==="recommend"||route==="custom"){
+    if(!entryState.result||!["result","preview"].includes(entryState.step)){
+      const previous=entryState;
+      const next={...entryState,versions:entryVersions()};
+      const saved=await persistEntryRulesState(next,previous);
+      if(!saved?.ok){
+        if(!entryUiNotice)entryUiNotice="rules_changed";
+        renderOnboarding();
+        return saved}
+      entryUiNotice=null;
+      renderOnboarding();
+      return saved}
+    const replacement=compileGeneratorCandidate();
+    if(!replacement){
+      entryUiNotice="rules_changed";
+      renderOnboarding();
+      return{ok:false,compileFailed:true}}
+    const previous=entryState;
+    const next=ProgramEntry.setResult({...entryState,versions:entryVersions()},replacement);
+    const saved=await persistEntryRulesState(next,previous);
+    if(!saved?.ok){
+      if(!entryUiNotice)entryUiNotice="rules_changed";
+      renderOnboarding();
+      return saved}
+    entryCompileError=null;
+    entryUiNotice=null;
+    reportGeneratorCompleted(entryState.result);
+    renderOnboarding();
+    return saved}
+  entryUiNotice=null;
+  renderOnboarding();
+  return{ok:false,unsupportedRoute:true}}
+/* Shared links carry working sets and the released rest setting, but not the
+   compiler's exercise-class warmups or station transitions. Estimate only the
+   time represented by those payload facts; the UI labels it "about" and leaves
+   the value absent when the inputs cannot support even that bounded estimate.
+   This keeps Import and older shared drafts on their existing paths. */
+function sharedPreviewDayMinutes(exercises,settings){
+  const rows=Array.isArray(exercises)?exercises:[],time=ProgramCompiler?.RULES?.time;
+  const rest=Number(settings?.restSec),working=Number(time?.workingSetSeconds),minimum=Number(time?.bufferMinimumSeconds),percent=Number(time?.bufferPercent);
+  if(!rows.length||!Number.isFinite(rest)||rest<0||![working,minimum,percent].every(Number.isFinite))return null;
+  let subtotal=0;
+  for(const exercise of rows){
+    const sets=Number(exercise?.sets);
+    if(!Number.isInteger(sets)||sets<1)return null;
+    subtotal+=sets*working+Math.max(0,sets-1)*rest;
+  }
+  return Math.ceil((subtotal+Math.max(minimum,Math.ceil(subtotal*percent/100)))/60);
+}
+function sharedPreviewDays(program,structure,settings){
+  const rows=Array.isArray(program)?program:[],sourceDays=Array.isArray(structure?.days)&&structure.days.length
+    ?structure.days.map(item=>({dayId:item.dayId,label:item.label||item.dayId,
+      ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
+      ...(item.nameOverride?{nameOverride:item.nameOverride}:{})}))
+    :[...new Set(rows.map(exercise=>exercise?.day).filter(Boolean))].map(label=>({dayId:label,label}));
+  return sourceDays.filter(day=>day.dayId||day.label).map(day=>{
+    const exercises=rows.filter(exercise=>exercise?.dayId?exercise.dayId===day.dayId:exercise.day===day.label).map(cloneSnapshot);
+    const estimateMinutes=sharedPreviewDayMinutes(exercises,settings);
+    const out={dayId:day.dayId||day.label,label:day.label||day.dayId,
+      ...(day.displayNameKey?{displayNameKey:day.displayNameKey}:{}),
+      ...(day.nameOverride?{nameOverride:day.nameOverride}:{}),exercises};
+    if(estimateMinutes!==null)out.estimateMinutes=estimateMinutes;
+    return out;
+  });
+}
+function entryPreviewFacts(preview){
+  const program=Array.isArray(preview?.program)?preview.program:[];
+  const estimates=(preview?.days||[]).map(day=>+day.estimateMinutes||0).filter(Boolean);
+  return{
+    exercises:program.length,
+    sets:sum(program.map(exercise=>+exercise.sets||0)),
+    minMinutes:estimates.length?Math.min(...estimates):null,
+    maxMinutes:estimates.length?Math.max(...estimates):null}}
+function entryEnvironmentLabel(answers=entryState?.answers||{}){
+  const kind=answers.environment?.kind;
+  return kind?t(`entry.environment.${kind}`):""}
+function entryEquipmentLabel(answers=entryState?.answers||{}){
+  const env=answers.environment;
+  if(!env?.kind&&!Array.isArray(env?.equipment))return"";
+  const resolved=Array.isArray(env.equipment)?env:ProgramEntryAdapter?.defaultEnvironment?.(env.kind)||env;
+  return [...new Set(resolved.equipment||[])].map(token=>{
+    const key=String(token).trim();
+    const label=t(`entry.equip.${key}`);
+    return label===`entry.equip.${key}`?key:label;
+  }).filter(Boolean).join(", ")}
+function entryPreviewAnswers(preview){
+  const answers=entryState?.answers||{},meta=preview?.sharedMeta;
+  if(entryState?.route!=="shared"||!meta||typeof meta!=="object")return answers;
+  const environment={...(answers.environment||{})};
+  if(Array.isArray(meta.equipment))environment.equipment=meta.equipment.map(value=>{
+    const raw=String(value).trim().toLowerCase();
+    const match=Object.entries(ProgramEntryAdapter?.SHARED_EQUIPMENT||{}).find(([,shared])=>shared===raw);
+    return match?.[0]||raw;
+  }).filter(Boolean);
+  const primaryMuscles=Array.isArray(meta.priorityMuscles)?meta.priorityMuscles.map(value=>{
+    const raw=String(value).trim();
+    const normalized=raw.toLowerCase().replace(/[^a-z]+/g,"_").replace(/^_+|_+$/g,"");
+    return (ProgramEntryAdapter?.ENTRY_MUSCLES||[]).includes(normalized)?normalized:raw;
+  }).filter(Boolean):answers.primaryMuscles;
+  return{...answers,environment,primaryMuscles};
+}
+function entryPriorityLabel(answers=entryState?.answers||{}){
+  const facts=[];
+  const custom=entryState?.route==="custom";
+  const muscles=answers.primaryMuscles||[];
+  if(muscles.length)facts.push(muscles.map(muscle=>{
+    const key=String(muscle).trim(),label=t(`entry.muscle.${key}`);
+    return label===`entry.muscle.${key}`?key:label;
+  }).join(", "));
+  if(custom){
+    for(const [key,stateKey] of [["deEmphasizedMuscles","deemphasize"],["ignoredMuscles","ignore"]]){
+      const list=answers[key]||[];
+      if(list.length)facts.push(`${entryMuscleStateLabel(stateKey)}: ${list.map(muscle=>{
+        const label=t(`entry.muscle.${muscle}`);return label===`entry.muscle.${muscle}`?muscle:label;
+      }).join(", ")}`)}}
+  const movements=answers.priorityMovements||[];
+  if(movements.length)facts.push(movements.map(movement=>t(`entry.movement.${movement}`)||movement).join(", "));
+  if(!custom){
+    const mustHave=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
+    if(mustHave.length)facts.push(t("entry.preview.must_have",{exercises:mustHave.map(libraryName).join(", ")}))}
+  return facts.join(" · ")||t("entry.preview.priorities_none")}
+function entryExercisePreferenceLabel(answers=entryState?.answers||{}){
+  const facts=[];
+  const included=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
+  const avoided=(answers.exerciseConstraints||[]).map(item=>libraryEntry(item.exerciseId)).filter(Boolean);
+  if(included.length)facts.push(t("entry.preview.include",{exercises:included.map(libraryName).join(", ")}));
+  if(avoided.length)facts.push(t("entry.preview.avoid",{exercises:avoided.map(libraryName).join(", ")}));
+  return facts.join(" · ")||t("entry.preview.exercise_preferences_none")}
+function entrySourceLabel(route=entryState?.route){
+  const labels={
+    recommend:t("entry.preview.source.recommend"),custom:t("entry.preview.source.custom"),
+    browse:t("entry.preview.source.browse"),build:t("entry.preview.source.build"),
+    import:t("entry.preview.source.import"),shared:t("entry.preview.source.shared")};
+  return labels[route]||labels.import}
+function entryDurationLabel(preview){
+  const facts=entryPreviewFacts(preview);
+  if(!facts.minMinutes)return"";
+  if(facts.minMinutes===facts.maxMinutes)return t("entry.preview.minutes",{n:facts.minMinutes});
+  return t("entry.result.duration",{min:facts.minMinutes,max:facts.maxMinutes})}
+/* Collapse a min/max pair to the exact form when both ends agree. */
+function entryRangeLabel(min,max,rangeKey,exactKey){
+  return min===max?t(exactKey,{n:min}):t(rangeKey,{min,max})}
+function entryProgressionLabel(preview){
+  const ids=[...new Set((preview?.program||[]).map(exercise=>exercise.progression?.strategy?.id).filter(Boolean))];
+  const labels={range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
+  return ids.map(id=>labels[id]||id).filter(Boolean).join(" · ")||t("entry.result.progression_default")}
+function entryPreviewProgressionCopy(preview, progressionIssue){
+  if(progressionIssue)return"entry.preview.progression_incompatible";
+  const rows=Array.isArray(preview?.program)?preview.program:[];
+  let manual=false,unsupported=false;
+  for(const exercise of rows){
+    const strategy=exercise?.progression?.strategy;
+    if(strategy?.id==="manual"){
+      manual=true;
+      if(strategy.params?.unsupportedImport)unsupported=true;
+      continue;
+    }
+    const legacy=typeof exercise?.progressionType==="string"?exercise.progressionType.trim():"";
+    if(legacy&&legacy!=="double_progression")unsupported=true;
+  }
+  if(unsupported)return"entry.preview.progression_manual_unsupported";
+  if(manual)return"entry.preview.progression_manual";
+  return"entry.preview.progression_body"}
+function entryExerciseCountLabel(n){return t("entry.preview.exercises",{n,exercise:tp(n,"exercise")})}
+window.__repforgeEntryExerciseCountLabel=entryExerciseCountLabel;
+function renderResultStep(){
+  const custom=entryState?.route==="custom";
+  const resultTitle=custom?t("entry.result.custom_title"):t("entry.result.title");
+  const result=ensureGeneratorResult();
+  if(!result){
+    const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
+    const unavailable=(failure?.conflicts||[]).filter(item=>item.code==="must_have_unavailable").map(item=>libraryEntry(item.exerciseId)).filter(Boolean);
+    if(unavailable.length)return entryHeading(resultTitle)+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.result.must_unavailable_title"))}</strong>`+
+      `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
+      `<button type="button" class="btn btn--cta" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_preferences"))}</button></div>`;
+    const code=failure?.code||entryCompileError;
+    return entryHeading(resultTitle)+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${code?` (${esc(code)})`:""}</p>`}
+  const primary=result.selected||(result.candidates||[])[0];
+  const explanation=result.explanation||{},preview=result.preview||{};
+  const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
+  const days=explanation.daysPerWeek||preview.frequency||"";
+  const minutes=explanation.sessionMinutes||"";
+  const environment=entryEnvironmentLabel({environment:{kind:explanation.mainConstraint}});
+  const exercisePreferences=entryExercisePreferenceLabel();
+  const whyRows=[
+    goal?{icon:"flex",text:t("entry.result.why_goal",{goal})}:null,
+    days&&minutes?{icon:"cal",text:t("entry.result.why_schedule",{days,minutes})}:null,
+    environment?{icon:"building",text:t("entry.result.why_environment",{environment})}:null,
+    entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
+    (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
+    custom&&exercisePreferences!==t("entry.preview.exercise_preferences_none")?{icon:"dumbbell",text:t("entry.result.why_exercise_preferences",{preferences:exercisePreferences})}:null,
+    {icon:"trend",text:t("entry.result.why_progression",{progression:entryProgressionLabel(preview)})},
+    (preview.reductions||[]).length?{icon:"scale",text:t("entry.result.why_reductions",{n:preview.reductions.length})}:null,
+    (preview.limitations||[]).length?{icon:"scale",text:t("entry.result.why_compromises",{n:preview.limitations.length})}:null,
+    explanation.recentConsistency==="about_half"&&preview.programStructure?.weekPrescriptions?.length
+      ?{icon:"clock",text:t("entry.result.why_interrupted")}:null,
+  ].filter(Boolean);
+  const duration=entryDurationLabel(preview);
+  const candidates=result.candidates||[];
+  const daysBadge=primary?t("entry.catalogue.days_badge",{days:primary.daysPerWeek}):"";
+  /* With one candidate this is not a choice between programs — it is the
+     single action the whole flow was leading to, so it renders as the primary
+     button. A real fork still gets the radiogroup. */
+  const action=!primary?""
+    :candidates.length>1
+      ?`<div class="entry__hub" role="radiogroup" aria-label="${esc(t("entry.result.title"))}">`+
+        candidates.map(candidate=>`<button type="button" role="radio" aria-checked="${candidate.id===primary.id?"true":"false"}" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(candidate.id)}">`+
+          `<span class="entry-card__title">${esc(entryResultName(result))}</span>`+
+          `<span class="entry-card__cap">${esc(String(candidate.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`).join("")+`</div>`
+      :`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
+  return entryHeading(resultTitle)+
+    `<div class="entry__payoff"><p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
+    `<span class="entry__payoff-badge" aria-hidden="true"><span class="icon-mask icon-mask--rosette"></span></span></div>`+
+    `<div class="entry__recommend"><div class="entry__ident"><h3>${esc(entryResultName(result))}</h3>`+
+    (primary?`<div class="entry__metrics">`+
+      (daysBadge?`<span class="entry__metric"><span class="icon-mask icon-mask--cal" aria-hidden="true"></span>${esc(daysBadge)}</span>`:"")+
+      (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
+      `</div>`:"")+`</div>`+
+    `<p class="entry__group-lab entry__group-lab--accent">${esc(t("entry.result.why"))}</p>`+
+    `<ul class="entry__rows entry__rows--reasons">`+whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")+`</ul>`+
+    action+
+    (custom?`<div class="entry__custom-actions"><button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_priorities"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`}
+function renderCatalogueStep(){
+  const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
+  const purposeLabels={
+    build_muscle:t("entry.catalogue.purpose.build_muscle"),
+    muscle_strength:t("entry.catalogue.purpose.muscle_strength"),
+    strength_priority:t("entry.catalogue.purpose.strength_priority"),
+    train_anywhere:t("entry.catalogue.purpose.train_anywhere")};
+  const progressionLabels={
+    range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
+    effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
+  const contextFacts=[
+    entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):"",
+    entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):"",
+    entryEnvironmentLabel()].filter(Boolean);
+  function renderCard(card){
+    const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
+    const name=isPt()?card.namePt||card.name:card.name;
+    const minutes=card.minutes?.length
+      ?(card.minutes[0]===card.minutes[1]?t("entry.preview.minutes",{n:card.minutes[0]})
+        :t("entry.catalogue.minutes",{min:card.minutes[0],max:card.minutes[1]})):"";
+    const counts=card.structureFacts||[],exerciseCounts=counts.map(day=>day.exerciseCount),setCounts=counts.map(day=>day.setCount);
+    const structure=counts.length?[
+      entryRangeLabel(Math.min(...exerciseCounts),Math.max(...exerciseCounts),
+        "entry.catalogue.exercises_range","entry.catalogue.exercises_exact"),
+      entryRangeLabel(Math.min(...setCounts),Math.max(...setCounts),
+        "entry.catalogue.sets_range","entry.catalogue.sets_exact")].join(" · "):"";
+    const progression=(card.progressionStrategies||[]).map(id=>progressionLabels[id]).filter(Boolean).join(" · ");
+    const equipment=(card.equipmentAssumptions||[]).map(token=>t(`entry.equip.${token}`)||token).join(", ");
+    const mismatch=card.mismatch==="frequency"?t("entry.catalogue.mismatch_frequency",{
+      requested:entryState.answers.daysPerWeek,actual:card.daysPerWeek}):"";
+    /* One flat button per program, laid out as a column: identity first, then
+       the facts a reader compares across programs, then the assumptions. The
+       hub's `.entry-card` is a row of three and cannot carry this shape. */
+    return `<button type="button" class="entry-prog" data-entry-catalogue="${esc(card.id)}" aria-label="${esc(t("entry.catalogue.review_aria",{name}))}">`+
+      `<span class="entry-prog__head"><span class="entry-prog__name">${esc(familyName)}</span>`+
+      `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
+      `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
+      `<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
+      `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
+      `<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
+      `<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
+      (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
+      `</button>`}
+  if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
+    `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
+  return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
+    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div>`+
+    /* Every family is released at every frequency, so a flat list is twenty
+       near-identical rows. Split the ones that match the answered schedule from
+       the rest, which is the comparison the reader is actually making. */
+    (()=>{const answered=entryState.answers.daysPerWeek;
+      const fits=cards.filter(card=>!card.mismatch),others=cards.filter(card=>card.mismatch);
+      const section=(label,list)=>!list.length?"":
+        (label?`<p class="entry__group-lab">${esc(label)}</p>`:"")+
+        `<div class="entry__progs">`+list.map(renderCard).join("")+`</div>`;
+      if(!others.length)return section("",fits);
+      return section(answered?t("entry.catalogue.group_fits",{days:answered}):"",fits)+
+        section(t("entry.catalogue.group_other"),others)})()}
+
+function renderBuildSetupStep(){
+  const name=entryState.answers.programName||"";
+  return entryHeading(t("entry.build_setup.title"))+`<p class="onb__explain">${esc(t("entry.build_setup.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<label class="entry__field"><span>${esc(t("entry.build_setup.name"))}</span>`+
+    `<input id="entryProgramName" type="text" maxlength="80" value="${esc(name)}" placeholder="${esc(t("entry.build_setup.name_placeholder"))}"></label>`+
+    `<p class="entry__group-lab">${esc(t("entry.build_setup.days"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
+    [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,t("entry.catalogue.days_badge",{days:n}),"")).join("")+`</div>`}
+function renderImportSourceStep(){
+  return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`}
+function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
+  return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
+    (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
+function renderPreviewStep(){
+  const preview=entryState.result?.preview;
+  if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
+  const previewAnswers=entryPreviewAnswers(preview);
+  const days=(preview.days||[]).map((day,index)=>{
+    const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
+    const dayName=previewDayLabel(day,index,preview.programStructure);
+    return `<details class="onb__day"><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
+    `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
+    (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
+    (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
+    `</details>`});
+  const facts=entryPreviewFacts(preview),duration=entryDurationLabel(preview);
+  const progressionIssue=entryPreviewHasProgressionIssue(preview);
+  const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
+  const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
+  const custom=entryState?.route==="custom";
+  const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
+  const reviewRows=[
+    {icon:"target",lab:t("entry.preview.priorities"),text:entryPriorityLabel(previewAnswers)},
+    ...(custom?[{icon:"dumbbell",lab:t("entry.preview.exercise_preferences"),text:entryExercisePreferenceLabel(previewAnswers)}]:[]),
+    {icon:"building",lab:t("entry.preview.equipment"),text:environment||t("entry.preview.equipment_unspecified")},
+    {icon:"trend",lab:t("entry.preview.progression"),text:t(entryPreviewProgressionCopy(preview,progressionIssue))},
+    {icon:"scale",lab:t("entry.preview.compromises"),text:compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none")},
+  ];
+  return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
+    (hasActiveProgram()&&!entryUiNotice&&entryState?.step!=="activation_conflict"
+      ?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    `<div class="entry__decision"><div class="entry__ident--boxed"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
+    `<p class="entry__source"><span>${esc(t("entry.preview.source"))}</span> ${esc(entrySourceLabel())}</p></div>`+
+    `<div class="entry__metrics entry__metrics--boxed">`+
+    `<span class="entry__metric"><span class="icon-mask icon-mask--dumbbell" aria-hidden="true"></span>${esc(entryExerciseCountLabel(facts.exercises))}</span>`+
+    `<span class="entry__metric"><span class="icon-mask icon-mask--target" aria-hidden="true"></span>${esc(t("entry.preview.sets",{n:facts.sets}))}</span>`+
+    (duration?`<span class="entry__metric"><span class="icon-mask icon-mask--clock" aria-hidden="true"></span>${esc(duration)}</span>`:"")+
+    `</div>`+
+    /* Each facet keeps its heading element: the review's heading outline is how
+       a screen-reader user jumps between Priorities, Equipment, Progression and
+       Compromises, so the redesign restyles `h4` rather than demoting it. */
+    `<ul class="entry__rows">`+reviewRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><div class="entry__row-body"><h4 class="entry__row-lab">${esc(row.lab)}</h4><p>${esc(row.text)}</p></div></li>`).join("")+`</ul></div>`+
+    (progressionIssue?`<p id="entryActivationStatus" class="entry__notice" role="alert" tabindex="-1">${esc(t("entry.preview.activation_blocked"))}</p>`:"")+
+    /* The confirm action used to sit after the whole weekly structure, off the
+       bottom of every phone. It is the point of the screen: keep it above the
+       detail, and pin it so a long program cannot scroll it away. */
+    `<div class="entry__confirm"><button type="button" id="entryActivate" class="btn btn--cta"${progressionIssue?` disabled aria-describedby="entryActivationStatus"`:""}>${esc(activateLabel)}</button>`+
+    `<div class="entry__confirm-alt"><button type="button" id="entryEdit" class="btn btn--steel"><span class="icon-mask icon-mask--pencil icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.edit"))}</button>`+
+    `<button type="button" id="entryRestart" class="btn btn--steel btn--destructive"><span class="icon-mask icon-mask--reset icon-mask--sm" aria-hidden="true"></span>${esc(t("entry.preview.restart"))}</button></div></div>`+
+    `<p class="entry__group-lab">${esc(t("entry.preview.days"))}</p><div class="onb__review">${days.join("")}</div>`}
+function renderEntryNotice(){
+  if(!entryUiNotice)return"";
+  if(entryUiNotice==="cancel")return `<div class="entry__notice" role="region" aria-labelledby="entryCancelTitle"><strong id="entryCancelTitle" tabindex="-1">${esc(t("entry.cancel_confirm.title"))}</strong><p>${esc(t("entry.cancel_confirm.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryCancelKeep">${esc(t("entry.cancel_confirm.keep"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryCancelDiscard">${esc(t("entry.cancel_confirm.discard"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryCancelContinue">${esc(t("entry.cancel_confirm.continue"))}</button></div></div>`;
+  if(entryUiNotice==="resume"){
+    const updated=entryState?.updatedAt?new Date(entryState.updatedAt):null;
+    const when=updated&&!Number.isNaN(updated.valueOf())?updated.toLocaleDateString(locTag(),{month:"short",day:"numeric"}):"";
+    const where=[entryState?.route?entryRouteLabel(entryState.route):"",
+      entryState?.step?t(`entry.${entryState.step}.title`):""].filter(Boolean).join(" · ");
+    const detail=where?t("entry.resume.detail",{where,when:when||"—"}):"";
+    return `<div class="entry__resume" role="status">`+
+    `<div class="entry__resume-head"><span class="entry__resume-ico icon-mask icon-mask--clipboard" aria-hidden="true"></span>`+
+    `<div class="entry__resume-copy"><strong id="entryResumeTitle" tabindex="-1">${esc(t("entry.resume.title"))}</strong><p>${esc(t("entry.resume.body"))}</p></div></div>`+
+    (detail?`<div class="entry__resume-loc"><span class="entry__resume-ico icon-mask icon-mask--pin" aria-hidden="true"></span><p>${esc(detail)}</p></div>`:"")+
+    `</div>`+
+    `<div class="btnrow btnrow--primary-first"><button type="button" class="btn btn--cta" id="entryResumeContinue">${esc(t("entry.resume.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel btn--destructive" id="entryResumeRestart">${esc(t("entry.resume.restart"))}</button></div>`}
+  if(entryUiNotice==="corrupt")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.corrupt.title"))}</strong><p>${esc(t("entry.corrupt.body"))}</p></div>`;
+  if(entryUiNotice==="save_failed")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_failed.title"))}</strong><p>${esc(t("entry.save_failed.body"))}</p></div>`;
+  if(entryUiNotice==="save_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.save_conflict.title"))}</strong><p>${esc(t("entry.save_conflict.body"))}</p></div>`;
+  if(entryUiNotice==="durable_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.durable_conflict.title"))}</strong><p>${esc(t("entry.durable_conflict.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryDurableConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
+  if(entryUiNotice==="rules_changed"){
+    const keepPinned=entryState?.route==="import"||entryState?.route==="shared";
+    const pinnedReady=entryPinnedPreviewCanActivate();
+    const action=keepPinned
+      ?`<button type="button" class="btn btn--steel" id="entryKeepPinned"${pinnedReady?"":" disabled aria-describedby='entryActivationStatus'"}>${esc(t("entry.rules_changed.keep"))}</button>`
+      :`<button type="button" class="btn btn--steel" id="entryRebuildRules">${esc(t("entry.rules_changed.rebuild"))}</button>`;
+    return `<div class="entry__notice entry__notice--warn" role="status"><strong>${esc(t("entry.rules_changed.title"))}</strong>`+
+      `<p>${esc(t(keepPinned?"entry.rules_changed.body_keep":"entry.rules_changed.body_rebuild"))}</p>`+
+      `<div class="btnrow">${action}</div></div>`;
+  }
+  if(entryUiNotice==="conflict"||entryState?.step==="activation_conflict")return `<div class="entry__notice" role="alert"><strong>${esc(t("entry.conflict.title"))}</strong><p>${esc(t("entry.conflict.body"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryConflictReview">${esc(t("entry.conflict.review"))}</button></div></div>`;
+  return""}
+/* Rerendering a step must not strand keyboard users at the top of the page.
+   Keep a small semantic token for the control that caused the update and restore
+   that control after the HTML is replaced; a step transition intentionally moves
+   focus to its heading instead. */
+function entryFocusToken(){
+  const el=document.activeElement;
+  if(!el||!el.closest("#onbBody"))return null;
+  if(el.id)return{kind:"id",value:el.id};
+  if(el.dataset.entryPick)return{kind:"pick",key:el.dataset.entryPick,val:el.dataset.entryVal};
+  if(el.dataset.entryRoute)return{kind:"route",value:el.dataset.entryRoute};
+  if(el.dataset.entryCatalogue)return{kind:"catalogue",value:el.dataset.entryCatalogue};
+  return null;
+}
+function entryScreenKey(){
+  const notice=entryUiNotice||
+    (entryValidationNotice?"validation":entryCompileError?(entryCompileError.code||"compile-error"):"");
+  return [notice,entryState?.route||"",entryState?.step||""].join("|")}
+function restoreEntryFocus(token){
+  if(!token)return false;
+  let el=null;
+  if(token.kind==="id")el=$("#"+CSS.escape(token.value));
+  else if(token.kind==="pick")el=$(`[data-entry-pick="${CSS.escape(token.key)}"][data-entry-val="${CSS.escape(token.val)}"]`);
+  else if(token.kind==="route")el=$(`[data-entry-route="${CSS.escape(token.value)}"]`);
+  else if(token.kind==="catalogue")el=$(`[data-entry-catalogue="${CSS.escape(token.value)}"]`);
+  if(!el||el.disabled)return false;
+  try{el.focus({preventScroll:true});return true}catch{try{el.focus();return true}catch{return false}}
+}
+function setupEntryRovingFocus(){
+  // Radiogroups are composite widgets: one tab stop and arrow navigation.
+  // Checkbox collections are ordinary independent controls; hiding all but one
+  // from Tab would make keyboard users miss most available choices.
+  const groups=$$("#onbBody [role='radiogroup']");
+  for(const group of groups){
+    const options=[...group.querySelectorAll("[role='radio']")].filter(el=>!el.disabled);
+    if(!options.length)continue;
+    const selected=options.find(el=>el.getAttribute("aria-checked")==="true");
+    options.forEach((el,index)=>{el.tabIndex=el===selected||(!selected&&index===0)?0:-1});
+    options.forEach((el,index)=>el.onkeydown=(event)=>{
+      if(!["ArrowRight","ArrowDown","ArrowLeft","ArrowUp","Home","End"].includes(event.key))return;
+      event.preventDefault();
+      const delta=event.key==="ArrowLeft"||event.key==="ArrowUp"?-1:1;
+      const next=event.key==="Home"?0:event.key==="End"?options.length-1:(index+delta+options.length)%options.length;
+      options.forEach(option=>option.tabIndex=-1);
+      options[next].tabIndex=0;options[next].focus({preventScroll:true});
+      options[next].click();
+    });
+  }
+}
+function renderOnboarding(){
+  const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
+  if(!body||!ProgramEntry||!entryState)return;
+  collapseSingleCustomShape();
+  const focusToken=entryFocusToken();
+  const onboarding=$("#onboarding");
+  const screenKey=entryScreenKey();
+  if(onboarding&&screenKey!==entryVisibleScreenKey){
+    onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
+    onboarding.scrollTop=0;onboarding.scrollLeft=0;
+  }
+  entryVisibleScreenKey=screenKey;
+  const route=entryState.route,stepId=entryState.step;
+  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
+  const isEditor=setupEditorOpen&&!noticeOwnsSurface&&!!entryState?.result?.preview;
+  onboarding?.classList.toggle("entry-hub-active",!route||stepId==="entry");
+  onboarding?.classList.toggle("program-editor-onboarding",isEditor);
+  document.body.classList.toggle("is-entry-editor",isEditor);
+  /* On a single-step route the chrome eyebrow and the page heading are the
+     same string ("Import a program" twice, 60px apart). Show one of them. */
+  const eyebrowText=route?entryRouteLabel(route):t("entry.eyebrow");
+  const titleText=isEditor?t("entry.build_editor_title"):t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
+  const eyebrow=$("#onbEyebrow");
+  if(eyebrow){const duplicate=eyebrowText===titleText;
+    eyebrow.textContent=duplicate?"":eyebrowText;
+    eyebrow.classList.toggle("hidden",duplicate)}
+  title.textContent=titleText;
+  const editorTitle=$("#onbEditorTitle");
+  if(editorTitle){editorTitle.textContent=isEditor?titleText:"";editorTitle.hidden=!isEditor}
+  const progress=entryProgressSections(route);
+  const showProgress=Boolean(route)&&progress.show&&!noticeOwnsSurface;
+  if(step){step.textContent=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
+    step.classList.toggle("hidden",!showProgress)}
+  const seg=$("#onbSegbar");
+  if(seg){const total=showProgress?progress.total:0,current=progress.n-1;
+    seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
+    seg.classList.toggle("hidden",!showProgress)}
+  const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
+  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface||isEditor);
+  const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
+  if(back){back.classList.toggle("hidden",!route||stepId==="entry"||isEditor);back.setAttribute("aria-label",t("entry.back"))}
+  if(next){
+    const hideNext=!route||stepId==="entry"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
+    next.classList.toggle("hidden",hideNext||isEditor);
+    next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
+      stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
+    const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
+    next.disabled=!!pendingReason;
+    if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
+    else next.removeAttribute("aria-describedby")}
+  let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
+    (entryValidationNotice?`<div id="entryValidation" class="entry__notice entry__notice--error" role="alert" aria-live="assertive" tabindex="-1"><strong>${esc(t("entry.validation.title"))}</strong><p>${esc(t("entry.validation.body"))}</p></div>`:"")+renderEntryNotice();
+  if(noticeOwnsSurface){
+    body.innerHTML=html;wireEntryDom();
+    const noticeTitle=$(entryUiNotice==="cancel"?"#entryCancelTitle":"#entryResumeTitle");
+    if(noticeTitle)try{noticeTitle.focus()}catch{}
+    return}
+  if(stepId==="entry"||!route)html+=renderEntryHub();
+  else if(stepId==="desired_result")html+=renderDesiredResultStep();
+  else if(stepId==="background")html+=renderBackgroundStep();
+  else if(stepId==="schedule")html+=renderScheduleStep();
+  else if(stepId==="environment")html+=renderEnvironmentStep();
+  else if(stepId==="priorities")html+=renderPrioritiesStep();
+  else if(stepId==="exercise_preferences")html+=renderExercisePreferencesStep();
+  else if(stepId==="custom_shape")html+=renderCustomShapeStep();
+  else if(stepId==="result")html+=renderResultStep();
+  else if(stepId==="catalogue")html+=renderCatalogueStep();
+  else if(stepId==="build_setup")html+=renderBuildSetupStep();
+  else if(stepId==="import_source")html+=renderImportSourceStep();
+  else if(isEditor)html+=`<div id="onbProgramEditor" class="program-editor-host ph-no-capture" data-role="onboarding-editor-host"></div>`+
+    `<div class="program-editor-onboarding-actions">`+
+      `<button type="button" class="btn btn--steel program-editor__save" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
+      `<button type="button" class="btn btn--cta program-editor__activate" id="entryEditorActivate">${esc(t("entry.editor.use",undefined,"Use this program"))}</button>`+
+    `</div>`;
+  else if(stepId==="preview"||stepId==="activation_conflict")html+=renderPreviewStep();
+  else html+=renderEntryHub();
+  body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
-  $$("[data-onb-pick]").forEach(b=>b.onclick=()=>{const k=b.dataset.onbPick,v=b.dataset.onbVal;
-    const multi=b.dataset.onbMulti==="1",num=k==="daysPerWeek"?+v:v;onbPick(k,num,multi)});
-  const saveBtn=$("#onbSave");if(saveBtn)saveBtn.onclick=()=>saveOnboardingProgram();
-  const editBtn=$("#onbEdit");if(editBtn)editBtn.onclick=()=>editOnboardingProgram();
-  const restartBtn=$("#onbRestart");if(restartBtn)restartBtn.onclick=()=>{onbStep=0;onbAnswers=defaultOnbAnswers();renderOnboarding()};
-  const imp=$("#onbImportLink");if(imp)imp.onclick=()=>{$("#importProgram")?.click()};
-  if(next)next.disabled=!onbCanNext()}
-/* What the generator actually built, not what the answer was called.
-   "Beginner consistency" is not a third goal: onbGenAnswers compiles it to
-   the same hypertrophy program, given the beginner treatment — which is
-   Foundation. Reporting nothing for it deleted every beginner from the
-   generator funnel, which is the cohort the alpha most needs to see. The
-   legacy generator has no family of its own, so everything else reports
-   legacy until Plan 047 supplies real ones. */
+  const validation=$("#entryValidation");
+  if(validation){
+    const lede=body.querySelector(".onb__explain"),heading=body.querySelector(".onb__q");
+    const anchor=lede||heading;
+    if(anchor&&anchor.parentNode===body)body.insertBefore(validation,anchor.nextSibling);
+  }
+  wireEntryDom();
+  if(isEditor){
+    mountOnboardingProgramEditor();
+    updateOnboardingEditorActions();
+  }
+  setupEntryRovingFocus();
+  if(!restoreEntryFocus(focusToken)){
+    const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
+    const target=initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
+    if(target)try{target.focus({preventScroll:true})}catch{}}
+  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
+function wireEntryDom(){
+  $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
+  const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
+  $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
+    const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
+    if(key==="environment"){
+      const next=ProgramEntryAdapter?.defaultEnvironment?.(raw)||{kind:raw,equipment:[],capabilities:[]};
+      entryPatchAnswers({environment:next});
+      return}
+    if(key==="musclePriority"){
+      const [muscle,status]=String(raw).split("|");
+      if(!ENTRY_MUSCLES.includes(muscle)||!ENTRY_MUSCLE_STATES.includes(status))return;
+      const primary=[...(entryState.answers.primaryMuscles||[])].filter(item=>item!==muscle);
+      const deemphasized=[...(entryState.answers.deEmphasizedMuscles||[])].filter(item=>item!==muscle);
+      const ignored=[...(entryState.answers.ignoredMuscles||[])].filter(item=>item!==muscle);
+      if(status==="prioritize"){
+        if(primary.length>=2)return;
+        primary.push(muscle);
+      }else if(status==="deemphasize")deemphasized.push(muscle);
+      else if(status==="ignore")ignored.push(muscle);
+      entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:deemphasized,ignoredMuscles:ignored});
+      return}
+    if(key==="environmentEquipment"||key==="environmentCapabilities"){
+      const env=entryEnvironmentValue()||{kind:"other",equipment:[],capabilities:[]};
+      const field=key==="environmentEquipment"?"equipment":"capabilities";
+      const current=[...(env[field]||[])];
+      const idx=current.indexOf(raw);
+      if(idx>=0)current.splice(idx,1);else current.push(raw);
+      entryPatchAnswers({environment:{...env,[field]:current}});
+      return}
+    if(key==="avoidReason"){
+      const [exerciseId,reason]=String(raw).split("|");
+      const constraints=[...(entryState.answers.exerciseConstraints||[])];
+      const index=constraints.findIndex(item=>item.exerciseId===exerciseId);
+      if(index>=0)constraints[index]={exerciseId,reason};else constraints.push({exerciseId,reason});
+      entryPendingAvoid=null;
+      entryPatchAnswers({exerciseConstraints:constraints});
+      return}
+    if(key==="preferredRestSeconds"){entryPatchAnswers({preferredRestSeconds:raw==="auto"?null:+raw});return}
+    if(key==="daysPerWeek"||key==="sessionMinutes"){entryPatchAnswers({[key]:+raw});return}
+    if(multi){
+      const current=[...(entryState.answers[key]||[])];
+      const idx=current.indexOf(raw);
+      if(idx>=0)current.splice(idx,1);
+      else if(key==="primaryMuscles"||key==="priorityMovements"){if(current.length<2&&!entryMuscleBlocked(key,raw))current.push(raw)}
+      else if(key==="deEmphasizedMuscles"||key==="ignoredMuscles"){
+        if(current.length<(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!entryMuscleBlocked(key,raw))current.push(raw)}
+      else current.push(raw);
+      entryPatchAnswers({[key]:current});
+      return}
+    entryPatchAnswers({[key]:raw})});
+  const clear=$("[data-entry-action='clear-priorities']");if(clear)clear.onclick=()=>entryPatchAnswers({primaryMuscles:[]});
+  const avoidSearch=$("#entryAvoidSearch");
+  if(avoidSearch){
+    avoidSearch.oninput=()=>{entryAvoidQuery=avoidSearch.value;renderOnboarding();const el=$("#entryAvoidSearch");if(el){el.focus();el.setSelectionRange?.(entryAvoidQuery.length,entryAvoidQuery.length)}}}
+  const mustSearch=$("#entryMustSearch");
+  if(mustSearch){
+    mustSearch.oninput=()=>{entryMustQuery=mustSearch.value;renderOnboarding();const el=$("#entryMustSearch");if(el){el.focus();el.setSelectionRange?.(entryMustQuery.length,entryMustQuery.length)}}}
+  $$('[data-entry-must-add]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryMustAdd;
+    const selected=[...(entryState.answers.mustHaveExercises||[])];
+    if(!selected.includes(exerciseId)&&selected.length<32)selected.push(exerciseId);
+    entryMustQuery="";
+    entryPatchAnswers({mustHaveExercises:selected})});
+  $$('[data-entry-must-remove]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryMustRemove;
+    entryPatchAnswers({mustHaveExercises:(entryState.answers.mustHaveExercises||[]).filter(id=>id!==exerciseId)})});
+  const exerciseSearch=$("#entryExerciseSearch");
+  if(exerciseSearch){
+    exerciseSearch.oninput=()=>{entryExerciseQuery=exerciseSearch.value;renderOnboarding();const el=$("#entryExerciseSearch");if(el){el.focus();el.setSelectionRange?.(entryExerciseQuery.length,entryExerciseQuery.length)}}}
+  $$('[data-entry-exercise-add]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryExerciseAdd,status=btn.dataset.entryExerciseStatus;
+    const included=[...(entryState.answers.mustHaveExercises||[])];
+    const constraints=[...(entryState.answers.exerciseConstraints||[])];
+    if(included.includes(exerciseId)||constraints.some(item=>item.exerciseId===exerciseId))return;
+    if(status==="include"){
+      if(included.length>=32)return;
+      included.push(exerciseId);entryExerciseQuery="";entryPatchAnswers({mustHaveExercises:included});
+      return}
+    if(status==="avoid"){
+      if(constraints.length>=32)return;
+      entryPendingAvoid=exerciseId;entryExerciseQuery="";renderOnboarding()}
+  });
+  $$('[data-entry-exercise-remove]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryExerciseRemove;
+    entryPatchAnswers({
+      mustHaveExercises:(entryState.answers.mustHaveExercises||[]).filter(id=>id!==exerciseId),
+      exerciseConstraints:(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId),
+    })});
+  $$("[data-entry-avoid-add]").forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryAvoidAdd;
+    const constraints=[...(entryState.answers.exerciseConstraints||[])];
+    if(constraints.some(item=>item.exerciseId===exerciseId))return;
+    if(constraints.length>=32)return;
+    entryPendingAvoid=exerciseId;
+    entryAvoidQuery="";
+    renderOnboarding()});
+  $$("[data-entry-avoid-remove]").forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryAvoidRemove;
+    entryPatchAnswers({exerciseConstraints:(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId)})});
+  const changePriorities=$("[data-entry-action='change-priorities']");if(changePriorities)changePriorities.onclick=()=>{
+    entryCompileError=null;entrySetState({...entryState,step:"priorities",result:null})};
+  const changeExercisePreferences=$("[data-entry-action='change-exercise-preferences']");if(changeExercisePreferences)changeExercisePreferences.onclick=()=>{
+    entryCompileError=null;entrySetState({...entryState,step:"exercise_preferences",result:null})};
+  const changeSchedule=$("[data-entry-action='change-schedule']");if(changeSchedule)changeSchedule.onclick=()=>{
+    const answers={...entryState.answers};delete answers.splitPreference;
+    entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
+  $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
+    const id=btn.dataset.entrySelectCandidate;
+    const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;
+    if(!selected||!entryState.result)return;
+    const next=ProgramEntry.setResult(entryState,{
+      fingerprint:entryState.result.fingerprint,
+      name:entryState.result.name,
+      namePt:entryState.result.namePt,
+      selected:{...selected},
+      candidates:(entryState.result.candidates||[]).map(c=>({...c})),
+      alternative:null,
+      preview:entryState.result.preview,
+      telemetry:entryState.result.telemetry,
+      explanation:entryState.result.explanation});
+    entryPinnedVersionsExecutable=false;
+    entrySetState(ProgramEntry.advance(next).state)});
+  $$("[data-entry-catalogue]").forEach(btn=>btn.onclick=()=>{
+    const id=btn.dataset.entryCatalogue;
+    const card=(entryServices()?.browseCatalogue(entryState.answers)||[]).find(item=>item.id===id);
+    if(!card)return;
+    if(!entryState.answers.catalogueSelection)captureEvent("template_selected",{family:card.telemetryFamily});
+    let next=ProgramEntry.setAnswers(entryState,{catalogueSelection:id});
+    next={...next,versions:entryVersions()};
+    next=ProgramEntry.setResult(next,{
+      fingerprint:card.fingerprint,
+      name:card.name,
+      namePt:card.namePt,
+      selected:{id:card.id,familyId:card.familyId,daysPerWeek:card.daysPerWeek,blueprintId:card.id},
+      preview:card.preview,
+      telemetry:{family:card.telemetryFamily}});
+    entrySetState(ProgramEntry.advance(next).state)});
+  const importPick=$("#entryImportPick");if(importPick)importPick.onclick=()=>{$("#importProgram")?.click()};
+  const nameInput=$("#entryProgramName");if(nameInput){
+    const sync=()=>{
+      const value=nameInput.value.trim();
+      if(value)entryState=ProgramEntry.setAnswers(entryState,{programName:value});
+      else{
+        const answers={...entryState.answers};delete answers.programName;
+        entryState={...entryState,answers,result:null}}
+      persistSetupDraft(entryState);
+      const next=$("#onbNext");if(next)next.disabled=ProgramEntry.validationIssues(entryState).length>0};
+    nameInput.oninput=sync;nameInput.onchange=sync;nameInput.onblur=sync}
+  const activate=$("#entryActivate");if(activate)activate.onclick=()=>activateEntryPreview();
+  const editorSave=$("#entryEditorSave");if(editorSave)editorSave.onclick=async()=>{
+    editorSave.disabled=true;
+    const result=await persistSetupDraft(entryState);
+    editorSave.disabled=false;
+    const status=$("#onbProgramEditor [data-role=\"editor-status\"]")||$("#entryEditorStatus");
+    if(result?.ok){
+      updateOnboardingEditorActions();
+      // Saving an otherwise incomplete Build is still a successful draft
+      // write. Keep the saved state visible beside the editor, rather than
+      // replacing it with the activation validation message.
+      if(status){status.textContent=t("entry.editor.saved");status.hidden=false;status.classList.remove("is-error");status.setAttribute("role","status");status.setAttribute("aria-live","polite")}
+      toast(t("entry.editor.saved"));
+    }else if(status){status.textContent=t(result?.conflict?"entry.save_conflict.body":"entry.save_failed.body");status.hidden=false;status.classList.add("is-error");status.focus?.()}
+  };
+  const editorActivate=$("#entryEditorActivate");if(editorActivate)editorActivate.onclick=()=>activateEntryPreview();
+  const edit=$("#entryEdit");if(edit)edit.onclick=()=>openEntryDraftEditor();
+  const restart=$("#entryRestart");if(restart)restart.onclick=()=>entryStartOver();
+  const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{
+    entryUiNotice=null;
+    if(entryState.step==="editor")openEntryDraftEditor();else renderOnboarding()};
+  const resumeRestart=$("#entryResumeRestart");if(resumeRestart)resumeRestart.onclick=()=>entryStartOver();
+  const cancelContinue=$("#entryCancelContinue");if(cancelContinue)cancelContinue.onclick=()=>{entryUiNotice=null;renderOnboarding()};
+  const cancelKeep=$("#entryCancelKeep");if(cancelKeep)cancelKeep.onclick=()=>keepEntryDraftAndCancel();
+  const cancelDiscard=$("#entryCancelDiscard");if(cancelDiscard)cancelDiscard.onclick=()=>discardEntryDraftAndCancel();
+  const rebuild=$("#entryRebuildRules");if(rebuild)rebuild.onclick=()=>rebuildEntryForCurrentRules();
+  const keepPinned=$("#entryKeepPinned");if(keepPinned)keepPinned.onclick=()=>{
+    if(!entryPinnedPreviewCanActivate())return;
+    entryPinnedVersionsExecutable=true;
+    entryUiNotice=null;
+    renderOnboarding()};
+  const conflict=$("#entryConflictReview");if(conflict)conflict.onclick=()=>{
+  entryUiNotice=null;
+    entryPinnedVersionsExecutable=false;
+    entryDurableConflictNeedsReload=false;
+    entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()})};
+  const durableConflict=$("#entryDurableConflictReview");if(durableConflict)durableConflict.onclick=async()=>{
+    durableConflict.disabled=true;
+    if(entryDurableConflictNeedsReload){window.location.reload();return}
+    if(entryState?.step==="activation_conflict"){
+      entryUiNotice=null;
+      entrySetState({...entryState,step:"preview",activeProgramRevisionAtStart:liveProgramRevision()});
+      return;
+    }
+    const recovered=await recoverEntryDurableConflict();
+    entryDurableConflictNeedsReload=!recovered.ok;
+    entryUiNotice=recovered.ok?"conflict":"durable_conflict";
+    renderOnboarding()}}
+function entryConfirmReplaceIfNeeded(){
+  if(!hasActiveProgram())return true;
+  return confirm(t("entry.confirm.replace"))}
+function entryStartOver(){
+  const restarted=ProgramEntry.startOver({
+    draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
+  if(restarted.effects?.deleteSetupDraft)clearSetupDraft();
+  entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;entryExerciseQuery="";entryPinnedVersionsExecutable=false;
+  entrySetState(restarted.state,{persist:true})}
+async function recoverEntryDurableConflict(){
+  const refreshed=await refreshPersistenceHead();
+  const head=refreshed?.head;
+  if(refreshed?.conflict||!head)return{ok:false,conflict:true};
+  const currentRevision=readRevision(state),headRevision=readRevision(head);
+  if(headRevision<=currentRevision)return{ok:false,conflict:headRevision<currentRevision};
+  const liveBase=cloneSnapshot(state);
+  persistHead=cloneSnapshot(head);
+  applyAcceptedSnapshot(liveBase,head);
+  if(entryState){
+    entryState={...entryState,step:"activation_conflict",activeProgramRevisionAtStart:headRevision};
+    const saved=await persistSetupDraft(entryState);
+    if(!saved?.ok)return{ok:false,conflict:true,saveConflict:true};
+  }
+  return{ok:true,revision:headRevision};
+}
+async function surfaceEntryDurableConflict(){
+  const recovered=await recoverEntryDurableConflict();
+  entryDurableConflictNeedsReload=!recovered.ok;
+  entryUiNotice="durable_conflict";
+  renderOnboarding();
+  return recovered;
+}
+function entryAdvance(){
+  if(!ProgramEntry||!entryState)return;
+  if(entryState.step==="build_setup"){
+    const nameInput=$("#entryProgramName");
+    if(nameInput)entryState=ProgramEntry.setAnswers(entryState,{programName:nameInput.value.trim()});
+  }
+  if(entryState.step==="priorities"||entryState.step==="custom_shape"){
+    // optional fields already stored
+  }
+  const issues=ProgramEntry.validationIssues(entryState);
+  if(issues.length){entryValidationNotice=true;renderOnboarding();return}
+  if(entryState.step==="build_setup"){
+    const built=entryServices()?.buildEmptyProgram(entryState.answers);
+    if(!built?.ok){entryCompileError=built?.code||"build_failed";renderOnboarding();return}
+    let buildNext=ProgramEntry.setResult(entryState,{
+      fingerprint:built.fingerprint,
+      selected:{id:"manual_build",source:"manual_build"},
+      preview:built.preview,
+      name:built.name});
+    buildNext=ProgramEntry.advance(buildNext).state;
+    entrySetState(buildNext);
+    return openEntryDraftEditor()}
+  const advanced=ProgramEntry.advance(entryState);
+  if(!advanced.ok){renderOnboarding();return}
+  let nextState=advanced.state;
+  if(nextState.step==="custom_shape"){
+    const splits=entryCustomSplitChoices(nextState.answers);
+    const compatible=new Set(splits.choices.map(choice=>choice.id));
+    if(splits.choices.length===1){
+      nextState=ProgramEntry.setAnswers(nextState,{splitPreference:splits.choices[0].id});
+      const skipped=ProgramEntry.advance(nextState);
+      if(skipped.ok)nextState=skipped.state;
+    }else if(splits.choices.length>=2&&!compatible.has(nextState.answers.splitPreference)){
+      const preferred=splits.choices.find(choice=>choice.default)||splits.choices[0];
+      if(preferred)nextState=ProgramEntry.setAnswers(nextState,{splitPreference:preferred.id})}}
+  entrySetState(nextState);
+  if(nextState.step==="result")ensureGeneratorResult()}
+function entryBack(){
+  if(!ProgramEntry||!entryState)return;
+  if(entryUiNotice==="cancel"){entryUiNotice=null;renderOnboarding();return}
+  if(setupEditorOpen){requestEntryCancel();return}
+  if(entryUiNotice==="resume"||entryState.step==="entry"||!entryState.route){requestEntryCancel();return}
+  let previous=ProgramEntry.back(entryState);
+  if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
+    previous={...previous,step:"exercise_preferences"};
+  entrySetState(previous)}
+function onInstalledEditorPopState(){
+  // Explicit editor exits release the same sentinel with history.back(). Its
+  // popstate is expected and must not reopen the leave surface.
+  if(installedEditorHistoryRelease){installedEditorHistoryRelease=false;return true}
+  if(!programEditMode||!installedProgramEditor)return false;
+  // Back has already consumed the editor sentinel. Dirty work is restored to
+  // the top of the stack before asking the existing three-way decision, so a
+  // second Back cannot unload the document while the decision is open.
+  installedEditorHistoryArmed=false;
+  if(installedProgramEditor.isDirty()){
+    try{
+      history.pushState(installedEditorHistoryState(),"",location.href);
+      installedEditorHistoryArmed=true;
+    }catch{}
+    if(!$("#programEditorLeave")?.open)openInstalledLeaveDialog();
+    return true;
+  }
+  finishInstalledEditor({historyAlreadyPopped:true});
+  return true;
+}
+function onEntryPopState(){
+  if(onInstalledEditorPopState())return;
+  if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
+  try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
+  entryBack()}
+async function activateEntryPreview({destination="log",manualBuild=false,skipReplaceConfirm=false,io=storageIO}={}){
+  if(!ProgramEntry||!entryState)return;
+  await setupDraftWriteQueue;
+  const activationDraftHandle=entryDraftHandle;
+  // A previous attempt may already have committed the exact draft and then
+  // failed only while consuming this separate setup record. Treat that receipt
+  // as success and retry only the CAS cleanup; never mint a second program.
+  if(setupActivationAlreadyCommittedToLive(activationDraftHandle?.raw))
+    return finishAlreadyCommittedSetup(activationDraftHandle);
+  const readiness=ProgramEntry.activationReadiness(entryState,{
+    liveActiveProgramRevision:liveProgramRevision(),
+    currentVersions:entryVersions(),
+    pinnedVersionsExecutable:entryPinnedVersionsExecutable});
+  if(!readiness.ok){
+    if(readiness.code==="active_program_changed"){
+      entryUiNotice="conflict";
+      entrySetState(readiness.state||{...entryState,step:"activation_conflict"});
+      return}
+    if(readiness.code==="rules_changed_rebuild_required"){entryUiNotice="rules_changed";renderOnboarding();return}
+    if(readiness.code==="candidate_incomplete"){
+      if(setupEditorOpen){renderOnboarding();$("#onbProgramEditor [data-role=\"editor-status\"]")?.focus?.()}
+      else {renderOnboarding();$("#entryActivationStatus")?.focus?.()}
+      return readiness}
+    renderOnboarding();return}
+  if(!skipReplaceConfirm&&!entryConfirmReplaceIfNeeded())return{cancelled:true};
+  const preview=entryState.result?.preview;
+  let exercises=manualBuild||entryState.route==="build"
+    ?(entryState.result?.preview?.program||[])
+    :(preview?.program||[]);
+  const programStructure=entryState.result?.preview?.programStructure||preview?.programStructure||null;
+  const name=entryResultName()||entryState.answers.programName||"";
+  const route=entryState.route||"custom";
+  const answersForMeta={
+    goal:entryState.answers.desiredResult==="muscle_growth"?"hypertrophy":
+      entryState.answers.desiredResult==="strength"?"strength_hypertrophy":
+      entryState.answers.desiredResult==="balanced"?"strength_hypertrophy":null,
+    experience:null,
+    daysPerWeek:entryState.route==="browse"?(preview?.frequency||null):(entryState.answers.daysPerWeek||preview?.frequency||null),
+    splitType:null,
+    equipment:[],
+    priorityMuscles:entryState.answers.primaryMuscles||[],
+    sessionLength:null};
+  const context=programmingContextFromAnswers(entryState.answers);
+  const baseProposal=cloneSnapshot(state);
+  if(route==="shared"){
+    const sharedMeta=preview?.sharedMeta||{};
+    Object.assign(answersForMeta,{
+      goal:sharedMeta.goal??answersForMeta.goal,
+      experience:sharedMeta.experience??answersForMeta.experience,
+      daysPerWeek:sharedMeta.daysPerWeek??answersForMeta.daysPerWeek,
+      splitType:sharedMeta.splitType??null,
+      equipment:Array.isArray(sharedMeta.equipment)?sharedMeta.equipment.slice():answersForMeta.equipment,
+      priorityMuscles:Array.isArray(sharedMeta.priorityMuscles)?sharedMeta.priorityMuscles.slice():answersForMeta.priorityMuscles,
+      sessionLength:sharedMeta.sessionLength??null,
+      mesocycleLengthWeeks:sharedMeta.mesocycleLengthWeeks??null});
+    if(preview?.sharedSettings)baseProposal.settings={...normalizeSettings(baseProposal.settings),...sharedSettingsPatch(preview.sharedSettings)};
+    if(preview?.sharedImport)baseProposal[SHARED_IMPORT]=cloneSnapshot(preview.sharedImport);
+  }
+  exercises=cloneSnapshot(exercises);
+  if(Array.isArray(preview?.customExercises)&&preview.customExercises.length){
+    const merged=mergeImportedCustomExercises(preview.customExercises,exercises,baseProposal);
+    baseProposal.customExercises=merged.customExercises}
+  if(context?.ok)baseProposal.programmingContext=context.value;
+  baseProposal.programMeta=baseProposal.programMeta||defaultProgramMeta(baseProposal.log);
+  baseProposal.programMeta.progressionRelations=cloneSnapshot(preview?.progressionRelations||[]);
+  baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
+  baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
+  baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
+  const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
+  const result=await finalizeProgramSetup({
+    exercises,
+    name,
+    answers:answersForMeta,
+    destination,
+    origin:onboardingOrigin||"first-run",
+    io,
+    baseProposal,
+    telemetryRoute,
+    entryTelemetry:entryState.result?.telemetry||null,
+    entrySource:{route,fingerprint:entryState.result?.fingerprint},
+    programStructure,
+    expectedSetupDraftRaw:activationDraftHandle?.raw??null,
+    replace:route==="shared",
+    expectedFirstRunEmpty:route==="shared"});
+  if(result?.setupDraftConflict){
+    entryUiNotice="save_conflict";
+    renderOnboarding();
+    return result}
+  if(result?.staleRevision||result?.conflict||result?.duplicate||result?.ineligible){
+    await surfaceEntryDurableConflict();
+    return result}
+  if(result?.localOk||result?.idbOk){
+    const cleanup=await removeSetupDraftIfCurrent(activationDraftHandle);
+    if(cleanup?.writeFailed)toast(t("entry.save_failed.body"));
+    entryDurableConflictNeedsReload=false;
+    entryState=null;
+    return result}}
 function telemetryGeneratedProgram(goal){
   if(goal==="beginner_consistency")return{goal:"muscle_growth",family:"foundation"};
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom"}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
-  const transition=blockCap
-    ?{expectedProgramId:blockCap.oldProgramId,expectedProgramFingerprint:blockCap.programFingerprint}
-    :programTransitionPrecondition(state);
+  const replacementCapture=blockCap||captureProgramReplacement(state);
   const draftActive=draftHasProgress();
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))
@@ -8123,29 +10430,43 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const proposal=cloneSnapshot(baseProposal||state);
   if(originEff==="block"){
     if(!blockCap)return blockTransitionResult("failed");
-    if(proposal.programMeta?.id!==transition.expectedProgramId)return blockTransitionResult("duplicate");
-    archiveCapturedBlock(proposal,blockCap)}
-  const meta=buildProgramMeta({name,answers:answers||onbAnswers});
+    if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
+  const meta=buildProgramMeta({name,answers:answers||{},entrySource});
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
-  meta.programStructure=baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null;
+  meta.progressionIncompatibilities=Array.isArray(baseProposal?.programMeta?.progressionIncompatibilities)
+    ?cloneSnapshot(baseProposal.programMeta.progressionIncompatibilities):[];
+  meta.programStructure=programStructure?cloneSnapshot(programStructure):
+    (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
   proposal.programMeta=meta;
+  // The setup draft lives outside the mirrored state stores. Keep an exact,
+  // storage-only receipt in the successor so a crash after the program commit
+  // but before setup-draft cleanup can be recognized and safely finalized.
+  delete proposal[STORAGE_SETUP_TXN];
+  const setupActivation=setupActivationMarker(expectedSetupDraftRaw,meta.id);
+  if(setupActivation)proposal[STORAGE_SETUP_TXN]=setupActivation;
   if(destination==="program-edit")proposal[STORAGE_FOLLOWUP]={kind:"onboarding-edit",origin:originEff};
   else delete proposal[STORAGE_FOLLOWUP];
   const effect=destructiveDraftClearEffect(confirmedDraftRaw);
-  const persisted=await commitProposedState(proposal,adapter,{...transition,effect});
+  const persisted=await commitProgramReplacement(proposal,adapter,
+    {capture:replacementCapture,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty});
   const result=originEff==="block"
-    ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":persisted.duplicate?"duplicate":"failed",persisted)
+    ?blockTransitionResult(persisted.localOk||persisted.idbOk?"committed":
+      persisted.duplicate||persisted.staleRevision?"duplicate":"failed",persisted)
     :persisted;
   if(!(result.localOk||result.idbOk))return result;
-  const generated=telemetryGeneratedProgram(meta.goal);
-  // A frequency outside the reviewed 2-6 range is rejected by the boundary,
-  // where the rejection is visible, rather than dropped silently here.
-  if(telemetryRoute==="custom"&&generated)captureEvent("generator_completed",
-    {goal:generated.goal,frequency:String(new Set(exercises.map(exercise=>exercise.day)).size),family:generated.family});
-  captureEvent("program_activated",{route:telemetryRoute,version_category:telemetryRoute==="import"?"import_v1":"legacy_v1"});
+  const versionCategory=telemetryRoute==="import"?"import_v1":
+    telemetryRoute==="shared"?"shared_v1":
+    telemetryRoute==="build"?"manual_v1":
+    telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
+  if(!result.alreadyCommitted)
+    captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
+  if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
+  if(telemetryRoute==="shared")syncLang();
   resetDraftSessionState();
+  setupEditorOpen=false;
+  document.body.classList.remove("is-entry-editor");
   if(originEff==="block")pendingBlockTransition=null;
   onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();
   if(destination==="program-edit"){
@@ -8158,11 +10479,9 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   if(!maybeStartTour())maybeShowInstallBanner();
   return result}
 function saveOnboardingProgram(io){
-  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
-  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"log",origin:onboardingOrigin||"first-run",io:io||storageIO})}
+  return activateEntryPreview({destination:"log"})}
 function editOnboardingProgram(io){
-  const a=onbAnswers,list=generateProgramFromOnboarding(onbGenAnswers(a));
-  return finalizeProgramSetup({exercises:list,name:"",answers:a,destination:"program-edit",origin:onboardingOrigin||"first-run",io:io||storageIO})}
+  return activateEntryPreview({destination:"program-edit"})}
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
@@ -8313,6 +10632,7 @@ function renderFirstRunProgramMode(){
   const ready=sharedSetupReady();
   standard?.classList.toggle("hidden",ready);
   shared?.classList.toggle("hidden",!ready);
+  $("#firstRun")?.classList.toggle("is-shared",ready);
   if(ready){
     const name=sharedSetupDraft.payload.program.meta.name;
     const n=sharedSetupDraft.payload.program.meta.daysPerWeek;
@@ -8337,31 +10657,56 @@ async function commitSharedSetup(io=storageIO){
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
     return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true}}
-  const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
-  if(draftActive&&!confirm(t("confirm.replace_program_discard_draft")))
-    return{revision:readRevision(state),localOk:false,idbOk:false,cancelled:true};
+  // The codec/consent gate remains the compatibility boundary. Once accepted,
+  // hand the decoded payload to the same candidate preview and activation state
+  // machine used by every other entry route; no durable program write happens
+  // until the shared preview's explicit activation action.
   setSharedSetupBusy(true);
-  let result;
-  try{
-    const transition=programTransitionPrecondition(state);
+  try {
     const proposal=proposalFromSharedSetup(checked.value,state);
-    const effect=destructiveDraftClearEffect(discardDraftRaw);
-    result=await commitProposedState(proposal,requireAdapter(io,"commitSharedSetup"),
-      {replace:true,expectedFirstRunEmpty:true,effect,...transition})}
-  catch{result={revision:readRevision(state),localOk:false,idbOk:false}}
-  setSharedSetupBusy(false);
-  if(!(result.localOk||result.idbOk)){
+    const payload=checked.value.program;
+    const program=cloneSnapshot(proposal.program||[]);
+    const structure=cloneSnapshot(proposal.programMeta?.programStructure||null);
+    const preview={source:"shared",familyId:null,frequency:payload.meta.daysPerWeek,
+      program,programStructure:structure,
+      // Keep each preview branch detached. The persisted result schema walks
+      // object identity as well as values, so sharing the program row objects
+      // into day summaries would look like a cycle to its bounded validator.
+      days:sharedPreviewDays(program,structure,checked.value.settings),
+      customExercises:cloneSnapshot(proposal.customExercises||[]),
+      progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
+      // Shared metadata keeps its released display labels in sharedMeta. The
+      // common draft schema's primaryMuscles field is the generator's closed
+      // token vocabulary, so do not copy human-labelled payload values into it.
+      primaryMuscles:[],
+      sharedMeta:cloneSnapshot(payload.meta),
+      sharedSettings:cloneSnapshot(checked.value.settings),
+      sharedImport:cloneSnapshot(proposal[SHARED_IMPORT]||null)};
+    startOnboarding("first-run",{userInitiated:true,forceFresh:true});
+    let next=ProgramEntry.selectRoute(entryState,"shared");
+    next=ProgramEntry.setAnswers(next,{sharedReady:true});
+    next=ProgramEntry.setResult(next,{fingerprint:entryServices()?.fingerprint?.({route:"shared",name:payload.meta.name,preview})||"shared",selected:{id:"shared",source:"shared"},name:payload.meta.name,preview,telemetry:{family:"shared_v1"}});
+    next={...next,step:"preview"};
+    entryState=next;
+    const saved=await persistSetupDraft(next,io);
+    if(!saved?.ok){
+      toast(t("setup.shared.commit_failed"),{assertive:true});
+      return{revision:readRevision(state),localOk:false,idbOk:false,writeFailed:true};
+    }
+    // The first-run Start control accepts the handoff into the same editable
+    // preview used by every other entry route. It is not the activation action:
+    // no durable program write, cookie clear, or history transition happens
+    // until the preview's explicit Use this program button is pressed.
+    suspendFirstRun();
+    showOnboardingView();
+    renderOnboarding();
+    return{revision:readRevision(state),localOk:false,idbOk:false,staged:true,setupDraft:true};
+  } catch {
     toast(t("setup.shared.commit_failed"),{assertive:true});
     $("#firstRunSharedStart")?.focus();
-    return result}
-  resetDraftSessionState();
-  onboardingOrigin=null;day=days()[0]||"Day 1";closeFirstRun();closeOnboarding();syncLang();
-  if(isStandalone())SharedSetup?.clearHandoffCookie();
-  sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:null,previousLang:null};
-  captureEvent("program_path_selected",{route:"shared"});captureEvent("program_activated",{route:"shared",version_category:"shared_v1"});
-  render();toast(t("toast.onboarding_saved"));
-  if(!maybeStartTour())maybeShowInstallBanner();
-  return result}
+    return{revision:readRevision(state),localOk:false,idbOk:false,invalid:true};
+  } finally { setSharedSetupBusy(false); }
+}
 /** Write the install section from the current reading, or take it away. Rule 5:
  *  a browser with no mechanism gets no section at all, never a dead button. */
 function renderFirstRunInstall(){
@@ -8640,7 +10985,11 @@ function resumeProgramEditFollowUp(){
   $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
   return true}
-window.__repforgeOnboarding={eqUi:ONB_EQ_UI,eqGen:ONB_EQ_GEN,splits:ONB_SPLITS,muscles:ONB_MUSCLES};
+window.__repforgeOnboarding={
+  entry:()=>entryState,
+  setupDraftKey:SETUP_DRAFT_KEY,
+  services:entryServices,
+  render:renderOnboarding};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -8669,7 +11018,11 @@ function init(){
   $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
-  $("#firstRunImport").onclick=()=>{onbAnswers=defaultOnbAnswers();onboardingOrigin="first-run";$("#importProgram")?.click()};
+  $("#firstRunImport").onclick=()=>{
+    closeFirstRun();
+    startOnboarding("first-run",{userInitiated:true,forceFresh:true});
+    entrySelectRoute("import");
+    $("#importProgram")?.click()};
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
@@ -8765,7 +11118,8 @@ function init(){
   const pkFull=$("#exPickFull");
   if(pkFull)pkFull.onclick=()=>{
     const resume=pickerResumeOptions(),target=pickerState?.day||day;
-    closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,equipment:resume?.equipment||null}))};
+    closeExercisePicker().then(()=>openLibrary({day:target,query:resume?.query||"",muscle:resume?.muscle||null,
+      equipment:resume?.equipment||null,editorScope:setupEditorOpen}))};
   const impBack=$("#importBack");if(impBack)impBack.onclick=()=>closeImportReview();
   const impCancel=$("#importReviewCancel");
   if(impCancel)impCancel.onclick=()=>{closeImportReview();toast(t("toast.program_import_cancelled"))};
@@ -8827,14 +11181,12 @@ function init(){
   const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",()=>{contextTouched.sessionNotes=true;saveDraft()});
   const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",()=>{contextTouched.bodyweight=true;saveDraft()});
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
-    if(programEditMode&&state[STORAGE_FOLLOWUP]?.kind==="onboarding-edit"){
-      const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
-      const result=await commitProposedState(proposal,storageIO);
-      if(!(result.localOk||result.idbOk))return;
-      programEditMode=false;renderProgram();
-      if(!maybeStartTour())maybeShowInstallBanner();
-      return}
-    programEditMode=!programEditMode;renderProgram()};
+    if(setupEditorOpen){requestEntryCancel();return}
+    if(programEditMode){requestInstalledDone();return}
+    programEditMode=true;renderProgram()};
+  const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
+  const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
+  const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>setHistorySearchOpen(!isHistorySearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>clearHistorySearch();
@@ -8856,7 +11208,8 @@ function init(){
   const notifyTog=$("#notifyToggle");if(notifyTog)notifyTog.onclick=()=>{
     const on=notifyPending||notifyEffective();
     setNotificationsEnabled(!on)};
-  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}else cancelOnboarding()};
+  const onbCancel=$("#onbCancel");if(onbCancel)onbCancel.onclick=()=>requestEntryCancel();
+  window.addEventListener("popstate",onEntryPopState);
   document.addEventListener("visibilitychange",onAppVisible);
   $("#glossary .glossary__close").onclick=()=>$("#glossary").classList.add("hidden");
   document.addEventListener("click",e=>{const g=$("#glossary");if(!g||g.classList.contains("hidden"))return;
@@ -8889,19 +11242,16 @@ function init(){
   $("#exportProgram").onclick=exportProgram;
   $("#importProgram").onchange=importProgramFile;
   $("#addDay").onclick=async()=>{
-    const proposal=cloneSnapshot(state),nextProgram=new Program(proposal.program);
+    const proposal=programEditorSnapshot(),nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
     const nextDay=nextProgram.addDay();proposal.program=nextProgram.toJSON();
-    const result=await commitProposedState(proposal);
-    if(result.localOk||result.idbOk){day=nextDay;render();toast(t("toast.day_added"))}};
+    syncProgramStructureFromProgram(proposal,nextProgram);
+    const result=await commitProgramEditorProposal(proposal);
+    if(result.localOk||result.idbOk){if(!setupEditorOpen)day=nextDay;render();toast(t("toast.day_added"))}};
   $("#endBlock").onclick=promptEndBlock;
   $("#saveSettings").onclick=()=>commitSettings(false);
-  $("#beginnerProgram").onclick=()=>{
-    const draftActive=draftHasProgress(),discardDraftRaw=readDraftRaw();
-    const key=draftActive?"confirm.replace_program_discard_draft":"confirm.replace_program_template";
-    if(confirm(t(key)))switchToBeginnerProgram(discardDraftRaw)};
   $("#createProgram").onclick=()=>startOnboarding("settings");
-  $("#onbBack").onclick=()=>{if(onbStep>0){onbStep--;renderOnboarding()}};
-  $("#onbNext").onclick=()=>{if(onbStep<7&&onbCanNext()){onbStep++;renderOnboarding()}};
+  $("#onbBack").onclick=()=>entryBack();
+  $("#onbNext").onclick=()=>entryAdvance();
   ["#jumpPct","#minJump","#rirHigh","#hardRir","#restSec","#unit","#lang"].forEach(sel=>$(sel).onchange=commitChangedSettings);
   // Appearance lives in UI prefs, so it never joins a state proposal.
   const themeSel=$("#theme");if(themeSel)themeSel.onchange=()=>setTheme(themeSel.value);
@@ -8917,7 +11267,14 @@ function init(){
   $("#reset").onclick=async()=>{
     const discardDraftRaw=readDraftRaw();
     if(confirm(t("confirm.delete_log")))await deleteTrainingLog(storageIO,{discardDraftRaw})};
-  $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;workoutLeft=true;
+  $$("nav button").forEach(b=>b.onclick=()=>{
+    if(programEditMode&&installedProgramEditor?.isDirty()){
+      pendingEditorNavigation=b.dataset.view;
+      openInstalledLeaveDialog();
+      return;
+    }
+    if(programEditMode)finishInstalledEditor();
+    exView=null;workoutActive=false;workoutLeft=true;
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});
@@ -9080,6 +11437,17 @@ async function resolveBootReplicas(candidate=null){
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         draftConflict=true;
         continue}
+      // A setup activation can leave its journal behind after the durable
+      // successor is committed but before the separate setup draft is
+      // consumed. Treat that journal as settled; replaying it would archive
+      // the successor a second time after a crash.
+      const setupMarker=journal.proposal?.[STORAGE_SETUP_TXN];
+      if(setupActivationAlreadyCommitted(head,journal.proposal,setupMarker?.raw)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
       if(pendingJournalSuccessorMatches(record,head)){
         const prepared=preparePendingDraftTransaction(
           head,journal.rollback,journal.effectOutcome,journal.id);
@@ -9102,6 +11470,13 @@ async function resolveBootReplicas(candidate=null){
         continue}
       if(journal.expectedProgramFingerprint&&
         draftProgramFingerprint(head)!==journal.expectedProgramFingerprint){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      if(journal.expectedStorageRevision!==null&&
+        readRevision(head)!==journal.expectedStorageRevision){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)
@@ -9141,7 +11516,7 @@ async function resolveBootReplicas(candidate=null){
 async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
-  prog=new Program(state.program);state.program=prog.toJSON();
+  prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
   DraftStore.promote(null,draftContextFingerprint(state));
@@ -9222,7 +11597,10 @@ async function handleSharedSetupHash(){
   if(sharedSetupDraft.status==="existing"){
     closeFirstRun();toast(t("setup.shared.existing"),{assertive:true});return}
   applyI18n();
-  if(firstRunPending())openFirstRun()}
+  // A shared fragment can finish its asynchronous hash handoff after the
+  // Start action has already entered the common preview. Do not reopen the
+  // first-run gate over that preview.
+  if(firstRunPending()&&!entryState)openFirstRun()}
 async function boot(){
   // The starter program is minted while the first-run state is built, so the
   // language has to be settled before that — not after the state exists.
@@ -9234,6 +11612,7 @@ async function boot(){
     const candidate=await presentStorageRecovery(decision);
     decision=await resolveBootReplicas(candidate)}
   await applyBootDecision(decision);
+  await recoverCommittedSetupDraft();
   await prepareSharedSetup(sharedCandidate);
   hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();

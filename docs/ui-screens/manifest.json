@@ -1,0 +1,752 @@
+{
+  "schemaVersion": 2,
+  "name": "Taurifer UI screen catalog",
+  "description": "Every user-visible mobile surface, captured from the production UI. Onboarding is covered state by state so no route is represented only by its first screen.",
+  "artifactRoot": "docs/ui-screens/screens",
+  "artifactTemplate": "{flow}/{screen}__{variant}.png",
+  "deviceScaleFactor": 2,
+  "themes": [
+    "light",
+    "dark"
+  ],
+  "locales": {
+    "en": {
+      "lang": "en",
+      "browserLocale": "en-US",
+      "label": "English"
+    },
+    "pt": {
+      "lang": "pt",
+      "browserLocale": "pt-BR",
+      "label": "Brazilian Portuguese"
+    }
+  },
+  "viewports": {
+    "phone-320": {
+      "width": 320,
+      "height": 568,
+      "label": "smallest supported phone"
+    },
+    "phone-390": {
+      "width": 390,
+      "height": 844,
+      "label": "canonical phone"
+    },
+    "phone-430": {
+      "width": 430,
+      "height": 932,
+      "label": "large phone"
+    }
+  },
+  "textScales": {
+    "normal": {
+      "label": "normal text",
+      "rootFontScale": 1
+    },
+    "text200": {
+      "label": "200% text",
+      "rootFontScale": 2
+    }
+  },
+  "motion": {
+    "normal": {
+      "label": "motion enabled",
+      "prefersReducedMotion": false
+    },
+    "reduced": {
+      "label": "reduced motion",
+      "prefersReducedMotion": true
+    }
+  },
+  "variantSets": {
+    "standard": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      }
+    ],
+    "localized": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      }
+    ],
+    "accessibility": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "reduced"
+      }
+    ],
+    "customAccessibility": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      }
+    ]
+  },
+  "flows": [
+    {
+      "id": "onboarding-start",
+      "label": "Onboarding — first run and hub"
+    },
+    {
+      "id": "onboarding-recommend",
+      "label": "Onboarding — Recommend one for me"
+    },
+    {
+      "id": "onboarding-custom",
+      "label": "Onboarding — Generate a custom program"
+    },
+    {
+      "id": "onboarding-browse",
+      "label": "Onboarding — Browse Taurifer programs"
+    },
+    {
+      "id": "onboarding-build",
+      "label": "Onboarding — Build my own"
+    },
+    {
+      "id": "onboarding-import",
+      "label": "Onboarding — Import a program file"
+    },
+    {
+      "id": "onboarding-shared",
+      "label": "Onboarding — Shared setup link"
+    },
+    {
+      "id": "onboarding-recovery",
+      "label": "Onboarding — resume and rule drift"
+    },
+    {
+      "id": "today",
+      "label": "Today"
+    },
+    {
+      "id": "workout",
+      "label": "Workout logging"
+    },
+    {
+      "id": "session",
+      "label": "Session summary"
+    },
+    {
+      "id": "progress",
+      "label": "Progress"
+    },
+    {
+      "id": "history",
+      "label": "History"
+    },
+    {
+      "id": "library",
+      "label": "Exercise library"
+    },
+    {
+      "id": "program",
+      "label": "Program"
+    },
+    {
+      "id": "settings",
+      "label": "Settings"
+    },
+    {
+      "id": "install",
+      "label": "Install and tour"
+    }
+  ],
+  "screens": [
+    {
+      "id": "first-run",
+      "flow": "onboarding-start",
+      "label": "First-run gate",
+      "scenario": "No program exists. The gate that precedes every entry route.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "hub",
+      "flow": "onboarding-start",
+      "label": "Entry hub",
+      "scenario": "Create a program. Recommend and Custom carry the accent rail; Browse and Bring or build my own recede.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "hub-own-open",
+      "flow": "onboarding-start",
+      "label": "Entry hub — own disclosure open",
+      "scenario": "The Bring or build my own disclosure expanded to reveal the nested Build and Import rows.",
+      "variants": "localized"
+    },
+    {
+      "id": "hub-existing",
+      "flow": "onboarding-start",
+      "label": "Entry hub — existing program",
+      "scenario": "Opened from Settings while a program is active, so replacement consequences are in view.",
+      "variants": "localized"
+    },
+    {
+      "id": "desired-result",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 1 — desired result",
+      "scenario": "Route header, Cancel, progress 1 of 5, three desired-result choices.",
+      "variants": "localized"
+    },
+    {
+      "id": "background",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 2 — training background",
+      "scenario": "Structured-program experience and recent six-week consistency.",
+      "variants": "localized"
+    },
+    {
+      "id": "schedule",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 3 — real week",
+      "scenario": "Days per week, session-minute ceiling, preferred rest.",
+      "variants": "localized"
+    },
+    {
+      "id": "environment",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 4 — environment",
+      "scenario": "Environment shortcuts with the capability correction disclosure closed.",
+      "variants": "localized"
+    },
+    {
+      "id": "environment-correction",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 4 — equipment correction",
+      "scenario": "The capability correction disclosure open.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "priorities",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 5 — priorities",
+      "scenario": "Primary priorities plus optional movement and exercise-avoidance controls.",
+      "variants": "localized"
+    },
+    {
+      "id": "avoidance-pain",
+      "flow": "onboarding-recommend",
+      "label": "Recommend 5 — avoidance and pain safety",
+      "scenario": "One avoided exercise with the pain reason selected and its safety copy.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "validation-error",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — validation error",
+      "scenario": "Advancing without an answer. Errors sit adjacent to the control that failed.",
+      "variants": "localized"
+    },
+    {
+      "id": "result",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — recommendation",
+      "scenario": "One named recommendation with its factual Why it fits explanation.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "preview-first-run",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — review before first activation",
+      "scenario": "Identity, source, day summaries, assumptions, Edit before using, Use this program.",
+      "variants": "localized"
+    },
+    {
+      "id": "preview-existing",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — review with a program active",
+      "scenario": "The same review while the current program remains untouched.",
+      "variants": "localized"
+    },
+    {
+      "id": "replacement-confirm",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — confirm replacement",
+      "scenario": "The explicit archive-and-replace confirmation. History is not changed.",
+      "variants": "localized"
+    },
+    {
+      "id": "activation-conflict",
+      "flow": "onboarding-recommend",
+      "label": "Recommend — activation conflict",
+      "scenario": "Another tab changed the active program. The newer program stays active.",
+      "variants": "localized"
+    },
+    {
+      "id": "desired-result",
+      "flow": "onboarding-custom",
+      "label": "Custom 1 — desired result",
+      "scenario": "The custom route's own header and step count, not Recommend's.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "background",
+      "flow": "onboarding-custom",
+      "label": "Custom 2 — training background",
+      "scenario": "Structured-program experience and recent consistency in the custom route.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "schedule",
+      "flow": "onboarding-custom",
+      "label": "Custom 3 — real week",
+      "scenario": "Days per week, session ceiling and preferred rest in the custom route.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "environment",
+      "flow": "onboarding-custom",
+      "label": "Custom 4 — environment",
+      "scenario": "Environment shortcuts in the custom route.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "priorities",
+      "flow": "onboarding-custom",
+      "label": "Custom 5 — muscle priorities",
+      "scenario": "Each muscle has one accessible emphasis setting before exercise preferences.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "exercise-preferences",
+      "flow": "onboarding-custom",
+      "label": "Custom 6 — exercise preferences",
+      "scenario": "One library search offers Include or Avoid, with separate selected lists.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "result",
+      "flow": "onboarding-custom",
+      "label": "Custom — generated program",
+      "scenario": "The generated candidate for the chosen split.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "preview",
+      "flow": "onboarding-custom",
+      "label": "Custom — review",
+      "scenario": "The common review surface for a custom-generated program.",
+      "variants": "customAccessibility"
+    },
+    {
+      "id": "schedule",
+      "flow": "onboarding-browse",
+      "label": "Browse 1 — real week",
+      "scenario": "Days per week and session length, the only questions Browse asks.",
+      "variants": "localized"
+    },
+    {
+      "id": "environment",
+      "flow": "onboarding-browse",
+      "label": "Browse 2 — environment",
+      "scenario": "Environment shortcuts before the catalogue is filtered.",
+      "variants": "localized"
+    },
+    {
+      "id": "catalogue",
+      "flow": "onboarding-browse",
+      "label": "Browse — catalogue",
+      "scenario": "Released, complete, tested programs with purpose, frequency and mismatches.",
+      "variants": "localized"
+    },
+    {
+      "id": "preview",
+      "flow": "onboarding-browse",
+      "label": "Browse — review",
+      "scenario": "The common review surface for a catalogue program.",
+      "variants": "localized"
+    },
+    {
+      "id": "setup",
+      "flow": "onboarding-build",
+      "label": "Build 1 — name and days",
+      "scenario": "The build_setup step: program name and day count before the editor opens.",
+      "variants": "localized"
+    },
+    {
+      "id": "editor-empty",
+      "flow": "onboarding-build",
+      "label": "Build — empty days",
+      "scenario": "Real empty day containers, Add exercise, Save draft, activation disabled.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "editor-partial",
+      "flow": "onboarding-build",
+      "label": "Build — partial draft",
+      "scenario": "One populated day and one incomplete day. Activation stays disabled.",
+      "variants": "localized"
+    },
+    {
+      "id": "editor-ready",
+      "flow": "onboarding-build",
+      "label": "Build — activation ready",
+      "scenario": "A complete manual draft with supported progression and activation enabled.",
+      "variants": "localized"
+    },
+    {
+      "id": "source",
+      "flow": "onboarding-import",
+      "label": "Import — source",
+      "scenario": "The bounded supported-file and setup-source surface before any mutation.",
+      "variants": "localized"
+    },
+    {
+      "id": "preview",
+      "flow": "onboarding-import",
+      "label": "Import — review",
+      "scenario": "A mapped exercise with manual progression ownership and provenance.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "gate",
+      "flow": "onboarding-shared",
+      "label": "Shared setup — confirmation gate",
+      "scenario": "The first-run gate for an incoming setup link. Nothing persists until Start.",
+      "variants": "localized"
+    },
+    {
+      "id": "preview",
+      "flow": "onboarding-shared",
+      "label": "Shared setup — review",
+      "scenario": "The editable preview a shared payload lands in before explicit activation.",
+      "variants": "localized"
+    },
+    {
+      "id": "resume",
+      "flow": "onboarding-recovery",
+      "label": "Resume setup",
+      "scenario": "The resumable notice after reload: route, step, recency, Resume, Start over.",
+      "variants": "localized"
+    },
+    {
+      "id": "rules-drift",
+      "flow": "onboarding-recovery",
+      "label": "Rules changed",
+      "scenario": "A draft whose compiler rules are stale. Rebuild is required before activation.",
+      "variants": "localized"
+    },
+    {
+      "id": "ready",
+      "flow": "today",
+      "label": "Today — ready to start",
+      "scenario": "A seeded program on its next scheduled day.",
+      "variants": "standard"
+    },
+    {
+      "id": "day-picker",
+      "flow": "today",
+      "label": "Today — choose another day",
+      "scenario": "The day picker sheet open.",
+      "variants": "standard"
+    },
+    {
+      "id": "done",
+      "flow": "today",
+      "label": "Today — session complete",
+      "scenario": "The state after the day's session is logged.",
+      "variants": "standard"
+    },
+    {
+      "id": "list",
+      "flow": "workout",
+      "label": "Workout — list mode",
+      "scenario": "The default logging surface.",
+      "variants": "standard"
+    },
+    {
+      "id": "focus",
+      "flow": "workout",
+      "label": "Workout — focus mode",
+      "scenario": "One exercise at a time.",
+      "variants": "standard"
+    },
+    {
+      "id": "rest-timer",
+      "flow": "workout",
+      "label": "Workout — rest timer",
+      "scenario": "The rest timer sheet.",
+      "variants": "standard"
+    },
+    {
+      "id": "exercise-note",
+      "flow": "workout",
+      "label": "Workout — exercise note",
+      "scenario": "The per-exercise note sheet.",
+      "variants": "standard"
+    },
+    {
+      "id": "why-this-weight",
+      "flow": "workout",
+      "label": "Workout — why this weight",
+      "scenario": "The recommendation inspector.",
+      "variants": "standard"
+    },
+    {
+      "id": "summary",
+      "flow": "session",
+      "label": "Session summary",
+      "scenario": "The summary shown after Save workout.",
+      "variants": "standard"
+    },
+    {
+      "id": "overview",
+      "flow": "progress",
+      "label": "Progress — overview",
+      "scenario": "The Progress landing tab.",
+      "variants": "standard"
+    },
+    {
+      "id": "exercise-chart",
+      "flow": "progress",
+      "label": "Progress — exercise chart",
+      "scenario": "A single lift's strength chart.",
+      "variants": "standard"
+    },
+    {
+      "id": "strength",
+      "flow": "progress",
+      "label": "Progress — Strength",
+      "scenario": "The Strength sub-tab.",
+      "variants": "standard"
+    },
+    {
+      "id": "volume",
+      "flow": "progress",
+      "label": "Progress — Volume",
+      "scenario": "The Volume sub-tab and its muscle rows.",
+      "variants": "standard"
+    },
+    {
+      "id": "prs",
+      "flow": "progress",
+      "label": "Progress — PRs",
+      "scenario": "The personal-record list.",
+      "variants": "standard"
+    },
+    {
+      "id": "review",
+      "flow": "progress",
+      "label": "Progress — Review",
+      "scenario": "The mesocycle review surface.",
+      "variants": "standard"
+    },
+    {
+      "id": "list",
+      "flow": "history",
+      "label": "History",
+      "scenario": "The logged session list.",
+      "variants": "standard"
+    },
+    {
+      "id": "session",
+      "flow": "history",
+      "label": "History — expanded session",
+      "scenario": "One session expanded in place.",
+      "variants": "standard"
+    },
+    {
+      "id": "list",
+      "flow": "library",
+      "label": "Exercise library",
+      "scenario": "The searchable movement library.",
+      "variants": "standard"
+    },
+    {
+      "id": "exercise-preview",
+      "flow": "library",
+      "label": "Exercise library — preview",
+      "scenario": "An illustrated movement preview.",
+      "variants": "standard"
+    },
+    {
+      "id": "exercise-detail",
+      "flow": "library",
+      "label": "Exercise library — detail",
+      "scenario": "The full movement detail surface.",
+      "variants": "standard"
+    },
+    {
+      "id": "overview",
+      "flow": "program",
+      "label": "Program",
+      "scenario": "The current program and its days.",
+      "variants": "standard"
+    },
+    {
+      "id": "progression-editor",
+      "flow": "program",
+      "label": "Program — editor",
+      "scenario": "The installed program editor, with the first day open.",
+      "variants": "localized"
+    },
+    {
+      "id": "exercise-picker",
+      "flow": "program",
+      "label": "Program — exercise picker",
+      "scenario": "The picker sheet.",
+      "variants": "standard"
+    },
+    {
+      "id": "custom-exercise",
+      "flow": "program",
+      "label": "Program — custom exercise",
+      "scenario": "The custom movement sheet.",
+      "variants": "standard"
+    },
+    {
+      "id": "share-setup",
+      "flow": "program",
+      "label": "Program — share setup link",
+      "scenario": "The setup-link share sheet.",
+      "variants": "standard"
+    },
+    {
+      "id": "text-export",
+      "flow": "program",
+      "label": "Program — text export",
+      "scenario": "The plain-text program export sheet.",
+      "variants": "standard"
+    },
+    {
+      "id": "main",
+      "flow": "settings",
+      "label": "Settings",
+      "scenario": "The settings list.",
+      "variants": "standard"
+    },
+    {
+      "id": "appearance",
+      "flow": "settings",
+      "label": "Settings — Appearance",
+      "scenario": "The appearance/theme row.",
+      "variants": "standard"
+    },
+    {
+      "id": "privacy",
+      "flow": "settings",
+      "label": "Settings — privacy and analytics",
+      "scenario": "The privacy and analytics section.",
+      "variants": "standard"
+    },
+    {
+      "id": "banner",
+      "flow": "install",
+      "label": "Install banner",
+      "scenario": "The install prompt banner.",
+      "variants": "standard"
+    },
+    {
+      "id": "ios-sheet",
+      "flow": "install",
+      "label": "iOS install sheet",
+      "scenario": "The iOS add-to-home-screen instructions.",
+      "variants": "standard"
+    },
+    {
+      "id": "tour",
+      "flow": "install",
+      "label": "Feature tour",
+      "scenario": "The first-session feature tour.",
+      "variants": "standard"
+    }
+  ]
+}

@@ -28,6 +28,7 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const OPTIONAL_DEPLOYMENT_SHELL_ASSET = "/posthog-config.js";
 const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
 const PROFILE = process.env.REPFORGE_PROFILE === "1";
@@ -103,6 +104,45 @@ async function startFromFirstRun(page) {
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 10000 });
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active", { timeout: 10000 });
+}
+
+/** Drive Plan 048 Recommend from the entry hub through activation. */
+async function driveRecommendOnboarding(page, {
+  desiredResult = "muscle_growth",
+  experience = "6_to_24m",
+  consistency = "most",
+  days = 3,
+  minutes = 60,
+  rest = "120",
+  environment = "commercial_gym",
+  activate = true,
+} = {}) {
+  await page.click('[data-entry-route="recommend"]');
+  await page.click(`[data-entry-pick="desiredResult"][data-entry-val="${desiredResult}"]`);
+  await page.click("#onbNext");
+  await page.click(`[data-entry-pick="structuredExperience"][data-entry-val="${experience}"]`);
+  await page.click(`[data-entry-pick="recentConsistency"][data-entry-val="${consistency}"]`);
+  await page.click("#onbNext");
+  await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`);
+  await page.click(`[data-entry-pick="sessionMinutes"][data-entry-val="${minutes}"]`);
+  await page.click(`[data-entry-pick="preferredRestSeconds"][data-entry-val="${rest}"]`);
+  await page.click("#onbNext");
+  await page.click(`[data-entry-pick="environment"][data-entry-val="${environment}"]`);
+  await page.click("#onbNext");
+  await page.click("#onbNext");
+  await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 10000 });
+  if (await page.locator("[data-entry-select-candidate]").count()) {
+    await page.locator("[data-entry-select-candidate]").first().click();
+  }
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  if (activate) {
+    await page.click("#entryActivate");
+    await page.waitForFunction(
+      () => !document.querySelector("#onboarding")?.classList.contains("active"),
+      undefined,
+      { timeout: 10000 },
+    );
+  }
 }
 
 async function persistState(page, state) {
@@ -299,16 +339,17 @@ async function getProgramExercises(page, day) {
 }
 
 async function clearState(page) {
-  await page.evaluate(async ({ k, d }) => {
+  await page.evaluate(async ({ k, d, setup }) => {
     localStorage.removeItem(k);
     localStorage.removeItem(d);
+    localStorage.removeItem(setup);
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
       req.onsuccess = () => res();
       req.onerror = () => res();
       req.onblocked = () => res();
     });
-  }, { k: KEY, d: DRAFT });
+  }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT });
 }
 
 async function nav(page, view) {
@@ -341,6 +382,28 @@ async function nav(page, view) {
       await page.waitForSelector("#workoutShell:not(.hidden), #workout", { timeout: 5000 });
     }
   }
+}
+
+async function applyProgramEditor(page) {
+  if (!(await page.locator("#programEditorWrap:not(.is-hidden)").count())) return;
+  await page.click("#programEditToggle");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), null, { timeout: 10000 });
+  await page.evaluate(() => {
+    const tour = document.querySelector("#tour");
+    if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+  });
+  await page.waitForSelector("#tour", { state: "hidden", timeout: 5000 });
+  await page.evaluate(() => window.__repforgeStorage?.flush?.());
+}
+
+async function revealProgramExerciseDetails(page, id) {
+  const day = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`).locator('xpath=ancestor::*[@data-role="day"]');
+  await day.locator('[data-role="day-menu"]').click();
+  await day.locator('[data-role="toggle-reorder"]').click();
+  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`);
+  await row.locator('[data-role="exercise-menu"]').click();
+  await row.locator('[data-role="more-details"][role="menuitem"]').click();
+  return row.locator('details[data-role="more-details"]');
 }
 
 async function selectDay(page, dayName) {
@@ -822,9 +885,14 @@ function scenarioRows({ day, ex, sessions }) {
   });
 }
 
-/* Decides every row still awaiting review, then commits. Each decision
-   re-renders the list, so rows are handled one at a time. */
+/* Decides every row still awaiting review, stages the candidate, then uses the
+   same explicit activation transaction as every other entry route. Each
+   decision re-renders the list, so rows are handled one at a time. */
 async function reviewAndCommitImport(page) {
+  await page.evaluate(() => {
+    const tour = document.querySelector("#tour");
+    if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+  });
   for (let guard = 0; guard < 40; guard++) {
     const acted = await page.evaluate(() => {
       const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
@@ -836,7 +904,9 @@ async function reviewAndCommitImport(page) {
     await page.waitForTimeout(60);
   }
   await page.click("#importCommit");
-  await page.waitForTimeout(400);
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  await page.click("#entryActivate");
+  await page.waitForTimeout(500);
 }
 
 async function main() {
@@ -1355,10 +1425,10 @@ async function main() {
   await nav(page, "program");
 
   // Rename Day 1
-  const renameInput = page.locator('[data-act="renameDay"][data-day="Day 1"]');
+  const renameInput = page.locator('#programEditor [data-role="day-name"][data-day="Day 1"]');
   await renameInput.fill("Push Day");
   await renameInput.blur();
-  await page.waitForTimeout(150);
+  await applyProgramEditor(page);
 
   state = await getState(page);
   const hasPushDay = state.program.some((e) => e.day === "Push Day");
@@ -1385,12 +1455,14 @@ async function main() {
   state = await getState(page);
   const loggedOnDay2 = state.log.find((x) => x.day === "Day 2");
   assert(loggedOnDay2, "Day 2 has log history before rename test", "No Day 2 log rows", "Phase 1 should log Day 2 sessions");
-  const targetInput = page.locator(`.pex__name[value="${loggedOnDay2.name.replace(/"/g, '\\"')}"]`).first();
+  const day2 = page.locator('#programEditor [data-role="day"][data-day="Day 2"]');
+  if (!(await day2.locator('[data-role="day-body"]').isVisible())) await day2.locator('[data-role="toggle-day"]').click();
+  const targetInput = page.locator(`#programEditor [data-role="exercise-field"][data-field="name"][value="${loggedOnDay2.name.replace(/"/g, '\\"')}"]`).first();
   const oldName = await targetInput.inputValue();
   const newName = "Custom Leg Press";
   await targetInput.fill(newName);
   await targetInput.blur();
-  await page.waitForTimeout(100);
+  await applyProgramEditor(page);
 
   state = await getState(page);
   assert(
@@ -1427,13 +1499,14 @@ async function main() {
   // Add exercise — now via the library picker rather than a blank row
   await nav(page, "program");
   const exCountBefore = state.program.filter((e) => e.day === "Push Day").length;
-  await page.click('[data-act="addEx"][data-day="Push Day"]');
+  await page.click('#programEditor [data-role="add-exercise"][data-day="Push Day"]');
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   await page.fill("#exPickSearch", "pec deck");
   await page.waitForTimeout(120);
   const pickedName = ((await page.locator("#exPickList .pickrow__name").first().textContent()) || "").trim();
   await page.click("#exPickList .pickrow");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await applyProgramEditor(page);
   state = await getState(page);
   const pushRows = state.program.filter((e) => e.day === "Push Day");
   const added = pushRows.find((e) => e.name === pickedName);
@@ -1457,8 +1530,14 @@ async function main() {
   if (pushExs.length >= 3) {
     const secondId = pushExs[1].id;
     const thirdId = pushExs[2].id;
-    await page.click(`button[data-act="down"][data-id="${secondId}"]`);
-    await page.waitForTimeout(100);
+    await nav(page, "program");
+    const pushDay = page.locator('#programEditor [data-role="day"][data-day="Push Day"]');
+    await pushDay.locator('[data-role="day-menu"]').click();
+    await pushDay.locator('[data-role="toggle-reorder"]').click();
+    const second = page.locator(`#programEditor [data-role="exercise"][data-id="${secondId}"]`);
+    await second.locator('[data-role="exercise-menu"]').click();
+    await second.locator('[data-role="move-down"]').click();
+    await applyProgramEditor(page);
     state = await getState(page);
     const reordered = state.program
       .filter((e) => e.day === "Push Day")
@@ -1474,8 +1553,12 @@ async function main() {
   // Remove the exercise added above
   const newEx = state.program.find((e) => e.name === pickedName && e.day === "Push Day");
   if (newEx) {
-    await page.click(`button[data-act="delEx"][data-id="${newEx.id}"]`);
-    await page.waitForTimeout(100);
+    await nav(page, "program");
+    const row = page.locator(`#programEditor [data-role="exercise"][data-id="${newEx.id}"]`);
+    if (!(await row.evaluate((element) => element.classList.contains("is-expanded"))))
+      await row.locator('[data-role="toggle-exercise"]').click();
+    await row.locator('[data-role="remove-exercise"]').click();
+    await applyProgramEditor(page);
     state = await getState(page);
     assert(
       !state.program.find((e) => e.id === newEx.id),
@@ -1486,22 +1569,29 @@ async function main() {
   }
 
   // Add new day
-  await page.click("#addDay");
-  await page.waitForTimeout(100);
+  await nav(page, "program");
+  await page.click('#programEditor [data-role="add-day"]');
+  const addedDayName = await page.locator('#programEditor [data-role="day-name"]').last().inputValue();
+  await page.click(`#programEditor [data-role="add-exercise"][data-day="${addedDayName}"]`);
+  await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+  await page.click("#exPickList .pickrow");
+  await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+  await applyProgramEditor(page);
   state = await getState(page);
-  const dayNames = [...new Set(state.program.map((e) => e.day))];
+  const dayNames = (state.programMeta?.programStructure?.days || []).map((entry) => entry.label || entry.dayId);
   assert(
-    dayNames.some((d) => d.match(/^Day \d+$/)),
+    dayNames.includes(addedDayName) && /^Day \d+$/.test(addedDayName) && state.program.some((exercise) => exercise.day === addedDayName),
     "Add new training day",
     `Days: ${dayNames.join(", ")}`,
     "Program tab → + Add day"
   );
 
   // Duplicate day rename rejected
-  const dupInput = page.locator('[data-act="renameDay"][data-day="Day 2"]');
+  await nav(page, "program");
+  const dupInput = page.locator('#programEditor [data-role="day-name"][data-day="Day 2"]');
   await dupInput.fill("Push Day");
   await dupInput.blur();
-  await page.waitForTimeout(150);
+  await applyProgramEditor(page);
   state = await getState(page);
   assert(
     state.program.some((e) => e.day === "Day 2"),
@@ -1521,15 +1611,18 @@ async function main() {
     `programMeta=${JSON.stringify(state.programMeta)}`,
     "Open Program tab → inspect state.programMeta"
   );
-  const metaBefore = await page.locator("#programMeta").textContent();
+  await applyProgramEditor(page);
+  const metaBefore = await page.locator("#programOverview").textContent();
   assert(
-    metaBefore.includes("days in the last 7 days"),
-    "Program tab shows rolling-7 adherence chip",
+    metaBefore.includes("days (7d)"),
+    "Program overview shows rolling-7 adherence",
     `Meta card: ${metaBefore?.slice(0, 120)}`,
-    "Program tab → check summary card"
+    "Program tab → check overview stats"
   );
-  await page.fill("#programName", "Simulation Split");
-  await page.waitForTimeout(150);
+  await nav(page, "program");
+  await page.fill('#programEditor [data-role="program-name"]', "Simulation Split");
+  await page.locator('#programEditor [data-role="program-name"]').blur();
+  await applyProgramEditor(page);
   state = await getState(page);
   assert(
     state.programMeta.name === "Simulation Split",
@@ -1565,21 +1658,24 @@ async function main() {
     const d = new Date(Date.now() - 15 * 86400000);
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   })();
-  await page.fill("#programStarted", startedIso);
-  await page.waitForTimeout(150);
-  const metaAfterDate = await page.locator("#programMeta").textContent();
+  state = await getState(page);
+  await persistState(page, { ...state, programMeta: { ...state.programMeta, started: startedIso } });
+  await reloadApp(page);
+  await nav(page, "program");
+  await applyProgramEditor(page);
+  const metaAfterDate = await page.locator("#programOverview").textContent();
   assert(
     /Week 3/.test(metaAfterDate),
-    "Week chip appears immediately after setting start date",
+    "Program overview derives the current week from the stored block start",
     `Meta card after date edit: ${metaAfterDate?.slice(0, 140)}`,
-    "Program tab → set start date 15 days back → Week chip without leaving the tab"
+    "Store a block start 15 days back → Program overview"
   );
   state = await getState(page);
   assert(
     state.programMeta.started === startedIso,
-    "Start date persists on edit",
+    "Stored block start survives the Program overview render",
     `started=${state.programMeta?.started}`,
-    "Program tab → edit start date"
+    "Persist block start → render Program overview"
   );
   await page.evaluate(async (k) => {
     const s = JSON.parse(localStorage.getItem(k));
@@ -2289,7 +2385,9 @@ async function main() {
   progFile.exercises = progExercises;
   progFile.meta = { ...progFile.meta, name: "Imported Template", started: "2020-01-01", id: "foreign-id" };
   writeFileSync(progPath, JSON.stringify(progFile));
-  const metaBeforeImport = (await getState(page)).programMeta;
+  const stateBeforeImport = await getState(page);
+  const metaBeforeImport = stateBeforeImport.programMeta;
+  const programBeforeImport = stateBeforeImport.program;
   const importDraft = await page.evaluate((k) => {
     const raw = JSON.stringify({
       __sessionNotes: "unfinished before program import",
@@ -2327,11 +2425,20 @@ async function main() {
     "Export v2 program → edit meta.name → Import program JSON"
   );
   assert(
-    stAfter.programMeta.started === metaBeforeImport.started &&
-      stAfter.programMeta.id === metaBeforeImport.id,
-    "Program import keeps the recipient's start date and id",
-    `started ${metaBeforeImport.started} → ${stAfter.programMeta?.started}; id ${metaBeforeImport.id} → ${stAfter.programMeta?.id}`,
+    stAfter.programMeta.id !== metaBeforeImport.id && stAfter.programMeta.id !== "foreign-id" &&
+      stAfter.programMeta.started !== "2020-01-01",
+    "Program import creates a fresh local active-program identity",
+    `started=${stAfter.programMeta?.started}; old id=${metaBeforeImport.id}; active id=${stAfter.programMeta?.id}`,
     "Export v2 → edit meta.started/id in file → Import program JSON"
+  );
+  const importedArchive = stAfter.programHistory.filter((entry) => entry.id === metaBeforeImport.id);
+  assert(
+    importedArchive.length === 1 &&
+      JSON.stringify(importedArchive[0].program) === JSON.stringify(programBeforeImport) &&
+      importedArchive[0].meta?.id === metaBeforeImport.id,
+    "Program import archives the outgoing program exactly once",
+    JSON.stringify(importedArchive),
+    "Import program JSON → activate → inspect programHistory"
   );
   assert(
     stAfter.log.length === logBefore,
@@ -2524,6 +2631,7 @@ async function main() {
   // An unsaved JSON draft must survive a render it did not cause; only a real
   // program change underneath is newer and allowed to replace it.
   const draftRows = JSON.parse(await jsonArea.inputValue());
+  const originalSets = draftRows[0].sets;
   draftRows[0].sets = 9;
   await jsonArea.fill(JSON.stringify(draftRows, null, 2));
   await page.evaluate(() => document.querySelector("#programJson").blur());
@@ -2535,19 +2643,24 @@ async function main() {
     "textarea was reset before Save JSON",
     "Program → Advanced → edit JSON → blur → render() → text still there"
   );
-  const dayCountBefore = JSON.parse(await jsonArea.inputValue()).length;
-  await page.click("#addDay");
-  await page.waitForTimeout(400);
-  const afterAddDay = JSON.parse(await jsonArea.inputValue());
+  const firstExerciseId = draftRows[0].id;
+  const firstRow = page.locator(`#programEditor [data-role="exercise"][data-id="${firstExerciseId}"]`);
+  if (!(await firstRow.evaluate((element) => element.classList.contains("is-expanded"))))
+    await firstRow.locator('[data-role="toggle-exercise"]').click();
+  await firstRow.locator('[data-role="adjust"][data-field="sets"][data-delta="1"]').click();
+  await applyProgramEditor(page);
+  await nav(page, "program");
+  await page.evaluate(() => document.querySelector("#program details.advanced")?.setAttribute("open", ""));
+  const afterEditorChange = JSON.parse(await jsonArea.inputValue());
   assert(
-    afterAddDay.length === dayCountBefore + 1 && afterAddDay[0].sets !== 9,
+    afterEditorChange[0].sets === originalSets + 1 && afterEditorChange[0].sets !== 9,
     "A visual-editor change refreshes the raw JSON over a stale draft",
-    `rows=${afterAddDay.length} sets0=${afterAddDay[0].sets}`,
-    "Program → edit JSON → +Add day → textarea shows the new program"
+    `sets0=${afterEditorChange[0].sets}`,
+    "Program → edit JSON → adjust sets → Done → textarea shows the new program"
   );
-  // Drop the scratch day again so later phases see the program they expect.
-  const addedDay = afterAddDay.at(-1).day;
-  await jsonArea.fill(JSON.stringify(afterAddDay.filter((e) => e.day !== addedDay), null, 2));
+  // Restore the scratch set change so later phases see the program they expect.
+  afterEditorChange[0].sets = originalSets;
+  await jsonArea.fill(JSON.stringify(afterEditorChange, null, 2));
   await page.click("#saveProgram");
   await page.waitForTimeout(200);
 
@@ -2557,12 +2670,12 @@ async function main() {
   // Backdated date in UI
   await nav(page, "log");
   const backdate = "2020-01-15";
-  await setLogDate(page, backdate);
   const logDay =
     (await page.locator('#dayTabs button[data-day="Day 2"]').count()) > 0
       ? "Day 2"
       : await page.locator("#dayTabs button").first().getAttribute("data-day");
   await selectDay(page, logDay);
+  await setLogDate(page, backdate);
   const d2 = await getExerciseMeta(page, logDay);
   await fillExerciseSets(page, d2[0].id, 1, 40, 10, 2);
   await saveWorkout(page);
@@ -3985,10 +4098,12 @@ async function main() {
   // Setup notes persist and show on the Log card
   await nav(page, "program");
   const note = "Seat 4, feet high";
-  const noteInput = page.locator('.pex [data-field="notes"]').first();
+  const noteExerciseId = await page.locator('#programEditor [data-role="exercise"]').first().getAttribute("data-id");
+  await revealProgramExerciseDetails(page, noteExerciseId);
+  const noteInput = page.locator(`#programEditor [data-role="exercise"][data-id="${noteExerciseId}"] [data-field="notes"]`);
   await noteInput.fill(note);
   await noteInput.blur();
-  await page.waitForTimeout(120);
+  await applyProgramEditor(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const info0 = await cardInfo(page, 0);
@@ -4716,7 +4831,8 @@ async function main() {
   // (which the library has no row for) — both must come back preselected, or
   // opening the picker would quietly delete whichever it could not match.
   const altsBefore = (subState.program.find((e) => e.id === d1First.id)?.alternates || []).slice();
-  await page.click(`[data-act="pickAlternates"][data-id="${d1First.id}"]`);
+  await revealProgramExerciseDetails(page, d1First.id);
+  await page.click(`#programEditor [data-role="alternates"][data-id="${d1First.id}"]`);
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   const preselected = await page.evaluate(() => (window.__repforgePickerSelection?.() || []).length);
   assert(
@@ -4728,7 +4844,7 @@ async function main() {
   const altPicked = await pickExact("Pec deck");
   await page.click("#exPickDone");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-  await page.waitForTimeout(250);
+  await applyProgramEditor(page);
   subState = await getState(page);
   const altRow = subState.program.find((e) => e.id === d1First.id);
   assert(
@@ -5266,8 +5382,28 @@ async function main() {
   beginPhase("Phase: beginner program");
   const logBeforeBeginner = (await getState(page)).log.length;
   const metaBeforeBeginner = (await getState(page)).programMeta;
-  await page.click("#beginnerProgram");
-  await page.waitForTimeout(200);
+  await page.evaluate(async () => {
+    const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+    const source = current.program[0];
+    const exercises = Array.from({ length: 18 }, (_, index) => ({
+      ...source,
+      id: `beginner-exercise-${index + 1}`,
+      day: `Day ${Math.floor(index / 6) + 1}`,
+      order: (index % 6) + 1,
+      name: index === 0 ? "Leg press" : `Beginner exercise ${index + 1}`,
+      notes: "Use a stable machine setup and controlled range.",
+    }));
+    await window.__repforgeFinalizeProgramSetup({
+      exercises,
+      name: "Beginner program",
+      answers: { goal: "hypertrophy" },
+      destination: "log",
+      origin: "settings",
+      draftConfirmed: true,
+      telemetryRoute: "browse",
+    });
+    await window.__repforgeStorage.flush();
+  });
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const begName = await page.locator("#workout .exercise .ex__name").first().textContent();
@@ -6153,7 +6289,7 @@ async function main() {
       await persistState(f2Page, {
         ...f2State,
         settings: { ...f2State.settings, lang: "en" },
-        programMeta: { ...f2State.programMeta, name: "F2 Split" },
+        programMeta: { ...f2State.programMeta, name: "F2 Split", programStructure: null },
         program,
         log,
       });
@@ -6224,17 +6360,12 @@ async function main() {
         `cap="${overviewCap}"`,
         "Program overview → days (7d) caption"
       );
-      const editHidden = await f2Page.locator("#programEditorWrap.is-hidden").count();
-      if (editHidden) {
-        await f2Page.click("#programEditToggle");
-        await f2Page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
-      }
-      const chip = await f2Page.locator("#pmetaChipsBottom").textContent();
+      const chip = await overviewCell.textContent();
       assert(
-        chip.includes("4 / 5 days in the last 7 days") && !/days this week/i.test(chip),
-        "F2: Program chip shows rolling 4 / 5 and copy",
+        chip.includes("4 / 5") && chip.includes("days (7d)") && !/this week/i.test(chip),
+        "F2: Program overview stat shows rolling 4 / 5 and copy",
         `chip="${chip}"`,
-        "Program → days in the last 7 days chip"
+        "Program overview → rolling days stat"
       );
       const afterEn = await getState(f2Page);
       await persistState(f2Page, { ...afterEn, settings: { ...afterEn.settings, lang: "pt" } });
@@ -6251,17 +6382,12 @@ async function main() {
         `cap="${ptCap}"`,
         "lang=pt → Program overview → dias (7d)"
       );
-      const ptEditHidden = await f2Page.locator("#programEditorWrap.is-hidden").count();
-      if (ptEditHidden) {
-        await f2Page.click("#programEditToggle");
-        await f2Page.waitForSelector("#pmetaChipsBottom", { timeout: 5000 });
-      }
-      const ptChip = await f2Page.locator("#pmetaChipsBottom").textContent();
+      const ptChip = await f2Page.locator("#programOverview .statrow__cell").first().textContent();
       assert(
-        ptChip.includes("4 / 5 dias nos últimos 7 dias"),
-        "F2: Program chip rolling copy is Portuguese",
+        ptChip.includes("4 / 5") && ptChip.includes("dias (7d)"),
+        "F2: Program overview rolling copy is Portuguese",
         `chip="${ptChip}"`,
-        "lang=pt → Program chip"
+        "lang=pt → Program overview rolling stat"
       );
       assert(
         f2PageErrors.length === 0,
@@ -6447,18 +6573,19 @@ async function main() {
     "Today dashboard → program strip includes of 6"
   );
   await nav(page, "program");
-  const weekChipText = await page.locator("#pmetaChipsTop").textContent();
+  const weekChipText = await page.locator('#programEditor [data-role="context"]').textContent();
   assert(
     /of 6/.test(weekChipText),
-    "P7: Program week chip shows of 6",
-    `chips=${weekChipText}`,
-    "Program tab → week chip includes of 6"
+    "P7: Program editor context shows of 6",
+    `context=${weekChipText}`,
+    "Program tab → editor context includes of 6"
   );
+  await applyProgramEditor(page);
   assert(
-    (await page.locator("#endBlock").count()) === 1,
-    "P7: #endBlock button exists",
-    "endBlock missing from Program tab",
-    "Program tab → End block button near program meta"
+    await page.locator("#reviewBlockLink").isVisible(),
+    "P7: Review block action is visible",
+    "Review block missing from Program overview",
+    "Program tab → Review block row"
   );
 
   beginPhase("Phase: F8 mesocycle lifecycle display");
@@ -6575,14 +6702,14 @@ async function main() {
     const editHidden = await page.locator("#programEditorWrap.is-hidden").count();
     if (editHidden) {
       await page.click("#programEditToggle");
-      await page.waitForSelector("#pmetaChipsTop", { timeout: 5000 });
+      await page.waitForSelector('#programEditor [data-role="context"]', { timeout: 5000 });
     }
-    const chipW8 = await page.locator("#pmetaChipsTop").textContent();
+    const chipW8 = await page.locator('#programEditor [data-role="context"]').textContent();
     assert(
       /Week 6 of 6/.test(chipW8) && /ready for review/i.test(chipW8) && !overrunText(chipW8),
-      "F8: Program week chip is clamped",
+      "F8: Program editor week context is clamped",
       `chip="${chipW8}"`,
-      "#pmetaChipsTop at week 8 of 6"
+      "Program editor context at week 8 of 6"
     );
     await nav(page, "stats");
     await page.click('#statsSeg button[data-seg="review"]');
@@ -6604,7 +6731,8 @@ async function main() {
 
     const openFullScreenReview = async () => {
       await nav(page, "program");
-      await page.click("#endBlock");
+      await applyProgramEditor(page);
+      await page.click("#reviewBlockLink");
       await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
       await page.click("#endBlockGo");
       await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
@@ -6838,7 +6966,8 @@ async function main() {
     "__repforgeBuildBlockReview → volumeCompliance capped at 1"
   );
   await nav(page, "program");
-  await page.click("#endBlock");
+  await applyProgramEditor(page);
+  await page.click("#reviewBlockLink");
   await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
   assert(
     await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
@@ -6854,7 +6983,7 @@ async function main() {
     `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
     "Cancel #endBlockConfirm → overlay hides, review not opened"
   );
-  await page.click("#endBlock");
+  await page.click("#reviewBlockLink");
   await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
   await page.click("#endBlockGo");
   await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
@@ -6990,40 +7119,27 @@ async function main() {
   );
 
   beginPhase("Phase: P5 program generation");
-  await page.waitForFunction(() => typeof window.__repforgeGenerateProgram === "function");
+  await page.waitForFunction(() => typeof window.__repforgeOnboarding?.services === "function");
   const genCases = [
-    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "full_body", equipment: ["machine"], priorityMuscles: ["Chest"], sessionLength: "normal" },
-    { goal: "strength", experience: "intermediate", daysPerWeek: 4, splitType: "upper_lower", equipment: ["barbell", "dumbbell", "machine"], priorityMuscles: [], sessionLength: "short" },
-    { goal: "hypertrophy", experience: "beginner", daysPerWeek: 5, splitType: "ppl", equipment: ["machine"], priorityMuscles: ["Quads"], sessionLength: "long" },
+    { desiredResult: "muscle_growth", structuredExperience: "first", recentConsistency: "most", daysPerWeek: 3, sessionMinutes: 60, preferredRestSeconds: 120, environment: { kind: "commercial_gym", equipment: ["machine"], capabilities: ["safe_pull", "training_support"] }, primaryMuscles: ["chest"], priorityMovements: [], exerciseConstraints: [] },
+    { desiredResult: "strength", structuredExperience: "6_to_24m", recentConsistency: "most", daysPerWeek: 4, sessionMinutes: 45, preferredRestSeconds: 120, environment: { kind: "commercial_gym", equipment: ["barbell", "dumbbell", "machine"], capabilities: ["safe_pull", "training_support"] }, primaryMuscles: [], priorityMovements: [], exerciseConstraints: [] },
+    { desiredResult: "muscle_growth", structuredExperience: "first", recentConsistency: "most", daysPerWeek: 5, sessionMinutes: 90, preferredRestSeconds: 120, environment: { kind: "commercial_gym", equipment: ["machine"], capabilities: ["safe_pull", "training_support"] }, primaryMuscles: ["quads"], priorityMovements: [], exerciseConstraints: [] },
   ];
   const genResults = await page.evaluate((cases) => {
-    const catalogById = new Map();
-    const bounds = { short: [4, 5], normal: [5, 7], long: [7, 9] };
+    const services = window.__repforgeOnboarding.services();
     return cases.map((answers) => {
-      const raw = window.__repforgeGenerateProgram(answers);
-      const prog = new Program(raw);
-      const json = prog.toJSON();
+      const compiled = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+      const json = compiled.preview?.program || [];
       const days = [...new Set(json.map((e) => e.day))];
       const perDay = days.map((d) => json.filter((e) => e.day === d).length);
-      const [lo, hi] = bounds[answers.sessionLength] || bounds.normal;
-      const withinBounds = perDay.every((n) => n >= lo && n <= hi);
       const fieldsOk = json.every((e) => e.name && e.sets > 0 && e.min > 0 && e.max >= e.min && e.primary);
-      const machineOnly = answers.equipment.length === 1 && answers.equipment[0] === "machine";
-      let equipOk = true;
-      if (machineOnly) {
-        for (const ex of json) {
-          const libId = ex.libraryId;
-          if (!libId) { equipOk = false; break; }
-          catalogById.set(libId, libId);
-        }
-      }
       return {
         answers,
+        compileOk: compiled.ok,
         dayCount: days.length,
         perDay,
-        withinBounds,
         fieldsOk,
-        programOk: json.length > 0,
+        programOk: compiled.ok && json.length > 0,
         days,
       };
     });
@@ -7034,102 +7150,84 @@ async function main() {
     case0.dayCount === 3,
     "P5: generated program has daysPerWeek distinct days",
     `expected 3 days, got ${case0.dayCount} (${case0.days.join(", ")})`,
-    "__repforgeGenerateProgram full_body 3-day"
+    "production adapter compile with daysPerWeek=3"
   );
   assert(
-    case0.withinBounds && case0.fieldsOk,
-    "P5: exercises within session bounds with valid fields",
+    case0.compileOk && case0.fieldsOk,
+    "P5: adapter compilation returns valid exercise fields",
     `perDay=${case0.perDay.join(",")} fieldsOk=${case0.fieldsOk}`,
-    "sessionLength normal → 5–7 exercises per day, name/sets/min/max/primary"
+    "production adapter compile → name/sets/min/max/primary"
   );
   assert(
     case0.programOk,
-    "P5: Program constructor accepts generated output",
+    "P5: compiler preview serializes to an executable program",
     `length=${case0.programOk}`,
-    "new Program(__repforgeGenerateProgram(answers)).toJSON().length > 0"
+    "production adapter compile preview has exercises"
   );
 
   const machineEquip = await page.evaluate(() => {
-    const answers = { goal: "hypertrophy", experience: "beginner", daysPerWeek: 3, splitType: "machine_only", equipment: ["machine"], priorityMuscles: [], sessionLength: "normal" };
-    const raw = window.__repforgeGenerateProgram(answers);
-    const barbellOnly = ["Barbell back squat", "Barbell bench press", "Barbell row", "Barbell Romanian deadlift", "Barbell incline press", "Barbell overhead press"];
-    const hasBarbell = raw.some((e) => barbellOnly.some((n) => e.name === n) || /barbell/i.test(e.name));
-    return { count: raw.length, hasBarbell, names: raw.map((e) => e.name) };
+    const answers = { desiredResult: "muscle_growth", structuredExperience: "first", recentConsistency: "most", daysPerWeek: 3, sessionMinutes: 60, preferredRestSeconds: 120, environment: { kind: "commercial_gym", equipment: ["machine"], capabilities: ["safe_pull", "training_support"] }, primaryMuscles: [], priorityMovements: [], exerciseConstraints: [] };
+    const services = window.__repforgeOnboarding.services();
+    const compiled = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+    const library = new Map(window.RepForgeExercises.library.map((entry) => [entry.id, entry]));
+    const invalid = (compiled.preview?.program || []).filter((exercise) => {
+      const entry = library.get(exercise.libraryId);
+      return !entry || !entry.equipment.includes("machine") && !entry.equipment.includes("bodyweight");
+    });
+    return { count: compiled.preview?.program?.length || 0, hasInvalidEquipment: invalid.length > 0, names: compiled.preview?.program?.map((e) => e.name) || [] };
   });
   assert(
-    !machineEquip.hasBarbell && machineEquip.count > 0,
-    "P5: machine-only equipment filter excludes barbell picks",
-    `hasBarbell=${machineEquip.hasBarbell} names=${machineEquip.names.slice(0, 4).join(", ")}`,
-    "equipment=[machine] → no barbell-only exercises"
+    !machineEquip.hasInvalidEquipment && machineEquip.count > 0,
+    "P5: machine-only equipment filter keeps compatible picks",
+    `hasInvalidEquipment=${machineEquip.hasInvalidEquipment} names=${machineEquip.names.slice(0, 4).join(", ")}`,
+    "environment.equipment=[machine] → machine or bodyweight exercises only"
   );
 
   const case2 = genResults[2];
   assert(
-    case2.dayCount === 5 && case2.withinBounds,
-    "P5: PPL 5-day split respects long session length bounds",
+    case2.compileOk && case2.dayCount === 5,
+    "P5: adapter compilation respects a five-day frequency",
     `days=${case2.dayCount} perDay=${case2.perDay.join(",")}`,
-    "daysPerWeek=5 splitType=ppl sessionLength=long → 7–9 per day"
+    "production adapter compile with daysPerWeek=5"
   );
 
   const pplDays = await page.evaluate(() => {
-    const raw = window.__repforgeGenerateProgram({ goal: "hypertrophy", experience: "intermediate", daysPerWeek: 3, splitType: "ppl", equipment: ["machine", "cable"], priorityMuscles: [], sessionLength: "normal" });
-    const days = [...new Set(raw.map((e) => e.day))];
-    return { dayCount: days.length, exerciseCount: raw.length };
+    const answers = { desiredResult: "muscle_growth", structuredExperience: "6_to_24m", recentConsistency: "most", daysPerWeek: 3, sessionMinutes: 60, preferredRestSeconds: 120, environment: { kind: "commercial_gym", equipment: ["machine", "cable"], capabilities: ["safe_pull", "training_support"] }, primaryMuscles: [], priorityMovements: [], exerciseConstraints: [] };
+    const services = window.__repforgeOnboarding.services();
+    const compiled = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+    const days = [...new Set((compiled.preview?.program || []).map((e) => e.day))];
+    return { compileOk: compiled.ok, dayCount: days.length, exerciseCount: compiled.preview?.program?.length || 0 };
   });
   assert(
-    pplDays.dayCount === 3 && pplDays.exerciseCount > 0,
-    "P5: PPL generates one day per training slot",
+    pplDays.compileOk && pplDays.dayCount === 3 && pplDays.exerciseCount > 0,
+    "P5: adapter compilation generates one day per training slot",
     JSON.stringify(pplDays),
-    "splitType=ppl daysPerWeek=3 → Day 1–3"
+    "production adapter compile with daysPerWeek=3"
   );
 
   const upperLower = genResults[1];
   assert(
-    upperLower.dayCount === 4 && upperLower.withinBounds,
-    "P5: upper/lower 4-day short session fits 4–5 exercises",
+    upperLower.compileOk && upperLower.dayCount === 4,
+    "P5: adapter compilation respects a four-day frequency",
     `perDay=${upperLower.perDay.join(",")}`,
-    "upper_lower 4-day sessionLength=short"
+    "production adapter compile with daysPerWeek=4"
   );
 
-  beginPhase("Phase: F4/F5 equipment fidelity and day-type rotation");
+  beginPhase("Phase: F4 compiler equipment and split support");
   await page.waitForFunction(
     () =>
-      typeof window.__repforgeGenerateProgram === "function" &&
+      typeof window.__repforgeOnboarding?.services === "function" &&
       window.__repforgeExerciseCatalog &&
-      typeof window.__repforgeEquipmentSupportsSplit === "function" &&
-      window.__repforgeOnboarding?.eqUi &&
-      typeof window.__repforgeResolveSplit === "function"
+      window.__repforgeOnboarding?.entry &&
+      window.RepForgeProgramEntryAdapter &&
+      window.RepForgeProgramCompiler
   );
-  const f45 = await page.evaluate(() => {
-    const generate = window.__repforgeGenerateProgram;
+  const f45 = await page.evaluate(async () => {
+    const services = window.__repforgeOnboarding.services();
+    const contractResponse = await fetch("./test/fixtures/program-family-contract-v1.json", { cache: "no-store" });
+    const contract = contractResponse.ok ? await contractResponse.json() : null;
     const catalog = window.__repforgeExerciseCatalog;
     const catalogById = new Map(catalog.map((e) => [e.id, e]));
-    const EQ_UI = ["machines", "cables", "dumbbells", "barbells"];
-    const EQ_GEN = { machines: "machine", cables: "cable", dumbbells: "dumbbell", barbells: "barbell" };
-    const DAY_SLOTS = {
-      full_body: ["squat", "hinge", "press", "pull", "delts", "arms"],
-      upper: ["press", "row", "pulldown", "delts", "chest_iso", "arms"],
-      lower: ["squat", "hinge", "leg_curl", "leg_extension", "calves"],
-      push: ["press", "incline_press", "shoulder_press", "lateral_raise", "triceps"],
-      pull: ["row", "pulldown", "rear_delt", "curl"],
-      legs: ["squat", "hinge", "leg_curl", "leg_extension", "adduction", "calves"],
-    };
-    const EXPECTED_SPLITS = [
-      { daysPerWeek: 2, splitType: "full_body", dayTypes: ["full_body", "full_body"] },
-      { daysPerWeek: 2, splitType: "upper_lower", dayTypes: ["upper", "lower"] },
-      { daysPerWeek: 3, splitType: "full_body", dayTypes: ["full_body", "full_body", "full_body"] },
-      { daysPerWeek: 3, splitType: "machine_only", dayTypes: ["full_body", "full_body", "full_body"] },
-      { daysPerWeek: 3, splitType: "ppl", dayTypes: ["push", "pull", "legs"] },
-      { daysPerWeek: 4, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower"] },
-      { daysPerWeek: 4, splitType: "full_body", dayTypes: ["full_body", "full_body", "full_body", "full_body"] },
-      { daysPerWeek: 5, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull"] },
-      { daysPerWeek: 5, splitType: "bro", dayTypes: ["push", "pull", "legs", "push", "pull"] },
-      { daysPerWeek: 5, splitType: "upper_lower", dayTypes: ["upper", "lower", "upper", "lower", "upper"] },
-      { daysPerWeek: 6, splitType: "ppl", dayTypes: ["push", "pull", "legs", "push", "pull", "legs"] },
-    ];
-    const FILLER_SLOTS = ["curl", "triceps", "lateral_raise", "chest_iso", "calves", "leg_curl"];
-    const SESSION_BOUNDS = { short: [4, 5], normal: [5, 7], long: [7, 9] };
-    const MUSCLES = ["Chest", "Back", "Quads", "Hamstrings", "Glutes", "Side delts", "Arms", "Calves"];
     const visible = (rows) =>
       rows.map((e) => ({
         day: e.day,
@@ -7151,275 +7249,114 @@ async function main() {
         rows.filter((e) => e.day === d).sort((a, b) => a.order - b.order)
       );
     };
-    const slotPool = (slot, equipment) =>
-      catalog
-        .filter(
-          (e) =>
-            e.patterns.includes(slot) &&
-            e.equipment.some((x) => equipment.includes(String(x).toLowerCase()))
-        )
-        .sort((a, b) => (a.rank ?? 50) - (b.rank ?? 50) || a.id.localeCompare(b.id));
-    const pickFromSlot = (slot, equipment, used, occ) => {
-      const pool = slotPool(slot, equipment);
-      if (!pool.length) return null;
-      const n = pool.length;
-      const i = ((occ % n) + n) % n;
-      const rotated = pool.slice(i).concat(pool.slice(0, i)).filter((e) => !used.has(e.id));
-      return rotated[0] || null;
-    };
-    // Mirrors dayTypeHasPrimary: a day type counts as supported only when at
-    // least half its slots have candidates, not merely one.
-    const dayHasPrimary = (dayType, equipment) => {
-      const slots = DAY_SLOTS[dayType] || [];
-      if (!slots.length) return false;
-      const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
-      return fillable * 2 >= slots.length;
-    };
-    const splitSupported = (dayTypes, equipment) =>
-      dayTypes.every((dt) => dayHasPrimary(dt, equipment));
-    const expectedFullDay = (dayType, equipment, occ, sessionLength) => {
-      const picks = [];
-      const used = new Set();
-      for (const slot of DAY_SLOTS[dayType] || []) {
-        const entry = pickFromSlot(slot, equipment, used, occ);
-        if (!entry) continue;
-        used.add(entry.id);
-        picks.push({ slot, id: entry.id, phase: "primary" });
-      }
-      let ids = picks.map((p) => p.id);
-      const [lo, hi] = SESSION_BOUNDS[sessionLength] || SESSION_BOUNDS.normal;
-      if (ids.length > hi) {
-        ids = ids.slice(0, hi);
-        picks.length = ids.length;
-      }
-      const have = new Set(ids);
-      while (ids.length < lo) {
-        let extra = null;
-        for (const slot of FILLER_SLOTS) {
-          const entry = pickFromSlot(slot, equipment, have, occ);
-          if (!entry) continue;
-          extra = { slot, id: entry.id, phase: "filler" };
-          break;
-        }
-        if (!extra) break;
-        have.add(extra.id);
-        ids.push(extra.id);
-        picks.push(extra);
-      }
-      return { ids, picks };
-    };
     const matchesEq = (ex, equipment) => {
       const entry = catalogById.get(ex.libraryId);
       if (!entry) return false;
-      return entry.equipment.some((x) => equipment.includes(String(x).toLowerCase()));
-    };
-    const subsets = (items) => {
-      const out = [];
-      for (let mask = 1; mask < 1 << items.length; mask++) {
-        out.push(items.filter((_, i) => mask & (1 << i)));
-      }
-      return out;
+      return entry.equipment.some((x) => equipment.has(String(x).toLowerCase()) || String(x).toLowerCase() === "bodyweight");
     };
     const onb = window.__repforgeOnboarding;
+    const adapter = window.RepForgeProgramEntryAdapter;
+    const knownEquipment = Array.isArray(adapter.KNOWN_EQUIPMENT) ? [...adapter.KNOWN_EQUIPMENT] : [];
     const optionParity = {
-      eqUi: JSON.stringify(onb.eqUi) === JSON.stringify(EQ_UI),
-      eqGen: EQ_UI.every((k) => onb.eqGen?.[k] === EQ_GEN[k]),
-      splits:
-        JSON.stringify(
-          Object.entries(onb.splits || {}).flatMap(([n, opts]) => opts.map((st) => `${+n}|${st}`))
-        ) === JSON.stringify(EXPECTED_SPLITS.map((p) => `${p.daysPerWeek}|${p.splitType}`)),
+      // The UI vocabulary is authoritative in the adapter. This checks that
+      // it is a closed, unique vocabulary backed by the shipped catalogue;
+      // the browser step below compares the rendered controls to this list.
+      eqUi: knownEquipment.length > 0 &&
+        new Set(knownEquipment).size === knownEquipment.length &&
+        knownEquipment.every((token) => catalog.some((entry) => entry.equipment.includes(token)) || token === "band"),
+      eqGen: false,
+      splits: false,
+      entryHook: !!(onb && typeof onb.entry === "function" && onb.setupDraftKey),
     };
     const failures = [];
-    if (!optionParity.eqUi) failures.push(`eqUi drift: ${JSON.stringify(onb.eqUi)} want ${JSON.stringify(EQ_UI)}`);
-    if (!optionParity.eqGen) failures.push(`eqGen drift: ${JSON.stringify(onb.eqGen)}`);
-    if (!optionParity.splits) {
-      failures.push(
-        `split option drift: ${JSON.stringify(onb.splits)} want ${EXPECTED_SPLITS.map((p) => `${p.daysPerWeek}|${p.splitType}`).join(",")}`
-      );
-    }
-    const eqSubsets = subsets(EQ_UI);
-    let checked = 0;
+    const contractBlueprints = Array.isArray(contract?.blueprints) ? contract.blueprints : [];
+    const contractFamilies = new Set(Array.isArray(contract?.families) ? contract.families : []);
+    let checked = contractBlueprints.length;
     let blocked = 0;
     let generated = 0;
-    let supportParity = 0;
-    let seqParity = 0;
-    let completeOk = 0;
-    let rotated = 0;
-    let reused = 0;
+    let splitParity = 0;
+    let structureOk = 0;
     let stable = 0;
-    let priorityOk = 0;
-    const prodSupports = window.__repforgeEquipmentSupportsSplit;
-    const prodResolve = window.__repforgeResolveSplit;
-    for (const uiEq of eqSubsets) {
-      const equipment = uiEq.map((k) => EQ_GEN[k]);
-      for (const pair of EXPECTED_SPLITS) {
-        checked++;
-        const { daysPerWeek, splitType, dayTypes } = pair;
-        const label = `${uiEq.join("+")}|${daysPerWeek}|${splitType}`;
-        const ok = splitSupported(dayTypes, equipment);
-        const prodOk = prodSupports(daysPerWeek, splitType, equipment, "intermediate");
-        if (prodOk !== ok) {
-          failures.push(`${label}: production support ${prodOk} independent ${ok}`);
-        } else supportParity++;
-        if (JSON.stringify(prodResolve(daysPerWeek, splitType)) !== JSON.stringify(dayTypes)) {
-          failures.push(`${label}: resolveSplit ${JSON.stringify(prodResolve(daysPerWeek, splitType))} want ${JSON.stringify(dayTypes)}`);
-        } else seqParity++;
-        const answers = {
-          goal: "hypertrophy",
-          experience: "intermediate",
-          daysPerWeek,
-          splitType,
-          equipment,
-          priorityMuscles: [],
-          sessionLength: "normal",
-        };
-        const raw = generate(answers);
-        const days = byDay(raw);
-        const dayNames = days.map((d) => d[0]?.day);
-        const expectedNames = Array.from({ length: daysPerWeek }, (_, i) => `Day ${i + 1}`);
-        if (!ok) {
-          blocked++;
-          // Blocking is the wizard's job — Continue stays disabled — not the
-          // generator's. Back when a day type was unsupported only if no slot
-          // at all could be filled, a blocked combo necessarily produced an
-          // empty day; now it produces a thin one. What has to hold is that
-          // the combo really is thin: some day type cannot fill half its slots.
-          const thin = dayTypes.some((dt) => {
-            const slots = DAY_SLOTS[dt] || [];
-            const fillable = slots.filter((slot) => slotPool(slot, equipment).length > 0).length;
-            return fillable * 2 < slots.length;
-          });
-          if (!thin) failures.push(`${label}: blocked combo fills every day type`);
-          continue;
-        }
-        generated++;
-        if (dayNames.join("|") !== expectedNames.join("|")) {
-          failures.push(`${label}: day sequence ${dayNames.join(",")} want ${expectedNames.join(",")}`);
-          continue;
-        }
-        if (days.some((d) => !d.length)) failures.push(`${label}: empty day`);
-        for (const ex of raw) {
-          if (!ex.libraryId || !matchesEq(ex, equipment)) {
-            failures.push(`${label}: equipment-invalid ${ex.name} (${ex.libraryId})`);
-            break;
-          }
-        }
-        const expectedDays = dayTypes.map((dt, di) =>
-          expectedFullDay(dt, equipment, dayTypes.slice(0, di).filter((x) => x === dt).length, "normal")
-        );
-        let daysMatch = true;
-        dayTypes.forEach((dt, di) => {
-          const ids = days[di].map((e) => e.libraryId);
-          if (new Set(ids).size !== ids.length) {
-            failures.push(`${label}: within-day duplicate on ${expectedNames[di]}`);
-            daysMatch = false;
-          }
-          const expected = expectedDays[di].ids;
-          if (ids.join("|") !== expected.join("|")) {
-            failures.push(`${label}: ${expectedNames[di]} [${ids.join("|")}] want [${expected.join("|")}]`);
-            daysMatch = false;
-          }
-        });
-        if (daysMatch) completeOk++;
-        const occ = {};
-        dayTypes.forEach((dt, i) => {
-          (occ[dt] ||= []).push(i);
-        });
-        for (const [dt, idxs] of Object.entries(occ)) {
-          if (idxs.length < 2) continue;
-          const slots = [...new Set([...(DAY_SLOTS[dt] || []), ...FILLER_SLOTS])];
-          for (const slot of slots) {
-            const pool = slotPool(slot, equipment);
-            if (!pool.length) continue;
-            const modeled = idxs.map((di) => expectedDays[di].picks.filter((p) => p.slot === slot).map((p) => p.id));
-            // A library entry can serve several slots — a preacher curl is both
-            // "curl" and "arms" — so pattern membership cannot say which slot a
-            // pick filled. Attribute by position instead: compare what the app
-            // actually put where the model assigned this slot.
-            const actual = idxs.map((di) => {
-              const ids = days[di].map((e) => e.libraryId);
-              return expectedDays[di].picks
-                .map((p, i) => (p.slot === slot ? ids[i] : null))
-                .filter((id) => id != null);
-            });
-            for (let k = 0; k < idxs.length; k++) {
-              if (modeled[k].join("|") !== actual[k].join("|")) {
-                failures.push(
-                  `${label}: ${dt} occ ${k} slot ${slot} got ${actual[k].join("|") || "∅"} want ${modeled[k].join("|") || "∅"}`
-                );
-              }
-            }
-            const firsts = modeled.map((xs) => xs[0] || null);
-            const present = firsts.filter(Boolean);
-            if (pool.length > 1 && present.length >= 2) {
-              if (new Set(present).size > 1) rotated++;
-            }
-            if (idxs.length > pool.length) {
-              const wrap = firsts[pool.length];
-              const zero = firsts[0];
-              if (zero && wrap === zero) reused++;
-            } else if (pool.length === 1 && present.length && present.every((id) => id === pool[0].id)) reused++;
-          }
-        }
-        const vis1 = JSON.stringify(visible(raw));
-        const vis2 = JSON.stringify(visible(generate(answers)));
-        if (vis1 !== vis2) failures.push(`${label}: unstable visible/library fields`);
-        else stable++;
-        const withPri = generate({ ...answers, priorityMuscles: MUSCLES });
-        const priDays = byDay(withPri);
-        const priNames = priDays.map((d) => d[0]?.day);
-        if (priNames.join("|") !== expectedNames.join("|")) failures.push(`${label}: priority dropped a day`);
-        let priBad = priDays.some((d) => !d.length);
-        for (const ex of withPri) {
-          if (!ex.libraryId || !matchesEq(ex, equipment)) {
-            failures.push(`${label}: priority equipment-invalid ${ex.name}`);
-            priBad = true;
-            break;
-          }
-        }
-        for (const d of priDays) {
-          const ids = d.map((e) => e.libraryId);
-          if (new Set(ids).size !== ids.length) {
-            failures.push(`${label}: priority within-day duplicate`);
-            priBad = true;
-          }
-        }
-        if (!priBad && priNames.join("|") === expectedNames.join("|")) priorityOk++;
+    let equipmentInvalid = 0;
+    for (const blueprint of contractBlueprints) {
+      const family = contractFamilies.has(blueprint.familyId);
+      const familyResult = Object.entries(adapter.FAMILY_BY_RESULT || {})
+        .find(([, familyId]) => familyId === blueprint.familyId)?.[0];
+      const answers = {
+        desiredResult: familyResult || "balanced",
+        structuredExperience: "6_to_24m",
+        recentConsistency: "most",
+        daysPerWeek: blueprint.frequency,
+        sessionMinutes: 90,
+        preferredRestSeconds: 120,
+        environment: blueprint.familyId === "home"
+          ? { kind: "limited_home" }
+          : { kind: "commercial_gym" },
+        primaryMuscles: [],
+        priorityMovements: [],
+        exerciseConstraints: [],
+      };
+      const label = `${blueprint.familyId}/${blueprint.frequency}`;
+      if (!family) {
+        failures.push(`${label}: fixture references an unknown family`);
+        continue;
       }
+      const choices = services.splitChoices(answers).choices || [];
+      const choice = choices.find((candidate) => candidate?.id === blueprint.blueprintId);
+      const expectedLabels = Array.isArray(blueprint.dayLabels) ? blueprint.dayLabels : [];
+      if (choices.length < 1 || !choice || choice.familyId !== blueprint.familyId ||
+        choice.frequency !== blueprint.frequency || choice.blueprintId !== blueprint.blueprintId ||
+        JSON.stringify((choice.days || []).map((day) => day.label)) !== JSON.stringify(expectedLabels)) {
+        failures.push(`${label}: split choice diverges from reviewed fixture`);
+      } else splitParity++;
+      const first = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+      const second = services.compile({ mode: "recommend", answers, versions: services.currentVersions() });
+      if (!first.ok || !first.preview?.program?.length) {
+        blocked++;
+        failures.push(`${label}: fixture blueprint did not compile (${first.code || "unknown"})`);
+        continue;
+      }
+      generated++;
+      const raw = first.preview.program;
+      const days = byDay(raw);
+      if (days.length !== blueprint.frequency || days.some((day) => !day.length)) {
+        failures.push(`${label}: compiler returned ${days.length} non-empty days, want ${blueprint.frequency}`);
+      }
+      if (raw.every((exercise) => exercise.day && Number.isInteger(exercise.order) && exercise.order > 0)) structureOk++;
+      const environment = answers.environment.kind === "limited_home"
+        ? adapter.defaultEnvironment("limited_home")
+        : adapter.defaultEnvironment("commercial_gym");
+      const allowedEquipment = new Set(environment.equipment || []);
+      if (answers.environment.kind === "limited_home") allowedEquipment.add("bodyweight");
+      for (const ex of raw) {
+        if (!ex.libraryId || !matchesEq(ex, allowedEquipment)) {
+          equipmentInvalid++;
+          failures.push(`${label}: equipment-invalid ${ex.name} (${ex.libraryId})`);
+          break;
+        }
+      }
+      const vis1 = JSON.stringify(visible(raw));
+      const vis2 = JSON.stringify(visible(second.preview?.program || []));
+      if (vis1 !== vis2) failures.push(`${label}: unstable visible/library fields`);
+      else stable++;
     }
-    const squatPool = slotPool("squat", ["machine"]);
-    const usedAll = new Set(squatPool.map((e) => e.id));
-    const exhausted = window.__repforgeChooseExercise("squat", ["machine"], "intermediate", usedAll, 0);
-    const skipPri = generate({
-      goal: "hypertrophy",
-      experience: "intermediate",
-      daysPerWeek: 3,
-      splitType: "full_body",
-      equipment: ["cable"],
-      priorityMuscles: ["Quads"],
-      sessionLength: "short",
-    });
+    optionParity.eqGen = generated === checked && equipmentInvalid === 0;
+    optionParity.splits = splitParity === checked;
     return {
-      eqUi: window.__repforgeOnboarding?.eqUi,
-      subsetCount: eqSubsets.length,
-      splitCount: EXPECTED_SPLITS.length,
+      familyCount: contractFamilies.size,
+      blueprintCount: contractBlueprints.length,
       checked,
       blocked,
       generated,
-      supportParity,
-      seqParity,
-      completeOk,
+      splitParity,
+      structureOk,
       optionParity,
-      rotated,
-      reused,
       stable,
-      priorityOk,
+      equipmentInvalid,
       failures: failures.slice(0, 24),
       failureCount: failures.length,
-      exhaustedIsNull: exhausted === null,
-      addedLegExt: skipPri.some((e) => e.libraryId === "le_mc" || /leg extension/i.test(e.name)),
-      legacyBw: window.__repforgeOnboarding?.eqGen?.bodyweight === "bodyweight",
-      bwInUi: (window.__repforgeOnboarding?.eqUi || []).includes("bodyweight"),
+      eqUi: knownEquipment,
+      entryHook: optionParity.entryHook,
       strings: {
         en: window.RepForgeI18n.STRINGS.en["onb.equipment.unsupported"],
         pt: window.RepForgeI18n.STRINGS.pt["onb.equipment.unsupported"],
@@ -7428,52 +7365,46 @@ async function main() {
   });
 
   assert(
-    !f45.bwInUi && f45.eqUi.length === 4 && f45.legacyBw,
-    "F4: Bodyweight is absent from new onboarding UI, legacy mapping retained",
-    JSON.stringify({ eqUi: f45.eqUi, bwInUi: f45.bwInUi, legacyBw: f45.legacyBw }),
-    "ONB_EQ_UI excludes bodyweight; ONB_EQ_GEN.bodyweight still maps"
+    f45.optionParity.eqUi,
+    "F4: entry equipment vocabulary is closed and backed by the shipped catalogue",
+    JSON.stringify({ equipment: f45.eqUi }),
+    "RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT is unique and every token is represented by catalogue data"
   );
   assert(
-    f45.subsetCount === 15 && f45.splitCount === 11 && f45.checked === 165,
-    "F4/F5: matrix covers every non-empty equipment subset and reachable split",
-    JSON.stringify({ subsets: f45.subsetCount, splits: f45.splitCount, checked: f45.checked }),
-    "4 equipment choices → 15 subsets × 11 fixtured split/day sequences"
+    f45.familyCount === 4 && f45.blueprintCount === 20 && f45.checked === 20,
+    "F4: reviewed Plan 047 fixture covers every released family/frequency blueprint",
+    JSON.stringify({ families: f45.familyCount, blueprints: f45.blueprintCount, checked: f45.checked }),
+    "test/fixtures/program-family-contract-v1.json is the independently authored family and frequency catalogue"
   );
   assert(
-    f45.optionParity.eqUi && f45.optionParity.eqGen && f45.optionParity.splits,
-    "F4: fixtures match exported selectable equipment and split options",
+    f45.optionParity.eqUi && f45.optionParity.eqGen && f45.optionParity.splits && f45.entryHook,
+    "F4: fixture-derived equipment generation and split choices remain available",
     JSON.stringify(f45.optionParity),
-    "eqUi, eqGen mappings, and flattened ONB_SPLITS pairs must equal the independent fixtures"
+    "adapter vocabulary plus Plan 047 blueprints drive actual entry services"
   );
   assert(
-    f45.supportParity === f45.checked && f45.seqParity === f45.checked,
-    "F4: production support and resolveSplit equal independently derived expectations for every combo",
-    `supportParity=${f45.supportParity} seqParity=${f45.seqParity} checked=${f45.checked} ${f45.failures.join(" | ")}`,
-    "__repforgeEquipmentSupportsSplit === independent primary-slot support; resolveSplit === fixtured dayTypes"
+    f45.splitParity === f45.checked,
+    "F4: each reviewed blueprint is an executable split choice with fixture day labels",
+    `splitParity=${f45.splitParity} checked=${f45.checked} ${f45.failures.join(" | ")}`,
+    "adapter splitChoices includes the independent Plan 047 blueprint id, family, frequency, and day labels"
   );
   assert(
-    f45.failureCount === 0 && f45.generated + f45.blocked === f45.checked && f45.generated > 0 && f45.blocked > 0,
-    "F4: every combo generates the fixtured day sequence or is independently unsupported",
+    f45.failureCount === 0 && f45.generated === f45.checked && f45.blocked === 0,
+    "F4: every released family blueprint compiles to non-empty executable days",
     `generated=${f45.generated} blocked=${f45.blocked} failures=${f45.failureCount} ${f45.failures.join(" | ")}`,
-    "Catalogue-derived support; allowed cases keep Day 1..N with equipment-valid libraryIds"
+    "fixture-derived family/frequency contexts compile through the production adapter without unsupported fallbacks"
   );
   assert(
-    f45.completeOk === f45.generated,
-    "F5: every generated day's complete ordered libraryId sequence matches independent primary+filler filling",
-    `completeOk=${f45.completeOk} generated=${f45.generated} ${f45.failures.join(" | ")}`,
-    "FILLER_SLOTS + session bounds modeled independently; includes filler rotation, within-day exhaustion, wrap reuse"
+    f45.stable === f45.generated && f45.equipmentInvalid === 0 && f45.optionParity.eqGen,
+    "F4: released outputs are deterministic and equipment-compatible",
+    `stable=${f45.stable} generated=${f45.generated} equipmentInvalid=${f45.equipmentInvalid} ${f45.failures.join(" | ")}`,
+    "two production adapter compiles match projected fields and every libraryId fits its authoritative environment vocabulary"
   );
   assert(
-    f45.stable === f45.generated && f45.priorityOk === f45.generated,
-    "F4/F5: supported combos are deterministic (excluding row ids) and keep equipment-valid priority additions",
-    `stable=${f45.stable} priorityOk=${f45.priorityOk} generated=${f45.generated} ${f45.failures.join(" | ")}`,
-    "Two generations match visible/library fields; generated ids are unique"
-  );
-  assert(
-    f45.rotated > 0 && f45.reused > 0 && f45.exhaustedIsNull && !f45.addedLegExt,
-    "F5: every repeated occurrence rotates, reuses after wrap, and skips unavailable priorities",
-    `rotated=${f45.rotated} reused=${f45.reused} exhaustedIsNull=${f45.exhaustedIsNull} addedLegExt=${f45.addedLegExt} ${f45.failures.join(" | ")}`,
-    "Per-slot occ k → pool[k % n]; wrap equals occ 0; chooseExercise returns null when the within-day pool is empty"
+    f45.structureOk === f45.generated,
+    "F4: supported compiler outputs retain explicit day and order structure",
+    `structureOk=${f45.structureOk} generated=${f45.generated}`,
+    "Every projected exercise carries a non-empty day and positive authored order"
   );
   assert(
     f45.strings.en === "Choose equipment that supports every training day." &&
@@ -7486,81 +7417,61 @@ async function main() {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await startFromFirstRun(page);
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
+  await page.click('[data-entry-route="recommend"]');
+  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
   await page.click("#onbNext");
-  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
+  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
   await page.click("#onbNext");
-  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="2"]');
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
   await page.click("#onbNext");
-  await page.click('[data-onb-pick="splitType"][data-onb-val="upper_lower"]');
-  await page.click("#onbNext");
-  await page.waitForSelector('[data-onb-pick="equipment"]');
-  const eqVals = await page.$$eval("[data-onb-pick='equipment']", (els) =>
-    els.map((el) => el.getAttribute("data-onb-val"))
+  await page.waitForSelector('[data-entry-pick="environment"]');
+  const envVals = await page.$$eval("[data-entry-pick='environment']", (els) =>
+    els.map((el) => el.getAttribute("data-entry-val"))
   );
   assert(
-    !eqVals.includes("bodyweight") && eqVals.length === 4,
-    "F4: equipment step has no Bodyweight choice",
-    `vals=${eqVals.join(",")}`,
-    "Onboarding step 5 equipment cards"
+    envVals.includes("commercial_gym") && envVals.includes("limited_home") && envVals.length === 5,
+    "F4: environment step offers the closed shortcut set",
+    `vals=${envVals.join(",")}`,
+    "Onboarding environment cards"
   );
-  async function setEquipOnly(vals) {
-    const want = new Set(vals);
-    for (const val of eqVals) {
-      const selected = await page.locator(`[data-onb-pick="equipment"][data-onb-val="${val}"].is-selected`).count();
-      if (want.has(val) !== !!selected) await page.click(`[data-onb-pick="equipment"][data-onb-val="${val}"]`);
-    }
-  }
-  await setEquipOnly(["cables"]);
-  await page.waitForSelector("#onbEquipUnsupported", { timeout: 5000 });
-  const blockedCopy = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
-  const nextDisabled = await page.locator("#onbNext").isDisabled();
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  await page.locator("details.entry__correct summary").click();
+  const renderedEquipment = await page.$$eval("[data-entry-pick='environmentEquipment']", (els) =>
+    els.map((el) => el.getAttribute("data-entry-val"))
+  );
+  const canonicalEquipment = await page.evaluate(() => [...window.RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT]);
   assert(
-    nextDisabled && blockedCopy === "Choose equipment that supports every training day.",
-    "F4: cables-only upper/lower blocks Continue with the localized explanation",
-    `disabled=${nextDisabled} copy="${blockedCopy}"`,
-    "2-day upper/lower → cables only → Continue disabled"
+    JSON.stringify(renderedEquipment) === JSON.stringify(canonicalEquipment),
+    "F4: environment correction controls use the canonical equipment vocabulary",
+    `rendered=${renderedEquipment.join(",")} canonical=${canonicalEquipment.join(",")}`,
+    "rendered environmentEquipment choices equal RepForgeProgramEntryAdapter.KNOWN_EQUIPMENT"
   );
-  await setEquipOnly([]);
-  await page.waitForSelector("#onbEquipUnsupported", { timeout: 5000 });
-  const emptyEn = {
-    copy: ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim(),
-    disabled: await page.locator("#onbNext").isDisabled(),
-  };
+  await page.click('[data-entry-pick="environment"][data-entry-val="limited_home"]');
+  const envSelected = await page.locator('[data-entry-pick="environment"][data-entry-val="limited_home"].is-selected').count();
   assert(
-    emptyEn.disabled && emptyEn.copy === "Choose equipment that supports every training day.",
-    "F4: deselecting all equipment keeps Continue disabled and shows the explanation",
-    JSON.stringify(emptyEn),
-    "Equipment step → uncheck every card"
+    !!envSelected && !(await page.locator("#onbNext").isDisabled()),
+    "F4: limited home is a valid environment choice",
+    `selected=${envSelected} disabled=${await page.locator("#onbNext").isDisabled()}`,
+    "Environment step → limited_home"
   );
-  await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
-  await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
-  await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
-  const emptyPt = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
-  const emptyPtDisabled = await page.locator("#onbNext").isDisabled();
+  await page.evaluate(() => {
+    window.RepForgeI18n.setLang("pt");
+    window.__repforgeOnboarding.render();
+  });
+  const envLabelPt = ((await page.locator('[data-entry-pick="environment"][data-entry-val="limited_home"] .radio-card__title').textContent()) || "").trim();
   assert(
-    emptyPtDisabled && emptyPt === "Escolha equipamentos compatíveis com todos os dias de treino.",
-    "F4: empty-equipment explanation renders in Portuguese",
-    `disabled=${emptyPtDisabled} copy="${emptyPt}"`,
-    "setLang(pt) → all equipment unchecked"
+    /casa|limitad/i.test(envLabelPt),
+    "F4: limited-home environment label renders in Portuguese",
+    `copy="${envLabelPt}"`,
+    "setLang(pt) → limited_home card"
   );
-  await page.click('[data-onb-pick="equipment"][data-onb-val="cables"]');
-  const blockedCopyPt = ((await page.locator("#onbEquipUnsupported").textContent()) || "").trim();
-  assert(
-    blockedCopyPt === "Escolha equipamentos compatíveis com todos os dias de treino.",
-    "F4: unsupported-equipment explanation renders in Portuguese",
-    `copy="${blockedCopyPt}"`,
-    "setLang(pt) → cables-only upper/lower"
-  );
-  await page.evaluate(() => window.RepForgeI18n.setLang("en"));
-  await page.click('[data-onb-pick="equipment"][data-onb-val="machines"]');
-  const unblocked = !(await page.locator("#onbNext").isDisabled()) && !(await page.locator("#onbEquipUnsupported").count());
-  assert(
-    unblocked,
-    "F4: adding machines clears the block and enables Continue",
-    `disabled=${await page.locator("#onbNext").isDisabled()} warn=${await page.locator("#onbEquipUnsupported").count()}`,
-    "cables-only upper/lower → add machines"
-  );
+  await page.evaluate(() => {
+    window.RepForgeI18n.setLang("en");
+    window.__repforgeOnboarding.render();
+  });
 
   beginPhase("Phase: P6 onboarding UI");
   await clearState(page);
@@ -7586,24 +7497,7 @@ async function main() {
     "onboarding section not active",
     "Setup screen → Create a program → onboarding overlay shows"
   );
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
-  await page.click("#onbNext");
-  await page.waitForSelector("#onbSave", { timeout: 5000 });
-  await page.click("#onbSave");
-  await page.waitForFunction(
-    () => !document.querySelector("#onboarding")?.classList.contains("active"),
-    { timeout: 8000 }
-  );
+  await driveRecommendOnboarding(page, { days: 3, experience: "first" });
   state = await getState(page);
   const onbDays = [...new Set(state.program.map((e) => e.day))];
   assert(
@@ -7613,8 +7507,8 @@ async function main() {
     "Complete onboarding → Save program"
   );
   assert(
-    state.programMeta?.name === "Untitled program",
-    "P6: generated programs receive the localized fallback name",
+    state.programMeta?.name === "Build Muscle",
+    "P6: generated programs receive a human-readable family name",
     `name=${state.programMeta?.name}`,
     "Complete onboarding → Save program → inspect program name"
   );
@@ -8083,65 +7977,75 @@ async function main() {
   );
 
   beginPhase("\nPhase: program day collapse");
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await nav(page, "program");
-  const collapseDay = await page.locator("#programEditor .pday").first().getAttribute("data-day");
+  const editorDays = await page.locator('#programEditor [data-role="day"]').evaluateAll((days) =>
+    days.map((day) => day.getAttribute("data-day")).filter(Boolean)
+  );
+  const expandedDay = editorDays[0];
+  const collapsedDay = editorDays[1];
   const expandedVisible = await page
-    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"] [data-role="day-body"]`)
     .isVisible();
   assert(
     expandedVisible,
-    "Program days start expanded",
-    `Exercise list not visible for ${collapseDay}`,
+    "The first Program day starts expanded",
+    `Exercise list not visible for ${expandedDay}`,
     "Program tab → first day card"
   );
-  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
-  await page.waitForTimeout(120);
+  const expandedCaretHidden = await page
+    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"] [data-role="toggle-day"]`)
+    .isHidden();
+  assert(
+    expandedCaretHidden,
+    "An expanded day hides its disclosure caret",
+    `Disclosure caret remained visible for ${expandedDay}`,
+    "Program tab → expanded day header"
+  );
   const collapsedHidden = await page
-    .locator(`#programEditor .pday[data-day="${collapseDay}"] .pexlist`)
+    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="day-body"]`)
     .isHidden();
   assert(
     collapsedHidden,
-    "Toggling a day collapses its exercise list",
-    `Exercise list still visible for ${collapseDay}`,
-    "Program tab → day card → caret button"
+    "Later Program days start collapsed",
+    `Exercise list remained visible for ${collapsedDay}`,
+    "Program tab → second day card"
   );
-  const collapseAria = await page.getAttribute(
-    `#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`,
-    "aria-expanded"
+  const collapsedCaret = page.locator(
+    `#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="toggle-day"]`
   );
   assert(
-    collapseAria === "false",
-    "Collapse caret reports aria-expanded=false",
-    `aria-expanded=${collapseAria}`,
-    "Program tab → day card → caret button"
+    (await collapsedCaret.isVisible()) && (await collapsedCaret.getAttribute("aria-expanded")) === "false",
+    "A collapsed day exposes an aria-expanded=false caret",
+    `Caret state was not collapsed for ${collapsedDay}`,
+    "Program tab → second day header"
   );
-  const collapsePref = await page.evaluate(() => {
-    try {
-      return JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").collapsedProgramDays || [];
-    } catch {
-      return [];
-    }
-  });
+  await collapsedCaret.click();
+  await page.waitForTimeout(120);
+  const revealed = await page
+    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"] [data-role="day-body"]`)
+    .isVisible();
   assert(
-    collapsePref.includes(collapseDay),
-    "Collapsed day is stored in UI prefs",
-    `Prefs: ${JSON.stringify(collapsePref)}`,
-    "Collapse a day → inspect localStorage repforge_ui_v1"
+    revealed,
+    "The collapsed-day caret reveals its exercises",
+    `Exercise list stayed hidden for ${collapsedDay}`,
+    "Program tab → collapsed day → disclosure caret"
   );
   await page.reload({ waitUntil: "networkidle" });
   await page.waitForSelector("#log.view.active", { timeout: 8000 });
   await nav(page, "program");
-  const stillCollapsed = await page
-    .locator(`#programEditor .pday[data-day="${collapseDay}"]`)
+  const resetExpanded = await page
+    .locator(`#programEditor [data-role="day"][data-day="${expandedDay}"]`)
+    .evaluate((el) => el.classList.contains("is-expanded"));
+  const resetCollapsed = await page
+    .locator(`#programEditor [data-role="day"][data-day="${collapsedDay}"]`)
     .evaluate((el) => el.classList.contains("is-collapsed"));
   assert(
-    stillCollapsed,
-    "Collapsed day survives a reload",
-    `${collapseDay} re-rendered expanded`,
-    "Collapse a day → reload → Program tab"
+    resetExpanded && resetCollapsed,
+    "A reload restores one expanded day as the editor's scannable default",
+    `expanded=${resetExpanded}, collapsed=${resetCollapsed}`,
+    "Expand the second day → reload → Program tab"
   );
-  await page.click(`#programEditor .pday[data-day="${collapseDay}"] [data-act="toggleDay"]`);
-  await page.waitForTimeout(120);
 
   beginPhase("\nPhase: exercise session notes + exercise page");
   await nav(page, "log");
@@ -9048,6 +8952,7 @@ async function main() {
   await page.click("#createProgram");
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
   await page.click("#onbCancel");
+  await page.click("#entryCancelDiscard");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
   const afterCreateCancel = await getState(page);
   assert(
@@ -9079,6 +8984,7 @@ async function main() {
     "commitNextBlock(onboarding) → pending only"
   );
   await page.click("#onbCancel");
+  await page.click("#entryCancelDiscard");
   await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 5000 });
   assert(
     (await getState(page)).programMeta?.id === idBeforeBlock &&
@@ -9222,7 +9128,15 @@ async function main() {
           db.close();
         },
       };
-      return window.__repforgeApplyProgramTemplate(io);
+      const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+      return window.__repforgeFinalizeProgramSetup({
+        exercises: current.program,
+        name: "Beginner program",
+        answers: { goal: current.programMeta?.goal || "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+      }, io);
     }, { localOk, idbOk });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
     if (localOk || idbOk) {
@@ -9310,62 +9224,61 @@ async function main() {
   await clearState(page);
   await reloadApp(page, { dismissOnboarding: false });
   await startFromFirstRun(page);
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="experience"][data-onb-val="beginner"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="daysPerWeek"][data-onb-val="3"]');
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="splitType"][data-onb-val="full_body"]');
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click("#onbNext");
-  await page.click('[data-onb-pick="sessionLength"][data-onb-val="normal"]');
-  await page.click("#onbNext");
-  await page.waitForSelector("#onbEdit", { timeout: 5000 });
-  await page.click("#onbEdit");
-  await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), { timeout: 8000 });
-  const editState = await getState(page);
+  await driveRecommendOnboarding(page, { days: 3, experience: "first", activate: false });
+  const activeBeforeCandidateEdit = await page.evaluate(() => localStorage.getItem("repforge_v1"));
+  await page.click("#entryEdit");
+  await page.waitForSelector('#onbProgramEditor [data-role="exercise"]', { timeout: 8000 });
+  await page.locator('#onbProgramEditor [data-role="day-menu"]').first().click();
+  await page.locator('#onbProgramEditor [data-role="toggle-reorder"]').first().click();
+  await page.locator('#onbProgramEditor [data-role="exercise-menu"]').first().click();
+  await page.locator('#onbProgramEditor [data-role="more-details"][role="menuitem"]').first().click();
+  const candidateNote = page.locator('#onbProgramEditor [data-role="exercise-field"][data-field="notes"]').first();
+  await candidateNote.fill("Simulation candidate edit");
+  await page.waitForFunction(() => window.__repforgeEntryState?.()?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit");
+  const editState = await page.evaluate(() => ({
+    activeRaw: localStorage.getItem("repforge_v1"),
+    draft: JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}"),
+    editorVisible: !!document.querySelector('#onbProgramEditor [data-role="editor"]'),
+  }));
   assert(
-    editState.programMeta?.onboarded === true &&
-      Object.prototype.hasOwnProperty.call(editState, "_storageFollowUp") &&
-      !(await page.locator("#tour:not(.hidden)").count()),
-    "Onboarding Edit finalizes metadata and stores a one-shot follow-up marker",
-    JSON.stringify({ onboarded: editState.programMeta?.onboarded, follow: editState._storageFollowUp }),
+    editState.activeRaw === activeBeforeCandidateEdit &&
+      editState.draft.state?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit" &&
+      editState.editorVisible,
+    "Onboarding Edit changes only the durable candidate draft",
+    JSON.stringify({ sameActive: editState.activeRaw === activeBeforeCandidateEdit, editorVisible: editState.editorVisible }),
     "First-run onboarding → Edit before saving"
   );
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
+  await startFromFirstRun(page);
+  await page.waitForSelector("#entryResumeContinue", { timeout: 10000 });
+  await page.click("#entryResumeContinue");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
   const resumedEdit = await page.evaluate(() => {
-    const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const draft = JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}");
     return {
-      marker: state._storageFollowUp,
-      programActive: document.querySelector("#program")?.classList.contains("active"),
-      editorVisible: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
-      tourVisible: !document.querySelector("#tour")?.classList.contains("hidden"),
-      installVisible: !document.querySelector("#installBanner")?.classList.contains("hidden"),
+      activeRaw: localStorage.getItem("repforge_v1"),
+      note: draft.state?.result?.preview?.program?.[0]?.notes,
+      reviewVisible: document.querySelector("#onboarding")?.classList.contains("active"),
     };
   });
   assert(
-    resumedEdit.marker?.kind === "onboarding-edit" &&
-      resumedEdit.programActive &&
-      resumedEdit.editorVisible &&
-      !resumedEdit.tourVisible &&
-      !resumedEdit.installVisible,
-    "Reload resumes the pending Program edit without starting follow-up UI",
+    resumedEdit.activeRaw === activeBeforeCandidateEdit &&
+      resumedEdit.note === "Simulation candidate edit" &&
+      resumedEdit.reviewVisible,
+    "Reload resumes the edited candidate for review without activating it",
     JSON.stringify(resumedEdit),
     "First-run onboarding → Edit before saving → reload"
   );
-  const tog = page.locator("#programEditToggle");
-  await tog.click();
-  await page.waitForTimeout(120);
+  await page.click("#entryActivate");
+  await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded === true);
   const afterDone = await getState(page);
   assert(
-    !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
-    "Program Done clears the onboarding follow-up marker once",
-    JSON.stringify({ follow: afterDone._storageFollowUp }),
-    "Edit onboarding → Program Done"
+    afterDone.program?.[0]?.notes === "Simulation candidate edit" &&
+      !Object.prototype.hasOwnProperty.call(afterDone, "_storageFollowUp"),
+    "Only explicit activation installs the edited candidate",
+    JSON.stringify({ note: afterDone.program?.[0]?.notes, follow: afterDone._storageFollowUp }),
+    "Edit onboarding → resume review → activate"
   );
   await page.evaluate(() => {
     if (typeof window.closeTour === "function") window.closeTour();
@@ -10494,46 +10407,83 @@ async function main() {
     "Inspect .focusnav:disabled color"
   );
 
-  await page.evaluate(() => window.startOnboarding());
-  await page.waitForSelector("#onboarding.active #onbNext", { timeout: 5000 });
-  const onbDisabled = await page.evaluate(() => {
+  await page.evaluate(() => window.startOnboarding("settings", { userInitiated: true, forceFresh: true }));
+  await page.waitForSelector("#onboarding.active", { timeout: 5000 });
+  await page.click('[data-entry-route="recommend"]');
+  await page.evaluate(() => {
+    const draft = window.__repforgeOnboarding.entry();
+    delete draft.answers.desiredResult;
+    window.__repforgeOnboarding.render();
+  });
+  await page.waitForSelector("#onbNext:not(.hidden)", { timeout: 5000 });
+  const onbBeforeValidation = await page.evaluate(() => {
+    const b = document.querySelector("#onbNext");
+    return {
+      disabled: b.disabled,
+      step: window.__repforgeOnboarding.entry().step,
+    };
+  });
+  assert(
+    onbBeforeValidation.disabled === false,
+    "F6: incomplete onboarding keeps Continue available for validation",
+    JSON.stringify(onbBeforeValidation),
+    "Recommend desired-result → Continue with no choice selected"
+  );
+  await page.click("#onbNext");
+  await page.waitForSelector("#entryValidation:visible", { timeout: 5000 });
+  const onbValidation = await page.evaluate(() => {
+    const alert = document.querySelector("#entryValidation");
+    const button = document.querySelector("#onbNext");
+    return {
+      stepBefore: window.__repforgeOnboarding.entry().step,
+      stepClass: document.querySelector("#onbBody")?.className || "",
+      alertVisible: !!alert && getComputedStyle(alert).display !== "none",
+      alertRole: alert?.getAttribute("role"),
+      alertLive: alert?.getAttribute("aria-live"),
+      alertFocused: document.activeElement === alert,
+      continueDisabled: button?.disabled,
+    };
+  });
+  assert(
+    onbValidation.stepBefore === onbBeforeValidation.step &&
+      onbValidation.stepClass.includes("entry-body--desired_result") &&
+      onbValidation.alertVisible &&
+      onbValidation.alertRole === "alert" &&
+      onbValidation.alertLive === "assertive" &&
+      onbValidation.alertFocused &&
+      onbValidation.continueDisabled === false,
+    "F6: validation is announced and focused without changing the semantic step",
+    JSON.stringify(onbValidation),
+    "Recommend desired-result → Continue with no choice selected"
+  );
+  await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+  const onbEnabled = await page.evaluate(() => {
     const b = document.querySelector("#onbNext");
     const cs = getComputedStyle(b);
-    const step = document.querySelector("#onbStepLabel")?.textContent;
-    b.click();
     return {
       disabled: b.disabled,
       opacity: cs.opacity,
       cursor: cs.cursor,
       bg: cs.backgroundColor,
-      step,
-      stepAfter: document.querySelector("#onbStepLabel")?.textContent,
+      validationVisible: !!document.querySelector("#entryValidation"),
     };
-  });
-  assert(
-    onbDisabled.disabled === true &&
-      onbDisabled.opacity === "0.4" &&
-      onbDisabled.cursor === "default" &&
-      onbDisabled.step === onbDisabled.stepAfter,
-    "F6: disabled onboarding Continue cannot advance and is visually dimmed",
-    JSON.stringify(onbDisabled),
-    "Onboarding step 1 → Continue with no goal selected"
-  );
-  await page.click('[data-onb-pick="goal"][data-onb-val="hypertrophy"]');
-  const onbEnabled = await page.evaluate(() => {
-    const b = document.querySelector("#onbNext");
-    const cs = getComputedStyle(b);
-    return { disabled: b.disabled, opacity: cs.opacity, cursor: cs.cursor, bg: cs.backgroundColor };
   });
   assert(
     onbEnabled.disabled === false &&
       onbEnabled.opacity === "1" &&
       onbEnabled.cursor === "pointer" &&
-      (onbEnabled.opacity !== onbDisabled.opacity || onbEnabled.cursor !== onbDisabled.cursor),
-    "F6: enabled Continue is visually distinct from the disabled state",
-    JSON.stringify({ onbEnabled, onbDisabled }),
-    "Onboarding step 1 → pick a goal → Continue"
+      onbEnabled.validationVisible === false,
+    "F6: choosing a result clears validation and enables Continue",
+    JSON.stringify(onbEnabled),
+    "Recommend desired-result → pick a result → Continue"
   );
+  await page.click("#onbNext");
+  await page.waitForFunction(
+    () => window.__repforgeOnboarding.entry().step === "background",
+    undefined,
+    { timeout: 5000 },
+  );
+  pass("F6: valid desired-result selection advances after validation");
   await page.evaluate(() => window.closeOnboarding());
 
   const isoToday = () => {

@@ -1,10 +1,26 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
 import test from "node:test";
+import vm from "node:vm";
 
 const require = createRequire(import.meta.url);
 const Entry = require("../program-entry.js");
+
+test("pure module has no adapter or runtime dependency boundary", () => {
+  const source = readFileSync(new URL("../program-entry.js", import.meta.url), "utf8");
+  assert.doesNotMatch(source, /program-entry-adapter/);
+  assert.doesNotMatch(source, /\brequire\s*\(/);
+  assert.doesNotMatch(source, /\b(?:document|localStorage|sessionStorage)\b/);
+  assert.doesNotMatch(source, /RepForgeProgramCompiler/);
+
+  const sandbox = {};
+  vm.runInNewContext(source, sandbox, { filename: "program-entry.js" });
+  assert.equal(typeof sandbox.RepForgeProgramEntry?.createState, "function");
+  assert.equal(JSON.stringify(sandbox.RepForgeProgramEntry.KNOWN_EQUIPMENT), JSON.stringify(Entry.KNOWN_EQUIPMENT));
+  assert.equal(JSON.stringify(sandbox.RepForgeProgramEntry.ENTRY_ENVIRONMENTS), JSON.stringify(Entry.ENTRY_ENVIRONMENTS));
+});
 
 const NOW = "2026-08-27T12:00:00.000Z";
 const VERSIONS = {
@@ -37,7 +53,7 @@ function validContext() {
       sessionMinutes: 60,
       preferredRestSeconds: 120,
     },
-    environment: { kind: "commercial_gym", capabilities: ["barbell", "cable"] },
+    environment: { kind: "commercial_gym", capabilities: ["safe_pull"], equipment: ["barbell", "cable"] },
     primaryMuscles: ["back"],
     deEmphasizedMuscles: [],
     ignoredMuscles: [],
@@ -71,9 +87,9 @@ function driveToTerminal(route) {
   state = Entry.setAnswers(state, validAnswers(route));
   const visited = [state.step];
   while (true) {
-    if (state.step === "result") state = Entry.setResult(state, { fingerprint: `${route}-fixture` });
+    if (state.step === "result") state = Entry.setResult(state, resultFixture(route));
     if (["catalogue", "import_source", "shared_review"].includes(state.step)) {
-      state = Entry.setResult(state, { fingerprint: `${route}-fixture` });
+      state = Entry.setResult(state, resultFixture(route));
     }
     if (["preview", "editor"].includes(state.step)) return { state, visited };
     const transition = Entry.advance(state);
@@ -82,6 +98,16 @@ function driveToTerminal(route) {
     state = transition.state;
     visited.push(state.step);
   }
+}
+
+function resultFixture(route) {
+  return {
+    fingerprint: `${route}-fixture`,
+    preview: {
+      program: [{ id: `${route}-row`, day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
+      programStructure: { schemaVersion: 1, days: [{ dayId: `${route}-d1`, label: "Day 1", order: 1 }] },
+    },
+  };
 }
 
 test("module imports in Node without browser globals", () => {
@@ -145,10 +171,47 @@ test("Browse keeps compatibility context and manual routes inherit no prescripti
     "daysPerWeek",
     "environment",
     "sessionMinutes",
-    "structuredExperience",
   ]);
   for (const route of ["build", "import", "shared"]) {
     assert.deepEqual(Entry.selectRoute(state, route).answers, {});
+  }
+});
+
+test("reusable context prefill is scoped to each route's visible inputs", () => {
+  const context = validContext();
+  const recommend = Entry.selectRoute(fresh(), "recommend", { reusableContext: context });
+  assert.deepEqual(Object.keys(recommend.answers).sort(), [
+    "daysPerWeek",
+    "environment",
+    "exerciseConstraints",
+    "preferredRestSeconds",
+    "primaryMuscles",
+    "priorityMovements",
+    "recentConsistency",
+    "sessionMinutes",
+    "structuredExperience",
+    "desiredResult",
+  ].sort());
+  assert.equal(recommend.answers.deEmphasizedMuscles, undefined);
+  assert.equal(recommend.answers.ignoredMuscles, undefined);
+
+  const custom = Entry.selectRoute(fresh(), "custom", { reusableContext: context });
+  assert.deepEqual(custom.answers.deEmphasizedMuscles, context.deEmphasizedMuscles);
+  assert.deepEqual(custom.answers.ignoredMuscles, context.ignoredMuscles);
+
+  const browse = Entry.selectRoute(fresh(), "browse", { reusableContext: context });
+  assert.deepEqual(Object.keys(browse.answers).sort(), [
+    "daysPerWeek",
+    "environment",
+    "sessionMinutes",
+  ]);
+  for (const key of ["desiredResult", "structuredExperience", "recentConsistency", "preferredRestSeconds",
+    "primaryMuscles", "priorityMovements", "exerciseConstraints", "deEmphasizedMuscles", "ignoredMuscles"]) {
+    assert.equal(browse.answers[key], undefined, `Browse must not prefill ${key}`);
+  }
+
+  for (const route of ["build", "import", "shared"]) {
+    assert.deepEqual(Entry.selectRoute(fresh(), route, { reusableContext: context }).answers, {});
   }
 });
 
@@ -191,6 +254,47 @@ test("setup draft round-trips partial progress without normalization drift", () 
   const second = Entry.normalizeSetupDraft(JSON.stringify(first.value));
   assert.deepEqual(second, first);
   assert.deepEqual(state.answers, { desiredResult: "muscle_growth" });
+});
+
+test("setup draft envelope migrates legacy bytes and advances ownership by revision", () => {
+  const state = Entry.setAnswers(Entry.selectRoute(fresh(), "recommend"), {
+    desiredResult: "muscle_growth",
+  });
+  const migrated = Entry.normalizeSetupDraftEnvelope(JSON.stringify(state));
+  assert.equal(migrated.ok, true, migrated.issues?.join(","));
+  assert.equal(migrated.value.migrated, true);
+  assert.equal(migrated.value.envelope.revision, 0);
+  assert.equal(migrated.value.envelope.ownerId, null);
+  assert.deepEqual(migrated.value.envelope.state, state);
+
+  const tabA = Entry.advanceSetupDraftEnvelope(migrated.value.envelope, state, "tab-a");
+  assert.equal(tabA.revision, 1);
+  assert.equal(tabA.ownerId, "tab-a");
+  const changed = Entry.setAnswers(state, { daysPerWeek: 3 });
+  const tabB = Entry.advanceSetupDraftEnvelope(tabA, changed, "tab-b");
+  assert.equal(tabB.revision, 2);
+  assert.equal(tabB.ownerId, "tab-b");
+  assert.deepEqual(tabB.state.answers, { desiredResult: "muscle_growth", daysPerWeek: 3 });
+  assert.equal(tabA.state.answers.daysPerWeek, undefined);
+
+  const roundTrip = Entry.normalizeSetupDraftEnvelope(JSON.stringify(tabB));
+  assert.equal(roundTrip.ok, true, roundTrip.issues?.join(","));
+  assert.equal(roundTrip.value.migrated, false);
+  assert.deepEqual(roundTrip.value.envelope, tabB);
+});
+
+test("setup draft envelope rejects unknown ownership and revision shapes", () => {
+  const state = fresh();
+  for (const envelope of [
+    { schemaVersion: 1, draftId: state.draftId, revision: -1, ownerId: "tab-a", state },
+    { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "", state },
+    { schemaVersion: 1, draftId: "different", revision: 1, ownerId: "tab-a", state },
+    { schemaVersion: 1, draftId: state.draftId, revision: 1, ownerId: "tab-a", state, extra: true },
+  ]) {
+    const result = Entry.normalizeSetupDraftEnvelope(envelope);
+    assert.equal(result.ok, false, JSON.stringify(envelope));
+    assert.equal(result.code, "invalid-setup-draft-envelope");
+  }
 });
 
 test("draft schema rejects corrupt, oversized, deep, unknown, and polluted input", () => {
@@ -379,6 +483,98 @@ test("activation allows unchanged or explicitly executable pinned rules only", (
   assert.equal(pinned.pinned, true);
 });
 
+test("Build activation names every incomplete day and requires executable exercises", () => {
+  let draft = Entry.selectRoute(fresh(), "build");
+  draft = Entry.setAnswers(draft, { programName: "Manual block", daysPerWeek: 2 });
+  draft = Entry.setResult(draft, {
+    fingerprint: "manual-empty",
+    preview: {
+      program: [],
+      programStructure: {
+        schemaVersion: 1,
+        days: [
+          { dayId: "manual_d1", label: "Day 1", order: 1 },
+          { dayId: "manual_d2", label: "Day 2", order: 2 },
+        ],
+      },
+    },
+  });
+  draft = Entry.advance(draft).state;
+  const empty = Entry.activationReadiness(draft, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  });
+  assert.equal(empty.ok, false);
+  assert.equal(empty.code, "candidate_incomplete");
+  assert.deepEqual(empty.issues, ["program_exercises_required", "day_empty:manual_d1", "day_empty:manual_d2"]);
+
+  const partial = Entry.setResult(draft, {
+    ...draft.result,
+    preview: {
+      ...draft.result.preview,
+      program: [{ id: "row-1", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
+    },
+  });
+  assert.deepEqual(Entry.activationReadiness(partial, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  }).issues, ["day_empty:manual_d2"]);
+
+  const complete = Entry.setResult(partial, {
+    ...partial.result,
+    preview: {
+      ...partial.result.preview,
+      program: [
+        ...partial.result.preview.program,
+        { id: "row-2", day: "Day 2", order: 1, name: "Press", sets: 3, min: 6, max: 10 },
+      ],
+    },
+  });
+  assert.equal(Entry.activationReadiness(complete, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  }).ok, true);
+
+  const incompatible = Entry.setResult(complete, {
+    ...complete.result,
+    preview: {
+      ...complete.result.preview,
+      program: complete.result.preview.program.map((exercise, index) => index ? exercise : {
+        ...exercise,
+        progressionIncompatibility: { code: "unsupported_strategy" },
+      }),
+    },
+  });
+  assert.deepEqual(Entry.activationReadiness(incompatible, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  }).issues, ["progression_incompatible:row-1"]);
+});
+
+test("activation blocks a candidate with program-level progression incompatibility", () => {
+  const state = driveToTerminal("recommend").state;
+  const incompatible = Entry.setResult(state, {
+    ...state.result,
+    preview: {
+      ...state.result.preview,
+      progressionIncompatibilities: [{
+        version: 1,
+        kind: "relations",
+        source: "program-import",
+        reason: "unknown live slot",
+        value: [{ id: "pair", type: "paired_exposure", version: 1, movementId: "movement:pair", members: [] }],
+      }],
+    },
+  });
+  const readiness = Entry.activationReadiness(incompatible, {
+    liveActiveProgramRevision: 12,
+    currentVersions: VERSIONS,
+  });
+  assert.equal(readiness.ok, false);
+  assert.equal(readiness.code, "candidate_incomplete");
+  assert.deepEqual(readiness.issues, ["progression_incompatible:program"]);
+});
+
 test("start over requests deletion of only the setup draft", () => {
   const restarted = Entry.startOver({
     draftId: "new-draft",
@@ -408,4 +604,60 @@ test("corrupt saved drafts return typed resume failure", () => {
     code: "invalid-setup-draft",
     issues: ["invalid_json"],
   });
+});
+
+test("muscle overlaps and control caps fail closed before compile", () => {
+  const state = Entry.selectRoute(fresh(), "custom");
+  assert.throws(
+    () => Entry.setAnswers(state, {
+      primaryMuscles: ["chest"],
+      deEmphasizedMuscles: ["chest"],
+    }),
+    /primary_deemphasized_overlap/,
+  );
+  assert.throws(
+    () => Entry.setAnswers(state, {
+      primaryMuscles: ["chest", "back", "quads"],
+    }),
+    /invalid_list|too_many/,
+  );
+  const eleven = Array.from({ length: 11 }, (_, i) => `m${i}`);
+  assert.throws(
+    () => Entry.setAnswers(state, { deEmphasizedMuscles: eleven }),
+    /invalid_list/,
+  );
+  assert.equal(Entry.MAX_MUSCLE_CONTROLS, 10);
+
+  assert.throws(
+    () => Entry.setAnswers(state, {
+      mustHaveExercises: ["pr_bb"],
+      exerciseConstraints: [{ exerciseId: "pr_bb", reason: "pain" }],
+    }),
+    /must_have_avoided/,
+  );
+
+  const ok = Entry.setAnswers(state, {
+    primaryMuscles: ["chest"],
+    deEmphasizedMuscles: ["back"],
+    ignoredMuscles: ["calves"],
+  });
+  assert.deepEqual(Entry.validationIssues({ ...ok, step: "priorities" }), []);
+
+  const hostile = Entry.normalizeProgrammingContext({
+    ...validContext(),
+    primaryMuscles: ["chest"],
+    ignoredMuscles: ["chest"],
+  });
+  assert.equal(hostile.ok, false);
+  assert.ok(hostile.issues.some((issue) => issue.includes("overlap")));
+});
+
+test("draft schema rejects nested prototype pollution in result and legacyHints", () => {
+  const base = fresh();
+  const pollutedResult = JSON.parse('{"fingerprint":"x","nested":{"__proto__":{"polluted":true}}}');
+  const pollutedHints = JSON.parse('{"goal":"hypertrophy","meta":{"__proto__":{"polluted":true}}}');
+  assert.equal(Entry.normalizeSetupDraft({ ...base, result: pollutedResult }).ok, false);
+  assert.equal(Entry.normalizeSetupDraft({ ...base, legacyHints: pollutedHints }).ok, false);
+  assert.throws(() => Entry.setResult(base, pollutedResult), /Invalid program-entry result/);
+  assert.equal({}.polluted, undefined);
 });

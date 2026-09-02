@@ -9,10 +9,10 @@ import {
   inventoryPersistenceArtifacts,
 } from "./persistence-artifacts.mjs";
 
-/* An import is staged for review now, so the durable write happens when Import
-   is pressed rather than when the file is read. Clears the review list, then
-   commits — the write that the lock-holding assertions below are about. */
-async function reviewAndCommitImport(page) {
+/* Clear the mapping review and persist the candidate. Activation remains a
+   separate transaction, which the conflict cases start while holding the
+   storage lock. */
+async function reviewAndStageImport(page) {
   await page.waitForSelector("#importReview.active", { timeout: 5000 });
   for (let guard = 0; guard < 40; guard++) {
     const acted = await page.evaluate(() => {
@@ -25,6 +25,7 @@ async function reviewAndCommitImport(page) {
     await page.waitForTimeout(50);
   }
   await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
 }
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
@@ -113,6 +114,19 @@ function fixture() {
         alternates: [],
       },
       {
+        id: "draft-conflict-press-accessory",
+        name: "Draft conflict press accessory",
+        day: "Day 1",
+        order: 2,
+        sets: 2,
+        min: 8,
+        max: 12,
+        primary: "Chest",
+        secondary: "Triceps",
+        notes: "",
+        alternates: [],
+      },
+      {
         id: "draft-conflict-row",
         name: "Draft conflict row",
         day: "Day 2",
@@ -154,7 +168,6 @@ async function waitForApp(page) {
   await page.waitForFunction(
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
-      typeof window.__repforgeApplyProgramTemplate === "function" &&
       typeof window.__repforgeFinalizeProgramSetup === "function",
     { timeout: 15000 }
   );
@@ -165,6 +178,17 @@ async function waitForApp(page) {
     if (onboarding?.classList.contains("active")) window.closeOnboarding?.();
     const tour = document.querySelector("#tour");
     if (tour && !tour.classList.contains("hidden")) window.closeTour?.();
+    window.__testFinalizeCurrentProgram = (io) => {
+      const current = JSON.parse(localStorage.getItem("repforge_v1") || "null");
+      return window.__repforgeFinalizeProgramSetup({
+        exercises: current.program,
+        name: "Beginner program",
+        answers: { goal: current.programMeta?.goal || "hypertrophy" },
+        destination: "log",
+        origin: "settings",
+        draftConfirmed: true,
+      }, io);
+    };
   });
 }
 
@@ -319,7 +343,7 @@ async function runTemplateConflict(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__draftConflictResult = window.__repforgeApplyProgramTemplate();
+      window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
@@ -447,7 +471,7 @@ async function runFinalizeConflict(browser) {
 }
 
 async function runSaveProgramConflict(browser) {
-  console.log("\n3. Raw program save conflicts with a newer draft");
+  console.log("\n3. Visible program edit conflicts with a newer draft");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
@@ -458,16 +482,19 @@ async function runSaveProgramConflict(browser) {
     await seedScenario(writer, confirmedDraftRaw);
     const locker = await openApp(context);
     await openProgramEditor(writer);
-    await writer.locator("#programEditorWrap details.advanced").evaluate((details) => {
-      details.open = true;
-    });
-    const edited = fixture().program;
-    edited[0].name = "Edited while draft is active";
-    await writer.locator("#programJson").fill(JSON.stringify(edited));
+    // Replacing the touched exercise is the visible equivalent of replacing
+    // the installed program while a workout draft exists. Done first presents
+    // the workout-safe Apply changes action before the destructive transaction
+    // begins.
+    await writer.locator('#programEditor [data-role="replace"][data-id="draft-conflict-press"]').click();
+    await writer.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await writer.locator("#exPickList .pickrow").first().click();
+    await writer.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     const before = await readRuntime(writer);
-    writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
-    await writer.click("#saveProgram");
+    await writer.click("#programEditToggle");
+    await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await writer.click("#programEditorApply");
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-save-program-draft", "102.5"));
@@ -484,14 +511,14 @@ async function runSaveProgramConflict(browser) {
         blocked.pendingEntries[0].value?.effect?.kind === "clear-draft" &&
         blocked.pendingEntries[0].value.effect.expectedRaw === confirmedDraftRaw &&
         blocked.pendingEntries[0].value.effect.precondition === "abort-changed",
-      "raw program save journals the exact confirmed draft",
+      "visible program edit journals the exact confirmed draft",
       blocked.pendingEntries.map((entry) => entry.value?.effect)
     );
     check(
       final.localRaw === before.localRaw &&
         JSON.stringify(final.idb) === JSON.stringify(before.idb) &&
         final.draftRaw === newerDraftRaw,
-      "raw program save conflict preserves durable program and newer draft",
+      "visible program edit conflict preserves durable program and newer draft",
       {
         localChanged: final.localRaw !== before.localRaw,
         idbChanged: JSON.stringify(final.idb) !== JSON.stringify(before.idb),
@@ -500,7 +527,7 @@ async function runSaveProgramConflict(browser) {
     );
     check(
       final.persistenceArtifacts.length === 0,
-      "raw program save conflict clears only its stale journal",
+      "visible program edit conflict clears only its stale journal",
       final.persistenceArtifacts
     );
   } finally {
@@ -524,13 +551,14 @@ async function runNormalProgramImportConflict(browser) {
     writer.on("dialog", (dialog) => dialog.accept());
     const imported = fixture().program;
     imported[0].name = "Imported replacement press";
-    await holdStorageLock(locker);
     await writer.setInputFiles("#importProgram", {
       name: "program.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify({ version: 2, meta: { name: "Imported conflict" }, exercises: imported })),
     });
-    await reviewAndCommitImport(writer);
+    await reviewAndStageImport(writer);
+    await holdStorageLock(locker);
+    await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-import-draft", "105"));
@@ -588,13 +616,14 @@ async function runOnboardingProgramImportConflict(browser) {
     writer.on("dialog", (dialog) => dialog.accept());
     const imported = fixture().program;
     imported[0].name = "Onboarding imported press";
-    await holdStorageLock(locker);
     await writer.setInputFiles("#importProgram", {
       name: "onboarding-program.json",
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify({ version: 2, meta: { name: "Onboarding import" }, exercises: imported })),
     });
-    await reviewAndCommitImport(writer);
+    await reviewAndStageImport(writer);
+    await holdStorageLock(locker);
+    await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-onboarding-import-draft", "106.25"));
@@ -655,7 +684,10 @@ async function runDeleteExerciseConflict(browser) {
     const before = await readRuntime(writer);
     writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
-    await writer.click('[data-act="delEx"][data-id="draft-conflict-press"]');
+    await writer.click('#programEditor [data-role="remove-exercise"][data-id="draft-conflict-press"]');
+    await writer.click("#programEditToggle");
+    await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await writer.click("#programEditorApply");
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-delete-exercise-draft", "107.5"));
@@ -711,7 +743,11 @@ async function runDeleteDayConflict(browser) {
     const before = await readRuntime(writer);
     writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
-    await writer.click('[data-act="delDay"][data-day="Day 1"]');
+    await writer.click('#programEditor [data-role="day-menu"][data-day="Day 1"]');
+    await writer.click('#programEditor [data-role="remove-day"][data-day="Day 1"]');
+    await writer.click("#programEditToggle");
+    await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await writer.click("#programEditorApply");
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-delete-day-draft", "110"));
@@ -907,7 +943,7 @@ async function runIndependentlyRemovedDraft(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__draftConflictResult = window.__repforgeApplyProgramTemplate();
+      window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     await locker.evaluate((draftKey) => localStorage.removeItem(draftKey), DRAFT);
@@ -956,7 +992,7 @@ async function runBootDestructiveConflict(browser) {
     const before = await readRuntime(page);
     await holdStorageLock(locker);
     await page.evaluate(() => {
-      window.__bootDestructivePending = window.__repforgeApplyProgramTemplate();
+      window.__bootDestructivePending = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
@@ -1016,7 +1052,7 @@ async function runDraftCreatedAfterConfirmation(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__draftConflictResult = window.__repforgeApplyProgramTemplate();
+      window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
@@ -1086,7 +1122,7 @@ async function runLocalReplicaWriteRace(browser) {
           return written;
         };
         try {
-          return await window.__repforgeApplyProgramTemplate();
+          return await window.__testFinalizeCurrentProgram();
         } finally {
           Storage.prototype.setItem = originalSetItem;
         }
@@ -1139,7 +1175,7 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
     const before = await readRuntime(page);
     await holdStorageLock(locker);
     await page.evaluate(() => {
-      window.__bootWriteRacePending = window.__repforgeApplyProgramTemplate();
+      window.__bootWriteRacePending = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
@@ -1242,7 +1278,7 @@ async function runOneStoreReplicaWriteRaces(browser) {
             return request;
           };
           try {
-            return await window.__repforgeApplyProgramTemplate();
+            return await window.__testFinalizeCurrentProgram();
           } finally {
             Storage.prototype.setItem = originalSetItem;
             IDBObjectStore.prototype.put = originalPut;
@@ -1368,7 +1404,7 @@ async function runCrossStoreCompensationRecovery(browser) {
             return request;
           };
           try {
-            const value = await window.__repforgeApplyProgramTemplate();
+            const value = await window.__testFinalizeCurrentProgram();
             return { value, localWrites, idbWrites };
           } finally {
             Storage.prototype.setItem = originalSetItem;
@@ -1467,7 +1503,7 @@ async function runEffectApplicationRace(browser) {
           return originalGetItem.apply(this, arguments);
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, draftReads };
         } finally {
           Storage.prototype.getItem = originalGetItem;
@@ -1525,7 +1561,7 @@ async function runPreparedTransactionUnloadRecovery(browser) {
             await new Promise(() => {});
           },
         };
-        window.__interruptedDraftTransaction = window.__repforgeApplyProgramTemplate(io);
+        window.__interruptedDraftTransaction = window.__testFinalizeCurrentProgram(io);
       },
       { key: KEY, draftKey: DRAFT, newerDraftRaw }
     );
@@ -1610,7 +1646,7 @@ async function runSuccessfulClearPublicationRace(browser) {
           return removed;
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, injected, markerPresent, draftRawAfterRemoval };
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
@@ -1707,7 +1743,7 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
           return removed;
         };
         try {
-          const result = await window.__repforgeApplyProgramTemplate();
+          const result = await window.__testFinalizeCurrentProgram();
           return { result, saveDispatched, markerPresent, draftRawAfterSave, queuedWriteCount };
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
@@ -1808,7 +1844,7 @@ async function runQueuedStaleTabUnloadRecovery(browser) {
           return originalPut.apply(this, arguments);
         };
         try {
-          return await window.__repforgeApplyProgramTemplate();
+          return await window.__testFinalizeCurrentProgram();
         } finally {
           Storage.prototype.removeItem = originalRemoveItem;
           Storage.prototype.setItem = originalSetItem;

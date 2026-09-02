@@ -12,7 +12,7 @@ concurrency:
 jobs:
   telemetry-privacy:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       - name: Checkout
@@ -65,7 +65,23 @@ jobs:
       - name: Regenerate UI evidence
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: node tools/capture-ui-screens.mjs
+        run: |
+          # Copy the committed catalog somewhere immutable, regenerate it from
+          # the app, then diff the two. The whole catalog is compared, not one
+          # subtree: a screen that drifts must fail the build, not sit stale in
+          # docs/ while CI stays green.
+          baseline="$(mktemp -d)"
+          cp -a docs/ui-screens/screens "$baseline/"
+          cp -a docs/ui-screens/entry-semantics.json "$baseline/"
+          chmod -R a-w "$baseline"
+          cleanup() {
+            chmod -R u+w -- "$baseline" 2>/dev/null || true
+            rm -rf -- "$baseline"
+          }
+          trap cleanup EXIT
+          node tools/capture-ui-screens.mjs
+          node tools/check-ui-screens.mjs
+          node tools/compare-ui-screens.mjs --baseline "$baseline/screens" --baseline-semantic "$baseline/entry-semantics.json"
 
       - name: Upload UI evidence
         uses: actions/upload-artifact@v4
@@ -98,7 +114,8 @@ jobs:
 
       - name: Syntax check runtime and test JS
         run: |
-          for f in app.js i18n.js notify.js schedule.js sw.js test/*.mjs test/generative/*/*.mjs; do
+          node tools/check-production-syntax.mjs
+          for f in test/*.mjs test/generative/*/*.mjs tools/*.mjs tools/ui-screens/*.mjs; do
             node --check "$f" || exit 1
           done
 
@@ -107,6 +124,14 @@ jobs:
 
       - name: Generate analytics-disabled preview config
         run: node scripts/generate-posthog-config.mjs
+
+      - name: Plan 048 pure contracts
+        run: |
+          node test/program-entry.mjs
+          node test/program-entry-production-adapter.mjs
+          node test/program-compiler-plan048-preferences.mjs
+          node test/pr201-contracts.mjs
+          node test/ui-screens.mjs
 
       - name: Start static server
         run: python3 -m http.server 8000 &
@@ -125,6 +150,26 @@ jobs:
 
       - name: Schedule tests
         run: node test/schedule.mjs
+
+      - name: Production-backed entry properties
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/generative-entry-runtime.mjs
+
+      - name: Two-page active-program conflict UX
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/program-entry-conflict-runtime.mjs
+
+      - name: Installed service-worker upgrade
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/sw-upgrade.mjs
+
+      - name: Resume rules-version drift
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/program-entry-rules-runtime.mjs
 
       - name: i18n parity
         run: node test/i18n.mjs
@@ -147,6 +192,11 @@ jobs:
           node test/program-family-fixtures.mjs
           node test/program-compiler-persistence.mjs
           node test/program-compiler-runtime.mjs
+
+      - name: Plan 048 production browser entry
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/program-entry-browser.mjs
 
       - name: Persistence artifact helper self-test
         env:

@@ -161,6 +161,8 @@ async function bannerPage(browser, { ua, locale = "en-US", width = 393, native =
   });
   await page.waitForSelector("#importReview.active", { timeout: 8000 });
   await page.click("#importCommit");
+  await page.waitForSelector("#entryActivate", { timeout: 10000 });
+  await page.click("#entryActivate");
   await page.waitForFunction(() => document.querySelector("#firstRun").classList.contains("hidden"), undefined, {
     timeout: 8000,
   });
@@ -612,10 +614,13 @@ async function run() {
     });
     await page.waitForSelector("#importReview.active", { timeout: 5000 });
     await page.click("#importCommit");
+    await page.waitForSelector("#entryActivate", { timeout: 10000 });
+    await page.click("#entryActivate");
     await page.waitForFunction(
       () =>
         document.querySelector("#firstRun").classList.contains("hidden") &&
-        !document.querySelector("#importReview").classList.contains("active"),
+        !document.querySelector("#importReview").classList.contains("active") &&
+        document.querySelector("#log").classList.contains("active"),
       undefined,
       { timeout: 8000 }
     );
