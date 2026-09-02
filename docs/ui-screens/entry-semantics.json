@@ -4379,61 +4379,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "aria-live": "polite",
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -4443,29 +4421,24 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "No exercises yet. Add your first below."
+          "text": "Add an exercise to each training day."
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -4476,29 +4449,13 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -4509,76 +4466,28 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Save draft",
+          "name": "Save draft",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "disabled": true,
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[]"
-        },
-        {
-          "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Planned weekly volume"
-        },
-        {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "div",
-          "text": "No exercises in the program."
         }
       ]
     },
@@ -4595,61 +4504,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "aria-live": "polite",
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -4659,29 +4546,24 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "No exercises yet. Add your first below."
+          "text": "Add an exercise to each training day."
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -4692,29 +4574,13 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -4725,76 +4591,28 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Save draft",
+          "name": "Save draft",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "disabled": true,
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[]"
-        },
-        {
-          "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Planned weekly volume"
-        },
-        {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "div",
-          "text": "No exercises in the program."
         }
       ]
     },
@@ -4811,61 +4629,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "aria-live": "polite",
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -4875,29 +4671,24 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "No exercises yet. Add your first below."
+          "text": "Add an exercise to each training day."
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -4908,29 +4699,13 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -4941,76 +4716,28 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Save draft",
+          "name": "Save draft",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "disabled": true,
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[]"
-        },
-        {
-          "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Planned weekly volume"
-        },
-        {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "div",
-          "text": "No exercises in the program."
         }
       ]
     },
@@ -5027,61 +4754,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "aria-live": "polite",
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -5091,29 +4796,24 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "No exercises yet. Add your first below."
+          "text": "Add an exercise to each training day."
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -5124,29 +4824,13 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -5157,76 +4841,28 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Save draft",
+          "name": "Save draft",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "disabled": true,
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[]"
-        },
-        {
-          "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Planned weekly volume"
-        },
-        {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "div",
-          "text": "No exercises in the program."
         }
       ]
     },
@@ -5243,61 +4879,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "aria-live": "polite",
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -5307,29 +4921,24 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "No exercises yet. Add your first below."
+          "text": "Add an exercise to each training day."
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -5340,29 +4949,13 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -5373,76 +4966,28 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Save draft",
+          "name": "Save draft",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "disabled": true,
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[]"
-        },
-        {
-          "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Planned weekly volume"
-        },
-        {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "div",
-          "text": "No exercises in the program."
         }
       ]
     },
@@ -5459,61 +5004,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Programa"
-        },
-        {
-          "tag": "h2",
-          "text": "Programa"
+          "label": "Criar programa"
         },
         {
           "tag": "button",
-          "text": "Fechar",
-          "name": "Fechar",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Montar um programa"
+        },
+        {
           "tag": "div",
-          "label": "Resumo do programa"
+          "label": "Editor de programa"
         },
         {
-          "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Nome do programa"
         },
         {
           "tag": "input",
           "name": "Nome do programa",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Nome do programa",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Adicione um exercício a: Day 1, Day 2, Day 3.",
-          "name": "Adicione um exercício a: Day 1, Day 2, Day 3.",
-          "aria-live": "polite",
+          "role": "alert",
+          "text": "Adicione um exercício a: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Adicione um exercício a: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
-          "describedBy": "Adicione um exercício a: Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Salvar rascunho",
-          "name": "Salvar rascunho",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Adicione dias e exercícios abaixo."
         },
         {
           "tag": "input",
@@ -5523,29 +5046,24 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 séries"
+          "text": "0 exercícios"
         },
         {
           "tag": "button",
-          "name": "Excluir Dia 1",
-          "label": "Excluir Dia 1",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Recolher Dia 1",
-          "label": "Recolher Dia 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Nenhum exercício ainda. Adicione o primeiro abaixo."
+          "text": "Adicione um exercício a cada dia de treino."
         },
         {
           "tag": "button",
-          "text": "+ Adicionar exercício",
-          "name": "+ Adicionar exercício",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
           "type": "button"
         },
         {
@@ -5556,29 +5074,13 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 séries"
+          "text": "0 exercícios"
         },
         {
           "tag": "button",
-          "name": "Excluir Dia 2",
-          "label": "Excluir Dia 2",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Recolher Dia 2",
-          "label": "Recolher Dia 2",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Nenhum exercício ainda. Adicione o primeiro abaixo."
-        },
-        {
-          "tag": "button",
-          "text": "+ Adicionar exercício",
-          "name": "+ Adicionar exercício",
+          "name": "Expand Dia 2",
+          "label": "Expand Dia 2",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -5589,76 +5091,28 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 séries"
+          "text": "0 exercícios"
         },
         {
           "tag": "button",
-          "name": "Excluir Dia 3",
-          "label": "Excluir Dia 3",
+          "name": "Expand Dia 3",
+          "label": "Expand Dia 3",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "name": "Recolher Dia 3",
-          "label": "Recolher Dia 3",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Nenhum exercício ainda. Adicione o primeiro abaixo."
-        },
-        {
-          "tag": "button",
-          "text": "+ Adicionar exercício",
-          "name": "+ Adicionar exercício",
+          "text": "Salvar rascunho",
+          "name": "Salvar rascunho",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Adicionar dia",
-          "name": "+ Adicionar dia",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "describedBy": "Adicione um exercício a: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "disabled": true,
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Avançado · editar JSON bruto",
-          "name": "Avançado · editar JSON bruto"
-        },
-        {
-          "tag": "p",
-          "text": "Editar aqui substitui o programa inteiro. Use o editor visual acima para mudanças do dia a dia."
-        },
-        {
-          "tag": "span",
-          "text": "JSON do programa"
-        },
-        {
-          "tag": "textarea",
-          "name": "JSON do programa",
-          "value": "[]"
-        },
-        {
-          "tag": "button",
-          "text": "Salvar JSON",
-          "name": "Salvar JSON",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Volume semanal planejado"
-        },
-        {
-          "tag": "p",
-          "text": "Estes totais contam cada dia de treino uma vez por semana. Veja para comparar com o que você registrou."
-        },
-        {
-          "tag": "b",
-          "text": "Progresso → Séries efetivas concluídas"
-        },
-        {
-          "tag": "div",
-          "text": "Nenhum exercício no programa."
         }
       ]
     },
@@ -5675,61 +5129,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "aria-live": "polite",
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to: Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -5739,29 +5171,24 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "No exercises yet. Add your first below."
+          "text": "Add an exercise to each training day."
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -5772,29 +5199,13 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -5805,76 +5216,28 @@
         },
         {
           "tag": "span",
-          "text": "0 ex · 0 sets"
+          "text": "0 exercises"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
-          "aria-expanded": "true",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "No exercises yet. Add your first below."
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Save draft",
+          "name": "Save draft",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "disabled": true,
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[]"
-        },
-        {
-          "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
-          "type": "button"
-        },
-        {
-          "tag": "h3",
-          "text": "Planned weekly volume"
-        },
-        {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "div",
-          "text": "No exercises in the program."
         }
       ]
     },
@@ -5919,10 +5282,11 @@
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Draft saved",
-          "name": "Draft saved",
-          "aria-live": "polite"
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
         },
         {
           "tag": "input",
@@ -5936,9 +5300,10 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -5950,13 +5315,6 @@
         {
           "tag": "span",
           "text": "3 × 6–10"
-        },
-        {
-          "tag": "button",
-          "text": "≡",
-          "name": "Reorder exercise",
-          "label": "Reorder exercise",
-          "type": "button"
         },
         {
           "tag": "button",
@@ -6028,43 +5386,6 @@
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "More exercise details",
-          "name": "More exercise details"
-        },
-        {
-          "tag": "span",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
-        },
-        {
-          "tag": "span",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Lats"
-        },
-        {
-          "tag": "span",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Biceps,Forearms"
-        },
-        {
-          "tag": "button",
-          "text": "Choose alternates",
-          "name": "Choose alternates",
-          "type": "button"
-        },
-        {
           "tag": "button",
           "text": "Add exercise",
           "name": "＋ Add exercise",
@@ -6114,6 +5435,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -6160,10 +5482,11 @@
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Draft saved",
-          "name": "Draft saved",
-          "aria-live": "polite"
+          "role": "alert",
+          "text": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
         },
         {
           "tag": "input",
@@ -6177,9 +5500,10 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -6191,13 +5515,6 @@
         {
           "tag": "span",
           "text": "3 × 6–10"
-        },
-        {
-          "tag": "button",
-          "text": "≡",
-          "name": "Reorder exercise",
-          "label": "Reorder exercise",
-          "type": "button"
         },
         {
           "tag": "button",
@@ -6269,43 +5586,6 @@
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "More exercise details",
-          "name": "More exercise details"
-        },
-        {
-          "tag": "span",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
-        },
-        {
-          "tag": "span",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Lats"
-        },
-        {
-          "tag": "span",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Biceps,Forearms"
-        },
-        {
-          "tag": "button",
-          "text": "Choose alternates",
-          "name": "Choose alternates",
-          "type": "button"
-        },
-        {
           "tag": "button",
           "text": "Add exercise",
           "name": "＋ Add exercise",
@@ -6355,6 +5635,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
+          "describedBy": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -6401,10 +5682,11 @@
         },
         {
           "tag": "p",
-          "role": "status",
-          "text": "Draft saved",
-          "name": "Draft saved",
-          "aria-live": "polite"
+          "role": "alert",
+          "text": "Adicione um exercício a: day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Adicione um exercício a: day_empty:manual_d2, day_empty:manual_d3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
         },
         {
           "tag": "input",
@@ -6418,9 +5700,10 @@
         },
         {
           "tag": "button",
-          "name": "Collapse Dia 1",
-          "label": "Collapse Dia 1",
-          "aria-expanded": "true",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -6432,13 +5715,6 @@
         {
           "tag": "span",
           "text": "3 × 6–10"
-        },
-        {
-          "tag": "button",
-          "text": "≡",
-          "name": "Reordenar exercício",
-          "label": "Reordenar exercício",
-          "type": "button"
         },
         {
           "tag": "button",
@@ -6510,43 +5786,6 @@
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Mais detalhes do exercício",
-          "name": "Mais detalhes do exercício"
-        },
-        {
-          "tag": "span",
-          "text": "Notas de preparação"
-        },
-        {
-          "tag": "input",
-          "name": "Notas de preparação"
-        },
-        {
-          "tag": "span",
-          "text": "Principal"
-        },
-        {
-          "tag": "input",
-          "name": "Principal",
-          "value": "Abs"
-        },
-        {
-          "tag": "span",
-          "text": "Secundário"
-        },
-        {
-          "tag": "input",
-          "name": "Secundário",
-          "value": "Obliques"
-        },
-        {
-          "tag": "button",
-          "text": "Escolher alternativas",
-          "name": "Escolher alternativas",
-          "type": "button"
-        },
-        {
           "tag": "button",
           "text": "Adicionar exercício",
           "name": "＋ Adicionar exercício",
@@ -6596,6 +5835,7 @@
           "tag": "button",
           "text": "Usar este programa",
           "name": "Usar este programa",
+          "describedBy": "Adicione um exercício a: day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -6614,59 +5854,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
           "role": "status",
-          "text": "Ready to activate.",
-          "name": "Ready to activate.",
+          "text": "Draft saved",
+          "name": "Draft saved",
           "aria-live": "polite",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -6676,199 +5896,99 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 sets"
+          "text": "1 exercise"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Exercise label",
-          "label": "Exercise label",
-          "value": "Assisted pull-up"
-        },
-        {
-          "tag": "button",
-          "name": "Change Assisted pull-up",
-          "label": "Change Assisted pull-up",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Move up",
-          "label": "Move up",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Move down",
-          "label": "Move down",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Delete exercise",
-          "label": "Delete exercise",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Sets"
-        },
-        {
-          "tag": "input",
-          "name": "Sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Min reps"
-        },
-        {
-          "tag": "input",
-          "name": "Min reps",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Max reps"
-        },
-        {
-          "tag": "input",
-          "name": "Max reps",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Lats"
-        },
-        {
-          "tag": "label",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Biceps,Forearms"
-        },
-        {
-          "tag": "p",
-          "text": "Linked to Assisted pull-up in the library."
-        },
-        {
-          "tag": "button",
-          "text": "Detach",
-          "name": "Detach",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
+          "tag": "div",
+          "label": "SETS"
         },
         {
           "tag": "span",
-          "text": "Alternates"
+          "text": "SETS"
         },
         {
           "tag": "button",
-          "text": "Pick alternates",
-          "name": "Pick alternates",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progression",
-          "name": "ProgressionRep range"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
         },
         {
           "tag": "span",
-          "text": "Rep range"
-        },
-        {
-          "tag": "span",
-          "text": "Progression method"
-        },
-        {
-          "tag": "select",
-          "name": "Progression methodRep rangeTotal repsFixed reps and effortHeavy set and lighter setsManual",
-          "describedBy": "Set how Taurifer chooses the next target for this exercise.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Set how Taurifer chooses the next target for this exercise."
-        },
-        {
-          "tag": "span",
-          "text": "Workout sets"
+          "text": "MIN"
         },
         {
           "tag": "input",
-          "name": "Workout sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Minimum reps"
-        },
-        {
-          "tag": "input",
-          "name": "Minimum reps",
+          "name": "MIN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Maximum reps"
+          "text": "MAX"
         },
         {
           "tag": "input",
-          "name": "Maximum reps",
+          "name": "MAX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "Save progression",
-          "name": "Save progression",
-          "type": "submit"
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -6879,199 +5999,99 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 sets"
+          "text": "1 exercise"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Exercise label",
-          "label": "Exercise label",
-          "value": "Barbell back squat"
-        },
-        {
-          "tag": "button",
-          "name": "Change Barbell back squat",
-          "label": "Change Barbell back squat",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Move up",
-          "label": "Move up",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Move down",
-          "label": "Move down",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Delete exercise",
-          "label": "Delete exercise",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Sets"
-        },
-        {
-          "tag": "input",
-          "name": "Sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Min reps"
-        },
-        {
-          "tag": "input",
-          "name": "Min reps",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Max reps"
-        },
-        {
-          "tag": "input",
-          "name": "Max reps",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Quads"
-        },
-        {
-          "tag": "label",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Glutes,Hamstrings,Calves"
-        },
-        {
-          "tag": "p",
-          "text": "Linked to Barbell back squat in the library."
-        },
-        {
-          "tag": "button",
-          "text": "Detach",
-          "name": "Detach",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
+          "tag": "div",
+          "label": "SETS"
         },
         {
           "tag": "span",
-          "text": "Alternates"
+          "text": "SETS"
         },
         {
           "tag": "button",
-          "text": "Pick alternates",
-          "name": "Pick alternates",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progression",
-          "name": "ProgressionRep range"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
         },
         {
           "tag": "span",
-          "text": "Rep range"
-        },
-        {
-          "tag": "span",
-          "text": "Progression method"
-        },
-        {
-          "tag": "select",
-          "name": "Progression methodRep rangeTotal repsFixed reps and effortHeavy set and lighter setsManual",
-          "describedBy": "Set how Taurifer chooses the next target for this exercise.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Set how Taurifer chooses the next target for this exercise."
-        },
-        {
-          "tag": "span",
-          "text": "Workout sets"
+          "text": "MIN"
         },
         {
           "tag": "input",
-          "name": "Workout sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Minimum reps"
-        },
-        {
-          "tag": "input",
-          "name": "Minimum reps",
+          "name": "MIN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Maximum reps"
+          "text": "MAX"
         },
         {
           "tag": "input",
-          "name": "Maximum reps",
+          "name": "MAX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "Save progression",
-          "name": "Save progression",
-          "type": "submit"
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -7082,326 +6102,112 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 sets"
+          "text": "1 exercise"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Exercise label",
-          "label": "Exercise label",
-          "value": "Barbell back squat"
-        },
-        {
-          "tag": "button",
-          "name": "Change Barbell back squat",
-          "label": "Change Barbell back squat",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Move up",
-          "label": "Move up",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Move down",
-          "label": "Move down",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Delete exercise",
-          "label": "Delete exercise",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Sets"
-        },
-        {
-          "tag": "input",
-          "name": "Sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Min reps"
-        },
-        {
-          "tag": "input",
-          "name": "Min reps",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Max reps"
-        },
-        {
-          "tag": "input",
-          "name": "Max reps",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Quads"
-        },
-        {
-          "tag": "label",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Glutes,Hamstrings,Calves"
-        },
-        {
-          "tag": "p",
-          "text": "Linked to Barbell back squat in the library."
-        },
-        {
-          "tag": "button",
-          "text": "Detach",
-          "name": "Detach",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
+          "tag": "div",
+          "label": "SETS"
         },
         {
           "tag": "span",
-          "text": "Alternates"
+          "text": "SETS"
         },
         {
           "tag": "button",
-          "text": "Pick alternates",
-          "name": "Pick alternates",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progression",
-          "name": "ProgressionRep range"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
         },
         {
           "tag": "span",
-          "text": "Rep range"
-        },
-        {
-          "tag": "span",
-          "text": "Progression method"
-        },
-        {
-          "tag": "select",
-          "name": "Progression methodRep rangeTotal repsFixed reps and effortHeavy set and lighter setsManual",
-          "describedBy": "Set how Taurifer chooses the next target for this exercise.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Set how Taurifer chooses the next target for this exercise."
-        },
-        {
-          "tag": "span",
-          "text": "Workout sets"
+          "text": "MIN"
         },
         {
           "tag": "input",
-          "name": "Workout sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Minimum reps"
-        },
-        {
-          "tag": "input",
-          "name": "Minimum reps",
+          "name": "MIN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Maximum reps"
+          "text": "MAX"
         },
         {
           "tag": "input",
-          "name": "Maximum reps",
+          "name": "MAX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
-        },
-        {
           "tag": "button",
-          "text": "Save progression",
-          "name": "Save progression",
-          "type": "submit"
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[{\"id\":\"<generated-id>\",\"day\":\"Day 1\",\"order\":1,\"name\":\"Assisted pull-up\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Lats\",\"secondary\":\"Biceps,Forearms\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"pd_bw\"},{\"id\":\"<generated-id>\",\"day\":\"Day 2\",\"order\":1,\"name\":\"Barbell back squat\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_bb\"},{\"id\":\"<generated-id>\",\"day\":\"Day 3\",\"order\":1,\"name\":\"Barbell back squat\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_bb\"}]"
         },
         {
           "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Planned weekly volume"
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
         },
         {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "span",
-          "text": "Quads"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "Lats"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Glutes"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Hamstrings"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Calves"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Biceps"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "1.5"
-        },
-        {
-          "tag": "span",
-          "text": "Forearms"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "1.5"
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
         }
       ]
     },
@@ -7418,59 +6224,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Program"
-        },
-        {
-          "tag": "h2",
-          "text": "Program"
+          "label": "Create program"
         },
         {
           "tag": "button",
-          "text": "Close",
-          "name": "Close",
+          "text": "Cancel",
+          "name": "Cancel",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
           "tag": "div",
-          "label": "Program summary"
+          "label": "Program editor"
         },
         {
-          "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Program name"
         },
         {
           "tag": "input",
           "name": "Program name",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Program name",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
           "role": "status",
-          "text": "Ready to activate.",
-          "name": "Ready to activate.",
+          "text": "Draft saved",
+          "name": "Draft saved",
           "aria-live": "polite",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add days and exercises below."
         },
         {
           "tag": "input",
@@ -7480,199 +6266,99 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 sets"
+          "text": "1 exercise"
         },
         {
           "tag": "button",
-          "name": "Delete Day 1",
-          "label": "Delete Day 1",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Collapse Day 1",
-          "label": "Collapse Day 1",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Exercise label",
-          "label": "Exercise label",
-          "value": "Assisted pull-up"
-        },
-        {
-          "tag": "button",
-          "name": "Change Assisted pull-up",
-          "label": "Change Assisted pull-up",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Move up",
-          "label": "Move up",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Move down",
-          "label": "Move down",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Delete exercise",
-          "label": "Delete exercise",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Sets"
-        },
-        {
-          "tag": "input",
-          "name": "Sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Min reps"
-        },
-        {
-          "tag": "input",
-          "name": "Min reps",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Max reps"
-        },
-        {
-          "tag": "input",
-          "name": "Max reps",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Lats"
-        },
-        {
-          "tag": "label",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Biceps,Forearms"
-        },
-        {
-          "tag": "p",
-          "text": "Linked to Assisted pull-up in the library."
-        },
-        {
-          "tag": "button",
-          "text": "Detach",
-          "name": "Detach",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
+          "tag": "div",
+          "label": "SETS"
         },
         {
           "tag": "span",
-          "text": "Alternates"
+          "text": "SETS"
         },
         {
           "tag": "button",
-          "text": "Pick alternates",
-          "name": "Pick alternates",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progression",
-          "name": "ProgressionRep range"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
         },
         {
           "tag": "span",
-          "text": "Rep range"
-        },
-        {
-          "tag": "span",
-          "text": "Progression method"
-        },
-        {
-          "tag": "select",
-          "name": "Progression methodRep rangeTotal repsFixed reps and effortHeavy set and lighter setsManual",
-          "describedBy": "Set how Taurifer chooses the next target for this exercise.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Set how Taurifer chooses the next target for this exercise."
-        },
-        {
-          "tag": "span",
-          "text": "Workout sets"
+          "text": "MIN"
         },
         {
           "tag": "input",
-          "name": "Workout sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Minimum reps"
-        },
-        {
-          "tag": "input",
-          "name": "Minimum reps",
+          "name": "MIN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Maximum reps"
+          "text": "MAX"
         },
         {
           "tag": "input",
-          "name": "Maximum reps",
+          "name": "MAX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "Save progression",
-          "name": "Save progression",
-          "type": "submit"
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -7683,199 +6369,99 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 sets"
+          "text": "1 exercise"
         },
         {
           "tag": "button",
-          "name": "Delete Day 2",
-          "label": "Delete Day 2",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Collapse Day 2",
-          "label": "Collapse Day 2",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Exercise label",
-          "label": "Exercise label",
-          "value": "Barbell back squat"
-        },
-        {
-          "tag": "button",
-          "name": "Change Barbell back squat",
-          "label": "Change Barbell back squat",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Move up",
-          "label": "Move up",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Move down",
-          "label": "Move down",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Delete exercise",
-          "label": "Delete exercise",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Sets"
-        },
-        {
-          "tag": "input",
-          "name": "Sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Min reps"
-        },
-        {
-          "tag": "input",
-          "name": "Min reps",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Max reps"
-        },
-        {
-          "tag": "input",
-          "name": "Max reps",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Quads"
-        },
-        {
-          "tag": "label",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Glutes,Hamstrings,Calves"
-        },
-        {
-          "tag": "p",
-          "text": "Linked to Barbell back squat in the library."
-        },
-        {
-          "tag": "button",
-          "text": "Detach",
-          "name": "Detach",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
+          "tag": "div",
+          "label": "SETS"
         },
         {
           "tag": "span",
-          "text": "Alternates"
+          "text": "SETS"
         },
         {
           "tag": "button",
-          "text": "Pick alternates",
-          "name": "Pick alternates",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progression",
-          "name": "ProgressionRep range"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
         },
         {
           "tag": "span",
-          "text": "Rep range"
-        },
-        {
-          "tag": "span",
-          "text": "Progression method"
-        },
-        {
-          "tag": "select",
-          "name": "Progression methodRep rangeTotal repsFixed reps and effortHeavy set and lighter setsManual",
-          "describedBy": "Set how Taurifer chooses the next target for this exercise.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Set how Taurifer chooses the next target for this exercise."
-        },
-        {
-          "tag": "span",
-          "text": "Workout sets"
+          "text": "MIN"
         },
         {
           "tag": "input",
-          "name": "Workout sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Minimum reps"
-        },
-        {
-          "tag": "input",
-          "name": "Minimum reps",
+          "name": "MIN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Maximum reps"
+          "text": "MAX"
         },
         {
           "tag": "input",
-          "name": "Maximum reps",
+          "name": "MAX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "Save progression",
-          "name": "Save progression",
-          "type": "submit"
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
@@ -7886,326 +6472,112 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 sets"
+          "text": "1 exercise"
         },
         {
           "tag": "button",
-          "name": "Delete Day 3",
-          "label": "Delete Day 3",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Collapse Day 3",
-          "label": "Collapse Day 3",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Exercise label",
-          "label": "Exercise label",
-          "value": "Barbell back squat"
-        },
-        {
-          "tag": "button",
-          "name": "Change Barbell back squat",
-          "label": "Change Barbell back squat",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Move up",
-          "label": "Move up",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Move down",
-          "label": "Move down",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Delete exercise",
-          "label": "Delete exercise",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Sets"
-        },
-        {
-          "tag": "input",
-          "name": "Sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Min reps"
-        },
-        {
-          "tag": "input",
-          "name": "Min reps",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Max reps"
-        },
-        {
-          "tag": "input",
-          "name": "Max reps",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Primary"
-        },
-        {
-          "tag": "input",
-          "name": "Primary",
-          "value": "Quads"
-        },
-        {
-          "tag": "label",
-          "text": "Secondary"
-        },
-        {
-          "tag": "input",
-          "name": "Secondary",
-          "value": "Glutes,Hamstrings,Calves"
-        },
-        {
-          "tag": "p",
-          "text": "Linked to Barbell back squat in the library."
-        },
-        {
-          "tag": "button",
-          "text": "Detach",
-          "name": "Detach",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Setup notes"
-        },
-        {
-          "tag": "input",
-          "name": "Setup notes"
+          "tag": "div",
+          "label": "SETS"
         },
         {
           "tag": "span",
-          "text": "Alternates"
+          "text": "SETS"
         },
         {
           "tag": "button",
-          "text": "Pick alternates",
-          "name": "Pick alternates",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progression",
-          "name": "ProgressionRep range"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
         },
         {
           "tag": "span",
-          "text": "Rep range"
-        },
-        {
-          "tag": "span",
-          "text": "Progression method"
-        },
-        {
-          "tag": "select",
-          "name": "Progression methodRep rangeTotal repsFixed reps and effortHeavy set and lighter setsManual",
-          "describedBy": "Set how Taurifer chooses the next target for this exercise.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Set how Taurifer chooses the next target for this exercise."
-        },
-        {
-          "tag": "span",
-          "text": "Workout sets"
+          "text": "MIN"
         },
         {
           "tag": "input",
-          "name": "Workout sets",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Minimum reps"
-        },
-        {
-          "tag": "input",
-          "name": "Minimum reps",
+          "name": "MIN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Maximum reps"
+          "text": "MAX"
         },
         {
           "tag": "input",
-          "name": "Maximum reps",
+          "name": "MAX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
-        },
-        {
           "tag": "button",
-          "text": "Save progression",
-          "name": "Save progression",
-          "type": "submit"
-        },
-        {
-          "tag": "button",
-          "text": "+ Add exercise",
-          "name": "+ Add exercise",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Add day",
-          "name": "+ Add day",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Advanced · edit raw JSON",
-          "name": "Advanced · edit raw JSON"
-        },
-        {
-          "tag": "p",
-          "text": "Editing here replaces the whole program. Use the visual editor above for everyday changes."
-        },
-        {
-          "tag": "span",
-          "text": "Program JSON"
-        },
-        {
-          "tag": "textarea",
-          "name": "Program JSON",
-          "value": "[{\"id\":\"<generated-id>\",\"day\":\"Day 1\",\"order\":1,\"name\":\"Assisted pull-up\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Lats\",\"secondary\":\"Biceps,Forearms\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"pd_bw\"},{\"id\":\"<generated-id>\",\"day\":\"Day 2\",\"order\":1,\"name\":\"Barbell back squat\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_bb\"},{\"id\":\"<generated-id>\",\"day\":\"Day 3\",\"order\":1,\"name\":\"Barbell back squat\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_bb\"}]"
         },
         {
           "tag": "button",
-          "text": "Save JSON",
-          "name": "Save JSON",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Planned weekly volume"
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
         },
         {
-          "tag": "p",
-          "text": "These totals count each training day once per week. See to compare them with your log."
-        },
-        {
-          "tag": "b",
-          "text": "Stats → Completed hard sets"
-        },
-        {
-          "tag": "span",
-          "text": "Quads"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "Lats"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Glutes"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Hamstrings"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Calves"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Biceps"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "1.5"
-        },
-        {
-          "tag": "span",
-          "text": "Forearms"
-        },
-        {
-          "tag": "span",
-          "text": "sets"
-        },
-        {
-          "tag": "b",
-          "text": "1.5"
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
         }
       ]
     },
@@ -8222,59 +6594,39 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Programa"
-        },
-        {
-          "tag": "h2",
-          "text": "Programa"
+          "label": "Criar programa"
         },
         {
           "tag": "button",
-          "text": "Fechar",
-          "name": "Fechar",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
+          "tag": "h1",
+          "text": "Montar um programa"
+        },
+        {
           "tag": "div",
-          "label": "Resumo do programa"
+          "label": "Editor de programa"
         },
         {
-          "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
-        },
-        {
-          "tag": "label",
+          "tag": "span",
           "text": "Nome do programa"
         },
         {
           "tag": "input",
           "name": "Nome do programa",
-          "value": "Manual catalog program",
-          "type": "text"
+          "label": "Nome do programa",
+          "value": "Manual catalog program"
         },
         {
           "tag": "p",
           "role": "status",
-          "text": "Pronto para ativar.",
-          "name": "Pronto para ativar.",
+          "text": "Draft saved",
+          "name": "Draft saved",
           "aria-live": "polite",
           "tabindex": "-1"
-        },
-        {
-          "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Salvar rascunho",
-          "name": "Salvar rascunho",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Adicione dias e exercícios abaixo."
         },
         {
           "tag": "input",
@@ -8284,199 +6636,99 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 séries"
+          "text": "1 exercício"
         },
         {
           "tag": "button",
-          "name": "Excluir Dia 1",
-          "label": "Excluir Dia 1",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Machine seated crunch",
+          "label": "Machine seated crunch",
+          "value": "Machine seated crunch"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Recolher Dia 1",
-          "label": "Recolher Dia 1",
+          "name": "Collapse Machine seated crunch",
+          "label": "Collapse Machine seated crunch",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Rótulo do exercício",
-          "label": "Rótulo do exercício",
-          "value": "Abdominal sentado na máquina"
-        },
-        {
-          "tag": "button",
-          "name": "Trocar Abdominal sentado na máquina",
-          "label": "Trocar Abdominal sentado na máquina",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Mover para cima",
-          "label": "Mover para cima",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Mover para baixo",
-          "label": "Mover para baixo",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Excluir exercício",
-          "label": "Excluir exercício",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Séries"
-        },
-        {
-          "tag": "input",
-          "name": "Séries",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Reps mín."
-        },
-        {
-          "tag": "input",
-          "name": "Reps mín.",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Reps máx."
-        },
-        {
-          "tag": "input",
-          "name": "Reps máx.",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Principal"
-        },
-        {
-          "tag": "input",
-          "name": "Principal",
-          "value": "Abs"
-        },
-        {
-          "tag": "label",
-          "text": "Secundário"
-        },
-        {
-          "tag": "input",
-          "name": "Secundário",
-          "value": "Obliques"
-        },
-        {
-          "tag": "p",
-          "text": "Vinculado a Abdominal sentado na máquina na biblioteca."
-        },
-        {
-          "tag": "button",
-          "text": "Desvincular",
-          "name": "Desvincular",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Notas de ajuste"
-        },
-        {
-          "tag": "input",
-          "name": "Notas de ajuste"
+          "tag": "div",
+          "label": "SÉRIES"
         },
         {
           "tag": "span",
-          "text": "Alternativas"
+          "text": "SÉRIES"
         },
         {
           "tag": "button",
-          "text": "Escolher alternativas",
-          "name": "Escolher alternativas",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progressão",
-          "name": "ProgressãoFaixa de repetições"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "FAIXA DE REPETIÇÕES"
         },
         {
           "tag": "span",
-          "text": "Faixa de repetições"
-        },
-        {
-          "tag": "span",
-          "text": "Método de progressão"
-        },
-        {
-          "tag": "select",
-          "name": "Método de progressãoFaixa de repetiçõesTotal de repetiçõesRepetições e esforço fixosSérie pesada e séries mais levesManual",
-          "describedBy": "Defina como o Taurifer escolhe a próxima meta deste exercício.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Defina como o Taurifer escolhe a próxima meta deste exercício."
-        },
-        {
-          "tag": "span",
-          "text": "Séries do treino"
+          "text": "MÍN"
         },
         {
           "tag": "input",
-          "name": "Séries do treino",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Mínimo de repetições"
-        },
-        {
-          "tag": "input",
-          "name": "Mínimo de repetições",
+          "name": "MÍN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Máximo de repetições"
+          "text": "MÁX"
         },
         {
           "tag": "input",
-          "name": "Máximo de repetições",
+          "name": "MÁX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
+          "tag": "button",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "Salvar progressão",
-          "name": "Salvar progressão",
-          "type": "submit"
+          "text": "Remover exercício",
+          "name": "Remover exercício",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Adicionar exercício",
-          "name": "+ Adicionar exercício",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
           "type": "button"
         },
         {
@@ -8487,199 +6739,99 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 séries"
+          "text": "1 exercício"
         },
         {
           "tag": "button",
-          "name": "Excluir Dia 2",
-          "label": "Excluir Dia 2",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Goblet squat",
+          "label": "Goblet squat",
+          "value": "Goblet squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Recolher Dia 2",
-          "label": "Recolher Dia 2",
+          "name": "Collapse Goblet squat",
+          "label": "Collapse Goblet squat",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Rótulo do exercício",
-          "label": "Rótulo do exercício",
-          "value": "Agachamento goblet"
-        },
-        {
-          "tag": "button",
-          "name": "Trocar Agachamento goblet",
-          "label": "Trocar Agachamento goblet",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Mover para cima",
-          "label": "Mover para cima",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Mover para baixo",
-          "label": "Mover para baixo",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Excluir exercício",
-          "label": "Excluir exercício",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Séries"
-        },
-        {
-          "tag": "input",
-          "name": "Séries",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Reps mín."
-        },
-        {
-          "tag": "input",
-          "name": "Reps mín.",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Reps máx."
-        },
-        {
-          "tag": "input",
-          "name": "Reps máx.",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Principal"
-        },
-        {
-          "tag": "input",
-          "name": "Principal",
-          "value": "Quads"
-        },
-        {
-          "tag": "label",
-          "text": "Secundário"
-        },
-        {
-          "tag": "input",
-          "name": "Secundário",
-          "value": "Glutes,Hamstrings,Calves"
-        },
-        {
-          "tag": "p",
-          "text": "Vinculado a Agachamento goblet na biblioteca."
-        },
-        {
-          "tag": "button",
-          "text": "Desvincular",
-          "name": "Desvincular",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Notas de ajuste"
-        },
-        {
-          "tag": "input",
-          "name": "Notas de ajuste"
+          "tag": "div",
+          "label": "SÉRIES"
         },
         {
           "tag": "span",
-          "text": "Alternativas"
+          "text": "SÉRIES"
         },
         {
           "tag": "button",
-          "text": "Escolher alternativas",
-          "name": "Escolher alternativas",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progressão",
-          "name": "ProgressãoFaixa de repetições"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "FAIXA DE REPETIÇÕES"
         },
         {
           "tag": "span",
-          "text": "Faixa de repetições"
-        },
-        {
-          "tag": "span",
-          "text": "Método de progressão"
-        },
-        {
-          "tag": "select",
-          "name": "Método de progressãoFaixa de repetiçõesTotal de repetiçõesRepetições e esforço fixosSérie pesada e séries mais levesManual",
-          "describedBy": "Defina como o Taurifer escolhe a próxima meta deste exercício.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Defina como o Taurifer escolhe a próxima meta deste exercício."
-        },
-        {
-          "tag": "span",
-          "text": "Séries do treino"
+          "text": "MÍN"
         },
         {
           "tag": "input",
-          "name": "Séries do treino",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Mínimo de repetições"
-        },
-        {
-          "tag": "input",
-          "name": "Mínimo de repetições",
+          "name": "MÍN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Máximo de repetições"
+          "text": "MÁX"
         },
         {
           "tag": "input",
-          "name": "Máximo de repetições",
+          "name": "MÁX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
+          "tag": "button",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "Salvar progressão",
-          "name": "Salvar progressão",
-          "type": "submit"
+          "text": "Remover exercício",
+          "name": "Remover exercício",
+          "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Adicionar exercício",
-          "name": "+ Adicionar exercício",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
           "type": "button"
         },
         {
@@ -8690,314 +6842,112 @@
         },
         {
           "tag": "span",
-          "text": "1 ex · 3 séries"
+          "text": "1 exercício"
         },
         {
           "tag": "button",
-          "name": "Excluir Dia 3",
-          "label": "Excluir Dia 3",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
+          "tag": "input",
+          "name": "Goblet squat",
+          "label": "Goblet squat",
+          "value": "Goblet squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
           "tag": "button",
-          "name": "Recolher Dia 3",
-          "label": "Recolher Dia 3",
+          "name": "Collapse Goblet squat",
+          "label": "Collapse Goblet squat",
           "aria-expanded": "true",
           "type": "button"
         },
         {
-          "tag": "input",
-          "name": "Rótulo do exercício",
-          "label": "Rótulo do exercício",
-          "value": "Agachamento goblet"
-        },
-        {
-          "tag": "button",
-          "name": "Trocar Agachamento goblet",
-          "label": "Trocar Agachamento goblet",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▲",
-          "name": "Mover para cima",
-          "label": "Mover para cima",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "▼",
-          "name": "Mover para baixo",
-          "label": "Mover para baixo",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "name": "Excluir exercício",
-          "label": "Excluir exercício",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Séries"
-        },
-        {
-          "tag": "input",
-          "name": "Séries",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Reps mín."
-        },
-        {
-          "tag": "input",
-          "name": "Reps mín.",
-          "value": "6",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Reps máx."
-        },
-        {
-          "tag": "input",
-          "name": "Reps máx.",
-          "value": "10",
-          "type": "number"
-        },
-        {
-          "tag": "label",
-          "text": "Principal"
-        },
-        {
-          "tag": "input",
-          "name": "Principal",
-          "value": "Quads"
-        },
-        {
-          "tag": "label",
-          "text": "Secundário"
-        },
-        {
-          "tag": "input",
-          "name": "Secundário",
-          "value": "Glutes,Hamstrings,Calves"
-        },
-        {
-          "tag": "p",
-          "text": "Vinculado a Agachamento goblet na biblioteca."
-        },
-        {
-          "tag": "button",
-          "text": "Desvincular",
-          "name": "Desvincular",
-          "type": "button"
-        },
-        {
-          "tag": "label",
-          "text": "Notas de ajuste"
-        },
-        {
-          "tag": "input",
-          "name": "Notas de ajuste"
+          "tag": "div",
+          "label": "SÉRIES"
         },
         {
           "tag": "span",
-          "text": "Alternativas"
+          "text": "SÉRIES"
         },
         {
           "tag": "button",
-          "text": "Escolher alternativas",
-          "name": "Escolher alternativas",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
           "type": "button"
         },
         {
-          "tag": "summary",
-          "text": "Progressão",
-          "name": "ProgressãoFaixa de repetições"
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "FAIXA DE REPETIÇÕES"
         },
         {
           "tag": "span",
-          "text": "Faixa de repetições"
-        },
-        {
-          "tag": "span",
-          "text": "Método de progressão"
-        },
-        {
-          "tag": "select",
-          "name": "Método de progressãoFaixa de repetiçõesTotal de repetiçõesRepetições e esforço fixosSérie pesada e séries mais levesManual",
-          "describedBy": "Defina como o Taurifer escolhe a próxima meta deste exercício.",
-          "value": "range"
-        },
-        {
-          "tag": "p",
-          "text": "Defina como o Taurifer escolhe a próxima meta deste exercício."
-        },
-        {
-          "tag": "span",
-          "text": "Séries do treino"
+          "text": "MÍN"
         },
         {
           "tag": "input",
-          "name": "Séries do treino",
-          "value": "3",
-          "type": "number"
-        },
-        {
-          "tag": "span",
-          "text": "Mínimo de repetições"
-        },
-        {
-          "tag": "input",
-          "name": "Mínimo de repetições",
+          "name": "MÍN",
           "value": "6",
           "type": "number"
         },
         {
           "tag": "span",
-          "text": "Máximo de repetições"
+          "text": "MÁX"
         },
         {
           "tag": "input",
-          "name": "Máximo de repetições",
+          "name": "MÁX",
           "value": "10",
           "type": "number"
         },
         {
-          "tag": "p",
-          "role": "alert",
-          "aria-live": "assertive"
-        },
-        {
           "tag": "button",
-          "text": "Salvar progressão",
-          "name": "Salvar progressão",
-          "type": "submit"
-        },
-        {
-          "tag": "button",
-          "text": "+ Adicionar exercício",
-          "name": "+ Adicionar exercício",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "+ Adicionar dia",
-          "name": "+ Adicionar dia",
+          "text": "Remover exercício",
+          "name": "Remover exercício",
           "type": "button"
-        },
-        {
-          "tag": "summary",
-          "text": "Avançado · editar JSON bruto",
-          "name": "Avançado · editar JSON bruto"
-        },
-        {
-          "tag": "p",
-          "text": "Editar aqui substitui o programa inteiro. Use o editor visual acima para mudanças do dia a dia."
-        },
-        {
-          "tag": "span",
-          "text": "JSON do programa"
-        },
-        {
-          "tag": "textarea",
-          "name": "JSON do programa",
-          "value": "[{\"id\":\"<generated-id>\",\"day\":\"Day 1\",\"order\":1,\"name\":\"Abdominal sentado na máquina\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Abs\",\"secondary\":\"Obliques\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"abc_mc\"},{\"id\":\"<generated-id>\",\"day\":\"Day 2\",\"order\":1,\"name\":\"Agachamento goblet\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_db\"},{\"id\":\"<generated-id>\",\"day\":\"Day 3\",\"order\":1,\"name\":\"Agachamento goblet\",\"sets\":3,\"min\":6,\"max\":10,\"primary\":\"Quads\",\"secondary\":\"Glutes,Hamstrings,Calves\",\"notes\":\"\",\"alternates\":[],\"libraryId\":\"sq_db\"}]"
         },
         {
           "tag": "button",
-          "text": "Salvar JSON",
-          "name": "Salvar JSON",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
           "type": "button"
         },
         {
-          "tag": "h3",
-          "text": "Volume semanal planejado"
+          "tag": "button",
+          "text": "Salvar rascunho",
+          "name": "Salvar rascunho",
+          "type": "button"
         },
         {
-          "tag": "p",
-          "text": "Estes totais contam cada dia de treino uma vez por semana. Veja para comparar com o que você registrou."
-        },
-        {
-          "tag": "b",
-          "text": "Progresso → Séries efetivas concluídas"
-        },
-        {
-          "tag": "span",
-          "text": "Quadríceps"
-        },
-        {
-          "tag": "span",
-          "text": "séries"
-        },
-        {
-          "tag": "b",
-          "text": "6"
-        },
-        {
-          "tag": "span",
-          "text": "Abdômen"
-        },
-        {
-          "tag": "span",
-          "text": "séries"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Glúteos"
-        },
-        {
-          "tag": "span",
-          "text": "séries"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Posteriores"
-        },
-        {
-          "tag": "span",
-          "text": "séries"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Panturrilhas"
-        },
-        {
-          "tag": "span",
-          "text": "séries"
-        },
-        {
-          "tag": "b",
-          "text": "3"
-        },
-        {
-          "tag": "span",
-          "text": "Oblíquos"
-        },
-        {
-          "tag": "span",
-          "text": "séries"
-        },
-        {
-          "tag": "b",
-          "text": "1,5"
+          "tag": "button",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "type": "button"
         }
       ]
     },

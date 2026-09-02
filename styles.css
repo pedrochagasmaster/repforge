@@ -1917,6 +1917,10 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor__day-menu-panel button:hover{background:var(--well)}
 .program-editor__day-toggle,.program-editor__exercise-toggle{flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
 .program-editor__day-toggle .icon-mask,.program-editor__exercise-toggle .icon-mask{width:20px;height:20px}
+/* The legacy .pday rule rotates its always-down glyph for the old editor.
+   The shared editor selects up/down glyphs in markup, so a collapsed day must
+   retain the reference's downward disclosure in both hosts. */
+.program-editor .program-editor__day.is-collapsed .program-editor__day-toggle{transform:none}
 .program-editor__day-body{display:block;margin:0;padding:0}
 .program-editor__day-body[hidden]{display:none}
 .program-editor__exercise{position:relative;margin:0;padding:0;background:var(--surface);border-bottom:1px solid var(--rule)}
@@ -2029,18 +2033,24 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-installed .program-editor__meta{gap:8px}
 .program-editor-installed .program-editor__program-name input{font-size:18px;padding:10px 16px}
 .program-editor-installed .program-editor__context{margin-top:8px;font-size:16px}
+.program-editor-installed .program-editor__days{gap:10px}
 .program-editor-installed .program-editor__day-head{min-height:58px;padding:7px 16px}
-.program-editor-installed .program-editor__exercise-head{min-height:58px;padding:6px 16px}
+.program-editor-installed .program-editor__exercise-head{min-height:56px;padding:5px 16px}
 .program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-installed .program-editor__sets{display:block;min-height:0}
 .program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
-.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:58px}
-.program-editor-installed .program-editor__stepper button,.program-editor-installed .program-editor__stepper output{min-height:56px}
+.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:48px}
+.program-editor-installed .program-editor__stepper button,.program-editor-installed .program-editor__stepper output{min-height:46px}
 .program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
-.program-editor-installed .program-editor__range input{padding:10px 14px}
-.program-editor-installed .program-editor__exercise-actions{margin-top:14px}
-.program-editor-installed .program-editor__exercise-actions button{min-height:56px}
-.program-editor-installed .program-editor__add{min-height:58px;padding-block:10px}
+.program-editor-installed .program-editor__range{row-gap:4px}
+.program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px}
+.program-editor-installed .program-editor__exercise-actions{margin-top:10px}
+.program-editor-installed .program-editor__exercise-actions button{min-height:46px}
+.program-editor-installed .program-editor__add{
+  min-height:44px;margin:0;padding:6px 16px;border:1px solid var(--rule-strong);border-radius:9px;
+  background:var(--surface);color:var(--ink);font-size:17px
+}
+.program-editor-installed .program-editor__add:hover{background:var(--well)}
 
 /* The installed editor reference is a full-width bottom bar. It deliberately
    drops the overview's floating dock treatment while editing, so the four

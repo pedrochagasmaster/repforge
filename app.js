@@ -6385,6 +6385,7 @@ function createInstalledProgramEditorAdapter(){
     t:editorAdapterTranslate,
     dayLabel:(day)=>dayLabel(day),
     dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
+    dayAddPlacement:()=>"outside",
     exerciseEntry:(id)=>libraryEntry(id),
     exerciseLabel:(exercise)=>exercise?.name,
     formatNumber:(value)=>fmt(value),
@@ -9902,7 +9903,7 @@ function renderOnboarding(){
   entryVisibleScreenKey=screenKey;
   const route=entryState.route,stepId=entryState.step;
   const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
-  const onboarding=$("#onboarding"),isEditor=setupEditorOpen&&!noticeOwnsSurface&&!!entryState?.result?.preview;
+  const isEditor=setupEditorOpen&&!noticeOwnsSurface&&!!entryState?.result?.preview;
   onboarding?.classList.toggle("entry-hub-active",!route||stepId==="entry");
   onboarding?.classList.toggle("program-editor-onboarding",isEditor);
   document.body.classList.toggle("is-entry-editor",isEditor);

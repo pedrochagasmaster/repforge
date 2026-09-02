@@ -563,6 +563,13 @@
     }
     function renderDay(day, index) {
       const list = exercisesFor(document, day), open = !collapsedDays.has(day);
+      // Hosts choose the grouping that fits their surrounding chrome. The
+      // onboarding draft keeps Add exercise inside each day card; the
+      // installed editor puts it between cards so the next day remains a
+      // distinct, scannable section. The editor itself stays unaware of the
+      // host's route or persistence mode.
+      const addOutside = adapter?.dayAddPlacement?.(document, day) === "outside";
+      const addButton = `<button type="button" class="program-editor__add pday__add" data-role="add-exercise" data-day="${esc(day)}"><span aria-hidden="true">＋</span> ${esc(label("addExercise"))}</button>`;
       return `<section class="program-editor__day pday${open ? " is-expanded" : " is-collapsed"}" data-role="day" data-day="${esc(day)}">
         <header class="program-editor__day-head pday__head" data-role="day-header">
           <input class="program-editor__day-name pday__name" data-role="day-name" data-day="${esc(day)}" value="${esc(titleFor(day, index))}" aria-label="${esc(label("dayName"))}">
@@ -576,9 +583,9 @@
         </div>
         <div class="program-editor__day-body pexlist" data-role="day-body"${open ? "" : " hidden"}>
           ${list.map((exercise, itemIndex) => renderExercise(exercise, itemIndex, list.length, day)).join("") || `<p class="program-editor__empty pday__empty" data-role="day-empty">${esc(label("emptyDays"))}</p>`}
-          <button type="button" class="program-editor__add pday__add" data-role="add-exercise" data-day="${esc(day)}"><span aria-hidden="true">＋</span> ${esc(label("addExercise"))}</button>
+          ${addOutside ? "" : addButton}
         </div>
-      </section>`;
+      </section>${addOutside && open ? addButton : ""}`;
     }
     function render() {
       if (destroyed) return;

@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 71 screens,
-217 frames. This folder is the visual reference for UI and Brand Designers.
+218 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
