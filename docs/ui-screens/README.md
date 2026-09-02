@@ -69,8 +69,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 3 | Structured-program experience and recent consistency in the custom route. |
 | [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 3 | Days per week, session ceiling and preferred rest in the custom route. |
 | [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 3 | Environment shortcuts in the custom route. |
-| [Custom 5 — priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 3 | Priorities and avoidance controls before the split choice. |
-| [Custom — split choice](screens/onboarding-custom/shape__phone-390-light-en.png) | 3 | Compiler-approved split choices with the Taurifer default and its rationale. |
+| [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 3 | Each muscle has one accessible emphasis setting before exercise preferences. |
+| [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 3 | One library search offers Include or Avoid, with separate selected lists. |
 | [Custom — generated program](screens/onboarding-custom/result__phone-390-light-en.png) | 3 | The generated candidate for the chosen split. |
 | [Custom — review](screens/onboarding-custom/preview__phone-390-light-en.png) | 3 | The common review surface for a custom-generated program. |
 

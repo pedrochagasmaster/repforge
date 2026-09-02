@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 
 export const MODEL_STEPS = Object.freeze({
   recommend: Object.freeze(["desired_result", "background", "schedule", "environment", "priorities", "result", "preview"]),
-  custom: Object.freeze(["desired_result", "background", "schedule", "environment", "priorities", "custom_shape", "result", "preview"]),
+  custom: Object.freeze(["desired_result", "background", "schedule", "environment", "priorities", "exercise_preferences", "custom_shape", "result", "preview"]),
   browse: Object.freeze(["schedule", "environment", "catalogue", "preview"]),
   build: Object.freeze(["build_setup", "editor"]),
   import: Object.freeze(["import_source", "preview"]),

@@ -63,11 +63,18 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(checkboxInfo.length > 4 && checkboxInfo.every((item) => item.tabIndex >= 0 && item.pressed === null), "checkboxes remain independently tabbable with aria-checked");
   check(await page.getByRole("checkbox").count() === checkboxInfo.length, "accessibility tree exposes each checkbox control");
 
-  await page.locator('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]').focus();
+  const muscleControls = page.locator('[data-entry-pick="musclePriority"]');
+  const muscleNames = await muscleControls.evaluateAll((els) => [...new Set(els.map((el) => el.dataset.entryVal.split("|")[0]))]);
+  check((await muscleControls.count()) === 40 && muscleNames.length === 10,
+    "Custom exposes one four-state radio group per muscle");
+  await page.locator('[data-entry-pick="musclePriority"][data-entry-val="chest|prioritize"]').focus();
   const before = await page.evaluate(() => document.activeElement?.dataset.entryVal);
-  await page.click('[data-entry-pick="primaryMuscles"][data-entry-val="chest"]');
+  await page.click('[data-entry-pick="musclePriority"][data-entry-val="chest|prioritize"]');
   const after = await page.evaluate(() => document.activeElement?.dataset.entryVal);
-  check(before === "chest" && after === "chest", "selection rerender restores focus to the changed control");
+  const partition = await page.evaluate(() => window.__repforgeEntryState().answers);
+  check(before === "chest|prioritize" && after === "chest|prioritize" && partition.primaryMuscles?.includes("chest") &&
+    !partition.deEmphasizedMuscles?.includes("chest") && !partition.ignoredMuscles?.includes("chest"),
+    "muscle-state selection rerender restores focus without contradictory categories");
 
   const geometry = await page.evaluate(() => {
     const root = document.querySelector("#onboarding");

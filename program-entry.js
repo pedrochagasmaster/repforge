@@ -61,6 +61,7 @@
       "schedule",
       "environment",
       "priorities",
+      "exercise_preferences",
       "custom_shape",
       "result",
       "preview",
@@ -1281,6 +1282,7 @@
       }
       case "environment": return answers.environment ? [] : ["environment_required"];
       case "priorities": return musclePartitionIssues(answers, "$.answers");
+      case "exercise_preferences": return [];
       case "custom_shape": {
         const issues = answers.splitPreference ? [] : ["split_preference_required"];
         issues.push(...musclePartitionIssues(answers, "$.answers"));

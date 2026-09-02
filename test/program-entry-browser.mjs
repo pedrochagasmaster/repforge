@@ -710,7 +710,7 @@ try {
     await context.close();
   }
 
-  console.log("\nCustom uses real human split choices and bounded exercise preferences");
+  console.log("\nCustom uses one-status muscle priorities, one exercise search, and conditional structure choice");
   {
     const { context, page } = await openFresh(browser);
     await page.click("#firstRunCreate");
@@ -726,18 +726,26 @@ try {
     await page.click("#onbNext");
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     await page.click("#onbNext");
-    assert(await page.locator("#entryMustSearch").isVisible(), "Custom exposes a must-have exercise search");
-    await page.fill("#entryMustSearch", "barbell bench press");
+    assert(await page.locator("[data-entry-pick='musclePriority']").count() === 40,
+      "Custom shows each muscle once with four mutually exclusive settings");
+    await page.click("[data-entry-pick='musclePriority'][data-entry-val='back|prioritize']");
+    const muscleState = await page.evaluate(() => window.__repforgeEntryState().answers);
+    assert(muscleState.primaryMuscles?.includes("back") && !muscleState.deEmphasizedMuscles?.includes("back") &&
+      !muscleState.ignoredMuscles?.includes("back"),
+      "choosing a muscle state updates exactly one category", JSON.stringify(muscleState));
+    await page.click("#onbNext");
+    assert(await page.locator("#entryExerciseSearch").isVisible(), "Custom exposes one exercise search");
+    await page.fill("#entryExerciseSearch", "barbell bench press");
     await page.waitForTimeout(50);
-    await page.locator('[data-entry-must-add="pr_bb"]').click();
-    assert(await page.locator('[data-entry-must-remove="pr_bb"]').isVisible(),
-      "selected must-have remains visible and removable");
-    await page.fill("#entryAvoidSearch", "barbell bench press");
+    await page.locator('[data-entry-exercise-add="pr_bb"][data-entry-exercise-status="include"]').click();
+    assert(await page.locator('[data-entry-exercise-remove="pr_bb"]').isVisible(),
+      "included exercise remains visible and removable");
+    await page.fill("#entryExerciseSearch", "barbell bench press");
     await page.waitForTimeout(50);
-    assert(await page.locator('[data-entry-avoid-add="pr_bb"]').count() === 0,
-      "a must-have exercise is not offered as an avoidance contradiction");
-    await page.fill("#entryAvoidSearch", "barbell curl");
-    await page.locator('[data-entry-avoid-add="cu_bb"]').click();
+    assert(await page.locator('[data-entry-exercise-add="pr_bb"]').count() === 0,
+      "an included exercise is not offered as an avoidance contradiction");
+    await page.fill("#entryExerciseSearch", "barbell curl");
+    await page.locator('[data-entry-exercise-add="cu_bb"][data-entry-exercise-status="avoid"]').click();
     const beforeReason = await page.evaluate(() => window.__repforgeEntryState().answers.exerciseConstraints || []);
     assert(beforeReason.length === 0, "selecting an avoided exercise does not invent a dislike reason");
     assert(await page.locator("#onbNext").isDisabled(), "an avoided exercise requires an explicit reason before Continue");
@@ -745,25 +753,74 @@ try {
     await page.click("#onbNext");
     const choices = page.locator('[data-entry-pick="splitPreference"]');
     const choiceCount = await choices.count();
-    const shapeCopy = await page.locator("#onbBody").innerText();
-    assert(choiceCount >= 1 && choiceCount <= 2, "Custom shows at most two real split choices", String(choiceCount));
-    assert(!/_v\d+|growth_\d|balanced_\d|strength_\d|home_\d/i.test(shapeCopy),
-      "Custom never exposes a family or blueprint identifier", shapeCopy);
-    assert(await choices.first().getAttribute("aria-checked") === "true" && !(await page.locator("#onbNext").isDisabled()),
-      "Taurifer's compatible default is selected before the shape screen renders");
-    assert((await page.locator("#onbNext").innerText()) === "Generate program",
-      "Custom ends with an explicit Generate program action");
-    await page.click("#onbNext");
+    const resultCopy = await page.locator("#onbBody").innerText();
+    assert(choiceCount === 0 && /Your custom program/.test(resultCopy),
+      "Custom skips the one-choice structure screen", JSON.stringify({ choiceCount, resultCopy }));
     await page.waitForSelector("[data-entry-select-candidate]");
     assert(/Your custom program/.test(await page.locator("#onbBody").innerText()) &&
-      await page.locator('[data-entry-action="change-priorities"]').isVisible(),
-      "Custom result names the job and offers a targeted change action");
+      await page.locator('[data-entry-action="change-priorities"]').isVisible() &&
+      await page.locator('[data-entry-action="change-exercise-preferences"]').isVisible(),
+      "Custom result names the job and offers targeted change actions");
     const candidate = await page.evaluate(() => window.__repforgeEntryState().result?.preview?.program || []);
     assert(candidate.some((exercise) => exercise.libraryId === "pr_bb"),
       "the generated candidate contains the selected must-have exercise");
     await page.locator("[data-entry-select-candidate]").click();
     const reviewCopy = await page.locator("#onbBody").innerText();
-    assert(/Barbell bench press/.test(reviewCopy), "Custom review names the selected must-have exercise", reviewCopy);
+    assert(/Barbell bench press/.test(reviewCopy) && /Include:/.test(reviewCopy) && /Avoid:/.test(reviewCopy),
+      "Custom review names the selected exercise preferences", reviewCopy);
+    await context.close();
+  }
+
+  console.log("\nCustom preserves the injected two-choice structure branch");
+  {
+    const { context, page } = await openFresh(browser);
+    await page.evaluate(() => {
+      const base = window.__repforgeOnboarding.services();
+      window.__repforgeProgramEntryServicesOverride = {
+        ...base,
+        splitChoices: (answers) => {
+          const result = base.splitChoices(answers);
+          if (result.choices.length !== 1) return result;
+          const first = result.choices[0];
+          return {
+            ...result,
+            choices: [first, {
+              ...first,
+              id: `${first.id}-alternate`,
+              blueprintId: `${first.blueprintId}-alternate`,
+              default: false,
+              name: `${first.name} alternate`,
+              namePt: `${first.namePt} alternativa`,
+            }],
+          };
+        },
+      };
+    });
+    await page.click("#firstRunCreate");
+    await page.click('[data-entry-route="custom"]');
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.click("#onbNext");
+    assert(await page.locator("#entryExerciseSearch").isVisible(), "two-choice branch still visits exercise preferences");
+    await page.click("#onbNext");
+    assert(await page.locator('[data-entry-pick="splitPreference"]').count() === 2,
+      "two genuine structure choices render as two choices");
+    assert(/section 7 of 7/i.test(await page.locator("#onbStepLabel").innerText()),
+      "conditional structure choice contributes one meaningful section");
+    await page.locator('[data-entry-pick="splitPreference"]').first().click();
+    await page.click("#onbNext");
+    await page.waitForSelector("[data-entry-select-candidate]", { timeout: 10000 });
+    assert(await page.locator('[data-entry-pick="splitPreference"]').count() === 0,
+      "selected two-choice structure advances to the generated result");
     await context.close();
   }
 

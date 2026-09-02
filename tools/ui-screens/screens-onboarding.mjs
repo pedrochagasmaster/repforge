@@ -81,7 +81,7 @@ async function route(page, name, { existing = false } = {}) {
   await page.click(`[data-entry-route="${name}"]`);
 }
 
-/** The five generator questions shared by recommend and custom. */
+/** The five generator questions shared by Recommend and Custom. */
 async function answerGenerator(page, { days = "3", desired = "muscle_growth", rest = "120" } = {}) {
   await pick(page, "desiredResult", desired); await next(page);
   await pick(page, "structuredExperience", "6_to_24m");
@@ -111,9 +111,8 @@ async function selectCandidate(page) {
 }
 
 /**
- * Custom asks the same five generator questions as Recommend but under its own
- * header and step count, so its questionnaire is registered separately rather
- * than assumed identical.
+ * Custom asks the same five generator questions as Recommend, then adds its
+ * muscle and exercise preference sections under its own header and step count.
  */
 async function customTo(page, step) {
   await route(page, "custom");
@@ -130,12 +129,29 @@ async function customTo(page, step) {
   await pick(page, "environment", "commercial_gym"); await next(page);
   if (step === "priorities") return;
   await next(page);
-  await page.waitForSelector('[data-entry-pick="splitPreference"]', { timeout: 25000 });
-  if (step === "shape") return;
+  await page.waitForSelector("#entryExerciseSearch", { timeout: 25000 });
+  if (["exercise-preferences", "result", "preview"].includes(step)) {
+    await setCustomExercisePreferences(page);
+    if (step === "exercise-preferences") return;
+  }
   await next(page);
   await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 20000 });
   if (step === "result") return;
   await selectCandidate(page);
+}
+
+/** Keep the preference screens representative: the empty state is useful for
+ * validation, but the catalogue should also show the two persisted outcomes. */
+async function setCustomExercisePreferences(page) {
+  const search = page.locator("#entryExerciseSearch");
+  const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
+  await search.fill(portuguese ? "supino com barra" : "barbell bench press");
+  await page.waitForTimeout(120);
+  await page.locator('[data-entry-exercise-add="pr_bb"][data-entry-exercise-status="include"]').click();
+  await search.fill(portuguese ? "rosca com barra" : "barbell curl");
+  await page.waitForTimeout(120);
+  await page.locator('[data-entry-exercise-add="cu_bb"][data-entry-exercise-status="avoid"]').click();
+  await page.click('[data-entry-pick="avoidReason"][data-entry-val="cu_bb|dislike"]');
 }
 
 async function browseTo(page, step) {
@@ -317,6 +333,7 @@ async function activationConflict(page) {
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
 const FOCUS_SELECTOR = {
   "onboarding-recommend/avoidance-pain": ".entry__pain",
+  "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
   "onboarding-recommend/validation-error": "#entryValidation",
   "onboarding-build/editor-ready": "#entryEditorActivate",
@@ -396,7 +413,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-custom/schedule": (page) => customTo(page, "schedule"),
   "onboarding-custom/environment": (page) => customTo(page, "environment"),
   "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
-  "onboarding-custom/shape": (page) => customTo(page, "shape"),
+  "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
   "onboarding-custom/result": (page) => customTo(page, "result"),
   "onboarding-custom/preview": (page) => customTo(page, "preview"),
 

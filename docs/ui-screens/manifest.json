@@ -371,15 +371,15 @@
     {
       "id": "priorities",
       "flow": "onboarding-custom",
-      "label": "Custom 5 — priorities",
-      "scenario": "Priorities and avoidance controls before the split choice.",
+      "label": "Custom 5 — muscle priorities",
+      "scenario": "Each muscle has one accessible emphasis setting before exercise preferences.",
       "variants": "localized"
     },
     {
-      "id": "shape",
+      "id": "exercise-preferences",
       "flow": "onboarding-custom",
-      "label": "Custom — split choice",
-      "scenario": "Compiler-approved split choices with the Taurifer default and its rationale.",
+      "label": "Custom 6 — exercise preferences",
+      "scenario": "One library search offers Include or Avoid, with separate selected lists.",
       "variants": "localized"
     },
     {

@@ -8356,7 +8356,7 @@ const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
 const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -8550,7 +8550,7 @@ function reportEntryRoute(route){
 function startOnboarding(origin,opts={}){
   if(!ProgramEntry){console.warn("program entry unavailable");return}
   onboardingOrigin=origin||(!state.programMeta?.onboarded&&!state.log.length?"first-run":"settings");
-  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
+  entryEngaged=false;entryOwnOpen=false;entryCompileError=null;entryUiNotice=null;entryValidationNotice=false;entryAvoidQuery="";entryMustQuery="";entryExerciseQuery="";entryPendingAvoid=null;entryPinnedVersionsExecutable=false;entryDurableConflictNeedsReload=false;
   const record=readSetupDraftRecord();
   entryDraftHandle=record.raw!==null?{raw:record.raw,envelope:record.envelope}:null;
   if(opts.forceFresh||opts.resume===false){
@@ -8608,6 +8608,21 @@ function entrySetState(next,{persist=true}={}){
   syncEntryHistory();
   if(persist)persistSetupDraft(entryState);
   renderOnboarding()}
+function entryCustomSplitChoices(answers=entryState?.answers||{}){
+  try{return entryServices()?.splitChoices?.(answers)||{choices:[]}}catch(error){console.warn("custom split choices failed",error);return{choices:[]}}}
+function entryCustomShapeRequired(answers=entryState?.answers||{}){
+  return entryCustomSplitChoices(answers).choices.length>=2}
+function collapseSingleCustomShape(){
+  if(!entryState||entryState.route!=="custom"||entryState.step!=="custom_shape")return false;
+  const splits=entryCustomSplitChoices(entryState.answers);
+  if(splits.choices.length!==1)return false;
+  const preferred=splits.choices[0];
+  let next=ProgramEntry.setAnswers(entryState,{splitPreference:preferred.id});
+  const advanced=ProgramEntry.advance(next);
+  if(!advanced.ok)return false;
+  entryState=advanced.state;
+  persistSetupDraft(entryState);
+  return true}
 function entrySelectRoute(route){
   if(!ProgramEntry||!entryState)return;
   reportEntryRoute(route);
@@ -8628,7 +8643,8 @@ function entryPatchAnswers(patch){
 function entryProgressSections(route){
   if(!route)return{n:0,total:1,show:false};
   const steps=ProgramEntry.ROUTE_STEPS[route]||[];
-  const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step));
+  const semantic=steps.filter(step=>!["result","preview","editor","activation_conflict"].includes(step)&&
+    !(route==="custom"&&step==="custom_shape"&&!entryCustomShapeRequired()));
   const semanticIndex=semantic.indexOf(entryState.step);
   const n=semanticIndex>=0?semanticIndex+1:semantic.length;
   /* A meter is only informative while the user is moving through questions and
@@ -8728,6 +8744,46 @@ function entryMuscleBlocked(key,muscle){
   if(key==="deEmphasizedMuscles")return primary.has(muscle)||ignored.has(muscle);
   if(key==="ignoredMuscles")return primary.has(muscle)||deemph.has(muscle);
   return false}
+const ENTRY_MUSCLE_STATES=["normal","prioritize","deemphasize","ignore"];
+function entryMuscleStateLabel(status){
+  switch(status){
+    case "prioritize":return t("entry.priorities.state.prioritize");
+    case "deemphasize":return t("entry.priorities.state.deemphasize");
+    case "ignore":return t("entry.priorities.state.ignore");
+    default:return t("entry.priorities.state.normal")}}
+function entryMuscleStatus(muscle){
+  const a=entryState?.answers||{};
+  if((a.primaryMuscles||[]).includes(muscle))return"prioritize";
+  if((a.deEmphasizedMuscles||[]).includes(muscle))return"deemphasize";
+  if((a.ignoredMuscles||[]).includes(muscle))return"ignore";
+  return"normal"}
+function entryMuscleStatusDisabled(muscle,status){
+  if(status==="prioritize"){
+    const primary=entryState?.answers?.primaryMuscles||[];
+    return primary.length>=2&&!primary.includes(muscle)}
+  if(status==="deemphasize"){
+    const selected=entryState?.answers?.deEmphasizedMuscles||[];
+    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!selected.includes(muscle)}
+  if(status==="ignore"){
+    const selected=entryState?.answers?.ignoredMuscles||[];
+    return selected.length>=(ProgramEntry?.MAX_MUSCLE_CONTROLS||10)&&!selected.includes(muscle)}
+  return false}
+function entryMuscleStatusOption(muscle,status){
+  const selected=entryMuscleStatus(muscle)===status;
+  const disabled=entryMuscleStatusDisabled(muscle,status);
+  const label=entryMuscleStateLabel(status);
+  const muscleLabel=t(`entry.muscle.${muscle}`)||muscle;
+  return `<button type="button" class="entry__muscle-state${selected?" is-selected":""}${disabled?" is-disabled":""}" data-entry-pick="musclePriority" data-entry-val="${esc(`${muscle}|${status}`)}"${disabled?` disabled aria-disabled="true" aria-label="${esc(`${muscleLabel}: ${label}. ${t("entry.choice.disabled")}`)}"`:` aria-label="${esc(`${muscleLabel}: ${label}`)}"`} role="radio" aria-checked="${selected?"true":"false"}"><span>${esc(label)}</span></button>`}
+function renderCustomMusclePriorities(){
+  return `<p class="entry__group-lab" id="entryMuscleStatesLab">${esc(t("entry.priorities.states"))}</p>`+
+    `<p class="entry__hint entry__muscle-state-hint">${esc(t("entry.priorities.state_hint"))}</p>`+
+    `<div class="entry__muscle-list" role="group" aria-labelledby="entryMuscleStatesLab">`+
+    ENTRY_MUSCLES.map(muscle=>{
+      const label=t(`entry.muscle.${muscle}`)||muscle;
+      const current=entryMuscleStateLabel(entryMuscleStatus(muscle));
+      return `<div class="entry__muscle-row"><div class="entry__muscle-name" id="entryMuscleLabel-${esc(muscle)}"><span>${esc(label)}</span><span class="entry__muscle-current">${esc(current)}</span></div>`+
+        `<div class="entry__muscle-states" role="radiogroup" aria-labelledby="entryMuscleLabel-${esc(muscle)}">`+
+        ENTRY_MUSCLE_STATES.map(status=>entryMuscleStatusOption(muscle,status)).join("")+`</div></div>`}).join("")+`</div>`}
 function entryAvoidMatches(query){
   const q=foldSearch(query||"");
   const taken=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
@@ -8781,22 +8837,65 @@ function renderAvoidanceSection(){
         ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+
         `</div></li>`}).join("")+`</ul>`:"")+
     (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
+function entryExerciseMatches(query){
+  const q=foldSearch(query||"");
+  const included=new Set(entryState?.answers?.mustHaveExercises||[]);
+  const avoided=new Set((entryState?.answers?.exerciseConstraints||[]).map(item=>item.exerciseId));
+  const pool=pickableExercises().filter(entry=>!included.has(entry.id)&&!avoided.has(entry.id)&&entry.id!==entryPendingAvoid);
+  if(!q)return pool.slice(0,8);
+  return pool.filter(entry=>foldSearch(libraryName(entry)).includes(q)||foldSearch(entry.id).includes(q)).slice(0,8)}
+function renderExercisePreferencesStep(){
+  const included=entryState?.answers?.mustHaveExercises||[];
+  const constraints=entryState?.answers?.exerciseConstraints||[];
+  const matches=entryExerciseMatches(entryExerciseQuery);
+  const resultRows=matches.map(entry=>`<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(libraryName(entry))}</span><span class="entry__exercise-actions">`+
+    `<button type="button" class="entry__exercise-action" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
+    `<button type="button" class="entry__exercise-action entry__exercise-action--avoid" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`).join("");
+  const pending=entryPendingAvoid?(()=>{
+    const entry=libraryEntry(entryPendingAvoid),exercise=entry?libraryName(entry):entryPendingAvoid;
+    const reasonLab=t("entry.exercise_preferences.avoid_reason",{exercise});
+    return `<div class="entry__avoid-item entry__avoid-pending" role="group" aria-label="${esc(reasonLab)}"><strong>${esc(exercise)}</strong>`+
+      `<p class="entry__group-lab">${esc(reasonLab)}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
+      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${entryPendingAvoid}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:false})).join("")+`</div>`+
+      `<p class="entry__hint" id="entryPendingAvoidNote">${esc(t("entry.exercise_preferences.reason_required"))}</p></div>`})():"";
+  const includeList=included.length?`<ul class="entry__exercise-selected-list">`+included.map(exerciseId=>{
+    const entry=libraryEntry(exerciseId);
+    return `<li class="entry__exercise-selected"><span>${esc(entry?libraryName(entry):exerciseId)}</span><button type="button" class="entry__remove" data-entry-exercise-remove="${esc(exerciseId)}">${esc(t("entry.exercise_preferences.remove"))}</button></li>`}).join("")+`</ul>`:
+    `<p class="entry__hint entry__exercise-empty">${esc(t("entry.exercise_preferences.include_none"))}</p>`;
+  const avoidList=constraints.length?`<ul class="entry__avoid-list">`+constraints.map(item=>{
+    const entry=libraryEntry(item.exerciseId),exercise=entry?libraryName(entry):item.exerciseId;
+    return `<li class="entry__avoid-item"><div class="entry__avoid-head"><strong>${esc(exercise)}</strong>`+
+      `<button type="button" class="entry__remove" data-entry-exercise-remove="${esc(item.exerciseId)}">${esc(t("entry.exercise_preferences.remove"))}</button></div>`+
+      `<p class="entry__group-lab">${esc(t("entry.exercise_preferences.avoid_reason",{exercise}))}</p><div class="onb__opts onb__opts--reasons" role="radiogroup">`+
+      ENTRY_AVOID_REASONS.map(reason=>entryOpt("avoidReason",`${item.exerciseId}|${reason}`,t(`entry.priorities.reason.${reason}`),"",{selected:item.reason===reason})).join("")+`</div></li>`}).join("")+`</ul>`:
+    `<p class="entry__hint entry__exercise-empty">${esc(t("entry.exercise_preferences.avoid_none"))}</p>`;
+  const hasPain=constraints.some(item=>item.reason==="pain");
+  return entryHeading(t("entry.exercise_preferences.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+    `<p class="onb__explain">${esc(t("entry.exercise_preferences.lede"))}</p>`+
+    `<label class="entry__field entry__field--search"><span>${esc(t("entry.exercise_preferences.search"))}</span>`+
+    `<span class="entry__field-ico icon-mask icon-mask--search" aria-hidden="true"></span>`+
+    `<input id="entryExerciseSearch" type="search" autocomplete="off" value="${esc(entryExerciseQuery)}" placeholder="${esc(t("entry.exercise_preferences.search"))}"></label>`+
+    `<div class="entry__exercise-results" role="list" aria-label="${esc(t("entry.exercise_preferences.results"))}">${resultRows}</div>`+
+    `<section class="entry__exercise-selected-group" aria-labelledby="entryIncludeListLabel"><p class="entry__group-lab" id="entryIncludeListLabel">${esc(t("entry.exercise_preferences.include_list"))}</p>${includeList}</section>`+
+    `<section class="entry__exercise-selected-group" aria-labelledby="entryAvoidListLabel"><p class="entry__group-lab" id="entryAvoidListLabel">${esc(t("entry.exercise_preferences.avoid_list"))}</p>${pending}${avoidList}</section>`+
+    (hasPain?`<p class="entry__pain" role="note"><span class="entry__pain-ico icon-mask icon-mask--shield" aria-hidden="true"></span><span>${esc(t("entry.priorities.pain_note"))}</span></p>`:"")}
 function renderPrioritiesStep(){
   const a=entryState.answers||{},custom=entryState.route==="custom";
+  if(custom){
+    return entryHeading(t("entry.priorities.custom_title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
+      `<p class="onb__explain">${esc(t("entry.priorities.custom_lede"))}</p>`+
+      renderCustomMusclePriorities()+
+      `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+      ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
-  const blocked=custom&&ENTRY_MUSCLES.some(m=>entryMuscleBlocked("primaryMuscles",m)||entryMuscleBlocked("deEmphasizedMuscles",m)||entryMuscleBlocked("ignoredMuscles",m));
   return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
-    `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+(blocked?`<p class="entry__hint" id="entryBlockedChoices">${esc(t("entry.choice.disabled_group"))}</p>`:"")+
+    `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+
     `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
     `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
-    (custom?`<p class="entry__group-lab">${esc(t("entry.priorities.deemph"))}</p><div class="onb__opts onb__grid" role="group">`+
-      ENTRY_MUSCLES.map(m=>entryOpt("deEmphasizedMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("deEmphasizedMuscles",m),role:"checkbox"})).join("")+`</div>`+
-      `<p class="entry__group-lab">${esc(t("entry.priorities.ignore"))}</p><div class="onb__opts onb__grid" role="group">`+
-      ENTRY_MUSCLES.map(m=>entryOpt("ignoredMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("ignoredMuscles",m),role:"checkbox"})).join("")+`</div>`:"")+
     `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
     ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
-    (custom?renderMustHaveSection():"")+renderAvoidanceSection()}
+    renderAvoidanceSection()}
 function renderCustomShapeStep(){
   const splits=entryServices()?.splitChoices(entryState.answers)||{choices:[]};
   if(!splits.choices.length)return entryHeading(t("entry.custom_shape.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.custom_shape.none_title"))}</strong><p>${esc(t("entry.custom_shape.none_body"))}</p>`+
@@ -9041,16 +9140,31 @@ function entryPreviewAnswers(preview){
 }
 function entryPriorityLabel(answers=entryState?.answers||{}){
   const facts=[];
+  const custom=entryState?.route==="custom";
   const muscles=answers.primaryMuscles||[];
   if(muscles.length)facts.push(muscles.map(muscle=>{
     const key=String(muscle).trim(),label=t(`entry.muscle.${key}`);
     return label===`entry.muscle.${key}`?key:label;
   }).join(", "));
+  if(custom){
+    for(const [key,stateKey] of [["deEmphasizedMuscles","deemphasize"],["ignoredMuscles","ignore"]]){
+      const list=answers[key]||[];
+      if(list.length)facts.push(`${entryMuscleStateLabel(stateKey)}: ${list.map(muscle=>{
+        const label=t(`entry.muscle.${muscle}`);return label===`entry.muscle.${muscle}`?muscle:label;
+      }).join(", ")}`)}}
   const movements=answers.priorityMovements||[];
   if(movements.length)facts.push(movements.map(movement=>t(`entry.movement.${movement}`)||movement).join(", "));
-  const mustHave=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
-  if(mustHave.length)facts.push(t("entry.preview.must_have",{exercises:mustHave.map(libraryName).join(", ")}));
+  if(!custom){
+    const mustHave=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
+    if(mustHave.length)facts.push(t("entry.preview.must_have",{exercises:mustHave.map(libraryName).join(", ")}))}
   return facts.join(" · ")||t("entry.preview.priorities_none")}
+function entryExercisePreferenceLabel(answers=entryState?.answers||{}){
+  const facts=[];
+  const included=(answers.mustHaveExercises||[]).map(exerciseId=>libraryEntry(exerciseId)).filter(Boolean);
+  const avoided=(answers.exerciseConstraints||[]).map(item=>libraryEntry(item.exerciseId)).filter(Boolean);
+  if(included.length)facts.push(t("entry.preview.include",{exercises:included.map(libraryName).join(", ")}));
+  if(avoided.length)facts.push(t("entry.preview.avoid",{exercises:avoided.map(libraryName).join(", ")}));
+  return facts.join(" · ")||t("entry.preview.exercise_preferences_none")}
 function entrySourceLabel(route=entryState?.route){
   const labels={
     recommend:t("entry.preview.source.recommend"),custom:t("entry.preview.source.custom"),
@@ -9090,14 +9204,15 @@ function entryPreviewProgressionCopy(preview, progressionIssue){
 function entryExerciseCountLabel(n){return t("entry.preview.exercises",{n,exercise:tp(n,"exercise")})}
 window.__repforgeEntryExerciseCountLabel=entryExerciseCountLabel;
 function renderResultStep(){
-  const resultTitle=entryState?.route==="custom"?t("entry.result.custom_title"):t("entry.result.title");
+  const custom=entryState?.route==="custom";
+  const resultTitle=custom?t("entry.result.custom_title"):t("entry.result.title");
   const result=ensureGeneratorResult();
   if(!result){
     const failure=entryCompileError&&typeof entryCompileError==="object"?entryCompileError:null;
     const unavailable=(failure?.conflicts||[]).filter(item=>item.code==="must_have_unavailable").map(item=>libraryEntry(item.exerciseId)).filter(Boolean);
     if(unavailable.length)return entryHeading(resultTitle)+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.result.must_unavailable_title"))}</strong>`+
       `<p>${esc(t("entry.result.must_unavailable_body",{exercises:unavailable.map(libraryName).join(", ")}))}</p>`+
-      `<button type="button" class="btn btn--cta" data-entry-action="change-priorities">${esc(t("entry.result.change_preferences"))}</button></div>`;
+      `<button type="button" class="btn btn--cta" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_preferences"))}</button></div>`;
     const code=failure?.code||entryCompileError;
     return entryHeading(resultTitle)+`<p class="lede" role="alert">${esc(t("entry.error.summary"))}${code?` (${esc(code)})`:""}</p>`}
   const primary=result.selected||(result.candidates||[])[0];
@@ -9106,12 +9221,14 @@ function renderResultStep(){
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
   const environment=entryEnvironmentLabel({environment:{kind:explanation.mainConstraint}});
+  const exercisePreferences=entryExercisePreferenceLabel();
   const whyRows=[
     goal?{icon:"flex",text:t("entry.result.why_goal",{goal})}:null,
     days&&minutes?{icon:"cal",text:t("entry.result.why_schedule",{days,minutes})}:null,
     environment?{icon:"building",text:t("entry.result.why_environment",{environment})}:null,
     entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
     (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
+    custom&&exercisePreferences!==t("entry.preview.exercise_preferences_none")?{icon:"dumbbell",text:t("entry.result.why_exercise_preferences",{preferences:exercisePreferences})}:null,
     {icon:"trend",text:t("entry.result.why_progression",{progression:entryProgressionLabel(preview)})},
     (preview.reductions||[]).length?{icon:"scale",text:t("entry.result.why_reductions",{n:preview.reductions.length})}:null,
     (preview.limitations||[]).length?{icon:"scale",text:t("entry.result.why_compromises",{n:preview.limitations.length})}:null,
@@ -9142,7 +9259,8 @@ function renderResultStep(){
     `<p class="entry__group-lab entry__group-lab--accent">${esc(t("entry.result.why"))}</p>`+
     `<ul class="entry__rows entry__rows--reasons">`+whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")+`</ul>`+
     action+
-    (entryState.route==="custom"?`<button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_custom"))}</button>`:"")+`</div>`}
+    (custom?`<div class="entry__custom-actions"><button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_priorities"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   const purposeLabels={
@@ -9233,9 +9351,11 @@ function renderPreviewStep(){
   const progressionIssue=entryPreviewHasProgressionIssue(preview);
   const compromises=(preview.limitations||[]).length+(preview.reductions||[]).length;
   const environment=[entryEnvironmentLabel(previewAnswers),entryEquipmentLabel(previewAnswers)].filter(Boolean).join(" · ");
+  const custom=entryState?.route==="custom";
   const activateLabel=hasActiveProgram()?t("entry.preview.activate_replace"):t("entry.preview.activate_first");
   const reviewRows=[
     {icon:"target",lab:t("entry.preview.priorities"),text:entryPriorityLabel(previewAnswers)},
+    ...(custom?[{icon:"dumbbell",lab:t("entry.preview.exercise_preferences"),text:entryExercisePreferenceLabel(previewAnswers)}]:[]),
     {icon:"building",lab:t("entry.preview.equipment"),text:environment||t("entry.preview.equipment_unspecified")},
     {icon:"trend",lab:t("entry.preview.progression"),text:t(entryPreviewProgressionCopy(preview,progressionIssue))},
     {icon:"scale",lab:t("entry.preview.compromises"),text:compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none")},
@@ -9346,6 +9466,7 @@ function setupEntryRovingFocus(){
 function renderOnboarding(){
   const body=$("#onbBody"),title=$("#onbTitle"),step=$("#onbStepLabel"),back=$("#onbBack"),next=$("#onbNext");
   if(!body||!ProgramEntry||!entryState)return;
+  collapseSingleCustomShape();
   const focusToken=entryFocusToken();
   const route=entryState.route,stepId=entryState.step;
   $("#onboarding")?.classList.toggle("entry-hub-active",!route||stepId==="entry");
@@ -9376,7 +9497,7 @@ function renderOnboarding(){
     next.classList.toggle("hidden",hideNext);
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
-    const pendingReason=stepId==="priorities"&&entryPendingAvoid;
+    const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
     next.disabled=!!pendingReason;
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
     else next.removeAttribute("aria-describedby")}
@@ -9393,6 +9514,7 @@ function renderOnboarding(){
   else if(stepId==="schedule")html+=renderScheduleStep();
   else if(stepId==="environment")html+=renderEnvironmentStep();
   else if(stepId==="priorities")html+=renderPrioritiesStep();
+  else if(stepId==="exercise_preferences")html+=renderExercisePreferencesStep();
   else if(stepId==="custom_shape")html+=renderCustomShapeStep();
   else if(stepId==="result")html+=renderResultStep();
   else if(stepId==="catalogue")html+=renderCatalogueStep();
@@ -9424,6 +9546,19 @@ function wireEntryDom(){
     if(key==="environment"){
       const next=ProgramEntryAdapter?.defaultEnvironment?.(raw)||{kind:raw,equipment:[],capabilities:[]};
       entryPatchAnswers({environment:next});
+      return}
+    if(key==="musclePriority"){
+      const [muscle,status]=String(raw).split("|");
+      if(!ENTRY_MUSCLES.includes(muscle)||!ENTRY_MUSCLE_STATES.includes(status))return;
+      const primary=[...(entryState.answers.primaryMuscles||[])].filter(item=>item!==muscle);
+      const deemphasized=[...(entryState.answers.deEmphasizedMuscles||[])].filter(item=>item!==muscle);
+      const ignored=[...(entryState.answers.ignoredMuscles||[])].filter(item=>item!==muscle);
+      if(status==="prioritize"){
+        if(primary.length>=2)return;
+        primary.push(muscle);
+      }else if(status==="deemphasize")deemphasized.push(muscle);
+      else if(status==="ignore")ignored.push(muscle);
+      entryPatchAnswers({primaryMuscles:primary,deEmphasizedMuscles:deemphasized,ignoredMuscles:ignored});
       return}
     if(key==="environmentEquipment"||key==="environmentCapabilities"){
       const env=entryEnvironmentValue()||{kind:"other",equipment:[],capabilities:[]};
@@ -9470,6 +9605,28 @@ function wireEntryDom(){
   $$('[data-entry-must-remove]').forEach(btn=>btn.onclick=()=>{
     const exerciseId=btn.dataset.entryMustRemove;
     entryPatchAnswers({mustHaveExercises:(entryState.answers.mustHaveExercises||[]).filter(id=>id!==exerciseId)})});
+  const exerciseSearch=$("#entryExerciseSearch");
+  if(exerciseSearch){
+    exerciseSearch.oninput=()=>{entryExerciseQuery=exerciseSearch.value;renderOnboarding();const el=$("#entryExerciseSearch");if(el){el.focus();el.setSelectionRange?.(entryExerciseQuery.length,entryExerciseQuery.length)}}}
+  $$('[data-entry-exercise-add]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryExerciseAdd,status=btn.dataset.entryExerciseStatus;
+    const included=[...(entryState.answers.mustHaveExercises||[])];
+    const constraints=[...(entryState.answers.exerciseConstraints||[])];
+    if(included.includes(exerciseId)||constraints.some(item=>item.exerciseId===exerciseId))return;
+    if(status==="include"){
+      if(included.length>=32)return;
+      included.push(exerciseId);entryExerciseQuery="";entryPatchAnswers({mustHaveExercises:included});
+      return}
+    if(status==="avoid"){
+      if(constraints.length>=32)return;
+      entryPendingAvoid=exerciseId;entryExerciseQuery="";renderOnboarding()}
+  });
+  $$('[data-entry-exercise-remove]').forEach(btn=>btn.onclick=()=>{
+    const exerciseId=btn.dataset.entryExerciseRemove;
+    entryPatchAnswers({
+      mustHaveExercises:(entryState.answers.mustHaveExercises||[]).filter(id=>id!==exerciseId),
+      exerciseConstraints:(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId),
+    })});
   $$("[data-entry-avoid-add]").forEach(btn=>btn.onclick=()=>{
     const exerciseId=btn.dataset.entryAvoidAdd;
     const constraints=[...(entryState.answers.exerciseConstraints||[])];
@@ -9483,6 +9640,8 @@ function wireEntryDom(){
     entryPatchAnswers({exerciseConstraints:(entryState.answers.exerciseConstraints||[]).filter(item=>item.exerciseId!==exerciseId)})});
   const changePriorities=$("[data-entry-action='change-priorities']");if(changePriorities)changePriorities.onclick=()=>{
     entryCompileError=null;entrySetState({...entryState,step:"priorities",result:null})};
+  const changeExercisePreferences=$("[data-entry-action='change-exercise-preferences']");if(changeExercisePreferences)changeExercisePreferences.onclick=()=>{
+    entryCompileError=null;entrySetState({...entryState,step:"exercise_preferences",result:null})};
   const changeSchedule=$("[data-entry-action='change-schedule']");if(changeSchedule)changeSchedule.onclick=()=>{
     const answers={...entryState.answers};delete answers.splitPreference;
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
@@ -9568,7 +9727,7 @@ function entryStartOver(){
   const restarted=ProgramEntry.startOver({
     draftId:uid(),activeProgramRevisionAtStart:liveProgramRevision(),now:entryNow(),versions:entryVersions()});
   if(restarted.effects?.deleteSetupDraft)clearSetupDraft();
-  entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;entryPinnedVersionsExecutable=false;
+  entryOwnOpen=false;entryUiNotice=null;entryCompileError=null;entryExerciseQuery="";entryPinnedVersionsExecutable=false;
   entrySetState(restarted.state,{persist:true})}
 async function recoverEntryDurableConflict(){
   const refreshed=await refreshPersistenceHead();
@@ -9619,9 +9778,13 @@ function entryAdvance(){
   if(!advanced.ok){renderOnboarding();return}
   let nextState=advanced.state;
   if(nextState.step==="custom_shape"){
-    const splits=entryServices()?.splitChoices(nextState.answers)||{choices:[]};
+    const splits=entryCustomSplitChoices(nextState.answers);
     const compatible=new Set(splits.choices.map(choice=>choice.id));
-    if(!compatible.has(nextState.answers.splitPreference)){
+    if(splits.choices.length===1){
+      nextState=ProgramEntry.setAnswers(nextState,{splitPreference:splits.choices[0].id});
+      const skipped=ProgramEntry.advance(nextState);
+      if(skipped.ok)nextState=skipped.state;
+    }else if(splits.choices.length>=2&&!compatible.has(nextState.answers.splitPreference)){
       const preferred=splits.choices.find(choice=>choice.default)||splits.choices[0];
       if(preferred)nextState=ProgramEntry.setAnswers(nextState,{splitPreference:preferred.id})}}
   entrySetState(nextState);
@@ -9630,7 +9793,10 @@ function entryBack(){
   if(!ProgramEntry||!entryState)return;
   if(entryUiNotice==="cancel"){entryUiNotice=null;renderOnboarding();return}
   if(entryUiNotice==="resume"||entryState.step==="entry"||!entryState.route){requestEntryCancel();return}
-  entrySetState(ProgramEntry.back(entryState))}
+  let previous=ProgramEntry.back(entryState);
+  if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
+    previous={...previous,step:"exercise_preferences"};
+  entrySetState(previous)}
 function onEntryPopState(){
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}

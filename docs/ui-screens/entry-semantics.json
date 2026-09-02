@@ -11084,6 +11084,1008 @@
       ]
     },
     {
+      "key": "onboarding-custom/exercise-preferences__phone-390-dark-en",
+      "flow": "onboarding-custom",
+      "screen": "exercise-preferences",
+      "label": "Custom 6 — exercise preferences",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 6 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Exercise preferences",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "Search once, then choose exercises to include or avoid. Avoiding an exercise asks why."
+        },
+        {
+          "tag": "span",
+          "text": "Search exercises"
+        },
+        {
+          "tag": "input",
+          "name": "Search exercises",
+          "type": "search"
+        },
+        {
+          "tag": "div",
+          "role": "list",
+          "name": "Exercise results",
+          "label": "Exercise results"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Assisted chest dip (kneeling)IncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Assisted chest dip (kneeling)"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Assisted pull-upIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Assisted triceps dip (kneeling)IncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Assisted triceps dip (kneeling)"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell back squatIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell close-grip bench pressIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell close-grip bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell deadliftIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell deadlift"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell decline bench pressIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell decline bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell front raiseIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell front raise"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Include"
+        },
+        {
+          "tag": "p",
+          "text": "Include"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Remove",
+          "name": "Remove",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Avoid"
+        },
+        {
+          "tag": "p",
+          "text": "Avoid"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell curl"
+        },
+        {
+          "tag": "button",
+          "text": "Remove",
+          "name": "Remove",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Why avoid Barbell curl?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "DislikePain / discomfortUnavailable equipmentOther"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dislike",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Dislike"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Pain / discomfort",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Pain / discomfort"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Unavailable equipment",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Unavailable equipment"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Other",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Other"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-custom/exercise-preferences__phone-390-light-en",
+      "flow": "onboarding-custom",
+      "screen": "exercise-preferences",
+      "label": "Custom 6 — exercise preferences",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 6 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Exercise preferences",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "Search once, then choose exercises to include or avoid. Avoiding an exercise asks why."
+        },
+        {
+          "tag": "span",
+          "text": "Search exercises"
+        },
+        {
+          "tag": "input",
+          "name": "Search exercises",
+          "type": "search"
+        },
+        {
+          "tag": "div",
+          "role": "list",
+          "name": "Exercise results",
+          "label": "Exercise results"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Assisted chest dip (kneeling)IncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Assisted chest dip (kneeling)"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Assisted pull-upIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Assisted triceps dip (kneeling)IncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Assisted triceps dip (kneeling)"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell back squatIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell close-grip bench pressIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell close-grip bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell deadliftIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell deadlift"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell decline bench pressIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell decline bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barbell front raiseIncludeAvoid"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell front raise"
+        },
+        {
+          "tag": "button",
+          "text": "Include",
+          "name": "Include",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Avoid",
+          "name": "Avoid",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Include"
+        },
+        {
+          "tag": "p",
+          "text": "Include"
+        },
+        {
+          "tag": "span",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Remove",
+          "name": "Remove",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Avoid"
+        },
+        {
+          "tag": "p",
+          "text": "Avoid"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell curl"
+        },
+        {
+          "tag": "button",
+          "text": "Remove",
+          "name": "Remove",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Why avoid Barbell curl?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "DislikePain / discomfortUnavailable equipmentOther"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dislike",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Dislike"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Pain / discomfort",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Pain / discomfort"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Unavailable equipment",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Unavailable equipment"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Other",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Other"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-custom/exercise-preferences__phone-390-light-pt",
+      "flow": "onboarding-custom",
+      "screen": "exercise-preferences",
+      "label": "Custom 6 — exercise preferences",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Programa personalizado"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 6 de 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Preferências de exercícios",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Opcional"
+        },
+        {
+          "tag": "p",
+          "text": "Pesquise uma vez e escolha exercícios para incluir ou evitar. Ao evitar um exercício, você informa o motivo."
+        },
+        {
+          "tag": "span",
+          "text": "Pesquisar exercícios"
+        },
+        {
+          "tag": "input",
+          "name": "Pesquisar exercícios",
+          "type": "search"
+        },
+        {
+          "tag": "div",
+          "role": "list",
+          "name": "Resultados de exercícios",
+          "label": "Resultados de exercícios"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Mergulho nas paralelas ajoelhado assistidoIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Mergulho nas paralelas ajoelhado assistido"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Barra fixa assistidaIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Barra fixa assistida"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Mergulho de tríceps ajoelhado assistidoIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Mergulho de tríceps ajoelhado assistido"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Agachamento livre com barraIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Agachamento livre com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Supino fechado com barraIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Supino fechado com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Levantamento terra com barraIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Levantamento terra com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Supino declinado com barraIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Supino declinado com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "listitem",
+          "name": "Elevação frontal com barraIncluirEvitar"
+        },
+        {
+          "tag": "span",
+          "text": "Elevação frontal com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Incluir",
+          "name": "Incluir",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Evitar",
+          "name": "Evitar",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Incluir"
+        },
+        {
+          "tag": "p",
+          "text": "Incluir"
+        },
+        {
+          "tag": "span",
+          "text": "Supino com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Remover",
+          "name": "Remover",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Evitar"
+        },
+        {
+          "tag": "p",
+          "text": "Evitar"
+        },
+        {
+          "tag": "strong",
+          "text": "Rosca com barra"
+        },
+        {
+          "tag": "button",
+          "text": "Remover",
+          "name": "Remover",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Por que evitar Rosca com barra?"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Não gostoDor / desconfortoEquipamento indisponívelOutro"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Não gosto",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Não gosto"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dor / desconforto",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Dor / desconforto"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Equipamento indisponível",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Equipamento indisponível"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Outro",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Outro"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-custom/preview__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "preview",
@@ -11148,6 +12150,14 @@
         {
           "tag": "p",
           "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Exercise preferences"
+        },
+        {
+          "tag": "p",
+          "text": "Include: Barbell bench press · Avoid: Barbell curl"
         },
         {
           "tag": "h4",
@@ -11436,6 +12446,14 @@
         },
         {
           "tag": "h4",
+          "text": "Exercise preferences"
+        },
+        {
+          "tag": "p",
+          "text": "Include: Barbell bench press · Avoid: Barbell curl"
+        },
+        {
+          "tag": "h4",
           "text": "Equipment assumptions"
         },
         {
@@ -11721,6 +12739,14 @@
         },
         {
           "tag": "h4",
+          "text": "Preferências de exercícios"
+        },
+        {
+          "tag": "p",
+          "text": "Incluir: Supino com barra · Evitar: Rosca com barra"
+        },
+        {
+          "tag": "h4",
           "text": "Equipamentos considerados"
         },
         {
@@ -11942,7 +12968,7 @@
       "key": "onboarding-custom/priorities__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — priorities",
+      "label": "Custom 5 — muscle priorities",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -11970,7 +12996,7 @@
         },
         {
           "tag": "h2",
-          "text": "Priorities and constraints",
+          "text": "Muscle priorities",
           "tabindex": "-1"
         },
         {
@@ -11979,382 +13005,681 @@
         },
         {
           "tag": "p",
-          "text": "Choose at most two primary muscles."
+          "text": "Set each muscle to normal, prioritize, de-emphasize, or ignore."
+        },
+        {
+          "tag": "p",
+          "text": "Muscle emphasis"
+        },
+        {
+          "tag": "p",
+          "text": "Each muscle has one setting. Choose normal unless you want Taurifer to adjust its emphasis."
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "Muscle emphasis",
+          "labelledBy": "Muscle emphasis"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Primary muscles",
-          "label": "Primary muscles"
+          "name": "ChestNormal",
+          "labelledBy": "ChestNormal"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "No special priority",
+          "name": "Chest: Normal",
+          "label": "Chest: Normal",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "No special priority"
-        },
-        {
-          "tag": "p",
-          "text": "Primary muscles"
-        },
-        {
-          "tag": "div",
-          "role": "group",
-          "name": "ChestBackQuadsHamstringsGlutesSide deltsBicepsTricepsCalvesLats"
+          "text": "Normal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Chest",
+          "role": "radio",
+          "name": "Chest: Prioritize",
+          "label": "Chest: Prioritize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Chest"
+          "text": "Prioritize"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Back",
+          "role": "radio",
+          "name": "Chest: De-emphasize",
+          "label": "Chest: De-emphasize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Back"
+          "text": "De-emphasize"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Quads",
+          "role": "radio",
+          "name": "Chest: Ignore",
+          "label": "Chest: Ignore",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Quads"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Hamstrings",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Hamstrings"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Glutes",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Glutes"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Side delts",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Side delts"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Biceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Biceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Triceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Triceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Calves",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Calves"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Lats",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Lats"
-        },
-        {
-          "tag": "p",
-          "text": "De-emphasize (custom)"
-        },
-        {
-          "tag": "div",
-          "role": "group",
-          "name": "ChestBackQuadsHamstringsGlutesSide deltsBicepsTricepsCalvesLats"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Chest",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Chest"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Back",
-          "aria-checked": "false",
-          "type": "button"
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Back"
         },
         {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Quads",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
           "tag": "span",
-          "text": "Quads"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Hamstrings",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Hamstrings"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Glutes",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Glutes"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Side delts",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Side delts"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Biceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Biceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Triceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Triceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Calves",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Calves"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Lats",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Lats"
-        },
-        {
-          "tag": "p",
-          "text": "Ignore if safe (custom)"
+          "text": "Normal"
         },
         {
           "tag": "div",
-          "role": "group",
-          "name": "ChestBackQuadsHamstringsGlutesSide deltsBicepsTricepsCalvesLats"
+          "role": "radiogroup",
+          "name": "BackNormal",
+          "labelledBy": "BackNormal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Chest",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Back: Normal",
+          "label": "Back: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Chest"
+          "text": "Normal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Back",
+          "role": "radio",
+          "name": "Back: Prioritize",
+          "label": "Back: Prioritize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Back"
+          "text": "Prioritize"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Quads",
+          "role": "radio",
+          "name": "Back: De-emphasize",
+          "label": "Back: De-emphasize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Ignore",
+          "label": "Back: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Quads"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "QuadsNormal",
+          "labelledBy": "QuadsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Hamstrings",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Quads: Normal",
+          "label": "Quads: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Prioritize",
+          "label": "Quads: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: De-emphasize",
+          "label": "Quads: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Ignore",
+          "label": "Quads: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Hamstrings"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "HamstringsNormal",
+          "labelledBy": "HamstringsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Glutes",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Hamstrings: Normal",
+          "label": "Hamstrings: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Prioritize",
+          "label": "Hamstrings: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: De-emphasize",
+          "label": "Hamstrings: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Ignore",
+          "label": "Hamstrings: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Glutes"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "GlutesNormal",
+          "labelledBy": "GlutesNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Side delts",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Glutes: Normal",
+          "label": "Glutes: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Prioritize",
+          "label": "Glutes: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: De-emphasize",
+          "label": "Glutes: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Ignore",
+          "label": "Glutes: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Side delts"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Side deltsNormal",
+          "labelledBy": "Side deltsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Biceps",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Side delts: Normal",
+          "label": "Side delts: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Prioritize",
+          "label": "Side delts: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: De-emphasize",
+          "label": "Side delts: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Ignore",
+          "label": "Side delts: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Biceps"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BicepsNormal",
+          "labelledBy": "BicepsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Triceps",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Biceps: Normal",
+          "label": "Biceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Prioritize",
+          "label": "Biceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: De-emphasize",
+          "label": "Biceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Ignore",
+          "label": "Biceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Triceps"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "TricepsNormal",
+          "labelledBy": "TricepsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Calves",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Triceps: Normal",
+          "label": "Triceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Prioritize",
+          "label": "Triceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: De-emphasize",
+          "label": "Triceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Ignore",
+          "label": "Triceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Calves"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "CalvesNormal",
+          "labelledBy": "CalvesNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Lats",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Calves: Normal",
+          "label": "Calves: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Prioritize",
+          "label": "Calves: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: De-emphasize",
+          "label": "Calves: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Ignore",
+          "label": "Calves: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "LatsNormal",
+          "labelledBy": "LatsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Normal",
+          "label": "Lats: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Prioritize",
+          "label": "Lats: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: De-emphasize",
+          "label": "Lats: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Ignore",
+          "label": "Lats: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "p",
@@ -12421,122 +13746,6 @@
           "text": "Pulldown"
         },
         {
-          "tag": "p",
-          "text": "Must-have exercises"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer includes a selected exercise only when it fits the authored structure and your equipment."
-        },
-        {
-          "tag": "span",
-          "text": "Search for an exercise to include"
-        },
-        {
-          "tag": "input",
-          "name": "Search for an exercise to include",
-          "type": "search"
-        },
-        {
-          "tag": "div",
-          "role": "listbox",
-          "name": "Search for an exercise to include",
-          "label": "Search for an exercise to include"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Assisted chest dip (kneeling)",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Assisted chest dip (kneeling)"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Assisted pull-up",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Assisted triceps dip (kneeling)",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Assisted triceps dip (kneeling)"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell back squat",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell bench press",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell close-grip bench press",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell close-grip bench press"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell curl",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell curl"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell deadlift",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell deadlift"
-        },
-        {
-          "tag": "p",
-          "text": "Avoid exercises"
-        },
-        {
-          "tag": "span",
-          "text": "Search exercises to avoid"
-        },
-        {
-          "tag": "input",
-          "name": "Search exercises to avoid",
-          "type": "search"
-        },
-        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -12555,7 +13764,7 @@
       "key": "onboarding-custom/priorities__phone-390-light-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — priorities",
+      "label": "Custom 5 — muscle priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -12583,7 +13792,7 @@
         },
         {
           "tag": "h2",
-          "text": "Priorities and constraints",
+          "text": "Muscle priorities",
           "tabindex": "-1"
         },
         {
@@ -12592,382 +13801,681 @@
         },
         {
           "tag": "p",
-          "text": "Choose at most two primary muscles."
+          "text": "Set each muscle to normal, prioritize, de-emphasize, or ignore."
+        },
+        {
+          "tag": "p",
+          "text": "Muscle emphasis"
+        },
+        {
+          "tag": "p",
+          "text": "Each muscle has one setting. Choose normal unless you want Taurifer to adjust its emphasis."
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "Muscle emphasis",
+          "labelledBy": "Muscle emphasis"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Primary muscles",
-          "label": "Primary muscles"
+          "name": "ChestNormal",
+          "labelledBy": "ChestNormal"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "No special priority",
+          "name": "Chest: Normal",
+          "label": "Chest: Normal",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "No special priority"
-        },
-        {
-          "tag": "p",
-          "text": "Primary muscles"
-        },
-        {
-          "tag": "div",
-          "role": "group",
-          "name": "ChestBackQuadsHamstringsGlutesSide deltsBicepsTricepsCalvesLats"
+          "text": "Normal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Chest",
+          "role": "radio",
+          "name": "Chest: Prioritize",
+          "label": "Chest: Prioritize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Chest"
+          "text": "Prioritize"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Back",
+          "role": "radio",
+          "name": "Chest: De-emphasize",
+          "label": "Chest: De-emphasize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Back"
+          "text": "De-emphasize"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Quads",
+          "role": "radio",
+          "name": "Chest: Ignore",
+          "label": "Chest: Ignore",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Quads"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Hamstrings",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Hamstrings"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Glutes",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Glutes"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Side delts",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Side delts"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Biceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Biceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Triceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Triceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Calves",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Calves"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Lats",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Lats"
-        },
-        {
-          "tag": "p",
-          "text": "De-emphasize (custom)"
-        },
-        {
-          "tag": "div",
-          "role": "group",
-          "name": "ChestBackQuadsHamstringsGlutesSide deltsBicepsTricepsCalvesLats"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Chest",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Chest"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Back",
-          "aria-checked": "false",
-          "type": "button"
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Back"
         },
         {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Quads",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
           "tag": "span",
-          "text": "Quads"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Hamstrings",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Hamstrings"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Glutes",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Glutes"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Side delts",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Side delts"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Biceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Biceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Triceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Triceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Calves",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Calves"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Lats",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Lats"
-        },
-        {
-          "tag": "p",
-          "text": "Ignore if safe (custom)"
+          "text": "Normal"
         },
         {
           "tag": "div",
-          "role": "group",
-          "name": "ChestBackQuadsHamstringsGlutesSide deltsBicepsTricepsCalvesLats"
+          "role": "radiogroup",
+          "name": "BackNormal",
+          "labelledBy": "BackNormal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Chest",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Back: Normal",
+          "label": "Back: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Chest"
+          "text": "Normal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Back",
+          "role": "radio",
+          "name": "Back: Prioritize",
+          "label": "Back: Prioritize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Back"
+          "text": "Prioritize"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Quads",
+          "role": "radio",
+          "name": "Back: De-emphasize",
+          "label": "Back: De-emphasize",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Ignore",
+          "label": "Back: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Quads"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "QuadsNormal",
+          "labelledBy": "QuadsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Hamstrings",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Quads: Normal",
+          "label": "Quads: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Prioritize",
+          "label": "Quads: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: De-emphasize",
+          "label": "Quads: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Ignore",
+          "label": "Quads: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Hamstrings"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "HamstringsNormal",
+          "labelledBy": "HamstringsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Glutes",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Hamstrings: Normal",
+          "label": "Hamstrings: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Prioritize",
+          "label": "Hamstrings: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: De-emphasize",
+          "label": "Hamstrings: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Ignore",
+          "label": "Hamstrings: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Glutes"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "GlutesNormal",
+          "labelledBy": "GlutesNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Side delts",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Glutes: Normal",
+          "label": "Glutes: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Prioritize",
+          "label": "Glutes: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: De-emphasize",
+          "label": "Glutes: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Ignore",
+          "label": "Glutes: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Side delts"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Side deltsNormal",
+          "labelledBy": "Side deltsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Biceps",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Side delts: Normal",
+          "label": "Side delts: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Prioritize",
+          "label": "Side delts: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: De-emphasize",
+          "label": "Side delts: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Ignore",
+          "label": "Side delts: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Biceps"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BicepsNormal",
+          "labelledBy": "BicepsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Triceps",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Biceps: Normal",
+          "label": "Biceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Prioritize",
+          "label": "Biceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: De-emphasize",
+          "label": "Biceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Ignore",
+          "label": "Biceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Triceps"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "TricepsNormal",
+          "labelledBy": "TricepsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Calves",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Triceps: Normal",
+          "label": "Triceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Prioritize",
+          "label": "Triceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: De-emphasize",
+          "label": "Triceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Ignore",
+          "label": "Triceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "span",
           "text": "Calves"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "CalvesNormal",
+          "labelledBy": "CalvesNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Lats",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Calves: Normal",
+          "label": "Calves: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Prioritize",
+          "label": "Calves: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: De-emphasize",
+          "label": "Calves: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Ignore",
+          "label": "Calves: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
           "text": "Lats"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "LatsNormal",
+          "labelledBy": "LatsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Normal",
+          "label": "Lats: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Prioritize",
+          "label": "Lats: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: De-emphasize",
+          "label": "Lats: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Ignore",
+          "label": "Lats: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
         },
         {
           "tag": "p",
@@ -13034,122 +14542,6 @@
           "text": "Pulldown"
         },
         {
-          "tag": "p",
-          "text": "Must-have exercises"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer includes a selected exercise only when it fits the authored structure and your equipment."
-        },
-        {
-          "tag": "span",
-          "text": "Search for an exercise to include"
-        },
-        {
-          "tag": "input",
-          "name": "Search for an exercise to include",
-          "type": "search"
-        },
-        {
-          "tag": "div",
-          "role": "listbox",
-          "name": "Search for an exercise to include",
-          "label": "Search for an exercise to include"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Assisted chest dip (kneeling)",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Assisted chest dip (kneeling)"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Assisted pull-up",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Assisted triceps dip (kneeling)",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Assisted triceps dip (kneeling)"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell back squat",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell bench press",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell close-grip bench press",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell close-grip bench press"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell curl",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell curl"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barbell deadlift",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barbell deadlift"
-        },
-        {
-          "tag": "p",
-          "text": "Avoid exercises"
-        },
-        {
-          "tag": "span",
-          "text": "Search exercises to avoid"
-        },
-        {
-          "tag": "input",
-          "name": "Search exercises to avoid",
-          "type": "search"
-        },
-        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -13168,7 +14560,7 @@
       "key": "onboarding-custom/priorities__phone-390-light-pt",
       "flow": "onboarding-custom",
       "screen": "priorities",
-      "label": "Custom 5 — priorities",
+      "label": "Custom 5 — muscle priorities",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -13196,7 +14588,7 @@
         },
         {
           "tag": "h2",
-          "text": "Prioridades e restrições",
+          "text": "Prioridades musculares",
           "tabindex": "-1"
         },
         {
@@ -13205,382 +14597,681 @@
         },
         {
           "tag": "p",
-          "text": "Escolha no máximo dois músculos principais."
+          "text": "Defina cada músculo como normal, priorizar, reduzir ênfase ou ignorar."
+        },
+        {
+          "tag": "p",
+          "text": "Ênfase muscular"
+        },
+        {
+          "tag": "p",
+          "text": "Cada músculo tem uma única configuração. Escolha normal, a menos que queira que o Taurifer ajuste sua ênfase."
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "Ênfase muscular",
+          "labelledBy": "Ênfase muscular"
+        },
+        {
+          "tag": "span",
+          "text": "Peito"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Músculos principais",
-          "label": "Músculos principais"
+          "name": "PeitoNormal",
+          "labelledBy": "PeitoNormal"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Sem prioridade especial",
+          "name": "Peito: Normal",
+          "label": "Peito: Normal",
           "aria-checked": "true",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Sem prioridade especial"
-        },
-        {
-          "tag": "p",
-          "text": "Músculos principais"
-        },
-        {
-          "tag": "div",
-          "role": "group",
-          "name": "PeitoCostasQuadrícepsPosterioresGlúteosDeltoides lateraisBícepsTrícepsPanturrilhasDorsais"
+          "text": "Normal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Peito",
+          "role": "radio",
+          "name": "Peito: Priorizar",
+          "label": "Peito: Priorizar",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Peito"
+          "text": "Priorizar"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Costas",
+          "role": "radio",
+          "name": "Peito: Reduzir ênfase",
+          "label": "Peito: Reduzir ênfase",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Costas"
+          "text": "Reduzir ênfase"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Quadríceps",
+          "role": "radio",
+          "name": "Peito: Ignorar",
+          "label": "Peito: Ignorar",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Quadríceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Posteriores",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Posteriores"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Glúteos",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Glúteos"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Deltoides laterais",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Deltoides laterais"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Bíceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Bíceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Tríceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Tríceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Panturrilhas",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Panturrilhas"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Dorsais",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Dorsais"
-        },
-        {
-          "tag": "p",
-          "text": "Desenfatizar (personalizado)"
-        },
-        {
-          "tag": "div",
-          "role": "group",
-          "name": "PeitoCostasQuadrícepsPosterioresGlúteosDeltoides lateraisBícepsTrícepsPanturrilhasDorsais"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Peito",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Peito"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Costas",
-          "aria-checked": "false",
-          "type": "button"
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Costas"
         },
         {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Quadríceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
           "tag": "span",
-          "text": "Quadríceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Posteriores",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Posteriores"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Glúteos",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Glúteos"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Deltoides laterais",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Deltoides laterais"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Bíceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Bíceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Tríceps",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Tríceps"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Panturrilhas",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Panturrilhas"
-        },
-        {
-          "tag": "button",
-          "role": "checkbox",
-          "name": "Dorsais",
-          "aria-checked": "false",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Dorsais"
-        },
-        {
-          "tag": "p",
-          "text": "Ignorar se for seguro (personalizado)"
+          "text": "Normal"
         },
         {
           "tag": "div",
-          "role": "group",
-          "name": "PeitoCostasQuadrícepsPosterioresGlúteosDeltoides lateraisBícepsTrícepsPanturrilhasDorsais"
+          "role": "radiogroup",
+          "name": "CostasNormal",
+          "labelledBy": "CostasNormal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Peito",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Costas: Normal",
+          "label": "Costas: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Peito"
+          "text": "Normal"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Costas",
+          "role": "radio",
+          "name": "Costas: Priorizar",
+          "label": "Costas: Priorizar",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Costas"
+          "text": "Priorizar"
         },
         {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Quadríceps",
+          "role": "radio",
+          "name": "Costas: Reduzir ênfase",
+          "label": "Costas: Reduzir ênfase",
           "aria-checked": "false",
+          "tabindex": "-1",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Costas: Ignorar",
+          "label": "Costas: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Quadríceps"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "QuadrícepsNormal",
+          "labelledBy": "QuadrícepsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Posteriores",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Quadríceps: Normal",
+          "label": "Quadríceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quadríceps: Priorizar",
+          "label": "Quadríceps: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quadríceps: Reduzir ênfase",
+          "label": "Quadríceps: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quadríceps: Ignorar",
+          "label": "Quadríceps: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Posteriores"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "PosterioresNormal",
+          "labelledBy": "PosterioresNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Glúteos",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Posteriores: Normal",
+          "label": "Posteriores: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Posteriores: Priorizar",
+          "label": "Posteriores: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Posteriores: Reduzir ênfase",
+          "label": "Posteriores: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Posteriores: Ignorar",
+          "label": "Posteriores: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Glúteos"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "GlúteosNormal",
+          "labelledBy": "GlúteosNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Deltoides laterais",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Glúteos: Normal",
+          "label": "Glúteos: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glúteos: Priorizar",
+          "label": "Glúteos: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glúteos: Reduzir ênfase",
+          "label": "Glúteos: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glúteos: Ignorar",
+          "label": "Glúteos: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Deltoides laterais"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Deltoides lateraisNormal",
+          "labelledBy": "Deltoides lateraisNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Bíceps",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Deltoides laterais: Normal",
+          "label": "Deltoides laterais: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deltoides laterais: Priorizar",
+          "label": "Deltoides laterais: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deltoides laterais: Reduzir ênfase",
+          "label": "Deltoides laterais: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deltoides laterais: Ignorar",
+          "label": "Deltoides laterais: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Bíceps"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BícepsNormal",
+          "labelledBy": "BícepsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Tríceps",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Bíceps: Normal",
+          "label": "Bíceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Bíceps: Priorizar",
+          "label": "Bíceps: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Bíceps: Reduzir ênfase",
+          "label": "Bíceps: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Bíceps: Ignorar",
+          "label": "Bíceps: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Tríceps"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "TrícepsNormal",
+          "labelledBy": "TrícepsNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Panturrilhas",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Tríceps: Normal",
+          "label": "Tríceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Tríceps: Priorizar",
+          "label": "Tríceps: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Tríceps: Reduzir ênfase",
+          "label": "Tríceps: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Tríceps: Ignorar",
+          "label": "Tríceps: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "span",
           "text": "Panturrilhas"
         },
         {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "PanturrilhasNormal",
+          "labelledBy": "PanturrilhasNormal"
+        },
+        {
           "tag": "button",
-          "role": "checkbox",
-          "name": "Dorsais",
-          "aria-checked": "false",
+          "role": "radio",
+          "name": "Panturrilhas: Normal",
+          "label": "Panturrilhas: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Panturrilhas: Priorizar",
+          "label": "Panturrilhas: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Panturrilhas: Reduzir ênfase",
+          "label": "Panturrilhas: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Panturrilhas: Ignorar",
+          "label": "Panturrilhas: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
           "text": "Dorsais"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "DorsaisNormal",
+          "labelledBy": "DorsaisNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Normal",
+          "label": "Dorsais: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Priorizar",
+          "label": "Dorsais: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Reduzir ênfase",
+          "label": "Dorsais: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Ignorar",
+          "label": "Dorsais: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
         },
         {
           "tag": "p",
@@ -13645,122 +15336,6 @@
         {
           "tag": "span",
           "text": "Puxada"
-        },
-        {
-          "tag": "p",
-          "text": "Exercícios obrigatórios"
-        },
-        {
-          "tag": "p",
-          "text": "A Taurifer inclui um exercício selecionado apenas quando encaixa na estrutura autoral e no seu equipamento."
-        },
-        {
-          "tag": "span",
-          "text": "Buscar exercício para incluir"
-        },
-        {
-          "tag": "input",
-          "name": "Buscar exercício para incluir",
-          "type": "search"
-        },
-        {
-          "tag": "div",
-          "role": "listbox",
-          "name": "Buscar exercício para incluir",
-          "label": "Buscar exercício para incluir"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Mergulho nas paralelas ajoelhado assistido",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Mergulho nas paralelas ajoelhado assistido"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Barra fixa assistida",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Barra fixa assistida"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Mergulho de tríceps ajoelhado assistido",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Mergulho de tríceps ajoelhado assistido"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Agachamento livre com barra",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Agachamento livre com barra"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Supino com barra",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Supino com barra"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Supino fechado com barra",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Supino fechado com barra"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Rosca com barra",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Rosca com barra"
-        },
-        {
-          "tag": "button",
-          "role": "option",
-          "name": "Levantamento terra com barra",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Levantamento terra com barra"
-        },
-        {
-          "tag": "p",
-          "text": "Evitar exercícios"
-        },
-        {
-          "tag": "span",
-          "text": "Pesquisar exercícios a evitar"
-        },
-        {
-          "tag": "input",
-          "name": "Pesquisar exercícios a evitar",
-          "type": "search"
         },
         {
           "tag": "button",
@@ -13845,6 +15420,10 @@
         },
         {
           "tag": "span",
+          "text": "Honors these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
+        },
+        {
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -13855,8 +15434,14 @@
         },
         {
           "tag": "button",
-          "text": "Change custom choices",
-          "name": "Change custom choices",
+          "text": "Change muscle priorities",
+          "name": "Change muscle priorities",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Change exercise preferences",
+          "name": "Change exercise preferences",
           "type": "button"
         },
         {
@@ -13936,6 +15521,10 @@
         },
         {
           "tag": "span",
+          "text": "Honors these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
+        },
+        {
+          "tag": "span",
           "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
         },
         {
@@ -13946,8 +15535,14 @@
         },
         {
           "tag": "button",
-          "text": "Change custom choices",
-          "name": "Change custom choices",
+          "text": "Change muscle priorities",
+          "name": "Change muscle priorities",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Change exercise preferences",
+          "name": "Change exercise preferences",
           "type": "button"
         },
         {
@@ -14027,6 +15622,10 @@
         },
         {
           "tag": "span",
+          "text": "Respeita estas escolhas de exercícios: Incluir: Supino com barra · Evitar: Rosca com barra."
+        },
+        {
+          "tag": "span",
           "text": "Progride por Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
         },
         {
@@ -14037,8 +15636,14 @@
         },
         {
           "tag": "button",
-          "text": "Alterar escolhas do programa",
-          "name": "Alterar escolhas do programa",
+          "text": "Alterar prioridades musculares",
+          "name": "Alterar prioridades musculares",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Alterar preferências de exercícios",
+          "name": "Alterar preferências de exercícios",
           "type": "button"
         },
         {
@@ -14958,243 +16563,6 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-custom/shape__phone-390-dark-en",
-      "flow": "onboarding-custom",
-      "screen": "shape",
-      "label": "Custom — split choice",
-      "viewport": "phone-390",
-      "theme": "dark",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Custom program"
-        },
-        {
-          "tag": "p",
-          "text": "Section 6 of 6",
-          "aria-live": "polite"
-        },
-        {
-          "tag": "h2",
-          "text": "Your program shape",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "One weekly structure fits your answers. Taurifer writes the sets, targets, and progression."
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "div",
-          "role": "radiogroup",
-          "name": "Muscle + Strength · 4 daysTaurifer's default compatible structure for these answers. 4 training days, about 35–39 minutes each."
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Muscle + Strength · 4 daysTaurifer's default compatible structure for these answers. 4 training days, about 35–39 minutes each.",
-          "aria-checked": "true",
-          "tabindex": "0",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Muscle + Strength · 4 days"
-        },
-        {
-          "tag": "span",
-          "text": "Taurifer's default compatible structure for these answers. 4 training days, about 35–39 minutes each."
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Generate program",
-          "name": "Generate program",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-custom/shape__phone-390-light-en",
-      "flow": "onboarding-custom",
-      "screen": "shape",
-      "label": "Custom — split choice",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Custom program"
-        },
-        {
-          "tag": "p",
-          "text": "Section 6 of 6",
-          "aria-live": "polite"
-        },
-        {
-          "tag": "h2",
-          "text": "Your program shape",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "One weekly structure fits your answers. Taurifer writes the sets, targets, and progression."
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "div",
-          "role": "radiogroup",
-          "name": "Muscle + Strength · 4 daysTaurifer's default compatible structure for these answers. 4 training days, about 35–39 minutes each."
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Muscle + Strength · 4 daysTaurifer's default compatible structure for these answers. 4 training days, about 35–39 minutes each.",
-          "aria-checked": "true",
-          "tabindex": "0",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Muscle + Strength · 4 days"
-        },
-        {
-          "tag": "span",
-          "text": "Taurifer's default compatible structure for these answers. 4 training days, about 35–39 minutes each."
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Generate program",
-          "name": "Generate program",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-custom/shape__phone-390-light-pt",
-      "flow": "onboarding-custom",
-      "screen": "shape",
-      "label": "Custom — split choice",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "pt",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Criar programa"
-        },
-        {
-          "tag": "button",
-          "text": "Cancelar",
-          "name": "Cancelar",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Programa personalizado"
-        },
-        {
-          "tag": "p",
-          "text": "Seção 6 de 6",
-          "aria-live": "polite"
-        },
-        {
-          "tag": "h2",
-          "text": "A forma do seu programa",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Uma estrutura semanal encaixa nas suas respostas. A Taurifer escreve as séries, os alvos e a progressão."
-        },
-        {
-          "tag": "p",
-          "text": "Estrutura semanal"
-        },
-        {
-          "tag": "div",
-          "role": "radiogroup",
-          "name": "Massa + força · 4 diasEstrutura compatível recomendada pelo Taurifer para estas respostas. 4 dias de treino, cerca de 35–39 minutos cada."
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Massa + força · 4 diasEstrutura compatível recomendada pelo Taurifer para estas respostas. 4 dias de treino, cerca de 35–39 minutos cada.",
-          "aria-checked": "true",
-          "tabindex": "0",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Massa + força · 4 dias"
-        },
-        {
-          "tag": "span",
-          "text": "Estrutura compatível recomendada pelo Taurifer para estas respostas. 4 dias de treino, cerca de 35–39 minutos cada."
-        },
-        {
-          "tag": "button",
-          "text": "Voltar",
-          "name": "Voltar",
-          "label": "Voltar",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Gerar programa",
-          "name": "Gerar programa",
           "type": "button"
         }
       ]
