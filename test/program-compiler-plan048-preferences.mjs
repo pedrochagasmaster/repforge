@@ -139,6 +139,21 @@ assert.deepEqual(Compiler.compile(context("strength", 2, {
 assert.equal(Compiler.compile(context("strength", 2, { priorityMovements: ["unknown_pattern"] }), movementCatalogue).kind, "invalid",
   "unknown movement priorities are rejected");
 
+const mixedVerticalBaseline = Compiler.compile(context("balanced", 4), EXERCISE_LIBRARY);
+const verticalPressPriority = Compiler.compile(context("balanced", 4, {
+  priorityMovements: ["shoulder_press"],
+}), EXERCISE_LIBRARY);
+assert.equal(mixedVerticalBaseline.kind, "compiled");
+assert.equal(verticalPressPriority.kind, "compiled");
+const baselineVerticalChoice = allSlots(mixedVerticalBaseline).find((slot) => slot.templateId === "vertical_press_or_pull");
+const priorityVerticalChoice = allSlots(verticalPressPriority).find((slot) => slot.templateId === "vertical_press_or_pull");
+assert(baselineVerticalChoice.exercise.patterns.includes("pulldown"),
+  "the mixed vertical slot starts with a pull movement without a movement priority");
+assert(priorityVerticalChoice.exercise.patterns.includes("shoulder_press"),
+  "vertical-press priority selects a mapped shoulder-press movement in the mixed vertical slot");
+assert.notEqual(priorityVerticalChoice.exercise.id, baselineVerticalChoice.exercise.id,
+  "vertical-press priority materially changes the mixed vertical exercise choice");
+
 const deEmphasized = Compiler.compile(context("strength", 2, {
   history: [{ libraryId: "synthetic:a-row" }],
   deEmphasizedMuscles: ["back"],

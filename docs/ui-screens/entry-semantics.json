@@ -12144,7 +12144,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -12178,6 +12178,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -12940,7 +12951,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -12974,6 +12985,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -13736,7 +13758,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -13770,6 +13792,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -14532,7 +14565,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "AgachamentoDobradiçaEmpurrarRemadaPuxada"
+          "name": "AgachamentoDobradiçaEmpurrarDesenvolvimento verticalRemadaPuxada"
         },
         {
           "tag": "button",
@@ -14566,6 +14599,17 @@
         {
           "tag": "span",
           "text": "Empurrar"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Desenvolvimento vertical",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Desenvolvimento vertical"
         },
         {
           "tag": "button",
@@ -18417,7 +18461,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -18451,6 +18495,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -18765,7 +18820,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -18799,6 +18854,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -19113,7 +19179,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -19147,6 +19213,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -19461,7 +19538,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -19495,6 +19572,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -19809,7 +19897,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -19843,6 +19931,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -20157,7 +20256,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "AgachamentoDobradiçaEmpurrarRemadaPuxada"
+          "name": "AgachamentoDobradiçaEmpurrarDesenvolvimento verticalRemadaPuxada"
         },
         {
           "tag": "button",
@@ -20191,6 +20290,17 @@
         {
           "tag": "span",
           "text": "Empurrar"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Desenvolvimento vertical",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Desenvolvimento vertical"
         },
         {
           "tag": "button",
@@ -20505,7 +20615,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -20539,6 +20649,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -25574,7 +25695,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -25608,6 +25729,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -25846,7 +25978,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -25880,6 +26012,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -26118,7 +26261,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "AgachamentoDobradiçaEmpurrarRemadaPuxada"
+          "name": "AgachamentoDobradiçaEmpurrarDesenvolvimento verticalRemadaPuxada"
         },
         {
           "tag": "button",
@@ -26152,6 +26295,17 @@
         {
           "tag": "span",
           "text": "Empurrar"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Desenvolvimento vertical",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Desenvolvimento vertical"
         },
         {
           "tag": "button",

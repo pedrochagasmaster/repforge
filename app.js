@@ -9339,15 +9339,15 @@ function renderPrioritiesStep(){
     return entryHeading(t("entry.priorities.custom_title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
       `<p class="onb__explain">${esc(t("entry.priorities.custom_lede"))}</p>`+
       renderCustomMusclePriorities()+
-      `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+      `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
       ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
   return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
     `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+
     `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
-    `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
-    `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
     renderAvoidanceSection()}
 function renderCustomShapeStep(){
