@@ -6588,9 +6588,11 @@ function renderProgram(){renderProgramOverview();
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
   if(meta)meta.classList.toggle("visually-hidden",programEditMode);
   if(tog)tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");
-  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),advanced=ed?.querySelector(":scope > details.advanced"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
-  [end,lede,addDay,advanced,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
-  const exp=$("#exportProgram"),imp=$("#importProgram");if(exp)exp.classList.toggle("hidden",programEditMode);if(imp)imp.closest("label")?.classList.toggle("hidden",programEditMode);
+  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
+  // Advanced remains part of the installed editor. It is inside the editor
+  // host, so hiding the disclosure here would strand the raw import/export
+  // controls whenever the visual editor is open.
+  [end,lede,addDay,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
   if(programEditMode){if(!installedProgramEditor)mountInstalledProgramEditor();return}
   renderProgramHeader();renderProgramEditor();renderVolume();
   // Candidate edits can invalidate a paired relation while the exercise picker
