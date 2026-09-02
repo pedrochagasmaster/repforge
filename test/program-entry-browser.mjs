@@ -103,11 +103,14 @@ async function seedActiveProgram(page, { libraryId = "row_cable", exerciseName =
   }
 }
 
-async function openFreshEntryAt(browser, viewport) {
+async function openFreshEntryAt(browser, viewport, textScale = 1) {
   const { context, page } = await openFresh(browser);
   await page.setViewportSize(viewport);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
+  if (textScale !== 1) {
+    await page.evaluate((scale) => { document.documentElement.style.fontSize = `${scale * 100}%`; }, textScale);
+  }
   await page.click("#firstRunCreate");
   await page.waitForSelector("#onboarding.active #entryHeading", { timeout: 10000 });
   return { context, page };
@@ -146,6 +149,54 @@ async function onboardingGeometry(page) {
   });
 }
 
+async function onboardingTextMetrics(page) {
+  return page.evaluate(() => {
+    const size = (selector) => {
+      const element = document.querySelector(selector);
+      return element ? Number.parseFloat(getComputedStyle(element).fontSize) : null;
+    };
+    return {
+      eyebrow: size("#onbEyebrow"),
+      step: size("#onbStepLabel"),
+      heading: size("#entryHeading"),
+      explain: size("#onbBody .onb__explain"),
+      option: size("#onbBody .radio-card__title"),
+      back: size("#onbBack"),
+      next: size("#onbNext"),
+    };
+  });
+}
+
+async function onboardingControlGeometry(page) {
+  return page.evaluate(() => {
+    const root = document.querySelector("#onboarding");
+    const rootRect = root?.getBoundingClientRect();
+    const controls = [...document.querySelectorAll(
+      "#onboarding button, #onboarding input, #onboarding select, #onboarding textarea, #onboarding summary, #onboarding [role=button]"
+    )].filter((element) => {
+      const style = getComputedStyle(element);
+      return style.display !== "none" && style.visibility !== "hidden" && element.getBoundingClientRect().width > 0;
+    });
+    const clipped = controls.filter((element) => {
+      const rect = element.getBoundingClientRect();
+      return rect.left < (rootRect?.left || 0) - 1 || rect.right > (rootRect?.right || window.innerWidth) + 1;
+    });
+    return {
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      controls: controls.length,
+      clipped: clipped.map((element) => element.id || element.dataset.entryPick || element.tagName),
+    };
+  });
+}
+
+function textMetricsMatchScale(metrics, scale) {
+  const expected = scale === 2
+    ? { eyebrow: 34, step: 22, heading: 60, explain: 30, option: 31, back: 30, next: 34 }
+    : { eyebrow: 17, step: 11, heading: 30, explain: 15, option: 15.5, back: 15, next: 17 };
+  return Object.entries(expected).every(([key, value]) =>
+    Number.isFinite(metrics[key]) && Math.abs(metrics[key] - value) < 0.1);
+}
+
 async function assertOnboardingTransition(page, check, label, action) {
   const parked = await parkOnboardingScroll(page);
   await action();
@@ -158,30 +209,41 @@ async function assertOnboardingTransition(page, check, label, action) {
 }
 
 async function runOnboardingScrollRegression(browser, check) {
-  for (const viewport of [{ width: 320, height: 568 }, { width: 390, height: 844 }]) {
-    const { context, page } = await openFreshEntryAt(browser, viewport);
+  for (const { viewport, textScale, label } of [
+    { viewport: { width: 320, height: 568 }, textScale: 1, label: "320px" },
+    { viewport: { width: 390, height: 844 }, textScale: 1, label: "390px" },
+    { viewport: { width: 430, height: 932 }, textScale: 1, label: "430px" },
+    { viewport: { width: 390, height: 844 }, textScale: 2, label: "390px at 200% text" },
+  ]) {
+    const { context, page } = await openFreshEntryAt(browser, viewport, textScale);
     try {
-      const routeEntry = await assertOnboardingTransition(page, check, `${viewport.width}px route entry`,
+      const routeEntry = await assertOnboardingTransition(page, check, `${label} route entry`,
         () => page.click('[data-entry-route="recommend"]'));
-      check(/1 of 5/i.test(routeEntry.step), `${viewport.width}px route entry exposes progress context`, routeEntry.step);
+      const routeMetrics = await onboardingTextMetrics(page);
+      check(textMetricsMatchScale(routeMetrics, textScale),
+        `${label} uses genuine rem-based onboarding text resizing`, JSON.stringify({ routeMetrics, textScale }));
+      const routeControls = await onboardingControlGeometry(page);
+      check(routeControls.overflow <= 0 && routeControls.clipped.length === 0,
+        `${label} keeps onboarding controls within the viewport`, JSON.stringify(routeControls));
+      check(/1 of 5/i.test(routeEntry.step), `${label} route entry exposes progress context`, routeEntry.step);
 
       await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
-      await assertOnboardingTransition(page, check, `${viewport.width}px Next to background`,
+      await assertOnboardingTransition(page, check, `${label} Next to background`,
         () => page.click("#onbNext"));
       await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
       await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
-      await assertOnboardingTransition(page, check, `${viewport.width}px Next to schedule`,
+      await assertOnboardingTransition(page, check, `${label} Next to schedule`,
         () => page.click("#onbNext"));
       await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
       await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
       await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="120"]');
-      await assertOnboardingTransition(page, check, `${viewport.width}px Next to environment`,
+      await assertOnboardingTransition(page, check, `${label} Next to environment`,
         () => page.click("#onbNext"));
       check(/4 of 5/i.test((await onboardingGeometry(page)).step),
-        `${viewport.width}px environment keeps progress context`, await onboardingGeometry(page));
+        `${label} environment keeps progress context`, await onboardingGeometry(page));
 
       await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
-      await assertOnboardingTransition(page, check, `${viewport.width}px Next to priorities`,
+      await assertOnboardingTransition(page, check, `${label} Next to priorities`,
         () => page.click("#onbNext"));
 
       const sameStepBefore = await parkOnboardingScroll(page);
@@ -189,30 +251,30 @@ async function runOnboardingScrollRegression(browser, check) {
       await page.waitForTimeout(20);
       const sameStepAfter = await onboardingGeometry(page);
       check(sameStepBefore.before > 0 && sameStepAfter.scrollTop === sameStepBefore.before,
-        `${viewport.width}px same-step selection preserves intentional scroll`,
+        `${label} same-step selection preserves intentional scroll`,
         JSON.stringify({ before: sameStepBefore, after: sameStepAfter }));
 
-      await assertOnboardingTransition(page, check, `${viewport.width}px Next to recommendation result`,
+      await assertOnboardingTransition(page, check, `${label} Next to recommendation result`,
         () => page.click("#onbNext"));
       await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 25000 });
       const resultGeometry = await onboardingGeometry(page);
       check(resultGeometry.scrollTop === 0 && resultGeometry.headingVisible && resultGeometry.headingTop < 220,
-        `${viewport.width}px recommendation result starts at title region`, JSON.stringify(resultGeometry));
+        `${label} recommendation result starts at title region`, JSON.stringify(resultGeometry));
 
-      await assertOnboardingTransition(page, check, `${viewport.width}px Back to priorities`,
+      await assertOnboardingTransition(page, check, `${label} Back to priorities`,
         () => page.click("#onbBack"));
-      await assertOnboardingTransition(page, check, `${viewport.width}px Back to environment`,
+      await assertOnboardingTransition(page, check, `${label} Back to environment`,
         () => page.click("#onbBack"));
       const environmentGeometry = await onboardingGeometry(page);
       check(/4 of 5/i.test(environmentGeometry.step) && environmentGeometry.headingTop < 220,
-        `${viewport.width}px environment correction opens at title/progress region`,
+        `${label} environment correction opens at title/progress region`,
         JSON.stringify(environmentGeometry));
       await page.evaluate(() => document.querySelector(".entry__correct > summary")?.click());
       await page.waitForTimeout(20);
       const correctionGeometry = await onboardingGeometry(page);
       check(correctionGeometry.scrollTop === 0 && correctionGeometry.headingVisible &&
         await page.locator(".entry__correct").getAttribute("open") !== null,
-        `${viewport.width}px environment correction keeps title region visible`,
+        `${label} environment correction keeps title region visible`,
         JSON.stringify(correctionGeometry));
     } finally {
       await context.close();

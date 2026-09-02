@@ -85,13 +85,37 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(geometry.overflow <= 0 && geometry.footerReachable, "320px entry has no horizontal overflow and footer remains reachable", JSON.stringify(geometry));
 
   const large = await page.evaluate(() => {
+    const fontSize = (selector) => {
+      const element = document.querySelector(selector);
+      return element ? Number.parseFloat(getComputedStyle(element).fontSize) : null;
+    };
+    const beforeText = {
+      heading: fontSize("#entryHeading"),
+      explain: fontSize("#onbBody .onb__explain"),
+      option: fontSize("#onbBody .radio-card__title"),
+      next: fontSize("#onbNext"),
+    };
     document.documentElement.style.fontSize = "200%";
     const root = document.querySelector("#onboarding");
     if (root) root.scrollTop = root.scrollHeight;
     const rect = document.querySelector(".onb__nav")?.getBoundingClientRect();
-    return { overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth, footerReachable: !!rect && rect.bottom <= window.innerHeight + 1 };
+    const afterText = {
+      heading: fontSize("#entryHeading"),
+      explain: fontSize("#onbBody .onb__explain"),
+      option: fontSize("#onbBody .radio-card__title"),
+      next: fontSize("#onbNext"),
+    };
+    return {
+      overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      footerReachable: !!rect && rect.bottom <= window.innerHeight + 1,
+      beforeText,
+      afterText,
+    };
   });
   check(large.overflow <= 0 && large.footerReachable, "320px entry remains usable with enlarged text", JSON.stringify(large));
+  check(Object.keys(large.beforeText).every((key) => Number.isFinite(large.beforeText[key]) &&
+    Number.isFinite(large.afterText[key]) && large.afterText[key] >= large.beforeText[key] * 1.99),
+  "200% root text genuinely enlarges onboarding typography", JSON.stringify(large));
 
   await page.setViewportSize({ width: 1280, height: 800 });
   const desktopWidth = await page.locator("#onboarding .onb").evaluate((el) => el.getBoundingClientRect().width);
