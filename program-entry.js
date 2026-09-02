@@ -562,8 +562,13 @@
     shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
   const PROGRAM_ROW_KEYS = new Set(["id", "slotId", "dayId", "day", "order", "name", "displayName", "libraryId", "movementId", "sets", "min", "max", "primary", "secondary", "notes", "alternates", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "priority", "loadingMode", "loadIncrement", "progression", "progressionIncompatibility", "rest", "rir", "tempo", "progressionType"]);
-  const DAY_KEYS = new Set(["id", "dayId", "label", "order", "estimateMinutes", "exercises"]);
+  const DAY_KEYS = new Set(["id", "dayId", "label", "order", "estimateMinutes", "exercises", "displayNameKey", "nameOverride"]);
   const STRUCTURE_KEYS = new Set(["schemaVersion", "days", "provenance", "weekPrescriptions", "customizedFrom"]);
+  // Display names are keyed by the compiler's stable blueprint-day identity.
+  // Keep this boundary closed so a compiler label cannot quietly become a new
+  // translation key. A future key may pass this syntactic boundary and fall
+  // back to its stored contract label until its catalog copy is available.
+  const DAY_DISPLAY_NAME_KEY_RE = /^program\.day\.[a-z0-9][a-z0-9_]*_d[1-9][0-9]*$/;
   const PROVENANCE_KEYS = new Set(["source", "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"]);
   const INCOMPATIBILITY_KEYS = new Set(["kind", "value", "version", "source", "reason"]);
   const PROGRESSION_KEYS = new Set(["schemaVersion", "strategy", "modifiers"]);
@@ -581,6 +586,14 @@
     if (value !== undefined && value !== null && (typeof value !== "string" || value.length > maxLength)) {
       issues.push(`${path}:invalid`);
     }
+  }
+
+  function validateDayMetadata(value, path, issues) {
+    if (hasOwn(value, "displayNameKey") &&
+      (typeof value.displayNameKey !== "string" || !DAY_DISPLAY_NAME_KEY_RE.test(value.displayNameKey))) {
+      issues.push(`${path}.displayNameKey:invalid`);
+    }
+    if (hasOwn(value, "nameOverride")) optionalString(value.nameOverride, `${path}.nameOverride`, issues, 200);
   }
 
   function validateSelected(value, path, issues) {
@@ -635,10 +648,11 @@
     else value.days.forEach((day, index) => {
       const dayPath = `${path}.days[${index}]`;
       if (!isPlainObject(day)) { issues.push(`${dayPath}:not_object`); return; }
-      rejectUnknownKeys(day, new Set(["dayId", "label", "order"]), dayPath, issues);
+      rejectUnknownKeys(day, new Set(["dayId", "label", "order", "displayNameKey", "nameOverride"]), dayPath, issues);
       if (!validToken(day.dayId)) issues.push(`${dayPath}.dayId:invalid`);
       if (typeof day.label !== "string") issues.push(`${dayPath}.label:invalid`);
       if (!Number.isInteger(day.order)) issues.push(`${dayPath}.order:invalid`);
+      validateDayMetadata(day, dayPath, issues);
     });
     if (value.provenance !== undefined) {
       if (!isPlainObject(value.provenance)) issues.push(`${path}.provenance:invalid`);
@@ -768,6 +782,7 @@
         if (!isPlainObject(day)) { issues.push(`${dayPath}:not_object`); return; }
         rejectUnknownKeys(day, DAY_KEYS, dayPath, issues);
         for (const key of ["id", "dayId", "label"]) if (hasOwn(day, key)) optionalString(day[key], `${dayPath}.${key}`, issues);
+        validateDayMetadata(day, dayPath, issues);
         if (hasOwn(day, "order") && !Number.isInteger(day.order)) issues.push(`${dayPath}.order:invalid`);
         if (hasOwn(day, "estimateMinutes") && (!Number.isInteger(day.estimateMinutes) || day.estimateMinutes < 0)) issues.push(`${dayPath}.estimateMinutes:invalid`);
         if (hasOwn(day, "exercises")) {

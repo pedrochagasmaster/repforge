@@ -247,6 +247,54 @@
   ]);
   const BLUEPRINT_BY_ID = new Map(BLUEPRINTS.map((item) => [item.id, item]));
 
+  // A blueprint's day label is a compiler contract. It describes how slots are
+  // assembled and remains deliberately stable for persisted programs and
+  // fixtures. Human-facing copy has a separate key derived from the stable
+  // blueprint day id, so changing language never requires changing a row's
+  // grouping label.
+  const dayIdFor = (blueprintId, dayIndex) =>
+    `${String(blueprintId).replace(/_v1$/, "")}_d${dayIndex + 1}`;
+  const DAY_DISPLAY_NAME_KEYS = Object.freeze(Object.fromEntries(
+    BLUEPRINTS.flatMap((item) => item.days.map((_, dayIndex) => {
+      const dayId = dayIdFor(item.id, dayIndex);
+      return [dayId, `program.day.${dayId}`];
+    })),
+  ));
+  const DAY_CONTRACT_LABELS = Object.freeze(Object.fromEntries(
+    BLUEPRINTS.flatMap((item) => item.days.map((entry, dayIndex) => [
+      dayIdFor(item.id, dayIndex), entry.label,
+    ])),
+  ));
+  const dayDisplayNameKey = (dayId) => DAY_DISPLAY_NAME_KEYS[String(dayId)] || null;
+  const isDayDisplayNameKey = (value) => typeof value === "string" &&
+    Object.values(DAY_DISPLAY_NAME_KEYS).includes(value);
+
+  function structureDay(entry, index, fallbackLabel) {
+    const source = isObject(entry) ? entry : {};
+    const dayId = typeof source.dayId === "string" && source.dayId.trim()
+      ? source.dayId.trim() : `legacy_d${index + 1}`;
+    const label = typeof source.label === "string" && source.label.trim()
+      ? source.label : fallbackLabel || `Day ${index + 1}`;
+    const displayNameKey = isDayDisplayNameKey(source.displayNameKey)
+      ? source.displayNameKey : dayDisplayNameKey(dayId);
+    const contractLabel = DAY_CONTRACT_LABELS[dayId];
+    const explicitOverride = typeof source.nameOverride === "string" && source.nameOverride.trim()
+      ? source.nameOverride : null;
+    // Before authored names existed, the editor stored a renamed generated day
+    // only in `label`. Compare it with the internal contract label so a user's
+    // old custom name remains frozen while untouched generated days gain the
+    // new localized key on boot.
+    const inferredOverride = !explicitOverride && displayNameKey && contractLabel && label !== contractLabel
+      ? label : null;
+    return {
+      dayId,
+      label,
+      order: index + 1,
+      ...(displayNameKey ? { displayNameKey } : {}),
+      ...((explicitOverride || inferredOverride) ? { nameOverride: explicitOverride || inferredOverride } : {}),
+    };
+  }
+
   const RULES = Object.freeze({
     prescriptionClasses: Object.freeze({
       heavy_3_6: Object.freeze({ repRanges: [[3, 6]], sets: [2, 3], defaultSets: 3, efficientSets: 2, rir: [2, 3], rest: [120, 240] }),
@@ -396,9 +444,13 @@
       ids.add(item.id);
       if (item.days.length !== item.frequency) issues.push(`${item.id}: frequency mismatch`);
       if (item.kind !== "authored_sibling") issues.push(`${item.id}: not authored sibling`);
-      item.days.forEach((entry, dayIndex) => entry.slots.forEach((rawSlot, slotIndex) => {
-        if (!SLOT_TEMPLATES[rawSlot.template]) issues.push(`${item.id}.d${dayIndex + 1}.s${slotIndex + 1}: unknown template`);
-      }));
+      item.days.forEach((entry, dayIndex) => {
+        const dayId = dayIdFor(item.id, dayIndex);
+        if (!dayDisplayNameKey(dayId)) issues.push(`${dayId}: missing display-name key`);
+        entry.slots.forEach((rawSlot, slotIndex) => {
+          if (!SLOT_TEMPLATES[rawSlot.template]) issues.push(`${item.id}.d${dayIndex + 1}.s${slotIndex + 1}: unknown template`);
+        });
+      });
     }
     for (const familyId of FAMILY_IDS) for (const frequency of FREQUENCIES) if (!ids.has(`${familyId}_${frequency}_v1`)) issues.push(`${familyId} ${frequency}: missing`);
     return issues.length ? { ok: false, issues } : { ok: true, count: BLUEPRINTS.length };
@@ -722,7 +774,12 @@
   function programStructure(instance) {
     return {
       schemaVersion: 1,
-      days: instance.days.map((dayRecord, index) => ({ dayId: dayRecord.dayId, label: dayRecord.label, order: index + 1 })),
+      days: instance.days.map((dayRecord, index) => ({
+        dayId: dayRecord.dayId,
+        label: dayRecord.label,
+        order: index + 1,
+        ...(dayDisplayNameKey(dayRecord.dayId) ? { displayNameKey: dayDisplayNameKey(dayRecord.dayId) } : {}),
+      })),
       provenance: clone(instance.provenance),
       weekPrescriptions: clone(instance.weeks),
       customizedFrom: instance.customizedFrom || null,
@@ -765,8 +822,13 @@
     const conflicts = [];
     for (let dayIndex = 0; dayIndex < blueprintValue.days.length; dayIndex++) {
       const authoredDay = blueprintValue.days[dayIndex];
-      const dayId = `${blueprintValue.id.replace(/_v1$/, "")}_d${dayIndex + 1}`;
-      const dayRecord = { dayId, label: authoredDay.label, slots: [] };
+      const dayId = dayIdFor(blueprintValue.id, dayIndex);
+      const dayRecord = {
+        dayId,
+        label: authoredDay.label,
+        displayNameKey: dayDisplayNameKey(dayId),
+        slots: [],
+      };
       for (let slotIndex = 0; slotIndex < authoredDay.slots.length; slotIndex++) {
         const rawSlot = authoredDay.slots[slotIndex];
         const base = SLOT_TEMPLATES[rawSlot.template];
@@ -870,11 +932,7 @@
         program: exercises,
         structure: {
           schemaVersion: 1,
-          days: existing.days.map((entry, index) => ({
-            dayId: entry.dayId || `legacy_d${index + 1}`,
-            label: entry.label || `Day ${index + 1}`,
-            order: index + 1,
-          })),
+          days: existing.days.map((entry, index) => structureDay(entry, index)),
           provenance: existing.provenance || { source: "legacy_migration", compilerVersion: null },
           weekPrescriptions: existing.weekPrescriptions || [],
           customizedFrom: existing.customizedFrom || null,
@@ -889,7 +947,7 @@
         let dayId = entry.dayId || `legacy_d${index + 1}`;
         while (used.has(dayId)) dayId = `${dayId}_${index + 1}`;
         used.add(dayId);
-        return { dayId, label: entry.label || `Day ${index + 1}`, order: index + 1 };
+        return structureDay({ ...entry, dayId }, index);
       });
       for (const label of labels) {
         if (days.some((entry) => entry.label === label)) continue;
@@ -897,7 +955,7 @@
         let dayId = exerciseDayId || `legacy_d${days.length + 1}`;
         while (used.has(dayId)) dayId = `${dayId}_${days.length + 1}`;
         used.add(dayId);
-        days.push({ dayId, label, order: days.length + 1 });
+        days.push(structureDay({ dayId, label }, days.length));
       }
     } else {
       days = labels.map((label, index) => {
@@ -905,7 +963,7 @@
         let dayId = exerciseDayId || `legacy_d${index + 1}`;
         while (used.has(dayId)) dayId = `${dayId}_${index + 1}`;
         used.add(dayId);
-        return { dayId, label, order: index + 1 };
+        return structureDay({ dayId, label }, index);
       });
     }
     const byLabel = new Map(days.map((entry) => [entry.label, entry.dayId]));
@@ -932,7 +990,34 @@
     }];
   }
 
-  const api = Object.freeze({ VERSIONS, FREQUENCIES, FAMILY_IDS, STRATEGIES, FAMILIES, SLOT_TEMPLATES, BLUEPRINTS, RULES, MUSCLE_IDS, MOVEMENT_PATTERN_IDS, PREFERRED_REST_SECONDS, validateBlueprints, validateContext, normalizeCatalogue, getCompatibleSplitChoices, compile, substitute, customize, projectProgram, projectProgramForWeek, programStructure, migrateLegacyStructure, estimateDaySeconds });
+  const api = Object.freeze({
+    VERSIONS,
+    FREQUENCIES,
+    FAMILY_IDS,
+    STRATEGIES,
+    FAMILIES,
+    SLOT_TEMPLATES,
+    BLUEPRINTS,
+    DAY_DISPLAY_NAME_KEYS,
+    DAY_CONTRACT_LABELS,
+    RULES,
+    MUSCLE_IDS,
+    MOVEMENT_PATTERN_IDS,
+    PREFERRED_REST_SECONDS,
+    dayDisplayNameKey,
+    validateBlueprints,
+    validateContext,
+    normalizeCatalogue,
+    getCompatibleSplitChoices,
+    compile,
+    substitute,
+    customize,
+    projectProgram,
+    projectProgramForWeek,
+    programStructure,
+    migrateLegacyStructure,
+    estimateDaySeconds,
+  });
   if (typeof module !== "undefined" && module.exports) module.exports = api;
   if (root) root.RepForgeProgramCompiler = api;
 })(typeof window !== "undefined" ? window : globalThis);

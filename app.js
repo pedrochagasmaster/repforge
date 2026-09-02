@@ -1326,15 +1326,37 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
-/* Day names are stored data: the bundled splits, the onboarding builder and
-   "+ Add day" all mint the canonical English `Day N`, and every log row, tab
-   and lookup keys off that stored string. Renaming them per locale would
-   rewrite the lifter's program on a language switch, so only the display is
-   translated, and only for that exact canonical shape — anything typed by hand
-   ("Push A", "Dia de perna") is shown back exactly as typed. */
+/* Rows and logs keep their stable grouping labels. Generated structure records
+   carry a localized display-name key beside that internal label, while a name
+   override is the exact text the lifter typed. Legacy Day N strings still get
+   their ordinal translation, and arbitrary hand-authored labels remain exact. */
 const DEFAULT_DAY_NAME=/^Day\s+(\d+)$/;
-const dayLabel=d=>{const s=String(d??"").trim(),m=DEFAULT_DAY_NAME.exec(s);
-  return m?t("program.default.day",{n:+m[1]}):String(d??"")};
+function dayStructureFor(value,meta){
+  const s=String(value??"").trim();
+  const days=meta?.programStructure?.days;
+  if(!Array.isArray(days))return null;
+  return days.find(entry=>{
+    const label=String(entry?.label??"").trim(),dayId=String(entry?.dayId??"").trim();
+    return s&&(label===s||dayId===s)})||null}
+function localizedDayName(entry,fallback,index){
+  const override=typeof entry?.nameOverride==="string"&&entry.nameOverride.trim()
+    ?entry.nameOverride:"";
+  if(override)return override;
+  const key=typeof entry?.displayNameKey==="string"?entry.displayNameKey:"";
+  if(key){const translated=t(key);if(translated!==key)return translated}
+  const value=String(entry?.label??fallback??"");
+  const match=DEFAULT_DAY_NAME.exec(value.trim());
+  return match?t("program.default.day",{n:+match[1]}):value}
+function previewDayLabel(day,index,structure){
+  const entry=dayStructureFor(day?.dayId||day?.label,structure)||day;
+  return localizedDayName(entry,day?.label||`Day ${index+1}`,index)}
+const dayLabel=d=>{
+  const s=String(d??"").trim();
+  const meta=setupEditorOpen
+    ?entryState?.result?.preview
+    :state?.programMeta;
+  return localizedDayName(dayStructureFor(s,meta),d);
+};
 const download=(text,name,type="text/plain")=>{const u=URL.createObjectURL(new Blob([text],{type})),a=document.createElement("a");a.href=u;a.download=name;document.body.append(a);a.click();a.remove();URL.revokeObjectURL(u)};
 async function shareOrDownload(text,name,type){
   try{if(navigator.canShare){const file=new File([text],name,{type});
@@ -2942,7 +2964,19 @@ function syncProgramStructureFromProgram(proposal,program){
     ...cloneSnapshot(struct),
     days:labels.map((label,i)=>{
       const prev=byLabel.get(label)||byIndex[i];
-      return{dayId:prev?.dayId||`manual_d${i+1}`,label,order:i+1}})}
+      const dayId=prev?.dayId||`manual_d${i+1}`;
+      const displayNameKey=prev?.displayNameKey||ProgramCompiler?.dayDisplayNameKey?.(dayId);
+      const previousLabel=String(prev?.label||"");
+      const override=typeof prev?.nameOverride==="string"&&prev.nameOverride.trim()
+        ?prev.nameOverride:"";
+      // A rename changes the row grouping label, but not the generated day's
+      // identity. Once a generated label diverges, remember the exact text so
+      // a later language switch cannot replace it with the default translation.
+      const nameOverride=displayNameKey&&previousLabel&&label!==previousLabel
+        ?label:override;
+      return{dayId,label,order:i+1,
+        ...(displayNameKey?{displayNameKey}:{}),
+        ...(nameOverride?{nameOverride}:{})}})}
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
@@ -6115,6 +6149,8 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
   const previewDays=entryState.route==="shared"
     ?sharedPreviewDays(model.toJSON(),structure,entryState.result.preview.sharedSettings)
     :(structureDays.length?structureDays.map(item=>({dayId:item.dayId,label:item.label,
+      ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
+      ...(item.nameOverride?{nameOverride:item.nameOverride}:{}),
       exercises:model.forDay(item.label||item.dayId).map(cloneSnapshot)})):
       model.days().map(label=>({dayId:label,label,exercises:model.forDay(label).map(cloneSnapshot)})));
   const program=model.toJSON();
@@ -8953,12 +8989,16 @@ function sharedPreviewDayMinutes(exercises,settings){
 }
 function sharedPreviewDays(program,structure,settings){
   const rows=Array.isArray(program)?program:[],sourceDays=Array.isArray(structure?.days)&&structure.days.length
-    ?structure.days.map(item=>({dayId:item.dayId,label:item.label||item.dayId}))
+    ?structure.days.map(item=>({dayId:item.dayId,label:item.label||item.dayId,
+      ...(item.displayNameKey?{displayNameKey:item.displayNameKey}:{}),
+      ...(item.nameOverride?{nameOverride:item.nameOverride}:{})}))
     :[...new Set(rows.map(exercise=>exercise?.day).filter(Boolean))].map(label=>({dayId:label,label}));
   return sourceDays.filter(day=>day.dayId||day.label).map(day=>{
     const exercises=rows.filter(exercise=>exercise?.dayId?exercise.dayId===day.dayId:exercise.day===day.label).map(cloneSnapshot);
     const estimateMinutes=sharedPreviewDayMinutes(exercises,settings);
-    const out={dayId:day.dayId||day.label,label:day.label||day.dayId,exercises};
+    const out={dayId:day.dayId||day.label,label:day.label||day.dayId,
+      ...(day.displayNameKey?{displayNameKey:day.displayNameKey}:{}),
+      ...(day.nameOverride?{nameOverride:day.nameOverride}:{}),exercises};
     if(estimateMinutes!==null)out.estimateMinutes=estimateMinutes;
     return out;
   });
@@ -9183,13 +9223,9 @@ function renderPreviewStep(){
   const previewAnswers=entryPreviewAnswers(preview);
   const days=(preview.days||[]).map((day,index)=>{
     const exercises=day.exercises||[],sets=sum(exercises.map(exercise=>+exercise.sets||0));
-    /* `day.label` is a compiler split token ("Knee / horizontal"), not a name a
-       person would give a session. Lead with the ordinal the user recognises and
-       carry the token as a qualifier instead of shouting it as the day's name. */
-    const dayName=t("program.default.day",{n:index+1});
-    const dayQualifier=day.label&&day.label!==dayName?day.label:"";
+    const dayName=previewDayLabel(day,index,preview.programStructure);
     return `<details class="onb__day"><summary class="onb__dayname"><span class="onb__daynum" aria-hidden="true">${index+1}</span>${esc(dayName)}`+
-    (dayQualifier?`<em class="onb__daytag">${esc(dayQualifier)}</em>`:"")+`<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
+    `<span>${esc(entryExerciseCountLabel(exercises.length))} · ${esc(t("entry.preview.sets",{n:sets}))}${day.estimateMinutes?` · ${esc(t("entry.preview.minutes",{n:day.estimateMinutes}))}`:""}</span></summary>`+
     (day.exercises||[]).map(ex=>`<div class="onb__ex"><b>${esc(ex.name||"")}</b>${ex.sets!=null?` · ${ex.sets}×${ex.min}–${ex.max}`:""}</div>`).join("")+
     (!(day.exercises||[]).length?`<div class="onb__ex">${esc(t("program.empty.exercises"))}</div>`:"")+
     `</details>`});

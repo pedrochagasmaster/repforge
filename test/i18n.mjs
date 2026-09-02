@@ -6,6 +6,7 @@
 import { readFileSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
+import { createRequire } from "module";
 import vm from "vm";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
@@ -13,6 +14,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const require = createRequire(import.meta.url);
+const Compiler = require("../program-compiler.js");
 
 const results = { passed: 0, failed: 0 };
 
@@ -284,6 +287,19 @@ async function main() {
   const en = JSON.parse(enSrc);
   const pt = JSON.parse(ptSrc);
   const runtime = loadRuntimeDicts();
+
+  const dayNameKeys = Compiler.DAY_DISPLAY_NAME_KEYS || {};
+  const blueprintCheck = Compiler.validateBlueprints();
+  const missingDayNames = Object.entries(dayNameKeys)
+    .filter(([, key]) => !(key in en) || !(key in pt))
+    .map(([dayId, key]) => `${dayId}:${key}`);
+  const compilerLabels = new Set(Object.values(Compiler.DAY_CONTRACT_LABELS || {}));
+  const compilerLabelsAsNames = Object.entries(dayNameKeys)
+    .filter(([, key]) => compilerLabels.has(en[key]) || compilerLabels.has(pt[key]))
+    .map(([dayId]) => dayId);
+  assert(blueprintCheck.ok, "Every compiler day has a stable display-name key", blueprintCheck.issues?.join(", "));
+  assert(!missingDayNames.length, "Every stable compiler day key has EN/PT copy", missingDayNames.slice(0, 8).join(", "));
+  assert(!compilerLabelsAsNames.length, "Authored day copy does not fall back to compiler labels", compilerLabelsAsNames.slice(0, 8).join(", "));
 
   const enKeys = Object.keys(en).sort();
   const ptKeys = Object.keys(pt).sort();

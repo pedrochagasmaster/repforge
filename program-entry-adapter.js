@@ -270,6 +270,7 @@
       days: (instance.days || []).map((day) => ({
         dayId: day.dayId,
         label: day.label,
+        ...(day.displayNameKey ? { displayNameKey: day.displayNameKey } : {}),
         estimateMinutes: Math.ceil(estimate(day) / 60),
         exercises: (day.slots || []).map((slot) => ({
           id: slot.slotId,
@@ -410,6 +411,7 @@
         namePt: family?.namePt || family?.name || "",
         days: (instance.days || []).map((day) => ({
           label: day.label,
+          ...(day.displayNameKey ? { displayNameKey: day.displayNameKey } : {}),
           estimateMinutes: Math.ceil(Comp.estimateDaySeconds(day) / 60),
         })),
       }];

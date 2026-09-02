@@ -2923,12 +2923,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 42 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower primary"
+          "text": "Lower body strength",
+          "name": "1Lower body strength4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "span",
@@ -2968,12 +2964,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 42 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper primary"
+          "text": "Upper body strength",
+          "name": "2Upper body strength4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "span",
@@ -3013,12 +3005,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 43 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower volume"
+          "text": "Lower body volume",
+          "name": "3Lower body volume4 exercises · 12 working sets · about 43 minutes"
         },
         {
           "tag": "span",
@@ -3058,12 +3046,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 4",
-          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper volume"
+          "text": "Upper body volume",
+          "name": "4Upper body volume4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -3224,12 +3208,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 42 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower primary"
+          "text": "Lower body strength",
+          "name": "1Lower body strength4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "span",
@@ -3269,12 +3249,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 42 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper primary"
+          "text": "Upper body strength",
+          "name": "2Upper body strength4 exercises · 11 working sets · about 42 minutes"
         },
         {
           "tag": "span",
@@ -3314,12 +3290,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 43 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower volume"
+          "text": "Lower body volume",
+          "name": "3Lower body volume4 exercises · 12 working sets · about 43 minutes"
         },
         {
           "tag": "span",
@@ -3359,12 +3331,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 4",
-          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper volume"
+          "text": "Upper body volume",
+          "name": "4Upper body volume4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -3525,12 +3493,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 1",
-          "name": "1Dia 1Lower primary4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Lower primary"
+          "text": "Força de membros inferiores",
+          "name": "1Força de membros inferiores4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
         },
         {
           "tag": "span",
@@ -3570,12 +3534,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 2",
-          "name": "2Dia 2Upper primary4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Upper primary"
+          "text": "Força de membros superiores",
+          "name": "2Força de membros superiores4 exercícios · 11 séries de trabalho · cerca de 42 minutos"
         },
         {
           "tag": "span",
@@ -3615,12 +3575,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 3",
-          "name": "3Dia 3Lower volume4 exercícios · 12 séries de trabalho · cerca de 43 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Lower volume"
+          "text": "Volume de membros inferiores",
+          "name": "3Volume de membros inferiores4 exercícios · 12 séries de trabalho · cerca de 43 minutos"
         },
         {
           "tag": "span",
@@ -3660,12 +3616,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 4",
-          "name": "4Dia 4Upper volume4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Upper volume"
+          "text": "Volume de membros superiores",
+          "name": "4Volume de membros superiores4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "span",
@@ -11245,12 +11197,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower primary"
+          "text": "Lower body strength",
+          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -11290,12 +11238,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper primary"
+          "text": "Upper body strength",
+          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -11335,12 +11279,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower volume"
+          "text": "Lower body volume",
+          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -11380,12 +11320,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 4",
-          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper volume"
+          "text": "Upper body volume",
+          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
         },
         {
           "tag": "span",
@@ -11546,12 +11482,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Lower primary4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower primary"
+          "text": "Lower body strength",
+          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -11591,12 +11523,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Upper primary4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper primary"
+          "text": "Upper body strength",
+          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -11636,12 +11564,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Lower volume4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Lower volume"
+          "text": "Lower body volume",
+          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
         },
         {
           "tag": "span",
@@ -11681,12 +11605,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 4",
-          "name": "4Day 4Upper volume4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Upper volume"
+          "text": "Upper body volume",
+          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
         },
         {
           "tag": "span",
@@ -11847,12 +11767,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 1",
-          "name": "1Dia 1Lower primary4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Lower primary"
+          "text": "Força de membros inferiores",
+          "name": "1Força de membros inferiores4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "span",
@@ -11892,12 +11808,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 2",
-          "name": "2Dia 2Upper primary4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Upper primary"
+          "text": "Força de membros superiores",
+          "name": "2Força de membros superiores4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "span",
@@ -11937,12 +11849,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 3",
-          "name": "3Dia 3Lower volume4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Lower volume"
+          "text": "Volume de membros inferiores",
+          "name": "3Volume de membros inferiores4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
         },
         {
           "tag": "span",
@@ -11982,12 +11890,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 4",
-          "name": "4Dia 4Upper volume4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Upper volume"
+          "text": "Volume de membros superiores",
+          "name": "4Volume de membros superiores4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
         },
         {
           "tag": "span",
@@ -16501,12 +16405,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -16562,12 +16462,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -16623,12 +16519,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -16824,12 +16716,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -16885,12 +16773,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -16946,12 +16830,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -17147,12 +17027,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 1",
-          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Hipertrofia de membros inferiores",
+          "name": "1Hipertrofia de membros inferiores6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
@@ -17208,12 +17084,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 2",
-          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Hipertrofia de membros superiores",
+          "name": "2Hipertrofia de membros superiores6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "span",
@@ -17269,12 +17141,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 3",
-          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Prática de corpo inteiro",
+          "name": "3Prática de corpo inteiro6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
@@ -22844,12 +22712,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -22905,12 +22769,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -22966,12 +22826,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -23154,12 +23010,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -23215,12 +23067,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -23276,12 +23124,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -23464,12 +23308,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 1",
-          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Hipertrofia de membros inferiores",
+          "name": "1Hipertrofia de membros inferiores6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
@@ -23525,12 +23365,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 2",
-          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Hipertrofia de membros superiores",
+          "name": "2Hipertrofia de membros superiores6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "span",
@@ -23586,12 +23422,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 3",
-          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Prática de corpo inteiro",
+          "name": "3Prática de corpo inteiro6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
@@ -23768,12 +23600,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -23829,12 +23657,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -23890,12 +23714,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -24072,12 +23892,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -24133,12 +23949,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -24194,12 +24006,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -24376,12 +24184,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 1",
-          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Hipertrofia de membros inferiores",
+          "name": "1Hipertrofia de membros inferiores6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
@@ -24437,12 +24241,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 2",
-          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Hipertrofia de membros superiores",
+          "name": "2Hipertrofia de membros superiores6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "span",
@@ -24498,12 +24298,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 3",
-          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Prática de corpo inteiro",
+          "name": "3Prática de corpo inteiro6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
@@ -25502,12 +25298,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -25563,12 +25355,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -25624,12 +25412,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -25812,12 +25596,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 1Knee / horizontal6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -25873,12 +25653,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 2",
-          "name": "2Day 2Hip / vertical6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
         },
         {
           "tag": "span",
@@ -25934,12 +25710,8 @@
         },
         {
           "tag": "summary",
-          "text": "Day 3",
-          "name": "3Day 3Mixed6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
         },
         {
           "tag": "span",
@@ -26122,12 +25894,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 1",
-          "name": "1Dia 1Knee / horizontal6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Knee / horizontal"
+          "text": "Hipertrofia de membros inferiores",
+          "name": "1Hipertrofia de membros inferiores6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
@@ -26183,12 +25951,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 2",
-          "name": "2Dia 2Hip / vertical6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Hip / vertical"
+          "text": "Hipertrofia de membros superiores",
+          "name": "2Hipertrofia de membros superiores6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
         },
         {
           "tag": "span",
@@ -26244,12 +26008,8 @@
         },
         {
           "tag": "summary",
-          "text": "Dia 3",
-          "name": "3Dia 3Mixed6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "em",
-          "text": "Mixed"
+          "text": "Prática de corpo inteiro",
+          "name": "3Prática de corpo inteiro6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
         },
         {
           "tag": "span",
