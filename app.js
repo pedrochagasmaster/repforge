@@ -2751,9 +2751,15 @@ function openBlockReview(review,opts={}){
     prevInert:opts.prevInert
   });
   $("#blockReviewClose").onclick=closeBlockReview}
-function promptEndBlock(){
+function promptEndBlock(event){
   const d=$("#endBlockConfirm");if(!d)return;
-  const opener=$("#endBlock")||document.activeElement;
+  const invoked=event?.currentTarget;
+  const focused=document.activeElement;
+  const opener=invoked instanceof HTMLElement
+    ?invoked
+    :focused instanceof HTMLElement&&focused!==document.body
+    ?focused
+    :[$("#reviewBlockLink"),$("#endBlock")].find(el=>el&&el.offsetParent!==null);
   openModal(d,{
     initialFocus:$("#endBlockCancel"),
     returnFocus:opener,
