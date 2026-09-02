@@ -59,7 +59,10 @@ async function importRoute(page, label) {
 }
 
 async function addEditorExercise(page, index) {
-  await page.locator('#programEditor [data-act="addEx"]').nth(index).click(); await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
+  const day = page.locator('#onbProgramEditor [data-role="day"]').nth(index);
+  const body = day.locator('[data-role="day-body"]');
+  if (!(await body.isVisible())) await day.locator('[data-role="toggle-day"]').click();
+  await body.locator('[data-role="add-exercise"]').click(); await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
   await page.locator("#exPickList [data-pick]").first().click();
   await page.waitForSelector("#exPickSheet.is-open", { state: "hidden", timeout: 10000 });
 }
@@ -68,14 +71,14 @@ async function buildRoute(page, days) {
   await page.evaluate(() => window.startOnboarding("settings"));
   await page.click("#entryOwnToggle"); await page.click('[data-entry-route="build"]');
   await page.fill("#entryProgramName", "Built runtime"); await page.click(`[data-entry-pick="daysPerWeek"][data-entry-val="${days}"]`); await page.click("#onbNext");
-  await page.waitForSelector("#programEditor .pday", { timeout: 10000 });
+  await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 10000 });
   await addEditorExercise(page, 0);
   await page.waitForFunction(() => (JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}").state?.result?.preview?.program || []).length === 1, { timeout: 10000 });
   await page.reload({ waitUntil: "domcontentloaded" }); await waitForAppBoot(page, { base: BASE });
   if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate");
   if (!await page.locator("#entryResumeContinue").isVisible().catch(() => false)) await page.evaluate(() => window.startOnboarding("settings"));
   await page.waitForSelector("#entryResumeContinue", { timeout: 5000 }); await page.click("#entryResumeContinue");
-  await page.waitForSelector("#programEditor .pday", { timeout: 5000 });
+  await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 5000 });
   for (let index = 1; index < days; index++) await addEditorExercise(page, index);
   await page.waitForFunction(() => document.querySelector("#entryEditorActivate")?.disabled === false, { timeout: 10000 });
 }
