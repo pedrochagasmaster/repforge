@@ -103,6 +103,15 @@ async function seedActiveProgram(page, { libraryId = "row_cable", exerciseName =
   }
 }
 
+async function openInstalledProgramEditor(page) {
+  await page.click('nav button[data-view="program"]');
+  await page.waitForSelector("#program.view.active", { timeout: 5000 });
+  if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden"))) {
+    await page.click("#programEditToggle");
+  }
+  await page.waitForSelector("#programEditorWrap:not(.is-hidden)", { timeout: 5000 });
+}
+
 async function openFreshEntryAt(browser, viewport, textScale = 1) {
   const { context, page } = await openFresh(browser);
   await page.setViewportSize(viewport);
@@ -539,6 +548,56 @@ try {
       "keep/discard cancellation never changes active state");
     assert(draftBeforeBack !== null, "navigation fixture persisted a setup draft");
     await context.close();
+  }
+
+  console.log("\nInstalled editor browser Back preserves staged edits");
+  {
+    const runBack = async (choice) => {
+      const { context, page } = await openFresh(browser);
+      try {
+        await seedActiveProgram(page);
+        await openInstalledProgramEditor(page);
+        const name = page.locator('#programEditor [data-role="program-name"]');
+        if (choice !== "clean") {
+          await name.fill("Unsaved name");
+          await name.press("Tab");
+          await page.waitForFunction(async () => {
+            const debug = await window.__debugProgramEditor?.();
+            return debug?.session?.document?.programMeta?.name === "Unsaved name";
+          });
+        }
+        await page.goBack();
+        if (choice === "clean") {
+          await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+          const state = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}"), KEY);
+          assert(state.programMeta?.name === "Active block", "clean browser Back leaves the installed editor without a prompt");
+          return;
+        }
+        await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+        assert(await page.locator("#programEditorLeave").isVisible(), `${choice} browser Back opens the installed leave surface`);
+        if (choice === "keep") {
+          await page.click("#programEditorKeep");
+          await page.waitForFunction(() => !document.querySelector("#programEditorLeave")?.open);
+          const staged = await page.evaluate(async () => (await window.__debugProgramEditor?.())?.session?.document?.programMeta?.name);
+          const durable = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta?.name, KEY);
+          assert(await page.locator('#programEditor [data-role="program-name"]').inputValue() === "Unsaved name" && staged === "Unsaved name",
+            "Keep editing retains the dirty staged program name", { staged });
+          assert(durable === "Active block", "Keep editing leaves the durable program unchanged", { durable });
+          return;
+        }
+        await page.click(choice === "apply" ? "#programEditorApply" : "#programEditorDiscard");
+        await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+        const durable = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta?.name, KEY);
+        assert(durable === (choice === "apply" ? "Unsaved name" : "Active block"),
+          `${choice === "apply" ? "Apply" : "Discard"} browser Back resolves the staged program atomically`, { durable });
+      } finally {
+        await context.close();
+      }
+    };
+    await runBack("clean");
+    await runBack("keep");
+    await runBack("discard");
+    await runBack("apply");
   }
 
   console.log("\nEntry hub and recommend activation");

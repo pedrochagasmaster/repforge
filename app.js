@@ -6461,6 +6461,24 @@ function disposeProgramEditors(){
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
 }
 let installedLeaveMode=null;
+function installedEditorHistoryState(){
+  const current=history.state&&typeof history.state==="object"?history.state:{};
+  return{...current,[INSTALLED_EDITOR_HISTORY_STATE_KEY]:{active:true}}}
+function armInstalledEditorHistory(){
+  if(installedEditorHistoryArmed)return;
+  try{
+    if(history.state?.[INSTALLED_EDITOR_HISTORY_STATE_KEY]?.active===true){installedEditorHistoryArmed=true;return}
+    history.pushState(installedEditorHistoryState(),"",location.href);
+    installedEditorHistoryArmed=true;
+  }catch{}
+}
+function disarmInstalledEditorHistory({historyAlreadyPopped=false}={}){
+  if(!installedEditorHistoryArmed)return;
+  installedEditorHistoryArmed=false;
+  if(historyAlreadyPopped)return;
+  installedEditorHistoryRelease=true;
+  try{history.back()}catch{installedEditorHistoryRelease=false}
+}
 function closeInstalledLeaveDialog(){
   const dialog=$("#programEditorLeave");
   installedLeaveMode=null;
@@ -6478,13 +6496,14 @@ function openInstalledLeaveDialog({workout=false}={}){
   if(keep){keep.textContent=t("program.editor.keep_editing")}
   openModal(dialog,{initialFocus:apply,onEscape:()=>{pendingEditorNavigation=null;closeInstalledLeaveDialog()}});
 }
-function finishInstalledEditor({discard=false}={}){
+function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   const nextView=pendingEditorNavigation;
   pendingEditorNavigation=null;
   installedLeaveMode=null;
   closeModal($("#programEditorLeave"));
   if(discard)installedProgramEditor?.discard?.();
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;programEditMode=false;
+  disarmInstalledEditorHistory({historyAlreadyPopped});
   render();
   if(nextView){
     const button=$(`nav button[data-view="${CSS.escape(nextView)}"]`);
@@ -6594,7 +6613,7 @@ function renderProgram(){renderProgramOverview();
   // host, so hiding the disclosure here would strand the raw import/export
   // controls whenever the visual editor is open.
   [end,lede,addDay,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
-  if(programEditMode){if(!installedProgramEditor)mountInstalledProgramEditor();return}
+  if(programEditMode){armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
   renderProgramHeader();renderProgramEditor();renderVolume();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
@@ -8777,6 +8796,8 @@ const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
 let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
+const INSTALLED_EDITOR_HISTORY_STATE_KEY="tauriferProgramEditor";
+let installedEditorHistoryArmed=false,installedEditorHistoryRelease=false;
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
 let setupDraftWriteQueue=Promise.resolve();
@@ -10259,7 +10280,28 @@ function entryBack(){
   if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
     previous={...previous,step:"exercise_preferences"};
   entrySetState(previous)}
+function onInstalledEditorPopState(){
+  // Explicit editor exits release the same sentinel with history.back(). Its
+  // popstate is expected and must not reopen the leave surface.
+  if(installedEditorHistoryRelease){installedEditorHistoryRelease=false;return true}
+  if(!programEditMode||!installedProgramEditor)return false;
+  // Back has already consumed the editor sentinel. Dirty work is restored to
+  // the top of the stack before asking the existing three-way decision, so a
+  // second Back cannot unload the document while the decision is open.
+  installedEditorHistoryArmed=false;
+  if(installedProgramEditor.isDirty()){
+    try{
+      history.pushState(installedEditorHistoryState(),"",location.href);
+      installedEditorHistoryArmed=true;
+    }catch{}
+    if(!$("#programEditorLeave")?.open)openInstalledLeaveDialog();
+    return true;
+  }
+  finishInstalledEditor({historyAlreadyPopped:true});
+  return true;
+}
 function onEntryPopState(){
+  if(onInstalledEditorPopState())return;
   if(!$("#onboarding")?.classList.contains("active")||!entryState)return;
   try{history.pushState(entryHistoryState(true),"",location.href)}catch{}
   entryBack()}
