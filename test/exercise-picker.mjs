@@ -85,6 +85,11 @@ async function writeState(page, snapshot) {
 }
 
 async function openEditor(page) {
+  // Applying the first edit may start the product tour. Dismiss it before
+  // reopening the editor: endTour's first-run cleanup navigates to Log, so
+  // doing this after navigating would race the editor mount.
+  await page.evaluate(() => window.closeTour?.());
+  await page.waitForFunction(() => !document.querySelector("#tour") || document.querySelector("#tour").classList.contains("hidden"), { timeout: 5000 });
   await page.waitForFunction(() => !document.body.classList.contains("is-sheet-open"), { timeout: 5000 });
   await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
   await page.waitForTimeout(200);
@@ -93,6 +98,10 @@ async function openEditor(page) {
     if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden")) btn?.click();
   });
   await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+  await page.evaluate(() => {
+    document.querySelectorAll('#programEditor [data-role="day"].is-collapsed [data-role="toggle-day"]')
+      .forEach(button => button.click());
+  });
 }
 
 async function finishEditor(page) {
