@@ -114,6 +114,19 @@ function fixture() {
         alternates: [],
       },
       {
+        id: "draft-conflict-press-accessory",
+        name: "Draft conflict press accessory",
+        day: "Day 1",
+        order: 2,
+        sets: 2,
+        min: 8,
+        max: 12,
+        primary: "Chest",
+        secondary: "Triceps",
+        notes: "",
+        alternates: [],
+      },
+      {
         id: "draft-conflict-row",
         name: "Draft conflict row",
         day: "Day 2",
@@ -458,7 +471,7 @@ async function runFinalizeConflict(browser) {
 }
 
 async function runSaveProgramConflict(browser) {
-  console.log("\n3. Raw program save conflicts with a newer draft");
+  console.log("\n3. Visible program edit conflicts with a newer draft");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
@@ -469,16 +482,19 @@ async function runSaveProgramConflict(browser) {
     await seedScenario(writer, confirmedDraftRaw);
     const locker = await openApp(context);
     await openProgramEditor(writer);
-    await writer.locator("#programEditorWrap details.advanced").evaluate((details) => {
-      details.open = true;
-    });
-    const edited = fixture().program;
-    edited[0].name = "Edited while draft is active";
-    await writer.locator("#programJson").fill(JSON.stringify(edited));
+    // Replacing the touched exercise is the visible equivalent of replacing
+    // the installed program while a workout draft exists. Done first presents
+    // the workout-safe Apply changes action before the destructive transaction
+    // begins.
+    await writer.locator('#programEditor [data-role="replace"][data-id="draft-conflict-press"]').click();
+    await writer.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
+    await writer.locator("#exPickList .pickrow").first().click();
+    await writer.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     const before = await readRuntime(writer);
-    writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
-    await writer.click("#saveProgram");
+    await writer.click("#programEditToggle");
+    await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await writer.click("#programEditorApply");
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-save-program-draft", "102.5"));
@@ -495,14 +511,14 @@ async function runSaveProgramConflict(browser) {
         blocked.pendingEntries[0].value?.effect?.kind === "clear-draft" &&
         blocked.pendingEntries[0].value.effect.expectedRaw === confirmedDraftRaw &&
         blocked.pendingEntries[0].value.effect.precondition === "abort-changed",
-      "raw program save journals the exact confirmed draft",
+      "visible program edit journals the exact confirmed draft",
       blocked.pendingEntries.map((entry) => entry.value?.effect)
     );
     check(
       final.localRaw === before.localRaw &&
         JSON.stringify(final.idb) === JSON.stringify(before.idb) &&
         final.draftRaw === newerDraftRaw,
-      "raw program save conflict preserves durable program and newer draft",
+      "visible program edit conflict preserves durable program and newer draft",
       {
         localChanged: final.localRaw !== before.localRaw,
         idbChanged: JSON.stringify(final.idb) !== JSON.stringify(before.idb),
@@ -511,7 +527,7 @@ async function runSaveProgramConflict(browser) {
     );
     check(
       final.persistenceArtifacts.length === 0,
-      "raw program save conflict clears only its stale journal",
+      "visible program edit conflict clears only its stale journal",
       final.persistenceArtifacts
     );
   } finally {
@@ -668,7 +684,10 @@ async function runDeleteExerciseConflict(browser) {
     const before = await readRuntime(writer);
     writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
-    await writer.click('[data-act="delEx"][data-id="draft-conflict-press"]');
+    await writer.click('#programEditor [data-role="remove-exercise"][data-id="draft-conflict-press"]');
+    await writer.click("#programEditToggle");
+    await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await writer.click("#programEditorApply");
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-delete-exercise-draft", "107.5"));
@@ -724,7 +743,11 @@ async function runDeleteDayConflict(browser) {
     const before = await readRuntime(writer);
     writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
-    await writer.click('[data-act="delDay"][data-day="Day 1"]');
+    await writer.click('#programEditor [data-role="day-menu"][data-day="Day 1"]');
+    await writer.click('#programEditor [data-role="remove-day"][data-day="Day 1"]');
+    await writer.click("#programEditToggle");
+    await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
+    await writer.click("#programEditorApply");
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
     const newerDraftRaw = JSON.stringify(draft("newer-delete-day-draft", "110"));

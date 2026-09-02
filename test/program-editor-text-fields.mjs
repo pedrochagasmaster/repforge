@@ -155,7 +155,30 @@ async function openProgramEditor(page) {
 }
 
 function fieldInput(page, field) {
-  return page.locator(`#programEditor input[data-id="${EXERCISE_ID}"][data-field="${field}"]`);
+  return page.locator(`#programEditor [data-role="exercise-field"][data-id="${EXERCISE_ID}"][data-field="${field}"]`);
+}
+
+async function stagedExercise(page) {
+  return page.evaluate(async (id) => {
+    const debug = await window.__debugProgramEditor?.();
+    return debug?.session?.document?.program?.find((entry) => entry.id === id) ?? null;
+  }, EXERCISE_ID);
+}
+
+async function openExerciseDetails(page) {
+  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${EXERCISE_ID}"]`);
+  if (!(await row.locator('[data-role="exercise-field"][data-field="notes"]').count()))
+    await row.locator('[data-role="toggle-exercise"]').click();
+  await page.locator('#programEditor [data-role="day-menu"]').first().click();
+  const editor = page.locator('#programEditor [data-role="editor"]');
+  if (!(await editor.evaluate((element) => element.classList.contains("is-reorder-mode"))))
+    await page.locator('#programEditor [data-role="toggle-reorder"]').first().click();
+  await row.locator('[data-role="exercise-menu"]').click();
+  await row.locator('[data-role="more-details"][role="menuitem"]').click();
+  await page.waitForFunction((id) => {
+    const details = document.querySelector(`#programEditor details[data-role="more-details"][data-id="${CSS.escape(id)}"]`);
+    return details?.open === true;
+  }, EXERCISE_ID);
 }
 
 // Clears the box the way a lifter does — cursor at the end, backspace held down —
@@ -206,9 +229,9 @@ async function main() {
       { value: await name.inputValue() }
     );
     check(
-      (await storedExercise(page))?.name === "Incline chest press",
+      (await stagedExercise(page))?.name === "Incline chest press",
       "typed multi-word name reaches storage",
-      { stored: (await storedExercise(page))?.name }
+      { stored: (await stagedExercise(page))?.name }
     );
 
     // 2. Erasing the last character leaves the truncated name, not a fallback.
@@ -227,18 +250,18 @@ async function main() {
       { value: await name.inputValue() }
     );
     check(
-      (await storedExercise(page))?.name !== "Exercise",
+      (await stagedExercise(page))?.name !== "Exercise",
       "clearing the name box never commits the Exercise fallback",
-      { stored: (await storedExercise(page))?.name }
+      { stored: (await stagedExercise(page))?.name }
     );
 
     // 4. Typing a fresh name after the clear commits normally.
     await name.pressSequentially("Seated row", { delay: 20 });
     check(
       (await name.inputValue()) === "Seated row" &&
-        (await storedExercise(page))?.name === "Seated row",
+      (await stagedExercise(page))?.name === "Seated row",
       "a name typed after clearing commits as typed",
-      { value: await name.inputValue(), stored: (await storedExercise(page))?.name }
+      { value: await name.inputValue(), stored: (await stagedExercise(page))?.name }
     );
 
     // 5. Clearing a name and blurring is an abandoned edit, not a rename: the box
@@ -250,12 +273,13 @@ async function main() {
     await name.blur();
     const restored = await waitForValue(page, name, "Seated row");
     check(
-      restored === "Seated row" && (await storedExercise(page))?.name === "Seated row",
+      restored === "Seated row" && (await stagedExercise(page))?.name === "Seated row",
       "blurring an empty name box restores the name it had on focus",
       { value: restored, stored: (await storedExercise(page))?.name }
     );
 
     // 6. Trailing whitespace is trimmed on blur, not mid-word.
+    await openExerciseDetails(page);
     const primary = fieldInput(page, "primary");
     await primary.click();
     await page.keyboard.press("End");
@@ -269,17 +293,18 @@ async function main() {
     await primary.blur();
     check(
       (await primary.inputValue()) === "Upper chest" &&
-        (await storedExercise(page))?.primary === "Upper chest",
+        (await stagedExercise(page))?.primary === "Upper chest",
       "blur trims the muscle box to the stored value",
-      { value: await primary.inputValue(), stored: (await storedExercise(page))?.primary }
+      { value: await primary.inputValue(), stored: (await stagedExercise(page))?.primary }
     );
+    await openExerciseDetails(page);
 
     // 7. Alternates are no longer typed: the row is a button onto the picker,
     //    so it reads back the stored list rather than holding a half-typed one.
-    const altBtn = page.locator('#programEditor [data-act="pickAlternates"][data-id="text-field-press"]');
+    const altBtn = page.locator('#programEditor [data-role="alternates"][data-id="text-field-press"]');
     check(await altBtn.count() === 1, "alternates are a picker control, not a text box", {
       count: await altBtn.count(),
-      leftoverInput: await page.locator('#programEditor input[data-field="alternates"]').count(),
+      leftoverInput: await page.locator('#programEditor [data-role="exercise-field"][data-field="alternates"]').count(),
     });
     await altBtn.click();
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
@@ -292,7 +317,7 @@ async function main() {
     await page.click("#exPickDone");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await page.waitForTimeout(250);
-    const stored = await storedExercise(page);
+    const stored = await stagedExercise(page);
     check(
       JSON.stringify(stored?.alternates) === JSON.stringify(["Pec deck"]),
       "picked alternates are stored as names",
@@ -304,12 +329,16 @@ async function main() {
       { label: (await altBtn.textContent() || "").trim() }
     );
 
+    await page.click("#programEditToggle");
+    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
+
     // 8. The edits survive a reload.
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     const reloaded = await storedExercise(page);
     check(
-      reloaded?.name === "Seated row" && reloaded?.primary === "Upper chest",
+      reloaded?.name === "Seated row" && reloaded?.primary === "Upper chest" &&
+        JSON.stringify(reloaded?.alternates) === JSON.stringify(["Pec deck"]),
       "edited text fields survive a reload",
       { reloaded }
     );

@@ -1888,6 +1888,180 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-footer{display:flex;align-items:center;justify-content:space-between;padding:16px 0;border-top:1px solid var(--rule);margin-top:8px}
 .program-footer__link{color:var(--accent-deep);background:none;border:0;cursor:pointer;font-size:.9375rem;padding:8px 0}
 
+/* ---- Shared program editor ----
+   The setup and installed hosts deliberately share this visual grammar.  The
+   host supplies only the surrounding title/actions; this surface owns the
+   editable document and remains a single-column phone layout at larger text
+   sizes. */
+.program-editor-host{display:block;width:100%}
+.program-editor{display:flex;flex-direction:column;gap:16px}
+.program-editor__meta{display:flex;flex-direction:column;gap:10px}
+.program-editor__program-name{display:block;color:var(--ink-soft);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__program-name input{display:block;width:100%;margin-top:6px;padding:12px 16px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:20px;font-weight:400;letter-spacing:0;text-transform:none}
+.program-editor__program-name input:focus{border-color:var(--accent);outline:2px solid rgba(var(--accent-rgb),.2);outline-offset:1px}
+.program-editor__context{margin:6px 0 0;color:var(--ink-soft);font-size:16px}
+.program-editor__status{margin:0;color:var(--ink-soft);font-size:14px;line-height:1.4}
+.program-editor__status.is-error{color:var(--danger)}
+.program-editor__status[hidden]{display:none}
+.program-editor__undo{margin-left:8px;padding:0;border:0;background:none;color:var(--accent-deep);cursor:pointer;font:inherit;font-weight:600;text-decoration:underline;text-underline-offset:3px}
+.program-editor__days{display:flex;flex-direction:column;gap:12px}
+.program-editor__day{overflow:hidden;padding:0;background:var(--surface);border:1px solid var(--rule-strong);border-radius:10px}
+.program-editor__day-head{display:flex;align-items:center;gap:10px;min-height:66px;margin:0;padding:10px 14px;background:var(--well);border-bottom:1px solid var(--rule);position:relative}
+.program-editor__day-name{flex:1;min-width:0;margin:0;padding:4px 0;border:0;background:transparent;color:var(--ink);font-size:20px;font-weight:650;letter-spacing:-.01em}
+.program-editor__day-name:focus{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+.program-editor__day-count{flex:none;color:var(--ink-soft);font-size:14px;letter-spacing:0;text-transform:none;font-weight:400}
+.program-editor__day-menu,.program-editor__exercise-menu{flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer;font-size:24px;line-height:1}
+.program-editor__day-menu-panel{display:flex;flex-direction:column;gap:0;margin:0 12px 12px;border:1px solid var(--rule-strong);border-radius:8px;background:var(--surface);overflow:hidden}
+.program-editor__day-menu-panel[hidden]{display:none}
+.program-editor__day-menu-panel button{min-height:44px;padding:10px 12px;border:0;background:transparent;color:var(--danger);cursor:pointer;text-align:left;font:inherit;font-size:14px}
+.program-editor__day-menu-panel button:hover{background:var(--well)}
+.program-editor__day-toggle,.program-editor__exercise-toggle{flex:none;width:44px;height:44px;padding:0;border:0;background:transparent;color:var(--ink);cursor:pointer;display:inline-flex;align-items:center;justify-content:center}
+.program-editor__day-toggle .icon-mask,.program-editor__exercise-toggle .icon-mask{width:20px;height:20px}
+.program-editor__day-body{display:block;margin:0;padding:0}
+.program-editor__day-body[hidden]{display:none}
+.program-editor__exercise{position:relative;margin:0;padding:0;background:var(--surface);border-bottom:1px solid var(--rule)}
+.program-editor__exercise:last-of-type{border-bottom:0}
+.program-editor__exercise-head{display:flex;align-items:center;gap:8px;min-height:66px;margin:0;padding:8px 12px 8px 16px;background:var(--surface)}
+.program-editor__exercise-name{flex:1;min-width:0;margin:0;padding:6px 0;border:0;background:transparent;color:var(--ink);font-size:18px;font-weight:500;letter-spacing:-.01em;white-space:nowrap;overflow:visible;text-overflow:clip}
+.program-editor__exercise-name:focus{outline:2px solid var(--accent);outline-offset:3px;border-radius:3px}
+.program-editor__summary{flex:none;color:var(--ink);font-size:17px;white-space:nowrap;font-variant-numeric:tabular-nums}
+.program-editor__drag-handle{flex:none;width:44px;height:44px;margin:0;padding:0;border:0;background:transparent;color:var(--ink-soft);cursor:grab;font-size:23px;line-height:1;letter-spacing:-.16em;text-indent:-3px;touch-action:none}
+.program-editor__drag-handle:active{cursor:grabbing}
+.program-editor__drag-handle:focus-visible{outline:2px solid var(--accent);outline-offset:-2px;border-radius:6px}
+.program-editor__exercise-menu{font-size:25px;color:var(--ink-soft)}
+.program-editor__drag-handle,.program-editor__exercise-menu{display:none}
+.program-editor.is-reorder-mode .program-editor__drag-handle,
+.program-editor.is-reorder-mode .program-editor__exercise-menu{display:inline-flex;align-items:center;justify-content:center}
+.program-editor__exercise-body{margin:0;padding:14px 16px 0;border-top:1px solid var(--rule)}
+.program-editor__sets{display:flex;align-items:center;justify-content:space-between;gap:14px;min-height:62px}
+.program-editor__field-label,.program-editor__range legend{color:var(--ink-soft);font-size:13px;font-weight:500;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__stepper{display:grid;grid-template-columns:62px minmax(70px,120px) 62px;min-height:62px;border:1px solid var(--rule-strong);border-radius:9px;overflow:hidden;background:var(--surface)}
+.program-editor__stepper button,.program-editor__stepper output{display:flex;align-items:center;justify-content:center;min-width:0;min-height:60px;padding:0;border:0;background:transparent;color:var(--ink);font-size:23px;font-variant-numeric:tabular-nums}
+.program-editor__stepper button{cursor:pointer}
+.program-editor__stepper button+output,.program-editor__stepper output+button{border-left:1px solid var(--rule)}
+.program-editor__stepper button:hover{background:var(--well)}
+.program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
+.program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
+.program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 -4px}
+.program-editor__range label,.program-editor__more label{display:block;color:var(--ink-soft);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__range input,.program-editor__more input{display:block;width:100%;margin-top:6px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:18px;font-weight:400;letter-spacing:0;text-transform:none}
+.program-editor__range input:focus,.program-editor__more input:focus{border-color:var(--accent);outline:2px solid rgba(var(--accent-rgb),.2);outline-offset:1px}
+.program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
+.program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:16px;font-weight:500}
+.program-editor__replace{color:var(--accent-deep)}
+.program-editor__remove{color:var(--danger)}
+.program-editor__more{display:none;margin:0 -16px;padding:0 16px;border-top:1px solid var(--rule)}
+.program-editor__more[open]{display:block;border-top:0}
+.program-editor__more summary{display:none}
+.program-editor__more label{margin:0 0 12px}
+.program-editor__more button{width:100%;min-height:44px;padding:10px;text-align:left;border:1px solid var(--rule);border-radius:8px;background:var(--surface);color:var(--accent-deep);cursor:pointer;font:inherit}
+.program-editor__add{display:flex;align-items:center;gap:8px;width:100%;min-height:62px;margin:0;padding:12px 16px;border:0;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font-size:17px}
+.program-editor__add:hover{background:var(--well)}
+.program-editor__add span{font-size:25px;font-weight:300;line-height:1;color:var(--ink-soft)}
+.program-editor__add-day{display:flex;align-items:center;gap:8px;width:100%;min-height:62px;padding:10px 16px;border:1px solid var(--rule-strong);border-radius:9px;background:var(--surface);color:var(--ink);cursor:pointer;text-align:left;font-size:17px}
+.program-editor__add-day:hover{background:var(--well)}
+.program-editor__add-day:first-letter{font-size:25px;color:var(--ink-soft)}
+.program-editor__empty{padding:18px 16px;color:var(--ink-soft);font-size:14px;line-height:1.4}
+.program-editor__menu{position:relative;z-index:2;display:flex;flex-direction:column;gap:0;margin:0 12px 12px;border:1px solid var(--rule-strong);border-radius:8px;background:var(--surface);overflow:hidden}
+.program-editor__menu[hidden]{display:none}
+.program-editor__menu button{min-height:44px;padding:10px 12px;border:0;border-bottom:1px solid var(--rule);background:transparent;color:var(--ink);cursor:pointer;text-align:left;font:inherit;font-size:14px}
+.program-editor__menu button:last-child{border-bottom:0}
+.program-editor__menu button:hover{background:var(--well)}
+.program-editor__menu [data-role="move-days"]{display:flex;flex-direction:column;background:var(--well)}
+.program-editor__menu [data-role="move-days"] button{padding-left:24px}
+.program-editor__exercise.is-dragging{position:relative;z-index:4;transform-origin:center;border-left:2px solid var(--accent);transition:none;opacity:.98}
+.program-editor__day.is-drag-target-expanded .program-editor__day-body{display:block}
+.program-editor__day.is-drag-target-expanded .program-editor__day-toggle .icon-mask{transform:rotate(180deg)}
+.program-editor__exercise.is-reordered{animation:program-editor-flip .18s cubic-bezier(.2,.7,.2,1) both}
+.program-editor__exercise.is-settling{animation:program-editor-drop .21s cubic-bezier(.2,.7,.2,1) both}
+@keyframes program-editor-flip{from{transform:translateY(var(--program-editor-flip-y,0))}to{transform:translateY(0)}}
+@keyframes program-editor-drop{from{transform:translateY(-2px)}to{transform:translateY(0)}}
+@media (prefers-reduced-motion:reduce){
+  .program-editor__exercise.is-dragging{transform:none}
+  .program-editor__exercise.is-reordered{animation:none}
+  .program-editor__exercise.is-settling{animation:none}
+}
+
+/* Build is a setup workspace, so its title and actions are part of the same
+   scroll flow and the installed dock remains absent. */
+.program-editor-onboarding .onb__head{display:grid;grid-template-columns:1fr auto;align-items:start;gap:10px;margin-bottom:20px}
+.program-editor-onboarding .onb{padding-top:28px}
+.program-editor-onboarding .onb__head #onbCancel{grid-column:2;grid-row:1;justify-self:end;margin:0}
+.program-editor-onboarding .onb__editor-title{display:block;grid-column:1;grid-row:1;margin:0;font-size:40px;font-weight:650;line-height:1.05;letter-spacing:-.035em}
+.program-editor-onboarding .onb__head #onbEyebrow,.program-editor-onboarding .onb__head #onbStepLabel,.program-editor-onboarding .onb__head #onbSegbar{display:none}
+.program-editor-onboarding #onbTitle{display:none}
+.program-editor-onboarding .onb__body{margin-bottom:20px}
+.program-editor-onboarding .program-editor__program-name input{font-size:18px;padding:10px 16px}
+.program-editor-onboarding .program-editor__day{border-radius:5px}
+.program-editor-onboarding .program-editor__day-head{min-height:48px;padding:6px 16px}
+.program-editor-onboarding .program-editor__day-menu{display:inline-flex;align-items:center;justify-content:center;font-size:0}
+.program-editor-onboarding .program-editor__day-menu::before{content:"≡";font-size:24px;line-height:1}
+.program-editor__day.is-expanded .program-editor__day-toggle{display:none}
+.program-editor__day.is-collapsed .program-editor__day-menu{display:none}
+.program-editor-onboarding .program-editor__day.is-expanded .program-editor__day-toggle{display:none}
+.program-editor-onboarding .program-editor__day.is-collapsed .program-editor__day-menu{display:none}
+.program-editor-onboarding .program-editor__day-count{font-size:16px}
+.program-editor-onboarding .program-editor__status:not(.is-error)::before{
+  content:"";display:inline-block;width:19px;height:19px;margin:0 8px 0 0;vertical-align:-5px;
+  border:1.5px solid var(--ink-soft);border-radius:50%;background:var(--surface) var(--check) center/13px 13px no-repeat
+}
+.program-editor-onboarding .program-editor__add-day{display:none}
+.program-editor-onboarding .program-editor__exercise-head{min-height:50px;padding:4px 16px}
+.program-editor-onboarding .program-editor__exercise-body{padding:12px 16px 0}
+.program-editor-onboarding .program-editor__sets{min-height:58px}
+.program-editor-onboarding .program-editor__stepper{width:160px;grid-template-columns:44px 1fr 44px;min-height:58px}
+.program-editor-onboarding .program-editor__stepper button,.program-editor-onboarding .program-editor__stepper output{min-height:56px}
+.program-editor-onboarding .program-editor__exercise-actions{margin-top:14px}
+.program-editor-onboarding .program-editor__exercise-actions button{min-height:50px}
+.program-editor-onboarding-actions{display:flex;flex-direction:column;gap:16px;margin:16px 0 12px}
+.program-editor-onboarding-actions .btn{width:100%;min-height:52px;height:52px;font-size:17px}
+.program-editor-onboarding-actions .program-editor__activate{display:flex;align-items:center;justify-content:space-between;padding-inline:18px;background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
+.program-editor-onboarding-actions .program-editor__activate::after{content:"→";font-size:27px;color:var(--accent)}
+.program-editor-onboarding-actions .program-editor__save{background:var(--surface);color:var(--ink);border:1px solid var(--rule-strong)}
+.program-editor-onboarding-actions .program-editor__activate:disabled{opacity:.5}
+
+/* Installed Program keeps the same editor grammar while matching the compact
+   phone reference: the page title carries the weight, the week context sits
+   close to the name field, and the sets control spans the exercise card. */
+.program-editor-installed .page-title{font-size:40px;letter-spacing:-.035em}
+.program-editor-installed .pagehead{margin-top:24px;margin-bottom:24px}
+.program-editor-installed .program-editor{gap:14px}
+.program-editor-installed .program-editor__meta{gap:8px}
+.program-editor-installed .program-editor__program-name input{font-size:18px;padding:10px 16px}
+.program-editor-installed .program-editor__context{margin-top:8px;font-size:16px}
+.program-editor-installed .program-editor__day-head{min-height:58px;padding:7px 16px}
+.program-editor-installed .program-editor__exercise-head{min-height:58px;padding:6px 16px}
+.program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
+.program-editor-installed .program-editor__sets{display:block;min-height:0}
+.program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
+.program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:58px}
+.program-editor-installed .program-editor__stepper button,.program-editor-installed .program-editor__stepper output{min-height:56px}
+.program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
+.program-editor-installed .program-editor__range input{padding:10px 14px}
+.program-editor-installed .program-editor__exercise-actions{margin-top:14px}
+.program-editor-installed .program-editor__exercise-actions button{min-height:56px}
+.program-editor-installed .program-editor__add{min-height:58px;padding-block:10px}
+
+/* The installed editor reference is a full-width bottom bar. It deliberately
+   drops the overview's floating dock treatment while editing, so the four
+   destinations remain quiet text-and-icon actions and Program is marked only
+   by its orange ink. */
+body:has(#program.program-editor-installed) nav{
+  left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;height:calc(var(--dock-h) + env(safe-area-inset-bottom));
+  padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
+  border:0;border-top:1px solid var(--rule);border-radius:0;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none
+}
+body:has(#program.program-editor-installed) nav button,
+body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
+body:has(#program.program-editor-installed) nav::before{display:none}
+
+.program-editor-leave{width:min(calc(100% - 32px),420px);padding:24px;border:1px solid var(--rule);border-radius:14px;background:var(--surface);color:var(--ink)}
+.program-editor-leave::backdrop{background:var(--scrim)}
+.program-editor-leave h2{font-size:22px;line-height:1.2;margin:0 0 8px}
+.program-editor-leave p{margin:0 0 18px;color:var(--ink-soft);font-size:14px;line-height:1.45}
+.program-editor-leave__actions{display:flex;flex-direction:column;gap:8px}
+.program-editor-leave__actions .btn,.program-editor-leave__actions .text-link{width:100%}
+
 /* ---- Bottom nav — floating glass dock ----
    A capsule that hovers over the page rather than capping it, so the content
    stays visible (blurred) underneath: the edge highlight and the drop shadow

@@ -59,7 +59,12 @@ async function openEditor(page) {
     if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"))
       document.querySelector("#programEditToggle")?.click();
   });
-  await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+}
+
+async function finishEditor(page) {
+  await page.click("#programEditToggle");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), { timeout: 10000 });
 }
 
 /** Toggles a library row by its exact displayed name. */
@@ -87,7 +92,7 @@ async function main() {
     const day = (await getState(page)).program[0].day;
 
     // ---- quick add ----
-    await page.click(`[data-act="addEx"][data-day="${day}"]`);
+    await page.click(`#programEditor [data-role="add-exercise"][data-day="${day}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     const tabs = await page.evaluate(() =>
       [...document.querySelectorAll("#exPickTabs .picktab")].map((b) => b.textContent.trim()));

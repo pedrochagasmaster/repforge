@@ -674,9 +674,9 @@
     {
       "id": "progression-editor",
       "flow": "program",
-      "label": "Program — progression editor",
-      "scenario": "Per-exercise progression strategy editing.",
-      "variants": "standard"
+      "label": "Program — editor",
+      "scenario": "The installed program editor, with the first day open.",
+      "variants": "localized"
     },
     {
       "id": "exercise-picker",

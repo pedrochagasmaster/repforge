@@ -10,7 +10,15 @@ import { catalogState, localeState } from "./fixtures.mjs";
 import { dismissChrome, sleep } from "./session.mjs";
 
 export function appState(_key, lang) {
-  return localeState(catalogState(), lang);
+  const state = catalogState();
+  // The editor reference is intentionally a compact two-exercise day, matching
+  // the canonical installed-editor mockup. Other catalog surfaces keep the
+  // richer fixture so their progress and volume evidence remains meaningful.
+  if (_key === "program/progression-editor") {
+    state.program = state.program.filter((exercise) =>
+      exercise.day !== "Day 1" || exercise.id === "ex-sq" || exercise.id === "ex-curl");
+  }
+  return localeState(state, lang);
 }
 
 const view = async (page, name) => {
@@ -202,11 +210,12 @@ export const APP_SCENARIOS = {
   "program/progression-editor": async (page) => {
     await openProgram(page);
     await page.click("#programEditToggle");
-    const editor = page.locator('[data-progression-editor="ex-sq"]');
-    // Scroll before clicking, not after: the row sits below the fold and the
-    // sticky header can otherwise intercept the click on a loaded machine.
+    await page.waitForSelector('#programEditor [data-role="editor"]', { timeout: 20000 });
+    // The installed editor is the canonical program-editing surface. Keep the
+    // historical catalog key so existing links and committed frame paths stay
+    // stable while the scenario follows the shared editor.
+    const editor = page.locator('#programEditor [data-role="exercise"]').first();
     await editor.scrollIntoViewIfNeeded();
-    await editor.locator("summary").click();
     await sleep(page, 400);
   },
   "program/exercise-picker": async (page) => {

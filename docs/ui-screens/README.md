@@ -168,7 +168,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Program](screens/program/overview__phone-390-light-en.png) | 2 | The current program and its days. |
-| [Program — progression editor](screens/program/progression-editor__phone-390-light-en.png) | 2 | Per-exercise progression strategy editing. |
+| [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 2 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 2 | The custom movement sheet. |
 | [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 2 | The setup-link share sheet. |

@@ -76,11 +76,16 @@ try {
   await page.locator("#programEditor .pday__name").first().fill("My lower day");
   await page.locator("#programEditor .pday__name").first().press("Enter");
   await page.waitForTimeout(250);
+  assert.equal(
+    JSON.parse(await page.evaluate((key) => localStorage.getItem(key), KEY)).programMeta.programStructure.days[0].nameOverride,
+    undefined,
+    "installed edits stay staged until Done",
+  );
+  await page.click("#programEditToggle");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"));
   const renamed = await page.evaluate(() => ({
-    input: document.querySelector("#programEditor .pday__name")?.value,
     day: JSON.parse(localStorage.getItem("repforge_v1")).programMeta.programStructure.days[0],
   }));
-  assert.equal(renamed.input, "My lower day");
   assert.equal(renamed.day.dayId, "balanced_4_d1");
   assert.equal(renamed.day.nameOverride, "My lower day");
   assert.equal(renamed.day.displayNameKey, "program.day.balanced_4_d1");

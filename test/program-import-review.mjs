@@ -72,12 +72,15 @@ async function openEditor(page) {
     document.querySelector('nav button[data-view="program"]')?.click();
   });
   await settle(page, 200);
-  await page.evaluate(() => {
-    if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"))
-      document.querySelector("#programEditToggle")?.click();
-    document.querySelector("#program details.advanced")?.setAttribute("open", "");
-  });
-  await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+  const hidden = await page.locator("#programEditorWrap").evaluate((element) =>
+    element.classList.contains("is-hidden")
+  );
+  if (hidden) await page.click("#programEditToggle");
+  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+  // Import and export remain in the installed editor's Advanced disclosure.
+  // Keep that host mounted so the controls are actually reachable; the shared
+  // editor itself owns the ordinary editing surface.
+  await page.locator("#program details.advanced").evaluate((details) => { details.open = true; });
 }
 
 async function importFile(page, name, body) {
@@ -747,8 +750,10 @@ async function main() {
       fingerprint: window.__repforgeOnboarding.entry().result.fingerprint,
     }), KEY);
     await page.click("#entryEdit");
-    const orphanRow = page.locator('#programEditor .pex:has(.pex__name[value="Orphan candidate row"])');
-    await orphanRow.locator('[data-act="delEx"]').click();
+    const orphanRow = page.locator('#onbProgramEditor [data-role="exercise"][data-id="remove-row"]');
+    if (!(await orphanRow.locator('[data-role="remove-exercise"]').isVisible()))
+      await orphanRow.locator('[data-role="toggle-exercise"]').click();
+    await orphanRow.locator('[data-role="remove-exercise"]').click();
     await settle(page, 500);
     const editableAfter = await page.evaluate((key) => ({
       active: localStorage.getItem(key),

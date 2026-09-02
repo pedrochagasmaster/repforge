@@ -326,9 +326,13 @@ async function openProgramEditor(page) {
 }
 
 async function dispatchRename(page, oldDay, nextDay) {
+  const editorHidden = await page.locator("#programEditorWrap").evaluate((element) =>
+    element.classList.contains("is-hidden")
+  );
+  if (editorHidden) await openProgramEditor(page);
   await page.evaluate(
     ({ oldDay, nextDay }) => {
-      const input = [...document.querySelectorAll('[data-act="renameDay"]')].find(
+      const input = [...document.querySelectorAll('#programEditor [data-role="day-name"]')].find(
         (candidate) => candidate.dataset.day === oldDay
       );
       if (!input) throw new Error(`rename input missing for ${oldDay}`);
@@ -336,6 +340,22 @@ async function dispatchRename(page, oldDay, nextDay) {
       input.dispatchEvent(new Event("change", { bubbles: true }));
     },
     { oldDay, nextDay }
+  );
+  // Installed-editor edits are staged until the host's explicit Done action.
+  // Let that action start its persistence attempt. A held lock intentionally
+  // keeps the editor open while the test inspects the queued receipt, whereas
+  // an unlocked commit closes the editor when it finishes.
+  await page.click("#programEditToggle");
+  await page.waitForFunction(
+    () => {
+      const wrap = document.querySelector("#programEditorWrap");
+      if (wrap?.classList.contains("is-hidden")) return true;
+      for (let index = 0; index < localStorage.length; index++) {
+        if (localStorage.key(index)?.startsWith("repforge_pending_v1:")) return true;
+      }
+      return false;
+    },
+    { timeout: 5000 }
   );
 }
 
@@ -594,11 +614,13 @@ async function runTotalFailure(browser) {
           return originalPut.apply(this, arguments);
         };
         try {
-          const input = [...document.querySelectorAll('[data-act="renameDay"]')].find(
+          const input = [...document.querySelectorAll('#programEditor [data-role="day-name"]')].find(
             (candidate) => candidate.dataset.day === oldDay
           );
           input.value = nextDay;
           input.dispatchEvent(new Event("change", { bubbles: true }));
+          document.querySelector("#programEditToggle")?.click();
+          await new Promise((resolve) => setTimeout(resolve, 300));
           await window.__repforgeStorage.flush();
         } finally {
           Storage.prototype.setItem = originalSetItem;
@@ -609,13 +631,14 @@ async function runTotalFailure(browser) {
     );
 
     const failed = await readRuntime(page);
-    const ui = await page.evaluate(() => ({
+    const ui = await page.evaluate(async () => ({
       tabDays: [...document.querySelectorAll("#dayTabs button")].map((button) => button.textContent),
       activeDay: document.querySelector("#dayTabs button.active")?.textContent ?? null,
-      editorDays: [...document.querySelectorAll('[data-act="renameDay"]')].map((input) => ({
+      editorDays: [...document.querySelectorAll('#programEditor [data-role="day-name"]')].map((input) => ({
         dataDay: input.dataset.day,
         value: input.value,
       })),
+      liveProgramDays: (await window.__debugProgramEditor?.())?.state?.program?.map((exercise) => exercise.day) ?? [],
     }));
     check(
       failed.localRaw === before.localRaw && JSON.stringify(failed.idb) === JSON.stringify(before.idb),
@@ -633,7 +656,8 @@ async function runTotalFailure(browser) {
       ui.tabDays.includes("Day 1") &&
         !ui.tabDays.includes("Push Day") &&
         ui.activeDay === "Day 1" &&
-        ui.editorDays.some((entry) => entry.dataDay === "Day 1" && entry.value === "Day 1"),
+        ui.liveProgramDays.includes("Day 1") &&
+        !ui.liveProgramDays.includes("Push Day"),
       "total failure leaves live program and selected day unchanged",
       ui
     );

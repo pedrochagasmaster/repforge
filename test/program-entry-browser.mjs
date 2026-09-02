@@ -744,10 +744,14 @@ try {
     const activeBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), KEY);
     const draftBeforeEdit = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
     await page.click("#entryEdit");
-    await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+    await page.waitForSelector('#onbProgramEditor [data-role="exercise"]', { timeout: 5000 });
     assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBeforeEdit,
       "Edit before using opens the candidate without changing active bytes");
-    const firstNote = page.locator('#programEditor .pex [data-field="notes"]').first();
+    await page.locator('#onbProgramEditor [data-role="day-menu"]').first().click();
+    await page.locator('#onbProgramEditor [data-role="toggle-reorder"]').first().click();
+    await page.locator('#onbProgramEditor [data-role="exercise-menu"]').first().click();
+    await page.locator('#onbProgramEditor [data-role="more-details"][role="menuitem"]').first().click();
+    const firstNote = page.locator('#onbProgramEditor [data-role="exercise-field"][data-field="notes"]').first();
     await firstNote.fill("Draft-only setup note");
     await page.waitForTimeout(500);
     const editedDraft = await page.evaluate(({ draftKey, before }) => ({
@@ -759,7 +763,8 @@ try {
       "candidate edits persist in the setup draft", JSON.stringify(editedDraft));
     assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBeforeEdit,
       "editing the candidate leaves active state byte-identical");
-    await page.click("#programEditToggle");
+    await page.click("#onbCancel");
+    await page.click("#entryCancelKeep");
     await page.evaluate(() => window.startOnboarding("first-run"));
     await page.waitForSelector("#entryResumeContinue", { timeout: 5000 });
     await page.click("#entryResumeContinue");
@@ -904,8 +909,8 @@ try {
     const targetId = relation?.members?.[0]?.exerciseId;
     assert(!!targetId, "candidate editor fixture contains a paired relation member", JSON.stringify(relation));
     await page.click("#entryEdit");
-    await page.waitForSelector(`#programEditor .pex[data-id="${targetId}"] [data-act="changeEx"]`, { timeout: 5000 });
-    await page.locator(`#programEditor .pex[data-id="${targetId}"] [data-act="changeEx"]`).click();
+    await page.waitForSelector(`#onbProgramEditor [data-role="exercise"][data-id="${targetId}"] [data-role="replace"]`, { timeout: 5000 });
+    await page.locator(`#onbProgramEditor [data-role="exercise"][data-id="${targetId}"] [data-role="replace"]`).click();
     await page.waitForSelector("#exPickList .pickrow", { timeout: 5000 });
     await page.locator("#exPickList .pickrow").first().click();
     await page.waitForFunction(() => {
@@ -1191,15 +1196,15 @@ try {
     await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
     await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
     await page.click("#onbNext");
-    await page.waitForSelector("#programEditor .pday", { timeout: 10000 });
+    await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 10000 });
     const built = await page.evaluate(({ key, draftKey }) => {
       const activeRaw = localStorage.getItem(key);
       const envelope = JSON.parse(localStorage.getItem(draftKey) || "{}");
-      const cards = [...document.querySelectorAll("#programEditor .pday")].map((card) => ({
+      const cards = [...document.querySelectorAll('#onbProgramEditor [data-role="day"]')].map((card) => ({
         day: card.getAttribute("data-day"),
-        empty: !!card.querySelector(".pday__empty"),
-        exercises: card.querySelectorAll(".pex").length,
-        addExercise: !!card.querySelector(".pday__add"),
+        empty: !!card.querySelector('[data-role="day-empty"]'),
+        exercises: card.querySelectorAll('[data-role="exercise"]').length,
+        addExercise: !!card.querySelector('[data-role="add-exercise"]'),
       }));
       const draftMarker = document.querySelector(".pmeta__draft");
       const status = document.querySelector("#entryEditorStatus");
@@ -1241,7 +1246,7 @@ try {
     });
     assert(buildGeometry.overflow <= 0 && buildGeometry.noOverlap, "Build draft has no viewport overflow or action overlap", JSON.stringify(buildGeometry));
 
-    await page.locator('#programEditor [data-act="addEx"]').first().click();
+    await page.locator('#onbProgramEditor [data-role="add-exercise"]').first().click();
     await page.waitForSelector("#exPickSheet.is-open, #exPickList .pickrow", { timeout: 5000 });
     await page.locator("#exPickList .pickrow").first().click();
     await page.waitForFunction((draftKey) => (JSON.parse(localStorage.getItem(draftKey) || "{}").state?.result?.preview?.program || []).length > 0, DRAFT, { timeout: 8000 });
@@ -1251,7 +1256,7 @@ try {
         activeRaw: localStorage.getItem(key),
         programLen: envelope.state?.result?.preview?.program?.length || 0,
         structureDays: envelope.state?.result?.preview?.programStructure?.days?.length || 0,
-        cards: document.querySelectorAll("#programEditor .pday").length,
+        cards: document.querySelectorAll('#onbProgramEditor [data-role="day"]').length,
       };
     }, { key: KEY, draftKey: DRAFT });
     assert(afterAdd.activeRaw === activeBefore, "partially editing Build leaves active state byte-identical");
@@ -1264,7 +1269,7 @@ try {
     if (await page.locator("#firstRunCreate").isVisible().catch(() => false)) await page.click("#firstRunCreate");
     await page.waitForSelector("#entryResumeContinue", { timeout: 5000 });
     await page.click("#entryResumeContinue");
-    await page.waitForSelector("#programEditor .pday", { timeout: 5000 });
+    await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 5000 });
     const resumed = await page.evaluate(({ key, draftKey }) => ({
       activeRaw: localStorage.getItem(key),
       draftProgramLen: JSON.parse(localStorage.getItem(draftKey) || "{}").state?.result?.preview?.program?.length || 0,
@@ -1273,7 +1278,10 @@ try {
     assert(resumed.draftProgramLen === 1, "reload/resume restores the partial Build draft");
 
     for (let index = 1; index < 4; index++) {
-      await page.locator('#programEditor [data-act="addEx"]').nth(index).click();
+      const day = page.locator('#onbProgramEditor [data-role="day"]').nth(index);
+      const add = day.locator('[data-role="add-exercise"]');
+      if (!(await add.isVisible())) await day.locator('[data-role="toggle-day"]').click();
+      await add.click();
       await page.waitForSelector("#exPickList .pickrow", { timeout: 5000 });
       await page.locator("#exPickList .pickrow").first().click();
       await page.waitForFunction(({ draftKey, count }) =>
@@ -1314,11 +1322,11 @@ try {
     await page.waitForFunction(() => !document.querySelector("#onbNext")?.disabled, undefined, { timeout: 5000 });
     const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.click("#onbNext");
-    await page.waitForSelector("#programEditor .pday", { timeout: 5000 });
+    await page.waitForSelector('#onbProgramEditor [data-role="day"]', { timeout: 5000 });
     assert(dialogs.length === 0, "opening Build asks for no replacement confirmation");
     assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === activeBefore, "opening Build preserves the active program byte-identically");
     assert(await page.locator("#entryEditorActivate").isDisabled(), "incomplete replacement draft cannot activate");
-    await page.locator('#programEditor [data-act="addEx"]').first().click();
+    await page.locator('#onbProgramEditor [data-role="add-exercise"]').first().click();
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
     assert(await page.locator("#exPickCustom").isHidden(),
       "candidate editing does not expose custom creation that would mutate active definitions");
@@ -1336,7 +1344,7 @@ try {
     await page.click("#libPrimary");
     await page.waitForSelector("#libConfigure:not(.hidden)", { timeout: 5000 });
     await page.click("#libPrimary");
-    await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+    await page.waitForSelector('#onbProgramEditor [data-role="exercise"]', { timeout: 5000 });
     const fullLibraryEdit = await page.evaluate(({ key, draftKey }) => ({
       activeRaw: localStorage.getItem(key),
       candidateLength: JSON.parse(localStorage.getItem(draftKey) || "{}").state?.result?.preview?.program?.length || 0,

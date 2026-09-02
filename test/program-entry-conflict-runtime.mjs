@@ -32,10 +32,13 @@ try {
   await pageA.fill("#entryProgramName", "Replacement draft");
   await pageA.click('[data-entry-pick="daysPerWeek"][data-entry-val="2"]');
   await pageA.click("#onbNext");
-  await pageA.waitForSelector("#programEditor .pday", { timeout: 10000 });
-  const addCount = await pageA.locator('#programEditor [data-act="addEx"]').count();
+  await pageA.waitForSelector("#onbProgramEditor [data-role=\"day\"]", { timeout: 10000 });
+  const addCount = await pageA.locator('#onbProgramEditor [data-role="add-exercise"]').count();
   for (let index = 0; index < addCount; index++) {
-    await pageA.locator('#programEditor [data-act="addEx"]').nth(index).click();
+    const day = pageA.locator('#onbProgramEditor [data-role="day"]').nth(index);
+    const body = day.locator('[data-role="day-body"]');
+    if (!(await body.isVisible())) await day.locator('[data-role="toggle-day"]').click();
+    await body.locator('[data-role="add-exercise"]').click();
     await pageA.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
     await pageA.locator("#exPickList [data-pick]").first().click();
     await pageA.waitForSelector("#exPickSheet.is-open", { state: "hidden", timeout: 10000 });
@@ -44,7 +47,7 @@ try {
     const debug = await pageA.evaluate(() => ({
       button: document.querySelector("#entryEditorActivate")?.outerHTML,
       status: document.querySelector("#entryEditorStatus")?.textContent,
-      days: [...document.querySelectorAll("#programEditor .pday")].map((day) => day.textContent),
+      days: [...document.querySelectorAll("#onbProgramEditor [data-role=\"day\"]")].map((day) => day.textContent),
       draft: localStorage.getItem("repforge_program_setup_draft_v1"),
     }));
     console.error("editor activation remained disabled", JSON.stringify(debug));

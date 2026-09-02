@@ -979,10 +979,11 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
   expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
   expectedSetupDraftRaw=undefined,
-  reconcileSessionIds=[],dayRenames=[],effect=null}={}){
+  reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
+  let workingProposal=cloneSnapshot(frozenProposal);
   const frozenReconcileSessionIds=normalizeJournalSessionIds(reconcileSessionIds);
   const frozenDayRenames=normalizeJournalDayRenames(dayRenames);
   if(frozenReconcileSessionIds==null||frozenDayRenames==null)
@@ -1047,6 +1048,30 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
+    // Some editor guards depend on a second tab's draft, which can be written
+    // while this operation waits for the cross-tab lock. Let the caller inspect
+    // that state after the lock is acquired but before the journal is armed or
+    // either durable replica is touched.
+    if(typeof preflight==="function"){
+      const checked=await preflight({head:cloneSnapshot(head),proposal:cloneSnapshot(workingProposal)});
+      if(checked?.proposal){
+        workingProposal=cloneSnapshot(checked.proposal);
+        // Keep crash recovery pointed at the proposal that survived the
+        // lock-held semantic rebase, not the stale copy written before it.
+        if(pendingRecord){
+          try{
+            const journal=JSON.parse(pendingRecord.raw);
+            journal.proposal=unversionedSnapshot(workingProposal);
+            const raw=JSON.stringify(journal);
+            localStorage.setItem(pendingRecord.key,raw);
+            pendingRecord=decodePendingJournal(pendingRecord.key,raw)||pendingRecord;
+          }catch{}
+        }
+      }
+      if(checked?.reject){
+        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+          effect:frozenEffectOutcome,discard:true});
+        return Object.assign({revision:readRevision(head),localOk:false,idbOk:false},checked.result||{conflict:true})}}
     if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
       const armed=armPendingJournalRollback(pendingRecord,head);
       if(!armed){
@@ -1055,7 +1080,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         return{revision:readRevision(head),localOk:false,idbOk:false,
           draftConflict:true,journalFailed:true}}
       pendingRecord=armed}
-    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,frozenProposal,head,
+    const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,workingProposal,head,
       {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
         expectedFirstRunEmpty,sharedRebaseSeed:pendingRecord?.journal.id||coordinationId});
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
@@ -2178,6 +2203,9 @@ const focusUnfolded=new Set();
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
 let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="",readyExpanded=false;
+/* The editor module owns the draft document. Hosts retain only its lifecycle
+   and adapter session so the installed editor can stay private until Done. */
+let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
@@ -6122,6 +6150,377 @@ function renderExerciseView(){const el=$("#exDetail");if(!el||!exView)return;
   $$("#exDetail [data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheetFor(tmpl,b)});
   const see=$("#exSeePrs");if(see)see.onclick=()=>{closeExerciseView();navTo("stats");setStatsSeg("prs")}}
 
+function editorDocumentFromSnapshot(snapshot){
+  return{program:cloneSnapshot(snapshot?.program||[]),programMeta:cloneSnapshot(snapshot?.programMeta||{}),
+    customExercises:cloneSnapshot(snapshot?.customExercises||[])}
+}
+function editorSnapshotFromDocument(document,base=state){
+  const proposal=cloneSnapshot(base);
+  proposal.program=cloneSnapshot(document?.program||[]);
+  proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
+  proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
+  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
+  return proposal}
+function editorAdapterTranslate(key,vars,fallback){
+  const value=t(key,vars);return value===key?(fallback||key):value}
+function editorChooseExercise(request){
+  return new Promise(resolve=>{
+    const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
+      subtitle:request?.exercise?.name||"",exclude:request?.exclude||[],onPick:entry=>resolve(entry),
+      ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
+    if(request?.mode==="alternates"){
+      options.mode="multi";
+      const selected=(request.exercise?.alternates||[]).map(name=>pickableExercises().find(entry=>foldSearch(libraryName(entry))===foldSearch(name))?.id).filter(Boolean);
+      options.selected=selected}
+    openExercisePicker(options)})}
+function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
+function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
+  fingerprint:draftProgramFingerprint(snapshot)}}
+function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&a?.fingerprint===b?.fingerprint}
+function editorDocumentDays(document){
+  const labels=[];
+  for(const entry of document?.programMeta?.programStructure?.days||[]){
+    const label=String(entry?.label||entry?.dayId||"");if(label&&!labels.includes(label))labels.push(label)}
+  for(const exercise of document?.program||[]){const label=String(exercise?.day||"");if(label&&!labels.includes(label))labels.push(label)}
+  return labels}
+function editorDocumentExercises(document,day){
+  return(document?.program||[]).filter(exercise=>exercise?.day===day)
+    .sort((a,b)=>(Number(a?.order)||0)-(Number(b?.order)||0)||String(a?.id||"").localeCompare(String(b?.id||"")))}
+function editorDraftExerciseIds(draft){
+  const ids=new Set(),addKey=key=>{
+    const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
+  for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
+  for(const key of Object.keys(draft||{}))if(/_load$/.test(key))addKey(key.slice(0,-5));
+  for(const id of [...(draft?.__skipped||[]),...Object.keys(draft?.__substituted||{})])if(id)ids.add(String(id));
+  return ids}
+function editorIntentValue(exercise,field){
+  if(field==="alternates")return cloneSnapshot(exercise?.alternates||[]);
+  return exercise?.[field]}
+function applyInstalledEditorIntent(document,edit,{check=true}={}){
+  const kind=edit?.kind;
+  if(kind==="program_name"){
+    const current=document.programMeta?.name||"";
+    if(check&&edit.before!==undefined&&current!==edit.before&&current!==edit.after)return{conflict:true};
+    document.programMeta={...(document.programMeta||{}),name:String(edit.after??"")};return{ok:true}}
+  if(kind==="day_name"){
+    const old=String(edit.before||edit.targetDay||""),next=String(edit.after||"");
+    const model=makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta);
+    const current=!!model.days().includes(old);
+    if(check&&!current)return{conflict:true};
+    if(!model.renameDay(old,next))return{conflict:true};
+    document.program=model.toJSON();syncProgramStructureFromProgram(document,model);return{ok:true}}
+  if(kind==="day_add"){
+    const day=String(edit.after||edit.targetDay||"").trim();
+    if(!day)return{conflict:true};
+    if(check&&editorDocumentDays(document).includes(day))return{conflict:true};
+    const structure=(document.programMeta?.programStructure?.days||[]).slice();
+    structure.push({dayId:`manual_d${structure.length+1}`,label:day,order:structure.length+1});
+    document.programMeta={...(document.programMeta||{}),programStructure:{...(document.programMeta?.programStructure||{}),days:structure}};
+    return{ok:true};
+  }
+  if(kind==="exercise_field"||kind==="prescription"||kind==="alternates"){
+    const exercise=document.program?.find(item=>item.id===edit.targetId);
+    if(!exercise)return{conflict:true};
+    const current=editorIntentValue(exercise,edit.field);
+    if(check&&edit.before!==undefined&&!changeValueEqualForEditor(current,edit.before)&&!changeValueEqualForEditor(current,edit.after))return{conflict:true};
+    exercise[edit.field]=cloneSnapshot(edit.after);
+    if(edit.field==="name"&&exercise.libraryId){
+      if(String(edit.after||"").trim())exercise.displayName=String(edit.after).trim();
+      else delete exercise.displayName;
+    }
+    if(edit.field==="min"&&Number(exercise.max)<Number(exercise.min))exercise.max=exercise.min;
+    if(edit.field==="max"&&Number(exercise.min)>Number(exercise.max))exercise.min=exercise.max;
+    return{ok:true}}
+  if(kind==="exercise_move"){
+    const exercise=document.program?.find(item=>item.id===edit.targetId);if(!exercise)return{conflict:true};
+    if(check&&exercise.day!==edit.sourceDay)return{conflict:true};
+    if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
+    const source=editorDocumentExercises(document,edit.sourceDay),sourceIndex=source.findIndex(item=>item.id===edit.targetId);
+    if(sourceIndex<0)return{conflict:true};
+    // The intent carries the source position as a precondition. Checking it
+    // catches a second tab moving the same exercise within the same day; a day
+    // check alone would silently reorder over that concurrent edit.
+    if(check&&edit.sourceIndex!==undefined&&sourceIndex!==Number(edit.sourceIndex))return{conflict:true};
+    const targetDay=String(edit.targetDay||edit.sourceDay),target=editorDocumentExercises(document,targetDay)
+      .filter(item=>item.id!==edit.targetId);
+    const requested=Number.isFinite(Number(edit.targetIndex))?Number(edit.targetIndex):target.length;
+    const at=Math.max(0,Math.min(requested,target.length));
+    const moved=document.program.find(item=>item.id===edit.targetId);
+    if(!moved)return{conflict:true};
+    if(targetDay===edit.sourceDay){
+      source.splice(sourceIndex,1);source.splice(at,0,moved);
+      source.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
+    }else{
+      source.splice(sourceIndex,1);target.splice(at,0,moved);
+      source.forEach((item,index)=>{item.order=index+1});
+      target.forEach((item,index)=>{item.day=targetDay;item.order=index+1});
+    }
+    return{ok:true}}
+  if(kind==="exercise_add"){
+    if(check&&document.program?.some(item=>item.id===edit.targetId))return{conflict:true};
+    if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
+    if(edit.exercise){
+      document.program=(document.program||[]).concat(cloneSnapshot(edit.exercise));
+      syncProgramStructureFromProgram(document,makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta));
+    }
+    return{ok:true};
+  }
+  if(kind==="exercise_replace"){
+    const existing=document.program?.find(item=>item.id===edit.targetId);
+    if(!existing)return{conflict:true};
+    if(check&&edit.beforeLibraryId!==undefined&&existing.libraryId!==edit.beforeLibraryId)return{conflict:true};
+    if(edit.exercise)Object.assign(existing,cloneSnapshot(edit.exercise));
+    return{ok:true};
+  }
+  if(kind==="exercise_remove"){
+    const existing=document.program?.find(item=>item.id===edit.targetId);
+    if(check&&!existing)return{conflict:true};
+    document.program=(document.program||[]).filter(item=>item.id!==edit.targetId);return{ok:true};
+  }
+  if(kind==="day_remove"){
+    const day=String(edit.targetDay||"");
+    if(check&&!editorDocumentDays(document).includes(day))return{conflict:true};
+    document.program=(document.program||[]).filter(item=>item.day!==day);
+    const structure=document.programMeta?.programStructure;
+    if(structure?.days)document.programMeta.programStructure={...structure,days:structure.days.filter(item=>String(item?.label||item?.dayId||"")!==day)};
+    return{ok:true};
+  }
+  return{ok:true};
+}
+function changeValueEqualForEditor(a,b){return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+function editorRebaseDocument(session,head){
+  const rebased=editorDocumentFromSnapshot(head),edits=session?.edits||[];
+  for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);if(result?.conflict)return{conflict:true};}
+  return{document:rebased,conflict:false}}
+function installedEditorImpact(document,base=state,edits=[]){
+  const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
+  const active=draftHasProgress();
+  if(!active)return{active:false,incompatible:false,harmless:true,effect:null};
+  let draft={};try{const parsed=JSON.parse(readDraftRaw()||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
+  const referenced=editorDraftExerciseIds(draft),currentById=new Map((current.program||[]).map(item=>[item.id,item]));
+  let incompatible=false,effect=null;
+  for(const edit of edits||[]){
+    if(edit?.kind==="exercise_remove"||edit?.kind==="exercise_replace"||edit?.kind==="exercise_move"){
+      if(referenced.has(String(edit.targetId)))incompatible=true;
+    }else if(edit?.kind==="day_remove"){
+      if(draft.__day===edit.targetDay)incompatible=true;
+    }else if(edit?.kind==="prescription"&&edit.field==="sets"&&Number(edit.after)<Number(edit.before)&&referenced.has(String(edit.targetId))){
+      const before=currentById.get(edit.targetId);
+      if(before&&draftHasProgressInRemovedSets(edit.targetId,Number(edit.after),Number(before.sets),draft))incompatible=true;
+    }else if(edit?.kind==="day_name"&&draft.__day===edit.before&&editorDocumentDays(next).includes(String(edit.after))){
+      // Preserve a workout's selected day when a user simply renames that day.
+      effect=draftDayReplacementEffect(edit.before,edit.after);
+      if(effect.status!==DRAFT_EFFECT_VALID)incompatible=true;
+    }
+  }
+  // A legacy caller may provide a complete changed document without intents.
+  // Keep the same conservative rules for that path as a safety net.
+  if(!edits.length){
+    for(const id of referenced){
+      const before=currentById.get(id),after=(next.program||[]).find(item=>item.id===id);
+      if(!after||before?.day!==after.day||before?.libraryId!==after.libraryId||before?.movementId!==after.movementId){incompatible=true;break}
+      if(before&&Number(after.sets)<Number(before.sets)&&draftHasProgressInRemovedSets(id,Number(after.sets),Number(before.sets),draft)){incompatible=true;break}
+    }
+    if(draft.__day&&!editorDocumentDays(next).includes(draft.__day))incompatible=true;
+  }
+  return{active:true,incompatible,harmless:!incompatible,effect:incompatible?null:effect}
+}
+function createInstalledProgramEditorAdapter(){
+  return{
+    read(){
+      return{document:installedEditorDocument(),token:installedEditorToken()};
+    },
+    async commit({expectedToken,nextDocument,intent}){
+      if(intent?.kind!=="apply"&&intent?.kind!=="apply_discard_workout"){
+        if(!installedEditorSession)installedEditorSession={document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:[]};
+        installedEditorSession.document=cloneSnapshot(nextDocument);
+        installedEditorSession.edits.push(cloneSnapshot(intent));
+        return{ok:true,staged:true,token:cloneSnapshot(expectedToken)}
+      }
+      const session=installedEditorSession||{document:cloneSnapshot(nextDocument),token:cloneSnapshot(expectedToken),edits:intent?.edits||[]};
+      const refreshed=await refreshPersistenceHead();
+      if(refreshed.conflict)return{ok:false,conflict:true,editorConflict:true};
+      const head=refreshed.head||state,headToken=installedEditorToken(head);
+      let document=cloneSnapshot(nextDocument),edits=session.edits||intent?.edits||[];
+      if(!editorTokenEqual(expectedToken,headToken)){
+        const rebased=editorRebaseDocument({edits},head);if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true};
+        document=rebased.document}
+      const impact=installedEditorImpact(document,head,edits);
+      if(impact.active&&impact.incompatible&&intent.kind!=="apply_discard_workout")
+        return{ok:false,workoutConflict:true,impact};
+      const proposal=editorSnapshotFromDocument(document,head);
+      const rename=edits.find(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined);
+      const renameEffect=rename?draftDayReplacementEffect(String(rename.before),String(rename.after)):null;
+      const effect=impact.active&&impact.incompatible||intent.kind==="apply_discard_workout"&&readDraftRaw()!=null
+        ?destructiveDraftClearEffect(readDraftRaw()):renameEffect?.status==="valid"?renameEffect:impact.effect;
+      const dayRenames=edits.filter(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined)
+        .map(edit=>({from:String(edit.before),to:String(edit.after)}));
+      const result=await commitProposedState(proposal,storageIO,{effect,dayRenames,
+        preflight:({head:lockedHead})=>{
+          const lockedToken=installedEditorToken(lockedHead);
+          if(!editorTokenEqual(headToken,lockedToken)){
+            const rebased=editorRebaseDocument({edits},lockedHead);
+            if(rebased.conflict)
+              return{reject:true,result:{ok:false,conflict:true,editorConflict:true}};
+            document=rebased.document;
+          }
+          const lockedImpact=installedEditorImpact(document,lockedHead,edits);
+          if(lockedImpact.active&&lockedImpact.incompatible&&intent.kind!=="apply_discard_workout")
+            return{reject:true,result:{ok:false,workoutConflict:true,impact:lockedImpact}};
+          // A rename that started with no draft must still abort if a second
+          // tab creates a draft for the old day while this write waits on the
+          // lock. There is no frozen replace-draft receipt to settle in that
+          // case, so reject before preparing either durable replica.
+          if(intent.kind!=="apply_discard_workout"&&lockedImpact.effect?.status==="valid"&&
+            lockedImpact.effect.effect?.precondition==="abort-same-day"&&
+            !(effect?.status==="valid"&&effect.effect?.precondition==="abort-same-day"))
+            return{reject:true,result:{ok:false,draftConflict:true,impact:lockedImpact}};
+          const lockedProposal=editorSnapshotFromDocument(document,lockedHead);
+          return{proposal:lockedProposal};
+        }});
+      if(result.localOk||result.idbOk){installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
+      return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
+    },
+    chooseExercise:editorChooseExercise,
+    t:editorAdapterTranslate,
+    dayLabel:(day)=>dayLabel(day),
+    dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
+    exerciseEntry:(id)=>libraryEntry(id),
+    exerciseLabel:(exercise)=>exercise?.name,
+    formatNumber:(value)=>fmt(value),
+    context:()=>{const mc=mesocycleWeek();return mc.current!=null?mesocycleWeekCopy(mc):""},
+    status:()=>"",
+    confirm:({kind,day})=>kind==="day_remove"?confirm(t("confirm.delete_day",{day:dayLabel(day)})):true,
+    reducedMotion:()=>reducedMotion(),
+    announce:(message)=>toast(message),
+  }
+}
+window.__debugProgramEditor=async()=>{const local=readLocalStatus(),idb=await readIdbStatus();return{session:cloneSnapshot(installedEditorSession),state:cloneSnapshot(state),local,idb,decision:chooseSnapshot(local,idb),head:await refreshPersistenceHead()}};
+function createOnboardingProgramEditorAdapter(){
+  return{
+    read(){return{document:editorDocumentFromSnapshot(programEditorSnapshot()),token:{draftRevision:entryState?.revision||0}}},
+    async commit({nextDocument}){
+      const proposal=programEditorSnapshot();proposal.program=cloneSnapshot(nextDocument.program||[]);
+      proposal.programMeta=cloneSnapshot(nextDocument.programMeta||proposal.programMeta);
+      proposal.customExercises=cloneSnapshot(nextDocument.customExercises||proposal.customExercises||[]);
+      syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
+      const result=await commitProgramEditorProposal(proposal);
+      updateOnboardingEditorActions();
+      return{...result,ok:!!(result.localOk||result.idbOk),setupDraft:true,staged:true,token:{draftRevision:entryState?.revision||0}};
+    },
+    chooseExercise:editorChooseExercise,
+    t:editorAdapterTranslate,
+    dayLabel:(day)=>dayLabel(day),
+    dayCount:(n)=>editorAdapterTranslate("program.editor.day_count",{n,word:t(n===1?"program.editor.exercise_word":"program.editor.exercises_word")}),
+    exerciseEntry:(id)=>libraryEntry(id),
+    exerciseLabel:(exercise)=>exercise?.name,
+    formatNumber:(value)=>fmt(value),
+    context:()=>"",
+    status:()=>editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved"),
+    confirm:()=>true,
+    reducedMotion:()=>reducedMotion(),
+    announce:(message)=>toast(message),
+  }
+}
+function updateOnboardingEditorActions(){
+  const button=$("#entryEditorActivate");if(!button||!entryState)return;
+  const issues=ProgramEntry.candidateActivationIssues(entryState);button.disabled=issues.length>0;
+  if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
+  const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
+  const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
+  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"));
+  const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
+    issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
+      emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
+        issues.length?editorAdapterTranslate("entry.editor.incomplete",{n:issues.length},"Finish the program before continuing."):
+          editorAdapterTranslate("entry.editor.draft_saved",undefined,"Draft saved");
+  status.id="entryEditorStatus";
+  status.textContent=message;
+  status.hidden=false;
+  status.classList.toggle("is-error",issues.length>0);
+  status.setAttribute("role",issues.length?"alert":"status");
+  status.setAttribute("aria-live",issues.length?"assertive":"polite");
+}
+function mountOnboardingProgramEditor(){
+  const host=$("#onbProgramEditor");if(!host||!window.mountProgramEditor)return null;
+  onboardingProgramEditor?.dispose?.();
+  onboardingProgramEditor=window.mountProgramEditor(host,createOnboardingProgramEditorAdapter());
+  const status=host.querySelector('[data-role="editor-status"]');if(status)status.id="entryEditorStatus";
+  return onboardingProgramEditor;
+}
+function mountInstalledProgramEditor(){
+  const host=$("#programEditor");if(!host||!window.mountProgramEditor)return null;
+  installedProgramEditor?.dispose?.();
+  installedEditorSession=null;
+  installedProgramEditor=window.mountProgramEditor(host,createInstalledProgramEditorAdapter());
+  return installedProgramEditor;
+}
+function disposeProgramEditors(){
+  onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
+  installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;
+}
+let installedLeaveMode=null;
+function closeInstalledLeaveDialog(){
+  const dialog=$("#programEditorLeave");
+  installedLeaveMode=null;
+  pendingEditorNavigation=null;
+  if(dialog)closeModal(dialog);
+}
+function openInstalledLeaveDialog({workout=false}={}){
+  const dialog=$("#programEditorLeave");if(!dialog)return;
+  installedLeaveMode={workout};
+  const title=$("#programEditorLeaveTitle"),body=$("#programEditorLeaveBody"),apply=$("#programEditorApply"),discard=$("#programEditorDiscard"),keep=$("#programEditorKeep");
+  if(title)title.textContent=t(workout?"program.editor.workout_conflict.title":"program.editor.leave.title");
+  if(body)body.textContent=t(workout?"program.editor.workout_conflict.body":"program.editor.leave.body");
+  if(apply){apply.textContent=t(workout?"program.editor.apply_discard_workout":"program.editor.apply_changes");apply.disabled=false}
+  if(discard){discard.textContent=t("program.editor.discard_changes");discard.hidden=workout}
+  if(keep){keep.textContent=t("program.editor.keep_editing")}
+  openModal(dialog,{initialFocus:apply,onEscape:()=>{pendingEditorNavigation=null;closeInstalledLeaveDialog()}});
+}
+function finishInstalledEditor({discard=false}={}){
+  const nextView=pendingEditorNavigation;
+  pendingEditorNavigation=null;
+  installedLeaveMode=null;
+  closeModal($("#programEditorLeave"));
+  if(discard)installedProgramEditor?.discard?.();
+  installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;programEditMode=false;
+  render();
+  if(nextView){
+    const button=$(`nav button[data-view="${CSS.escape(nextView)}"]`);
+    if(button)button.click();
+  }
+}
+async function applyInstalledEditorAndContinue(){
+  const editor=installedProgramEditor;if(!editor)return;
+  const mode=installedLeaveMode?.workout?"apply_discard_workout":"apply";
+  const apply=$("#programEditorApply");if(apply)apply.disabled=true;
+  const result=await editor.commit({kind:mode});
+  if(apply)apply.disabled=false;
+  if(result?.workoutConflict){
+    openInstalledLeaveDialog({workout:true});
+    return result;
+  }
+  if(result?.conflict||result?.editorConflict||result?.staleRevision){
+    const status=$("#programEditor [data-role=\"editor-status\"]");
+    if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error");}
+    closeInstalledLeaveDialog();
+    return result;
+  }
+  if(result?.ok||result?.localOk||result?.idbOk){
+    finishInstalledEditor();
+    if(!maybeStartTour())maybeShowInstallBanner();
+  }
+  return result;
+}
+async function requestInstalledDone(){
+  if(!programEditMode||!installedProgramEditor)return;
+  if(!installedProgramEditor.isDirty()){finishInstalledEditor();return}
+  // Done is the editor's explicit commit action. The three-way leave dialog is
+  // reserved for navigation and browser Back, so a deliberate tap never
+  // makes the user confirm the same action twice.
+  installedLeaveMode={workout:false};
+  await applyInstalledEditorAndContinue();
+}
 function programEditorSnapshot(){
   if(!setupEditorOpen)return cloneSnapshot(state);
   const preview=entryState?.result?.preview||{},snapshot=cloneSnapshot(state);
@@ -6177,23 +6576,23 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     {revision:0,localOk:false,idbOk:false,setupDraft:true,setupDraftConflict:!!saved?.conflict}}
 function openEntryDraftEditor(){
   if(!entryState?.result?.preview)return;
-  setupEditorOpen=true;programEditMode=true;
-  $("#onboarding")?.classList.remove("active");$("#onboarding")?.classList.add("hidden");
-  document.body.classList.remove("is-onboarding");
-  document.body.classList.add("is-entry-editor");
-  $$("nav button").forEach(x=>{const on=x.dataset.view==="program";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-  $$(".view").forEach(v=>v.classList.toggle("active",v.id==="program"));
-  render()}
+  setupEditorOpen=true;programEditMode=false;
+  showOnboardingView();armEntryHistory();renderOnboarding()}
 function closeEntryDraftEditor(){
-  setupEditorOpen=false;programEditMode=false;onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
-function renderProgram(){renderProgramOverview();renderProgramHeader();renderProgramEditor();renderVolume();
-  const ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
-  if(ov)ov.classList.toggle("is-hidden",programEditMode||setupEditorOpen);
-  if(ed)ed.classList.toggle("is-hidden",!(programEditMode||setupEditorOpen));
-  if(meta)meta.classList.toggle("visually-hidden",!(programEditMode||setupEditorOpen));
-  if(tog)tog.textContent=setupEditorOpen?t("entry.editor.close"):programEditMode?t("program.done_edit"):t("program.edit");
-  const end=$("#endBlock");if(end)end.classList.toggle("hidden",setupEditorOpen);
-  const exp=$("#exportProgram"),imp=$("#importProgram");if(exp)exp.classList.toggle("hidden",setupEditorOpen);if(imp)imp.closest("label")?.classList.toggle("hidden",setupEditorOpen);
+  setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
+  onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
+function renderProgram(){renderProgramOverview();
+  const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
+  view?.classList.toggle("program-editor-installed",programEditMode);
+  if(ov)ov.classList.toggle("is-hidden",programEditMode);
+  if(ed)ed.classList.toggle("is-hidden",!programEditMode);
+  if(meta)meta.classList.toggle("visually-hidden",programEditMode);
+  if(tog)tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");
+  const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),advanced=ed?.querySelector(":scope > details.advanced"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
+  [end,lede,addDay,advanced,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
+  const exp=$("#exportProgram"),imp=$("#importProgram");if(exp)exp.classList.toggle("hidden",programEditMode);if(imp)imp.closest("label")?.classList.toggle("hidden",programEditMode);
+  if(programEditMode){if(!installedProgramEditor)mountInstalledProgramEditor();return}
+  renderProgramHeader();renderProgramEditor();renderVolume();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
   // the picker animation's one-shot focus attempt.
@@ -6202,9 +6601,12 @@ function focusEntryEditorStatus(){
   // A picker owns focus until its close transition has restored the editor.
   // Leave the pending request intact so the post-close call can focus the new
   // status node instead of immediately losing focus back to the picker trigger.
-  if(!entryEditorStatusFocusPending||activeModal)return false;
-  const status=$("#entryEditorStatus");
-  if(!status||status.offsetParent===null)return false;
+  if(!entryEditorStatusFocusPending)return false;
+  const status=$("#onbProgramEditor [data-role=\"editor-status\"]")||$("#entryEditorStatus");
+  if(activeModal||!status||status.offsetParent===null){
+    if(!entryEditorStatusFocusTimer)entryEditorStatusFocusTimer=setTimeout(()=>{
+      entryEditorStatusFocusTimer=null;focusEntryEditorStatus()},120);
+    return false}
   entryEditorStatusFocusPending=false;
   try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
   return true}
@@ -7837,10 +8239,13 @@ function openLibrary({day:dayName=day,selected=[],step="browse",tab="browse",que
   search?.focus({preventScroll:true})}
 
 function closeLibrary({toProgram=true}={}){
+  const returnToOnboarding=!!libFlow?.editorScope&&setupEditorOpen;
   libFlow=null;
   document.body.classList.remove("is-library","is-preview");
   const back=resolveReturnFocus(libReturn);libReturn=null;
-  if(toProgram)returnToTab("program");
+  if(toProgram){
+    if(returnToOnboarding){showOnboardingView();renderOnboarding()}
+    else returnToTab("program")}
   if(back)try{back.focus({preventScroll:true})}catch{}}
 
 function renderLibrary(){
@@ -7980,6 +8385,7 @@ async function commitLibrarySelection(){
   if(!libFlow||!libFlow.selected.size)return null;
   if(libFlow.step!=="configure"){libFlow.step="configure";renderLibrary();window.scrollTo({top:0});return null}
   const rows=libraryConfigureRows();
+  const editorScope=!!libFlow.editorScope;
   const proposal=libFlow.editorScope?programEditorSnapshot():cloneSnapshot(state);
   const nextProgram=makeProgram(proposal.program,null,proposal.programMeta);
   for(const r of rows){
@@ -7993,7 +8399,17 @@ async function commitLibrarySelection(){
   const n=rows.length,target=libFlow.day;
   setDayCollapsed(target,false);
   closeLibrary({toProgram:true});
-  render();
+  if(editorScope&&setupEditorOpen){
+    // The full-library detour commits through the legacy library controller,
+    // while the shared editor still owns its private in-memory document. Pull
+    // the committed candidate back into that editor before the next action.
+    // Every edit made before the detour was already staged in this same setup
+    // draft, so discard here is a synchronization operation, not user-facing
+    // data loss. A normal refresh would correctly report an external change as
+    // a conflict because the editor's baseline is still the pre-detour copy.
+    onboardingProgramEditor?.discard?.();
+    updateOnboardingEditorActions();
+  }else render();
   toast(t("toast.exercises_added",{n}));
   return result}
 
@@ -8356,7 +8772,7 @@ const ENTRY_ENVIRONMENTS=ProgramEntryAdapter.ENTRY_ENVIRONMENTS;
 const ENTRY_EQUIPMENT=ProgramEntryAdapter.KNOWN_EQUIPMENT;
 const ENTRY_CAPABILITIES=ProgramEntryAdapter.KNOWN_CAPABILITIES;
 const ENTRY_AVOID_REASONS=ProgramEntryAdapter.CONSTRAINT_REASONS;
-let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
+let entryState=null,entryEngaged=false,entryOwnOpen=false,entryUiNotice=null,entryCompileError=null,entryAvoidQuery="",entryMustQuery="",entryExerciseQuery="",entryPendingAvoid=null,entryValidationNotice=false,entryEditorStatusFocusPending=false,entryEditorStatusFocusTimer=null,entryPinnedVersionsExecutable=false,entryDurableConflictNeedsReload=false,entryVisibleScreenKey=null;
 const ENTRY_HISTORY_STATE_KEY="tauriferProgramEntry";
 const setupDraftOwnerId=uid();
 let entryDraftHandle=null;
@@ -8401,7 +8817,7 @@ function queueSetupDraftWrite(operation){
 function reportSetupDraftWriteFailure(kind,error){
   entryUiNotice=kind;
   if(error)console.warn("setup draft save failed",error);
-  if(setupEditorOpen)renderProgram();
+  if(setupEditorOpen)renderOnboarding();
   else if(document.body.classList.contains("is-onboarding"))renderOnboarding()}
 function removeObservedSetupDraft(handle){
   if(!handle)return{ok:true,absent:true};
@@ -8536,7 +8952,10 @@ function disarmEntryHistory(){
   try{
     if(history.state?.[ENTRY_HISTORY_STATE_KEY])
       history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
-function closeOnboarding(){$("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding");
+function closeOnboarding(){
+  onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
+  $("#onboarding")?.classList.remove("program-editor-onboarding");
+  $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor");
   disarmEntryHistory();
   const log=$("#log");if(log&&!log.classList.contains("active")){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
@@ -9480,17 +9899,22 @@ function renderOnboarding(){
   }
   entryVisibleScreenKey=screenKey;
   const route=entryState.route,stepId=entryState.step;
-  $("#onboarding")?.classList.toggle("entry-hub-active",!route||stepId==="entry");
+  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
+  const onboarding=$("#onboarding"),isEditor=setupEditorOpen&&!noticeOwnsSurface&&!!entryState?.result?.preview;
+  onboarding?.classList.toggle("entry-hub-active",!route||stepId==="entry");
+  onboarding?.classList.toggle("program-editor-onboarding",isEditor);
+  document.body.classList.toggle("is-entry-editor",isEditor);
   /* On a single-step route the chrome eyebrow and the page heading are the
      same string ("Import a program" twice, 60px apart). Show one of them. */
   const eyebrowText=route?entryRouteLabel(route):t("entry.eyebrow");
-  const titleText=t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
+  const titleText=isEditor?t("entry.build_editor_title"):t(route?`entry.${stepId}.title`:"entry.hub.title")||t("entry.eyebrow");
   const eyebrow=$("#onbEyebrow");
   if(eyebrow){const duplicate=eyebrowText===titleText;
     eyebrow.textContent=duplicate?"":eyebrowText;
     eyebrow.classList.toggle("hidden",duplicate)}
   title.textContent=titleText;
-  const noticeOwnsSurface=entryUiNotice==="resume"||entryUiNotice==="cancel";
+  const editorTitle=$("#onbEditorTitle");
+  if(editorTitle){editorTitle.textContent=isEditor?titleText:"";editorTitle.hidden=!isEditor}
   const progress=entryProgressSections(route);
   const showProgress=Boolean(route)&&progress.show&&!noticeOwnsSurface;
   if(step){step.textContent=showProgress?t("entry.step",{n:progress.n,total:progress.total}):"";
@@ -9500,12 +9924,12 @@ function renderOnboarding(){
     seg.innerHTML=Array.from({length:total},(_,i)=>`<span class="segbar__seg${i<=current?" is-current":""}${i<current?" is-done":""}"></span>`).join("");
     seg.classList.toggle("hidden",!showProgress)}
   const cancel=$("#onbCancel");if(cancel)cancel.textContent=t("entry.cancel");
-  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface);
+  const nav=$("#onboarding .onb__nav");if(nav)nav.classList.toggle("hidden",noticeOwnsSurface||isEditor);
   const atTerminal=["preview","editor","result","catalogue"].includes(stepId);
-  if(back){back.classList.toggle("hidden",!route||stepId==="entry");back.setAttribute("aria-label",t("entry.back"))}
+  if(back){back.classList.toggle("hidden",!route||stepId==="entry"||isEditor);back.setAttribute("aria-label",t("entry.back"))}
   if(next){
     const hideNext=!route||stepId==="entry"||stepId==="preview"||stepId==="result"||stepId==="catalogue"||stepId==="import_source"||stepId==="activation_conflict";
-    next.classList.toggle("hidden",hideNext);
+    next.classList.toggle("hidden",hideNext||isEditor);
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
@@ -9531,8 +9955,12 @@ function renderOnboarding(){
   else if(stepId==="catalogue")html+=renderCatalogueStep();
   else if(stepId==="build_setup")html+=renderBuildSetupStep();
   else if(stepId==="import_source")html+=renderImportSourceStep();
+  else if(isEditor)html+=`<div id="onbProgramEditor" class="program-editor-host ph-no-capture" data-role="onboarding-editor-host"></div>`+
+    `<div class="program-editor-onboarding-actions">`+
+      `<button type="button" class="btn btn--steel program-editor__save" id="entryEditorSave">${esc(t("entry.editor.save"))}</button>`+
+      `<button type="button" class="btn btn--cta program-editor__activate" id="entryEditorActivate">${esc(t("entry.editor.use",undefined,"Use this program"))}</button>`+
+    `</div>`;
   else if(stepId==="preview"||stepId==="activation_conflict")html+=renderPreviewStep();
-  else if(stepId==="editor")html+=`<p class="onb__explain">${esc(t("entry.build_setup.open"))}</p>`;
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
@@ -9543,6 +9971,10 @@ function renderOnboarding(){
     if(anchor&&anchor.parentNode===body)body.insertBefore(validation,anchor.nextSibling);
   }
   wireEntryDom();
+  if(isEditor){
+    mountOnboardingProgramEditor();
+    updateOnboardingEditorActions();
+  }
   setupEntryRovingFocus();
   if(!restoreEntryFocus(focusToken)){
     const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
@@ -9699,6 +10131,21 @@ function wireEntryDom(){
       const next=$("#onbNext");if(next)next.disabled=ProgramEntry.validationIssues(entryState).length>0};
     nameInput.oninput=sync;nameInput.onchange=sync;nameInput.onblur=sync}
   const activate=$("#entryActivate");if(activate)activate.onclick=()=>activateEntryPreview();
+  const editorSave=$("#entryEditorSave");if(editorSave)editorSave.onclick=async()=>{
+    editorSave.disabled=true;
+    const result=await persistSetupDraft(entryState);
+    editorSave.disabled=false;
+    const status=$("#onbProgramEditor [data-role=\"editor-status\"]")||$("#entryEditorStatus");
+    if(result?.ok){
+      updateOnboardingEditorActions();
+      // Saving an otherwise incomplete Build is still a successful draft
+      // write. Keep the saved state visible beside the editor, rather than
+      // replacing it with the activation validation message.
+      if(status){status.textContent=t("entry.editor.saved");status.hidden=false;status.classList.remove("is-error");status.setAttribute("role","status");status.setAttribute("aria-live","polite")}
+      toast(t("entry.editor.saved"));
+    }else if(status){status.textContent=t(result?.conflict?"entry.save_conflict.body":"entry.save_failed.body");status.hidden=false;status.classList.add("is-error");status.focus?.()}
+  };
+  const editorActivate=$("#entryEditorActivate");if(editorActivate)editorActivate.onclick=()=>activateEntryPreview();
   const edit=$("#entryEdit");if(edit)edit.onclick=()=>openEntryDraftEditor();
   const restart=$("#entryRestart");if(restart)restart.onclick=()=>entryStartOver();
   const resumeContinue=$("#entryResumeContinue");if(resumeContinue)resumeContinue.onclick=()=>{
@@ -9803,6 +10250,7 @@ function entryAdvance(){
 function entryBack(){
   if(!ProgramEntry||!entryState)return;
   if(entryUiNotice==="cancel"){entryUiNotice=null;renderOnboarding();return}
+  if(setupEditorOpen){requestEntryCancel();return}
   if(entryUiNotice==="resume"||entryState.step==="entry"||!entryState.route){requestEntryCancel();return}
   let previous=ProgramEntry.back(entryState);
   if(entryState.route==="custom"&&previous.step==="custom_shape"&&!entryCustomShapeRequired())
@@ -9832,7 +10280,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
       return}
     if(readiness.code==="rules_changed_rebuild_required"){entryUiNotice="rules_changed";renderOnboarding();return}
     if(readiness.code==="candidate_incomplete"){
-      if(setupEditorOpen){renderProgram();$("#entryEditorStatus")?.focus?.()}
+      if(setupEditorOpen){renderOnboarding();$("#onbProgramEditor [data-role=\"editor-status\"]")?.focus?.()}
       else {renderOnboarding();$("#entryActivationStatus")?.focus?.()}
       return readiness}
     renderOnboarding();return}
@@ -10677,15 +11125,12 @@ function init(){
   const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",()=>{contextTouched.sessionNotes=true;saveDraft()});
   const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",()=>{contextTouched.bodyweight=true;saveDraft()});
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
-    if(setupEditorOpen){closeEntryDraftEditor();return}
-    if(programEditMode&&state[STORAGE_FOLLOWUP]?.kind==="onboarding-edit"){
-      const proposal=cloneSnapshot(state);delete proposal[STORAGE_FOLLOWUP];
-      const result=await commitProposedState(proposal,storageIO);
-      if(!(result.localOk||result.idbOk))return;
-      programEditMode=false;renderProgram();
-      if(!maybeStartTour())maybeShowInstallBanner();
-      return}
-    programEditMode=!programEditMode;renderProgram()};
+    if(setupEditorOpen){requestEntryCancel();return}
+    if(programEditMode){requestInstalledDone();return}
+    programEditMode=true;renderProgram()};
+  const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
+  const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
+  const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
   const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>setHistorySearchOpen(!isHistorySearchOpen());
   const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
   const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>clearHistorySearch();
@@ -10766,7 +11211,14 @@ function init(){
   $("#reset").onclick=async()=>{
     const discardDraftRaw=readDraftRaw();
     if(confirm(t("confirm.delete_log")))await deleteTrainingLog(storageIO,{discardDraftRaw})};
-  $$("nav button").forEach(b=>b.onclick=()=>{exView=null;workoutActive=false;workoutLeft=true;
+  $$("nav button").forEach(b=>b.onclick=()=>{
+    if(programEditMode&&installedProgramEditor?.isDirty()){
+      pendingEditorNavigation=b.dataset.view;
+      openInstalledLeaveDialog();
+      return;
+    }
+    if(programEditMode)finishInstalledEditor();
+    exView=null;workoutActive=false;workoutLeft=true;
     document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-workout");
     $$("nav button").forEach(x=>{const on=x===b;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
     $$(".view").forEach(v=>v.classList.toggle("active",v.id===b.dataset.view));window.scrollTo({top:0});render()});

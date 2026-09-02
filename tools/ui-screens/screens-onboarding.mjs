@@ -180,10 +180,15 @@ async function buildTo(page, step) {
   if (step === "setup") return;
   await page.fill("#entryProgramName", "Manual catalog program");
   await pick(page, "daysPerWeek", "3"); await next(page);
-  await page.waitForSelector("#programEditor .pday", { timeout: 25000 });
+  await page.waitForSelector("#onbProgramEditor .pday", { timeout: 25000 });
   if (step === "editor-empty") return;
   const addExercise = async (index) => {
-    await page.locator('#programEditor [data-act="addEx"]').nth(index).click();
+    const day = page.locator('#onbProgramEditor [data-role="day"]').nth(index);
+    const body = day.locator('[data-role="day-body"]');
+    if (!(await body.isVisible())) await day.locator('[data-role="toggle-day"]').click();
+    const add = body.locator('[data-role="add-exercise"]');
+    await add.scrollIntoViewIfNeeded();
+    await add.click();
     await page.waitForSelector("#exPickList .pickrow", { timeout: 20000 });
     await page.locator("#exPickList .pickrow").first().click();
     await page.waitForTimeout(220);

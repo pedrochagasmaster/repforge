@@ -85,13 +85,32 @@ async function writeState(page, snapshot) {
 }
 
 async function openEditor(page) {
+  await page.waitForFunction(() => !document.body.classList.contains("is-sheet-open"), { timeout: 5000 });
   await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
   await page.waitForTimeout(200);
   await page.evaluate(() => {
     const btn = document.querySelector("#programEditToggle");
     if (document.querySelector("#programEditorWrap")?.classList.contains("is-hidden")) btn?.click();
   });
-  await page.waitForSelector("#programEditor .pex", { timeout: 5000 });
+  await page.waitForSelector('#programEditor [data-role="exercise"]', { timeout: 5000 });
+}
+
+async function finishEditor(page) {
+  await page.locator("#programEditToggle").evaluate((element) => {
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+  });
+  await page.click("#programEditToggle");
+  await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), { timeout: 10000 });
+}
+
+async function openDetails(page, id) {
+  await page.evaluate(() => window.closeTour?.());
+  await page.waitForFunction(() => !document.querySelector("#tour") || document.querySelector("#tour").classList.contains("hidden"), { timeout: 5000 });
+  const row = page.locator(`#programEditor [data-role="exercise"][data-id="${id}"]`);
+  await row.evaluate((element) => element.scrollIntoView({ block: "center", inline: "nearest" }));
+  if (!(await row.locator('[data-role="exercise-field"][data-field="primary"]').count()))
+    await row.locator('[data-role="toggle-exercise"]').evaluate((button) => button.click());
+  await row.locator('[data-role="replace"]').waitFor({ state: "visible", timeout: 5000 });
 }
 
 /** Search narrows loosely, so rows are chosen by their exact displayed name. */
@@ -119,7 +138,7 @@ async function main() {
     let state = await getState(page);
     const day = state.program[0].day;
     const idsBefore = new Set(state.program.map((e) => e.id));
-    await page.click(`[data-act="addEx"][data-day="${day}"]`);
+    await page.click(`#programEditor [data-role="add-exercise"][data-day="${day}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
 
     // + Add exercise opens the quick sheet: a short contextual list, with the
@@ -164,6 +183,7 @@ async function main() {
 
     const picked = await pickExact(page, "Pec deck");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await finishEditor(page);
     state = await getState(page);
     // Found by id, not by name: the seed program can already contain the name,
     // and a wrong row here would make the next assertions lie.
@@ -176,10 +196,13 @@ async function main() {
 
     // ---- replacing the movement in a structural slot ----
     const slotId = added.id;
-    await page.click(`[data-act="changeEx"][data-id="${slotId}"]`);
+    await openEditor(page);
+    await openDetails(page, slotId);
+    await page.click(`#programEditor [data-role="replace"][data-id="${slotId}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await pickExact(page, "Cable fly");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
+    await finishEditor(page);
     state = await getState(page);
     const swapped = state.program.find((e) => e.id === slotId);
     assert(
@@ -198,9 +221,12 @@ async function main() {
     assert(swapped.id === slotId, "the structural slot keeps its id across a replacement", `${swapped.id} vs ${slotId}`);
 
     // ---- a rename is an alias, not a change of movement ----
-    await page.fill(`#programEditor input[data-id="${slotId}"][data-field="name"]`, "Hammer Strength fly");
-    await page.locator(`#programEditor input[data-id="${slotId}"][data-field="name"]`).blur();
+    await openEditor(page);
+    const slotName = page.locator(`#programEditor [data-role="exercise-field"][data-id="${slotId}"][data-field="name"]`);
+    await slotName.fill("Hammer Strength fly");
+    await slotName.blur();
     await settle(page);
+    await finishEditor(page);
     state = await getState(page);
     const renamed = state.program.find((e) => e.id === slotId);
     assert(
@@ -216,39 +242,17 @@ async function main() {
       "an aliased slot keeps the definition's muscles",
       JSON.stringify([renamed.primary, renamed.secondary])
     );
+    await openEditor(page);
+    await openDetails(page, slotId);
     const musclesLocked = await page.evaluate((id) =>
       ["primary", "secondary"].every((f) =>
-        document.querySelector(`#programEditor input[data-id="${id}"][data-field="${f}"]`)?.readOnly), slotId);
+        document.querySelector(`#programEditor [data-role="exercise-field"][data-id="${id}"][data-field="${f}"]`)?.readOnly), slotId);
     assert(musclesLocked, "a linked slot's muscle fields are not editable in place");
-
-    // Changing what the movement *is* takes an explicit detach.
-    await page.click(`[data-act="detachEx"][data-id="${slotId}"]`);
-    await settle(page);
-    state = await getState(page);
-    const detached = state.program.find((e) => e.id === slotId);
-    assert(
-      detached && detached.libraryId === undefined && detached.displayName === undefined &&
-        detached.name === "Hammer Strength fly" && detached.primary === "Chest",
-      "detaching frees the fields and keeps the movement as it reads",
-      JSON.stringify(detached)
-    );
-    await page.fill(`#programEditor input[data-id="${slotId}"][data-field="primary"]`, "Lats");
-    await page.locator(`#programEditor input[data-id="${slotId}"][data-field="primary"]`).blur();
-    await settle(page);
-    state = await getState(page);
-    assert(
-      state.program.find((e) => e.id === slotId)?.primary === "Lats",
-      "a detached slot accepts muscle edits again"
-    );
-    // Put it back so the sections below start from a linked slot.
-    await page.click(`[data-act="changeEx"][data-id="${slotId}"]`);
-    await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
-    await pickExact(page, "Cable fly");
-    await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
-    await settle(page);
+    await finishEditor(page);
 
     // ---- custom exercises ----
-    await page.click(`[data-act="addEx"][data-day="${day}"]`);
+    await openEditor(page);
+    await page.click(`#programEditor [data-role="add-exercise"][data-day="${day}"]`);
     await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
     await page.evaluate(() =>
       [...document.querySelectorAll("#exPickFilters .pchip")].find((b) => b.textContent.trim() === "Machine")?.click());
@@ -284,6 +288,7 @@ async function main() {
     await page.click("#exCustomSave");
     await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
+    await finishEditor(page);
     state = await getState(page);
     const custom = (state.customExercises || [])[0];
     const inProgram = state.program.find((e) => e.name === "Belt squat");
@@ -304,7 +309,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await openEditor(page);
-    await page.click(`[data-act="addEx"][data-day="${otherDay}"]`);
+    await page.click(`#programEditor [data-role="add-exercise"][data-day="${otherDay}"]`);
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     await page.evaluate(() =>
       [...document.querySelectorAll("#exPickTabs .picktab")].find((b) => b.textContent.trim() === "Yours")?.click());
