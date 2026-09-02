@@ -266,17 +266,25 @@
     ])),
   ));
   const dayDisplayNameKey = (dayId) => DAY_DISPLAY_NAME_KEYS[String(dayId)] || null;
-  const isDayDisplayNameKey = (value) => typeof value === "string" &&
-    Object.values(DAY_DISPLAY_NAME_KEYS).includes(value);
+  const DAY_DISPLAY_NAME_KEY_RE = /^program\.day\.([a-z0-9][a-z0-9_]*_d[1-9][0-9]*)$/;
+  const dayDisplayNameKeyOwner = (value) => {
+    const match = typeof value === "string" ? value.match(DAY_DISPLAY_NAME_KEY_RE) : null;
+    return match ? match[1] : null;
+  };
 
-  function structureDay(entry, index, fallbackLabel) {
+  function normalizeGeneratedDayMetadata(entry, index, fallbackLabel) {
     const source = isObject(entry) ? entry : {};
     const dayId = typeof source.dayId === "string" && source.dayId.trim()
       ? source.dayId.trim() : `legacy_d${index + 1}`;
     const label = typeof source.label === "string" && source.label.trim()
       ? source.label : fallbackLabel || `Day ${index + 1}`;
-    const displayNameKey = isDayDisplayNameKey(source.displayNameKey)
-      ? source.displayNameKey : dayDisplayNameKey(dayId);
+    // A generated day owns the key derived from its stable identity. Do not
+    // carry a syntactically valid key from another blueprint through a boot
+    // migration; preserve a forward-compatible key only when its owner is the
+    // same day id.
+    const generatedKey = dayDisplayNameKey(dayId);
+    const displayNameKey = generatedKey ||
+      (dayDisplayNameKeyOwner(source.displayNameKey) === dayId ? source.displayNameKey : null);
     const contractLabel = DAY_CONTRACT_LABELS[dayId];
     const explicitOverride = typeof source.nameOverride === "string" && source.nameOverride.trim()
       ? source.nameOverride : null;
@@ -932,7 +940,7 @@
         program: exercises,
         structure: {
           schemaVersion: 1,
-          days: existing.days.map((entry, index) => structureDay(entry, index)),
+          days: existing.days.map((entry, index) => normalizeGeneratedDayMetadata(entry, index)),
           provenance: existing.provenance || { source: "legacy_migration", compilerVersion: null },
           weekPrescriptions: existing.weekPrescriptions || [],
           customizedFrom: existing.customizedFrom || null,
@@ -947,7 +955,7 @@
         let dayId = entry.dayId || `legacy_d${index + 1}`;
         while (used.has(dayId)) dayId = `${dayId}_${index + 1}`;
         used.add(dayId);
-        return structureDay({ ...entry, dayId }, index);
+        return normalizeGeneratedDayMetadata({ ...entry, dayId }, index);
       });
       for (const label of labels) {
         if (days.some((entry) => entry.label === label)) continue;
@@ -955,7 +963,7 @@
         let dayId = exerciseDayId || `legacy_d${days.length + 1}`;
         while (used.has(dayId)) dayId = `${dayId}_${days.length + 1}`;
         used.add(dayId);
-        days.push(structureDay({ dayId, label }, days.length));
+        days.push(normalizeGeneratedDayMetadata({ dayId, label }, days.length));
       }
     } else {
       days = labels.map((label, index) => {
@@ -963,7 +971,7 @@
         let dayId = exerciseDayId || `legacy_d${index + 1}`;
         while (used.has(dayId)) dayId = `${dayId}_${index + 1}`;
         used.add(dayId);
-        return structureDay({ dayId, label }, index);
+        return normalizeGeneratedDayMetadata({ dayId, label }, index);
       });
     }
     const byLabel = new Map(days.map((entry) => [entry.label, entry.dayId]));

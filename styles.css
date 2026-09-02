@@ -3114,10 +3114,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__muscle-list{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden}
 .entry__muscle-row{display:flex;flex-direction:column;gap:10px;padding:13px 12px;border-top:1px solid var(--rule)}
 .entry__muscle-row:first-child{border-top:0}
-.entry__muscle-name{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:14px;font-weight:600;color:var(--ink)}
-.entry__muscle-current{flex:none;padding:3px 7px;border:1px solid var(--rule-strong);border-radius:999px;font-size:10px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
+.entry__muscle-name{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.875rem;font-weight:600;color:var(--ink)}
+.entry__muscle-current{flex:none;padding:3px 7px;border:1px solid var(--rule-strong);border-radius:999px;font-size:.625rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
 .entry__muscle-states{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-.entry__muscle-state{min-height:40px;padding:7px 4px;border:1px solid var(--rule);border-radius:8px;background:var(--well);color:var(--ink-soft);font:inherit;font-size:11px;font-weight:600;line-height:1.15;text-align:center}
+.entry__muscle-state{min-height:40px;padding:7px 4px;border:1px solid var(--rule);border-radius:8px;background:var(--well);color:var(--ink-soft);font:inherit;font-size:.6875rem;font-weight:600;line-height:1.15;text-align:center}
 .entry__muscle-state:hover{border-color:var(--rule-strong);color:var(--ink)}
 .entry__muscle-state:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .entry__muscle-state.is-selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--entry-tint);color:var(--accent-deep)}
@@ -3130,15 +3130,15 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__exercise-results{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:12px;background:var(--surface);overflow:hidden}
 .entry__exercise-result{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border-top:1px solid var(--rule)}
 .entry__exercise-result:first-child{border-top:0}
-.entry__exercise-name{min-width:0;font-size:14px;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
+.entry__exercise-name{min-width:0;font-size:.875rem;font-weight:600;color:var(--ink);overflow-wrap:anywhere}
 .entry__exercise-actions{display:flex;flex:none;gap:6px}
-.entry__exercise-action{min-height:40px;padding:7px 10px;border:1px solid var(--accent);border-radius:8px;background:var(--entry-tint);color:var(--accent-deep);font:inherit;font-size:12px;font-weight:700;white-space:nowrap}
+.entry__exercise-action{min-height:40px;padding:7px 10px;border:1px solid var(--accent);border-radius:8px;background:var(--entry-tint);color:var(--accent-deep);font:inherit;font-size:.75rem;font-weight:700;white-space:nowrap}
 .entry__exercise-action--avoid{border-color:var(--rule-strong);background:var(--surface);color:var(--ink-soft)}
 .entry__exercise-action:hover{background:var(--accent);color:var(--cta-ink)}
 .entry__exercise-action:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .entry__exercise-selected-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:8px}
 .entry__exercise-selected-group{margin-top:16px}
-.entry__exercise-selected{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);font-size:14px;color:var(--ink)}
+.entry__exercise-selected{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);font-size:.875rem;color:var(--ink)}
 .entry__exercise-empty{padding:0 2px}
 @media (max-width:360px){
   .entry__muscle-states{grid-template-columns:repeat(2,minmax(0,1fr))}

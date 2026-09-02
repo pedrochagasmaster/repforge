@@ -34,6 +34,7 @@
   const CUSTOM_OPTIONAL_BITS = 4;
   const BASE64URL_RE = /^[A-Za-z0-9_-]*$/;
   const VERSION_PREFIX_RE = /^v(\d+)\.(.*)$/;
+  const DAY_DISPLAY_NAME_KEY_RE = /^program\.day\.([a-z0-9][a-z0-9_]*_d[1-9][0-9]*)$/;
 
   function isPlainObject(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
@@ -274,8 +275,12 @@
     if (hasOwn(raw, "progressionModifiers")) meta.progressionModifiers = pickModifiers(raw.progressionModifiers, issues);
     if (hasOwn(raw, "programStructure")) {
       const structure = canonicalJsonField(raw.programStructure, "program.meta.programStructure", issues);
-      if (!isPlainObject(structure) || structure.schemaVersion !== 1 || !Array.isArray(structure.days)) issues.push("program.meta.programStructure: invalid");
-      else meta.programStructure = structure;
+      if (!isPlainObject(structure) || structure.schemaVersion !== 1 || !Array.isArray(structure.days)) {
+        issues.push("program.meta.programStructure: invalid");
+      } else {
+        validateStructureDayMetadata(structure, "program.meta.programStructure", issues);
+        meta.programStructure = structure;
+      }
     }
     return meta;
   }
@@ -305,6 +310,20 @@
       issues.push(`${path}: invalid JSON value`);
       return undefined;
     }
+  }
+
+  function validateStructureDayMetadata(structure, path, issues) {
+    if (!isPlainObject(structure) || !Array.isArray(structure.days)) return;
+    structure.days.forEach((day, index) => {
+      if (!isPlainObject(day) || !hasOwn(day, "displayNameKey")) return;
+      const key = typeof day.displayNameKey === "string"
+        ? day.displayNameKey.match(DAY_DISPLAY_NAME_KEY_RE) : null;
+      if (!key) {
+        issues.push(`${path}.days[${index}].displayNameKey: invalid`);
+      } else if (typeof day.dayId !== "string" || day.dayId !== key[1]) {
+        issues.push(`${path}.days[${index}].displayNameKey: wrong owner`);
+      }
+    });
   }
 
   function pickModifier(raw, index, issues, path = `program.meta.progressionModifiers[${index}]`) {

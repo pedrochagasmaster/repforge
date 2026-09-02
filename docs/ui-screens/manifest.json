@@ -148,6 +148,36 @@
         "text": "normal",
         "motion": "reduced"
       }
+    ],
+    "customAccessibility": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      }
     ]
   },
   "flows": [
@@ -345,56 +375,56 @@
       "flow": "onboarding-custom",
       "label": "Custom 1 — desired result",
       "scenario": "The custom route's own header and step count, not Recommend's.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "background",
       "flow": "onboarding-custom",
       "label": "Custom 2 — training background",
       "scenario": "Structured-program experience and recent consistency in the custom route.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "schedule",
       "flow": "onboarding-custom",
       "label": "Custom 3 — real week",
       "scenario": "Days per week, session ceiling and preferred rest in the custom route.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "environment",
       "flow": "onboarding-custom",
       "label": "Custom 4 — environment",
       "scenario": "Environment shortcuts in the custom route.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "priorities",
       "flow": "onboarding-custom",
       "label": "Custom 5 — muscle priorities",
       "scenario": "Each muscle has one accessible emphasis setting before exercise preferences.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "exercise-preferences",
       "flow": "onboarding-custom",
       "label": "Custom 6 — exercise preferences",
       "scenario": "One library search offers Include or Avoid, with separate selected lists.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "result",
       "flow": "onboarding-custom",
       "label": "Custom — generated program",
       "scenario": "The generated candidate for the chosen split.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "preview",
       "flow": "onboarding-custom",
       "label": "Custom — review",
       "scenario": "The common review surface for a custom-generated program.",
-      "variants": "localized"
+      "variants": "customAccessibility"
     },
     {
       "id": "schedule",

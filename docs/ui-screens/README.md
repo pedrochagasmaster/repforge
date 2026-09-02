@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 71 screens,
-209 frames. This folder is the visual reference for UI and Brand Designers.
+217 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -65,14 +65,14 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Custom 1 — desired result](screens/onboarding-custom/desired-result__phone-390-light-en.png) | 3 | The custom route's own header and step count, not Recommend's. |
-| [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 3 | Structured-program experience and recent consistency in the custom route. |
-| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 3 | Days per week, session ceiling and preferred rest in the custom route. |
-| [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 3 | Environment shortcuts in the custom route. |
-| [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 3 | Each muscle has one accessible emphasis setting before exercise preferences. |
-| [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 3 | One library search offers Include or Avoid, with separate selected lists. |
-| [Custom — generated program](screens/onboarding-custom/result__phone-390-light-en.png) | 3 | The generated candidate for the chosen split. |
-| [Custom — review](screens/onboarding-custom/preview__phone-390-light-en.png) | 3 | The common review surface for a custom-generated program. |
+| [Custom 1 — desired result](screens/onboarding-custom/desired-result__phone-390-light-en.png) | 4 | The custom route's own header and step count, not Recommend's. |
+| [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 4 | Structured-program experience and recent consistency in the custom route. |
+| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 4 | Days per week, session ceiling and preferred rest in the custom route. |
+| [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
+| [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 4 | Each muscle has one accessible emphasis setting before exercise preferences. |
+| [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
+| [Custom — generated program](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The generated candidate for the chosen split. |
+| [Custom — review](screens/onboarding-custom/preview__phone-390-light-en.png) | 4 | The common review surface for a custom-generated program. |
 
 ### Onboarding — Browse Taurifer programs
 

@@ -569,7 +569,7 @@
   // Keep this boundary closed so a compiler label cannot quietly become a new
   // translation key. A future key may pass this syntactic boundary and fall
   // back to its stored contract label until its catalog copy is available.
-  const DAY_DISPLAY_NAME_KEY_RE = /^program\.day\.[a-z0-9][a-z0-9_]*_d[1-9][0-9]*$/;
+  const DAY_DISPLAY_NAME_KEY_RE = /^program\.day\.([a-z0-9][a-z0-9_]*_d[1-9][0-9]*)$/;
   const PROVENANCE_KEYS = new Set(["source", "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"]);
   const INCOMPATIBILITY_KEYS = new Set(["kind", "value", "version", "source", "reason"]);
   const PROGRESSION_KEYS = new Set(["schemaVersion", "strategy", "modifiers"]);
@@ -590,9 +590,13 @@
   }
 
   function validateDayMetadata(value, path, issues) {
-    if (hasOwn(value, "displayNameKey") &&
-      (typeof value.displayNameKey !== "string" || !DAY_DISPLAY_NAME_KEY_RE.test(value.displayNameKey))) {
-      issues.push(`${path}.displayNameKey:invalid`);
+    if (hasOwn(value, "displayNameKey")) {
+      const match = typeof value.displayNameKey === "string"
+        ? value.displayNameKey.match(DAY_DISPLAY_NAME_KEY_RE) : null;
+      if (!match) issues.push(`${path}.displayNameKey:invalid`);
+      else if (typeof value.dayId !== "string" || value.dayId !== match[1]) {
+        issues.push(`${path}.displayNameKey:wrong_owner`);
+      }
     }
     if (hasOwn(value, "nameOverride")) optionalString(value.nameOverride, `${path}.nameOverride`, issues, 200);
   }

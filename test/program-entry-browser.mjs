@@ -167,6 +167,23 @@ async function onboardingTextMetrics(page) {
   });
 }
 
+async function customTextMetrics(page) {
+  return page.evaluate(() => {
+    const size = (selector) => {
+      const element = document.querySelector(selector);
+      return element ? Number.parseFloat(getComputedStyle(element).fontSize) : null;
+    };
+    return {
+      muscleName: size(".entry__muscle-name"),
+      muscleCurrent: size(".entry__muscle-current"),
+      muscleState: size(".entry__muscle-state"),
+      exerciseName: size(".entry__exercise-name"),
+      exerciseAction: size(".entry__exercise-action"),
+      exerciseSelected: size(".entry__exercise-selected"),
+    };
+  });
+}
+
 async function onboardingControlGeometry(page) {
   return page.evaluate(() => {
     const root = document.querySelector("#onboarding");
@@ -195,6 +212,13 @@ function textMetricsMatchScale(metrics, scale) {
     : { eyebrow: 17, step: 11, heading: 30, explain: 15, option: 15.5, back: 15, next: 17 };
   return Object.entries(expected).every(([key, value]) =>
     Number.isFinite(metrics[key]) && Math.abs(metrics[key] - value) < 0.1);
+}
+
+function customTextMetricsMatchScale(metrics, fields, scale) {
+  const expected = scale === 2
+    ? { muscleName: 28, muscleCurrent: 20, muscleState: 22, exerciseName: 28, exerciseAction: 24, exerciseSelected: 28 }
+    : { muscleName: 14, muscleCurrent: 10, muscleState: 11, exerciseName: 14, exerciseAction: 12, exerciseSelected: 14 };
+  return fields.every((key) => Number.isFinite(metrics[key]) && Math.abs(metrics[key] - expected[key]) < 0.1);
 }
 
 async function assertOnboardingTransition(page, check, label, action) {
@@ -282,8 +306,56 @@ async function runOnboardingScrollRegression(browser, check) {
   }
 }
 
+async function runCustomTextResizeRegression(browser, check) {
+  const { context, page } = await openFreshEntryAt(browser, { width: 390, height: 844 }, 2);
+  try {
+    await page.click('[data-entry-route="custom"]');
+    await page.click('[data-entry-pick="desiredResult"][data-entry-val="balanced"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="structuredExperience"][data-entry-val="6_to_24m"]');
+    await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="4"]');
+    await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+    await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
+    await page.click("#onbNext");
+    await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+    await page.click("#onbNext");
+    await page.waitForSelector(".entry__muscle-name", { timeout: 20000 });
+
+    const muscleMetrics = await customTextMetrics(page);
+    check(customTextMetricsMatchScale(muscleMetrics, ["muscleName", "muscleCurrent", "muscleState"], 2),
+    "Custom 200% muscle labels and states use rem-based text sizing",
+    JSON.stringify({ muscleMetrics, expected: {
+      muscleName: 28, muscleCurrent: 20, muscleState: 22,
+      exerciseName: 28, exerciseAction: 24, exerciseSelected: 28,
+    } }));
+    const muscleGeometry = await onboardingControlGeometry(page);
+    check(muscleGeometry.overflow <= 0 && muscleGeometry.clipped.length === 0,
+      "Custom 200% muscle priorities stay within the viewport", JSON.stringify(muscleGeometry));
+
+    await page.click("#onbNext");
+    await page.waitForSelector("#entryExerciseSearch", { timeout: 20000 });
+    await page.fill("#entryExerciseSearch", "barbell bench press");
+    await page.waitForTimeout(80);
+    const exerciseMetrics = await customTextMetrics(page);
+    check(customTextMetricsMatchScale(exerciseMetrics, ["exerciseName", "exerciseAction"], 2),
+      "Custom 200% exercise result text scales with the root", JSON.stringify(exerciseMetrics));
+    await page.locator('[data-entry-exercise-add="pr_bb"][data-entry-exercise-status="include"]').click();
+    const selectedMetrics = await customTextMetrics(page);
+    check(customTextMetricsMatchScale(selectedMetrics, ["exerciseSelected"], 2),
+      "Custom 200% selected exercise text scales with the root", JSON.stringify(selectedMetrics));
+    const exerciseGeometry = await onboardingControlGeometry(page);
+    check(exerciseGeometry.overflow <= 0 && exerciseGeometry.clipped.length === 0,
+      "Custom 200% exercise preferences stay within the viewport", JSON.stringify(exerciseGeometry));
+  } finally {
+    await context.close();
+  }
+}
+
 const browser = await launchChromium();
 try {
+  await runCustomTextResizeRegression(browser, assert);
   console.log("\nFirst-run legacy import stages a preview before activation");
   {
     const { context, page } = await openFresh(browser);

@@ -46,6 +46,14 @@ assert.deepEqual(
   "legacy generated structures gain keys without changing compiler labels",
 );
 
+const wrongOwner = Compiler.migrateLegacyStructure(legacyProgram, {
+  ...legacyStructure,
+  days: legacyStructure.days.map((day, index) => index === 0
+    ? { ...day, displayNameKey: "program.day.strength_4_d1" } : day),
+});
+assert.equal(wrongOwner.structure.days[0].displayNameKey, "program.day.balanced_4_d1",
+  "legacy migration derives a generated day key from its owning stable day id");
+
 const renamedLabel = "Leg day, easy to recognize";
 const renamed = Compiler.migrateLegacyStructure(
   legacyProgram.map((exercise) => exercise.dayId === balanced.programStructure.days[0].dayId
@@ -87,6 +95,12 @@ const sharedPayload = {
 const sharedOptions = { builtInIds: new Set(EXERCISE_LIBRARY.map((entry) => entry.id)) };
 assert.equal(SharedSetup.validate(sharedPayload, sharedOptions).ok, true,
   "shared payload accepts localized day metadata");
+const wrongOwnerShared = structuredClone(sharedPayload);
+wrongOwnerShared.program.meta.programStructure.days[0].displayNameKey = "program.day.strength_4_d1";
+const rejectedShared = SharedSetup.validate(wrongOwnerShared, sharedOptions);
+assert.equal(rejectedShared.ok, false);
+assert(rejectedShared.issues.some((issue) => issue.includes("displayNameKey") && issue.includes("owner")),
+  "shared payload rejects a display key owned by another stable day");
 const sharedEncoded = await SharedSetup.encode(sharedPayload, sharedOptions);
 assert.equal(sharedEncoded.ok, true, sharedEncoded.code);
 const sharedDecoded = await SharedSetup.decode(sharedEncoded.value, sharedOptions);
@@ -130,6 +144,12 @@ draft = Entry.setResult(draft, {
 });
 const accepted = Entry.normalizeSetupDraft(draft);
 assert.equal(accepted.ok, true, accepted.issues?.join(", "));
+const wrongOwnerDraft = structuredClone(draft);
+wrongOwnerDraft.result.preview.programStructure.days[0].displayNameKey = "program.day.strength_4_d1";
+const rejectedOwner = Entry.normalizeSetupDraft(wrongOwnerDraft);
+assert.equal(rejectedOwner.ok, false);
+assert(rejectedOwner.issues.some((issue) => issue.includes("displayNameKey:wrong_owner")),
+  "setup drafts reject a display key owned by another stable day");
 const tampered = structuredClone(draft);
 tampered.result.preview.programStructure.days[0].displayNameKey = "program.day.Knee_horizontal";
 const rejected = Entry.normalizeSetupDraft(tampered);
