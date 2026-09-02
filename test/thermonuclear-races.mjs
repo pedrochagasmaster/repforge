@@ -1540,12 +1540,28 @@ async function scenarioConcurrentExerciseFieldEdits(browser) {
     await renamer
       .locator('#programEditor input[data-id="audit-press"][data-field="name"]')
       .fill("Audit press renamed");
-    await waitForPendingStorageLocks(locker, 1);
     await counter
-      .locator('#programEditor input[data-id="audit-press"][data-field="sets"]')
-      .fill("3");
+      .locator('#programEditor [data-role="adjust"][data-id="audit-press"][data-field="sets"][data-delta="1"]')
+      .click();
+    const [renamerStage, counterStage] = await Promise.all([
+      renamer.evaluate(async () => (await window.__debugProgramEditor?.())?.session),
+      counter.evaluate(async () => (await window.__debugProgramEditor?.())?.session),
+    ]);
+    check(
+      renamerStage?.document?.program?.[0]?.name === "Audit press renamed" &&
+        counterStage?.document?.program?.[0]?.sets === 3,
+      "precondition: each installed editor holds its distinct staged field",
+      { renamerStage, counterStage }
+    );
+    await renamer.click("#programEditToggle");
+    await waitForPendingStorageLocks(locker, 1);
+    await counter.click("#programEditToggle");
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
+    await Promise.all([
+      renamer.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden")),
+      counter.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden")),
+    ]);
     await Promise.all([
       renamer.evaluate(() => window.__repforgeStorage.flush()),
       counter.evaluate(() => window.__repforgeStorage.flush()),
