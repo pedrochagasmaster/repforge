@@ -4283,10 +4283,10 @@ function renderTodayNoProgram(){
   const cta=$("#todaySetupProgram");
   if(cta)cta.onclick=()=>startOnboarding(null,{userInitiated:true})}
 function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
-  // The dashboard describes a program: with none onboarded there is nothing to
-  // describe, and the empty state stands in for the whole surface.
+  // The dashboard describes a program: with none there is nothing to describe,
+  // and the empty state stands in for the whole surface.
   const empty=$("#todayNoProgram");
-  if(!hasActiveProgram())return renderTodayNoProgram();
+  if(!hasProgramContent())return renderTodayNoProgram();
   if(empty)empty.classList.add("hidden");
   for(const sel of["#todaySessionLabel","#todaySession","#todayWeekLabel","#todayWeek","#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.remove("hidden")}
@@ -6618,11 +6618,11 @@ function closeEntryDraftEditor(){
   setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
 function renderProgram(){
-  // Nothing onboarded: the tab is the same invitation Today carries, not a
-  // summary of a program that does not exist. The test is onboarding, not
-  // `hasActiveProgram()` — a lifter who emptied their own program still needs
-  // the editor and its Add day, and has not been sent back to the start.
-  const noProgram=state?.programMeta?.onboarded!==true,blank=$("#programNoProgram");
+  // Nothing to show: the tab is the same invitation Today carries, not a
+  // summary of a program that does not exist. A lifter who emptied their own
+  // program keeps the editor and its Add day — they have not been sent back to
+  // the start — so onboarding is asked about too, not just content.
+  const noProgram=!hasProgramContent()&&state?.programMeta?.onboarded!==true,blank=$("#programNoProgram");
   if(blank)blank.classList.toggle("hidden",!noProgram);
   if(noProgram){
     for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
@@ -8853,6 +8853,12 @@ function entryVersions(){return entryServices()?.currentVersions?.()||{
   recentConsistency:"1",simpleStart:"1"}}
 function liveProgramRevision(){return readRevision(state)}
 function hasActiveProgram(){return !!(state?.programMeta?.onboarded&&((state.program||[]).length||structureDayLabels(state.programMeta)))}
+/* Is there a program to show at all? Deliberately blind to `onboarded`, which
+   answers a different question: a restored backup or a migrated legacy snapshot
+   can carry a real program with the flag unset, and hiding it behind "No program
+   yet" would lose the lifter their training. `hasActiveProgram()` stays the test
+   for whether the entry hub is replacing something. */
+function hasProgramContent(){return !!((state?.program||[]).length||structureDayLabels(state?.programMeta))}
 function readSetupDraftRaw(){try{return localStorage.getItem(SETUP_DRAFT_KEY)}catch{return null}}
 function readSetupDraftRecord(){
   const raw=readSetupDraftRaw();

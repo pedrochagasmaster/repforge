@@ -10,6 +10,14 @@
  * It is a fixture, not a product surface — nothing in the app mints it.
  */
 
+/**
+ * One slot carries alternates on purpose, and carries two kinds: "Leg press" is
+ * a library movement, "Pendulum squat" is not. A picker that only kept the ones
+ * it could match against the library would quietly drop the second, so the
+ * substitution walk needs both present to notice.
+ */
+const ALTERNATES = { "Hack squat": ["Leg press", "Pendulum squat"] };
+
 const ROWS = [
   ["Day 1", 1, "Hack squat", "Quads", "Glutes,Adductors"],
   ["Day 1", 2, "Seated leg curl", "Hamstrings", ""],
@@ -33,17 +41,21 @@ const ROWS = [
 
 /** The program rows. Stable ids, so a suite can address one across a reload. */
 export function seedProgram() {
-  return ROWS.map(([day, order, name, primary, secondary], i) => ({
-    id: `seed-ex-${i + 1}`,
-    day,
-    order,
-    name,
-    sets: 2,
-    min: 4,
-    max: 8,
-    primary,
-    secondary,
-  }));
+  return ROWS.map(([day, order, name, primary, secondary], i) => {
+    const row = {
+      id: `seed-ex-${i + 1}`,
+      day,
+      order,
+      name,
+      sets: 2,
+      min: 4,
+      max: 8,
+      primary,
+      secondary,
+    };
+    if (ALTERNATES[name]) row.alternates = ALTERNATES[name].slice();
+    return row;
+  });
 }
 
 /** Its metadata: onboarded, so the app treats it as the lifter's own program. */
