@@ -11,6 +11,12 @@ drift and current governing decisions.
 
 ## Current planning state
 
+The owner-approved UI/UX overhaul is being translated into Plans 049 onward on
+`plans/owner-approved-ui-overhaul`. The planning PR is a draft until every
+G-01 through G-88 decision and UI-01 through UI-32 finding has an executable
+disposition, the dependency graph is cycle-free, and the plan-set validation
+passes. Do not start an overhaul implementation branch from this draft marker.
+
 | Plan | State | Meaning |
 |---|---|---|
 | [044](./044-posthog-measurement-experiments-paywall.md) | **ACTIVE CONTRACT** | Governs measurement, rolling alpha, working-Pro commercialization, and later AI Preview sequencing. It explicitly requires smaller successor implementation plans; do not implement it as one change. |
