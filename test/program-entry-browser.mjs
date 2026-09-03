@@ -725,7 +725,13 @@ try {
       "environment disclosure opens by keyboard");
     assert(await page.getByRole("checkbox").count() >= 2,
       "opened environment inventory retains accessible checkbox controls");
+    await page.click('[data-entry-pick="environmentEquipment"][data-entry-val="barbell"]');
+    assert(await page.locator(".entry__correct").getAttribute("open") !== null,
+      "environment disclosure stays open after changing equipment");
     assert(await page.locator('[data-entry-pick="environmentCapabilities"][data-entry-val="safe_pull"]').isVisible(), "capability correction includes safe_pull");
+    await page.click('[data-entry-pick="environmentCapabilities"][data-entry-val="safe_pull"]');
+    assert(await page.locator(".entry__correct").getAttribute("open") !== null,
+      "environment disclosure stays open after changing a capability");
     assert(await page.locator('[data-entry-pick="environmentCapabilities"][data-entry-val="external_resistance"]').count() === 0, "hard external_resistance is not a user toggle");
     await page.click("#onbNext");
     assert(await page.locator("#entryAvoidSearch").isVisible(), "avoidance search is present on priorities");
