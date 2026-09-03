@@ -10424,13 +10424,12 @@ async function main() {
     };
   });
   assert(
-    onbBeforeValidation.disabled === false,
-    "F6: incomplete onboarding keeps Continue available for validation",
+    onbBeforeValidation.disabled === true,
+    "F6: incomplete onboarding disables Continue",
     JSON.stringify(onbBeforeValidation),
-    "Recommend desired-result → Continue with no choice selected"
+    "Recommend desired-result with no choice selected"
   );
-  await page.click("#onbNext");
-  await page.waitForSelector("#entryValidation:visible", { timeout: 5000 });
+  await page.locator("#onbNext").evaluate((button) => button.click());
   const onbValidation = await page.evaluate(() => {
     const alert = document.querySelector("#entryValidation");
     const button = document.querySelector("#onbNext");
@@ -10447,14 +10446,11 @@ async function main() {
   assert(
     onbValidation.stepBefore === onbBeforeValidation.step &&
       onbValidation.stepClass.includes("entry-body--desired_result") &&
-      onbValidation.alertVisible &&
-      onbValidation.alertRole === "alert" &&
-      onbValidation.alertLive === "assertive" &&
-      onbValidation.alertFocused &&
-      onbValidation.continueDisabled === false,
-    "F6: validation is announced and focused without changing the semantic step",
+      !onbValidation.alertVisible &&
+      onbValidation.continueDisabled === true,
+    "F6: disabled Continue cannot advance or surface a stale validation state",
     JSON.stringify(onbValidation),
-    "Recommend desired-result → Continue with no choice selected"
+    "Recommend desired-result with no choice selected"
   );
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
   const onbEnabled = await page.evaluate(() => {
@@ -10473,7 +10469,7 @@ async function main() {
       onbEnabled.opacity === "1" &&
       onbEnabled.cursor === "pointer" &&
       onbEnabled.validationVisible === false,
-    "F6: choosing a result clears validation and enables Continue",
+    "F6: choosing a result enables Continue",
     JSON.stringify(onbEnabled),
     "Recommend desired-result → pick a result → Continue"
   );
@@ -10483,7 +10479,7 @@ async function main() {
     undefined,
     { timeout: 5000 },
   );
-  pass("F6: valid desired-result selection advances after validation");
+  pass("F6: valid desired-result selection advances");
   await page.evaluate(() => window.closeOnboarding());
 
   const isoToday = () => {

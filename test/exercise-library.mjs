@@ -225,29 +225,35 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
 
 {
   // A navigation is network-first, but an older worker can still answer its
-  // unversioned script requests from an older cache. The two files that define
-  // the shared envelope must carry the current cache revision in index.html so
-  // the first v2 link bypasses a v1-only worker, and the new worker must precache
-  // those exact URLs for the next offline launch.
+  // unversioned script requests from an older cache. Files that cross a released
+  // data contract must carry the current cache revision in index.html so the
+  // first updated navigation bypasses an incompatible worker. The new worker
+  // must also precache those exact URLs for the next offline launch.
   const index = readFileSync(join(ROOT, "index.html"), "utf8");
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
   const revision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
-  const transitionAssets = ["shared-setup.js", "app.js"];
+  const transitionAssets = [
+    "program-compiler.js",
+    "program-entry.js",
+    "program-entry-adapter.js",
+    "shared-setup.js",
+    "app.js",
+  ];
   const missingRevision = transitionAssets.filter(file => !index.includes(`src="${file}?v=${revision}"`));
   const missingCache = transitionAssets.filter(file => !sw.includes(`"./${file}?v=${revision}"`));
   assert(!!revision && missingRevision.length === 0,
-    "shared envelope scripts use the current cache revision in index.html",
+    "version-coupled runtime scripts use the current cache revision in index.html",
     missingRevision.join(", "));
   assert(missingCache.length === 0,
-    "revisioned shared envelope scripts are precached for offline launch",
+    "revisioned runtime scripts are precached for offline launch",
     missingCache.join(", "));
-  assert(index.includes('src="program-compiler.js"') && sw.includes('"./program-compiler.js"'),
+  assert(index.includes(`src="program-compiler.js?v=${revision}"`) && sw.includes('"./program-compiler.js"'),
     "the program compiler is loaded and precached");
-  assert(index.includes('src="program-entry.js"') && sw.includes('"./program-entry.js"'),
+  assert(index.includes(`src="program-entry.js?v=${revision}"`) && sw.includes('"./program-entry.js"'),
     "the program-entry state machine is loaded and precached");
-  assert(index.includes('src="program-entry-adapter.js"') && sw.includes('"./program-entry-adapter.js"'),
+  assert(index.includes(`src="program-entry-adapter.js?v=${revision}"`) && sw.includes('"./program-entry-adapter.js"'),
     "the program-entry adapter is loaded and precached");
-  assert(index.indexOf('src="program-entry.js"') < index.indexOf('src="program-entry-adapter.js"'),
+  assert(index.indexOf(`src="program-entry.js?v=${revision}"`) < index.indexOf(`src="program-entry-adapter.js?v=${revision}"`),
     "the dependency-free state machine loads before its production adapter");
   assert(/SHELL = new Set\([^\n]+"\/program-compiler\.js"/.test(sw),
     "the program compiler is part of the offline shell");

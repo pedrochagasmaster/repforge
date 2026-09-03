@@ -8990,7 +8990,7 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
-  $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor");
+  $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
   disarmEntryHistory();
   const log=$("#log");if(log&&!log.classList.contains("active")){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
@@ -9969,7 +9969,7 @@ function renderOnboarding(){
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
-    next.disabled=!!pendingReason;
+    next.disabled=!!pendingReason||(!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0);
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
     else next.removeAttribute("aria-describedby")}
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
