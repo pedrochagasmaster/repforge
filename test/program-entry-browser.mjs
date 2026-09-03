@@ -734,19 +734,29 @@ try {
       "environment disclosure opens by keyboard");
     assert(await page.getByRole("checkbox").count() >= 2,
       "opened environment inventory retains accessible checkbox controls");
+    await page.click('[data-entry-pick="environmentEquipment"][data-entry-val="barbell"]');
+    assert(await page.locator(".entry__correct").getAttribute("open") !== null,
+      "environment disclosure stays open after changing equipment");
     assert(await page.locator('[data-entry-pick="environmentCapabilities"][data-entry-val="safe_pull"]').isVisible(), "capability correction includes safe_pull");
+    await page.click('[data-entry-pick="environmentCapabilities"][data-entry-val="safe_pull"]');
+    assert(await page.locator(".entry__correct").getAttribute("open") !== null,
+      "environment disclosure stays open after changing a capability");
     assert(await page.locator('[data-entry-pick="environmentCapabilities"][data-entry-val="external_resistance"]').count() === 0, "hard external_resistance is not a user toggle");
     await page.click("#onbNext");
     assert(await page.locator("#entryAvoidSearch").isVisible(), "avoidance search is present on priorities");
     const priorityComposition = await page.evaluate(() => {
       const rows = [...document.querySelectorAll(".entry-body--priorities .radio-card")];
       const tiles = [...document.querySelectorAll(".entry-body--priorities .onb__grid .radio-card")];
+      const balancedGroups = [...document.querySelectorAll(".entry-body--priorities .onb__grid--balanced")];
       const rects = rows.map((el) => el.getBoundingClientRect());
       return {
         // Muscle and movement choices are bounded, scannable tiles.
         radius: tiles[0] ? getComputedStyle(tiles[0]).borderRadius : "",
         surface: tiles[0] ? getComputedStyle(tiles[0]).borderStyle : "",
         target: tiles[0] ? tiles[0].getBoundingClientRect().height : 0,
+        balancedColumns: balancedGroups.map((group) => getComputedStyle(group).gridTemplateColumns.split(" ").length),
+        balancedCounts: balancedGroups.map((group) => group.children.length),
+        movementValues: [...document.querySelectorAll('[data-entry-pick="priorityMovements"]')].map((tile) => tile.dataset.entryVal),
         noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
           rect.right <= other.left + 1 || other.right <= rect.left + 1 ||
           rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
@@ -755,6 +765,11 @@ try {
     assert(priorityComposition.radius !== "0px" && priorityComposition.radius !== "" &&
       priorityComposition.surface === "solid" && priorityComposition.target >= 44 && priorityComposition.noOverlap,
       "priorities and constraints use readable bounded tiles without overlap", JSON.stringify(priorityComposition));
+    assert(priorityComposition.balancedColumns.every((count) => count === 2) &&
+      priorityComposition.balancedCounts.every((count) => count % 2 === 0),
+      "priority grids divide their choices evenly across two columns", JSON.stringify(priorityComposition));
+    assert(priorityComposition.movementValues.includes("shoulder_press"),
+      "movement priorities include vertical pressing", JSON.stringify(priorityComposition.movementValues));
     await page.fill("#entryAvoidSearch", "bench");
     await page.waitForTimeout(50);
     const avoidAdd = page.locator("[data-entry-avoid-add]").first();
